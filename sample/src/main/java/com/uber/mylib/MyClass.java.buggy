@@ -1,0 +1,17 @@
+package com.uber.mylib;
+
+import javax.annotation.Nullable;
+
+/**
+ * A sample class.
+ */
+public class MyClass {
+
+    static void log(Object x) {
+        System.out.println(x.toString());
+    }
+
+    static void foo() {
+        log(null);
+    }
+}

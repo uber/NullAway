@@ -1,0 +1,69 @@
+/*
+ * Copyright (C) 2017. Uber Technologies
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+buildscript {
+  repositories {
+    maven {
+      url "https://plugins.gradle.org/m2/"
+    }
+  }
+  dependencies {
+    classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.11"
+  }
+}
+
+apply plugin: "java"
+apply plugin: "net.ltgt.errorprone"
+
+configurations.errorprone {
+  resolutionStrategy.force "com.google.errorprone:error_prone_core:2.1.1"
+}
+
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
+
+configurations {
+  // we use this config to get the path of the error prone core jar, to
+  // stick it in the bootclasspath when running tests
+  epCore
+}
+
+dependencies {
+    compileOnly deps.apt.autoValue
+    compileOnly deps.apt.autoService
+
+    compile deps.build.errorProneCore
+    compile deps.build.checkerDataflow
+
+    testCompile deps.test.junit
+    testCompile(deps.build.errorProneTestHelpers) {
+        exclude group: "junit", module: "junit"
+    }
+    testCompile deps.test.inferAnnotations
+    testCompile deps.apt.javaxInject
+    testCompile deps.test.rxjava2
+
+    epCore deps.build.errorProneCore
+}
+
+compileJava {
+    options.compilerArgs += ["-Xlint:unchecked", "-Werror"]
+}
+
+test {
+  maxHeapSize = "1024m"
+  jvmArgs "-Xbootclasspath/p:${configurations.epCore.asPath}"
+}
