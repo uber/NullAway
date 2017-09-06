@@ -67,3 +67,5 @@ test {
   maxHeapSize = "1024m"
   jvmArgs "-Xbootclasspath/p:${configurations.epCore.asPath}"
 }
+
+apply from: rootProject.file("gradle/gradle-mvn-push.gradle")

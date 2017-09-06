@@ -35,7 +35,7 @@ configurations.errorprone {
 }
 
 dependencies {
-    apt "com.uber:nullaway:0.1.0"
+    apt "com.uber.nullaway:nullaway:0.1.0"
 
     compile "com.google.code.findbugs:jsr305:3.0.2"
 }
