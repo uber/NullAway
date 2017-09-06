@@ -13,7 +13,7 @@ NullAway requires that you build your code with [Error Prone](http://errorprone.
 ### Gradle
 To integrate NullAway into your project add the following to your `build.gradle` file:
 
-```
+```gradle
 buildscript {
   repositories {
     maven {
@@ -63,7 +63,7 @@ static void foo() {
 }
 ```
 This code is buggy: when `foo()` is called, the subsequent call to `log()` will fail with an NPE.  You can see this error in the NullAway sample app by running:
-```
+```bash
 cp sample/src/main/java/com/uber/mylib/MyClass.java.buggy sample/src/main/java/com/uber/mylib/MyClass.java
 ./gradlew build
 ```
