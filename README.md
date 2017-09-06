@@ -98,14 +98,6 @@ With this change, all the NullAway warnings are fixed.
 
 For more details on NullAway's checks, error messages, and limitations, see [our detailed guide](https://github.com/uber/NullAway/wiki).
 
-## Contributors
-
-We'd love for you to contribute to our open source projects. Before we can accept your contributions, we kindly ask you to sign our [Uber Contributor License Agreement](https://docs.google.com/a/uber.com/forms/d/1pAwS_-dA1KhPlfxzYLBqK6rsSWwRwH95OCCZrcsY5rk/viewform).
-
-- If you **find a bug**, open an issue or submit a fix via a pull request.
-- If you **have a feature request**, open an issue or submit an implementation via a pull request
-- If you **want to contribute**, submit a pull request.
-
 ## License
 
 NullAway is licensed under the MIT license.  See the LICENSE.txt file for more information.
