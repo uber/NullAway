@@ -201,7 +201,7 @@ public class NullAway extends BugChecker implements
 
     @Override
     public String linkUrl() {
-        return "http://t.uber.com/ep_null_checker ";
+        return "http://t.uber.com/nullaway ";
     }
 
     /**
