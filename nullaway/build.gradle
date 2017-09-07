@@ -25,7 +25,7 @@ configurations.errorprone {
 
 // we use this config to get the path of the error prone core jar, to
 // stick it in the bootclasspath when running tests
-configurations.maybeCreate("epCore")
+configurations.maybeCreate("epJavac")
 
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
@@ -45,7 +45,7 @@ dependencies {
     testCompile deps.apt.javaxInject
     testCompile deps.test.rxjava2
 
-    epCore deps.build.errorProneCore
+    epJavac "com.google.errorprone:javac:9-dev-r4023-3"
 }
 
 compileJava {
@@ -54,7 +54,7 @@ compileJava {
 
 test {
   maxHeapSize = "1024m"
-  jvmArgs "-Xbootclasspath/p:${configurations.epCore.asPath}"
+  jvmArgs "-Xbootclasspath/p:${configurations.epJavac.asPath}"
 }
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
