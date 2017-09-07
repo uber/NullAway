@@ -23,7 +23,7 @@ configurations.errorprone {
   resolutionStrategy.force "com.google.errorprone:error_prone_core:2.1.1"
 }
 
-// we use this config to get the path of the error prone core jar, to
+// we use this config to get the path of the JDK 9 javac jar, to
 // stick it in the bootclasspath when running tests
 configurations.maybeCreate("epJavac")
 
