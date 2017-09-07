@@ -14,32 +14,21 @@
  * limitations under the License.
  */
 
-buildscript {
-  repositories {
-    maven {
-      url "https://plugins.gradle.org/m2/"
-    }
-  }
-  dependencies {
-    classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.11"
-  }
+plugins {
+  id "net.ltgt.errorprone" version "0.0.11"
+  id "java"
 }
-
-apply plugin: "java"
-apply plugin: "net.ltgt.errorprone"
 
 configurations.errorprone {
   resolutionStrategy.force "com.google.errorprone:error_prone_core:2.1.1"
 }
 
+// we use this config to get the path of the error prone core jar, to
+// stick it in the bootclasspath when running tests
+configurations.maybeCreate("epCore")
+
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
-
-configurations {
-  // we use this config to get the path of the error prone core jar, to
-  // stick it in the bootclasspath when running tests
-  epCore
-}
 
 dependencies {
     compileOnly deps.apt.autoValue
