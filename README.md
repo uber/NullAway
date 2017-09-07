@@ -20,15 +20,13 @@ buildscript {
       url "https://plugins.gradle.org/m2/"
     }
   }
-  dependencies {
-    classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.11"
-    classpath "net.ltgt.gradle:gradle-apt-plugin:0.11"
-  }
 }
 
-apply plugin: "java"
-apply plugin: "net.ltgt.errorprone"
-apply plugin: "net.ltgt.apt"
+plugins {
+  id "net.ltgt.apt" version "0.11"
+  id "net.ltgt.errorprone" version "0.0.11"
+  id "java"
+}
 
 configurations.errorprone {
   resolutionStrategy.force "com.google.errorprone:error_prone_core:2.1.1"
@@ -45,7 +43,7 @@ compileJava {
 }
 ```
 
-Let's walk through this script step by step.  The `buildscript` section of the script pulls in the [Gradle Error Prone plugin](https://github.com/tbroyer/gradle-errorprone-plugin) for Error Prone integration, and the [Gradle APT plugin](https://github.com/tbroyer/gradle-apt-plugin) to ease specification of annotation processor dependencies for a build.  We need the latter since Error Prone loads plugin checkers from the annotation processor path.  Note that the Gradle APT plugin is appropriate for Java projects; for Android projects, use an `annotationProcessor` dependence with the [Android Gradle plugin](https://developer.android.com/studio/releases/gradle-plugin.html).  The `apply plugin` lines load the relevant plugins.  The `configurations.errorprone` section forces our desired Error Prone version.
+Let's walk through this script step by step.  The `buildscript` section of the script adds the Maven repository for Gradle plugins.  The `plugins` section pulls in the [Gradle Error Prone plugin](https://github.com/tbroyer/gradle-errorprone-plugin) for Error Prone integration, and the [Gradle APT plugin](https://github.com/tbroyer/gradle-apt-plugin) to ease specification of annotation processor dependencies for a build.  We need the latter since Error Prone loads plugin checkers from the annotation processor path.  Note that the Gradle APT plugin is appropriate for Java projects; for Android projects, use an `annotationProcessor` dependence with the [Android Gradle plugin](https://developer.android.com/studio/releases/gradle-plugin.html).  The `configurations.errorprone` section forces our desired Error Prone version.
 
 In `dependencies`, the `apt` line loads NullAway, and the `compile` line loads a [JSR 305](https://jcp.org/en/jsr/detail?id=305) library which provides a suitable `@Nullable` annotation (`javax.annotation.Nullable`).  NullAway allows for any `@Nullable` annotation to be used, so, e.g., `@Nullable` from the Android support or IntelliJ annotations is also fine.
 
