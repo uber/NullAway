@@ -28,14 +28,14 @@ plugins {
   id "java"
 }
 
-configurations.errorprone {
-  resolutionStrategy.force "com.google.errorprone:error_prone_core:2.1.1"
-}
-
 dependencies {
     apt "com.uber.nullaway:nullaway:0.1.0"
 
     compile "com.google.code.findbugs:jsr305:3.0.2"
+
+    errorprone "com.google.errorprone:error_prone_core:2.1.1"
+    errorprone "org.checkerframework:dataflow:2.2.0"
+
 }
 
 compileJava {
@@ -43,11 +43,13 @@ compileJava {
 }
 ```
 
-Let's walk through this script step by step.  The `buildscript` section of the script adds the Maven repository for Gradle plugins.  The `plugins` section pulls in the [Gradle Error Prone plugin](https://github.com/tbroyer/gradle-errorprone-plugin) for Error Prone integration, and the [Gradle APT plugin](https://github.com/tbroyer/gradle-apt-plugin) to ease specification of annotation processor dependencies for a build.  We need the latter since Error Prone loads plugin checkers from the annotation processor path.  Note that the Gradle APT plugin is appropriate for Java projects; for Android projects, use an `annotationProcessor` dependence with the [Android Gradle plugin](https://developer.android.com/studio/releases/gradle-plugin.html).  The `configurations.errorprone` section forces our desired Error Prone version.
+Let's walk through this script step by step.  The `buildscript` section of the script adds the Maven repository for Gradle plugins.  The `plugins` section pulls in the [Gradle Error Prone plugin](https://github.com/tbroyer/gradle-errorprone-plugin) for Error Prone integration, and the [Gradle APT plugin](https://github.com/tbroyer/gradle-apt-plugin) to ease specification of annotation processor dependencies for a build.  We need the latter since Error Prone loads plugin checkers from the annotation processor path.  Note that the Gradle APT plugin is appropriate for Java projects; for Android projects, use an `annotationProcessor` dependence with the [Android Gradle plugin](https://developer.android.com/studio/releases/gradle-plugin.html).
 
-In `dependencies`, the `apt` line loads NullAway, and the `compile` line loads a [JSR 305](https://jcp.org/en/jsr/detail?id=305) library which provides a suitable `@Nullable` annotation (`javax.annotation.Nullable`).  NullAway allows for any `@Nullable` annotation to be used, so, e.g., `@Nullable` from the Android support or IntelliJ annotations is also fine.
+In `dependencies`, the `apt` line loads NullAway, and the `compile` line loads a [JSR 305](https://jcp.org/en/jsr/detail?id=305) library which provides a suitable `@Nullable` annotation (`javax.annotation.Nullable`).  NullAway allows for any `@Nullable` annotation to be used, so, e.g., `@Nullable` from the Android support or IntelliJ annotations is also fine.  The two `errorprone` lines ensure that the minimum compatible versions of Error Prone and the Checker dataflow library are used.
 
 Finally, in the `compileJava` section, we pass some configuration options to NullAway as compiler arguments.  The first argument `-Xep:NullAway:ERROR` is a standard Error Prone argument that sets NullAway issues to the error level; by default NullAway emits warnings.  The second argument, `-XepOpt:NullAway:AnnotatedPackages=com.uber`, tells NullAway that source code in packages under the `com.uber` namespace should be checked for null dereferences and proper usage of `@Nullable` annotations, and that class files in these packages should be assumed to have correct usage of `@Nullable` (see [the docs](https://github.com/uber/NullAway/wiki/Configuration) for more detail).  NullAway requires at least the `AnnotatedPackages` configuration argument to run, in order to distinguish between annotated and unannotated code.  See [the configuration docs](https://github.com/uber/NullAway/wiki/Configuration) for other useful configuration options.
+
+We recommend addressing all the issues that Error Prone reports, particularly those reported as errors (rather than warnings).  But, if you'd like to try out NullAway without running other Error Prone checks, you can pass `"-XepDisableAllChecks"` to the compiler, before the NullAway-specific arguments.
 
 ## Code Example
 

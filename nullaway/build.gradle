@@ -23,9 +23,9 @@ configurations.errorprone {
   resolutionStrategy.force "com.google.errorprone:error_prone_core:2.1.1"
 }
 
-// we use this config to get the path of the error prone core jar, to
+// we use this config to get the path of the JDK 9 javac jar, to
 // stick it in the bootclasspath when running tests
-configurations.maybeCreate("epCore")
+configurations.maybeCreate("epJavac")
 
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
@@ -45,7 +45,8 @@ dependencies {
     testCompile deps.apt.javaxInject
     testCompile deps.test.rxjava2
 
-    epCore deps.build.errorProneCore
+    epJavac deps.build.errorProneCore
+    epJavac deps.build.checkerDataflow
 }
 
 compileJava {
@@ -54,7 +55,7 @@ compileJava {
 
 test {
   maxHeapSize = "1024m"
-  jvmArgs "-Xbootclasspath/p:${configurations.epCore.asPath}"
+  jvmArgs "-Xbootclasspath/p:${configurations.epJavac.asPath}"
 }
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
