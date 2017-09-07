@@ -45,7 +45,8 @@ dependencies {
     testCompile deps.apt.javaxInject
     testCompile deps.test.rxjava2
 
-    epJavac "com.google.errorprone:javac:9-dev-r4023-3"
+    epJavac deps.build.errorProneCore
+    epJavac deps.build.checkerDataflow
 }
 
 compileJava {

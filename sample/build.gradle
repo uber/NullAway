@@ -20,16 +20,14 @@ plugins {
   id "java"
 }
 
-configurations.errorprone {
-  resolutionStrategy.force "com.google.errorprone:error_prone_core:2.1.1"
-  resolutionStrategy.force "org.checkerframework:dataflow:2.2.0"
-}
-
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
 dependencies {
     apt project(":nullaway")
+
+    errorprone deps.build.errorProneCore
+    errorprone deps.build.checkerDataflow
 
     compile deps.build.jsr305Annotations
     testCompile deps.test.junit
