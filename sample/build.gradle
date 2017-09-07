@@ -22,6 +22,7 @@ plugins {
 
 configurations.errorprone {
   resolutionStrategy.force "com.google.errorprone:error_prone_core:2.1.1"
+  resolutionStrategy.force "org.checkerframework:dataflow:2.2.0"
 }
 
 sourceCompatibility = "1.8"
