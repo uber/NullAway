@@ -113,9 +113,9 @@ public interface Handler {
      * @param state The current visitor state.
      * @param methodSymbol The method symbol for the unannotated method in question.
      * @param actualParams The actual parameters from the invocation node
-     * @param nonNullPositions Parameter nullability computed by upstream handlers (the core analysis suplies the
+     * @param nonNullPositions Parameter nullability computed by upstream handlers (the core analysis supplies the
      * empty set to the first handler in the chain).
-     * @return
+     * @return Updated parameter nullability computed by this handler.
      */
     ImmutableSet<Integer> onUnannotatedInvocationGetNonNullPositions(
             NullAway analysis,
@@ -130,8 +130,9 @@ public interface Handler {
      * @param analysis A reference to the running NullAway analysis.
      * @param expr The expression in question.
      * @param state The current visitor state.
-     * @param exprMayBeNull Whether or not the expression may be null according to the base analysis.
-     * @return
+     * @param exprMayBeNull Whether or not the expression may be null according to the base analysis or upstream
+     * handlers.
+     * @return Whether or not the expression may be null, as updated by this handler.
      */
     boolean onOverrideMayBeNullExpr(
             NullAway analysis,
