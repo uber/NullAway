@@ -496,6 +496,18 @@ public class NullAwayNegativeCases {
         }
     }
 
+    static Object tryFinally() {
+        Object x = new Object();
+        try {
+            return new Object();
+        } finally {
+            if (x != null) {
+                return x;
+            }
+        }
+    }
+
+
     static class ClassWithConstructor {
 
         @Nullable Object f;
