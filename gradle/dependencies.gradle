@@ -15,7 +15,7 @@
  */
 
 def versions = [
-    checkerFramework : "2.2.0",
+    checkerFramework : "2.1.14",
     errorProne       : "2.1.1",
 ]
 

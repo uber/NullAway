@@ -34,7 +34,7 @@ dependencies {
     compile "com.google.code.findbugs:jsr305:3.0.2"
 
     errorprone "com.google.errorprone:error_prone_core:2.1.1"
-    errorprone "org.checkerframework:dataflow:2.2.0"
+    errorprone "org.checkerframework:dataflow:2.1.14"
 
 }
 
