@@ -428,6 +428,18 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
         }
     }
 
+    /**
+     * Used to produce a new list of StreamTypeRecord models, where each model represents a class from a stream-based
+     * API such as RxJava.
+     *
+     * This class should be used as:
+     *
+     * [...] models = StreamModelBuilder.start()   // Start the builder
+     *                  .addStreamType(...)         // Add a type filter matching a stream type
+     *                      .withX(...)             // Model the type methods
+     *                      ...
+     *                  .end();
+     */
     private static class StreamModelBuilder {
 
         private final List<StreamTypeRecord> typeRecords = new LinkedList<StreamTypeRecord>();
@@ -441,6 +453,11 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
 
         private StreamModelBuilder() { }
 
+        /**
+         * Get an empty StreamModelBuilder.
+         *
+         * @return An empty StreamModelBuilder.
+         */
         public static StreamModelBuilder start() {
             return new StreamModelBuilder();
         }
@@ -459,6 +476,12 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
             }
         }
 
+        /**
+         * Add a stream type to our models.
+         *
+         * @param tp A type predicate matching the class/interface of the type in our stream-based API.
+         * @return This builder (for chaining).
+         */
         public StreamModelBuilder addStreamType(TypePredicate tp) {
             finalizeOpenStreamTypeRecord();
             this.tp = tp;
@@ -471,16 +494,38 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
             return this;
         }
 
+        /**
+         * Add a filter method to the last added stream type.
+         *
+         * @param filterMethodSig The full sub-signature (everything except the receiver type) of the filter method.
+         * @return This builder (for chaining).
+         */
         public StreamModelBuilder withFilterMethodFromSignature(String filterMethodSig) {
             this.filterMethodSigs.add(filterMethodSig);
             return this;
         }
 
+        /**
+         * Add all methods of the last stream type with the given simple name as filter methods.
+         *
+         * @param methodSimpleName The method's simple name.
+         * @return This builder (for chaining).
+         */
         public StreamModelBuilder withFilterMethodAllFromName(String methodSimpleName) {
             this.filterMethodSimpleNames.add(methodSimpleName);
             return this;
         }
 
+        /**
+         * Add a model for a map method to the last added stream type.
+         *
+         * @param methodSig The full sub-signature (everything except the receiver type) of the method.
+         * @param innerMethodName The name of the inner "apply" method of the callback or functional interface that must
+         * be passed to this method.
+         * @param argsFromStream The indexes (starting at 0, not counting the receiver) of all the arguments to this
+         * method that receive objects from the stream.
+         * @return This builder (for chaining).
+         */
         public StreamModelBuilder withMapMethodFromSignature(
                 String methodSig,
                 String innerMethodName,
@@ -491,6 +536,17 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
             return this;
         }
 
+        /**
+         * Add all methods of the last stream type with the given simple name as map methods.
+         *
+         * @param methodSimpleName The method's simple name.
+         * @param innerMethodName The name of the inner "apply" method of the callback or functional interface that must
+         * be passed to this method.
+         * @param argsFromStream The indexes (starting at 0, not counting the receiver) of all the arguments to this
+         * method that receive objects from the stream. Must be the same for all methods with this name (else use
+         * withMapMethodFromSignature).
+         * @return This builder (for chaining).
+         */
         public StreamModelBuilder withMapMethodAllFromName(
                 String methodSimpleName,
                 String innerMethodName,
@@ -501,22 +557,47 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
             return this;
         }
 
+        /**
+         * Add a passthrough method to the last added stream type.
+         *
+         * A passthrough method is a method that affects the stream but doesn't change the nullability information
+         * of the elements inside the stream (e.g. in o.filter(...).sync().map(...), sync() is a passthrough method
+         * if the exact same objects that are added to the stream at the end of filter are those that will be consumed
+         * by map(...).
+         *
+         * @param passthroughMethodSig The full sub-signature (everything except the receiver type) of the method.
+         * @return This builder (for chaining).
+         */
         public StreamModelBuilder withPassthroughMethodFromSignature(String passthroughMethodSig) {
             this.passthroughMethodSigs.add(passthroughMethodSig);
             return this;
         }
 
+        /**
+         * Add all methods of the last stream type with the given simple name as passthrough methods.
+         *
+         * @param methodSimpleName The method's simple name.
+         * @return This builder (for chaining).
+         */
         public StreamModelBuilder withPassthroughMethodAllFromName(String methodSimpleName) {
             this.passthroughMethodSimpleNames.add(methodSimpleName);
             return this;
         }
 
+        /**
+         * Turn the models added to this builder into a list of StreamTypeRecord objects.
+         *
+         * @return The finalized (immutable) models.
+         */
         public ImmutableList<StreamTypeRecord> end() {
             finalizeOpenStreamTypeRecord();
             return ImmutableList.copyOf(typeRecords);
         }
     }
 
+    /**
+     * An immutable model describing a class from a stream-based API such as RxJava.
+     */
     private static class StreamTypeRecord {
 
         private final TypePredicate typePredicate;
@@ -585,6 +666,9 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
 
     }
 
+    /**
+     * An immutable model describing a map-like method from a stream-based API such as RxJava.
+     */
     private static class MaplikeMethodRecord {
 
         private final String innerMethodName;
@@ -598,6 +682,10 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
         }
     }
 
+    /**
+     * Internal bookeeping record that keeps track of the model of a map-like method and the previous filter method's
+     * inner method tree. See RxNullabilityPropagator documentation and diagram.
+     */
     private static class MaplikeToFilterInstanceRecord {
 
         private final MaplikeMethodRecord mapMR;
