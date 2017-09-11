@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
@@ -48,7 +49,7 @@ import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
  * interface. Additionally, we can add extensibility points without breaking existing handlers, as
  * long as we define the corresponding No-Op behavior here.
  */
-class BaseNoOpHandler implements Handler {
+abstract class BaseNoOpHandler implements Handler {
 
   protected BaseNoOpHandler() {
     // We don't allow creating useless handlers, subclass to add real behavior.
@@ -70,6 +71,15 @@ class BaseNoOpHandler implements Handler {
   public void onMatchMethodInvocation(
       NullAway analysis,
       MethodInvocationTree tree,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol) {
+    // NoOp
+  }
+
+  @Override
+  public void onMatchLambdaExpression(
+      NullAway analysis,
+      LambdaExpressionTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
     // NoOp
@@ -98,7 +108,7 @@ class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public NullnessStore.Builder<Nullness> onDataflowMethodInitialStore(
+  public NullnessStore.Builder<Nullness> onDataflowInitialStore(
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
       NullnessStore.Builder<Nullness> result) {
@@ -119,6 +129,12 @@ class BaseNoOpHandler implements Handler {
   @Override
   public void onDataflowVisitReturn(
       ReturnTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore) {
+    // NoOp
+  }
+
+  @Override
+  public void onDataflowVisitLambdaResultExpression(
+      ExpressionTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore) {
     // NoOp
   }
 }

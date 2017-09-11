@@ -78,6 +78,7 @@ import org.checkerframework.dataflow.cfg.node.InstanceOfNode;
 import org.checkerframework.dataflow.cfg.node.IntegerDivisionNode;
 import org.checkerframework.dataflow.cfg.node.IntegerLiteralNode;
 import org.checkerframework.dataflow.cfg.node.IntegerRemainderNode;
+import org.checkerframework.dataflow.cfg.node.LambdaResultExpressionNode;
 import org.checkerframework.dataflow.cfg.node.LeftShiftNode;
 import org.checkerframework.dataflow.cfg.node.LessThanNode;
 import org.checkerframework.dataflow.cfg.node.LessThanOrEqualNode;
@@ -204,6 +205,7 @@ public class AccessPathNullnessPropagation
       }
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }
+    result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
     return result.build();
   }
 
@@ -221,7 +223,7 @@ public class AccessPathNullnessPropagation
       Nullness assumed = Nullness.hasNullableAnnotation(element) ? NULLABLE : NONNULL;
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }
-    result = handler.onDataflowMethodInitialStore(underlyingAST, parameters, result);
+    result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
     return result.build();
   }
 
@@ -736,6 +738,15 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore<Nullness>> visitReturn(
       ReturnNode returnNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
     handler.onDataflowVisitReturn(returnNode.getTree(), input.getThenStore(), input.getElseStore());
+    return noStoreChanges(NULLABLE, input);
+  }
+
+  @Override
+  public TransferResult<Nullness, NullnessStore<Nullness>> visitLambdaResultExpression(
+      LambdaResultExpressionNode resultNode,
+      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+    handler.onDataflowVisitLambdaResultExpression(
+        resultNode.getTree(), input.getThenStore(), input.getElseStore());
     return noStoreChanges(NULLABLE, input);
   }
 

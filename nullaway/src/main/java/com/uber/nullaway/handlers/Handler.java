@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
@@ -77,13 +78,27 @@ public interface Handler {
    * Called when NullAway first matches a particular method call-site.
    *
    * @param analysis A reference to the running NullAway analysis.
-   * @param tree The AST node for method invocation (call-site) being matched.
+   * @param tree The AST node for the method invocation (call-site) being matched.
    * @param state The current visitor state.
    * @param methodSymbol The method symbol for the method being called.
    */
   void onMatchMethodInvocation(
       NullAway analysis,
       MethodInvocationTree tree,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol);
+
+  /**
+   * Called when NullAway first matches a particular method call-site.
+   *
+   * @param analysis A reference to the running NullAway analysis.
+   * @param tree The AST node for the lambda expression being matched.
+   * @param state The current visitor state.
+   * @param methodSymbol The method symbol for the functional interface of the lambda being matched.
+   */
+  void onMatchLambdaExpression(
+      NullAway analysis,
+      LambdaExpressionTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol);
 
@@ -129,19 +144,19 @@ public interface Handler {
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull);
 
   /**
-   * Called when the Dataflow analysis generates the initial NullnessStore for a method.
+   * Called when the Dataflow analysis generates the initial NullnessStore for a method or lambda.
    *
-   * @param underlyingAST The AST node for the method's body, using the checkers framework
-   *     UnderlyingAST class.
+   * @param underlyingAST The AST node for the method's (or lambda's) body, using the checkers
+   *     framework UnderlyingAST class.
    * @param parameters The formal parameters of the method.
-   * @param result The state of the initial NullnessStore for the method at the point this hook is
-   *     called, represented as a builder.
-   * @return The desired state of the initial NullnessStore for the method, after this hook is
-   *     called, represented as a builder. Usually, implementors of this hook will either take
-   *     {@code result} and call {@code setInformation(...)} on it to add additional nullness facts,
-   *     or replace it with a new builder altogether.
+   * @param result The state of the initial NullnessStore for the method (or lambda) at the point
+   *     this hook is called, represented as a builder.
+   * @return The desired state of the initial NullnessStore for the method (or lambda), after this
+   *     hook is called, represented as a builder. Usually, implementors of this hook will either
+   *     take {@code result} and call {@code setInformation(...)} on it to add additional nullness
+   *     facts, or replace it with a new builder altogether.
    */
-  NullnessStore.Builder<Nullness> onDataflowMethodInitialStore(
+  NullnessStore.Builder<Nullness> onDataflowInitialStore(
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
       NullnessStore.Builder<Nullness> result);
@@ -179,4 +194,25 @@ public interface Handler {
    */
   void onDataflowVisitReturn(
       ReturnTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore);
+
+  /**
+   * Called when the Dataflow analysis visits the result expression inside the body of lambda.
+   *
+   * <p>This is only called for lambda expressions with a single expression as their body. For
+   * lambdas with a block of code as their body, onDataflowVisitReturn will be called instead, one
+   * or more times.
+   *
+   * <p>It is not expected to be called for anything other than boolean expressions, which are the
+   * only ones for which providing separate then/else stores makes sense. For simply getting the
+   * final exit store of the lambda, see Dataflow.finalResultForMethod or
+   * AccessPathNullnessAnalysis.forceRunOnMethod.
+   *
+   * @param tree The AST node for the expression being matched.
+   * @param thenStore The NullnessStore for the true case of the expression inside the return
+   *     statement.
+   * @param elseStore The NullnessStore for the false case of the expression inside the return
+   *     statement.
+   */
+  void onDataflowVisitLambdaResultExpression(
+      ExpressionTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore);
 }

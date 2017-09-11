@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
@@ -73,6 +74,17 @@ class CompositeHandler implements Handler {
   }
 
   @Override
+  public void onMatchLambdaExpression(
+      NullAway analysis,
+      LambdaExpressionTree tree,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol) {
+    for (Handler h : handlers) {
+      h.onMatchLambdaExpression(analysis, tree, state, methodSymbol);
+    }
+  }
+
+  @Override
   public void onMatchMethodInvocation(
       NullAway analysis,
       MethodInvocationTree tree,
@@ -115,12 +127,12 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public NullnessStore.Builder<Nullness> onDataflowMethodInitialStore(
+  public NullnessStore.Builder<Nullness> onDataflowInitialStore(
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
       NullnessStore.Builder<Nullness> result) {
     for (Handler h : handlers) {
-      result = h.onDataflowMethodInitialStore(underlyingAST, parameters, result);
+      result = h.onDataflowInitialStore(underlyingAST, parameters, result);
     }
     return result;
   }
@@ -149,6 +161,14 @@ class CompositeHandler implements Handler {
       ReturnTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore) {
     for (Handler h : handlers) {
       h.onDataflowVisitReturn(tree, thenStore, elseStore);
+    }
+  }
+
+  @Override
+  public void onDataflowVisitLambdaResultExpression(
+      ExpressionTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore) {
+    for (Handler h : handlers) {
+      h.onDataflowVisitLambdaResultExpression(tree, thenStore, elseStore);
     }
   }
 }
