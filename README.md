@@ -25,7 +25,7 @@ buildscript {
 plugins {
   id "net.ltgt.apt" version "0.11"
   id "net.ltgt.errorprone" version "0.0.11"
-  id "java-library"
+  id "java-library" // Or just plain old "java"
 }
 
 dependencies {
