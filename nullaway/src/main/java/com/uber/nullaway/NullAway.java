@@ -414,7 +414,28 @@ public class NullAway extends BugChecker implements
     @Override
     public Description matchLambdaExpression(LambdaExpressionTree tree, VisitorState state) {
         Symbol.MethodSymbol methodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(tree);
-        return checkParamOverriding(tree, tree.getParameters(), methodSymbol, true);
+        Description description = checkParamOverriding(tree, tree.getParameters(), methodSymbol, true);
+        if (description != Description.NO_MATCH) {
+            return description;
+        }
+        if (tree.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION) {
+            ExpressionTree resExpr = (ExpressionTree) tree.getBody();
+            Type returnType = methodSymbol.getReturnType();
+            if (returnType.isPrimitive()) {
+                // check for unboxing
+                return doUnboxingCheck(state, resExpr);
+            }
+            if (returnType.toString().equals("java.lang.Void")) {
+                return Description.NO_MATCH;
+            }
+            if (!TrustingNullnessAnalysis.hasNullableAnnotation(methodSymbol) && mayBeNullExpr(state, resExpr)) {
+                return createErrorDescription(
+                        tree,
+                        "returning @Nullable expression from method with @NonNull return type" + methodSymbol,
+                        state.getPath());
+            }
+        }
+        return Description.NO_MATCH;
     }
 
     @Override
