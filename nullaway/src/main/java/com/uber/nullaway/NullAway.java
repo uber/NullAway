@@ -245,7 +245,8 @@ public class NullAway extends BugChecker implements
         if (returnType.toString().equals("java.lang.Void")) {
             return Description.NO_MATCH;
         }
-        if (TrustingNullnessAnalysis.hasNullableAnnotation(methodSymbol)) {
+        if (fromUnannotatedPackage(methodSymbol)
+            || TrustingNullnessAnalysis.hasNullableAnnotation(methodSymbol)) {
             return Description.NO_MATCH;
         }
         if (mayBeNullExpr(state, retExpr)) {
@@ -428,7 +429,11 @@ public class NullAway extends BugChecker implements
             if (returnType.toString().equals("java.lang.Void")) {
                 return Description.NO_MATCH;
             }
-            if (!TrustingNullnessAnalysis.hasNullableAnnotation(methodSymbol) && mayBeNullExpr(state, resExpr)) {
+            if (fromUnannotatedPackage(methodSymbol)
+                    || TrustingNullnessAnalysis.hasNullableAnnotation(methodSymbol)) {
+                return Description.NO_MATCH;
+            }
+            if (mayBeNullExpr(state, resExpr)) {
                 return createErrorDescription(
                         tree,
                         "returning @Nullable expression from method with @NonNull return type" + methodSymbol,
