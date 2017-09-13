@@ -22,6 +22,9 @@
 
 package com.uber.nullaway.testdata;
 
+import java.util.function.BiFunction;
+import java.util.function.Function;
+
 import javax.annotation.Nullable;
 
 public class NullAwayJava8PositiveCases {
@@ -59,6 +62,11 @@ public class NullAwayJava8PositiveCases {
         NonNullParamFunction n3 = (@Nullable Object x) -> x.toString();
     }
 
-
+    static void testBuiltIn() {
+        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+        Function<String,Object> foo2 = (x) -> null;
+        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+        Function<String,Object> foo3 = (x) -> { return null; };
+    }
 
 }

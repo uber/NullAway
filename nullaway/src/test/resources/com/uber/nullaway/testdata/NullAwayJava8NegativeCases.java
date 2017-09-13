@@ -66,7 +66,8 @@ public class NullAwayJava8NegativeCases {
     static void testBuiltIn() {
         java.util.function.Function<String, String> foo = (x) -> x.toString();
         BiFunction<String, Object, String> bar = (x,y) -> x.toString() + y.toString();
-        Function<String,Object> foo2 = (x) -> null;
+        Function<String,Object> foo2 = (x) -> x;
+        Function<String,Object> foo3 = (x) -> { return x; };
     }
 
     static class Size {
