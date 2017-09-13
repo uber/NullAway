@@ -411,7 +411,7 @@ public class NullAway extends BugChecker implements
         if (mayBeNullExpr(state, retExpr)) {
             return createErrorDescription(
                     tree,
-                    "returning @Nullable expression from method with @NonNull return type" + methodSymbol,
+                    "returning @Nullable expression from method with @NonNull return type",
                     state.getPath());
         }
         return Description.NO_MATCH;
