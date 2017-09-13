@@ -234,27 +234,7 @@ public class NullAway extends BugChecker implements
             // we have a lambda
             methodSymbol = NullabilityUtil.getFunctionalInterfaceMethod((LambdaExpressionTree) leaf);
         }
-        // check for primitive or void return type
-        Type returnType = methodSymbol.getReturnType();
-        if (returnType.isPrimitive()) {
-            // check for unboxing
-            return doUnboxingCheck(state, retExpr);
-        }
-        // kind of a hack; can we do better than string matching?
-        // apparently isPrimitiveOrVoid() returns false for this type
-        if (returnType.toString().equals("java.lang.Void")) {
-            return Description.NO_MATCH;
-        }
-        if (TrustingNullnessAnalysis.hasNullableAnnotation(methodSymbol)) {
-            return Description.NO_MATCH;
-        }
-        if (mayBeNullExpr(state, retExpr)) {
-            return createErrorDescription(
-                    tree,
-                    "returning @Nullable expression from method with @NonNull return type",
-                    state.getPath());
-        }
-        return Description.NO_MATCH;
+        return checkReturnExpression(tree, retExpr, methodSymbol, state);
     }
 
     @Override
@@ -411,10 +391,44 @@ public class NullAway extends BugChecker implements
         return Description.NO_MATCH;
     }
 
+    private Description checkReturnExpression(
+            Tree tree,
+            ExpressionTree retExpr,
+            Symbol.MethodSymbol methodSymbol,
+            VisitorState state) {
+        Type returnType = methodSymbol.getReturnType();
+        if (returnType.isPrimitive()) {
+            // check for unboxing
+            return doUnboxingCheck(state, retExpr);
+        }
+        if (returnType.toString().equals("java.lang.Void")) {
+            return Description.NO_MATCH;
+        }
+        if (fromUnannotatedPackage(methodSymbol)
+                || TrustingNullnessAnalysis.hasNullableAnnotation(methodSymbol)) {
+            return Description.NO_MATCH;
+        }
+        if (mayBeNullExpr(state, retExpr)) {
+            return createErrorDescription(
+                    tree,
+                    "returning @Nullable expression from method with @NonNull return type",
+                    state.getPath());
+        }
+        return Description.NO_MATCH;
+    }
+
     @Override
     public Description matchLambdaExpression(LambdaExpressionTree tree, VisitorState state) {
         Symbol.MethodSymbol methodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(tree);
-        return checkParamOverriding(tree, tree.getParameters(), methodSymbol, true);
+        Description description = checkParamOverriding(tree, tree.getParameters(), methodSymbol, true);
+        if (description != Description.NO_MATCH) {
+            return description;
+        }
+        if (tree.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION) {
+            ExpressionTree resExpr = (ExpressionTree) tree.getBody();
+            return checkReturnExpression(tree, resExpr, methodSymbol, state);
+        }
+        return Description.NO_MATCH;
     }
 
     @Override

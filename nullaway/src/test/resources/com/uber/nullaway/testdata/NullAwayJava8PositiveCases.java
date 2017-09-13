@@ -22,6 +22,9 @@
 
 package com.uber.nullaway.testdata;
 
+import io.reactivex.functions.Function;
+import io.reactivex.functions.BiFunction;
+
 import javax.annotation.Nullable;
 
 public class NullAwayJava8PositiveCases {
@@ -59,6 +62,13 @@ public class NullAwayJava8PositiveCases {
         NonNullParamFunction n3 = (@Nullable Object x) -> x.toString();
     }
 
-
+    static void testAnnoatedThirdParty() {
+        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+        Function<String,Object> f1 = (x) -> null;   // io.reactivex.(Bi)Function is anotated
+        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+        Function<String,Object> f2 = (x) -> { return null; };
+        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+        BiFunction<String,String,Object>  f3 = (x, y) -> null;
+    }
 
 }
