@@ -27,12 +27,13 @@ dependencies {
     apt project(":nullaway")
 
     errorprone deps.build.errorProneCore
-    errorprone deps.build.checkerDataflow
 
-    compile deps.build.jsr305Annotations
+    compileOnly deps.build.jsr305Annotations
     testCompile deps.test.junit
 }
 
-compileJava {
+tasks.withType(JavaCompile) {
+  if (!name.toLowerCase().contains("test")) {
     options.compilerArgs += ["-Xep:NullAway:ERROR", "-XepOpt:NullAway:AnnotatedPackages=com.uber"]
+  }
 } 
