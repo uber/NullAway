@@ -11,7 +11,10 @@ NullAway is *fast*.  It is built as a plugin to Error Prone and can run on every
 NullAway requires that you build your code with [Error Prone](http://errorprone.info), version 2.1.1 or higher.  See the [Error Prone documentation](http://errorprone.info/docs/installation) for instructions on getting started with Error Prone and integration with your build system.  The instructions below assume you are using the Gradle build system; integration with other systems should require similar steps.
 
 ### Gradle
-To integrate NullAway into your project add the following to your `build.gradle` file:
+
+#### Java (non-Android)
+
+To integrate NullAway into your non-Android Java project, add the following to your `build.gradle` file:
 
 ```gradle
 buildscript {
@@ -23,33 +26,64 @@ buildscript {
 }
 
 plugins {
+  // we assume you are already using the Java plugin
   id "net.ltgt.apt" version "0.11"
   id "net.ltgt.errorprone" version "0.0.11"
-  id "java"
 }
 
 dependencies {
-    apt "com.uber.nullaway:nullaway:0.1.2"
+  apt "com.uber.nullaway:nullaway:0.1.2"
 
-    compile "com.google.code.findbugs:jsr305:3.0.2"
+  // Optional, some source of nullability annotations
+  compileOnly "com.google.code.findbugs:jsr305:3.0.2"
 
-    errorprone "com.google.errorprone:error_prone_core:2.1.1"
-    errorprone "org.checkerframework:dataflow:2.1.14"
-
+  errorprone "com.google.errorprone:error_prone_core:2.1.1"
 }
 
-compileJava {
+tasks.withType(JavaCompile) {
+  // remove the if condition if you want to run NullAway on test code
+  if (!name.toLowerCase().contains("test")) {
     options.compilerArgs += ["-Xep:NullAway:ERROR", "-XepOpt:NullAway:AnnotatedPackages=com.uber"]
+  }
 }
 ```
 
-Let's walk through this script step by step.  The `buildscript` section of the script adds the Maven repository for Gradle plugins.  The `plugins` section pulls in the [Gradle Error Prone plugin](https://github.com/tbroyer/gradle-errorprone-plugin) for Error Prone integration, and the [Gradle APT plugin](https://github.com/tbroyer/gradle-apt-plugin) to ease specification of annotation processor dependencies for a build.  We need the latter since Error Prone loads plugin checkers from the annotation processor path.  Note that the Gradle APT plugin is appropriate for Java projects; for Android projects, use an `annotationProcessor` dependence with the [Android Gradle plugin](https://developer.android.com/studio/releases/gradle-plugin.html).
+Let's walk through this script step by step.  The `buildscript` section of the script adds the Maven repository for Gradle plugins.  The `plugins` section pulls in the [Gradle Error Prone plugin](https://github.com/tbroyer/gradle-errorprone-plugin) for Error Prone integration, and the [Gradle APT plugin](https://github.com/tbroyer/gradle-apt-plugin) to ease specification of annotation processor dependencies for a build.  We need the latter since Error Prone loads plugin checkers from the annotation processor path.  If you are using the older `apply plugin` syntax instead of a `plugins` block, the following is equivalent:
+```gradle
+buildscript {
+  repositories {
+    maven {
+      url "https://plugins.gradle.org/m2/"
+    }
+  }
+  dependencies {
+    classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.11"
+    classpath "net.ltgt.gradle:gradle-apt-plugin:0.11"
+  }
+}
 
-In `dependencies`, the `apt` line loads NullAway, and the `compile` line loads a [JSR 305](https://jcp.org/en/jsr/detail?id=305) library which provides a suitable `@Nullable` annotation (`javax.annotation.Nullable`).  NullAway allows for any `@Nullable` annotation to be used, so, e.g., `@Nullable` from the Android support or IntelliJ annotations is also fine.  The two `errorprone` lines ensure that the minimum compatible versions of Error Prone and the Checker dataflow library are used.
+apply plugin: 'net.ltgt.errorprone'
+apply plugin: 'let.ltgt.apt'
+```
 
-Finally, in the `compileJava` section, we pass some configuration options to NullAway as compiler arguments.  The first argument `-Xep:NullAway:ERROR` is a standard Error Prone argument that sets NullAway issues to the error level; by default NullAway emits warnings.  The second argument, `-XepOpt:NullAway:AnnotatedPackages=com.uber`, tells NullAway that source code in packages under the `com.uber` namespace should be checked for null dereferences and proper usage of `@Nullable` annotations, and that class files in these packages should be assumed to have correct usage of `@Nullable` (see [the docs](https://github.com/uber/NullAway/wiki/Configuration) for more detail).  NullAway requires at least the `AnnotatedPackages` configuration argument to run, in order to distinguish between annotated and unannotated code.  See [the configuration docs](https://github.com/uber/NullAway/wiki/Configuration) for other useful configuration options.
+In `dependencies`, the `apt` line loads NullAway, and the `compileOnly` line loads a [JSR 305](https://jcp.org/en/jsr/detail?id=305) library which provides a suitable `@Nullable` annotation (`javax.annotation.Nullable`).  NullAway allows for any `@Nullable` annotation to be used, so, e.g., `@Nullable` from the Android Support Library or JetBrains annotations is also fine. The `errorprone` line ensures that the minimum compatible version of Error Prone is used.
+
+Finally, in the `tasks.withType(JavaCompile)` section, we pass some configuration options to NullAway as compiler arguments.  The first argument `-Xep:NullAway:ERROR` is a standard Error Prone argument that sets NullAway issues to the error level; by default NullAway emits warnings.  The second argument, `-XepOpt:NullAway:AnnotatedPackages=com.uber`, tells NullAway that source code in packages under the `com.uber` namespace should be checked for null dereferences and proper usage of `@Nullable` annotations, and that class files in these packages should be assumed to have correct usage of `@Nullable` (see [the docs](https://github.com/uber/NullAway/wiki/Configuration) for more detail).  NullAway requires at least the `AnnotatedPackages` configuration argument to run, in order to distinguish between annotated and unannotated code.  See [the configuration docs](https://github.com/uber/NullAway/wiki/Configuration) for other useful configuration options.
 
 We recommend addressing all the issues that Error Prone reports, particularly those reported as errors (rather than warnings).  But, if you'd like to try out NullAway without running other Error Prone checks, you can pass `"-XepDisableAllChecks"` to the compiler, before the NullAway-specific arguments.
+
+#### Android
+
+The configuration for an Android project is very similar to the Java case, with two key differences:
+
+1. The `net.ltgt.apt` plugin is not required.
+2. Rather than declaring NullAway as an `apt` dependence, use an `annotationProcessor` dependence:
+
+```gradle
+dependencies {
+  annotationProcessor "com.uber.nullaway:nullaway:0.1.2"
+}
+```
 
 ## Code Example
 
