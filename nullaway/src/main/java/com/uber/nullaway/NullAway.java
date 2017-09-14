@@ -1252,6 +1252,7 @@ public class NullAway extends BugChecker implements
         } else {
             message += "fields " + Joiner.on(", ").join(uninitFields) + " are initialized";
         }
+        message += " along all control-flow paths (remember to check for exceptions or early returns).";
         return message;
     }
 
