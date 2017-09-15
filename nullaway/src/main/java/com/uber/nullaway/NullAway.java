@@ -232,7 +232,7 @@ public class NullAway extends BugChecker implements
             methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
         } else {
             // we have a lambda
-            methodSymbol = NullabilityUtil.getFunctionalInterfaceMethod((LambdaExpressionTree) leaf);
+            methodSymbol = NullabilityUtil.getFunctionalInterfaceMethod((LambdaExpressionTree) leaf, state.getTypes());
         }
         return checkReturnExpression(tree, retExpr, methodSymbol, state);
     }
@@ -419,7 +419,7 @@ public class NullAway extends BugChecker implements
 
     @Override
     public Description matchLambdaExpression(LambdaExpressionTree tree, VisitorState state) {
-        Symbol.MethodSymbol methodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(tree);
+        Symbol.MethodSymbol methodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
         Description description = checkParamOverriding(tree, tree.getParameters(), methodSymbol, true);
         if (description != Description.NO_MATCH) {
             return description;
