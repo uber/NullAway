@@ -64,12 +64,11 @@ public class NullabilityUtil {
      */
     public static Symbol.MethodSymbol getFunctionalInterfaceMethod(LambdaExpressionTree tree, Types types) {
         Type funcInterfaceType = ((JCTree.JCLambda) tree).type;
-        // we want the method symbol for the single function inside the interface...hrm
-        List<Symbol> enclosedElements;
 
         Symbol.MethodSymbol result = null;
         for (Type t : types.closure(funcInterfaceType)) {
-            enclosedElements = t.tsym.getEnclosedElements();
+            // we want the method symbol for the single function inside the interface...hrm
+            List<Symbol> enclosedElements = t.tsym.getEnclosedElements();
             for (Symbol s : enclosedElements) {
                 Symbol.MethodSymbol elem = (Symbol.MethodSymbol) s;
                 // The only constructor we should be seeing here is Object(), since these are all interfaces.
