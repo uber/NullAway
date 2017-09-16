@@ -134,4 +134,9 @@ public class NullAwayTest {
     public void rxSupportNegativeCases() {
         compilationHelper.addSourceFile("NullAwayRxSupportNegativeCases.java").doTest();
     }
+
+    @Test
+    public void functionalMethodSuperInterface() {
+        compilationHelper.addSourceFile("NullAwaySuperFunctionalInterface.java").doTest();
+    }
 }

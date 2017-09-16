@@ -187,7 +187,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
         NullnessStore.Builder<Nullness> result = NullnessStore.<Nullness>empty().toBuilder();
         LambdaExpressionTree code = underlyingAST.getLambdaTree();
         // need to check annotation for i'th parameter of functional interface declaration
-        Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code);
+        Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code, types);
         com.sun.tools.javac.util.List<Symbol.VarSymbol> fiMethodParameters = fiMethodSymbol.getParameters();
         for (int i = 0; i < parameters.size(); i++) {
             LocalVariableNode param = parameters.get(i);

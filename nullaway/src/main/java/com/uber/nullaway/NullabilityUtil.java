@@ -30,6 +30,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
 
@@ -50,7 +51,8 @@ public class NullabilityUtil {
             "clone",
             "notify",
             "notifyAll",
-            "wait"
+            "wait",
+            "getClass"
     );
 
     private NullabilityUtil() { }
@@ -60,31 +62,36 @@ public class NullabilityUtil {
      * @param tree the lambda expression
      * @return the functional interface method
      */
-    public static Symbol.MethodSymbol getFunctionalInterfaceMethod(LambdaExpressionTree tree) {
+    public static Symbol.MethodSymbol getFunctionalInterfaceMethod(LambdaExpressionTree tree, Types types) {
         Type funcInterfaceType = ((JCTree.JCLambda) tree).type;
-        // we want the method symbol for the single function inside the interface...hrm
-        List<Symbol> enclosedElements = funcInterfaceType.tsym.getEnclosedElements();
 
         Symbol.MethodSymbol result = null;
-        for (Symbol s: enclosedElements) {
-            Symbol.MethodSymbol elem = (Symbol.MethodSymbol) s;
-            if (elem.isDefault() || elem.isStatic()) {
-                continue;
+        for (Type t : types.closure(funcInterfaceType)) {
+            // we want the method symbol for the single function inside the interface...hrm
+            List<Symbol> enclosedElements = t.tsym.getEnclosedElements();
+            for (Symbol s : enclosedElements) {
+                Symbol.MethodSymbol elem = (Symbol.MethodSymbol) s;
+                // The only constructor we should be seeing here is Object(), since these are all interfaces.
+                // Nonetheless, we need to filter that one with isConstructor()
+                if (elem.isDefault() || elem.isStatic() || elem.isConstructor() ) {
+                    continue;
+                }
+                String name = elem.getSimpleName().toString();
+                // any methods overridding java.lang.Object methods don't count;
+                // see https://docs.oracle.com/javase/8/docs/api/java/lang/FunctionalInterface.html
+                // we should really be checking method signatures here; hack for now
+                if (OBJECT_METHOD_NAMES.contains(name)) {
+                    continue;
+                }
+                if (result != null) {
+                    throw new RuntimeException(
+                            "already found an answer! " + result + " " + elem + " " + enclosedElements);
+                }
+                result = elem;
             }
-            String name = elem.getSimpleName().toString();
-            // any methods overridding java.lang.Object methods don't count;
-            // see https://docs.oracle.com/javase/8/docs/api/java/lang/FunctionalInterface.html
-            // we should really be checking method signatures here; hack for now
-            if (OBJECT_METHOD_NAMES.contains(name)) {
-                continue;
-            }
-            if (result != null) {
-                throw new RuntimeException("already found an answer! " + result + " " + elem + " " + enclosedElements);
-            }
-            result = elem;
         }
         if (result == null) {
-            throw new RuntimeException("could not find functional interface method in " + enclosedElements);
+            throw new RuntimeException("could not find functional interface method for " + funcInterfaceType);
         }
         return result;
     }
