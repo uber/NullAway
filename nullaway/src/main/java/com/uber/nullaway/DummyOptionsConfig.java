@@ -76,6 +76,11 @@ public class DummyOptionsConfig implements Config {
     }
 
     @Override
+    public boolean isInitializerMethodAnnotation(String annotationName) {
+        throw new IllegalStateException(error_msg);
+    }
+
+    @Override
     public boolean suggestSuppressions() {
         throw new IllegalStateException(error_msg);
     }

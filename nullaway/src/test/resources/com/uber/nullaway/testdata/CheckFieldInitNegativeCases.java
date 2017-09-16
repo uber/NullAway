@@ -24,6 +24,9 @@ package com.uber.nullaway.testdata;
 
 import com.facebook.infer.annotation.Initializer;
 
+import org.junit.Before;
+import org.junit.BeforeClass;
+
 import javax.inject.Inject;
 
 /**
@@ -120,6 +123,24 @@ public class CheckFieldInitNegativeCases {
         }
 
     }
+
+    class T6 {
+
+        Object f, g;
+
+        T6() {}
+
+        @Before
+        void init1() {
+            this.f = new Object();
+        }
+
+        @BeforeClass
+        void init2() {
+            this.g = new Object();
+        }
+    }
+
     abstract class Super {
 
         // to test known initializer methods

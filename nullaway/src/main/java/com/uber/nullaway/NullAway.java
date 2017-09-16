@@ -891,6 +891,12 @@ public class NullAway extends BugChecker implements
                 || config.isKnownInitializerMethod(symbol)) {
             return true;
         }
+        for (AnnotationMirror anno : symbol.getAnnotationMirrors()) {
+            String annoTypeStr = anno.getAnnotationType().toString();
+            if (config.isInitializerMethodAnnotation(annoTypeStr)) {
+                return true;
+            }
+        }
         Symbol.MethodSymbol closestOverriddenMethod = getClosestOverriddenMethod(symbol, state.getTypes());
         if (closestOverriddenMethod == null) {
             return false;
