@@ -24,7 +24,10 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.ErrorProneFlags;
+
+import java.util.LinkedHashSet;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * provides nullability configuration based on additional flags
@@ -42,7 +45,19 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     static final String FL_CLASS_ANNOTATIONS_TO_EXCLUDE = EP_FL_NAMESPACE + ":ExcludedClassAnnotations";
     static final String FL_SUGGEST_SUPPRESSIONS = EP_FL_NAMESPACE + ":SuggestSuppressions";
     static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
+    static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
     private static final String DELIMITER = ",";
+
+    static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS = ImmutableSet.of(
+            "android.view.View.onFinishInflate",
+            "android.app.Service.onCreate",
+            "android.app.Activity.onCreate",
+            "android.app.Fragment.onCreate",
+            "android.app.Application.onCreate",
+            "javax.annotation.processing.Processor.init");
+    static  final ImmutableSet<String> DEFAULT_INITIALIZER_ANNOT = ImmutableSet.of(
+            "org.junit.Before",
+            "org.junit.BeforeClass");  // + Anything with @Initializer as its "simple name"
 
     ErrorProneCLIFlagsConfig(ErrorProneFlags flags) {
         if (!flags.get(FL_ANNOTATED_PACKAGES).isPresent()) {
@@ -52,8 +67,10 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
         annotatedPackages = getPackagePattern(getFlagStringSet(flags, FL_ANNOTATED_PACKAGES));
         unannotatedSubPackages = getPackagePattern(getFlagStringSet(flags, FL_UNANNOTATED_SUBPACKAGES));
         sourceClassesToExclude = getFlagStringSet(flags, FL_CLASSES_TO_EXCLUDE);
-        knownInitializers = getKnownInitializers(getFlagStringSet(flags, FL_KNOWN_INITIALIZERS));
+        knownInitializers = getKnownInitializers(
+                getFlagStringSet(flags, FL_KNOWN_INITIALIZERS, DEFAULT_KNOWN_INITIALIZERS));
         excludedClassAnnotations = getFlagStringSet(flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE);
+        initializerAnnotations = getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);
         isExhaustiveOverride = flags.getBoolean(FL_EXHAUSTIVE_OVERRIDE).orElse(false);
         isSuggestSuppressions = flags.getBoolean(FL_SUGGEST_SUPPRESSIONS).orElse(false);
         ImmutableSet<String> propStrings = getFlagStringSet(flags, FL_EXCLUDED_FIELD_ANNOT);
@@ -66,6 +83,20 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
             return ImmutableSet.copyOf(flagValue.get().split(DELIMITER));
         }
         return ImmutableSet.of();
+    }
+
+    private static ImmutableSet<String> getFlagStringSet(
+            ErrorProneFlags flags,
+            String flagName,
+            ImmutableSet<String> defaults) {
+        Set<String> combined = new LinkedHashSet<String>(defaults);
+        Optional<String> flagValue = flags.get(flagName);
+        if (flagValue.isPresent()) {
+            for (String s : flagValue.get().split(DELIMITER)) {
+                combined.add(s);
+            }
+        }
+        return ImmutableSet.copyOf(combined);
     }
 
 }

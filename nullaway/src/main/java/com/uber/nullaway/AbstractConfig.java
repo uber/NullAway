@@ -74,6 +74,8 @@ public abstract class AbstractConfig implements Config {
 
     protected Set<String> excludedClassAnnotations;
 
+    protected Set<String> initializerAnnotations;
+
     protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
         String choiceRegexp = Joiner.on("|").join(
                 Iterables.transform(packagePrefixes, new Function<String, String>() {
@@ -99,6 +101,11 @@ public abstract class AbstractConfig implements Config {
     @Override
     public boolean isExcludedClassAnnotation(String annotationName) {
         return excludedClassAnnotations.contains(annotationName);
+    }
+
+    @Override
+    public boolean isInitializerMethodAnnotation(String annotationName) {
+        return initializerAnnotations.contains(annotationName);
     }
 
     @Override

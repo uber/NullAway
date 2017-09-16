@@ -57,6 +57,14 @@ public interface Config {
     /**
      *
      * @param annotationName fully-qualified annotation name
+     * @return true if a method with this annotation should be considered an initializer method,
+     * false otherwise.
+     */
+    boolean isInitializerMethodAnnotation(String annotationName);
+
+    /**
+     *
+     * @param annotationName fully-qualified annotation name
      * @return true if a field with this annotation should not be
      * checked for proper initialization, false otherwise
      */
