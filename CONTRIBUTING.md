@@ -23,7 +23,7 @@ DOs and DON'Ts
 
 * DON'T submit PRs that alter licensing related files or headers. If you believe there's a problem with them, file an issue and we'll be happy to discuss it.
 
-Guiding Principals
+Guiding Principles
 ------------------
 
 * We allow anyone to participate in our projects. Tasks can be carried out by anyone that demonstrates the capability to complete them
