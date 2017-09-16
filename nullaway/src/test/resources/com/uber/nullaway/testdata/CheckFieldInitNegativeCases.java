@@ -124,9 +124,10 @@ public class CheckFieldInitNegativeCases {
 
     }
 
-    class T6 {
+    static class T6 {
 
-        Object f, g;
+        Object f;
+        static Object g;
 
         T6() {}
 
@@ -136,8 +137,8 @@ public class CheckFieldInitNegativeCases {
         }
 
         @BeforeClass
-        void init2() {
-            this.g = new Object();
+        static void init2() {
+            T6.g = new Object();
         }
     }
 
