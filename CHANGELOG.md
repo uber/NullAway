@@ -3,6 +3,10 @@ Changelog
 
 Version 0.1.2
 -------------
+* Fixes for lambdas (#13, #17)
+
+Version 0.1.2
+-------------
 
 * Downgrade Checker Framework due to crash (#7)
 * More modeling of Rx operators (#8)
