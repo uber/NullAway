@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.1.4
+-------------
+* Another lambda fix (#23)
+
 Version 0.1.3
 -------------
 * Fixes for lambdas (#13, #17)
