@@ -139,4 +139,9 @@ public class NullAwayTest {
     public void functionalMethodSuperInterface() {
         compilationHelper.addSourceFile("NullAwaySuperFunctionalInterface.java").doTest();
     }
+
+    @Test
+    public void functionalMethodOverrideSuperInterface() {
+        compilationHelper.addSourceFile("NullAwayOverrideFunctionalInterfaces.java").doTest();
+    }
 }
