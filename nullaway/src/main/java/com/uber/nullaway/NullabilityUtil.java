@@ -22,7 +22,6 @@
 
 package com.uber.nullaway;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodTree;
@@ -34,26 +33,12 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
 
-import java.util.List;
-
 import javax.annotation.Nullable;
 
 /**
  * Helpful utility methods for nullability analysis.
  */
 public class NullabilityUtil {
-
-    static final ImmutableSet<String> OBJECT_METHOD_NAMES = ImmutableSet.of(
-            "equals",
-            "hashCode",
-            "toString",
-            "finalize",
-            "clone",
-            "notify",
-            "notifyAll",
-            "wait",
-            "getClass"
-    );
 
     private NullabilityUtil() { }
 
