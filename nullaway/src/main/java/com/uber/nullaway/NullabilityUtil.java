@@ -64,36 +64,7 @@ public class NullabilityUtil {
      */
     public static Symbol.MethodSymbol getFunctionalInterfaceMethod(LambdaExpressionTree tree, Types types) {
         Type funcInterfaceType = ((JCTree.JCLambda) tree).type;
-
-        Symbol.MethodSymbol result = null;
-        for (Type t : types.closure(funcInterfaceType)) {
-            // we want the method symbol for the single function inside the interface...hrm
-            List<Symbol> enclosedElements = t.tsym.getEnclosedElements();
-            for (Symbol s : enclosedElements) {
-                Symbol.MethodSymbol elem = (Symbol.MethodSymbol) s;
-                // The only constructor we should be seeing here is Object(), since these are all interfaces.
-                // Nonetheless, we need to filter that one with isConstructor()
-                if (elem.isDefault() || elem.isStatic() || elem.isConstructor() ) {
-                    continue;
-                }
-                String name = elem.getSimpleName().toString();
-                // any methods overridding java.lang.Object methods don't count;
-                // see https://docs.oracle.com/javase/8/docs/api/java/lang/FunctionalInterface.html
-                // we should really be checking method signatures here; hack for now
-                if (OBJECT_METHOD_NAMES.contains(name)) {
-                    continue;
-                }
-                if (result != null) {
-                    throw new RuntimeException(
-                            "already found an answer! " + result + " " + elem + " " + enclosedElements);
-                }
-                result = elem;
-            }
-        }
-        if (result == null) {
-            throw new RuntimeException("could not find functional interface method for " + funcInterfaceType);
-        }
-        return result;
+        return (Symbol.MethodSymbol) types.findDescriptorSymbol(funcInterfaceType.tsym);
     }
 
     /**
