@@ -145,9 +145,6 @@ public class AccessPath {
         // Note that this may differ from the containing class of the resolved containsKey() method, which
         // can be in a superclass (e.g., LinkedHashMap does not override containsKey())
         // assumption: map type will not both override containsKey() and inherit get()
-        Node receiver = node.getTarget().getReceiver();
-        TypeMirror type = receiver.getType();
-        String className = ((DeclaredType) type).asElement().toString();
         return fromMapGetCall(node);
     }
 

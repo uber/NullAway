@@ -238,8 +238,6 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
         Type receiverType = ASTHelpers.getReceiverType(tree);
         for(StreamTypeRecord streamType : RX_MODELS) {
             if (streamType.matchesType(receiverType, state)) {
-                String methodName = methodSymbol.toString();
-
                 // Build observable call chain
                 buildObservableCallChain(tree);
 
@@ -264,7 +262,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
                         // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
                         if (annonClassBody != null) {
                             MaplikeMethodRecord methodRecord = streamType.getMaplikeMethodRecord(methodSymbol);
-                            handleMapAnonClass(methodRecord, tree, annonClassBody, state);
+                            handleMapAnonClass(methodRecord, tree, annonClassBody);
                         }
                     }
                     // This can also be a lambda, which currently cannot be used in the code we look at, but might be
@@ -304,7 +302,6 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
                     outerCallInChain = observableOuterCallInChain.get(outerCallInChain);
                 }
                 // Check for a map method
-                MethodInvocationTree mapCallsite = observableOuterCallInChain.get(observableDotFilter);
                 if (outerCallInChain != null
                         && observableCallToActualFunctorMethod.containsKey(outerCallInChain)) {
                     // Update mapToFilterMap
@@ -324,8 +321,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     private void handleMapAnonClass(
             MaplikeMethodRecord methodRecord,
             MethodInvocationTree observableDotMap,
-            ClassTree annonClassBody,
-            VisitorState state) {
+            ClassTree annonClassBody) {
         for (Tree t : annonClassBody.getMembers()) {
             if (t instanceof MethodTree
                     && ((MethodTree) t).getName().toString().equals(methodRecord.getInnerMethodName())) {
