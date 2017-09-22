@@ -86,7 +86,7 @@ public class AccessPath {
      * @return access path representing the local
      */
     static AccessPath fromLocal(LocalVariableNode node) {
-        return new AccessPath(new Root(node.getElement()), ImmutableList.<Element>of());
+        return new AccessPath(new Root(node.getElement()), ImmutableList.of());
     }
 
     /**
@@ -96,7 +96,7 @@ public class AccessPath {
      */
     static AccessPath fromVarDecl(VariableDeclarationNode node) {
         Element elem = TreeUtils.elementFromDeclaration(node.getTree());
-        return new AccessPath(new Root(elem), ImmutableList.<Element>of());
+        return new AccessPath(new Root(elem), ImmutableList.of());
     }
 
     /**

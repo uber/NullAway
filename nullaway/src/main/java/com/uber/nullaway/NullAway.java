@@ -570,7 +570,7 @@ public class NullAway extends BugChecker implements
         ImmutableSet<Integer> nonNullPositions = null;
         if (fromUnannotatedPackage(methodSymbol)) {
             nonNullPositions = handler.onUnannotatedInvocationGetNonNullPositions(this, state,
-                    methodSymbol, actualParams, ImmutableSet.<Integer>of());
+                    methodSymbol, actualParams, ImmutableSet.of());
         }
         if (nonNullPositions == null) {
             ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
