@@ -458,7 +458,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
          *
          * @return An empty StreamModelBuilder.
          */
-        public static StreamModelBuilder start() {
+        static StreamModelBuilder start() {
             return new StreamModelBuilder();
         }
 
@@ -482,7 +482,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
          * @param tp A type predicate matching the class/interface of the type in our stream-based API.
          * @return This builder (for chaining).
          */
-        public StreamModelBuilder addStreamType(TypePredicate tp) {
+        StreamModelBuilder addStreamType(TypePredicate tp) {
             finalizeOpenStreamTypeRecord();
             this.tp = tp;
             this.filterMethodSigs = new HashSet<String>();
@@ -500,7 +500,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
          * @param filterMethodSig The full sub-signature (everything except the receiver type) of the filter method.
          * @return This builder (for chaining).
          */
-        public StreamModelBuilder withFilterMethodFromSignature(String filterMethodSig) {
+        StreamModelBuilder withFilterMethodFromSignature(String filterMethodSig) {
             this.filterMethodSigs.add(filterMethodSig);
             return this;
         }
@@ -526,7 +526,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
          * method that receive objects from the stream.
          * @return This builder (for chaining).
          */
-        public StreamModelBuilder withMapMethodFromSignature(
+        StreamModelBuilder withMapMethodFromSignature(
                 String methodSig,
                 String innerMethodName,
                 ImmutableSet<Integer> argsFromStream) {
@@ -547,7 +547,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
          * withMapMethodFromSignature).
          * @return This builder (for chaining).
          */
-        public StreamModelBuilder withMapMethodAllFromName(
+        StreamModelBuilder withMapMethodAllFromName(
                 String methodSimpleName,
                 String innerMethodName,
                 ImmutableSet<Integer> argsFromStream) {
@@ -568,7 +568,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
          * @param passthroughMethodSig The full sub-signature (everything except the receiver type) of the method.
          * @return This builder (for chaining).
          */
-        public StreamModelBuilder withPassthroughMethodFromSignature(String passthroughMethodSig) {
+        StreamModelBuilder withPassthroughMethodFromSignature(String passthroughMethodSig) {
             this.passthroughMethodSigs.add(passthroughMethodSig);
             return this;
         }
@@ -579,7 +579,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
          * @param methodSimpleName The method's simple name.
          * @return This builder (for chaining).
          */
-        public StreamModelBuilder withPassthroughMethodAllFromName(String methodSimpleName) {
+        StreamModelBuilder withPassthroughMethodAllFromName(String methodSimpleName) {
             this.passthroughMethodSimpleNames.add(methodSimpleName);
             return this;
         }
@@ -589,7 +589,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
          *
          * @return The finalized (immutable) models.
          */
-        public ImmutableList<StreamTypeRecord> end() {
+        ImmutableList<StreamTypeRecord> end() {
             finalizeOpenStreamTypeRecord();
             return ImmutableList.copyOf(typeRecords);
         }
@@ -620,7 +620,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
         private final Set<String> passthroughMethodSigs;
         private final Set<String> passthroughMethodSimpleNames;
 
-        public StreamTypeRecord(
+        StreamTypeRecord(
                 TypePredicate typePredicate,
                 Set<String> filterMethodSigs,
                 Set<String> filterMethodSimpleNames,
@@ -637,21 +637,21 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
             this.passthroughMethodSimpleNames = passthroughMethodSimpleNames;
         }
 
-        public boolean matchesType(Type type, VisitorState state) {
+        boolean matchesType(Type type, VisitorState state) {
             return typePredicate.apply(type, state);
         }
 
-        public boolean isFilterMethod(Symbol.MethodSymbol methodSymbol) {
+        boolean isFilterMethod(Symbol.MethodSymbol methodSymbol) {
             return filterMethodSigs.contains(methodSymbol.toString())
                     || filterMethodSimpleNames.contains(methodSymbol.getQualifiedName().toString());
         }
 
-        public boolean isMapMethod(Symbol.MethodSymbol methodSymbol) {
+        boolean isMapMethod(Symbol.MethodSymbol methodSymbol) {
             return mapMethodSigToRecord.containsKey(methodSymbol.toString())
                     || mapMethodSimpleNameToRecord.containsKey(methodSymbol.getQualifiedName().toString());
         }
 
-        public MaplikeMethodRecord getMaplikeMethodRecord(Symbol.MethodSymbol methodSymbol) {
+        MaplikeMethodRecord getMaplikeMethodRecord(Symbol.MethodSymbol methodSymbol) {
             MaplikeMethodRecord record = mapMethodSigToRecord.get(methodSymbol.toString());
             if (record == null) {
                 record = mapMethodSimpleNameToRecord.get(methodSymbol.getQualifiedName().toString());
@@ -659,7 +659,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
             return record;
         }
 
-        public boolean isPassthroughMethod(Symbol.MethodSymbol methodSymbol) {
+        boolean isPassthroughMethod(Symbol.MethodSymbol methodSymbol) {
             return passthroughMethodSigs.contains(methodSymbol.toString())
                     || passthroughMethodSimpleNames.contains(methodSymbol.getQualifiedName().toString());
         }
@@ -672,11 +672,11 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     private static class MaplikeMethodRecord {
 
         private final String innerMethodName;
-        public String getInnerMethodName() { return innerMethodName; }
+        String getInnerMethodName() { return innerMethodName; }
         private final Set<Integer> argsFromStream;
-        public Set<Integer> getArgsFromStream() { return argsFromStream; }
+        Set<Integer> getArgsFromStream() { return argsFromStream; }
 
-        public MaplikeMethodRecord(String innerMethodName, Set<Integer> argsFromStream) {
+        MaplikeMethodRecord(String innerMethodName, Set<Integer> argsFromStream) {
             this.innerMethodName = innerMethodName;
             this.argsFromStream = argsFromStream;
         }
@@ -689,12 +689,12 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     private static class MaplikeToFilterInstanceRecord {
 
         private final MaplikeMethodRecord mapMR;
-        public MaplikeMethodRecord getMaplikeMethodRecord() { return mapMR; }
+        MaplikeMethodRecord getMaplikeMethodRecord() { return mapMR; }
 
         private final MethodTree filter;
-        public MethodTree getFilter() { return filter; }
+        MethodTree getFilter() { return filter; }
 
-        public MaplikeToFilterInstanceRecord(MaplikeMethodRecord mapMR, MethodTree filter) {
+        MaplikeToFilterInstanceRecord(MaplikeMethodRecord mapMR, MethodTree filter) {
             this.mapMR = mapMR;
             this.filter = filter;
         }

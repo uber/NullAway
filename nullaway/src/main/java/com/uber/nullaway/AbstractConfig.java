@@ -125,9 +125,8 @@ public abstract class AbstractConfig implements Config {
 
     @Override
     public boolean isExcludedFieldAnnotation(String annotationName) {
-        boolean result = NULLABLE_PATTERN.matcher(annotationName).matches()
+        return NULLABLE_PATTERN.matcher(annotationName).matches()
                 || (fieldAnnotPattern != null && fieldAnnotPattern.matcher(annotationName).matches());
-        return result;
     }
 
     @Override

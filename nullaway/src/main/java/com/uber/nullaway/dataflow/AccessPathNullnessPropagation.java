@@ -618,8 +618,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
 
         }
 
-        Nullness result = value;
-        return updateRegularStore(result, input, updates);
+        return updateRegularStore(value, input, updates);
     }
 
     private TransferResult<Nullness, NullnessStore<Nullness>> updateRegularStore(
@@ -684,8 +683,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
          * thus no one can use its value directly. Any updates to the nullness of the variable are
          * performed in the store so that they are available to future reads.
          */
-        Nullness result = BOTTOM;
-        return updateRegularStore(result, input, updates);
+        return updateRegularStore(BOTTOM, input, updates);
 
     }
 
@@ -790,10 +788,9 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
         ReadableUpdates thenUpdates = new ReadableUpdates();
         ReadableUpdates elseUpdates = new ReadableUpdates();
         setNonnullIfAnalyzeable(thenUpdates, node.getOperand());
-        Nullness result = NONNULL;
         ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
         ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
-        return new ConditionalTransferResult<>(result,
+        return new ConditionalTransferResult<>(NONNULL,
                 thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
     }
 
