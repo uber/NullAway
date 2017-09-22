@@ -1112,8 +1112,9 @@ public class NullAway extends BugChecker implements
                     ? ((MethodTree) suggestTree).getModifiers()
                     : ((VariableTree) suggestTree).getModifiers();
             List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
+            //noinspection ConstantConditions
             Optional<? extends AnnotationTree> suppressWarningsAnnot = Iterables.tryFind(annotations,
-                    annot -> annot != null && annot.getAnnotationType().toString().endsWith("SuppressWarnings"));
+                    annot -> annot.getAnnotationType().toString().endsWith("SuppressWarnings"));
             if (!suppressWarningsAnnot.isPresent()) {
                 throw new AssertionError("something went horribly wrong");
             }
