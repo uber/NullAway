@@ -43,8 +43,6 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeMirror;
 
 /**
  * Represents an extended notion of an access path, which we track for nullness.

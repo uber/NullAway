@@ -121,7 +121,7 @@ public class NullnessStore<V extends AbstractValue<V>>
     }
 
     Builder<V> toBuilder() {
-        return new Builder<V>(this);
+        return new Builder<>(this);
     }
 
     @Override

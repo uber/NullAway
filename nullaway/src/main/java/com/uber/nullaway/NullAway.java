@@ -1140,8 +1140,7 @@ public class NullAway extends BugChecker implements
                     + Joiner.on(',').join(Iterables.transform(suppressions, new Function<String, String>() {
                             @Override
                             public String apply(String s) {
-                                return new StringBuilder(s.length() + 2)
-                                        .append('"').append(s).append('"').toString();
+                                return '"' + s + '"';
                             }
                         }))
                     + "}) ";

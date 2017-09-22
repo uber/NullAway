@@ -25,6 +25,7 @@ package com.uber.nullaway;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.ErrorProneFlags;
 
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
@@ -89,12 +90,10 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
             ErrorProneFlags flags,
             String flagName,
             ImmutableSet<String> defaults) {
-        Set<String> combined = new LinkedHashSet<String>(defaults);
+        Set<String> combined = new LinkedHashSet<>(defaults);
         Optional<String> flagValue = flags.get(flagName);
         if (flagValue.isPresent()) {
-            for (String s : flagValue.get().split(DELIMITER)) {
-                combined.add(s);
-            }
+            Collections.addAll(combined, flagValue.get().split(DELIMITER));
         }
         return ImmutableSet.copyOf(combined);
     }

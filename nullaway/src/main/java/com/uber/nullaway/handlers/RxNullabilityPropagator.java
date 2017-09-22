@@ -165,22 +165,22 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
      */
 
     // Set of filter methods found thus far (e.g. A.filter, see above)
-    private final Set<MethodTree> filterMethodsSet = new LinkedHashSet<MethodTree>();
+    private final Set<MethodTree> filterMethodsSet = new LinkedHashSet<>();
 
     // Maps each call in the observable call chain to its outer call (see above).
     private final Map<MethodInvocationTree, MethodInvocationTree> observableOuterCallInChain = new
-            LinkedHashMap<MethodInvocationTree, MethodInvocationTree>();
+            LinkedHashMap<>();
 
     // Maps the call in the observable call chain to the relevant functor method.
     // e.g. In the example above:
     //   observable.filter() => A.filter
     //   observable.filter().map() => B.apply
     private final Map<MethodInvocationTree, MethodTree> observableCallToActualFunctorMethod = new
-            LinkedHashMap<MethodInvocationTree, MethodTree>();
+            LinkedHashMap<>();
 
     // Map from map method to corresponding previous filter method (e.g. B.apply => A.filter)
     private final Map<MethodTree, MaplikeToFilterInstanceRecord> mapToFilterMap =
-            new LinkedHashMap<MethodTree, MaplikeToFilterInstanceRecord>();
+            new LinkedHashMap<>();
 
     /*
      * Note that the above methods imply a diagram like the following:
@@ -200,14 +200,14 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     // Specifically, this is the least upper bound of the "then" store on the branch of every return statement in
     // which the expression after the return can be true.
     private final Map<MethodTree, NullnessStore<Nullness>> filterToNSMap =
-            new LinkedHashMap<MethodTree, NullnessStore<Nullness>>();
+            new LinkedHashMap<>();
 
     // Maps the method body to the corresponding method tree, used because the dataflow analysis loses the pointer
     // to the MethodTree by the time we hook into it.
-    private final Map<BlockTree, MethodTree> blockToMethod = new LinkedHashMap<BlockTree, MethodTree>();
+    private final Map<BlockTree, MethodTree> blockToMethod = new LinkedHashMap<>();
 
     // Maps the return statements of the filter method to the filter tree itself, similar issue as above.
-    private final Map<ReturnTree, MethodTree> returnToMethod = new LinkedHashMap<ReturnTree, MethodTree>();
+    private final Map<ReturnTree, MethodTree> returnToMethod = new LinkedHashMap<>();
 
     RxNullabilityPropagator() {
         super();
@@ -386,7 +386,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
             UnderlyingAST underlyingAST,
             List<LocalVariableNode> parameters,
             NullnessStore.Builder<Nullness> nullnessBuilder) {
-        MethodTree tree = blockToMethod.get((BlockTree) underlyingAST.getCode());
+        MethodTree tree = blockToMethod.get(underlyingAST.getCode());
         if (mapToFilterMap.containsKey(tree)) {
             // Plug Nullness info from filter method into entry to map method.
             MaplikeToFilterInstanceRecord callInstanceRecord = mapToFilterMap.get(tree);
@@ -438,7 +438,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
      */
     private static class StreamModelBuilder {
 
-        private final List<StreamTypeRecord> typeRecords = new LinkedList<StreamTypeRecord>();
+        private final List<StreamTypeRecord> typeRecords = new LinkedList<>();
         private TypePredicate tp = null;
         private Set<String> filterMethodSigs;
         private Set<String> filterMethodSimpleNames;
@@ -481,12 +481,12 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
         StreamModelBuilder addStreamType(TypePredicate tp) {
             finalizeOpenStreamTypeRecord();
             this.tp = tp;
-            this.filterMethodSigs = new HashSet<String>();
-            this.filterMethodSimpleNames = new HashSet<String>();
-            this.mapMethodSigToRecord = new HashMap<String, MaplikeMethodRecord>();
-            this.mapMethodSimpleNameToRecord = new HashMap<String, MaplikeMethodRecord>();
-            this.passthroughMethodSigs = new HashSet<String>();
-            this.passthroughMethodSimpleNames = new HashSet<String>();
+            this.filterMethodSigs = new HashSet<>();
+            this.filterMethodSimpleNames = new HashSet<>();
+            this.mapMethodSigToRecord = new HashMap<>();
+            this.mapMethodSimpleNameToRecord = new HashMap<>();
+            this.passthroughMethodSigs = new HashSet<>();
+            this.passthroughMethodSimpleNames = new HashSet<>();
             return this;
         }
 
