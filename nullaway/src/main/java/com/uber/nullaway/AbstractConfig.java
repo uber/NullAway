@@ -78,12 +78,7 @@ public abstract class AbstractConfig implements Config {
 
     protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
         String choiceRegexp = Joiner.on("|").join(
-                Iterables.transform(packagePrefixes, new Function<String, String>() {
-                    @Override
-                    public String apply(String input) {
-                        return input.replaceAll("\\.", "\\\\.");
-                    }
-                }));
+                Iterables.transform(packagePrefixes, input -> input.replaceAll("\\.", "\\\\.")));
         return Pattern.compile("^(?:" + choiceRegexp + ")(?:\\..*)?");
     }
 

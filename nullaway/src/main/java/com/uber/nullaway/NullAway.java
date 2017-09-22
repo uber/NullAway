@@ -144,20 +144,11 @@ public class NullAway extends BugChecker implements
         BugChecker.ConditionalExpressionTreeMatcher, BugChecker.IfTreeMatcher, BugChecker.WhileLoopTreeMatcher,
         BugChecker.ForLoopTreeMatcher, BugChecker.LambdaExpressionTreeMatcher {
 
-    private static final Matcher<ExpressionTree> THIS_MATCHER = new Matcher<ExpressionTree>() {
-        @Override
-        public boolean matches(ExpressionTree expressionTree, VisitorState state) {
-            return isThisIdentifier(expressionTree);
-        }
-    };
+    private static final Matcher<ExpressionTree> THIS_MATCHER =
+            (expressionTree, state) -> isThisIdentifier(expressionTree);
 
-    private final Predicate<MethodInvocationNode> nonAnnotatedMethod = new Predicate<MethodInvocationNode>() {
-        @Override
-        public boolean apply(@Nullable MethodInvocationNode invocationNode) {
-            return invocationNode == null || fromUnannotatedPackage(ASTHelpers.getSymbol(invocationNode.getTree()));
-        }
-
-    };
+    private final Predicate<MethodInvocationNode> nonAnnotatedMethod = invocationNode ->
+            invocationNode == null || fromUnannotatedPackage(ASTHelpers.getSymbol(invocationNode.getTree()));
 
     /**
      * should we match within the current class?
@@ -777,25 +768,22 @@ public class NullAway extends BugChecker implements
     @Nullable
     private Element getInvokeOfSafeInitMethod(
             StatementTree stmt, final Symbol.MethodSymbol enclosingMethodSymbol, VisitorState state) {
-        Matcher<ExpressionTree> invokeMatcher = new Matcher<ExpressionTree>() {
-            @Override
-            public boolean matches(ExpressionTree expressionTree, VisitorState state) {
-                if (!(expressionTree instanceof MethodInvocationTree)) {
-                    return false;
-                }
-                MethodInvocationTree methodInvocationTree = (MethodInvocationTree) expressionTree;
-                Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
-                Set<Modifier> modifiers = symbol.getModifiers();
-                if ((symbol.isPrivate() || modifiers.contains(Modifier.FINAL)) && !symbol.isStatic()) {
-                    // check it's the same class (could be an issue with inner classes)
-                    if (ASTHelpers.enclosingClass(symbol).equals(ASTHelpers.enclosingClass(enclosingMethodSymbol))) {
-                        // make sure the receiver is 'this'
-                        ExpressionTree receiver = ASTHelpers.getReceiver(expressionTree);
-                        return receiver == null || isThisIdentifier(receiver);
-                    }
-                }
+        Matcher<ExpressionTree> invokeMatcher = (expressionTree, s) -> {
+            if (!(expressionTree instanceof MethodInvocationTree)) {
                 return false;
             }
+            MethodInvocationTree methodInvocationTree = (MethodInvocationTree) expressionTree;
+            Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
+            Set<Modifier> modifiers = symbol.getModifiers();
+            if ((symbol.isPrivate() || modifiers.contains(Modifier.FINAL)) && !symbol.isStatic()) {
+                // check it's the same class (could be an issue with inner classes)
+                if (ASTHelpers.enclosingClass(symbol).equals(ASTHelpers.enclosingClass(enclosingMethodSymbol))) {
+                    // make sure the receiver is 'this'
+                    ExpressionTree receiver = ASTHelpers.getReceiver(expressionTree);
+                    return receiver == null || isThisIdentifier(receiver);
+                }
+            }
+            return false;
         };
         if (stmt.getKind().equals(EXPRESSION_STATEMENT)) {
             ExpressionTree expression = ((ExpressionStatementTree) stmt).getExpression();
@@ -1126,23 +1114,12 @@ public class NullAway extends BugChecker implements
                     : ((VariableTree) suggestTree).getModifiers();
             List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
             Optional<? extends AnnotationTree> suppressWarningsAnnot = Iterables.tryFind(annotations,
-                    new Predicate<AnnotationTree>() {
-                        @Override
-                        public boolean apply(AnnotationTree input) {
-                            return input.getAnnotationType().toString().endsWith("SuppressWarnings");
-                        }
-
-                    });
+                    annot -> annot.getAnnotationType().toString().endsWith("SuppressWarnings"));
             if (!suppressWarningsAnnot.isPresent()) {
                 throw new AssertionError("something went horribly wrong");
             }
             String replacement = "@SuppressWarnings({"
-                    + Joiner.on(',').join(Iterables.transform(suppressions, new Function<String, String>() {
-                            @Override
-                            public String apply(String s) {
-                                return '"' + s + '"';
-                            }
-                        }))
+                    + Joiner.on(',').join(Iterables.transform(suppressions, s -> '"' + s + '"'))
                     + "}) ";
             fix = SuggestedFix.replace(
                     suppressWarningsAnnot.get(),

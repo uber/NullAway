@@ -158,12 +158,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
 
     private static SubNodeValues values(
             final TransferInput<Nullness, NullnessStore<Nullness>> input) {
-        return new SubNodeValues() {
-            @Override
-            public Nullness valueOfSubNode(Node node) {
-                return input.getValueOfSubNode(node);
-            }
-        };
+        return node -> input.getValueOfSubNode(node);
     }
 
     @Override
