@@ -51,7 +51,7 @@ import java.util.List;
  */
 class CompositeHandler implements Handler {
 
-    private List<Handler> handlers;
+    private final List<Handler> handlers;
 
     CompositeHandler(ImmutableList<Handler> handlers) {
         // Attach default handlers

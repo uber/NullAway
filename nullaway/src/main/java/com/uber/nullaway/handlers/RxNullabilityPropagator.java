@@ -165,21 +165,21 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
      */
 
     // Set of filter methods found thus far (e.g. A.filter, see above)
-    private Set<MethodTree> filterMethodsSet = new LinkedHashSet<MethodTree>();
+    private final Set<MethodTree> filterMethodsSet = new LinkedHashSet<MethodTree>();
 
     // Maps each call in the observable call chain to its outer call (see above).
-    private Map<MethodInvocationTree, MethodInvocationTree> observableOuterCallInChain = new
+    private final Map<MethodInvocationTree, MethodInvocationTree> observableOuterCallInChain = new
             LinkedHashMap<MethodInvocationTree, MethodInvocationTree>();
 
     // Maps the call in the observable call chain to the relevant functor method.
     // e.g. In the example above:
     //   observable.filter() => A.filter
     //   observable.filter().map() => B.apply
-    private Map<MethodInvocationTree, MethodTree> observableCallToActualFunctorMethod = new
+    private final Map<MethodInvocationTree, MethodTree> observableCallToActualFunctorMethod = new
             LinkedHashMap<MethodInvocationTree, MethodTree>();
 
     // Map from map method to corresponding previous filter method (e.g. B.apply => A.filter)
-    private Map<MethodTree, MaplikeToFilterInstanceRecord> mapToFilterMap =
+    private final Map<MethodTree, MaplikeToFilterInstanceRecord> mapToFilterMap =
             new LinkedHashMap<MethodTree, MaplikeToFilterInstanceRecord>();
 
     /*
@@ -199,15 +199,15 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     // Map from filter method to corresponding nullability info after the method returns true.
     // Specifically, this is the least upper bound of the "then" store on the branch of every return statement in
     // which the expression after the return can be true.
-    private Map<MethodTree, NullnessStore<Nullness>> filterToNSMap =
+    private final Map<MethodTree, NullnessStore<Nullness>> filterToNSMap =
             new LinkedHashMap<MethodTree, NullnessStore<Nullness>>();
 
     // Maps the method body to the corresponding method tree, used because the dataflow analysis loses the pointer
     // to the MethodTree by the time we hook into it.
-    private Map<BlockTree, MethodTree> blockToMethod = new LinkedHashMap<BlockTree, MethodTree>();
+    private final Map<BlockTree, MethodTree> blockToMethod = new LinkedHashMap<BlockTree, MethodTree>();
 
     // Maps the return statements of the filter method to the filter tree itself, similar issue as above.
-    private Map<ReturnTree, MethodTree> returnToMethod = new LinkedHashMap<ReturnTree, MethodTree>();
+    private final Map<ReturnTree, MethodTree> returnToMethod = new LinkedHashMap<ReturnTree, MethodTree>();
 
     RxNullabilityPropagator() {
         super();

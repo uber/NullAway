@@ -164,7 +164,7 @@ public class NullAway extends BugChecker implements
      */
     private boolean matchWithinClass = true;
 
-    private Config config;
+    private final Config config;
 
     /**
      * Fields for which we should report an initialization error when we match them.
@@ -181,7 +181,7 @@ public class NullAway extends BugChecker implements
     /**
      * The handler passed to our analysis (usually a {@code CompositeHandler} including handlers for various APIs.
      */
-    private Handler handler = Handlers.buildDefault();
+    private final Handler handler = Handlers.buildDefault();
 
     /**
      * Error Prone requires us to have an empty constructor for each Plugin, in addition to the constructor taking
