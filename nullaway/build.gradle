@@ -19,10 +19,6 @@ plugins {
   id "java"
 }
 
-configurations.errorprone {
-  resolutionStrategy.force "com.google.errorprone:error_prone_core:2.1.1"
-}
-
 // we use this config to get the path of the JDK 9 javac jar, to
 // stick it in the bootclasspath when running tests
 configurations.maybeCreate("epJavac")
@@ -34,8 +30,10 @@ dependencies {
     compileOnly deps.apt.autoValue
     compileOnly deps.apt.autoService
 
-    compile deps.build.errorProneCore
+    compile deps.build.errorProneCheckApi
     compile deps.build.checkerDataflow
+
+    errorprone deps.build.errorProneCore
 
     testCompile deps.test.junit
     testCompile(deps.build.errorProneTestHelpers) {
