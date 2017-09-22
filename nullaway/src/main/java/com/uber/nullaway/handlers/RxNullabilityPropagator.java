@@ -386,7 +386,8 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
             UnderlyingAST underlyingAST,
             List<LocalVariableNode> parameters,
             NullnessStore.Builder<Nullness> nullnessBuilder) {
-        MethodTree tree = blockToMethod.get(underlyingAST.getCode());
+        //noinspection RedundantCast
+        MethodTree tree = blockToMethod.get((BlockTree) underlyingAST.getCode());
         if (mapToFilterMap.containsKey(tree)) {
             // Plug Nullness info from filter method into entry to map method.
             MaplikeToFilterInstanceRecord callInstanceRecord = mapToFilterMap.get(tree);

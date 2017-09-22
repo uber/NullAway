@@ -24,10 +24,8 @@ package com.uber.nullaway;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
@@ -89,6 +87,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
@@ -1087,10 +1086,10 @@ public class NullAway extends BugChecker implements
      * @param suggestTree  the location at which a fix suggestion should be made
      * @return the error description
      */
-    private Description createErrorDescription(Tree errorLocTree, String message, Tree suggestTree) {
+    private Description createErrorDescription(Tree errorLocTree, String message, @Nullable Tree suggestTree) {
         Description.Builder builder = buildDescription(errorLocTree)
                 .setMessage(message);
-        if (config.suggestSuppressions()) {
+        if (config.suggestSuppressions() && suggestTree != null) {
             builder = addSuppressWarningsFix(suggestTree, builder);
         }
         // #letbuildersbuild
@@ -1114,7 +1113,7 @@ public class NullAway extends BugChecker implements
                     : ((VariableTree) suggestTree).getModifiers();
             List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
             Optional<? extends AnnotationTree> suppressWarningsAnnot = Iterables.tryFind(annotations,
-                    annot -> annot.getAnnotationType().toString().endsWith("SuppressWarnings"));
+                    annot -> annot != null && annot.getAnnotationType().toString().endsWith("SuppressWarnings"));
             if (!suppressWarningsAnnot.isPresent()) {
                 throw new AssertionError("something went horribly wrong");
             }

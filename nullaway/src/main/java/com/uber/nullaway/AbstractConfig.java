@@ -23,7 +23,6 @@
 package com.uber.nullaway;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -77,6 +76,7 @@ public abstract class AbstractConfig implements Config {
     protected Set<String> initializerAnnotations;
 
     protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
+        //noinspection ConstantConditions
         String choiceRegexp = Joiner.on("|").join(
                 Iterables.transform(packagePrefixes, input -> input.replaceAll("\\.", "\\\\.")));
         return Pattern.compile("^(?:" + choiceRegexp + ")(?:\\..*)?");

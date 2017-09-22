@@ -16,7 +16,6 @@
 package com.uber.nullaway.dataflow;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.errorprone.dataflow.nullnesspropagation.Nullness;
 import com.google.errorprone.dataflow.nullnesspropagation.TrustingNullnessAnalysis;
 import com.google.errorprone.util.ASTHelpers;
@@ -108,6 +107,7 @@ import org.checkerframework.dataflow.cfg.node.WideningConversionNode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import javax.annotation.CheckReturnValue;
 import javax.lang.model.element.Element;
@@ -158,7 +158,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
 
     private static SubNodeValues values(
             final TransferInput<Nullness, NullnessStore<Nullness>> input) {
-        return node -> input.getValueOfSubNode(node);
+        return input::getValueOfSubNode;
     }
 
     @Override
@@ -887,7 +887,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
             // we have a model saying return value is nullable.
             // still, rely on dataflow fact if there is one available
             nullness = input.getRegularStore().valueOfMethodCall(node, types, NULLABLE);
-        } else if (node == null || methodReturnsNonNull.apply(node)
+        } else if (node == null || methodReturnsNonNull.test(node)
                 || !TrustingNullnessAnalysis.hasNullableAnnotation(
                         node.getTarget().getMethod())) {
             // definite non-null return
