@@ -41,7 +41,7 @@ import java.util.Arrays;
 public class NullAwayTest {
 
     @Rule
-    public TemporaryFolder temporaryFolder = new TemporaryFolder();
+    public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
     private CompilationTestHelper compilationHelper;
 

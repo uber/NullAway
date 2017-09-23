@@ -24,10 +24,8 @@ package com.uber.nullaway;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.base.Optional;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
@@ -89,6 +87,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
@@ -144,27 +143,18 @@ public class NullAway extends BugChecker implements
         BugChecker.ConditionalExpressionTreeMatcher, BugChecker.IfTreeMatcher, BugChecker.WhileLoopTreeMatcher,
         BugChecker.ForLoopTreeMatcher, BugChecker.LambdaExpressionTreeMatcher {
 
-    private static final Matcher<ExpressionTree> THIS_MATCHER = new Matcher<ExpressionTree>() {
-        @Override
-        public boolean matches(ExpressionTree expressionTree, VisitorState state) {
-            return isThisIdentifier(expressionTree);
-        }
-    };
+    private static final Matcher<ExpressionTree> THIS_MATCHER =
+            (expressionTree, state) -> isThisIdentifier(expressionTree);
 
-    private final Predicate<MethodInvocationNode> nonAnnotatedMethod = new Predicate<MethodInvocationNode>() {
-        @Override
-        public boolean apply(@Nullable MethodInvocationNode invocationNode) {
-            return invocationNode == null || fromUnannotatedPackage(ASTHelpers.getSymbol(invocationNode.getTree()));
-        }
-
-    };
+    private final Predicate<MethodInvocationNode> nonAnnotatedMethod = invocationNode ->
+            invocationNode == null || fromUnannotatedPackage(ASTHelpers.getSymbol(invocationNode.getTree()));
 
     /**
      * should we match within the current class?
      */
     private boolean matchWithinClass = true;
 
-    private Config config;
+    private final Config config;
 
     /**
      * Fields for which we should report an initialization error when we match them.
@@ -181,7 +171,7 @@ public class NullAway extends BugChecker implements
     /**
      * The handler passed to our analysis (usually a {@code CompositeHandler} including handlers for various APIs.
      */
-    private Handler handler = Handlers.buildDefault();
+    private final Handler handler = Handlers.buildDefault();
 
     /**
      * Error Prone requires us to have an empty constructor for each Plugin, in addition to the constructor taking
@@ -570,7 +560,7 @@ public class NullAway extends BugChecker implements
         ImmutableSet<Integer> nonNullPositions = null;
         if (fromUnannotatedPackage(methodSymbol)) {
             nonNullPositions = handler.onUnannotatedInvocationGetNonNullPositions(this, state,
-                    methodSymbol, actualParams, ImmutableSet.<Integer>of());
+                    methodSymbol, actualParams, ImmutableSet.of());
         }
         if (nonNullPositions == null) {
             ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
@@ -777,25 +767,22 @@ public class NullAway extends BugChecker implements
     @Nullable
     private Element getInvokeOfSafeInitMethod(
             StatementTree stmt, final Symbol.MethodSymbol enclosingMethodSymbol, VisitorState state) {
-        Matcher<ExpressionTree> invokeMatcher = new Matcher<ExpressionTree>() {
-            @Override
-            public boolean matches(ExpressionTree expressionTree, VisitorState state) {
-                if (!(expressionTree instanceof MethodInvocationTree)) {
-                    return false;
-                }
-                MethodInvocationTree methodInvocationTree = (MethodInvocationTree) expressionTree;
-                Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
-                Set<Modifier> modifiers = symbol.getModifiers();
-                if ((symbol.isPrivate() || modifiers.contains(Modifier.FINAL)) && !symbol.isStatic()) {
-                    // check it's the same class (could be an issue with inner classes)
-                    if (ASTHelpers.enclosingClass(symbol).equals(ASTHelpers.enclosingClass(enclosingMethodSymbol))) {
-                        // make sure the receiver is 'this'
-                        ExpressionTree receiver = ASTHelpers.getReceiver(expressionTree);
-                        return receiver == null || isThisIdentifier(receiver);
-                    }
-                }
+        Matcher<ExpressionTree> invokeMatcher = (expressionTree, s) -> {
+            if (!(expressionTree instanceof MethodInvocationTree)) {
                 return false;
             }
+            MethodInvocationTree methodInvocationTree = (MethodInvocationTree) expressionTree;
+            Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
+            Set<Modifier> modifiers = symbol.getModifiers();
+            if ((symbol.isPrivate() || modifiers.contains(Modifier.FINAL)) && !symbol.isStatic()) {
+                // check it's the same class (could be an issue with inner classes)
+                if (ASTHelpers.enclosingClass(symbol).equals(ASTHelpers.enclosingClass(enclosingMethodSymbol))) {
+                    // make sure the receiver is 'this'
+                    ExpressionTree receiver = ASTHelpers.getReceiver(expressionTree);
+                    return receiver == null || isThisIdentifier(receiver);
+                }
+            }
+            return false;
         };
         if (stmt.getKind().equals(EXPRESSION_STATEMENT)) {
             ExpressionTree expression = ((ExpressionStatementTree) stmt).getExpression();
@@ -942,7 +929,7 @@ public class NullAway extends BugChecker implements
         }
         // the logic here is to avoid doing dataflow analysis whenever possible
         Symbol exprSymbol = ASTHelpers.getSymbol(expr);
-        boolean exprMayBeNull = false;
+        boolean exprMayBeNull;
         switch (expr.getKind()) {
             case NULL_LITERAL:
                 // obviously null
@@ -1099,10 +1086,10 @@ public class NullAway extends BugChecker implements
      * @param suggestTree  the location at which a fix suggestion should be made
      * @return the error description
      */
-    private Description createErrorDescription(Tree errorLocTree, String message, Tree suggestTree) {
+    private Description createErrorDescription(Tree errorLocTree, String message, @Nullable Tree suggestTree) {
         Description.Builder builder = buildDescription(errorLocTree)
                 .setMessage(message);
-        if (config.suggestSuppressions()) {
+        if (config.suggestSuppressions() && suggestTree != null) {
             builder = addSuppressWarningsFix(suggestTree, builder);
         }
         // #letbuildersbuild
@@ -1125,25 +1112,14 @@ public class NullAway extends BugChecker implements
                     ? ((MethodTree) suggestTree).getModifiers()
                     : ((VariableTree) suggestTree).getModifiers();
             List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
+            //noinspection ConstantConditions
             Optional<? extends AnnotationTree> suppressWarningsAnnot = Iterables.tryFind(annotations,
-                    new Predicate<AnnotationTree>() {
-                        @Override
-                        public boolean apply(AnnotationTree input) {
-                            return input.getAnnotationType().toString().endsWith("SuppressWarnings");
-                        }
-
-                    });
+                    annot -> annot.getAnnotationType().toString().endsWith("SuppressWarnings"));
             if (!suppressWarningsAnnot.isPresent()) {
                 throw new AssertionError("something went horribly wrong");
             }
             String replacement = "@SuppressWarnings({"
-                    + Joiner.on(',').join(Iterables.transform(suppressions, new Function<String, String>() {
-                            @Override
-                            public String apply(String s) {
-                                return new StringBuilder(s.length() + 2)
-                                        .append('"').append(s).append('"').toString();
-                            }
-                        }))
+                    + Joiner.on(',').join(Iterables.transform(suppressions, s -> '"' + s + '"'))
                     + "}) ";
             fix = SuggestedFix.replace(
                     suppressWarningsAnnot.get(),

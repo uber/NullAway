@@ -151,7 +151,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private static LibraryModels loadLibraryModels() {
         Iterable<LibraryModels> externalLibraryModels =
                 ServiceLoader.load(LibraryModels.class, LibraryModels.class.getClassLoader());
-        ImmutableSet.Builder<LibraryModels> libModelsBuilder = new ImmutableSet.Builder<LibraryModels>();
+        ImmutableSet.Builder<LibraryModels> libModelsBuilder = new ImmutableSet.Builder<>();
         libModelsBuilder.add(new DefaultLibraryModels()).addAll(externalLibraryModels);
         return new CombinedLibraryModels(libModelsBuilder.build());
     }
@@ -241,13 +241,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
         public CombinedLibraryModels(Iterable<LibraryModels> models) {
             ImmutableSetMultimap.Builder<MemberName, Integer> failIfNullParametersBuilder
-                    = new ImmutableSetMultimap.Builder<MemberName, Integer>();
+                    = new ImmutableSetMultimap.Builder<>();
             ImmutableSetMultimap.Builder<MemberName, Integer> nonNullParametersBuilder
-                    = new ImmutableSetMultimap.Builder<MemberName, Integer>();
+                    = new ImmutableSetMultimap.Builder<>();
             ImmutableSetMultimap.Builder<MemberName, Integer> nullImpliesTrueParametersBuilder
-                    = new ImmutableSetMultimap.Builder<MemberName, Integer>();
+                    = new ImmutableSetMultimap.Builder<>();
             ImmutableSet.Builder<MemberName> nullableReturnsBuilder
-                    = new ImmutableSet.Builder<MemberName>();
+                    = new ImmutableSet.Builder<>();
             for (LibraryModels libraryModels : models) {
                 for (Map.Entry<MemberName, Integer> entry
                         : libraryModels.failIfNullParameters().entries()) {

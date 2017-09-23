@@ -18,9 +18,9 @@
 
 package com.uber.nullaway.dataflow;
 
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.dataflow.nullnesspropagation.Nullness;
+import com.google.errorprone.dataflow.nullnesspropagation.NullnessAnalysis;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -32,6 +32,7 @@ import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
@@ -40,7 +41,7 @@ import javax.lang.model.element.ElementKind;
 /**
  * API to our nullness dataflow analysis for access paths.
  *
- * Based on code from Error Prone; see {@link com.google.errorprone.dataflow.nullnesspropagation.NullnessAnalysis}
+ * Based on code from Error Prone; see {@link NullnessAnalysis}
  *
  */
 public final class AccessPathNullnessAnalysis {

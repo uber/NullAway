@@ -16,7 +16,6 @@
 package com.uber.nullaway.dataflow;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.errorprone.dataflow.nullnesspropagation.Nullness;
 import com.google.errorprone.dataflow.nullnesspropagation.TrustingNullnessAnalysis;
 import com.google.errorprone.util.ASTHelpers;
@@ -108,6 +107,7 @@ import org.checkerframework.dataflow.cfg.node.WideningConversionNode;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import javax.annotation.CheckReturnValue;
 import javax.lang.model.element.Element;
@@ -158,12 +158,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
 
     private static SubNodeValues values(
             final TransferInput<Nullness, NullnessStore<Nullness>> input) {
-        return new SubNodeValues() {
-            @Override
-            public Nullness valueOfSubNode(Node node) {
-                return input.getValueOfSubNode(node);
-            }
-        };
+        return input::getValueOfSubNode;
     }
 
     @Override
@@ -618,8 +613,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
 
         }
 
-        Nullness result = value;
-        return updateRegularStore(result, input, updates);
+        return updateRegularStore(value, input, updates);
     }
 
     private TransferResult<Nullness, NullnessStore<Nullness>> updateRegularStore(
@@ -684,8 +678,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
          * thus no one can use its value directly. Any updates to the nullness of the variable are
          * performed in the store so that they are available to future reads.
          */
-        Nullness result = BOTTOM;
-        return updateRegularStore(result, input, updates);
+        return updateRegularStore(BOTTOM, input, updates);
 
     }
 
@@ -790,10 +783,9 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
         ReadableUpdates thenUpdates = new ReadableUpdates();
         ReadableUpdates elseUpdates = new ReadableUpdates();
         setNonnullIfAnalyzeable(thenUpdates, node.getOperand());
-        Nullness result = NONNULL;
         ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
         ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
-        return new ConditionalTransferResult<>(result,
+        return new ConditionalTransferResult<>(NONNULL,
                 thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
     }
 
@@ -895,7 +887,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
             // we have a model saying return value is nullable.
             // still, rely on dataflow fact if there is one available
             nullness = input.getRegularStore().valueOfMethodCall(node, types, NULLABLE);
-        } else if (node == null || methodReturnsNonNull.apply(node)
+        } else if (node == null || methodReturnsNonNull.test(node)
                 || !TrustingNullnessAnalysis.hasNullableAnnotation(
                         node.getTarget().getMethod())) {
             // definite non-null return

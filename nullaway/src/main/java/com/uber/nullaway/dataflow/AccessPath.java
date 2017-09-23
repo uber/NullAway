@@ -43,8 +43,6 @@ import java.util.List;
 
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeMirror;
 
 /**
  * Represents an extended notion of an access path, which we track for nullness.
@@ -86,7 +84,7 @@ public class AccessPath {
      * @return access path representing the local
      */
     static AccessPath fromLocal(LocalVariableNode node) {
-        return new AccessPath(new Root(node.getElement()), ImmutableList.<Element>of());
+        return new AccessPath(new Root(node.getElement()), ImmutableList.of());
     }
 
     /**
@@ -96,7 +94,7 @@ public class AccessPath {
      */
     static AccessPath fromVarDecl(VariableDeclarationNode node) {
         Element elem = TreeUtils.elementFromDeclaration(node.getTree());
-        return new AccessPath(new Root(elem), ImmutableList.<Element>of());
+        return new AccessPath(new Root(elem), ImmutableList.of());
     }
 
     /**
@@ -145,9 +143,6 @@ public class AccessPath {
         // Note that this may differ from the containing class of the resolved containsKey() method, which
         // can be in a superclass (e.g., LinkedHashMap does not override containsKey())
         // assumption: map type will not both override containsKey() and inherit get()
-        Node receiver = node.getTarget().getReceiver();
-        TypeMirror type = receiver.getType();
-        String className = ((DeclaredType) type).asElement().toString();
         return fromMapGetCall(node);
     }
 

@@ -23,7 +23,6 @@
 package com.uber.nullaway;
 
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Function;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -77,13 +76,9 @@ public abstract class AbstractConfig implements Config {
     protected Set<String> initializerAnnotations;
 
     protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
+        //noinspection ConstantConditions
         String choiceRegexp = Joiner.on("|").join(
-                Iterables.transform(packagePrefixes, new Function<String, String>() {
-                    @Override
-                    public String apply(String input) {
-                        return input.replaceAll("\\.", "\\\\.");
-                    }
-                }));
+                Iterables.transform(packagePrefixes, input -> input.replaceAll("\\.", "\\\\.")));
         return Pattern.compile("^(?:" + choiceRegexp + ")(?:\\..*)?");
     }
 
@@ -125,9 +120,8 @@ public abstract class AbstractConfig implements Config {
 
     @Override
     public boolean isExcludedFieldAnnotation(String annotationName) {
-        boolean result = NULLABLE_PATTERN.matcher(annotationName).matches()
+        return NULLABLE_PATTERN.matcher(annotationName).matches()
                 || (fieldAnnotPattern != null && fieldAnnotPattern.matcher(annotationName).matches());
-        return result;
     }
 
     @Override
