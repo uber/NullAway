@@ -270,7 +270,6 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchAssignment(AssignmentTree tree, VisitorState state) {
-    System.out.print("hello");
     if (!matchWithinClass) {
       return Description.NO_MATCH;
     }
