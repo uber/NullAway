@@ -15,6 +15,7 @@
  */
 
 plugins {
+  id 'com.github.johnrengelman.shadow' version '2.0.1'
   id "net.ltgt.errorprone" version "0.0.11"
   id "java"
 }
@@ -26,11 +27,20 @@ configurations.maybeCreate("epJavac")
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
+configurations.all {
+    resolutionStrategy {
+        // Force needed, since:
+        // a) There are newer versions of CF than the one we forked
+        // b) It seems x.y.z-name < x.y.z for gradle dependency resolution purposes.
+        force deps.build.checkerDataflow
+    }
+}
+
 dependencies {
     compileOnly deps.apt.autoValue
     compileOnly deps.apt.autoService
 
-    compile deps.build.errorProneCheckApi
+    shadow deps.build.errorProneCheckApi
     compile deps.build.checkerDataflow
 
     errorprone deps.build.errorProneCore
@@ -45,6 +55,10 @@ dependencies {
 
     epJavac deps.build.errorProneCore
     epJavac deps.build.checkerDataflow
+}
+
+shadowJar {
+    classifier = "cf"
 }
 
 compileJava {
