@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+set -e
+
+if [ ! -f .git/hooks/pre-commit ]; then
+    echo "Installing GJF pre-commit hook"
+    cp config/hooks/pre-commit.template .git/hooks/pre-commit
+    chmod +x .git/hooks/pre-commit
+fi
+
