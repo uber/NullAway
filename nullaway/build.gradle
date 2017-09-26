@@ -16,12 +16,7 @@
 
 plugins {
   id "net.ltgt.errorprone" version "0.0.11"
-  id "com.github.sherter.google-java-format" version "0.6"
   id "java"
-}
-
-googleJavaFormat {
-  toolVersion = '1.4'
 }
 
 // we use this config to get the path of the JDK 9 javac jar, to
