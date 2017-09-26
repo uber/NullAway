@@ -23,151 +23,143 @@
 package com.uber.nullaway.testdata;
 
 import com.facebook.infer.annotation.Initializer;
-
+import javax.inject.Inject;
 import org.junit.Before;
 import org.junit.BeforeClass;
 
-import javax.inject.Inject;
-
-/**
- * Created by msridhar on 3/8/17.
- */
+/** Created by msridhar on 3/8/17. */
 public class CheckFieldInitNegativeCases {
 
-    class T1 {
+  class T1 {
 
-        boolean boolField;
+    boolean boolField;
 
-        Object f = new Object();
+    Object f = new Object();
 
-        Object g;
+    Object g;
 
-        Object h;
+    Object h;
 
-        Object k;
+    Object k;
 
-        @Inject Object m;
+    @Inject Object m;
 
-        T1(Object h, Object k, boolean b) {
-            g = new Object();
-            this.h = h;
-            if (b) {
-                this.k = k;
-            } else {
-                this.k = new Object();
-            }
-        }
+    T1(Object h, Object k, boolean b) {
+      g = new Object();
+      this.h = h;
+      if (b) {
+        this.k = k;
+      } else {
+        this.k = new Object();
+      }
+    }
+  }
+
+  class T2 {
+
+    Object f;
+
+    T2() {}
+
+    @Initializer
+    void init() {
+      this.f = new Object();
+    }
+  }
+
+  class T3 {
+
+    Object f, g;
+
+    T3() {}
+
+    @Initializer
+    void init1() {
+      this.f = new Object();
     }
 
-    class T2 {
+    @Initializer
+    void init2() {
+      this.g = new Object();
+    }
+  }
 
-        Object f;
+  class T4 {
 
-        T2() {}
+    Object f;
 
-        @Initializer
-        void init() {
-            this.f = new Object();
-        }
+    T4() {
+      init();
     }
 
-    class T3 {
+    private void init() {
+      f = new Object();
+    }
+  }
 
-        Object f, g;
+  class T5 {
 
-        T3() {}
+    Object f;
+    Object g;
 
-        @Initializer
-        void init1() {
-            this.f = new Object();
-        }
-
-        @Initializer
-        void init2() {
-            this.g = new Object();
-        }
+    @Initializer
+    public void init1() {
+      init();
+      init2();
     }
 
-    class T4 {
-
-        Object f;
-
-        T4() {
-            init();
-        }
-
-        private void init() {
-            f = new Object();
-        }
-
+    private void init() {
+      f = new Object();
     }
 
+    public final void init2() {
+      g = new Object();
+    }
+  }
 
-    class T5 {
+  static class T6 {
 
-        Object f;
-        Object g;
+    Object f;
+    static Object g;
 
-        @Initializer
-        public void init1() {
-            init();
-            init2();
-        }
+    T6() {}
 
-        private void init() {
-            f = new Object();
-        }
-
-        public final void init2() {
-            g = new Object();
-        }
-
+    @Before
+    void init1() {
+      this.f = new Object();
     }
 
-    static class T6 {
+    @BeforeClass
+    static void init2() {
+      T6.g = new Object();
+    }
+  }
 
-        Object f;
-        static Object g;
+  abstract class Super {
 
-        T6() {}
+    // to test known initializer methods
+    abstract void doInit();
+  }
 
-        @Before
-        void init1() {
-            this.f = new Object();
-        }
+  interface SuperInterface {
 
-        @BeforeClass
-        static void init2() {
-            T6.g = new Object();
-        }
+    // to test known initializer methods
+    void doInit2();
+  }
+
+  class Sub extends Super implements SuperInterface {
+
+    Object anotherField;
+    Object yetAnotherField;
+
+    @Override
+    void doInit() {
+      anotherField = new Object();
     }
 
-    abstract class Super {
-
-        // to test known initializer methods
-        abstract void doInit();
+    @Override
+    public void doInit2() {
+      yetAnotherField = new Object();
     }
-
-    interface SuperInterface {
-
-        // to test known initializer methods
-        void doInit2();
-    }
-
-    class Sub extends Super implements SuperInterface {
-
-        Object anotherField;
-        Object yetAnotherField;
-
-        @Override
-        void doInit() {
-            anotherField = new Object();
-        }
-
-        @Override
-        public void doInit2() {
-            yetAnotherField = new Object();
-        }
-    }
-
+  }
 }

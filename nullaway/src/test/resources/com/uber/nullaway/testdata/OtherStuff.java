@@ -24,7 +24,8 @@ package com.uber.nullaway.testdata;
 
 public class OtherStuff {
 
-    public static enum OtherEnum {
-        TOP, BOTTOM
-    }
+  public static enum OtherEnum {
+    TOP,
+    BOTTOM
+  }
 }

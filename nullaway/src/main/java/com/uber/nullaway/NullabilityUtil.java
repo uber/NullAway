@@ -32,73 +32,76 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
-
 import javax.annotation.Nullable;
 
-/**
- * Helpful utility methods for nullability analysis.
- */
+/** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
 
-    private NullabilityUtil() { }
+  private NullabilityUtil() {}
 
-    /**
-     * finds the corresponding functional interface method for a lambda expression
-     * @param tree the lambda expression
-     * @return the functional interface method
-     */
-    public static Symbol.MethodSymbol getFunctionalInterfaceMethod(LambdaExpressionTree tree, Types types) {
-        Type funcInterfaceType = ((JCTree.JCLambda) tree).type;
-        return (Symbol.MethodSymbol) types.findDescriptorSymbol(funcInterfaceType.tsym);
-    }
+  /**
+   * finds the corresponding functional interface method for a lambda expression
+   *
+   * @param tree the lambda expression
+   * @return the functional interface method
+   */
+  public static Symbol.MethodSymbol getFunctionalInterfaceMethod(
+      LambdaExpressionTree tree, Types types) {
+    Type funcInterfaceType = ((JCTree.JCLambda) tree).type;
+    return (Symbol.MethodSymbol) types.findDescriptorSymbol(funcInterfaceType.tsym);
+  }
 
-    /**
-     * determines whether a lambda parameter has an explicit type declaration
-     * @param lambdaParameter the parameter
-     * @return true if there is a type declaration, false otherwise
-     */
-    public static boolean lambdaParamIsExplicitlyTyped(VariableTree lambdaParameter) {
-        // kind of a hack; the "preferred position" seems to be the position
-        // of the variable name.  if this differs from the start position, it
-        // means there is an explicit type declaration
-        JCDiagnostic.DiagnosticPosition diagnosticPosition = (JCDiagnostic.DiagnosticPosition) lambdaParameter;
-        return diagnosticPosition.getStartPosition() != diagnosticPosition.getPreferredPosition();
-    }
+  /**
+   * determines whether a lambda parameter has an explicit type declaration
+   *
+   * @param lambdaParameter the parameter
+   * @return true if there is a type declaration, false otherwise
+   */
+  public static boolean lambdaParamIsExplicitlyTyped(VariableTree lambdaParameter) {
+    // kind of a hack; the "preferred position" seems to be the position
+    // of the variable name.  if this differs from the start position, it
+    // means there is an explicit type declaration
+    JCDiagnostic.DiagnosticPosition diagnosticPosition =
+        (JCDiagnostic.DiagnosticPosition) lambdaParameter;
+    return diagnosticPosition.getStartPosition() != diagnosticPosition.getPreferredPosition();
+  }
 
-    /**
-     * finds the symbol for the top-level class containing the given symbol
-     * @param symbol the given symbol
-     * @return symbol for the non-nested enclosing class
-     */
-    public static Symbol.ClassSymbol getOutermostClassSymbol(Symbol symbol) {
-        // get the symbol for the outermost enclosing class.  this handles
-        // the case of anonymous classes
-        Symbol.ClassSymbol outermostClassSymbol = ASTHelpers.enclosingClass(symbol);
-        while (outermostClassSymbol.getNestingKind().isNested()) {
-            Symbol.ClassSymbol enclosingSymbol = ASTHelpers.enclosingClass(outermostClassSymbol.owner);
-            if (enclosingSymbol != null) {
-                outermostClassSymbol = enclosingSymbol;
-            } else {
-                // enclosingSymbol can be null in weird cases like for array methods
-                break;
-            }
-        }
-        return outermostClassSymbol;
+  /**
+   * finds the symbol for the top-level class containing the given symbol
+   *
+   * @param symbol the given symbol
+   * @return symbol for the non-nested enclosing class
+   */
+  public static Symbol.ClassSymbol getOutermostClassSymbol(Symbol symbol) {
+    // get the symbol for the outermost enclosing class.  this handles
+    // the case of anonymous classes
+    Symbol.ClassSymbol outermostClassSymbol = ASTHelpers.enclosingClass(symbol);
+    while (outermostClassSymbol.getNestingKind().isNested()) {
+      Symbol.ClassSymbol enclosingSymbol = ASTHelpers.enclosingClass(outermostClassSymbol.owner);
+      if (enclosingSymbol != null) {
+        outermostClassSymbol = enclosingSymbol;
+      } else {
+        // enclosingSymbol can be null in weird cases like for array methods
+        break;
+      }
     }
+    return outermostClassSymbol;
+  }
 
-    /**
-     * find the enclosing method or lambda expression for the leaf of some tree path
-     * @param path the tree path
-     * @return the closest enclosing method / lambda
-     */
-    @Nullable
-    public static TreePath findEnclosingMethodOrLambda(TreePath path) {
-        while (path != null) {
-            if (path.getLeaf() instanceof MethodTree || path.getLeaf() instanceof LambdaExpressionTree) {
-                return path;
-            }
-            path = path.getParentPath();
-        }
-        return null;
+  /**
+   * find the enclosing method or lambda expression for the leaf of some tree path
+   *
+   * @param path the tree path
+   * @return the closest enclosing method / lambda
+   */
+  @Nullable
+  public static TreePath findEnclosingMethodOrLambda(TreePath path) {
+    while (path != null) {
+      if (path.getLeaf() instanceof MethodTree || path.getLeaf() instanceof LambdaExpressionTree) {
+        return path;
+      }
+      path = path.getParentPath();
     }
+    return null;
+  }
 }

@@ -24,23 +24,22 @@ package com.uber.nullaway.testdata.unannotated;
 
 public class UnannotatedClass {
 
-    /**
-     * This is an identity method, without Nullability annotations.
-     *
-     * @param x
-     * @return
-     */
-    public static Object foo(Object x) {
-        return x;
-    }
+  /**
+   * This is an identity method, without Nullability annotations.
+   *
+   * @param x
+   * @return
+   */
+  public static Object foo(Object x) {
+    return x;
+  }
 
-    /**
-     * This invokes foo() with null, with would not be allowed in an annotated
-     * package.
-     *
-     * @return
-     */
-    public static Object bar() {
-        return foo(null);
-    }
+  /**
+   * This invokes foo() with null, with would not be allowed in an annotated package.
+   *
+   * @return
+   */
+  public static Object bar() {
+    return foo(null);
+  }
 }

@@ -26,25 +26,27 @@ import javax.annotation.Nullable;
 
 public class NullAwayAnonymousClass {
 
-    static class Inner {
+  static class Inner {
 
-        void takeParams(Object o1, Object o2) {}
-    }
+    void takeParams(Object o1, Object o2) {}
+  }
 
-    static void anonymousClass(final Inner x) {
+  static void anonymousClass(final Inner x) {
 
-        Runnable r = new Runnable() {
-            @Override
-            public void run() {
-                Object y = new Object();
-                // BUG: Diagnostic contains: passing @Nullable parameter 'create()' where @NonNull is required
-                x.takeParams(y, create());
-            }
+    Runnable r =
+        new Runnable() {
+          @Override
+          public void run() {
+            Object y = new Object();
+            // BUG: Diagnostic contains: passing @Nullable parameter 'create()' where @NonNull is
+            // required
+            x.takeParams(y, create());
+          }
 
-            @Nullable
-            private Object create() {
-                return new Object();
-            }
+          @Nullable
+          private Object create() {
+            return new Object();
+          }
         };
-    }
+  }
 }

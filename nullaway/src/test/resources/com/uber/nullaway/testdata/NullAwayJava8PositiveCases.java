@@ -22,53 +22,62 @@
 
 package com.uber.nullaway.testdata;
 
-import io.reactivex.functions.Function;
 import io.reactivex.functions.BiFunction;
-
+import io.reactivex.functions.Function;
 import javax.annotation.Nullable;
 
 public class NullAwayJava8PositiveCases {
 
-    @FunctionalInterface
-    interface RetNonNullFunction {
+  @FunctionalInterface
+  interface RetNonNullFunction {
 
-        Object getVal();
-    }
+    Object getVal();
+  }
 
-    public static void testRetNonNull() {
-        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
-        RetNonNullFunction p = () -> { return null; };
-        p.getVal();
-    }
+  public static void testRetNonNull() {
+    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return
+    // type
+    RetNonNullFunction p =
+        () -> {
+          return null;
+        };
+    p.getVal();
+  }
 
-    @FunctionalInterface
-    interface NullableParamFunction {
+  @FunctionalInterface
+  interface NullableParamFunction {
 
-        String takeVal(@Nullable Object x);
-    }
+    String takeVal(@Nullable Object x);
+  }
 
-    @FunctionalInterface
-    interface NonNullParamFunction {
+  @FunctionalInterface
+  interface NonNullParamFunction {
 
-        String takeVal(Object x);
-    }
+    String takeVal(Object x);
+  }
 
-    static void testNullableParam() {
-        // BUG: Diagnostic contains: dereferenced expression x is @Nullable
-        NullableParamFunction n = (x) -> x.toString();
-        // BUG: Diagnostic contains: parameter x is @NonNull, but parameter in functional interface method
-        NullableParamFunction n2 = (Object x) -> x.toString();
-        // BUG: Diagnostic contains: dereferenced expression x is @Nullable
-        NonNullParamFunction n3 = (@Nullable Object x) -> x.toString();
-    }
+  static void testNullableParam() {
+    // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+    NullableParamFunction n = (x) -> x.toString();
+    // BUG: Diagnostic contains: parameter x is @NonNull, but parameter in functional interface
+    // method
+    NullableParamFunction n2 = (Object x) -> x.toString();
+    // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+    NonNullParamFunction n3 = (@Nullable Object x) -> x.toString();
+  }
 
-    static void testAnnoatedThirdParty() {
-        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
-        Function<String,Object> f1 = (x) -> null;   // io.reactivex.(Bi)Function is anotated
-        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
-        Function<String,Object> f2 = (x) -> { return null; };
-        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
-        BiFunction<String,String,Object>  f3 = (x, y) -> null;
-    }
-
+  static void testAnnoatedThirdParty() {
+    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return
+    // type
+    Function<String, Object> f1 = (x) -> null; // io.reactivex.(Bi)Function is anotated
+    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return
+    // type
+    Function<String, Object> f2 =
+        (x) -> {
+          return null;
+        };
+    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return
+    // type
+    BiFunction<String, String, Object> f3 = (x, y) -> null;
+  }
 }

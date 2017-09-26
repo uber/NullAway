@@ -23,120 +23,122 @@
 package com.uber.nullaway.testdata;
 
 import com.facebook.infer.annotation.Initializer;
-
 import javax.annotation.Nullable;
 
-/**
- * Created by msridhar on 3/7/17.
- */
+/** Created by msridhar on 3/7/17. */
 public class CheckFieldInitPositiveCases {
 
-    static class T1 {
+  static class T1 {
 
-        Object f;
+    Object f;
 
-        // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is initialized
-        T1() {}
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // initialized
+    T1() {}
+  }
+
+  static class T2 {
+
+    Object f, g;
+
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull fields f, g are
+    // initialized
+    T2() {}
+  }
+
+  static class T3 {
+
+    // BUG: Diagnostic contains: @NonNull field f not initialized
+    Object f;
+  }
+
+  static class T4 {
+
+    // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+    Object f = null;
+
+    @Nullable
+    static Object returnNull() {
+      return null;
     }
 
-    static class T2 {
+    // TODO detect this error
+    Object g = returnNull();
+  }
 
-        Object f, g;
+  static class T5 {
 
-        // BUG: Diagnostic contains: initializer method does not guarantee @NonNull fields f, g are initialized
-        T2() {}
+    Object f;
+
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // initialized
+    T5(boolean b) {
+      if (b) {
+        this.f = new Object();
+      }
+    }
+  }
+
+  static class T6 {
+
+    Object f;
+
+    T6() {
+      // to test detection of this() call
+      this(false);
     }
 
-    static class T3 {
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // initialized
+    T6(boolean b) {}
+  }
 
-        // BUG: Diagnostic contains: @NonNull field f not initialized
-        Object f;
+  static class T7 {
 
+    Object f;
+    Object g;
+
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // initialized
+    T7(boolean b) {
+      if (b) {
+        init();
+      }
+      g = new Object();
     }
 
-    static class T4 {
-
-        // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
-        Object f = null;
-
-        @Nullable
-        static Object returnNull() { return null; }
-
-        // TODO detect this error
-        Object g = returnNull();
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g is
+    // initialized
+    T7() {
+      init();
+      init2();
     }
 
-    static class T5 {
-
-        Object f;
-
-        // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is initialized
-        T5(boolean b) {
-            if (b) {
-                this.f = new Object();
-            }
-        }
+    private void init() {
+      f = new Object();
     }
 
-    static class T6 {
-
-        Object f;
-
-        T6() {
-            // to test detection of this() call
-            this(false);
-        }
-
-        // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is initialized
-        T6(boolean b) {}
-
+    public void init2() {
+      g = new Object();
     }
+  }
 
-    static class T7 {
+  static class T8 {
 
-        Object f;
-        Object g;
+    Object f;
 
-        // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is initialized
-        T7(boolean b) {
-            if (b) {
-                init();
-            }
-            g = new Object();
-        }
-
-        // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g is initialized
-        T7() {
-            init();
-            init2();
-        }
-
-        private void init() {
-            f = new Object();
-        }
-
-        public void init2() {
-            g = new Object();
-        }
-    }
-
-    static class T8 {
-
-        Object f;
-
-        @Initializer
-        // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is initialized
-        public void init() {
-
-        }
-    }
-//    static class T7 {
-//
-//        static Object f;
-//
-//        static {
-//
-//        }
-//
-//    }
+    @Initializer
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // initialized
+    public void init() {}
+  }
+  //    static class T7 {
+  //
+  //        static Object f;
+  //
+  //        static {
+  //
+  //        }
+  //
+  //    }
 }

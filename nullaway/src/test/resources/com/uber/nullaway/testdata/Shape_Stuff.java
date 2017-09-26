@@ -22,20 +22,22 @@
 
 package com.uber.nullaway.testdata;
 
-/**
- * to test exclusions functionality
- */
+/** to test exclusions functionality */
 public class Shape_Stuff {
 
-    static class C { Object f = new Object(); }
+  static class C {
+    Object f = new Object();
+  }
 
-    private static void callee(Object x) { x.toString(); }
-    // we should report no errors
-    public static Object doBadStuff() {
-        Object x = null;
-        x.toString();
-        (new C()).f = x;
-        callee(x);
-        return x;
-    }
+  private static void callee(Object x) {
+    x.toString();
+  }
+  // we should report no errors
+  public static Object doBadStuff() {
+    Object x = null;
+    x.toString();
+    (new C()).f = x;
+    callee(x);
+    return x;
+  }
 }

@@ -22,93 +22,105 @@
 
 package com.uber.nullaway.testdata;
 
-import javax.annotation.Nullable;
-
 import io.reactivex.Observable;
 import io.reactivex.functions.Function;
 import io.reactivex.functions.Predicate;
+import javax.annotation.Nullable;
 
 public class NullAwayRxSupportPositiveCases {
 
-    static class NullableContainer<T> {
-        @Nullable private T ref;
+  static class NullableContainer<T> {
+    @Nullable private T ref;
 
-        public NullableContainer() {
-            ref = null;
-        }
-
-        @Nullable public T get() {
-            return ref;
-        }
-
-        public void set(T o) {
-            ref = o;
-        }
+    public NullableContainer() {
+      ref = null;
     }
 
-    private static boolean perhaps() {
-        return Math.random() > 0.5;
+    @Nullable
+    public T get() {
+      return ref;
     }
 
-    private Observable<Integer> filterWithIfThenMapNullableContainerNullableOnSomeBranch
-            (Observable<NullableContainer<String>> observable) {
-        return observable.filter(new Predicate<NullableContainer<String>>() {
-            @Override
-            public boolean test(NullableContainer<String> container) throws Exception {
+    public void set(T o) {
+      ref = o;
+    }
+  }
+
+  private static boolean perhaps() {
+    return Math.random() > 0.5;
+  }
+
+  private Observable<Integer> filterWithIfThenMapNullableContainerNullableOnSomeBranch(
+      Observable<NullableContainer<String>> observable) {
+    return observable
+        .filter(
+            new Predicate<NullableContainer<String>>() {
+              @Override
+              public boolean test(NullableContainer<String> container) throws Exception {
                 if (container.get() != null) {
-                    return true;
+                  return true;
                 } else {
-                    return perhaps();
+                  return perhaps();
                 }
-            }
-        }).map(new Function<NullableContainer<String>, Integer>() {
-            @Override
-            public Integer apply(NullableContainer<String> c) throws Exception {
+              }
+            })
+        .map(
+            new Function<NullableContainer<String>, Integer>() {
+              @Override
+              public Integer apply(NullableContainer<String> c) throws Exception {
                 // BUG: Diagnostic contains: dereferenced expression
                 return c.get().length();
-            }
-        });
-    }
+              }
+            });
+  }
 
-    private Observable<Integer> filterWithIfThenMapNullableContainerNullableOnSomeBranchAnyOrder
-            (Observable<NullableContainer<String>> observable) {
-        return observable.filter(new Predicate<NullableContainer<String>>() {
-            @Override
-            public boolean test(NullableContainer<String> container) throws Exception {
+  private Observable<Integer> filterWithIfThenMapNullableContainerNullableOnSomeBranchAnyOrder(
+      Observable<NullableContainer<String>> observable) {
+    return observable
+        .filter(
+            new Predicate<NullableContainer<String>>() {
+              @Override
+              public boolean test(NullableContainer<String> container) throws Exception {
                 if (container.get() == null) {
-                    return perhaps();
+                  return perhaps();
                 } else {
-                    return true;
+                  return true;
                 }
-            }
-        }).map(new Function<NullableContainer<String>, Integer>() {
-            @Override
-            public Integer apply(NullableContainer<String> c1) throws Exception {
+              }
+            })
+        .map(
+            new Function<NullableContainer<String>, Integer>() {
+              @Override
+              public Integer apply(NullableContainer<String> c1) throws Exception {
                 // BUG: Diagnostic contains: dereferenced expression
                 return c1.get().length();
-            }
-        });
-    }
+              }
+            });
+  }
 
-    private Observable<Integer> filterWithOrExpressionThenMapNullableContainer
-            (Observable<NullableContainer<String>> observable) {
-        return observable.filter(new Predicate<NullableContainer<String>>() {
-            @Override
-            public boolean test(NullableContainer<String> container) throws Exception {
+  private Observable<Integer> filterWithOrExpressionThenMapNullableContainer(
+      Observable<NullableContainer<String>> observable) {
+    return observable
+        .filter(
+            new Predicate<NullableContainer<String>>() {
+              @Override
+              public boolean test(NullableContainer<String> container) throws Exception {
                 return container.get() != null || perhaps();
-            }
-        }).map(new Function<NullableContainer<String>, Integer>() {
-            @Override
-            public Integer apply(NullableContainer<String> container) throws Exception {
+              }
+            })
+        .map(
+            new Function<NullableContainer<String>, Integer>() {
+              @Override
+              public Integer apply(NullableContainer<String> container) throws Exception {
                 // BUG: Diagnostic contains: dereferenced expression
                 return container.get().length();
-            }
-        });
-    }
+              }
+            });
+  }
 
-    private Observable<Integer> filterWithLambdaNullExpressionBody
-            (Observable<String> observable) {
-        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
-        return observable.map(o -> perhaps() ? o : null).map(o -> o.length());
-    }
+  private Observable<Integer> filterWithLambdaNullExpressionBody(Observable<String> observable) {
+    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return
+    // type
+    return observable.map(o -> perhaps() ? o : null).map(o -> o.length());
+  }
 }
