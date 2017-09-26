@@ -20,6 +20,10 @@ plugins {
   id "java"
 }
 
+googleJavaFormat {
+  toolVersion = '1.4'
+}
+
 // we use this config to get the path of the JDK 9 javac jar, to
 // stick it in the bootclasspath when running tests
 configurations.maybeCreate("epJavac")
