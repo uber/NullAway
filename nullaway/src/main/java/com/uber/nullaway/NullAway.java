@@ -151,6 +151,8 @@ public class NullAway extends BugChecker
         BugChecker.ForLoopTreeMatcher,
         BugChecker.LambdaExpressionTreeMatcher {
 
+  private static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
+
   private static final Matcher<ExpressionTree> THIS_MATCHER =
       (expressionTree, state) -> isThisIdentifier(expressionTree);
 
@@ -427,6 +429,18 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
+  private boolean symbolHasSuppressInitalizationWarningsAnnotation(Symbol symbol) {
+    SuppressWarnings annotation = symbol.getAnnotation(SuppressWarnings.class);
+    if (annotation != null) {
+      for (String s : annotation.value()) {
+        if (s.equals(INITIALIZATION_CHECK_NAME)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
   @Override
   public Description matchVariable(VariableTree tree, VisitorState state) {
     if (!matchWithinClass) {
@@ -442,6 +456,9 @@ public class NullAway extends BugChecker
     if (fieldsWithInitializationErrors.contains(symbol)) {
       // be careful to delete entry to avoid leaks
       fieldsWithInitializationErrors.remove(symbol);
+      if (symbolHasSuppressInitalizationWarningsAnnotation(symbol)) {
+        return Description.NO_MATCH;
+      }
       return createErrorDescription(tree, "@NonNull field " + symbol + " not initialized", tree);
     }
     ExpressionTree initializer = tree.getInitializer();
@@ -1065,8 +1082,16 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, baseExpression)) {
-      String message = "dereferenced expression " + baseExpression.toString() + " is @Nullable";
-      return createErrorDescription(derefExpression, message, state.getPath());
+      String message =
+          MessageTypes.DEREFERENCE_NULLABLE.toString()
+              + " dereferenced expression "
+              + baseExpression.toString()
+              + " is @Nullable";
+      if (config.getCastToNonNullMethod() != null) {
+        return createErrorDescription(derefExpression, message, baseExpression);
+      } else {
+        return createErrorDescription(derefExpression, message, state.getPath());
+      }
     }
     return Description.NO_MATCH;
   }
@@ -1097,10 +1122,29 @@ public class NullAway extends BugChecker
       Tree errorLocTree, String message, @Nullable Tree suggestTree) {
     Description.Builder builder = buildDescription(errorLocTree).setMessage(message);
     if (config.suggestSuppressions() && suggestTree != null) {
+      if (message.contains(MessageTypes.DEREFERENCE_NULLABLE.toString())
+          && config.getCastToNonNullMethod() != null) {
+        builder = addCastToNonNullFix(suggestTree, builder);
+      }
       builder = addSuppressWarningsFix(suggestTree, builder);
     }
     // #letbuildersbuild
     return builder.build();
+  }
+
+  private Description.Builder addCastToNonNullFix(Tree suggestTree, Description.Builder builder) {
+    String fullMethodName = config.getCastToNonNullMethod();
+    assert fullMethodName != null;
+    // Add a call to castToNonNull around suggestTree:
+    String[] parts = fullMethodName.split("\\.");
+    String shortMethodName = parts[parts.length - 1];
+    String replacement = shortMethodName + "(" + suggestTree.toString() + ")";
+    SuggestedFix fix =
+        SuggestedFix.builder()
+            .replace(suggestTree, replacement)
+            .addStaticImport(fullMethodName) // ensure castToNonNull static import
+            .build();
+    return builder.addFix(fix);
   }
 
   private Description.Builder addSuppressWarningsFix(
@@ -1233,6 +1277,9 @@ public class NullAway extends BugChecker
     String message = initializerErrors.get(methodSymbol);
     // be careful to delete the entry in the map to avoid a leak
     initializerErrors.remove(methodSymbol);
+    if (symbolHasSuppressInitalizationWarningsAnnotation(methodSymbol)) {
+      return Description.NO_MATCH;
+    }
     return createErrorDescription(methodTree, message, methodTree);
   }
 
@@ -1245,6 +1292,21 @@ public class NullAway extends BugChecker
     }
     message += " along all control-flow paths (remember to check for exceptions or early returns).";
     return message;
+  }
+
+  public static enum MessageTypes {
+    DEREFERENCE_NULLABLE(0);
+
+    private final int code;
+
+    private MessageTypes(int c) {
+      code = c;
+    }
+
+    @Override
+    public String toString() {
+      return "[NullAway_Err_" + Integer.toString(code) + "]";
+    }
   }
 
   @AutoValue

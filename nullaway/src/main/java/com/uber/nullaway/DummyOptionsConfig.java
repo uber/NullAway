@@ -89,4 +89,9 @@ public class DummyOptionsConfig implements Config {
   public boolean suggestSuppressions() {
     throw new IllegalStateException(error_msg);
   }
+
+  @Override
+  public String getCastToNonNullMethod() {
+    throw new IllegalStateException(error_msg);
+  }
 }
