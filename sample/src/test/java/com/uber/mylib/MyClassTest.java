@@ -15,14 +15,14 @@
  */
 package com.uber.mylib;
 
-import org.junit.Test;
-
 import static org.junit.Assert.assertEquals;
+
+import org.junit.Test;
 
 public class MyClassTest {
 
-    @Test
-    public void test() {
-        assertEquals(4, 2 + 2);
-    }
+  @Test
+  public void test() {
+    assertEquals(4, 2 + 2);
+  }
 }

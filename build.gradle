@@ -14,6 +14,15 @@
  * limitations under the License.
  */
 
+plugins {
+  id "com.github.sherter.google-java-format" version "0.6"
+}
+
+repositories {
+  // to get the google-java-format jar and dependencies
+  jcenter()
+}
+
 subprojects {
     buildscript {
         repositories {
@@ -30,4 +39,9 @@ subprojects {
 
 }
 
-apply from: 'gradle/dependencies.gradle'
+
+googleJavaFormat {
+  toolVersion = "1.4"
+}
+
+apply from: "gradle/dependencies.gradle"

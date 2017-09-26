@@ -24,22 +24,19 @@ package com.uber.nullaway.handlers;
 
 import com.google.common.collect.ImmutableList;
 
-/**
- * Utility static methods for the handlers package.
- */
+/** Utility static methods for the handlers package. */
 public class Handlers {
 
-    private Handlers() {  }
+  private Handlers() {}
 
-    /**
-     * Builds the default handler for the checker.
-     *
-     * @return A {@code CompositeHandler} including the standard handlers for the nullness checker.
-     */
-    public static Handler buildDefault() {
-        // In the future we can add LibraryModels functionality here, and even plug-in handlers.
-        return new CompositeHandler(ImmutableList.of(
-                new LibraryModelsHandler(),
-                new RxNullabilityPropagator()));
-    }
+  /**
+   * Builds the default handler for the checker.
+   *
+   * @return A {@code CompositeHandler} including the standard handlers for the nullness checker.
+   */
+  public static Handler buildDefault() {
+    // In the future we can add LibraryModels functionality here, and even plug-in handlers.
+    return new CompositeHandler(
+        ImmutableList.of(new LibraryModelsHandler(), new RxNullabilityPropagator()));
+  }
 }

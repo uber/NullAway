@@ -22,14 +22,12 @@
 
 package com.uber.nullaway.testdata;
 
-/**
- * Created by msridhar on 3/9/17.
- */
+/** Created by msridhar on 3/9/17. */
 @TestAnnot
 public class AnnotatedClass {
 
-    public static void foo() {
-        Object x = null;
-        x.toString();
-    }
+  public static void foo() {
+    Object x = null;
+    x.toString();
+  }
 }

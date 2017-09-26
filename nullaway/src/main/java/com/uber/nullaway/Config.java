@@ -24,70 +24,60 @@ package com.uber.nullaway;
 
 import com.sun.tools.javac.code.Symbol;
 
-/**
- * Provides configuration parameters for the nullability checker.
- */
+/** Provides configuration parameters for the nullability checker. */
 public interface Config {
 
-    /**
-     * @param className fully-qualified class name
-     * @return true if the class is from a package that should be
-     * treated as properly annotated according to our convention (every
-     * possibly null parameter / return / field annotated @Nullable),
-     * false otherwise
-     */
-    boolean fromAnnotatedPackage(String className);
+  /**
+   * @param className fully-qualified class name
+   * @return true if the class is from a package that should be treated as properly annotated
+   *     according to our convention (every possibly null parameter / return / field
+   *     annotated @Nullable), false otherwise
+   */
+  boolean fromAnnotatedPackage(String className);
 
-    /**
-     *
-     * @param className fully-qualified class name
-     * @return true if the source file for the class should be
-     * excluded from nullability analysis, false otherwise
-     */
-    boolean isExcludedClass(String className);
+  /**
+   * @param className fully-qualified class name
+   * @return true if the source file for the class should be excluded from nullability analysis,
+   *     false otherwise
+   */
+  boolean isExcludedClass(String className);
 
-    /**
-     *
-     * @param annotationName fully-qualified annotation name
-     * @return true if a top-level class with this annotation should be
-     * excluded from nullability analysis, false otherwise
-     */
-    boolean isExcludedClassAnnotation(String annotationName);
+  /**
+   * @param annotationName fully-qualified annotation name
+   * @return true if a top-level class with this annotation should be excluded from nullability
+   *     analysis, false otherwise
+   */
+  boolean isExcludedClassAnnotation(String annotationName);
 
-    /**
-     *
-     * @param annotationName fully-qualified annotation name
-     * @return true if a method with this annotation should be considered an initializer method,
-     * false otherwise.
-     */
-    boolean isInitializerMethodAnnotation(String annotationName);
+  /**
+   * @param annotationName fully-qualified annotation name
+   * @return true if a method with this annotation should be considered an initializer method, false
+   *     otherwise.
+   */
+  boolean isInitializerMethodAnnotation(String annotationName);
 
-    /**
-     *
-     * @param annotationName fully-qualified annotation name
-     * @return true if a field with this annotation should not be
-     * checked for proper initialization, false otherwise
-     */
-    boolean isExcludedFieldAnnotation(String annotationName);
+  /**
+   * @param annotationName fully-qualified annotation name
+   * @return true if a field with this annotation should not be checked for proper initialization,
+   *     false otherwise
+   */
+  boolean isExcludedFieldAnnotation(String annotationName);
 
-    /**
-     *
-     * @return true if the analysis can assume that all overriding methods (including implementations of
-     * interface methods) are annotated with @Override, false otherwise
-     */
-    boolean exhaustiveOverride();
+  /**
+   * @return true if the analysis can assume that all overriding methods (including implementations
+   *     of interface methods) are annotated with @Override, false otherwise
+   */
+  boolean exhaustiveOverride();
 
-    /**
-     *
-     * @param methodSymbol the method
-     * @return true if the method is a known initializer
-     */
-    boolean isKnownInitializerMethod(Symbol.MethodSymbol methodSymbol);
+  /**
+   * @param methodSymbol the method
+   * @return true if the method is a known initializer
+   */
+  boolean isKnownInitializerMethod(Symbol.MethodSymbol methodSymbol);
 
-    /**
-     * @return true if the null checker should suggest adding warning suppressions.  Only useful for suppressing
-     * all warnings in a large code base.
-     */
-    boolean suggestSuppressions();
-
+  /**
+   * @return true if the null checker should suggest adding warning suppressions. Only useful for
+   *     suppressing all warnings in a large code base.
+   */
+  boolean suggestSuppressions();
 }

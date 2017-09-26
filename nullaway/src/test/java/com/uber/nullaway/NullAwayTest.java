@@ -23,7 +23,7 @@
 package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
-
+import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -31,117 +31,107 @@ import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
-import java.util.Arrays;
-
-/**
- * Unit tests for {@link com.uber.nullaway.NullAway}.
- */
+/** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
 @SuppressWarnings("CheckTestExtendsBaseClass")
 public class NullAwayTest {
 
-    @Rule
-    public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-    private CompilationTestHelper compilationHelper;
+  private CompilationTestHelper compilationHelper;
 
-    @Before
-    public void setup() {
-        compilationHelper = CompilationTestHelper.newInstance(NullAway.class, getClass());
-        compilationHelper.setArgs(Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:KnownInitializers="
-                        + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases.Super.doInit,"
-                        + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases"
-                        + ".SuperInterface.doInit2",
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
-                "-XepOpt:NullAway:UnannotatedSubPackages="
-                        + "com.uber.nullaway.testdata.unannotated",
-                "-XepOpt:NullAway:ExcludedClasses="
-                        + "com.uber.nullaway.testdata.Shape_Stuff",
-                "-XepOpt:NullAway:ExcludedClassAnnotations="
-                        + "com.uber.nullaway.testdata"
-                        + ".TestAnnot",
-                "-XepOpt:NullAway:ExcludedFieldAnnotations=javax.inject.Inject"
-        ));
-    }
+  @Before
+  public void setup() {
+    compilationHelper = CompilationTestHelper.newInstance(NullAway.class, getClass());
+    compilationHelper.setArgs(
+        Arrays.asList(
+            "-d",
+            temporaryFolder.getRoot().getAbsolutePath(),
+            "-XepOpt:NullAway:KnownInitializers="
+                + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases.Super.doInit,"
+                + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases"
+                + ".SuperInterface.doInit2",
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
+            "-XepOpt:NullAway:UnannotatedSubPackages=" + "com.uber.nullaway.testdata.unannotated",
+            "-XepOpt:NullAway:ExcludedClasses=" + "com.uber.nullaway.testdata.Shape_Stuff",
+            "-XepOpt:NullAway:ExcludedClassAnnotations="
+                + "com.uber.nullaway.testdata"
+                + ".TestAnnot",
+            "-XepOpt:NullAway:ExcludedFieldAnnotations=javax.inject.Inject"));
+  }
 
-    @Test
-    public void coreNullabilityPositiveCases() {
-        compilationHelper.addSourceFile("NullAwayPositiveCases.java").doTest();
-    }
+  @Test
+  public void coreNullabilityPositiveCases() {
+    compilationHelper.addSourceFile("NullAwayPositiveCases.java").doTest();
+  }
 
-    @Test
-    public void nullabilityAnonymousClass() {
-        compilationHelper.addSourceFile("NullAwayAnonymousClass.java").doTest();
-    }
+  @Test
+  public void nullabilityAnonymousClass() {
+    compilationHelper.addSourceFile("NullAwayAnonymousClass.java").doTest();
+  }
 
-    @Test
-    public void coreNullabilityNegativeCases() {
-        compilationHelper
-                .addSourceFile("NullAwayNegativeCases.java")
-                .addSourceFile("OtherStuff.java")
-                .addSourceFile("TestAnnot.java")
-                .doTest();
-    }
+  @Test
+  public void coreNullabilityNegativeCases() {
+    compilationHelper
+        .addSourceFile("NullAwayNegativeCases.java")
+        .addSourceFile("OtherStuff.java")
+        .addSourceFile("TestAnnot.java")
+        .doTest();
+  }
 
-    @Test
-    public void coreNullabilitySkipClass() {
-        compilationHelper.addSourceFile("Shape_Stuff.java").doTest();
-        compilationHelper
-                .addSourceFile("AnnotatedClass.java")
-                .addSourceFile("TestAnnot.java")
-                .doTest();
-    }
+  @Test
+  public void coreNullabilitySkipClass() {
+    compilationHelper.addSourceFile("Shape_Stuff.java").doTest();
+    compilationHelper.addSourceFile("AnnotatedClass.java").addSourceFile("TestAnnot.java").doTest();
+  }
 
-    @Test
-    public void coreNullabilitySkipPackage() {
-        compilationHelper.addSourceFile("unannotated/UnannotatedClass.java").doTest();
-    }
+  @Test
+  public void coreNullabilitySkipPackage() {
+    compilationHelper.addSourceFile("unannotated/UnannotatedClass.java").doTest();
+  }
 
-    @Test
-    public void coreNullabilityNativeModels() {
-        compilationHelper.addSourceFile("NullAwayNativeModels.java").doTest();
-    }
+  @Test
+  public void coreNullabilityNativeModels() {
+    compilationHelper.addSourceFile("NullAwayNativeModels.java").doTest();
+  }
 
-    @Test
-    public void initFieldPositiveCases() {
-        compilationHelper.addSourceFile("CheckFieldInitPositiveCases.java").doTest();
-    }
+  @Test
+  public void initFieldPositiveCases() {
+    compilationHelper.addSourceFile("CheckFieldInitPositiveCases.java").doTest();
+  }
 
-    @Test
-    public void initFieldNegativeCases() {
-        compilationHelper.addSourceFile("CheckFieldInitNegativeCases.java").doTest();
-    }
+  @Test
+  public void initFieldNegativeCases() {
+    compilationHelper.addSourceFile("CheckFieldInitNegativeCases.java").doTest();
+  }
 
-    @Test
-    public void java8PositiveCases() {
-        compilationHelper.addSourceFile("NullAwayJava8PositiveCases.java").doTest();
-    }
+  @Test
+  public void java8PositiveCases() {
+    compilationHelper.addSourceFile("NullAwayJava8PositiveCases.java").doTest();
+  }
 
-    @Test
-    public void java8NegativeCases() {
-        compilationHelper.addSourceFile("NullAwayJava8NegativeCases.java").doTest();
-    }
+  @Test
+  public void java8NegativeCases() {
+    compilationHelper.addSourceFile("NullAwayJava8NegativeCases.java").doTest();
+  }
 
-    @Test
-    public void rxSupportPositiveCases() {
-        compilationHelper.addSourceFile("NullAwayRxSupportPositiveCases.java").doTest();
-    }
+  @Test
+  public void rxSupportPositiveCases() {
+    compilationHelper.addSourceFile("NullAwayRxSupportPositiveCases.java").doTest();
+  }
 
-    @Test
-    public void rxSupportNegativeCases() {
-        compilationHelper.addSourceFile("NullAwayRxSupportNegativeCases.java").doTest();
-    }
+  @Test
+  public void rxSupportNegativeCases() {
+    compilationHelper.addSourceFile("NullAwayRxSupportNegativeCases.java").doTest();
+  }
 
-    @Test
-    public void functionalMethodSuperInterface() {
-        compilationHelper.addSourceFile("NullAwaySuperFunctionalInterface.java").doTest();
-    }
+  @Test
+  public void functionalMethodSuperInterface() {
+    compilationHelper.addSourceFile("NullAwaySuperFunctionalInterface.java").doTest();
+  }
 
-    @Test
-    public void functionalMethodOverrideSuperInterface() {
-        compilationHelper.addSourceFile("NullAwayOverrideFunctionalInterfaces.java").doTest();
-    }
+  @Test
+  public void functionalMethodOverrideSuperInterface() {
+    compilationHelper.addSourceFile("NullAwayOverrideFunctionalInterfaces.java").doTest();
+  }
 }

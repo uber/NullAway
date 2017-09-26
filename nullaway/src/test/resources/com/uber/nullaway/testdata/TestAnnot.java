@@ -22,12 +22,12 @@
 
 package com.uber.nullaway.testdata;
 
-import java.lang.annotation.Retention;
-
 import static java.lang.annotation.RetentionPolicy.CLASS;
+
+import java.lang.annotation.Retention;
 
 @Retention(CLASS)
 public @interface TestAnnot {
 
-    String TEST_STR = "test_str";
+  String TEST_STR = "test_str";
 }

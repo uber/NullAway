@@ -4,7 +4,7 @@ jdk:
   - oraclejdk8
 
 script:
-  - ./gradlew build
+  - ./gradlew verGJF build
 
 notifications:
   email: false

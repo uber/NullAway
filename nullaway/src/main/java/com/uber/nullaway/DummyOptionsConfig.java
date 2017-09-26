@@ -22,67 +22,71 @@
 
 package com.uber.nullaway;
 
-import com.sun.tools.javac.code.Symbol;
-
 import static com.uber.nullaway.ErrorProneCLIFlagsConfig.EP_FL_NAMESPACE;
 import static com.uber.nullaway.ErrorProneCLIFlagsConfig.FL_ANNOTATED_PACKAGES;
+
+import com.sun.tools.javac.code.Symbol;
 
 /**
  * Dummy Config class required for the {@link NullAway} empty constructor.
  *
- * Error Prone requires us to have an empty constructor for each Plugin, in addition to the constructor taking
- * an ErrorProneFlags object. The {@link NullAway} plugin should never be used without at least the
- * {@link ErrorProneCLIFlagsConfig#FL_ANNOTATED_PACKAGES} flag set, so this config object will throw an exception if
- * used when actually running the analysis.
+ * <p>Error Prone requires us to have an empty constructor for each Plugin, in addition to the
+ * constructor taking an ErrorProneFlags object. The {@link NullAway} plugin should never be used
+ * without at least the {@link ErrorProneCLIFlagsConfig#FL_ANNOTATED_PACKAGES} flag set, so this
+ * config object will throw an exception if used when actually running the analysis.
  */
 public class DummyOptionsConfig implements Config {
 
-    private final String error_msg = "To run the " + EP_FL_NAMESPACE + " analysis plugin please specify analysis "
-            + "options with -XepOpt:" + EP_FL_NAMESPACE + ":[...]. You should at least specify annotated packages, "
-            + "using the -XepOpt:" + FL_ANNOTATED_PACKAGES + "=[...] flag.";
+  private final String error_msg =
+      "To run the "
+          + EP_FL_NAMESPACE
+          + " analysis plugin please specify analysis "
+          + "options with -XepOpt:"
+          + EP_FL_NAMESPACE
+          + ":[...]. You should at least specify annotated packages, "
+          + "using the -XepOpt:"
+          + FL_ANNOTATED_PACKAGES
+          + "=[...] flag.";
 
-    public DummyOptionsConfig() {
+  public DummyOptionsConfig() {}
 
-    }
+  @Override
+  public boolean fromAnnotatedPackage(String className) {
+    throw new IllegalStateException(error_msg);
+  }
 
-    @Override
-    public boolean fromAnnotatedPackage(String className) {
-        throw new IllegalStateException(error_msg);
-    }
+  @Override
+  public boolean isExcludedClass(String className) {
+    throw new IllegalStateException(error_msg);
+  }
 
-    @Override
-    public boolean isExcludedClass(String className) {
-        throw new IllegalStateException(error_msg);
-    }
+  @Override
+  public boolean isExcludedClassAnnotation(String annotationName) {
+    throw new IllegalStateException(error_msg);
+  }
 
-    @Override
-    public boolean isExcludedClassAnnotation(String annotationName) {
-        throw new IllegalStateException(error_msg);
-    }
+  @Override
+  public boolean exhaustiveOverride() {
+    throw new IllegalStateException(error_msg);
+  }
 
-    @Override
-    public boolean exhaustiveOverride() {
-        throw new IllegalStateException(error_msg);
-    }
+  @Override
+  public boolean isKnownInitializerMethod(Symbol.MethodSymbol methodSymbol) {
+    throw new IllegalStateException(error_msg);
+  }
 
-    @Override
-    public boolean isKnownInitializerMethod(Symbol.MethodSymbol methodSymbol) {
-        throw new IllegalStateException(error_msg);
-    }
+  @Override
+  public boolean isExcludedFieldAnnotation(String annotationName) {
+    throw new IllegalStateException(error_msg);
+  }
 
-    @Override
-    public boolean isExcludedFieldAnnotation(String annotationName) {
-        throw new IllegalStateException(error_msg);
-    }
+  @Override
+  public boolean isInitializerMethodAnnotation(String annotationName) {
+    throw new IllegalStateException(error_msg);
+  }
 
-    @Override
-    public boolean isInitializerMethodAnnotation(String annotationName) {
-        throw new IllegalStateException(error_msg);
-    }
-
-    @Override
-    public boolean suggestSuppressions() {
-        throw new IllegalStateException(error_msg);
-    }
-
+  @Override
+  public boolean suggestSuppressions() {
+    throw new IllegalStateException(error_msg);
+  }
 }
