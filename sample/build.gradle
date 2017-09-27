@@ -24,7 +24,7 @@ sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
 dependencies {
-    apt project(":nullaway")
+    apt project(path: ":nullaway", configuration: "shadow")
 
     errorprone deps.build.errorProneCore
 

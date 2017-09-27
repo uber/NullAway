@@ -58,7 +58,7 @@ dependencies {
 }
 
 shadowJar {
-    classifier = "cf"
+    classifier = null
 }
 
 compileJava {
