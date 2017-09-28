@@ -16,15 +16,13 @@
 package com.uber.nullaway.dataflow;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.errorprone.dataflow.nullnesspropagation.Nullness.BOTTOM;
-import static com.google.errorprone.dataflow.nullnesspropagation.Nullness.NONNULL;
-import static com.google.errorprone.dataflow.nullnesspropagation.Nullness.NULLABLE;
+import static com.uber.nullaway.Nullness.BOTTOM;
+import static com.uber.nullaway.Nullness.NONNULL;
+import static com.uber.nullaway.Nullness.NULLABLE;
 import static javax.lang.model.element.ElementKind.EXCEPTION_PARAMETER;
 import static org.checkerframework.javacutil.TreeUtils.elementFromDeclaration;
 
 import com.google.common.base.Preconditions;
-import com.google.errorprone.dataflow.nullnesspropagation.Nullness;
-import com.google.errorprone.dataflow.nullnesspropagation.TrustingNullnessAnalysis;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.VariableTree;
@@ -33,6 +31,7 @@ import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.HashMap;
 import java.util.List;
@@ -189,7 +188,7 @@ public class AccessPathNullnessPropagation
       Nullness assumed;
       // we treat lambda parameters differently; they "inherit" the nullability of the
       // corresponding functional interface parameter, unless they are explicitly annotated
-      if (TrustingNullnessAnalysis.hasNullableAnnotation(element)) {
+      if (Nullness.hasNullableAnnotation(element)) {
         assumed = NULLABLE;
       } else if (NullabilityUtil.lambdaParamIsExplicitlyTyped(variableTree)) {
         // the parameter has a declared type with no @Nullable annotation
@@ -200,10 +199,7 @@ public class AccessPathNullnessPropagation
           // optimistically assume parameter is non-null
           assumed = NONNULL;
         } else {
-          assumed =
-              TrustingNullnessAnalysis.hasNullableAnnotation(fiMethodParameters.get(i))
-                  ? NULLABLE
-                  : NONNULL;
+          assumed = Nullness.hasNullableAnnotation(fiMethodParameters.get(i)) ? NULLABLE : NONNULL;
         }
       }
       result.setInformation(AccessPath.fromLocal(param), assumed);
@@ -222,8 +218,7 @@ public class AccessPathNullnessPropagation
     NullnessStore.Builder<Nullness> result = NullnessStore.<Nullness>empty().toBuilder();
     for (LocalVariableNode param : parameters) {
       Element element = param.getElement();
-      Nullness assumed =
-          TrustingNullnessAnalysis.hasNullableAnnotation(element) ? NULLABLE : NONNULL;
+      Nullness assumed = Nullness.hasNullableAnnotation(element) ? NULLABLE : NONNULL;
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }
     result = handler.onDataflowMethodInitialStore(underlyingAST, parameters, result);
@@ -682,7 +677,7 @@ public class AccessPathNullnessPropagation
         updates, fieldAccessNode.getReceiver(), ASTHelpers.getSymbol(fieldAccessNode.getTree()));
     VariableElement element = fieldAccessNode.getElement();
     Nullness nullness = Nullness.NULLABLE;
-    if (!TrustingNullnessAnalysis.hasNullableAnnotation(element)) {
+    if (!Nullness.hasNullableAnnotation(element)) {
       nullness = NONNULL;
     } else {
       nullness = input.getRegularStore().valueOfField(fieldAccessNode, nullness);
@@ -879,7 +874,7 @@ public class AccessPathNullnessPropagation
       nullness = input.getRegularStore().valueOfMethodCall(node, types, NULLABLE);
     } else if (node == null
         || methodReturnsNonNull.test(node)
-        || !TrustingNullnessAnalysis.hasNullableAnnotation(node.getTarget().getMethod())) {
+        || !Nullness.hasNullableAnnotation(node.getTarget().getMethod())) {
       // definite non-null return
       nullness = NONNULL;
     } else {
