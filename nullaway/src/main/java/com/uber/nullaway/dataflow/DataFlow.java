@@ -91,15 +91,14 @@ public final class DataFlow {
                     LambdaExpressionTree lambdaExpressionTree =
                         (LambdaExpressionTree) methodPath.getLeaf();
                     ast = new UnderlyingAST.CFGLambda(lambdaExpressionTree);
-                    return CFGBuilder.build(
-                        methodPath.getCompilationUnit(), env, ast, false, false);
+                    bodyPath = new TreePath(methodPath, lambdaExpressionTree.getBody());
                   } else {
                     // must be a method per findEnclosingMethodOrLambda
                     MethodTree method = (MethodTree) methodPath.getLeaf();
                     ast = new UnderlyingAST.CFGMethod(method, /*classTree*/ null);
                     bodyPath = new TreePath(methodPath, method.getBody());
-                    return CFGBuilder.build(bodyPath, env, ast, false, false);
                   }
+                  return CFGBuilder.build(bodyPath, env, ast, false, false);
                 }
               });
 

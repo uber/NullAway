@@ -24,7 +24,6 @@ package com.uber.nullaway.handlers;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.dataflow.nullnesspropagation.Nullness;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
@@ -33,6 +32,7 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;

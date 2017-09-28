@@ -19,12 +19,11 @@
 package com.uber.nullaway.dataflow;
 
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.dataflow.nullnesspropagation.Nullness;
-import com.google.errorprone.dataflow.nullnesspropagation.NullnessAnalysis;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.Collections;
 import java.util.LinkedHashSet;

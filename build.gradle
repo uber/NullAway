@@ -34,6 +34,9 @@ subprojects {
     }
 
     repositories {
+        maven {
+            url "https://raw.githubusercontent.com/msridhar/checker-framework/repository/"
+        }
         jcenter()
     }
 

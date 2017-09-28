@@ -42,8 +42,6 @@ import com.google.errorprone.BugPattern;
 import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
-import com.google.errorprone.dataflow.nullnesspropagation.Nullness;
-import com.google.errorprone.dataflow.nullnesspropagation.TrustingNullnessAnalysis;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.matchers.Matcher;
@@ -283,7 +281,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    if (TrustingNullnessAnalysis.hasNullableAnnotation(assigned)) {
+    if (Nullness.hasNullableAnnotation(assigned)) {
       // field already annotated
       return Description.NO_MATCH;
     }
@@ -339,8 +337,8 @@ public class NullAway extends BugChecker
       }
       // if the super method returns nonnull,
       // overriding method better not return nullable
-      if (!TrustingNullnessAnalysis.hasNullableAnnotation(closestOverriddenMethod)) {
-        if (TrustingNullnessAnalysis.hasNullableAnnotation(methodSymbol)) {
+      if (!Nullness.hasNullableAnnotation(closestOverriddenMethod)) {
+        if (Nullness.hasNullableAnnotation(methodSymbol)) {
           String message =
               "method returns @Nullable, but superclass method "
                   + ASTHelpers.enclosingClass(closestOverriddenMethod)
@@ -366,13 +364,13 @@ public class NullAway extends BugChecker
         closestOverriddenMethod.getParameters();
     for (int i = 0; i < superParamSymbols.size(); i++) {
       VarSymbol superParam = superParamSymbols.get(i);
-      if (TrustingNullnessAnalysis.hasNullableAnnotation(superParam)) {
+      if (Nullness.hasNullableAnnotation(superParam)) {
         VariableTree param = methodParams.get(i);
         VarSymbol paramSymbol = ASTHelpers.getSymbol(param);
         // in the case where we have a parameter of a lambda expression, we do
         // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
         // nullability from the corresponding functional interface method
-        if (!TrustingNullnessAnalysis.hasNullableAnnotation(paramSymbol)
+        if (!Nullness.hasNullableAnnotation(paramSymbol)
             && !(isLambda && !NullabilityUtil.lambdaParamIsExplicitlyTyped(param))) {
           String message =
               "parameter "
@@ -401,8 +399,7 @@ public class NullAway extends BugChecker
     if (returnType.toString().equals("java.lang.Void")) {
       return Description.NO_MATCH;
     }
-    if (fromUnannotatedPackage(methodSymbol)
-        || TrustingNullnessAnalysis.hasNullableAnnotation(methodSymbol)) {
+    if (fromUnannotatedPackage(methodSymbol) || Nullness.hasNullableAnnotation(methodSymbol)) {
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, retExpr)) {
@@ -591,7 +588,7 @@ public class NullAway extends BugChecker
             continue;
           }
         }
-        boolean nullable = TrustingNullnessAnalysis.hasNullableAnnotation(param);
+        boolean nullable = Nullness.hasNullableAnnotation(param);
         if (!nullable) {
           builder.add(i);
         }
@@ -1007,7 +1004,7 @@ public class NullAway extends BugChecker
     if (fromUnannotatedPackage(exprSymbol)) {
       return false;
     }
-    if (!TrustingNullnessAnalysis.hasNullableAnnotation(exprSymbol)) {
+    if (!Nullness.hasNullableAnnotation(exprSymbol)) {
       return false;
     }
     return nullnessFromDataflow(state, expr);
@@ -1030,7 +1027,7 @@ public class NullAway extends BugChecker
   }
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
-    if (exprSymbol != null && !TrustingNullnessAnalysis.hasNullableAnnotation(exprSymbol)) {
+    if (exprSymbol != null && !Nullness.hasNullableAnnotation(exprSymbol)) {
       return false;
     }
     return nullnessFromDataflow(state, expr);
