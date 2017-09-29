@@ -148,22 +148,22 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
    */
 
   // Set of filter methods found thus far (e.g. A.filter, see above)
-  private Set<Tree> filterMethodOrLambdaSet = new LinkedHashSet<Tree>();
+  private final Set<Tree> filterMethodOrLambdaSet = new LinkedHashSet<Tree>();
 
   // Maps each call in the observable call chain to its outer call (see above).
-  private Map<MethodInvocationTree, MethodInvocationTree> observableOuterCallInChain =
+  private final Map<MethodInvocationTree, MethodInvocationTree> observableOuterCallInChain =
       new LinkedHashMap<MethodInvocationTree, MethodInvocationTree>();
 
   // Maps the call in the observable call chain to the relevant inner method or lambda.
   // e.g. In the example above:
   //   observable.filter() => A.filter
   //   observable.filter().map() => B.apply
-  private Map<MethodInvocationTree, Tree> observableCallToInnerMethodOrLambda =
+  private final Map<MethodInvocationTree, Tree> observableCallToInnerMethodOrLambda =
       new LinkedHashMap<MethodInvocationTree, Tree>();
 
   // Map from map method (or lambda) to corresponding previous filter method (e.g. B.apply =>
   // A.filter)
-  private Map<Tree, MaplikeToFilterInstanceRecord> mapToFilterMap =
+  private final Map<Tree, MaplikeToFilterInstanceRecord> mapToFilterMap =
       new LinkedHashMap<Tree, MaplikeToFilterInstanceRecord>();
 
   /*
@@ -185,21 +185,21 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
   // Specifically, this is the least upper bound of the "then" store on the branch of every return
   // statement in
   // which the expression after the return can be true.
-  private Map<Tree, NullnessStore<Nullness>> filterToNSMap =
+  private final Map<Tree, NullnessStore<Nullness>> filterToNSMap =
       new LinkedHashMap<Tree, NullnessStore<Nullness>>();
 
   // Maps the body of a method or lambda to the corresponding enclosing tree, used because the
   // dataflow analysis
   // loses the pointer to the tree by the time we hook into its body.
-  private Map<Tree, Tree> bodyToMethodOrLambda = new LinkedHashMap<Tree, Tree>();
+  private final Map<Tree, Tree> bodyToMethodOrLambda = new LinkedHashMap<Tree, Tree>();
 
   // Maps the return statements of the filter method to the filter tree itself, similar issue as
   // above.
-  private Map<ReturnTree, Tree> returnToEnclosingMethodOrLambda =
+  private final Map<ReturnTree, Tree> returnToEnclosingMethodOrLambda =
       new LinkedHashMap<ReturnTree, Tree>();
 
   // Similar to above, but mapping espression-bodies to their enclosing lambdas
-  private Map<ExpressionTree, LambdaExpressionTree> expressionBodyToFilterLambda =
+  private final Map<ExpressionTree, LambdaExpressionTree> expressionBodyToFilterLambda =
       new LinkedHashMap<ExpressionTree, LambdaExpressionTree>();
 
   RxNullabilityPropagator() {
