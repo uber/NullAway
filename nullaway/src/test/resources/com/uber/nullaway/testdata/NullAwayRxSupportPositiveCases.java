@@ -123,4 +123,10 @@ public class NullAwayRxSupportPositiveCases {
     // type
     return observable.map(o -> perhaps() ? o : null).map(o -> o.length());
   }
+
+  private Observable<Integer> filterThenMapNullableContainerLambdas(
+      Observable<NullableContainer<String>> observable) {
+    // BUG: Diagnostic contains: dereferenced expression
+    return observable.filter(c -> c.get() != null || perhaps()).map(c -> c.get().length());
+  }
 }

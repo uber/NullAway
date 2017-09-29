@@ -30,9 +30,9 @@ import com.google.errorprone.predicates.TypePredicate;
 import com.google.errorprone.predicates.type.DescendantOf;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
@@ -148,22 +148,23 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
    */
 
   // Set of filter methods found thus far (e.g. A.filter, see above)
-  private final Set<MethodTree> filterMethodsSet = new LinkedHashSet<>();
+  private final Set<Tree> filterMethodOrLambdaSet = new LinkedHashSet<Tree>();
 
   // Maps each call in the observable call chain to its outer call (see above).
   private final Map<MethodInvocationTree, MethodInvocationTree> observableOuterCallInChain =
-      new LinkedHashMap<>();
+      new LinkedHashMap<MethodInvocationTree, MethodInvocationTree>();
 
-  // Maps the call in the observable call chain to the relevant functor method.
+  // Maps the call in the observable call chain to the relevant inner method or lambda.
   // e.g. In the example above:
   //   observable.filter() => A.filter
   //   observable.filter().map() => B.apply
-  private final Map<MethodInvocationTree, MethodTree> observableCallToActualFunctorMethod =
-      new LinkedHashMap<>();
+  private final Map<MethodInvocationTree, Tree> observableCallToInnerMethodOrLambda =
+      new LinkedHashMap<MethodInvocationTree, Tree>();
 
-  // Map from map method to corresponding previous filter method (e.g. B.apply => A.filter)
-  private final Map<MethodTree, MaplikeToFilterInstanceRecord> mapToFilterMap =
-      new LinkedHashMap<>();
+  // Map from map method (or lambda) to corresponding previous filter method (e.g. B.apply =>
+  // A.filter)
+  private final Map<Tree, MaplikeToFilterInstanceRecord> mapToFilterMap =
+      new LinkedHashMap<Tree, MaplikeToFilterInstanceRecord>();
 
   /*
    * Note that the above methods imply a diagram like the following:
@@ -179,20 +180,27 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
    *                                   }
    */
 
-  // Map from filter method to corresponding nullability info after the method returns true.
+  // Map from filter method (or lambda) to corresponding nullability info after the function returns
+  // true.
   // Specifically, this is the least upper bound of the "then" store on the branch of every return
   // statement in
   // which the expression after the return can be true.
-  private final Map<MethodTree, NullnessStore<Nullness>> filterToNSMap = new LinkedHashMap<>();
+  private final Map<Tree, NullnessStore<Nullness>> filterToNSMap =
+      new LinkedHashMap<Tree, NullnessStore<Nullness>>();
 
-  // Maps the method body to the corresponding method tree, used because the dataflow analysis loses
-  // the pointer
-  // to the MethodTree by the time we hook into it.
-  private final Map<BlockTree, MethodTree> blockToMethod = new LinkedHashMap<>();
+  // Maps the body of a method or lambda to the corresponding enclosing tree, used because the
+  // dataflow analysis
+  // loses the pointer to the tree by the time we hook into its body.
+  private final Map<Tree, Tree> bodyToMethodOrLambda = new LinkedHashMap<Tree, Tree>();
 
   // Maps the return statements of the filter method to the filter tree itself, similar issue as
   // above.
-  private final Map<ReturnTree, MethodTree> returnToMethod = new LinkedHashMap<>();
+  private final Map<ReturnTree, Tree> returnToEnclosingMethodOrLambda =
+      new LinkedHashMap<ReturnTree, Tree>();
+
+  // Similar to above, but mapping espression-bodies to their enclosing lambdas
+  private final Map<ExpressionTree, LambdaExpressionTree> expressionBodyToFilterLambda =
+      new LinkedHashMap<ExpressionTree, LambdaExpressionTree>();
 
   RxNullabilityPropagator() {
     super();
@@ -202,13 +210,13 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     // Clear compilation unit specific state
-    this.filterMethodsSet.clear();
+    this.filterMethodOrLambdaSet.clear();
     this.observableOuterCallInChain.clear();
-    this.observableCallToActualFunctorMethod.clear();
+    this.observableCallToInnerMethodOrLambda.clear();
     this.mapToFilterMap.clear();
     this.filterToNSMap.clear();
-    this.blockToMethod.clear();
-    this.returnToMethod.clear();
+    this.bodyToMethodOrLambda.clear();
+    this.returnToEnclosingMethodOrLambda.clear();
   }
 
   @Override
@@ -220,6 +228,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     Type receiverType = ASTHelpers.getReceiverType(tree);
     for (StreamTypeRecord streamType : RX_MODELS) {
       if (streamType.matchesType(receiverType, state)) {
+        String methodName = methodSymbol.toString();
         // Build observable call chain
         buildObservableCallChain(tree);
 
@@ -235,10 +244,10 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
             if (annonClassBody != null) {
               handleFilterAnonClass(streamType, tree, annonClassBody, state);
             }
+          } else if (argTree instanceof LambdaExpressionTree) {
+            LambdaExpressionTree lambdaTree = (LambdaExpressionTree) argTree;
+            handleFilterLambda(streamType, tree, lambdaTree, state);
           }
-          // This can also be a lambda, which currently cannot be used in the code we look at, but
-          // might be
-          // needed by others. Add support soon.
         } else if (streamType.isMapMethod(methodSymbol)
             && methodSymbol.getParameters().length() == 1) {
           ExpressionTree argTree = tree.getArguments().get(0);
@@ -247,12 +256,12 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
             // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
             if (annonClassBody != null) {
               MaplikeMethodRecord methodRecord = streamType.getMaplikeMethodRecord(methodSymbol);
-              handleMapAnonClass(methodRecord, tree, annonClassBody);
+              handleMapAnonClass(methodRecord, tree, annonClassBody, state);
             }
+          } else if (argTree instanceof LambdaExpressionTree) {
+            LambdaExpressionTree lambdaTree = (LambdaExpressionTree) argTree;
+            handleMapLambda(streamType, tree, lambdaTree, state);
           }
-          // This can also be a lambda, which currently cannot be used in the code we look at, but
-          // might be
-          // needed by others. Add support soon.
         }
       }
     }
@@ -265,10 +274,34 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
       if (receiverExpression instanceof MethodInvocationTree) {
         observableOuterCallInChain.put((MethodInvocationTree) receiverExpression, tree);
       }
-      // ToDo: Eventually we want to handle more complex observer chains, but filter(...).map(...)
-      // is the
-      // common case.
     } // ToDo: What else can be here? If there are other cases than MemberSelectTree, handle them.
+  }
+
+  private void handleChainFromFilter(
+      StreamTypeRecord streamType,
+      MethodInvocationTree observableDotFilter,
+      Tree filterMethodOrLambda,
+      VisitorState state) {
+    // Traverse the observable call chain out through any pass-through methods
+    MethodInvocationTree outerCallInChain = observableOuterCallInChain.get(observableDotFilter);
+    while (outerCallInChain != null
+        && streamType.matchesType(ASTHelpers.getReceiverType(outerCallInChain), state)
+        && streamType.isPassthroughMethod(ASTHelpers.getSymbol(outerCallInChain))) {
+      outerCallInChain = observableOuterCallInChain.get(outerCallInChain);
+    }
+    // Check for a map method
+    MethodInvocationTree mapCallsite = observableOuterCallInChain.get(observableDotFilter);
+    if (outerCallInChain != null
+        && observableCallToInnerMethodOrLambda.containsKey(outerCallInChain)) {
+      // Update mapToFilterMap
+      Symbol.MethodSymbol mapMethod = ASTHelpers.getSymbol(outerCallInChain);
+      if (streamType.isMapMethod(mapMethod)) {
+        MaplikeToFilterInstanceRecord record =
+            new MaplikeToFilterInstanceRecord(
+                streamType.getMaplikeMethodRecord(mapMethod), filterMethodOrLambda);
+        mapToFilterMap.put(observableCallToInnerMethodOrLambda.get(outerCallInChain), record);
+      }
+    }
   }
 
   private void handleFilterAnonClass(
@@ -278,48 +311,68 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
       VisitorState state) {
     for (Tree t : annonClassBody.getMembers()) {
       if (t instanceof MethodTree && ((MethodTree) t).getName().toString().equals("test")) {
-        filterMethodsSet.add((MethodTree) t);
-        observableCallToActualFunctorMethod.put(observableDotFilter, (MethodTree) t);
-        // Traverse the observable call chain out through any pass-through methods
-        MethodInvocationTree outerCallInChain = observableOuterCallInChain.get(observableDotFilter);
-        while (outerCallInChain != null
-            && streamType.matchesType(ASTHelpers.getReceiverType(outerCallInChain), state)
-            && streamType.isPassthroughMethod(ASTHelpers.getSymbol(outerCallInChain))) {
-          outerCallInChain = observableOuterCallInChain.get(outerCallInChain);
-        }
-        // Check for a map method
-        if (outerCallInChain != null
-            && observableCallToActualFunctorMethod.containsKey(outerCallInChain)) {
-          // Update mapToFilterMap
-          Symbol.MethodSymbol mapMethod = ASTHelpers.getSymbol(outerCallInChain);
-          if (streamType.isMapMethod(mapMethod)) {
-            MaplikeToFilterInstanceRecord record =
-                new MaplikeToFilterInstanceRecord(
-                    streamType.getMaplikeMethodRecord(mapMethod), (MethodTree) t);
-            mapToFilterMap.put(observableCallToActualFunctorMethod.get(outerCallInChain), record);
-          }
-        }
+        filterMethodOrLambdaSet.add(t);
+        observableCallToInnerMethodOrLambda.put(observableDotFilter, (MethodTree) t);
+        handleChainFromFilter(streamType, observableDotFilter, t, state);
       }
     }
+  }
+
+  private void handleFilterLambda(
+      StreamTypeRecord streamType,
+      MethodInvocationTree observableDotFilter,
+      LambdaExpressionTree lambdaTree,
+      VisitorState state) {
+    filterMethodOrLambdaSet.add(lambdaTree);
+    observableCallToInnerMethodOrLambda.put(observableDotFilter, lambdaTree);
+    handleChainFromFilter(streamType, observableDotFilter, lambdaTree, state);
   }
 
   private void handleMapAnonClass(
       MaplikeMethodRecord methodRecord,
       MethodInvocationTree observableDotMap,
-      ClassTree annonClassBody) {
+      ClassTree annonClassBody,
+      VisitorState state) {
     for (Tree t : annonClassBody.getMembers()) {
       if (t instanceof MethodTree
           && ((MethodTree) t).getName().toString().equals(methodRecord.getInnerMethodName())) {
-        observableCallToActualFunctorMethod.put(observableDotMap, (MethodTree) t);
+        observableCallToInnerMethodOrLambda.put(observableDotMap, (MethodTree) t);
       }
     }
+  }
+
+  private void handleMapLambda(
+      StreamTypeRecord streamType,
+      MethodInvocationTree observableDotMap,
+      LambdaExpressionTree lambdaTree,
+      VisitorState state) {
+    observableCallToInnerMethodOrLambda.put(observableDotMap, lambdaTree);
   }
 
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
     if (mapToFilterMap.containsKey(tree)) {
-      blockToMethod.put(tree.getBody(), tree);
+      bodyToMethodOrLambda.put(tree.getBody(), tree);
+    }
+  }
+
+  @Override
+  public void onMatchLambdaExpression(
+      NullAway analysis,
+      LambdaExpressionTree tree,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol) {
+    if (filterMethodOrLambdaSet.contains(tree)
+        && tree.getBodyKind().equals(LambdaExpressionTree.BodyKind.EXPRESSION)) {
+      expressionBodyToFilterLambda.put((ExpressionTree) tree.getBody(), tree);
+      // Single expression lambda, onMatchReturn will not be triggered, force the dataflow analysis
+      // here
+      AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
+      nullnessAnalysis.forceRunOnMethod(state.getPath(), state.context);
+    }
+    if (mapToFilterMap.containsKey(tree)) {
+      bodyToMethodOrLambda.put(tree.getBody(), tree);
     }
   }
 
@@ -343,47 +396,54 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     // Figure out the enclosing method node
     TreePath enclosingMethodOrLambda = NullabilityUtil.findEnclosingMethodOrLambda(state.getPath());
     if (enclosingMethodOrLambda == null) {
-      throw new RuntimeException("no enclosing method!");
+      throw new RuntimeException("no enclosing method or lambda!");
     }
     Tree leaf = enclosingMethodOrLambda.getLeaf();
-    if (leaf instanceof MethodTree) {
-      MethodTree enclosingMethod = (MethodTree) leaf;
-      if (filterMethodsSet.contains(enclosingMethod)) {
-        returnToMethod.put(tree, enclosingMethod);
-        // We need to manually trigger the dataflow analysis to run on the filter method,
-        // this ensures onDataflowVisitReturn(...) gets called for all return statements in this
-        // method before
-        // onDataflowMethodInitialStore(...) is called for all successor methods in the observable
-        // chain.
-        // Caching should prevent us from re-analyzing any given method.
-        AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
-        nullnessAnalysis.forceRunOnMethod(
-            new TreePath(state.getPath(), enclosingMethod), state.context);
-      }
+    if (filterMethodOrLambdaSet.contains(leaf)) {
+      returnToEnclosingMethodOrLambda.put(tree, leaf);
+      // We need to manually trigger the dataflow analysis to run on the filter method,
+      // this ensures onDataflowVisitReturn(...) gets called for all return statements in this
+      // method before
+      // onDataflowInitialStore(...) is called for all successor methods in the observable chain.
+      // Caching should prevent us from re-analyzing any given method.
+      AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
+      nullnessAnalysis.forceRunOnMethod(new TreePath(state.getPath(), leaf), state.context);
     }
-    // This can also be a lambda, which currently cannot be used in the code we look at, but might
-    // be needed by
-    // others. Add support soon.
-
   }
 
   @Override
-  public NullnessStore.Builder<Nullness> onDataflowMethodInitialStore(
+  public NullnessStore.Builder<Nullness> onDataflowInitialStore(
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
       NullnessStore.Builder<Nullness> nullnessBuilder) {
-    // noinspection RedundantCast
-    MethodTree tree = blockToMethod.get((BlockTree) underlyingAST.getCode());
+    Tree tree = bodyToMethodOrLambda.get(underlyingAST.getCode());
+    if (tree == null) {
+      return nullnessBuilder;
+    }
+    assert (tree instanceof MethodTree || tree instanceof LambdaExpressionTree);
     if (mapToFilterMap.containsKey(tree)) {
       // Plug Nullness info from filter method into entry to map method.
       MaplikeToFilterInstanceRecord callInstanceRecord = mapToFilterMap.get(tree);
-      MethodTree filterMethodTree = callInstanceRecord.getFilter();
+      Tree filterTree = callInstanceRecord.getFilter();
+      assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
       MaplikeMethodRecord mapMR = callInstanceRecord.getMaplikeMethodRecord();
       for (int argIdx : mapMR.getArgsFromStream()) {
-        LocalVariableNode filterLocalName =
-            new LocalVariableNode(filterMethodTree.getParameters().get(0));
-        LocalVariableNode mapLocalName = new LocalVariableNode(tree.getParameters().get(argIdx));
-        NullnessStore<Nullness> filterNullnessStore = filterToNSMap.get(filterMethodTree);
+        LocalVariableNode filterLocalName = null;
+        LocalVariableNode mapLocalName = null;
+        if (filterTree instanceof MethodTree) {
+          filterLocalName = new LocalVariableNode(((MethodTree) filterTree).getParameters().get(0));
+        } else {
+          filterLocalName =
+              new LocalVariableNode(((LambdaExpressionTree) filterTree).getParameters().get(0));
+        }
+        if (tree instanceof MethodTree) {
+          mapLocalName = new LocalVariableNode(((MethodTree) tree).getParameters().get(argIdx));
+        } else {
+          mapLocalName =
+              new LocalVariableNode(((LambdaExpressionTree) tree).getParameters().get(argIdx));
+        }
+        NullnessStore<Nullness> filterNullnessStore = filterToNSMap.get(filterTree);
+        assert filterNullnessStore != null;
         NullnessStore<Nullness> renamedRootsNullnessStore =
             filterNullnessStore.uprootAccessPaths(ImmutableMap.of(filterLocalName, mapLocalName));
         for (AccessPath ap : renamedRootsNullnessStore.getAccessPathsWithValue(Nullness.NONNULL)) {
@@ -397,16 +457,27 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
   @Override
   public void onDataflowVisitReturn(
       ReturnTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore) {
-    if (returnToMethod.containsKey(tree)) {
-      MethodTree filterMethod = returnToMethod.get(tree);
+    if (returnToEnclosingMethodOrLambda.containsKey(tree)) {
+      Tree filterTree = returnToEnclosingMethodOrLambda.get(tree);
+      assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
       ExpressionTree retExpression = tree.getExpression();
       if (canBooleanExpressionEvalToTrue(retExpression)) {
-        if (filterToNSMap.containsKey(filterMethod)) {
-          filterToNSMap.put(
-              filterMethod, filterToNSMap.get(filterMethod).leastUpperBound(thenStore));
+        if (filterToNSMap.containsKey(filterTree)) {
+          filterToNSMap.put(filterTree, filterToNSMap.get(filterTree).leastUpperBound(thenStore));
         } else {
-          filterToNSMap.put(filterMethod, thenStore);
+          filterToNSMap.put(filterTree, thenStore);
         }
+      }
+    }
+  }
+
+  @Override
+  public void onDataflowVisitLambdaResultExpression(
+      ExpressionTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore) {
+    if (expressionBodyToFilterLambda.containsKey(tree)) {
+      LambdaExpressionTree filterTree = expressionBodyToFilterLambda.get(tree);
+      if (canBooleanExpressionEvalToTrue(tree)) {
+        filterToNSMap.put(filterTree, thenStore);
       }
     }
   }
@@ -422,7 +493,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
    */
   private static class StreamModelBuilder {
 
-    private final List<StreamTypeRecord> typeRecords = new LinkedList<>();
+    private final List<StreamTypeRecord> typeRecords = new LinkedList<StreamTypeRecord>();
     private TypePredicate tp = null;
     private Set<String> filterMethodSigs;
     private Set<String> filterMethodSimpleNames;
@@ -438,7 +509,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
      *
      * @return An empty StreamModelBuilder.
      */
-    static StreamModelBuilder start() {
+    public static StreamModelBuilder start() {
       return new StreamModelBuilder();
     }
 
@@ -462,15 +533,15 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
      * @param tp A type predicate matching the class/interface of the type in our stream-based API.
      * @return This builder (for chaining).
      */
-    StreamModelBuilder addStreamType(TypePredicate tp) {
+    public StreamModelBuilder addStreamType(TypePredicate tp) {
       finalizeOpenStreamTypeRecord();
       this.tp = tp;
-      this.filterMethodSigs = new HashSet<>();
-      this.filterMethodSimpleNames = new HashSet<>();
-      this.mapMethodSigToRecord = new HashMap<>();
-      this.mapMethodSimpleNameToRecord = new HashMap<>();
-      this.passthroughMethodSigs = new HashSet<>();
-      this.passthroughMethodSimpleNames = new HashSet<>();
+      this.filterMethodSigs = new HashSet<String>();
+      this.filterMethodSimpleNames = new HashSet<String>();
+      this.mapMethodSigToRecord = new HashMap<String, MaplikeMethodRecord>();
+      this.mapMethodSimpleNameToRecord = new HashMap<String, MaplikeMethodRecord>();
+      this.passthroughMethodSigs = new HashSet<String>();
+      this.passthroughMethodSimpleNames = new HashSet<String>();
       return this;
     }
 
@@ -481,7 +552,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
      *     filter method.
      * @return This builder (for chaining).
      */
-    StreamModelBuilder withFilterMethodFromSignature(String filterMethodSig) {
+    public StreamModelBuilder withFilterMethodFromSignature(String filterMethodSig) {
       this.filterMethodSigs.add(filterMethodSig);
       return this;
     }
@@ -507,7 +578,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
      *     arguments to this method that receive objects from the stream.
      * @return This builder (for chaining).
      */
-    StreamModelBuilder withMapMethodFromSignature(
+    public StreamModelBuilder withMapMethodFromSignature(
         String methodSig, String innerMethodName, ImmutableSet<Integer> argsFromStream) {
       this.mapMethodSigToRecord.put(
           methodSig, new MaplikeMethodRecord(innerMethodName, argsFromStream));
@@ -525,7 +596,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
      *     methods with this name (else use withMapMethodFromSignature).
      * @return This builder (for chaining).
      */
-    StreamModelBuilder withMapMethodAllFromName(
+    public StreamModelBuilder withMapMethodAllFromName(
         String methodSimpleName, String innerMethodName, ImmutableSet<Integer> argsFromStream) {
       this.mapMethodSimpleNameToRecord.put(
           methodSimpleName, new MaplikeMethodRecord(innerMethodName, argsFromStream));
@@ -544,7 +615,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
      *     the method.
      * @return This builder (for chaining).
      */
-    StreamModelBuilder withPassthroughMethodFromSignature(String passthroughMethodSig) {
+    public StreamModelBuilder withPassthroughMethodFromSignature(String passthroughMethodSig) {
       this.passthroughMethodSigs.add(passthroughMethodSig);
       return this;
     }
@@ -555,7 +626,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
      * @param methodSimpleName The method's simple name.
      * @return This builder (for chaining).
      */
-    StreamModelBuilder withPassthroughMethodAllFromName(String methodSimpleName) {
+    public StreamModelBuilder withPassthroughMethodAllFromName(String methodSimpleName) {
       this.passthroughMethodSimpleNames.add(methodSimpleName);
       return this;
     }
@@ -565,7 +636,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
      *
      * @return The finalized (immutable) models.
      */
-    ImmutableList<StreamTypeRecord> end() {
+    public ImmutableList<StreamTypeRecord> end() {
       finalizeOpenStreamTypeRecord();
       return ImmutableList.copyOf(typeRecords);
     }
@@ -600,7 +671,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     private final Set<String> passthroughMethodSigs;
     private final Set<String> passthroughMethodSimpleNames;
 
-    StreamTypeRecord(
+    public StreamTypeRecord(
         TypePredicate typePredicate,
         Set<String> filterMethodSigs,
         Set<String> filterMethodSimpleNames,
@@ -617,21 +688,21 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
       this.passthroughMethodSimpleNames = passthroughMethodSimpleNames;
     }
 
-    boolean matchesType(Type type, VisitorState state) {
+    public boolean matchesType(Type type, VisitorState state) {
       return typePredicate.apply(type, state);
     }
 
-    boolean isFilterMethod(Symbol.MethodSymbol methodSymbol) {
+    public boolean isFilterMethod(Symbol.MethodSymbol methodSymbol) {
       return filterMethodSigs.contains(methodSymbol.toString())
           || filterMethodSimpleNames.contains(methodSymbol.getQualifiedName().toString());
     }
 
-    boolean isMapMethod(Symbol.MethodSymbol methodSymbol) {
+    public boolean isMapMethod(Symbol.MethodSymbol methodSymbol) {
       return mapMethodSigToRecord.containsKey(methodSymbol.toString())
           || mapMethodSimpleNameToRecord.containsKey(methodSymbol.getQualifiedName().toString());
     }
 
-    MaplikeMethodRecord getMaplikeMethodRecord(Symbol.MethodSymbol methodSymbol) {
+    public MaplikeMethodRecord getMaplikeMethodRecord(Symbol.MethodSymbol methodSymbol) {
       MaplikeMethodRecord record = mapMethodSigToRecord.get(methodSymbol.toString());
       if (record == null) {
         record = mapMethodSimpleNameToRecord.get(methodSymbol.getQualifiedName().toString());
@@ -639,7 +710,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
       return record;
     }
 
-    boolean isPassthroughMethod(Symbol.MethodSymbol methodSymbol) {
+    public boolean isPassthroughMethod(Symbol.MethodSymbol methodSymbol) {
       return passthroughMethodSigs.contains(methodSymbol.toString())
           || passthroughMethodSimpleNames.contains(methodSymbol.getQualifiedName().toString());
     }
@@ -650,17 +721,17 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
 
     private final String innerMethodName;
 
-    String getInnerMethodName() {
+    public String getInnerMethodName() {
       return innerMethodName;
     }
 
     private final Set<Integer> argsFromStream;
 
-    Set<Integer> getArgsFromStream() {
+    public Set<Integer> getArgsFromStream() {
       return argsFromStream;
     }
 
-    MaplikeMethodRecord(String innerMethodName, Set<Integer> argsFromStream) {
+    public MaplikeMethodRecord(String innerMethodName, Set<Integer> argsFromStream) {
       this.innerMethodName = innerMethodName;
       this.argsFromStream = argsFromStream;
     }
@@ -674,17 +745,18 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
 
     private final MaplikeMethodRecord mapMR;
 
-    MaplikeMethodRecord getMaplikeMethodRecord() {
+    public MaplikeMethodRecord getMaplikeMethodRecord() {
       return mapMR;
     }
 
-    private final MethodTree filter;
+    private final Tree filter;
 
-    MethodTree getFilter() {
+    public Tree getFilter() {
       return filter;
     }
 
-    MaplikeToFilterInstanceRecord(MaplikeMethodRecord mapMR, MethodTree filter) {
+    public MaplikeToFilterInstanceRecord(MaplikeMethodRecord mapMR, Tree filter) {
+      assert (filter instanceof MethodTree || filter instanceof LambdaExpressionTree);
       this.mapMR = mapMR;
       this.filter = filter;
     }

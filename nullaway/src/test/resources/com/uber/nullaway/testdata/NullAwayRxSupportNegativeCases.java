@@ -261,4 +261,60 @@ public class NullAwayRxSupportNegativeCases {
               }
             });
   }
+
+  private Observable<Integer> filterThenMapLambdas(Observable<String> observable) {
+    return observable.filter(s -> s != null).map(s -> s.length());
+  }
+
+  private Observable<Integer> filterThenMapNullableContainerLambdas(
+      Observable<NullableContainer<String>> observable) {
+    return observable.filter(c -> c.get() != null).map(c -> c.get().length());
+  }
+
+  private Observable<Integer> filterThenMapNullableContainerLambdas2(
+      Observable<NullableContainer<String>> observable) {
+    return observable
+        .filter(
+            c -> {
+              if (c.get() == null) {
+                return false;
+              } else {
+                return true;
+              }
+            })
+        .map(c -> c.get().length());
+  }
+
+  private Observable<Integer> filterThenMapNullableContainerLambdas3(
+      Observable<NullableContainer<String>> observable) {
+    return observable
+        .filter(c -> c.get() != null)
+        .map(
+            c -> {
+              String s = c.get();
+              return s.length();
+            });
+  }
+
+  private Observable<Integer> filterThenMapLambdas4(Observable<String> observable) {
+    return observable.filter(s -> s != null && perhaps()).map(s -> s.length());
+  }
+
+  private static <T> boolean predtest(Predicate<T> f, T val) {
+    try {
+      return f.test(val);
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
+  private static <T, R> R funcapply(Function<T, R> f, T val) throws Exception {
+    return f.apply(val);
+  }
+
+  private Observable<Integer> filterThenMapLambdas5(Observable<String> observable) {
+    return observable
+        .filter(s -> predtest(r -> r != null, s))
+        .map(s -> funcapply(r -> r.length(), s));
+  }
 }
