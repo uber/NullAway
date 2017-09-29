@@ -162,4 +162,20 @@ public class CheckFieldInitNegativeCases {
       yetAnotherField = new Object();
     }
   }
+
+  static class SuppressWarningsA {
+
+    Object f; // Should be an error, but we are suppressing
+
+    @SuppressWarnings("NullAway")
+    SuppressWarningsA() {}
+  }
+
+  static class SuppressWarningsB {
+
+    Object f; // Should be an error, but we are suppressing
+
+    @SuppressWarnings("NullAway.Init")
+    SuppressWarningsB() {}
+  }
 }

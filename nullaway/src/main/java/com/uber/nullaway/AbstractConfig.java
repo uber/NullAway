@@ -68,6 +68,8 @@ public abstract class AbstractConfig implements Config {
 
   protected Set<String> initializerAnnotations;
 
+  @Nullable protected String castToNonNullMethod;
+
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
     // noinspection ConstantConditions
     String choiceRegexp =
@@ -120,6 +122,12 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean suggestSuppressions() {
     return isSuggestSuppressions;
+  }
+
+  @Override
+  @Nullable
+  public String getCastToNonNullMethod() {
+    return castToNonNullMethod;
   }
 
   protected Set<MethodClassAndName> getKnownInitializers(Set<String> qualifiedNames) {

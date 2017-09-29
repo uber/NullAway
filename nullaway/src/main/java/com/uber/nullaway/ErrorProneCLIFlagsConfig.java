@@ -46,6 +46,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_SUGGEST_SUPPRESSIONS = EP_FL_NAMESPACE + ":SuggestSuppressions";
   static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
+  static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
   private static final String DELIMITER = ",";
 
   static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS =
@@ -82,6 +83,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     isSuggestSuppressions = flags.getBoolean(FL_SUGGEST_SUPPRESSIONS).orElse(false);
     ImmutableSet<String> propStrings = getFlagStringSet(flags, FL_EXCLUDED_FIELD_ANNOT);
     fieldAnnotPattern = propStrings.isEmpty() ? null : getPackagePattern(propStrings);
+    castToNonNullMethod = flags.get(FL_CTNN_METHOD).orElse(null);
   }
 
   private static ImmutableSet<String> getFlagStringSet(ErrorProneFlags flags, String flagName) {
