@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+
+# stub pre-commit hook
+# just a runner for the real pre-commit script
+# if script cannot be found, exit without error
+# (to not block local commits)
+
+set -e
+
+REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
+PRE_COMMIT_SCRIPT="${REPO_ROOT_DIR}/config/hooks/pre-commit"
+
+if [ -f $PRE_COMMIT_SCRIPT ]; then
+    source $PRE_COMMIT_SCRIPT
+fi
