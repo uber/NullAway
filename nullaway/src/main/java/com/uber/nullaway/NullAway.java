@@ -289,10 +289,9 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expression = tree.getExpression();
     if (mayBeNullExpr(state, expression)) {
-      String message =
-          MessageTypes.ASSIGN_FIELD_NULLABLE.toString()
-              + " assigning @Nullable expression to @NonNull field";
-      return createErrorDescriptionForNullAssignment(tree, message, expression, state.getPath());
+      String message = "assigning @Nullable expression to @NonNull field";
+      return createErrorDescriptionForNullAssignment(
+          MessageTypes.ASSIGN_FIELD_NULLABLE, tree, message, expression, state.getPath());
     }
     return Description.NO_MATCH;
   }
@@ -344,13 +343,12 @@ public class NullAway extends BugChecker
       if (!Nullness.hasNullableAnnotation(closestOverriddenMethod)) {
         if (Nullness.hasNullableAnnotation(methodSymbol)) {
           String message =
-              MessageTypes.WRONG_OVERRIDE_RETURN.toString()
-                  + " method returns @Nullable, but superclass method "
+              "method returns @Nullable, but superclass method "
                   + ASTHelpers.enclosingClass(closestOverriddenMethod)
                   + "."
                   + closestOverriddenMethod.toString()
                   + " returns @NonNull";
-          return createErrorDescription(tree, message, tree);
+          return createErrorDescription(MessageTypes.WRONG_OVERRIDE_RETURN, tree, message, tree);
         }
       }
       // if any parameter in the super method is annotated @Nullable,
@@ -378,8 +376,7 @@ public class NullAway extends BugChecker
         if (!Nullness.hasNullableAnnotation(paramSymbol)
             && !(isLambda && !NullabilityUtil.lambdaParamIsExplicitlyTyped(param))) {
           String message =
-              MessageTypes.WRONG_OVERRIDE_PARAM
-                  + " parameter "
+              "parameter "
                   + param.getName()
                   + " is @NonNull, but parameter in "
                   + (isLambda ? "functional interface " : "superclass ")
@@ -388,7 +385,7 @@ public class NullAway extends BugChecker
                   + "."
                   + closestOverriddenMethod.toString()
                   + " is @Nullable";
-          return createErrorDescription(param, message, param);
+          return createErrorDescription(MessageTypes.WRONG_OVERRIDE_PARAM, param, message, param);
         }
       }
     }
@@ -409,10 +406,9 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, retExpr)) {
-      String message =
-          MessageTypes.RETURN_NULLABLE.toString()
-              + " returning @Nullable expression from method with @NonNull return type";
-      return createErrorDescriptionForNullAssignment(tree, message, retExpr, state.getPath());
+      String message = "returning @Nullable expression from method with @NonNull return type";
+      return createErrorDescriptionForNullAssignment(
+          MessageTypes.RETURN_NULLABLE, tree, message, retExpr, state.getPath());
     }
     return Description.NO_MATCH;
   }
@@ -464,18 +460,16 @@ public class NullAway extends BugChecker
         return Description.NO_MATCH;
       }
       return createErrorDescription(
-          tree,
-          MessageTypes.PARAM_NO_INIT.toString() + " @NonNull field " + symbol + " not initialized",
-          tree);
+          MessageTypes.PARAM_NO_INIT, tree, "@NonNull field " + symbol + " not initialized", tree);
     }
     ExpressionTree initializer = tree.getInitializer();
     if (initializer != null) {
       if (!symbol.type.isPrimitive() && !skipDueToFieldAnnotation(symbol)) {
         if (mayBeNullExpr(state, initializer)) {
           return createErrorDescriptionForNullAssignment(
+              MessageTypes.ASSIGN_FIELD_NULLABLE,
               tree,
-              MessageTypes.ASSIGN_FIELD_NULLABLE.toString()
-                  + " assigning @Nullable expression to @NonNull field",
+              "assigning @Nullable expression to @NonNull field",
               initializer,
               tree);
         }
@@ -573,7 +567,8 @@ public class NullAway extends BugChecker
       }
       if (!type.isPrimitive()) {
         if (mayBeNullExpr(state, tree)) {
-          return createErrorDescription(tree, "unboxing of a @Nullable value", state.getPath());
+          return createErrorDescription(
+              MessageTypes.UNBOX_NULLABLE, tree, "unboxing of a @Nullable value", state.getPath());
         }
       }
     }
@@ -633,11 +628,9 @@ public class NullAway extends BugChecker
       ExpressionTree actual = actualParams.get(argPos);
       if (mayBeNullExpr(state, actual)) {
         String message =
-            MessageTypes.PASS_NULLABLE.toString()
-                + " passing @Nullable parameter '"
-                + actual.toString()
-                + "' where @NonNull is required";
-        return createErrorDescriptionForNullAssignment(actual, message, actual, state.getPath());
+            "passing @Nullable parameter '" + actual.toString() + "' where @NonNull is required";
+        return createErrorDescriptionForNullAssignment(
+            MessageTypes.PASS_NULLABLE, actual, message, actual, state.getPath());
       }
     }
     // NOTE: the case of an invocation on a possibly-null reference
@@ -1095,13 +1088,13 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, baseExpression)) {
-      String message =
-          MessageTypes.DEREFERENCE_NULLABLE.toString()
-              + " dereferenced expression "
-              + baseExpression.toString()
-              + " is @Nullable";
+      String message = "dereferenced expression " + baseExpression.toString() + " is @Nullable";
       return createErrorDescriptionForNullAssignment(
-          derefExpression, message, baseExpression, state.getPath());
+          MessageTypes.DEREFERENCE_NULLABLE,
+          derefExpression,
+          message,
+          baseExpression,
+          state.getPath());
     }
     return Description.NO_MATCH;
   }
@@ -1109,47 +1102,55 @@ public class NullAway extends BugChecker
   /**
    * create an error description for a nullability warning
    *
+   * @param errorType the type of error encountered.
    * @param errorLocTree the location of the error
    * @param message the error message
    * @param path the TreePath to the error location. Used to compute a suggested fix at the
    *     enclosing method for the error location
    * @return the error description
    */
-  private Description createErrorDescription(Tree errorLocTree, String message, TreePath path) {
+  private Description createErrorDescription(
+      MessageTypes errorType, Tree errorLocTree, String message, TreePath path) {
     MethodTree enclosingMethod = ASTHelpers.findEnclosingNode(path, MethodTree.class);
-    return createErrorDescription(errorLocTree, message, enclosingMethod);
+    return createErrorDescription(errorType, errorLocTree, message, enclosingMethod);
   }
 
   /**
    * create an error description for a nullability warning
    *
+   * @param errorType the type of error encountered.
    * @param errorLocTree the location of the error
    * @param message the error message
    * @param suggestTree the location at which a fix suggestion should be made
    * @return the error description
    */
   private Description createErrorDescription(
-      Tree errorLocTree, String message, @Nullable Tree suggestTree) {
+      MessageTypes errorType, Tree errorLocTree, String message, @Nullable Tree suggestTree) {
     Description.Builder builder = buildDescription(errorLocTree).setMessage(message);
     if (config.suggestSuppressions() && suggestTree != null) {
-      if (message.contains(MessageTypes.DEREFERENCE_NULLABLE.toString())
-          || message.contains(MessageTypes.RETURN_NULLABLE.toString())
-          || message.contains(MessageTypes.PASS_NULLABLE.toString())
-          || message.contains(MessageTypes.ASSIGN_FIELD_NULLABLE.toString())) {
-        if (config.getCastToNonNullMethod() != null) {
-          builder = addCastToNonNullFix(suggestTree, builder);
-        } else {
+      switch (errorType) {
+        case DEREFERENCE_NULLABLE:
+        case RETURN_NULLABLE:
+        case PASS_NULLABLE:
+        case ASSIGN_FIELD_NULLABLE:
+          if (config.getCastToNonNullMethod() != null) {
+            builder = addCastToNonNullFix(suggestTree, builder);
+          } else {
+            builder = addSuppressWarningsFix(suggestTree, builder, canonicalName());
+          }
+          break;
+        case WRONG_OVERRIDE_RETURN:
+          builder = changeReturnNullabilityFix(suggestTree, builder);
+          break;
+        case WRONG_OVERRIDE_PARAM:
+          builder = changeParamNullabilityFix(suggestTree, builder);
+          break;
+        case METHOD_NO_INIT:
+        case PARAM_NO_INIT:
+          builder = addSuppressWarningsFix(suggestTree, builder, INITIALIZATION_CHECK_NAME);
+          break;
+        default:
           builder = addSuppressWarningsFix(suggestTree, builder, canonicalName());
-        }
-      } else if (message.contains(MessageTypes.WRONG_OVERRIDE_RETURN.toString())) {
-        builder = changeReturnNullabilityFix(suggestTree, builder);
-      } else if (message.contains(MessageTypes.WRONG_OVERRIDE_PARAM.toString())) {
-        builder = changeParamNullabilityFix(suggestTree, builder);
-      } else if (message.contains(MessageTypes.METHOD_NO_INIT.toString())
-          || message.contains(MessageTypes.PARAM_NO_INIT.toString())) {
-        builder = addSuppressWarningsFix(suggestTree, builder, INITIALIZATION_CHECK_NAME);
-      } else {
-        builder = addSuppressWarningsFix(suggestTree, builder, canonicalName());
       }
     }
     // #letbuildersbuild
@@ -1161,6 +1162,7 @@ public class NullAway extends BugChecker
    *
    * <p>This includes: field assignments, method arguments and method returns
    *
+   * @param errorType the type of error encountered.
    * @param errorLocTree the location of the error
    * @param message the error message
    * @param suggestTreeIfCastToNonNull the location at which a fix suggestion should be made if a
@@ -1171,6 +1173,7 @@ public class NullAway extends BugChecker
    * @return the error description.
    */
   private Description createErrorDescriptionForNullAssignment(
+      MessageTypes errorType,
       Tree errorLocTree,
       String message,
       @Nullable Tree suggestTreeIfCastToNonNull,
@@ -1178,7 +1181,7 @@ public class NullAway extends BugChecker
     MethodTree enclosingMethod =
         ASTHelpers.findEnclosingNode(suggestTreePathIfSuppression, MethodTree.class);
     return createErrorDescriptionForNullAssignment(
-        errorLocTree, message, suggestTreeIfCastToNonNull, enclosingMethod);
+        errorType, errorLocTree, message, suggestTreeIfCastToNonNull, enclosingMethod);
   }
 
   /**
@@ -1186,6 +1189,7 @@ public class NullAway extends BugChecker
    *
    * <p>This includes: field assignments, method arguments and method returns
    *
+   * @param errorType the type of error encountered.
    * @param errorLocTree the location of the error
    * @param message the error message
    * @param suggestTreeIfCastToNonNull the location at which a fix suggestion should be made if a
@@ -1196,14 +1200,15 @@ public class NullAway extends BugChecker
    * @return the error description.
    */
   private Description createErrorDescriptionForNullAssignment(
+      MessageTypes errorType,
       Tree errorLocTree,
       String message,
       @Nullable Tree suggestTreeIfCastToNonNull,
       @Nullable Tree suggestTreeIfSuppression) {
     if (config.getCastToNonNullMethod() != null) {
-      return createErrorDescription(errorLocTree, message, suggestTreeIfCastToNonNull);
+      return createErrorDescription(errorType, errorLocTree, message, suggestTreeIfCastToNonNull);
     } else {
-      return createErrorDescription(errorLocTree, message, suggestTreeIfSuppression);
+      return createErrorDescription(errorType, errorLocTree, message, suggestTreeIfSuppression);
     }
   }
 
@@ -1377,12 +1382,11 @@ public class NullAway extends BugChecker
     if (symbolHasSuppressInitalizationWarningsAnnotation(methodSymbol)) {
       return Description.NO_MATCH;
     }
-    return createErrorDescription(methodTree, message, methodTree);
+    return createErrorDescription(MessageTypes.METHOD_NO_INIT, methodTree, message, methodTree);
   }
 
   private String errMsgForInitializer(Set<Element> uninitFields) {
-    String message =
-        MessageTypes.METHOD_NO_INIT.toString() + " initializer method does not guarantee @NonNull ";
+    String message = "initializer method does not guarantee @NonNull ";
     if (uninitFields.size() == 1) {
       message += "field " + uninitFields.iterator().next().toString() + " is initialized";
     } else {
@@ -1400,12 +1404,8 @@ public class NullAway extends BugChecker
     WRONG_OVERRIDE_RETURN,
     WRONG_OVERRIDE_PARAM,
     METHOD_NO_INIT,
-    PARAM_NO_INIT;
-
-    @Override
-    public String toString() {
-      return "[NA_" + super.toString() + "]";
-    }
+    PARAM_NO_INIT,
+    UNBOX_NULLABLE;
   }
 
   @AutoValue
