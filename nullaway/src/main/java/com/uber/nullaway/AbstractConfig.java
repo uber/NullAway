@@ -125,6 +125,7 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
+  @Nullable
   public String getCastToNonNullMethod() {
     return castToNonNullMethod;
   }

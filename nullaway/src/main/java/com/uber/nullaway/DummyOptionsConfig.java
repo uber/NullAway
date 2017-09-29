@@ -26,6 +26,7 @@ import static com.uber.nullaway.ErrorProneCLIFlagsConfig.EP_FL_NAMESPACE;
 import static com.uber.nullaway.ErrorProneCLIFlagsConfig.FL_ANNOTATED_PACKAGES;
 
 import com.sun.tools.javac.code.Symbol;
+import javax.annotation.Nullable;
 
 /**
  * Dummy Config class required for the {@link NullAway} empty constructor.
@@ -91,6 +92,7 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  @Nullable
   public String getCastToNonNullMethod() {
     throw new IllegalStateException(error_msg);
   }

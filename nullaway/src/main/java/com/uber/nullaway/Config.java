@@ -23,6 +23,7 @@
 package com.uber.nullaway;
 
 import com.sun.tools.javac.code.Symbol;
+import javax.annotation.Nullable;
 
 /** Provides configuration parameters for the nullability checker. */
 public interface Config {
@@ -86,5 +87,6 @@ public interface Config {
    *     return an @NonNull copy (likely through an unsafe downcast, but performing runtime checking
    *     and logging)
    */
+  @Nullable
   String getCastToNonNullMethod();
 }
