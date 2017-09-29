@@ -378,7 +378,8 @@ public class NullAway extends BugChecker
         if (!Nullness.hasNullableAnnotation(paramSymbol)
             && !(isLambda && !NullabilityUtil.lambdaParamIsExplicitlyTyped(param))) {
           String message =
-              "parameter "
+              MessageTypes.WRONG_OVERRIDE_PARAM
+                  + " parameter "
                   + param.getName()
                   + " is @NonNull, but parameter in "
                   + (isLambda ? "functional interface " : "superclass ")
@@ -387,7 +388,7 @@ public class NullAway extends BugChecker
                   + "."
                   + closestOverriddenMethod.toString()
                   + " is @Nullable";
-          return createErrorDescription(param, message, tree);
+          return createErrorDescription(param, message, param);
         }
       }
     }
@@ -1135,6 +1136,8 @@ public class NullAway extends BugChecker
         }
       } else if (message.contains(MessageTypes.WRONG_OVERRIDE_RETURN.toString())) {
         builder = changeReturnNullabilityFix(suggestTree, builder);
+      } else if (message.contains(MessageTypes.WRONG_OVERRIDE_PARAM.toString())) {
+        builder = changeParamNullabilityFix(suggestTree, builder);
       } else {
         builder = addSuppressWarningsFix(suggestTree, builder);
       }
@@ -1186,8 +1189,25 @@ public class NullAway extends BugChecker
 
   private Description.Builder changeReturnNullabilityFix(
       Tree suggestTree, Description.Builder builder) {
-    SuggestedFix fix = SuggestedFix.prefixWith(suggestTree, "@Nullable");
-    return builder.addFix(fix);
+    if (suggestTree.getKind() != Tree.Kind.METHOD) {
+      throw new RuntimeException("This should be a MethodTree");
+    }
+    SuggestedFix.Builder fixBuilder = SuggestedFix.builder();
+    MethodTree methodTree = (MethodTree) suggestTree;
+    int countNullableAnnotations = 0;
+    for (AnnotationTree annotationTree : methodTree.getModifiers().getAnnotations()) {
+      if (annotationTree.getAnnotationType().toString().endsWith("Nullable")) {
+        fixBuilder.delete(annotationTree);
+        countNullableAnnotations += 1;
+      }
+    }
+    assert countNullableAnnotations > 1;
+    return builder.addFix(fixBuilder.build());
+  }
+
+  private Description.Builder changeParamNullabilityFix(
+      Tree suggestTree, Description.Builder builder) {
+    return builder.addFix(SuggestedFix.prefixWith(suggestTree, "@Nullable "));
   }
 
   private Description.Builder addSuppressWarningsFix(
