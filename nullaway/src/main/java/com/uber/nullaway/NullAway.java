@@ -463,14 +463,21 @@ public class NullAway extends BugChecker
       if (symbolHasSuppressInitalizationWarningsAnnotation(symbol)) {
         return Description.NO_MATCH;
       }
-      return createErrorDescription(tree, "@NonNull field " + symbol + " not initialized", tree);
+      return createErrorDescription(
+          tree,
+          MessageTypes.PARAM_NO_INIT.toString() + " @NonNull field " + symbol + " not initialized",
+          tree);
     }
     ExpressionTree initializer = tree.getInitializer();
     if (initializer != null) {
       if (!symbol.type.isPrimitive() && !skipDueToFieldAnnotation(symbol)) {
         if (mayBeNullExpr(state, initializer)) {
-          return createErrorDescription(
-              tree, "assigning @Nullable expression to @NonNull field", tree);
+          return createErrorDescriptionForNullAssignment(
+              tree,
+              MessageTypes.ASSIGN_FIELD_NULLABLE.toString()
+                  + " assigning @Nullable expression to @NonNull field",
+              initializer,
+              tree);
         }
       }
     }
@@ -1132,14 +1139,17 @@ public class NullAway extends BugChecker
         if (config.getCastToNonNullMethod() != null) {
           builder = addCastToNonNullFix(suggestTree, builder);
         } else {
-          builder = addSuppressWarningsFix(suggestTree, builder);
+          builder = addSuppressWarningsFix(suggestTree, builder, canonicalName());
         }
       } else if (message.contains(MessageTypes.WRONG_OVERRIDE_RETURN.toString())) {
         builder = changeReturnNullabilityFix(suggestTree, builder);
       } else if (message.contains(MessageTypes.WRONG_OVERRIDE_PARAM.toString())) {
         builder = changeParamNullabilityFix(suggestTree, builder);
+      } else if (message.contains(MessageTypes.METHOD_NO_INIT.toString())
+          || message.contains(MessageTypes.PARAM_NO_INIT.toString())) {
+        builder = addSuppressWarningsFix(suggestTree, builder, INITIALIZATION_CHECK_NAME);
       } else {
-        builder = addSuppressWarningsFix(suggestTree, builder);
+        builder = addSuppressWarningsFix(suggestTree, builder, canonicalName());
       }
     }
     // #letbuildersbuild
@@ -1165,10 +1175,35 @@ public class NullAway extends BugChecker
       String message,
       @Nullable Tree suggestTreeIfCastToNonNull,
       @Nullable TreePath suggestTreePathIfSuppression) {
+    MethodTree enclosingMethod =
+        ASTHelpers.findEnclosingNode(suggestTreePathIfSuppression, MethodTree.class);
+    return createErrorDescriptionForNullAssignment(
+        errorLocTree, message, suggestTreeIfCastToNonNull, enclosingMethod);
+  }
+
+  /**
+   * create an error description for a generalized @Nullable value to @NonNull location assignment.
+   *
+   * <p>This includes: field assignments, method arguments and method returns
+   *
+   * @param errorLocTree the location of the error
+   * @param message the error message
+   * @param suggestTreeIfCastToNonNull the location at which a fix suggestion should be made if a
+   *     castToNonNull method is available (usually the expression to cast)
+   * @param suggestTreeIfSuppression the location at which a fix suggestion should be made if a
+   *     castToNonNull method is not available (usually the enclosing method, or any place
+   *     where @SuppressWarnings can be added).
+   * @return the error description.
+   */
+  private Description createErrorDescriptionForNullAssignment(
+      Tree errorLocTree,
+      String message,
+      @Nullable Tree suggestTreeIfCastToNonNull,
+      @Nullable Tree suggestTreeIfSuppression) {
     if (config.getCastToNonNullMethod() != null) {
       return createErrorDescription(errorLocTree, message, suggestTreeIfCastToNonNull);
     } else {
-      return createErrorDescription(errorLocTree, message, suggestTreePathIfSuppression);
+      return createErrorDescription(errorLocTree, message, suggestTreeIfSuppression);
     }
   }
 
@@ -1211,8 +1246,7 @@ public class NullAway extends BugChecker
   }
 
   private Description.Builder addSuppressWarningsFix(
-      Tree suggestTree, Description.Builder builder) {
-    String checkerName = canonicalName();
+      Tree suggestTree, Description.Builder builder, String checkerName) {
     SuppressWarnings extantSuppressWarnings =
         ASTHelpers.getAnnotation(suggestTree, SuppressWarnings.class);
     SuggestedFix fix;
@@ -1347,7 +1381,8 @@ public class NullAway extends BugChecker
   }
 
   private String errMsgForInitializer(Set<Element> uninitFields) {
-    String message = "initializer method does not guarantee @NonNull ";
+    String message =
+        MessageTypes.METHOD_NO_INIT.toString() + " initializer method does not guarantee @NonNull ";
     if (uninitFields.size() == 1) {
       message += "field " + uninitFields.iterator().next().toString() + " is initialized";
     } else {
@@ -1358,22 +1393,18 @@ public class NullAway extends BugChecker
   }
 
   public static enum MessageTypes {
-    DEREFERENCE_NULLABLE(0),
-    RETURN_NULLABLE(1),
-    PASS_NULLABLE(2),
-    ASSIGN_FIELD_NULLABLE(3),
-    WRONG_OVERRIDE_RETURN(4),
-    WRONG_OVERRIDE_PARAM(5);
-
-    private final int code;
-
-    private MessageTypes(int c) {
-      code = c;
-    }
+    DEREFERENCE_NULLABLE,
+    RETURN_NULLABLE,
+    PASS_NULLABLE,
+    ASSIGN_FIELD_NULLABLE,
+    WRONG_OVERRIDE_RETURN,
+    WRONG_OVERRIDE_PARAM,
+    METHOD_NO_INIT,
+    PARAM_NO_INIT;
 
     @Override
     public String toString() {
-      return "[ISSUE_ID_" + Integer.toString(code) + "]";
+      return "[NA_" + super.toString() + "]";
     }
   }
 
