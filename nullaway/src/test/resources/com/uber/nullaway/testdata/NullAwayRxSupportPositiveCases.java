@@ -119,9 +119,9 @@ public class NullAwayRxSupportPositiveCases {
   }
 
   private Observable<Integer> filterWithLambdaNullExpressionBody(Observable<String> observable) {
-      // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return
-      // type
-      return observable.map(o -> perhaps() ? o : null).map(o -> o.length());
+    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return
+    // type
+    return observable.map(o -> perhaps() ? o : null).map(o -> o.length());
   }
 
   private Observable<Integer> filterThenMapNullableContainerLambdas(

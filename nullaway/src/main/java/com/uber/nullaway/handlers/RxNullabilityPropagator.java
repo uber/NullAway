@@ -180,7 +180,6 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
    *                                   }
    */
 
-
   // Map from filter method (or lambda) to corresponding nullability info after the function returns
   // true.
   // Specifically, this is the least upper bound of the "then" store on the branch of every return
