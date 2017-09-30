@@ -77,5 +77,21 @@ test {
 }
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
+
+install {
+  repositories.mavenInstaller {
+    pom.scopeMappings.mappings.remove(project.configurations.compile)
+    pom.scopeMappings.mappings.remove(project.configurations.runtime)
+    pom.scopeMappings.addMapping(MavenPlugin.COMPILE_PRIORITY, project.configurations.shadow, Conf2ScopeMappingContainer.COMPILE)
+  }
+}
 install.dependsOn shadowJar
+
+uploadArchives {
+  repositories.mavenDeployer {
+    pom.scopeMappings.mappings.remove(project.configurations.compile)
+    pom.scopeMappings.mappings.remove(project.configurations.runtime)
+    pom.scopeMappings.addMapping(MavenPlugin.COMPILE_PRIORITY, project.configurations.shadow, Conf2ScopeMappingContainer.COMPILE)
+  }
+}
 uploadArchives.dependsOn shadowJar
