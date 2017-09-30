@@ -95,3 +95,4 @@ uploadArchives {
   }
 }
 uploadArchives.dependsOn shadowJar
+
