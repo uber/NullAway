@@ -62,7 +62,6 @@ shadowJar {
 }
 build.dependsOn shadowJar
 
-
 javadoc {
     failOnError = false
 }
