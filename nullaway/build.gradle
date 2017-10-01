@@ -76,3 +76,24 @@ test {
 }
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
+
+def configurePomForShadow(pom) {
+  pom.scopeMappings.mappings.remove(project.configurations.compile)
+  pom.scopeMappings.mappings.remove(project.configurations.runtime)
+  pom.scopeMappings.addMapping(MavenPlugin.COMPILE_PRIORITY, project.configurations.shadow, Conf2ScopeMappingContainer.COMPILE)
+}
+
+install {
+  repositories.mavenInstaller {
+    configurePomForShadow(pom)
+  }
+}
+install.dependsOn shadowJar
+
+uploadArchives {
+  repositories.mavenDeployer {
+    configurePomForShadow(pom)
+  }
+}
+uploadArchives.dependsOn shadowJar
+
