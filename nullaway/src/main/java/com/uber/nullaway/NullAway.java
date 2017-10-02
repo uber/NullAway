@@ -1488,14 +1488,33 @@ public class NullAway extends BugChecker
     /** @return @NonNull static fields that are not directly initialized at declaration */
     abstract Set<Symbol> nonnullStaticFields();
 
+    /**
+     * @return the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
+     *     } } )
+     */
     abstract Set<BlockTree> instanceInitializerBlocks();
 
+    /**
+     * @return the list of static initializer blocks (e.g. blocks of the form `class X { static {
+     *     //Code } } )
+     */
     abstract Set<BlockTree> staticInitializerBlocks();
 
+    /** @return the list of constructor */
     abstract Set<MethodTree> constructors();
 
+    /**
+     * @return the list of non-static (instance) initializer methods. This includes methods
+     *     annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers
+     *     or annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations
+     */
     abstract Set<MethodTree> instanceInitializerMethods();
 
+    /**
+     * @return the list of static initializer methods. This includes static methods
+     *     annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers
+     *     or annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations
+     */
     abstract Set<MethodTree> staticInitializerMethods();
   }
 }
