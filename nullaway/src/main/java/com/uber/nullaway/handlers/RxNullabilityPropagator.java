@@ -394,9 +394,15 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
   @Override
   public void onMatchReturn(NullAway analysis, ReturnTree tree, VisitorState state) {
     // Figure out the enclosing method node
-    TreePath enclosingMethodOrLambda = NullabilityUtil.findEnclosingMethodOrLambda(state.getPath());
+    TreePath enclosingMethodOrLambda =
+        NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath());
     if (enclosingMethodOrLambda == null) {
-      throw new RuntimeException("no enclosing method or lambda!");
+      throw new RuntimeException("no enclosing method, lambda or initializer!");
+    }
+    if (!(enclosingMethodOrLambda.getLeaf() instanceof MethodTree
+        || enclosingMethodOrLambda.getLeaf() instanceof LambdaExpressionTree)) {
+      throw new RuntimeException(
+          "return statement outside of a method or lambda! (e.g. in an initializer block)");
     }
     Tree leaf = enclosingMethodOrLambda.getLeaf();
     if (filterMethodOrLambdaSet.contains(leaf)) {

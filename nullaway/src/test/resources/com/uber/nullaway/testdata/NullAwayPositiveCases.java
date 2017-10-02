@@ -389,4 +389,28 @@ public class NullAwayPositiveCases {
     // BUG: Diagnostic contains: unboxing
     z = (b ? null : 1) + 0;
   }
+
+  static class InitializerBlockCoreTests {
+
+    String nonNullField = "";
+    static String nonNullSField = "";
+
+    {
+      String s = "";
+      if (true) {
+        s = null;
+      }
+      // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+      nonNullField = s;
+    }
+
+    static {
+      String s = "";
+      if (true) {
+        s = null;
+      }
+      // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+      nonNullSField = s;
+    }
+  }
 }

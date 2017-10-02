@@ -62,7 +62,7 @@ public class CheckFieldInitPositiveCases {
       return null;
     }
 
-    // TODO detect this error
+    // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
     Object g = returnNull();
   }
 
@@ -132,13 +132,39 @@ public class CheckFieldInitPositiveCases {
     // initialized
     public void init() {}
   }
-  //    static class T7 {
-  //
-  //        static Object f;
-  //
-  //        static {
-  //
-  //        }
-  //
-  //    }
+
+  static class T9 {
+
+    // BUG: Diagnostic contains: @NonNull static field f not initialized
+    static Object f;
+
+    static {
+    }
+  }
+
+  static class T10 {
+
+    // BUG: Diagnostic contains: @NonNull static field f not initialized
+    static Object f;
+
+    static {
+    }
+
+    @Initializer
+    static void init() {}
+  }
+
+  static class T11 {
+
+    // BUG: Diagnostic contains: @NonNull static field f not initialized
+    static Object f;
+
+    static {
+    }
+
+    @Initializer
+    static void init(Object f) {
+      f = new Object(); // Wrong f
+    }
+  }
 }

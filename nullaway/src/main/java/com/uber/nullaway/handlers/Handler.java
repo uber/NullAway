@@ -204,7 +204,7 @@ public interface Handler {
    *
    * <p>It is not expected to be called for anything other than boolean expressions, which are the
    * only ones for which providing separate then/else stores makes sense. For simply getting the
-   * final exit store of the lambda, see Dataflow.finalResultForMethod or
+   * final exit store of the lambda, see Dataflow.finalResult or
    * AccessPathNullnessAnalysis.forceRunOnMethod.
    *
    * @param tree The AST node for the expression being matched.
