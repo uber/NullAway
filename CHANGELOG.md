@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Version 0.1.5
+-------------
+* Add finer grained suppressions and auto-fixes (#31).  You can
+  suppress initialization errors specifically now with
+  `@SuppressWarnings("NullAway.Init")` 
+* Fix performance issue with lambdas (#29) 
+* Add lambda support to the RxNullabilityPropagator handler. (#12)
+
 Version 0.1.4
 -------------
 * Another lambda fix (#23)
