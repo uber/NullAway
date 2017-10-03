@@ -23,6 +23,8 @@
 package com.uber.nullaway;
 
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
@@ -89,18 +91,31 @@ public class NullabilityUtil {
   }
 
   /**
-   * find the enclosing method or lambda expression for the leaf of some tree path
+   * find the enclosing method, lambda expression or initializer block for the leaf of some tree
+   * path
    *
    * @param path the tree path
    * @return the closest enclosing method / lambda
    */
   @Nullable
-  public static TreePath findEnclosingMethodOrLambda(TreePath path) {
+  public static TreePath findEnclosingMethodOrLambdaOrInitializer(TreePath path) {
     while (path != null) {
       if (path.getLeaf() instanceof MethodTree || path.getLeaf() instanceof LambdaExpressionTree) {
         return path;
       }
-      path = path.getParentPath();
+      TreePath parent = path.getParentPath();
+      if (parent != null && parent.getLeaf() instanceof ClassTree) {
+        if (path.getLeaf() instanceof BlockTree) {
+          // found initializer block
+          return path;
+        }
+        if (path.getLeaf() instanceof VariableTree
+            && ((VariableTree) path.getLeaf()).getInitializer() != null) {
+          // found field with an inline initializer
+          return path;
+        }
+      }
+      path = parent;
     }
     return null;
   }

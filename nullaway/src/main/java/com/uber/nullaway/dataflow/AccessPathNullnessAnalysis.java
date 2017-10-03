@@ -93,13 +93,13 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
-   * @param methodPath tree path of method
+   * @param path tree path of method, or initializer block
    * @param context Javac context
-   * @return fields guaranteed to be nonnull at exit of method
+   * @return fields guaranteed to be nonnull at exit of method (or initializer block)
    */
-  public Set<Element> getNonnullFieldsOfReceiverAtExit(TreePath methodPath, Context context) {
+  public Set<Element> getNonnullFieldsOfReceiverAtExit(TreePath path, Context context) {
     NullnessStore<Nullness> nullnessResult =
-        dataFlow.finalResultForMethod(methodPath, context, nullnessPropagation);
+        dataFlow.finalResult(path, context, nullnessPropagation);
     if (nullnessResult == null) {
       // this case can occur if the method always throws an exception
       // be conservative and say nothing is initialized
@@ -122,6 +122,31 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
+   * @param path tree path of static method, or initializer block
+   * @param context Javac context
+   * @return fields guaranteed to be nonnull at exit of static method (or initializer block)
+   */
+  public Set<Element> getNonnullStaticFieldsAtExit(TreePath path, Context context) {
+    NullnessStore<Nullness> nullnessResult =
+        dataFlow.finalResult(path, context, nullnessPropagation);
+    if (nullnessResult == null) {
+      // this case can occur if the method always throws an exception
+      // be conservative and say nothing is initialized
+      return Collections.emptySet();
+    }
+    Set<AccessPath> nonnullAccessPaths = nullnessResult.getAccessPathsWithValue(Nullness.NONNULL);
+    Set<Element> result = new LinkedHashSet<>();
+    for (AccessPath ap : nonnullAccessPaths) {
+      assert !ap.getRoot().isReceiver();
+      Element varElement = ap.getRoot().getVarElement();
+      if (varElement.getKind().equals(ElementKind.FIELD)) {
+        result.add(varElement);
+      }
+    }
+    return result;
+  }
+
+  /**
    * Forces a run of the access path nullness analysis on the method (or lambda) at the given
    * TreePath.
    *
@@ -135,7 +160,7 @@ public final class AccessPathNullnessAnalysis {
    * @return the final NullnessStore on exit from the method.
    */
   public NullnessStore<Nullness> forceRunOnMethod(TreePath methodPath, Context context) {
-    return dataFlow.finalResultForMethod(methodPath, context, nullnessPropagation);
+    return dataFlow.finalResult(methodPath, context, nullnessPropagation);
   }
 
   /** invalidate all caches */

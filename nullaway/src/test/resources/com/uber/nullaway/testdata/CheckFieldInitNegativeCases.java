@@ -163,6 +163,48 @@ public class CheckFieldInitNegativeCases {
     }
   }
 
+  static class StaticInitializerBlock {
+    static Object f;
+
+    static {
+      f = new Object();
+    }
+  }
+
+  static class StaticInitializerBlockMultiple {
+    static Object f;
+
+    static {
+      assert true; // Do nothing
+    }
+
+    static {
+      f = new Object();
+    }
+
+    static {
+      assert true; // Do nothing
+    }
+  }
+
+  static class StaticInitializer {
+    static Object f;
+
+    @Initializer
+    static void init() {
+      f = new Object();
+    }
+  }
+
+  static class StaticInitializerExplicitClass {
+    static Object f;
+
+    @Initializer
+    static void init(Object f) {
+      StaticInitializerExplicitClass.f = new Object();
+    }
+  }
+
   static class SuppressWarningsA {
 
     Object f; // Should be an error, but we are suppressing
@@ -177,5 +219,28 @@ public class CheckFieldInitNegativeCases {
 
     @SuppressWarnings("NullAway.Init")
     SuppressWarningsB() {}
+  }
+
+  static class SuppressWarningsC {
+
+    @SuppressWarnings("NullAway.Init")
+    static Object f; // Should be an error, but we are suppressing
+
+    static {
+      assert true; // Do nothing
+    }
+  }
+
+  static class SuppressWarningsD {
+
+    @SuppressWarnings("NullAway.Init")
+    static Object f; // Should be an error, but we are suppressing
+
+    static {
+      assert true; // Do nothing
+    }
+
+    @Initializer
+    static void init() {}
   }
 }

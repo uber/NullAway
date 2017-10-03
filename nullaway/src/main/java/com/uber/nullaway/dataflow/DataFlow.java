@@ -23,10 +23,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.util.Context;
@@ -83,28 +86,33 @@ public final class DataFlow {
               new CacheLoader<CfgParams, ControlFlowGraph>() {
                 @Override
                 public ControlFlowGraph load(CfgParams key) {
-                  final TreePath methodPath = key.methodPath();
+                  final TreePath codePath = key.codePath();
                   final TreePath bodyPath;
                   final UnderlyingAST ast;
                   final ProcessingEnvironment env = key.environment();
-                  if (methodPath.getLeaf() instanceof LambdaExpressionTree) {
+                  if (codePath.getLeaf() instanceof LambdaExpressionTree) {
                     LambdaExpressionTree lambdaExpressionTree =
-                        (LambdaExpressionTree) methodPath.getLeaf();
+                        (LambdaExpressionTree) codePath.getLeaf();
                     ast = new UnderlyingAST.CFGLambda(lambdaExpressionTree);
-                    bodyPath = new TreePath(methodPath, lambdaExpressionTree.getBody());
-                  } else {
-                    // must be a method per findEnclosingMethodOrLambda
-                    MethodTree method = (MethodTree) methodPath.getLeaf();
+                    bodyPath = new TreePath(codePath, lambdaExpressionTree.getBody());
+                  } else if (codePath.getLeaf() instanceof MethodTree) {
+                    MethodTree method = (MethodTree) codePath.getLeaf();
                     ast = new UnderlyingAST.CFGMethod(method, /*classTree*/ null);
-                    bodyPath = new TreePath(methodPath, method.getBody());
+                    bodyPath = new TreePath(codePath, method.getBody());
+                  } else {
+                    // must be an initializer per findEnclosingMethodOrLambdaOrInitializer
+                    ast =
+                        new UnderlyingAST.CFGStatement(
+                            codePath.getLeaf(), (ClassTree) codePath.getParentPath().getLeaf());
+                    bodyPath = codePath;
                   }
                   return CFGBuilder.build(bodyPath, env, ast, false, false);
                 }
               });
 
   /**
-   * Run the {@code transfer} dataflow analysis over the method or lambda which is the leaf of the
-   * {@code methodPath}.
+   * Run the {@code transfer} dataflow analysis over the method, lambda or initializer which is the
+   * leaf of the {@code path}.
    *
    * <p>For caching, we make the following assumptions: - if two paths to methods are {@code equal},
    * their control flow graph is the same. - if two transfer functions are {@code equal}, and are
@@ -112,9 +120,9 @@ public final class DataFlow {
    * analysis result is the same.
    */
   private <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
-      Result<A, S, T> methodDataflow(TreePath methodPath, Context context, T transfer) {
+      Result<A, S, T> dataflow(TreePath path, Context context, T transfer) {
     final ProcessingEnvironment env = JavacProcessingEnvironment.instance(context);
-    final ControlFlowGraph cfg = cfgCache.getUnchecked(CfgParams.create(methodPath, env));
+    final ControlFlowGraph cfg = cfgCache.getUnchecked(CfgParams.create(path, env));
     final AnalysisParams aparams = AnalysisParams.create(transfer, cfg, env);
     @SuppressWarnings("unchecked")
     final Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
@@ -154,14 +162,13 @@ public final class DataFlow {
         leaf.getClass().getName());
 
     final ExpressionTree expr = (ExpressionTree) leaf;
-    final TreePath enclosingMethodPath = NullabilityUtil.findEnclosingMethodOrLambda(exprPath);
-    if (enclosingMethodPath == null) {
-      // This can happen in field initialization.
-      // Currently not supported because it only happens in ~2% of cases.
-      return null;
+    final TreePath enclosingPath =
+        NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(exprPath);
+    if (enclosingPath == null) {
+      throw new RuntimeException("expression is not inside a method, lambda or initializer block!");
     }
 
-    final Tree method = enclosingMethodPath.getLeaf();
+    final Tree method = enclosingPath.getLeaf();
     if (method instanceof MethodTree && ((MethodTree) method).getBody() == null) {
       // expressions can occur in abstract methods, for example {@code Map.Entry} in:
       //
@@ -173,14 +180,11 @@ public final class DataFlow {
     // *before* any unboxing operations (like invoking intValue() on an Integer).  This is
     // important,
     // e.g., for actually checking that the unboxing operation is legal.
-    return methodDataflow(enclosingMethodPath, context, transfer)
-        .getAnalysis()
-        .getResult()
-        .getValue(expr);
+    return dataflow(enclosingPath, context, transfer).getAnalysis().getResult().getValue(expr);
   }
 
   /**
-   * @param methodPath path to method (or lambda)
+   * @param path path to method (or lambda, or initializer block)
    * @param context Javac context
    * @param transfer transfer functions
    * @param <A> values in abstraction
@@ -189,14 +193,17 @@ public final class DataFlow {
    * @return dataflow result at exit of method
    */
   public <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
-      S finalResultForMethod(TreePath methodPath, Context context, T transfer) {
-    final Tree leaf = methodPath.getLeaf();
+      S finalResult(TreePath path, Context context, T transfer) {
+    final Tree leaf = path.getLeaf();
     Preconditions.checkArgument(
-        leaf instanceof MethodTree || leaf instanceof LambdaExpressionTree,
-        "Leaf of methodPath must be of type MethodTree or LambdaExpressionTree, but was %s",
+        leaf instanceof MethodTree
+            || leaf instanceof LambdaExpressionTree
+            || leaf instanceof BlockTree
+            || leaf instanceof VariableTree,
+        "Leaf of methodPath must be of type MethodTree, LambdaExpressionTree, BlockTree, or VariableTree, but was %s",
         leaf.getClass().getName());
 
-    return methodDataflow(methodPath, context, transfer).getAnalysis().getRegularExitStore();
+    return dataflow(path, context, transfer).getAnalysis().getRegularExitStore();
   }
 
   /** clear the CFG and analysis caches */
@@ -210,8 +217,8 @@ public final class DataFlow {
     // Should not be used for hashCode or equals
     private ProcessingEnvironment environment;
 
-    private static CfgParams create(TreePath methodPath, ProcessingEnvironment environment) {
-      CfgParams cp = new AutoValue_DataFlow_CfgParams(methodPath);
+    private static CfgParams create(TreePath codePath, ProcessingEnvironment environment) {
+      CfgParams cp = new AutoValue_DataFlow_CfgParams(codePath);
       cp.environment = environment;
       return cp;
     }
@@ -220,7 +227,7 @@ public final class DataFlow {
       return environment;
     }
 
-    abstract TreePath methodPath();
+    abstract TreePath codePath();
   }
 
   @AutoValue
