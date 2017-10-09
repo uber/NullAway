@@ -116,4 +116,16 @@ public class NullAwayJava8NegativeCases {
       return (b - a);
     };
   }
+
+  @FunctionalInterface
+  interface VoidFunction {
+
+    void doSomething();
+  }
+
+  static void wrapDoSomething() {
+    RetNullableFunction r = () -> null;
+    VoidFunction v = () -> r.getVal();
+    v.doSomething();
+  }
 }
