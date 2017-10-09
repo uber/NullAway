@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Version 0.1.6
+-------------
+
+* We now check static fields and initializer blocks (#34)
+* Fix for lambdas where the functional interface method had `void` return type (#37)
+
 Version 0.1.5
 -------------
 * Add finer grained suppressions and auto-fixes (#31).  You can
