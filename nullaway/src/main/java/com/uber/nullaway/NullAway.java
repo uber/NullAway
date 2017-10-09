@@ -94,6 +94,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.type.TypeKind;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.javacutil.AnnotationUtils;
 
@@ -428,7 +429,8 @@ public class NullAway extends BugChecker
     if (description != Description.NO_MATCH) {
       return description;
     }
-    if (tree.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION) {
+    if (tree.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION
+        && methodSymbol.getReturnType().getKind() != TypeKind.VOID) {
       ExpressionTree resExpr = (ExpressionTree) tree.getBody();
       return checkReturnExpression(tree, resExpr, methodSymbol, state);
     }
