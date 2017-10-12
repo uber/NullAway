@@ -53,7 +53,9 @@ public class NullAwayTest {
                 + ".SuperInterface.doInit2",
             "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
             "-XepOpt:NullAway:UnannotatedSubPackages=" + "com.uber.nullaway.testdata.unannotated",
-            "-XepOpt:NullAway:ExcludedClasses=" + "com.uber.nullaway.testdata.Shape_Stuff",
+            "-XepOpt:NullAway:ExcludedClasses="
+                + "com.uber.nullaway.testdata.Shape_Stuff,"
+                + "com.uber.nullaway.testdata.excluded",
             "-XepOpt:NullAway:ExcludedClassAnnotations="
                 + "com.uber.nullaway.testdata"
                 + ".TestAnnot",
@@ -82,6 +84,7 @@ public class NullAwayTest {
   @Test
   public void coreNullabilitySkipClass() {
     compilationHelper.addSourceFile("Shape_Stuff.java").doTest();
+    compilationHelper.addSourceFile("excluded/Shape_Stuff2.java").doTest();
     compilationHelper.addSourceFile("AnnotatedClass.java").addSourceFile("TestAnnot.java").doTest();
   }
 
