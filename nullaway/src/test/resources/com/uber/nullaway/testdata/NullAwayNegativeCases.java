@@ -623,4 +623,17 @@ public class NullAwayNegativeCases {
     boolean t = Integer.valueOf(0) == (b ? 0 : null);
     t = (b ? 0 : null) == Integer.valueOf(0);
   }
+
+  // see https://github.com/uber/NullAway/issues/39
+  final class Container {
+    private void sender() {
+      int someValue = 0;
+      receiver(-someValue);
+      receiver(+someValue);
+    }
+
+    private void receiver(Integer i) {
+      /* NOP */
+    }
+  }
 }
