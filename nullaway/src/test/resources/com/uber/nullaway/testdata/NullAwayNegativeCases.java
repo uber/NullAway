@@ -630,6 +630,8 @@ public class NullAwayNegativeCases {
       int someValue = 0;
       receiver(-someValue);
       receiver(+someValue);
+      receiver(++someValue);
+      receiver(--someValue);
     }
 
     private void receiver(Integer i) {
