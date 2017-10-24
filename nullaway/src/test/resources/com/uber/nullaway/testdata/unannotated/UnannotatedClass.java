@@ -24,6 +24,11 @@ package com.uber.nullaway.testdata.unannotated;
 
 public class UnannotatedClass {
 
+  private Object field;
+
+  // should get no initialization error
+  UnannotatedClass() {}
+
   /**
    * This is an identity method, without Nullability annotations.
    *

@@ -992,6 +992,9 @@ public class NullAway extends BugChecker
     if (config.isExcludedClass(classSymbol.getQualifiedName().toString())) {
       return true;
     }
+    if (!config.fromAnnotatedPackage(classSymbol.toString())) {
+      return true;
+    }
     // check annotations
     for (AnnotationMirror anno : classSymbol.getAnnotationMirrors()) {
       if (config.isExcludedClassAnnotation(anno.getAnnotationType().toString())) {
