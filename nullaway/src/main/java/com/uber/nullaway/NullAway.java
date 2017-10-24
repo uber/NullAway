@@ -989,10 +989,11 @@ public class NullAway extends BugChecker
   }
 
   private boolean isExcludedClass(Symbol.ClassSymbol classSymbol, VisitorState state) {
-    if (config.isExcludedClass(classSymbol.getQualifiedName().toString())) {
+    String className = classSymbol.getQualifiedName().toString();
+    if (config.isExcludedClass(className)) {
       return true;
     }
-    if (!config.fromAnnotatedPackage(classSymbol.toString())) {
+    if (!config.fromAnnotatedPackage(className)) {
       return true;
     }
     // check annotations
