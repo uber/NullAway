@@ -1,6 +1,13 @@
 Changelog
 =========
 
+Version 0.1.7
+-------------
+* -XepOpt:NullAway:ExcludedClasses accepts package prefixes. (#38)
+* Handle unary minus and unary plus (#40)
+* Handle prefix increment / decrement (#43)
+* add check for unannotated packages when excluding a class (#46)
+
 Version 0.1.6
 -------------
 
