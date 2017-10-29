@@ -85,6 +85,8 @@ dependencies {
 }
 ```
 
+**Note for Dagger users**: Dagger versions older than 2.12 can have bad interactions with NullAway; see [here](https://github.com/uber/NullAway/issues/48#issuecomment-340018409).  Please update to Dagger 2.12 to fix the problem.
+
 ## Code Example
 
 Let's see how NullAway works on a simple code example:
