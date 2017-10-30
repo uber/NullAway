@@ -40,7 +40,7 @@ dependencies {
     compileOnly deps.apt.autoValue
     compileOnly deps.apt.autoService
 
-    shadow deps.build.errorProneCheckApi
+    compileOnly deps.build.errorProneCheckApi
     compile deps.build.checkerDataflow
 
     errorprone deps.build.errorProneCore
@@ -53,7 +53,7 @@ dependencies {
     testCompile deps.apt.javaxInject
     testCompile deps.test.rxjava2
 
-    epJavac deps.build.errorProneCore
+    epJavac deps.build.errorProneCheckApi
     epJavac deps.build.checkerDataflow
 }
 
