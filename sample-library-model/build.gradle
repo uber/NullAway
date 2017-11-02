@@ -15,7 +15,6 @@
  */
 
 plugins {
-  id "net.ltgt.apt" version "0.11"
   id "net.ltgt.errorprone" version "0.0.11"
   id "java"
 }
@@ -24,17 +23,15 @@ sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
 dependencies {
-    apt project(path: ":nullaway", configuration: "shadow")
-    apt project(path: ":sample-library-model")
+    compileOnly deps.apt.autoService
+    compileOnly project(path: ":nullaway", configuration: "shadow")
+    compileOnly deps.build.guava
 
     errorprone deps.build.errorProneCore
-
-    compileOnly deps.build.jsr305Annotations
-    testCompile deps.test.junit
 }
 
 tasks.withType(JavaCompile) {
   if (!name.toLowerCase().contains("test")) {
     options.compilerArgs += ["-Xep:NullAway:ERROR", "-XepOpt:NullAway:AnnotatedPackages=com.uber"]
   }
-} 
+}
