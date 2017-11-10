@@ -1058,6 +1058,9 @@ public class NullAway extends BugChecker
       case LESS_THAN_EQUAL:
       case UNARY_MINUS:
       case UNARY_PLUS:
+      case AND:
+      case OR:
+      case XOR:
         // clearly not null
         exprMayBeNull = false;
         break;

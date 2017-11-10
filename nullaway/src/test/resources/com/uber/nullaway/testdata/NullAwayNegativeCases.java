@@ -459,10 +459,18 @@ public class NullAwayNegativeCases {
 
   static Number moreBoxing() {
     int a = 3, b = 5;
-    if (b > 7) {
+    if (b == 0) {
       return b - a;
-    } else {
+    } else if (b == 1) {
       return b % a;
+    } else if (b == 2) {
+      return b & a;
+    } else if (b == 3) {
+      return b | a;
+    } else if (b == 4) {
+      return b ^ a;
+    } else {
+      return 10;
     }
   }
 
