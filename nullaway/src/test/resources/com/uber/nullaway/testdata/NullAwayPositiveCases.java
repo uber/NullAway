@@ -429,8 +429,8 @@ public class NullAwayPositiveCases {
   static class CFExtends extends CFNullable {
 
     @Override
-    // BUG: Diagnostic contains: method returns @Nullable, but superclass
     @org.checkerframework.checker.nullness.qual.Nullable
+    // BUG: Diagnostic contains: method returns @Nullable, but superclass
     Object retNonNull() {
       return null;
     }
