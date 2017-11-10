@@ -978,7 +978,7 @@ public class NullAway extends BugChecker
   }
 
   private boolean skipDueToFieldAnnotation(Symbol fieldSymbol) {
-    for (AnnotationMirror anno : fieldSymbol.getAnnotationMirrors()) {
+    for (AnnotationMirror anno : NullabilityUtil.getAllAnnotations(fieldSymbol)) {
       // Check for Nullable like ReturnValueIsNonNull
       String annoTypeStr = anno.getAnnotationType().toString();
       if (config.isExcludedFieldAnnotation(annoTypeStr)) {

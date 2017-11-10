@@ -413,4 +413,26 @@ public class NullAwayPositiveCases {
       nonNullSField = s;
     }
   }
+
+  static class CFNullable {
+
+    static int fizz(@org.checkerframework.checker.nullness.qual.Nullable String str) {
+      // BUG: Diagnostic contains: dereferenced expression
+      return str.hashCode();
+    }
+
+    Object retNonNull() {
+      return new Object();
+    }
+  }
+
+  static class CFExtends extends CFNullable {
+
+    @Override
+    @org.checkerframework.checker.nullness.qual.Nullable
+    // BUG: Diagnostic contains: method returns @Nullable, but superclass
+    Object retNonNull() {
+      return null;
+    }
+  }
 }
