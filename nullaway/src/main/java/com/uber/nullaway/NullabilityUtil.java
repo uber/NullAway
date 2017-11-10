@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
@@ -35,6 +36,9 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
 import javax.annotation.Nullable;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
+import javax.lang.model.type.TypeMirror;
 
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
@@ -118,5 +122,18 @@ public class NullabilityUtil {
       path = parent;
     }
     return null;
+  }
+
+  /**
+   * @param element the element
+   * @return all annotations on the element and on the type of the element
+   */
+  public static Iterable<? extends AnnotationMirror> getAllAnnotations(Element element) {
+    // for methods, we care about annotations on the return type, not on the method type itself
+    TypeMirror typeMirror =
+        element instanceof Symbol.MethodSymbol
+            ? ((Symbol.MethodSymbol) element).getReturnType()
+            : element.asType();
+    return Iterables.concat(element.getAnnotationMirrors(), typeMirror.getAnnotationMirrors());
   }
 }

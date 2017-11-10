@@ -646,4 +646,35 @@ public class NullAwayNegativeCases {
       /* NOP */
     }
   }
+
+  static class CFNullable {
+
+    @org.checkerframework.checker.nullness.qual.Nullable String cfNullableString;
+
+    CFNullable() {}
+
+    static int fizz(@org.checkerframework.checker.nullness.qual.Nullable String str) {
+      if (str != null) {
+        return str.hashCode();
+      }
+      return 10;
+    }
+
+    static void bizz() {
+      fizz(null);
+    }
+
+    @org.checkerframework.checker.nullness.qual.Nullable
+    Object retNullMaybe() {
+      return null;
+    }
+  }
+
+  static class CFExtends extends CFNullable {
+
+    @Override
+    Object retNullMaybe() {
+      return new Object();
+    }
+  }
 }

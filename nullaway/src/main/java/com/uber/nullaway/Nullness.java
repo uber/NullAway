@@ -128,8 +128,7 @@ public enum Nullness implements AbstractValue<Nullness> {
   }
 
   private static Nullness nullnessFromAnnotations(Element element) {
-    for (AnnotationMirror anno : element.getAnnotationMirrors()) {
-      // Check for Nullable like ReturnValueIsNonNull
+    for (AnnotationMirror anno : NullabilityUtil.getAllAnnotations(element)) {
       if (anno.getAnnotationType().toString().endsWith(".Nullable")) {
         return Nullness.NULLABLE;
       }
