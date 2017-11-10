@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Version 0.1.8
+-------------
+* Make NullAway's Error Prone dependence compileOnly (#50).  This could help reduce size of annotation processor paths, speeding build times.
+* Handle AND, OR, XOR expressions getting autoboxed (#55)
+* Handle @Nullable type use annotations (#56)
+
 Version 0.1.7
 -------------
 * -XepOpt:NullAway:ExcludedClasses accepts package prefixes. (#38)
