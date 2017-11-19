@@ -558,12 +558,16 @@ public class NullAway extends BugChecker
         builder.putAll(memberTree, initThusFar);
       }
       if (memberTree instanceof BlockTree) {
+        BlockTree blockTree = (BlockTree) memberTree;
         // add whatever gets initialized here
         TreePath memberPath = new TreePath(enclosingClassPath, memberTree);
-        initThusFar.addAll(
-            nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(memberPath, state.context));
-        initThusFar.addAll(
-            nullnessAnalysis.getNonnullStaticFieldsAtExit(memberPath, state.context));
+        if (blockTree.isStatic()) {
+          initThusFar.addAll(
+              nullnessAnalysis.getNonnullStaticFieldsAtExit(memberPath, state.context));
+        } else {
+          initThusFar.addAll(
+              nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(memberPath, state.context));
+        }
       }
       if (memberTree instanceof MethodTree) {
         MethodTree methodTree = (MethodTree) memberTree;

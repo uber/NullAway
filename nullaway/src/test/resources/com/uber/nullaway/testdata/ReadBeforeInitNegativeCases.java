@@ -50,4 +50,26 @@ public class ReadBeforeInitNegativeCases {
       g = "goodbye";
     }
   }
+
+  class T2 {
+
+    Object f = new Object();
+
+    T2() {
+      System.out.println(f.toString());
+    }
+  }
+
+  class T3 {
+
+    Object f;
+
+    T3() {
+      System.out.println(f.toString());
+    }
+
+    {
+      f = new Object();
+    }
+  }
 }
