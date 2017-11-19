@@ -32,11 +32,14 @@ import static com.sun.source.tree.Tree.Kind.TYPE_CAST;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.ErrorProneFlags;
@@ -84,12 +87,10 @@ import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -190,7 +191,16 @@ public class NullAway extends BugChecker
   private final Handler handler = Handlers.buildDefault();
 
   /** entities relevant to field initialization for the current class */
-  private FieldInitEntities entities;
+  private final Map<ClassTree, FieldInitEntities> class2Entities = new LinkedHashMap<>();
+
+  /**
+   * maps each top-level initialization member (constructor, init block, field decl with initializer
+   * expression) to the set of @NonNull fields known to be initialized before that member executes.
+   *
+   * <p>cached for performance. nulled out in {@link #matchClass(ClassTree, VisitorState)}
+   */
+  private final Map<ClassTree, Multimap<Tree, Element>> initTree2PrevFieldInit =
+      new LinkedHashMap<>();
 
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
@@ -458,12 +468,22 @@ public class NullAway extends BugChecker
       // writing the field, not reading it
       return Description.NO_MATCH;
     }
-    TreePath enclosing = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(path);
-    if (enclosing == null) {
+    TreePath enclosingBlockPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(path);
+    if (enclosingBlockPath == null) {
       // is this possible?
       return Description.NO_MATCH;
     }
-    Tree methodLambdaOrBlock = enclosing.getLeaf();
+    TreePath enclosingClassPath =
+        ASTHelpers.findPathFromEnclosingNodeToTopLevel(enclosingBlockPath, ClassTree.class);
+    ClassTree enclosingClass = (ClassTree) enclosingClassPath.getLeaf();
+    FieldInitEntities entities = class2Entities.get(enclosingClass);
+    if (!(entities.nonnullInstanceFields().contains(symbol)
+        || entities.nonnullStaticFields().contains(symbol))) {
+      // field is either nullable or initialized at declaration
+      return Description.NO_MATCH;
+    }
+    Preconditions.checkNotNull(enclosingClass);
+    Tree methodLambdaOrBlock = enclosingBlockPath.getLeaf();
     if (methodLambdaOrBlock instanceof LambdaExpressionTree) {
       // can't be a constructor or initializer method / block
       return Description.NO_MATCH;
@@ -476,18 +496,23 @@ public class NullAway extends BugChecker
         }
         // 2. figure out all the fields definitely initialized in any initializer block;
         // if it includes the current field, we're fine
-        if (initializedInAnyInitBlock(symbol)) {
+        if (initializedBefore(symbol, enclosingBlockPath, enclosingClassPath, state)) {
           return Description.NO_MATCH;
         }
         // 3. run data flow and see if field is definitely non-null before the
         // program point.  if not, we're hosed
         if (!definitelyInitializedAtRead(symbol, methodTree)) {
           return createErrorDescription(
-              MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT, tree, "nonnull read before init", path);
+              MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT,
+              tree,
+              "read of @NonNull field " + symbol + " before initialization",
+              path);
         }
+      } else {
+        // TODO(msridhar): initializer methods
       }
     } else {
-      // initializer block
+      // initializer block (BlockTree **OR** VariableTree)
       // 1. for instance initializer block, figure out all the fields definitely initialized
       // in blocks executing before this one.  if it includes current field we're ok
       // 2. otherwise, run data flow on initializer and see if we're ok
@@ -498,11 +523,7 @@ public class NullAway extends BugChecker
 
   private boolean definitelyInitializedAtRead(Symbol symbol, MethodTree methodTree) {
     // TODO implement me
-    return true;
-  }
-
-  private boolean initializedInAnyInitBlock(Symbol fieldSymbol) {
-    return initializedBeforeBlock(fieldSymbol, Optional.empty());
+    return false;
   }
 
   /**
@@ -510,25 +531,46 @@ public class NullAway extends BugChecker
    *
    * <p>if block is null, check if it's always initialized in any initializer
    */
-  private boolean initializedBeforeBlock(Symbol fieldSymbol, Optional<Tree> block) {
-    List<BlockTree> blockTrees = entities.instanceInitializerBlocks();
-    return block
-        .map((initTree) -> initializedBeforeBlock(fieldSymbol, blockTrees.indexOf(initTree)))
-        .orElse(initializedBeforeBlock(fieldSymbol, blockTrees.size() - 1));
-  }
-
-  private boolean initializedBeforeBlock(Symbol fieldSymbol, int initIndex) {
-    return initializedFieldsBeforeBlock(initIndex).contains(fieldSymbol);
-  }
-
-  private Set<Symbol> initializedFieldsBeforeBlock(int initIndex) {
-    if (initIndex == 0) {
-      return Collections.emptySet();
+  private boolean initializedBefore(
+      Symbol fieldSymbol, TreePath initTreePath, TreePath enclosingClassPath, VisitorState state) {
+    ClassTree enclosingClass = (ClassTree) enclosingClassPath.getLeaf();
+    Multimap<Tree, Element> tree2Init = initTree2PrevFieldInit.get(enclosingClass);
+    if (tree2Init == null) {
+      tree2Init = computeTree2Init(enclosingClassPath, state);
+      initTree2PrevFieldInit.put(enclosingClass, tree2Init);
     }
-    //    int prevBlockIndex = initIndex - 1;
-    //    Set<Symbol> prevInit = initializedFieldsBeforeBlock(prevBlockIndex);
-    //    // TODO complete
-    return Collections.emptySet();
+    return tree2Init.containsEntry(initTreePath.getLeaf(), fieldSymbol);
+  }
+
+  private Multimap<Tree, Element> computeTree2Init(
+      TreePath enclosingClassPath, VisitorState state) {
+    ClassTree enclosingClass = (ClassTree) enclosingClassPath.getLeaf();
+    ImmutableMultimap.Builder<Tree, Element> builder = ImmutableMultimap.builder();
+    // NOTE: this set includes both instance and static fields
+    Set<Element> initThusFar = new LinkedHashSet<>();
+    Set<MethodTree> constructors = new LinkedHashSet<>();
+    AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
+    for (Tree memberTree : enclosingClass.getMembers()) {
+      if (memberTree instanceof VariableTree || memberTree instanceof BlockTree) {
+        builder.putAll(memberTree, initThusFar);
+      }
+      if (memberTree instanceof BlockTree) {
+        // add whatever gets initialized here
+        TreePath memberPath = new TreePath(enclosingClassPath, memberTree);
+        initThusFar.addAll(
+            nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(memberPath, state.context));
+        initThusFar.addAll(
+            nullnessAnalysis.getNonnullStaticFieldsAtExit(memberPath, state.context));
+      }
+      if (memberTree instanceof MethodTree) {
+        MethodTree methodTree = (MethodTree) memberTree;
+        if (isConstructor(methodTree)) {
+          constructors.add(methodTree);
+        }
+      }
+    }
+    constructors.stream().forEach((c) -> builder.putAll(c, initThusFar));
+    return builder.build();
   }
 
   private boolean lhsOfAssignment(TreePath path) {
@@ -614,6 +656,8 @@ public class NullAway extends BugChecker
       // results for previous classes
       handler.onMatchTopLevelClass(this, tree, state, classSymbol);
       getNullnessAnalysis(state).invalidateCaches();
+      initTree2PrevFieldInit.clear();
+      class2Entities.clear();
     }
     if (matchWithinClass) {
       checkFieldInitialization(tree, state);
@@ -763,7 +807,8 @@ public class NullAway extends BugChecker
    * @param state visitor state
    */
   private void checkFieldInitialization(ClassTree tree, VisitorState state) {
-    entities = collectEntities(tree, state);
+    FieldInitEntities entities = collectEntities(tree, state);
+    class2Entities.put(tree, entities);
     // For instance fields
     Set<Symbol> notInitializedInConstructors;
     SetMultimap<MethodTree, Symbol> constructorInitInfo;

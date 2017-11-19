@@ -30,7 +30,7 @@ public class ReadBeforeInitPositiveCases {
     Object g;
 
     T1() {
-      // BUG: Diagnostic contains: foo
+      // BUG: Diagnostic contains: read of @NonNull field f before
       System.out.println(f.toString());
       f = new Object();
       g = new Object();
