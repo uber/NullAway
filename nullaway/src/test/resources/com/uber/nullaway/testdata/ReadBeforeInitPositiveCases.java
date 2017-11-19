@@ -48,4 +48,42 @@ public class ReadBeforeInitPositiveCases {
       g = new Object();
     }
   }
+
+  class T2 {
+
+    Object f;
+    Object f2;
+
+    {
+      // BUG: Diagnostic contains: read of @NonNull field f before
+      System.out.println(f.toString());
+    }
+
+    // BUG: Diagnostic contains: read of @NonNull field f2 before
+    Object g = f2;
+
+    T2() {
+      f = "hi";
+      f2 = "byte";
+    }
+  }
+
+  static class StaticStuff {
+
+    static Object f;
+    static Object f2;
+
+    static {
+      // BUG: Diagnostic contains: read of @NonNull field f before
+      System.out.println(f.toString());
+    }
+
+    // BUG: Diagnostic contains: read of @NonNull field f2 before
+    static Object g = f2;
+
+    static {
+      f = "hi";
+      f2 = "byte";
+    }
+  }
 }

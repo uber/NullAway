@@ -490,39 +490,46 @@ public class NullAway extends BugChecker
     } else if (methodLambdaOrBlock instanceof MethodTree) {
       MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
       if (isConstructor(methodTree)) {
-        // 1. again filter out constructors that call this(...) first
+        // again filter out constructors that call this(...) first
         if (constructorInvokesAnother(methodTree, state)) {
           return Description.NO_MATCH;
         }
-        // 2. figure out all the fields definitely initialized in any initializer block;
-        // if it includes the current field, we're fine
-        if (initializedBefore(symbol, enclosingBlockPath, enclosingClassPath, state)) {
-          return Description.NO_MATCH;
-        }
-        // 3. run data flow and see if field is definitely non-null before the
-        // program point.  if not, we're hosed
-        if (!definitelyInitializedAtRead(symbol, path, state)) {
-          return createErrorDescription(
-              MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT,
-              tree,
-              "read of @NonNull field " + symbol + " before initialization",
-              path);
-        }
+        return checkPossibleUninitFieldRead(
+            tree, state, symbol, path, enclosingBlockPath, enclosingClassPath);
       } else {
         // TODO(msridhar): initializer methods
       }
     } else {
-      // initializer block (BlockTree **OR** VariableTree)
-      // 1. for instance initializer block, figure out all the fields definitely initialized
-      // in blocks executing before this one.  if it includes current field we're ok
-      // 2. otherwise, run data flow on initializer and see if we're ok
-      // similar logic for static fields
+      // initializer block or field declaration with initializer
+      return checkPossibleUninitFieldRead(
+          tree, state, symbol, path, enclosingBlockPath, enclosingClassPath);
     }
     return Description.NO_MATCH;
   }
 
-  private boolean definitelyInitializedAtRead(
-      Symbol symbol, TreePath pathToRead, VisitorState state) {
+  private Description checkPossibleUninitFieldRead(
+      IdentifierTree tree,
+      VisitorState state,
+      Symbol symbol,
+      TreePath path,
+      TreePath enclosingBlockPath,
+      TreePath enclosingClassPath) {
+    if (initializedBefore(symbol, enclosingBlockPath, enclosingClassPath, state)) {
+      return Description.NO_MATCH;
+    }
+    // otherwise, run data flow on initializer and see if we're ok
+    if (!checkReadWithDataflow(symbol, path, state)) {
+      return createErrorDescription(
+          MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT,
+          tree,
+          "read of @NonNull field " + symbol + " before initialization",
+          path);
+    } else {
+      return Description.NO_MATCH;
+    }
+  }
+
+  private boolean checkReadWithDataflow(Symbol symbol, TreePath pathToRead, VisitorState state) {
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
     Set<Element> nonnullFields =
         nullnessAnalysis.getNonnullFieldsOfReceiverBefore(pathToRead, state.context);

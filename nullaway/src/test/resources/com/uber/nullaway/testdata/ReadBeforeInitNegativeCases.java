@@ -72,4 +72,20 @@ public class ReadBeforeInitNegativeCases {
       f = new Object();
     }
   }
+
+  static class StaticStuff {
+
+    static Object f;
+
+    static void foo() {
+      System.out.println(f.toString());
+      System.out.println(g.toString());
+    }
+
+    static Object g = "fizz";
+
+    static {
+      f = new Object();
+    }
+  }
 }
