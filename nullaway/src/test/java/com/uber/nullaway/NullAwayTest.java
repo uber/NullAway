@@ -142,4 +142,9 @@ public class NullAwayTest {
   public void readBeforeInitPositiveCases() {
     compilationHelper.addSourceFile("ReadBeforeInitPositiveCases.java").doTest();
   }
+
+  @Test
+  public void readBeforeInitNegativeCases() {
+    compilationHelper.addSourceFile("ReadBeforeInitNegativeCases.java").doTest();
+  }
 }

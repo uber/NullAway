@@ -105,6 +105,10 @@ public final class AccessPathNullnessAnalysis {
       // be conservative and say nothing is initialized
       return Collections.emptySet();
     }
+    return getNonnullReceiverFields(nullnessResult);
+  }
+
+  private Set<Element> getNonnullReceiverFields(NullnessStore<Nullness> nullnessResult) {
     Set<AccessPath> nonnullAccessPaths = nullnessResult.getAccessPathsWithValue(Nullness.NONNULL);
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {
@@ -119,6 +123,19 @@ public final class AccessPathNullnessAnalysis {
       }
     }
     return result;
+  }
+
+  /**
+   * @param path tree path of some expression
+   * @param context Javac context
+   * @return fields of receiver guaranteed to be nonnull before expression is evaluated
+   */
+  public Set<Element> getNonnullFieldsOfReceiverBefore(TreePath path, Context context) {
+    NullnessStore<Nullness> store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
+    if (store == null) {
+      return Collections.emptySet();
+    }
+    return getNonnullReceiverFields(store);
   }
 
   /**

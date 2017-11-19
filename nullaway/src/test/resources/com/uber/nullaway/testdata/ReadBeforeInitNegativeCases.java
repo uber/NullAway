@@ -22,7 +22,7 @@
 
 package com.uber.nullaway.testdata;
 
-public class ReadBeforeInitPositiveCases {
+public class ReadBeforeInitNegativeCases {
 
   class T1 {
 
@@ -30,22 +30,24 @@ public class ReadBeforeInitPositiveCases {
     Object g;
 
     T1() {
-      // BUG: Diagnostic contains: read of @NonNull field f before
-      System.out.println(f.toString());
       f = new Object();
-      // BUG: Diagnostic contains: read of @NonNull field g before
-      System.out.println(g.toString());
       g = new Object();
+      System.out.println(f.toString());
+      System.out.println(g.toString());
     }
 
     T1(boolean b) {
       if (b) {
         f = new Object();
+      } else {
+        f = "hello";
       }
-      // BUG: Diagnostic contains: read of @NonNull field f before
       System.out.println(f.toString());
-      f = new Object();
-      g = new Object();
+      if (b) {
+        g = "hello";
+        System.out.println(g.toString());
+      }
+      g = "goodbye";
     }
   }
 }

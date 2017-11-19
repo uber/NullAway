@@ -501,7 +501,7 @@ public class NullAway extends BugChecker
         }
         // 3. run data flow and see if field is definitely non-null before the
         // program point.  if not, we're hosed
-        if (!definitelyInitializedAtRead(symbol, methodTree)) {
+        if (!definitelyInitializedAtRead(symbol, path, state)) {
           return createErrorDescription(
               MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT,
               tree,
@@ -521,9 +521,12 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
-  private boolean definitelyInitializedAtRead(Symbol symbol, MethodTree methodTree) {
-    // TODO implement me
-    return false;
+  private boolean definitelyInitializedAtRead(
+      Symbol symbol, TreePath pathToRead, VisitorState state) {
+    AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
+    Set<Element> nonnullFields =
+        nullnessAnalysis.getNonnullFieldsOfReceiverBefore(pathToRead, state.context);
+    return nonnullFields.contains(symbol);
   }
 
   /**
