@@ -32,7 +32,7 @@ import static com.sun.source.tree.Tree.Kind.TYPE_CAST;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
-import com.google.common.base.Optional;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.LinkedHashMultimap;
@@ -83,10 +83,13 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -185,6 +188,9 @@ public class NullAway extends BugChecker
    * various APIs.
    */
   private final Handler handler = Handlers.buildDefault();
+
+  /** entities relevant to field initialization for the current class */
+  private FieldInitEntities entities;
 
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
@@ -465,12 +471,20 @@ public class NullAway extends BugChecker
       MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
       if (isConstructor(methodTree)) {
         // 1. again filter out constructors that call this(...) first
+        if (constructorInvokesAnother(methodTree, state)) {
+          return Description.NO_MATCH;
+        }
         // 2. figure out all the fields definitely initialized in any initializer block;
         // if it includes the current field, we're fine
+        if (initializedInAnyInitBlock(symbol)) {
+          return Description.NO_MATCH;
+        }
         // 3. run data flow and see if field is definitely non-null before the
         // program point.  if not, we're hosed
-
-        // special support for @Inject if needed
+        if (!definitelyInitializedAtRead(symbol, methodTree)) {
+          return createErrorDescription(
+              MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT, tree, "nonnull read before init", path);
+        }
       }
     } else {
       // initializer block
@@ -480,6 +494,41 @@ public class NullAway extends BugChecker
       // similar logic for static fields
     }
     return Description.NO_MATCH;
+  }
+
+  private boolean definitelyInitializedAtRead(Symbol symbol, MethodTree methodTree) {
+    // TODO implement me
+    return true;
+  }
+
+  private boolean initializedInAnyInitBlock(Symbol fieldSymbol) {
+    return initializedBeforeBlock(fieldSymbol, Optional.empty());
+  }
+
+  /**
+   * is the non-null field always initialized before the block executes?
+   *
+   * <p>if block is null, check if it's always initialized in any initializer
+   */
+  private boolean initializedBeforeBlock(Symbol fieldSymbol, Optional<Tree> block) {
+    List<BlockTree> blockTrees = entities.instanceInitializerBlocks();
+    return block
+        .map((initTree) -> initializedBeforeBlock(fieldSymbol, blockTrees.indexOf(initTree)))
+        .orElse(initializedBeforeBlock(fieldSymbol, blockTrees.size() - 1));
+  }
+
+  private boolean initializedBeforeBlock(Symbol fieldSymbol, int initIndex) {
+    return initializedFieldsBeforeBlock(initIndex).contains(fieldSymbol);
+  }
+
+  private Set<Symbol> initializedFieldsBeforeBlock(int initIndex) {
+    if (initIndex == 0) {
+      return Collections.emptySet();
+    }
+    //    int prevBlockIndex = initIndex - 1;
+    //    Set<Symbol> prevInit = initializedFieldsBeforeBlock(prevBlockIndex);
+    //    // TODO complete
+    return Collections.emptySet();
   }
 
   private boolean lhsOfAssignment(TreePath path) {
@@ -714,7 +763,7 @@ public class NullAway extends BugChecker
    * @param state visitor state
    */
   private void checkFieldInitialization(ClassTree tree, VisitorState state) {
-    FieldInitEntities entities = collectEntities(tree, state);
+    entities = collectEntities(tree, state);
     // For instance fields
     Set<Symbol> notInitializedInConstructors;
     SetMultimap<MethodTree, Symbol> constructorInitInfo;
@@ -776,19 +825,28 @@ public class NullAway extends BugChecker
   private Set<Symbol> notAssignedInAnyInitializer(
       FieldInitEntities entities, Set<Symbol> notInitializedInConstructors, VisitorState state) {
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
+    Symbol.ClassSymbol classSymbol = entities.classSymbol();
     Set<Element> initInSomeInitializer = new LinkedHashSet<>();
     for (MethodTree initMethodTree : entities.instanceInitializerMethods()) {
       if (initMethodTree.getBody() == null) {
         continue;
       }
-      AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-      Set<Element> nonnullAtExit =
-          nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
-              new TreePath(state.getPath(), initMethodTree), state.context);
-      initInSomeInitializer.addAll(nonnullAtExit);
-      Set<Element> safeInitMethods = getSafeInitMethods(initMethodTree, state);
-      addGuaranteedNonNullFromInvokes(
-          state, trees, safeInitMethods, nullnessAnalysis, initInSomeInitializer);
+      addInitializedFieldsForBlock(
+          state,
+          trees,
+          classSymbol,
+          initInSomeInitializer,
+          initMethodTree.getBody(),
+          new TreePath(state.getPath(), initMethodTree));
+    }
+    for (BlockTree block : entities.instanceInitializerBlocks()) {
+      addInitializedFieldsForBlock(
+          state,
+          trees,
+          classSymbol,
+          initInSomeInitializer,
+          block,
+          new TreePath(state.getPath(), block));
     }
     Set<Symbol> result = new LinkedHashSet<>();
     for (Symbol fieldSymbol : notInitializedInConstructors) {
@@ -799,23 +857,33 @@ public class NullAway extends BugChecker
     return result;
   }
 
+  private void addInitializedFieldsForBlock(
+      VisitorState state,
+      Trees trees,
+      Symbol.ClassSymbol classSymbol,
+      Set<Element> initInSomeInitializer,
+      BlockTree block,
+      TreePath path) {
+    AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
+    Set<Element> nonnullAtExit =
+        nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(path, state.context);
+    initInSomeInitializer.addAll(nonnullAtExit);
+    Set<Element> safeInitMethods = getSafeInitMethods(block, classSymbol, state);
+    addGuaranteedNonNullFromInvokes(
+        state, trees, safeInitMethods, nullnessAnalysis, initInSomeInitializer);
+  }
+
   private SetMultimap<MethodTree, Symbol> checkConstructorInitialization(
       FieldInitEntities entities, VisitorState state) {
     SetMultimap<MethodTree, Symbol> result = LinkedHashMultimap.create();
     Set<Symbol> nonnullInstanceFields = entities.nonnullInstanceFields();
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
     for (MethodTree constructor : entities.constructors()) {
-      // if the constructor starts with a call to 'this', ignore it, as we'll
-      // check the other constructor
-      BlockTree body = constructor.getBody();
-      List<? extends StatementTree> statements = body.getStatements();
-      if (statements.size() > 0) {
-        StatementTree statementTree = statements.get(0);
-        if (isThisCall(statementTree, state)) {
-          continue;
-        }
+      if (constructorInvokesAnother(constructor, state)) {
+        continue;
       }
-      Set<Element> safeInitMethods = getSafeInitMethods(constructor, state);
+      Set<Element> safeInitMethods =
+          getSafeInitMethods(constructor.getBody(), entities.classSymbol(), state);
       AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
       Set<Element> guaranteedNonNull = new LinkedHashSet<>();
       guaranteedNonNull.addAll(
@@ -830,6 +898,19 @@ public class NullAway extends BugChecker
       }
     }
     return result;
+  }
+
+  /** does the constructor invoke another constructor in the same class via this(...)? */
+  private boolean constructorInvokesAnother(MethodTree constructor, VisitorState state) {
+    BlockTree body = constructor.getBody();
+    List<? extends StatementTree> statements = body.getStatements();
+    if (statements.size() > 0) {
+      StatementTree statementTree = statements.get(0);
+      if (isThisCall(statementTree, state)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private Set<Symbol> notInitializedStatic(FieldInitEntities entities, VisitorState state) {
@@ -872,16 +953,16 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * @param methodTree the method
+   * @param blockTree block of statements
    * @param state visitor state
    * @return Elements of safe init methods that are invoked as top-level statements in the method
    */
-  private Set<Element> getSafeInitMethods(MethodTree methodTree, VisitorState state) {
+  private Set<Element> getSafeInitMethods(
+      BlockTree blockTree, Symbol.ClassSymbol classSymbol, VisitorState state) {
     Set<Element> result = new LinkedHashSet<>();
-    List<? extends StatementTree> statements = methodTree.getBody().getStatements();
+    List<? extends StatementTree> statements = blockTree.getStatements();
     for (StatementTree stmt : statements) {
-      Element privMethodElem =
-          getInvokeOfSafeInitMethod(stmt, ASTHelpers.getSymbol(methodTree), state);
+      Element privMethodElem = getInvokeOfSafeInitMethod(stmt, classSymbol, state);
       if (privMethodElem != null) {
         result.add(privMethodElem);
       }
@@ -894,13 +975,13 @@ public class NullAway extends BugChecker
    * possible)
    *
    * @param stmt the statement
-   * @param enclosingMethodSymbol symbol for enclosing constructor / initializer
+   * @param enclosingClassSymbol symbol for enclosing constructor / initializer
    * @param state visitor state
    * @return element of safe init function if stmt invokes that function; null otherwise
    */
   @Nullable
   private Element getInvokeOfSafeInitMethod(
-      StatementTree stmt, final Symbol.MethodSymbol enclosingMethodSymbol, VisitorState state) {
+      StatementTree stmt, final Symbol.ClassSymbol enclosingClassSymbol, VisitorState state) {
     Matcher<ExpressionTree> invokeMatcher =
         (expressionTree, s) -> {
           if (!(expressionTree instanceof MethodInvocationTree)) {
@@ -911,8 +992,7 @@ public class NullAway extends BugChecker
           Set<Modifier> modifiers = symbol.getModifiers();
           if ((symbol.isPrivate() || modifiers.contains(Modifier.FINAL)) && !symbol.isStatic()) {
             // check it's the same class (could be an issue with inner classes)
-            if (ASTHelpers.enclosingClass(symbol)
-                .equals(ASTHelpers.enclosingClass(enclosingMethodSymbol))) {
+            if (ASTHelpers.enclosingClass(symbol).equals(enclosingClassSymbol)) {
               // make sure the receiver is 'this'
               ExpressionTree receiver = ASTHelpers.getReceiver(expressionTree);
               return receiver == null || isThisIdentifier(receiver);
@@ -938,14 +1018,16 @@ public class NullAway extends BugChecker
   }
 
   private FieldInitEntities collectEntities(ClassTree tree, VisitorState state) {
+    Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(tree);
     Set<Symbol> nonnullInstanceFields = new LinkedHashSet<>();
     Set<Symbol> nonnullStaticFields = new LinkedHashSet<>();
-    Set<BlockTree> instanceInitializerBlocks = new LinkedHashSet<>();
-    Set<BlockTree> staticInitializerBlocks = new LinkedHashSet<>();
+    List<BlockTree> instanceInitializerBlocks = new ArrayList<>();
+    List<BlockTree> staticInitializerBlocks = new ArrayList<>();
     Set<MethodTree> constructors = new LinkedHashSet<>();
     Set<MethodTree> instanceInitializerMethods = new LinkedHashSet<>();
     Set<MethodTree> staticInitializerMethods = new LinkedHashSet<>();
 
+    // we assume getMembers() returns members in the same order as the declarations
     for (Tree memberTree : tree.getMembers()) {
       switch (memberTree.getKind()) {
         case METHOD:
@@ -1001,10 +1083,11 @@ public class NullAway extends BugChecker
     }
 
     return FieldInitEntities.create(
+        classSymbol,
         ImmutableSet.copyOf(nonnullInstanceFields),
         ImmutableSet.copyOf(nonnullStaticFields),
-        ImmutableSet.copyOf(instanceInitializerBlocks),
-        ImmutableSet.copyOf(staticInitializerBlocks),
+        ImmutableList.copyOf(instanceInitializerBlocks),
+        ImmutableList.copyOf(staticInitializerBlocks),
         ImmutableSet.copyOf(constructors),
         ImmutableSet.copyOf(instanceInitializerMethods),
         ImmutableSet.copyOf(staticInitializerMethods));
@@ -1390,7 +1473,7 @@ public class NullAway extends BugChecker
               : ((VariableTree) suggestTree).getModifiers();
       List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
       // noinspection ConstantConditions
-      Optional<? extends AnnotationTree> suppressWarningsAnnot =
+      com.google.common.base.Optional<? extends AnnotationTree> suppressWarningsAnnot =
           Iterables.tryFind(
               annotations,
               annot -> annot.getAnnotationType().toString().endsWith("SuppressWarnings"));
@@ -1527,21 +1610,24 @@ public class NullAway extends BugChecker
     WRONG_OVERRIDE_PARAM,
     METHOD_NO_INIT,
     FIELD_NO_INIT,
-    UNBOX_NULLABLE;
+    UNBOX_NULLABLE,
+    NONNULL_FIELD_READ_BEFORE_INIT;
   }
 
   @AutoValue
   abstract static class FieldInitEntities {
 
     static FieldInitEntities create(
+        Symbol.ClassSymbol classSymbol,
         Set<Symbol> nonnullInstanceFields,
         Set<Symbol> nonnullStaticFields,
-        Set<BlockTree> instanceInitializerBlocks,
-        Set<BlockTree> staticInitializerBlocks,
+        List<BlockTree> instanceInitializerBlocks,
+        List<BlockTree> staticInitializerBlocks,
         Set<MethodTree> constructors,
         Set<MethodTree> instanceInitializerMethods,
         Set<MethodTree> staticInitializerMethods) {
       return new AutoValue_NullAway_FieldInitEntities(
+          classSymbol,
           nonnullInstanceFields,
           nonnullStaticFields,
           instanceInitializerBlocks,
@@ -1551,6 +1637,9 @@ public class NullAway extends BugChecker
           staticInitializerMethods);
     }
 
+    /** @return symbol for class */
+    abstract Symbol.ClassSymbol classSymbol();
+
     /** @return @NonNull instance fields that are not directly initialized at declaration */
     abstract Set<Symbol> nonnullInstanceFields();
 
@@ -1559,15 +1648,15 @@ public class NullAway extends BugChecker
 
     /**
      * @return the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
-     *     } } )
+     *     } } ), in the order in which they appear in the class
      */
-    abstract Set<BlockTree> instanceInitializerBlocks();
+    abstract List<BlockTree> instanceInitializerBlocks();
 
     /**
      * @return the list of static initializer blocks (e.g. blocks of the form `class X { static {
-     *     //Code } } )
+     *     //Code } } ), in the order in which they appear in the class
      */
-    abstract Set<BlockTree> staticInitializerBlocks();
+    abstract List<BlockTree> staticInitializerBlocks();
 
     /** @return the list of constructor */
     abstract Set<MethodTree> constructors();
