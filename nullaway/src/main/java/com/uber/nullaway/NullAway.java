@@ -150,7 +150,8 @@ public class NullAway extends BugChecker
         BugChecker.IfTreeMatcher,
         BugChecker.WhileLoopTreeMatcher,
         BugChecker.ForLoopTreeMatcher,
-        BugChecker.LambdaExpressionTreeMatcher {
+        BugChecker.LambdaExpressionTreeMatcher,
+        BugChecker.IdentifierTreeMatcher {
 
   private static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
 
@@ -435,6 +436,59 @@ public class NullAway extends BugChecker
       return checkReturnExpression(tree, resExpr, methodSymbol, state);
     }
     return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchIdentifier(IdentifierTree tree, VisitorState state) {
+    Symbol symbol = ASTHelpers.getSymbol(tree);
+    if (symbol == null) {
+      return Description.NO_MATCH;
+    }
+    if (!symbol.getKind().equals(ElementKind.FIELD)) {
+      return Description.NO_MATCH;
+    }
+    TreePath path = state.getPath();
+    if (lhsOfAssignment(path)) {
+      // writing the field, not reading it
+      return Description.NO_MATCH;
+    }
+    TreePath enclosing = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(path);
+    if (enclosing == null) {
+      // is this possible?
+      return Description.NO_MATCH;
+    }
+    Tree methodLambdaOrBlock = enclosing.getLeaf();
+    if (methodLambdaOrBlock instanceof LambdaExpressionTree) {
+      // can't be a constructor or initializer method / block
+      return Description.NO_MATCH;
+    } else if (methodLambdaOrBlock instanceof MethodTree) {
+      MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
+      if (isConstructor(methodTree)) {
+        // 1. again filter out constructors that call this(...) first
+        // 2. figure out all the fields definitely initialized in any initializer block;
+        // if it includes the current field, we're fine
+        // 3. run data flow and see if field is definitely non-null before the
+        // program point.  if not, we're hosed
+
+        // special support for @Inject if needed
+      }
+    } else {
+      // initializer block
+      // 1. for instance initializer block, figure out all the fields definitely initialized
+      // in blocks executing before this one.  if it includes current field we're ok
+      // 2. otherwise, run data flow on initializer and see if we're ok
+      // similar logic for static fields
+    }
+    return Description.NO_MATCH;
+  }
+
+  private boolean lhsOfAssignment(TreePath path) {
+    TreePath parentPath = path.getParentPath();
+    if (parentPath.getLeaf() instanceof AssignmentTree) {
+      AssignmentTree assignment = (AssignmentTree) parentPath.getLeaf();
+      return assignment.getVariable().equals(path.getLeaf());
+    }
+    return false;
   }
 
   private boolean symbolHasSuppressInitalizationWarningsAnnotation(Symbol symbol) {
@@ -898,10 +952,8 @@ public class NullAway extends BugChecker
           // check if it is a constructor or an @Initializer method
           MethodTree methodTree = (MethodTree) memberTree;
           Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodTree);
-          if (symbol.isConstructor()) {
-            if (!ASTHelpers.isGeneratedConstructor(methodTree)) {
-              constructors.add(methodTree);
-            }
+          if (isConstructor(methodTree)) {
+            constructors.add(methodTree);
           } else if (isInitializerMethod(state, symbol)) {
             if (symbol.isStatic()) {
               staticInitializerMethods.add(methodTree);
@@ -958,6 +1010,11 @@ public class NullAway extends BugChecker
         ImmutableSet.copyOf(staticInitializerMethods));
   }
 
+  private boolean isConstructor(MethodTree methodTree) {
+    return ASTHelpers.getSymbol(methodTree).isConstructor()
+        && !ASTHelpers.isGeneratedConstructor(methodTree);
+  }
+
   private boolean isInitializerMethod(VisitorState state, Symbol.MethodSymbol symbol) {
     if (ASTHelpers.hasDirectAnnotationWithSimpleName(symbol, "Initializer")
         || config.isKnownInitializerMethod(symbol)) {
@@ -979,7 +1036,6 @@ public class NullAway extends BugChecker
 
   private boolean skipDueToFieldAnnotation(Symbol fieldSymbol) {
     for (AnnotationMirror anno : NullabilityUtil.getAllAnnotations(fieldSymbol)) {
-      // Check for Nullable like ReturnValueIsNonNull
       String annoTypeStr = anno.getAnnotationType().toString();
       if (config.isExcludedFieldAnnotation(annoTypeStr)) {
         return true;

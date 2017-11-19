@@ -137,4 +137,9 @@ public class NullAwayTest {
   public void functionalMethodOverrideSuperInterface() {
     compilationHelper.addSourceFile("NullAwayOverrideFunctionalInterfaces.java").doTest();
   }
+
+  @Test
+  public void readBeforeInitPositiveCases() {
+    compilationHelper.addSourceFile("ReadBeforeInitPositiveCases.java").doTest();
+  }
 }
