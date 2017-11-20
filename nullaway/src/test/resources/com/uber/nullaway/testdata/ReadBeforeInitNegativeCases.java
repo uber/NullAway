@@ -87,6 +87,13 @@ public class ReadBeforeInitNegativeCases {
     static {
       f = new Object();
     }
+
+    static Object h;
+
+    static {
+      h = "hello";
+      h.toString();
+    }
   }
 
   class AnonymousInner {

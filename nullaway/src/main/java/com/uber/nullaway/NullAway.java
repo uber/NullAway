@@ -456,6 +456,9 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchIdentifier(IdentifierTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
     Symbol symbol = ASTHelpers.getSymbol(tree);
     if (symbol == null) {
       return Description.NO_MATCH;
@@ -532,7 +535,9 @@ public class NullAway extends BugChecker
   private boolean checkReadWithDataflow(Symbol symbol, TreePath pathToRead, VisitorState state) {
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
     Set<Element> nonnullFields =
-        nullnessAnalysis.getNonnullFieldsOfReceiverBefore(pathToRead, state.context);
+        symbol.isStatic()
+            ? nullnessAnalysis.getNonnullStaticFieldsBefore(pathToRead, state.context)
+            : nullnessAnalysis.getNonnullFieldsOfReceiverBefore(pathToRead, state.context);
     return nonnullFields.contains(symbol);
   }
 
