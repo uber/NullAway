@@ -88,4 +88,23 @@ public class ReadBeforeInitNegativeCases {
       f = new Object();
     }
   }
+
+  class AnonymousInner {
+
+    Runnable r1, r2;
+    Object f;
+
+    AnonymousInner() {
+      r1 = new Runnable() {
+        @Override
+        public void run() {
+          System.out.println(f.toString());
+        }
+      };
+      r2 = () -> System.out.println(f.toString());
+      // false negative that we miss
+      r2.run();
+      f = new Object();
+    }
+  }
 }
