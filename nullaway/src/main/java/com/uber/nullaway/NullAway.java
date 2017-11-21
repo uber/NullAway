@@ -523,11 +523,10 @@ public class NullAway extends BugChecker
       TreePath path,
       TreePath enclosingBlockPath,
       TreePath enclosingClassPath) {
-    if (initializedBefore(symbol, enclosingBlockPath, enclosingClassPath, state)) {
-      return Description.NO_MATCH;
-    }
-    // otherwise, run data flow on initializer and see if we're ok
-    if (!checkReadWithDataflow(symbol, path, state, enclosingBlockPath, enclosingClassPath)) {
+    if (!fieldInitializedByPreviousInitializer(
+            symbol, enclosingBlockPath, enclosingClassPath, state)
+        && !fieldAlwaysInitializedBeforeRead(
+            symbol, path, state, enclosingBlockPath, enclosingClassPath)) {
       return createErrorDescription(
           MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT,
           tree,
@@ -538,7 +537,16 @@ public class NullAway extends BugChecker
     }
   }
 
-  private boolean checkReadWithDataflow(
+  /**
+   * @param symbol the field being read
+   * @param pathToRead TreePath to the read operation
+   * @param state visitor state
+   * @param enclosingBlockPath TreePath to enclosing initializer block
+   * @param enclosingClassPath TreePath to enclosing class
+   * @return true if within the initializer, the field is always initialized before the read
+   *     operation, false otherwise
+   */
+  private boolean fieldAlwaysInitializedBeforeRead(
       Symbol symbol,
       TreePath pathToRead,
       VisitorState state,
@@ -605,11 +613,14 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * is the non-null field always initialized before the block executes?
-   *
-   * <p>if block is null, check if it's always initialized in any initializer
+   * @param fieldSymbol the field
+   * @param initTreePath TreePath to the initializer method / block
+   * @param enclosingClassPath TreePath to enclosing class
+   * @param state visitor state
+   * @return true if the field is always initialized (by some other initializer) before the
+   *     initializer corresponding to initTreePath executes
    */
-  private boolean initializedBefore(
+  private boolean fieldInitializedByPreviousInitializer(
       Symbol fieldSymbol, TreePath initTreePath, TreePath enclosingClassPath, VisitorState state) {
     ClassTree enclosingClass = (ClassTree) enclosingClassPath.getLeaf();
     Multimap<Tree, Element> tree2Init = initTree2PrevFieldInit.get(enclosingClass);
@@ -620,6 +631,12 @@ public class NullAway extends BugChecker
     return tree2Init.containsEntry(initTreePath.getLeaf(), fieldSymbol);
   }
 
+  /**
+   * @param enclosingClassPath TreePath to class
+   * @param state visitor state
+   * @return a map from each initializer <em>i</em> to the fields known to be initialized before
+   *     <em>i</em> executes
+   */
   private Multimap<Tree, Element> computeTree2Init(
       TreePath enclosingClassPath, VisitorState state) {
     ClassTree enclosingClass = (ClassTree) enclosingClassPath.getLeaf();
@@ -651,6 +668,7 @@ public class NullAway extends BugChecker
         }
       }
     }
+    // all the initializer blocks have run before any code inside a constructor
     constructors.stream().forEach((c) -> builder.putAll(c, initThusFar));
     return builder.build();
   }
