@@ -83,10 +83,12 @@ import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
+import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -521,7 +523,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     // otherwise, run data flow on initializer and see if we're ok
-    if (!checkReadWithDataflow(symbol, path, state)) {
+    if (!checkReadWithDataflow(symbol, path, state, enclosingBlockPath, enclosingClassPath)) {
       return createErrorDescription(
           MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT,
           tree,
@@ -532,13 +534,70 @@ public class NullAway extends BugChecker
     }
   }
 
-  private boolean checkReadWithDataflow(Symbol symbol, TreePath pathToRead, VisitorState state) {
+  private boolean checkReadWithDataflow(
+      Symbol symbol,
+      TreePath pathToRead,
+      VisitorState state,
+      TreePath enclosingBlockPath,
+      TreePath enclosingClassPath) {
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-    Set<Element> nonnullFields =
-        symbol.isStatic()
-            ? nullnessAnalysis.getNonnullStaticFieldsBefore(pathToRead, state.context)
-            : nullnessAnalysis.getNonnullFieldsOfReceiverBefore(pathToRead, state.context);
+    Set<Element> nonnullFields;
+    if (symbol.isStatic()) {
+      nonnullFields = nullnessAnalysis.getNonnullStaticFieldsBefore(pathToRead, state.context);
+    } else {
+      nonnullFields = new LinkedHashSet<>();
+      nonnullFields.addAll(
+          nullnessAnalysis.getNonnullFieldsOfReceiverBefore(pathToRead, state.context));
+      nonnullFields.addAll(
+          safeInitByCalleeBefore(pathToRead, state, enclosingBlockPath, enclosingClassPath));
+    }
     return nonnullFields.contains(symbol);
+  }
+
+  /**
+   * computes those fields always initialized by callee safe init methods before a read operation
+   * (pathToRead) is invoked
+   */
+  private Set<Element> safeInitByCalleeBefore(
+      TreePath pathToRead,
+      VisitorState state,
+      TreePath enclosingBlockPath,
+      TreePath enclosingClassPath) {
+    Set<Element> result = new LinkedHashSet<>();
+    Set<Element> safeInitMethods = new LinkedHashSet<>();
+    Tree enclosingBlockOrMethod = enclosingBlockPath.getLeaf();
+    if (enclosingBlockOrMethod instanceof VariableTree) {
+      return Collections.emptySet();
+    }
+    BlockTree blockTree =
+        enclosingBlockOrMethod instanceof BlockTree
+            ? (BlockTree) enclosingBlockOrMethod
+            : ((MethodTree) enclosingBlockOrMethod).getBody();
+    List<? extends StatementTree> statements = blockTree.getStatements();
+    Tree readExprTree = pathToRead.getLeaf();
+    int readStartPos = getStartPos((JCTree) readExprTree);
+    Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol((ClassTree) enclosingClassPath.getLeaf());
+    // bound loop at size-1 since the final statement cannot appear before the read
+    for (int i = 0; i < statements.size() - 1; i++) {
+      StatementTree curStmt = statements.get(i), nextStmt = statements.get(i + 1);
+      if (getStartPos((JCTree) nextStmt) <= readStartPos) {
+        Element privMethodElem = getInvokeOfSafeInitMethod(curStmt, classSymbol, state);
+        if (privMethodElem != null) {
+          safeInitMethods.add(privMethodElem);
+        }
+      }
+    }
+    addGuaranteedNonNullFromInvokes(
+        state,
+        Trees.instance(JavacProcessingEnvironment.instance(state.context)),
+        safeInitMethods,
+        getNullnessAnalysis(state),
+        result);
+    return result;
+  }
+
+  private int getStartPos(JCTree tree) {
+    return tree.pos().getStartPosition();
   }
 
   /**

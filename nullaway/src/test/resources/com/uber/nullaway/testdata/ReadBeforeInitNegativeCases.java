@@ -115,4 +115,18 @@ public class ReadBeforeInitNegativeCases {
       f = new Object();
     }
   }
+
+  class InvokePrivate {
+
+    Object f;
+
+    InvokePrivate() {
+      initF();
+      f.toString();
+    }
+
+    private void initF() {
+      f = "boo";
+    }
+  }
 }

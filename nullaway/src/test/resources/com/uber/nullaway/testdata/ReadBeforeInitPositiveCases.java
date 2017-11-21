@@ -86,4 +86,26 @@ public class ReadBeforeInitPositiveCases {
       f2 = "byte";
     }
   }
+
+  class InvokePrivate {
+
+    Object f;
+    Object g;
+
+    InvokePrivate() {
+      // BUG: Diagnostic contains: read of @NonNull field f before
+      f.toString();
+      initF();
+      initG();
+      g.toString();
+    }
+
+    private void initF() {
+      f = "boo";
+    }
+
+    private void initG() {
+      g = "boo";
+    }
+  }
 }
