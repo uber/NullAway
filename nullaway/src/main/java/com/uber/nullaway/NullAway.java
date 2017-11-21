@@ -469,7 +469,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Tree methodLambdaOrBlock = enclosingBlockPath.getLeaf();
-    if (!initializerMethodOrBlock(methodLambdaOrBlock)) {
+    if (!relevantInitializerMethodOrBlock(methodLambdaOrBlock, state)) {
       return Description.NO_MATCH;
     }
 
@@ -489,8 +489,8 @@ public class NullAway extends BugChecker
     // check that the field might actually be problematic to read
     TreePath enclosingClassPath =
         ASTHelpers.findPathFromEnclosingNodeToTopLevel(enclosingBlockPath, ClassTree.class);
-    ClassTree enclosingClass = (ClassTree) enclosingClassPath.getLeaf();
-    FieldInitEntities entities = class2Entities.get(enclosingClass);
+    Preconditions.checkNotNull(enclosingClassPath);
+    FieldInitEntities entities = class2Entities.get((ClassTree) enclosingClassPath.getLeaf());
     if (!(entities.nonnullInstanceFields().contains(symbol)
         || entities.nonnullStaticFields().contains(symbol))) {
       // field is either nullable or initialized at declaration
@@ -500,28 +500,16 @@ public class NullAway extends BugChecker
       // also suppress checking read before init, as we may not find explicit initialization
       return Description.NO_MATCH;
     }
-    Preconditions.checkNotNull(enclosingClass);
-    if (methodLambdaOrBlock instanceof MethodTree) {
-      // constructor
-      MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
-      // again filter out constructors that call this(...) first
-      if (constructorInvokesAnother(methodTree, state)) {
-        return Description.NO_MATCH;
-      }
-      return checkPossibleUninitFieldRead(
-          tree, state, symbol, path, enclosingBlockPath, enclosingClassPath);
-    } else {
-      // initializer block or field declaration with initializer
-      return checkPossibleUninitFieldRead(
-          tree, state, symbol, path, enclosingBlockPath, enclosingClassPath);
-    }
+    return checkPossibleUninitFieldRead(
+        tree, state, symbol, path, enclosingBlockPath, enclosingClassPath);
   }
 
-  private boolean initializerMethodOrBlock(Tree methodLambdaOrBlock) {
+  private boolean relevantInitializerMethodOrBlock(Tree methodLambdaOrBlock, VisitorState state) {
     if (methodLambdaOrBlock instanceof LambdaExpressionTree) {
       return false;
     } else if (methodLambdaOrBlock instanceof MethodTree) {
-      return isConstructor((MethodTree) methodLambdaOrBlock);
+      MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
+      return isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state);
     } else {
       // initializer or field declaration
       return true;
