@@ -129,4 +129,14 @@ public class ReadBeforeInitNegativeCases {
       f = "boo";
     }
   }
+
+  static class ReadSuppressedStaticFromConstructor {
+
+    @SuppressWarnings("NullAway.Init")
+    static Object foo;
+
+    ReadSuppressedStaticFromConstructor() {
+      foo.toString();
+    }
+  }
 }

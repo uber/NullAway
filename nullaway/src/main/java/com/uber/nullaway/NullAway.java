@@ -487,6 +487,10 @@ public class NullAway extends BugChecker
       // field is either nullable or initialized at declaration
       return Description.NO_MATCH;
     }
+    if (symbolHasSuppressInitalizationWarningsAnnotation(symbol)) {
+      // also suppress checking read before init, as we may not find explicit initialization
+      return Description.NO_MATCH;
+    }
     Preconditions.checkNotNull(enclosingClass);
     Tree methodLambdaOrBlock = enclosingBlockPath.getLeaf();
     if (methodLambdaOrBlock instanceof LambdaExpressionTree) {
