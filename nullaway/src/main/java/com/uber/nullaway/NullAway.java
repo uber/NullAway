@@ -461,6 +461,19 @@ public class NullAway extends BugChecker
     if (!matchWithinClass) {
       return Description.NO_MATCH;
     }
+    // do a bunch of filtering.  first, filter out anything outside an initializer
+    TreePath path = state.getPath();
+    TreePath enclosingBlockPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(path);
+    if (enclosingBlockPath == null) {
+      // is this possible?
+      return Description.NO_MATCH;
+    }
+    Tree methodLambdaOrBlock = enclosingBlockPath.getLeaf();
+    if (!initializerMethodOrBlock(methodLambdaOrBlock)) {
+      return Description.NO_MATCH;
+    }
+
+    // now, make sure we have a field read
     Symbol symbol = ASTHelpers.getSymbol(tree);
     if (symbol == null) {
       return Description.NO_MATCH;
@@ -468,16 +481,12 @@ public class NullAway extends BugChecker
     if (!symbol.getKind().equals(ElementKind.FIELD)) {
       return Description.NO_MATCH;
     }
-    TreePath path = state.getPath();
     if (lhsOfAssignment(path)) {
       // writing the field, not reading it
       return Description.NO_MATCH;
     }
-    TreePath enclosingBlockPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(path);
-    if (enclosingBlockPath == null) {
-      // is this possible?
-      return Description.NO_MATCH;
-    }
+
+    // check that the field might actually be problematic to read
     TreePath enclosingClassPath =
         ASTHelpers.findPathFromEnclosingNodeToTopLevel(enclosingBlockPath, ClassTree.class);
     ClassTree enclosingClass = (ClassTree) enclosingClassPath.getLeaf();
@@ -492,28 +501,31 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Preconditions.checkNotNull(enclosingClass);
-    Tree methodLambdaOrBlock = enclosingBlockPath.getLeaf();
-    if (methodLambdaOrBlock instanceof LambdaExpressionTree) {
-      // can't be a constructor or initializer method / block
-      return Description.NO_MATCH;
-    } else if (methodLambdaOrBlock instanceof MethodTree) {
+    if (methodLambdaOrBlock instanceof MethodTree) {
+      // constructor
       MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
-      if (isConstructor(methodTree)) {
-        // again filter out constructors that call this(...) first
-        if (constructorInvokesAnother(methodTree, state)) {
-          return Description.NO_MATCH;
-        }
-        return checkPossibleUninitFieldRead(
-            tree, state, symbol, path, enclosingBlockPath, enclosingClassPath);
-      } else {
-        // TODO(msridhar): initializer methods
+      // again filter out constructors that call this(...) first
+      if (constructorInvokesAnother(methodTree, state)) {
+        return Description.NO_MATCH;
       }
+      return checkPossibleUninitFieldRead(
+          tree, state, symbol, path, enclosingBlockPath, enclosingClassPath);
     } else {
       // initializer block or field declaration with initializer
       return checkPossibleUninitFieldRead(
           tree, state, symbol, path, enclosingBlockPath, enclosingClassPath);
     }
-    return Description.NO_MATCH;
+  }
+
+  private boolean initializerMethodOrBlock(Tree methodLambdaOrBlock) {
+    if (methodLambdaOrBlock instanceof LambdaExpressionTree) {
+      return false;
+    } else if (methodLambdaOrBlock instanceof MethodTree) {
+      return isConstructor((MethodTree) methodLambdaOrBlock);
+    } else {
+      // initializer or field declaration
+      return true;
+    }
   }
 
   private Description checkPossibleUninitFieldRead(
