@@ -324,11 +324,17 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchArrayAccess(ArrayAccessTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
     return matchDereference(tree.getExpression(), tree, state);
   }
 
   @Override
   public Description matchMemberSelect(MemberSelectTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
     Symbol symbol = ASTHelpers.getSymbol(tree);
     // some checks for cases where we know it is not
     // a null dereference
@@ -336,7 +342,16 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    return matchDereference(tree.getExpression(), tree, state);
+    Description badDeref = matchDereference(tree.getExpression(), tree, state);
+    if (!badDeref.equals(Description.NO_MATCH)) {
+      return badDeref;
+    }
+    // if we're accessing a field of this, make sure we're not reading the field before init
+    if (tree.getExpression() instanceof IdentifierTree
+        && ((IdentifierTree) tree.getExpression()).getName().toString().equals("this")) {
+      return checkForReadBeforeInit(tree, state);
+    }
+    return Description.NO_MATCH;
   }
 
   @Override
@@ -461,6 +476,10 @@ public class NullAway extends BugChecker
     if (!matchWithinClass) {
       return Description.NO_MATCH;
     }
+    return checkForReadBeforeInit(tree, state);
+  }
+
+  private Description checkForReadBeforeInit(ExpressionTree tree, VisitorState state) {
     // do a bunch of filtering.  first, filter out anything outside an initializer
     TreePath path = state.getPath();
     TreePath enclosingBlockPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(path);
@@ -517,7 +536,7 @@ public class NullAway extends BugChecker
   }
 
   private Description checkPossibleUninitFieldRead(
-      IdentifierTree tree,
+      ExpressionTree tree,
       VisitorState state,
       Symbol symbol,
       TreePath path,
@@ -1427,9 +1446,6 @@ public class NullAway extends BugChecker
 
   private Description matchDereference(
       ExpressionTree baseExpression, ExpressionTree derefExpression, VisitorState state) {
-    if (!matchWithinClass) {
-      return Description.NO_MATCH;
-    }
     Symbol dereferenced = ASTHelpers.getSymbol(baseExpression);
     if (dereferenced == null
         || dereferenced.type.isPrimitive()

@@ -139,4 +139,24 @@ public class ReadBeforeInitNegativeCases {
       foo.toString();
     }
   }
+
+  static class NestedWrite {
+
+    NestedWrite foo;
+    Object baz;
+
+    NestedWrite() {
+      this.foo = new NestedWrite();
+      this.foo.toString();
+      this.baz = new Object();
+      this.baz.hashCode();
+    }
+
+    NestedWrite(NestedWrite other) {
+      // safe, as other has already been initialized
+      other.foo.baz = new Object();
+      this.foo = new NestedWrite();
+      this.baz = new Object();
+    }
+  }
 }
