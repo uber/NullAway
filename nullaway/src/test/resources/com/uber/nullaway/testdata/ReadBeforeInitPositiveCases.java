@@ -115,4 +115,29 @@ public class ReadBeforeInitPositiveCases {
       g = "boo";
     }
   }
+
+  static class StoreInLocal {
+
+    Object f;
+
+    StoreInLocal() {
+      // BUG: Diagnostic contains: read of @NonNull field f before
+      Object x = this.f;
+      x.toString();
+      this.f = new Object();
+    }
+  }
+
+  static class NestedWrite {
+
+    NestedWrite foo;
+    Object baz;
+
+    NestedWrite() {
+      // BUG: Diagnostic contains: read of @NonNull field foo before
+      this.foo.baz = new Object();
+      this.foo = new NestedWrite();
+      this.baz = new Object();
+    }
+  }
 }
