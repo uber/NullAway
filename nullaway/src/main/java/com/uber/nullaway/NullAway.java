@@ -587,7 +587,9 @@ public class NullAway extends BugChecker
 
   /**
    * computes those fields always initialized by callee safe init methods before a read operation
-   * (pathToRead) is invoked
+   * (pathToRead) is invoked. See <a
+   * href="https://github.com/uber/NullAway/wiki/Error-Messages#initializer-method-does-not-guarantee-nonnull-field-is-initialized--nonnull-field--not-initialized">the
+   * docs</a> for what is considered a safe initializer method.
    */
   private Set<Element> safeInitByCalleeBefore(
       TreePath pathToRead,
@@ -664,8 +666,11 @@ public class NullAway extends BugChecker
     Set<Element> initThusFar = new LinkedHashSet<>();
     Set<MethodTree> constructors = new LinkedHashSet<>();
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
+    // NOTE: we assume the members are returned in their syntactic order.  This has held
+    // true in our testing
     for (Tree memberTree : enclosingClass.getMembers()) {
       if (memberTree instanceof VariableTree || memberTree instanceof BlockTree) {
+        // putAll does not keep a reference to initThusFar, so we don't need to make a copy here
         builder.putAll(memberTree, initThusFar);
       }
       if (memberTree instanceof BlockTree) {
