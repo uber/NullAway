@@ -205,6 +205,15 @@ public class CheckFieldInitNegativeCases {
     }
   }
 
+  static class InstInitBlock {
+
+    Object f;
+
+    {
+      f = new Object();
+    }
+  }
+
   static class SuppressWarningsA {
 
     Object f; // Should be an error, but we are suppressing

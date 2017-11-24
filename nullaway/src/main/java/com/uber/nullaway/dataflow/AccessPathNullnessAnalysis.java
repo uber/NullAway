@@ -105,6 +105,10 @@ public final class AccessPathNullnessAnalysis {
       // be conservative and say nothing is initialized
       return Collections.emptySet();
     }
+    return getNonnullReceiverFields(nullnessResult);
+  }
+
+  private Set<Element> getNonnullReceiverFields(NullnessStore<Nullness> nullnessResult) {
     Set<AccessPath> nonnullAccessPaths = nullnessResult.getAccessPathsWithValue(Nullness.NONNULL);
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {
@@ -122,6 +126,32 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
+   * @param path tree path of some expression
+   * @param context Javac context
+   * @return fields of receiver guaranteed to be nonnull before expression is evaluated
+   */
+  public Set<Element> getNonnullFieldsOfReceiverBefore(TreePath path, Context context) {
+    NullnessStore<Nullness> store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
+    if (store == null) {
+      return Collections.emptySet();
+    }
+    return getNonnullReceiverFields(store);
+  }
+
+  /**
+   * @param path tree path of some expression
+   * @param context Javac context
+   * @return static fields guaranteed to be nonnull before expression is evaluated
+   */
+  public Set<Element> getNonnullStaticFieldsBefore(TreePath path, Context context) {
+    NullnessStore<Nullness> store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
+    if (store == null) {
+      return Collections.emptySet();
+    }
+    return getNonnullStaticFields(store);
+  }
+
+  /**
    * @param path tree path of static method, or initializer block
    * @param context Javac context
    * @return fields guaranteed to be nonnull at exit of static method (or initializer block)
@@ -134,6 +164,10 @@ public final class AccessPathNullnessAnalysis {
       // be conservative and say nothing is initialized
       return Collections.emptySet();
     }
+    return getNonnullStaticFields(nullnessResult);
+  }
+
+  private Set<Element> getNonnullStaticFields(NullnessStore<Nullness> nullnessResult) {
     Set<AccessPath> nonnullAccessPaths = nullnessResult.getAccessPathsWithValue(Nullness.NONNULL);
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {

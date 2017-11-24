@@ -38,6 +38,7 @@ import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.checkerframework.dataflow.analysis.AbstractValue;
 import org.checkerframework.dataflow.analysis.Analysis;
+import org.checkerframework.dataflow.analysis.AnalysisResult;
 import org.checkerframework.dataflow.analysis.Store;
 import org.checkerframework.dataflow.analysis.TransferFunction;
 import org.checkerframework.dataflow.cfg.CFGBuilder;
@@ -155,6 +156,43 @@ public final class DataFlow {
   @Nullable
   public <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
       A expressionDataflow(TreePath exprPath, Context context, T transfer) {
+    AnalysisResult<A, S> analysisResult = resultForExpr(exprPath, context, transfer);
+    return analysisResult == null ? null : analysisResult.getValue(exprPath.getLeaf());
+  }
+
+  /**
+   * @param path path to method (or lambda, or initializer block)
+   * @param context Javac context
+   * @param transfer transfer functions
+   * @param <A> values in abstraction
+   * @param <S> store type
+   * @param <T> transfer function type
+   * @return dataflow result at exit of method
+   */
+  public <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
+      S finalResult(TreePath path, Context context, T transfer) {
+    final Tree leaf = path.getLeaf();
+    Preconditions.checkArgument(
+        leaf instanceof MethodTree
+            || leaf instanceof LambdaExpressionTree
+            || leaf instanceof BlockTree
+            || leaf instanceof VariableTree,
+        "Leaf of methodPath must be of type MethodTree, LambdaExpressionTree, BlockTree, or VariableTree, but was %s",
+        leaf.getClass().getName());
+
+    return dataflow(path, context, transfer).getAnalysis().getRegularExitStore();
+  }
+
+  @Nullable
+  public <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
+      S resultBeforeExpr(TreePath exprPath, Context context, T transfer) {
+    AnalysisResult<A, S> analysisResult = resultForExpr(exprPath, context, transfer);
+    return analysisResult == null ? null : analysisResult.getStoreBefore(exprPath.getLeaf());
+  }
+
+  @Nullable
+  private <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
+      AnalysisResult<A, S> resultForExpr(TreePath exprPath, Context context, T transfer) {
     final Tree leaf = exprPath.getLeaf();
     Preconditions.checkArgument(
         leaf instanceof ExpressionTree,
@@ -180,30 +218,7 @@ public final class DataFlow {
     // *before* any unboxing operations (like invoking intValue() on an Integer).  This is
     // important,
     // e.g., for actually checking that the unboxing operation is legal.
-    return dataflow(enclosingPath, context, transfer).getAnalysis().getResult().getValue(expr);
-  }
-
-  /**
-   * @param path path to method (or lambda, or initializer block)
-   * @param context Javac context
-   * @param transfer transfer functions
-   * @param <A> values in abstraction
-   * @param <S> store type
-   * @param <T> transfer function type
-   * @return dataflow result at exit of method
-   */
-  public <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
-      S finalResult(TreePath path, Context context, T transfer) {
-    final Tree leaf = path.getLeaf();
-    Preconditions.checkArgument(
-        leaf instanceof MethodTree
-            || leaf instanceof LambdaExpressionTree
-            || leaf instanceof BlockTree
-            || leaf instanceof VariableTree,
-        "Leaf of methodPath must be of type MethodTree, LambdaExpressionTree, BlockTree, or VariableTree, but was %s",
-        leaf.getClass().getName());
-
-    return dataflow(path, context, transfer).getAnalysis().getRegularExitStore();
+    return dataflow(enclosingPath, context, transfer).getAnalysis().getResult();
   }
 
   /** clear the CFG and analysis caches */
