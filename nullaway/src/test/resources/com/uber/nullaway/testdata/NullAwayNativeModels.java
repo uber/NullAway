@@ -42,6 +42,9 @@ public class NullAwayNativeModels {
     WeakReference<Object> w = new WeakReference<Object>(x);
     // BUG: Diagnostic contains: dereferenced expression
     w.get().hashCode();
+    Exception e = new RuntimeException();
+    // BUG: Diagnostic contains: dereferenced expression
+    e.getMessage().hashCode();
   }
 
   // we will add bug annotations when we have full support for maps

@@ -204,6 +204,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .add(member("javax.lang.model.type.WildcardType", "getSuperBound"))
             .add(member("android.app.ActivityManager", "getRunningAppProcesses"))
             .add(member("android.view.View", "getHandler"))
+            .add(member("java.lang.Throwable", "getMessage"))
             .build();
 
     @Override
