@@ -191,7 +191,10 @@ public class NullAway extends BugChecker
    */
   private final Handler handler = Handlers.buildDefault();
 
-  /** entities relevant to field initialization for the current class */
+  /**
+   * entities relevant to field initialization per class. cached for performance. nulled out in
+   * {@link #matchClass(ClassTree, VisitorState)}
+   */
   private final Map<Symbol.ClassSymbol, FieldInitEntities> class2Entities = new LinkedHashMap<>();
 
   /**
@@ -486,8 +489,7 @@ public class NullAway extends BugChecker
       // is this possible?
       return Description.NO_MATCH;
     }
-    Tree methodLambdaOrBlock = enclosingBlockPath.getLeaf();
-    if (!relevantInitializerMethodOrBlock(methodLambdaOrBlock, state)) {
+    if (!relevantInitializerMethodOrBlock(enclosingBlockPath, state)) {
       return Description.NO_MATCH;
     }
 
@@ -529,12 +531,18 @@ public class NullAway extends BugChecker
     }
   }
 
-  private boolean relevantInitializerMethodOrBlock(Tree methodLambdaOrBlock, VisitorState state) {
+  private boolean relevantInitializerMethodOrBlock(
+      TreePath enclosingBlockPath, VisitorState state) {
+    Tree methodLambdaOrBlock = enclosingBlockPath.getLeaf();
     if (methodLambdaOrBlock instanceof LambdaExpressionTree) {
       return false;
     } else if (methodLambdaOrBlock instanceof MethodTree) {
       MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
-      return isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state);
+      if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) return true;
+      Set<MethodTree> instanceInitializerMethods =
+          class2Entities.get(enclosingClassSymbol(enclosingBlockPath)).instanceInitializerMethods();
+      return instanceInitializerMethods.size() == 1
+          && instanceInitializerMethods.contains(methodTree);
     } else {
       // initializer or field declaration
       return true;
@@ -688,6 +696,8 @@ public class NullAway extends BugChecker
     }
     // all the initializer blocks have run before any code inside a constructor
     constructors.stream().forEach((c) -> builder.putAll(c, initThusFar));
+    // TODO collect fields that are initialized in *all* constructors
+    // TODO map the single initializer methods to those fields
     return builder.build();
   }
 
@@ -927,7 +937,7 @@ public class NullAway extends BugChecker
   private void checkFieldInitialization(ClassTree tree, VisitorState state) {
     FieldInitEntities entities = collectEntities(tree, state);
     class2Entities.put(ASTHelpers.getSymbol(tree), entities);
-    // For instance fields
+    // set of all non-null instance fields f such that *some* constructor does not initialize f
     Set<Symbol> notInitializedInConstructors;
     SetMultimap<MethodTree, Symbol> constructorInitInfo;
     if (entities.constructors().isEmpty()) {
@@ -1036,6 +1046,11 @@ public class NullAway extends BugChecker
         state, trees, safeInitMethods, nullnessAnalysis, initInSomeInitializer);
   }
 
+  /**
+   * @param entities field init info
+   * @param state visitor state
+   * @return a map from each constructor C to the nonnull fields that C does *not* initialize
+   */
   private SetMultimap<MethodTree, Symbol> checkConstructorInitialization(
       FieldInitEntities entities, VisitorState state) {
     SetMultimap<MethodTree, Symbol> result = LinkedHashMultimap.create();
