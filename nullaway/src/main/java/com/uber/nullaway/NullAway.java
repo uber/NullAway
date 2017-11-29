@@ -742,20 +742,30 @@ public class NullAway extends BugChecker
   private boolean okToReadBeforeInitialized(TreePath path) {
     TreePath parentPath = path.getParentPath();
     Tree leaf = path.getLeaf();
-    // ok if it's actually a write
-    if (parentPath.getLeaf() instanceof AssignmentTree) {
-      AssignmentTree assignment = (AssignmentTree) parentPath.getLeaf();
+    Tree parent = parentPath.getLeaf();
+    if (parent instanceof AssignmentTree) {
+      // ok if it's actually a write
+      AssignmentTree assignment = (AssignmentTree) parent;
       return assignment.getVariable().equals(leaf);
-    }
-    // ok if we're comparing to null
-    if (parentPath.getLeaf() instanceof BinaryTree) {
-      BinaryTree binaryTree = (BinaryTree) parentPath.getLeaf();
+    } else if (parent instanceof BinaryTree) {
+      // ok if we're comparing to null
+      BinaryTree binaryTree = (BinaryTree) parent;
       Tree.Kind kind = binaryTree.getKind();
       if (kind.equals(Tree.Kind.EQUAL_TO) || kind.equals(Tree.Kind.NOT_EQUAL_TO)) {
         ExpressionTree left = binaryTree.getLeftOperand();
         ExpressionTree right = binaryTree.getRightOperand();
         return (left.equals(leaf) && right.getKind().equals(Tree.Kind.NULL_LITERAL))
             || (right.equals(leaf) && left.getKind().equals(Tree.Kind.NULL_LITERAL));
+      }
+    } else if (parent instanceof MethodInvocationTree) {
+      // ok if it's invoking castToNonNull and the read is the argument
+      MethodInvocationTree methodInvoke = (MethodInvocationTree) parent;
+      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
+      String qualifiedName =
+          ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
+      if (qualifiedName.equals(config.getCastToNonNullMethod())) {
+        List<? extends ExpressionTree> arguments = methodInvoke.getArguments();
+        return arguments.size() == 1 && leaf.equals(arguments.get(0));
       }
     }
     return false;

@@ -22,7 +22,10 @@
 
 package com.uber.nullaway.testdata;
 
+import static com.uber.nullaway.testdata.Util.castToNonNull;
+
 import com.facebook.infer.annotation.Initializer;
+import javax.annotation.Nullable;
 
 public class ReadBeforeInitNegativeCases {
 
@@ -252,6 +255,23 @@ public class ReadBeforeInitNegativeCases {
       if (!(f != null)) {
         f = new Object();
       }
+    }
+  }
+
+  static class CastToNonNullTest {
+
+    Object castF;
+    Object castG;
+
+    @Initializer
+    void init(@Nullable Object o) {
+      if (o != null) {
+        castF = castToNonNull(castF);
+        castG = castToNonNull(castG);
+        return;
+      }
+      castF = "hi";
+      castG = "bye";
     }
   }
 }

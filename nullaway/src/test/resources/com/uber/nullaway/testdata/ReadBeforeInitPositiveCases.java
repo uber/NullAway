@@ -196,4 +196,15 @@ public class ReadBeforeInitPositiveCases {
       g = new Object();
     }
   }
+
+  static class StaticCallTest {
+
+    Object f;
+
+    @Initializer
+    void init() {
+      // BUG: Diagnostic contains: read of @NonNull field f before
+      f = Util.id(f);
+    }
+  }
 }
