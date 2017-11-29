@@ -179,4 +179,21 @@ public class ReadBeforeInitPositiveCases {
       f.toString();
     }
   }
+
+  static class SingleStaticInitializer {
+
+    static Object f;
+    static Object g;
+
+    @Initializer
+    static void init() {
+      g.toString();
+      // BUG: Diagnostic contains: read of @NonNull field f before
+      f.toString();
+    }
+
+    static {
+      g = new Object();
+    }
+  }
 }

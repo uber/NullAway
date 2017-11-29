@@ -201,4 +201,21 @@ public class ReadBeforeInitNegativeCases {
       f.toString();
     }
   }
+
+  static class SingleStaticInitializer {
+
+    static Object f;
+    static Object g;
+
+    @Initializer
+    static void init() {
+      g.toString();
+      f.toString();
+    }
+
+    static {
+      f = new Object();
+      g = new Object();
+    }
+  }
 }

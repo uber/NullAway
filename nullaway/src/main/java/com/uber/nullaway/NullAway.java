@@ -547,10 +547,19 @@ public class NullAway extends BugChecker
     } else if (methodLambdaOrBlock instanceof MethodTree) {
       MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
       if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) return true;
-      Set<MethodTree> instanceInitializerMethods =
-          class2Entities.get(enclosingClassSymbol(enclosingBlockPath)).instanceInitializerMethods();
-      return instanceInitializerMethods.size() == 1
-          && instanceInitializerMethods.contains(methodTree);
+      if (ASTHelpers.getSymbol(methodTree).isStatic()) {
+        Set<MethodTree> staticInitializerMethods =
+            class2Entities.get(enclosingClassSymbol(enclosingBlockPath)).staticInitializerMethods();
+        return staticInitializerMethods.size() == 1
+            && staticInitializerMethods.contains(methodTree);
+      } else {
+        Set<MethodTree> instanceInitializerMethods =
+            class2Entities
+                .get(enclosingClassSymbol(enclosingBlockPath))
+                .instanceInitializerMethods();
+        return instanceInitializerMethods.size() == 1
+            && instanceInitializerMethods.contains(methodTree);
+      }
     } else {
       // initializer or field declaration
       return true;
@@ -710,15 +719,18 @@ public class NullAway extends BugChecker
       MethodTree initMethod = entities.instanceInitializerMethods().iterator().next();
       // collect the fields that may not be initialized by *some* constructor NC
       Set<Symbol> constructorUninitSymbols = class2ConstructorUninit.get(classSymbol);
-      // then iterate over all non-null instance fields
-      // for each such field f, if f not in NC, add it to initThusFar
+      // fields initialized after constructors is initThusFar + (nonNullFields - constructorUninit)
       Sets.SetView<Element> initAfterConstructors =
           Sets.union(
               initThusFar,
               Sets.difference(entities.nonnullInstanceFields(), constructorUninitSymbols));
       builder.putAll(initMethod, initAfterConstructors);
     }
-    // TODO handle single static initializer
+    if (entities.staticInitializerMethods().size() == 1) {
+      MethodTree staticInitMethod = entities.staticInitializerMethods().iterator().next();
+      // constructors aren't relevant here; just use initThusFar
+      builder.putAll(staticInitMethod, initThusFar);
+    }
     return builder.build();
   }
 
