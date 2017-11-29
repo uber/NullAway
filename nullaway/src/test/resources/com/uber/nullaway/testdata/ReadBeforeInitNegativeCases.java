@@ -218,4 +218,40 @@ public class ReadBeforeInitNegativeCases {
       g = new Object();
     }
   }
+
+  static class CompareToNullInInit {
+
+    Object f;
+
+    @Initializer
+    void init() {
+      if (f == null) {
+        f = new Object();
+      }
+    }
+  }
+
+  static class CompareToNullInInit2 {
+
+    Object f;
+
+    @Initializer
+    void init() {
+      if (null == f) {
+        f = new Object();
+      }
+    }
+  }
+
+  static class CompareToNullInInit3 {
+
+    Object f;
+
+    @Initializer
+    void init() {
+      if (!(f != null)) {
+        f = new Object();
+      }
+    }
+  }
 }

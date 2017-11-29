@@ -509,7 +509,7 @@ public class NullAway extends BugChecker
     if (!symbol.getKind().equals(ElementKind.FIELD)) {
       return Description.NO_MATCH;
     }
-    if (lhsOfAssignment(path)) {
+    if (okToReadBeforeInitialized(path)) {
       // writing the field, not reading it
       return Description.NO_MATCH;
     }
@@ -734,11 +734,29 @@ public class NullAway extends BugChecker
     return builder.build();
   }
 
-  private boolean lhsOfAssignment(TreePath path) {
+  /**
+   * @param path tree path to read operation
+   * @return true if it is permissible to perform this read before the field has been initialized,
+   *     false otherwise
+   */
+  private boolean okToReadBeforeInitialized(TreePath path) {
     TreePath parentPath = path.getParentPath();
+    Tree leaf = path.getLeaf();
+    // ok if it's actually a write
     if (parentPath.getLeaf() instanceof AssignmentTree) {
       AssignmentTree assignment = (AssignmentTree) parentPath.getLeaf();
-      return assignment.getVariable().equals(path.getLeaf());
+      return assignment.getVariable().equals(leaf);
+    }
+    // ok if we're comparing to null
+    if (parentPath.getLeaf() instanceof BinaryTree) {
+      BinaryTree binaryTree = (BinaryTree) parentPath.getLeaf();
+      Tree.Kind kind = binaryTree.getKind();
+      if (kind.equals(Tree.Kind.EQUAL_TO) || kind.equals(Tree.Kind.NOT_EQUAL_TO)) {
+        ExpressionTree left = binaryTree.getLeftOperand();
+        ExpressionTree right = binaryTree.getRightOperand();
+        return (left.equals(leaf) && right.getKind().equals(Tree.Kind.NULL_LITERAL))
+            || (right.equals(leaf) && left.getKind().equals(Tree.Kind.NULL_LITERAL));
+      }
     }
     return false;
   }
