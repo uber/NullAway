@@ -40,6 +40,7 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
@@ -196,6 +197,13 @@ public class NullAway extends BugChecker
    * {@link #matchClass(ClassTree, VisitorState)}
    */
   private final Map<Symbol.ClassSymbol, FieldInitEntities> class2Entities = new LinkedHashMap<>();
+
+  /**
+   * fields not initialized by constructors, per class. cached for performance. nulled out in {@link
+   * #matchClass(ClassTree, VisitorState)}
+   */
+  private final SetMultimap<Symbol.ClassSymbol, Symbol> class2ConstructorUninit =
+      LinkedHashMultimap.create();
 
   /**
    * maps each top-level initialization member (constructor, init block, field decl with initializer
@@ -696,8 +704,21 @@ public class NullAway extends BugChecker
     }
     // all the initializer blocks have run before any code inside a constructor
     constructors.stream().forEach((c) -> builder.putAll(c, initThusFar));
-    // TODO collect fields that are initialized in *all* constructors
-    // TODO map the single initializer methods to those fields
+    Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
+    FieldInitEntities entities = class2Entities.get(classSymbol);
+    if (entities.instanceInitializerMethods().size() == 1) {
+      MethodTree initMethod = entities.instanceInitializerMethods().iterator().next();
+      // collect the fields that may not be initialized by *some* constructor NC
+      Set<Symbol> constructorUninitSymbols = class2ConstructorUninit.get(classSymbol);
+      // then iterate over all non-null instance fields
+      // for each such field f, if f not in NC, add it to initThusFar
+      Sets.SetView<Element> initAfterConstructors =
+          Sets.union(
+              initThusFar,
+              Sets.difference(entities.nonnullInstanceFields(), constructorUninitSymbols));
+      builder.putAll(initMethod, initAfterConstructors);
+    }
+    // TODO handle single static initializer
     return builder.build();
   }
 
@@ -786,6 +807,7 @@ public class NullAway extends BugChecker
       getNullnessAnalysis(state).invalidateCaches();
       initTree2PrevFieldInit.clear();
       class2Entities.clear();
+      class2ConstructorUninit.clear();
     }
     if (matchWithinClass) {
       checkFieldInitialization(tree, state);
@@ -936,7 +958,8 @@ public class NullAway extends BugChecker
    */
   private void checkFieldInitialization(ClassTree tree, VisitorState state) {
     FieldInitEntities entities = collectEntities(tree, state);
-    class2Entities.put(ASTHelpers.getSymbol(tree), entities);
+    Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(tree);
+    class2Entities.put(classSymbol, entities);
     // set of all non-null instance fields f such that *some* constructor does not initialize f
     Set<Symbol> notInitializedInConstructors;
     SetMultimap<MethodTree, Symbol> constructorInitInfo;
@@ -947,6 +970,7 @@ public class NullAway extends BugChecker
       constructorInitInfo = checkConstructorInitialization(entities, state);
       notInitializedInConstructors = ImmutableSet.copyOf(constructorInitInfo.values());
     }
+    class2ConstructorUninit.putAll(classSymbol, notInitializedInConstructors);
     Set<Symbol> notInitializedAtAll =
         notAssignedInAnyInitializer(entities, notInitializedInConstructors, state);
     SetMultimap<Element, Element> errorFieldsForInitializer = LinkedHashMultimap.create();
@@ -1060,15 +1084,8 @@ public class NullAway extends BugChecker
       if (constructorInvokesAnother(constructor, state)) {
         continue;
       }
-      Set<Element> safeInitMethods =
-          getSafeInitMethods(constructor.getBody(), entities.classSymbol(), state);
-      AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-      Set<Element> guaranteedNonNull = new LinkedHashSet<>();
-      guaranteedNonNull.addAll(
-          nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
-              new TreePath(state.getPath(), constructor), state.context));
-      addGuaranteedNonNullFromInvokes(
-          state, trees, safeInitMethods, nullnessAnalysis, guaranteedNonNull);
+      Set<Element> guaranteedNonNull =
+          guaranteedNonNullForConstructor(entities, state, trees, constructor);
       for (Symbol fieldSymbol : nonnullInstanceFields) {
         if (!guaranteedNonNull.contains(fieldSymbol)) {
           result.put(constructor, fieldSymbol);
@@ -1076,6 +1093,21 @@ public class NullAway extends BugChecker
       }
     }
     return result;
+  }
+
+  private Set<Element> guaranteedNonNullForConstructor(
+      FieldInitEntities entities, VisitorState state, Trees trees, MethodTree constructor) {
+    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(constructor);
+    Set<Element> safeInitMethods =
+        getSafeInitMethods(constructor.getBody(), entities.classSymbol(), state);
+    AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
+    Set<Element> guaranteedNonNull = new LinkedHashSet<>();
+    guaranteedNonNull.addAll(
+        nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
+            new TreePath(state.getPath(), constructor), state.context));
+    addGuaranteedNonNullFromInvokes(
+        state, trees, safeInitMethods, nullnessAnalysis, guaranteedNonNull);
+    return guaranteedNonNull;
   }
 
   /** does the constructor invoke another constructor in the same class via this(...)? */

@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.testdata;
 
+import com.facebook.infer.annotation.Initializer;
+
 public class ReadBeforeInitNegativeCases {
 
   class T1 {
@@ -157,6 +159,46 @@ public class ReadBeforeInitNegativeCases {
       other.foo.baz = new Object();
       this.foo = new NestedWrite();
       this.baz = new Object();
+    }
+  }
+
+  static class SingleInitializer {
+
+    Object f;
+
+    SingleInitializer() {
+      f = new Object();
+    }
+
+    @Initializer
+    public void init() {
+      f.toString();
+    }
+  }
+
+  static class SingleInitializer2 {
+
+    Object f;
+    Object g;
+
+    SingleInitializer2() {
+      f = new Object();
+      g = new Object();
+    }
+
+    SingleInitializer2(boolean b) {
+      if (b) {
+        f = new Object();
+      } else {
+        f = "hi";
+      }
+      g = new Object();
+    }
+
+    @Initializer
+    public void init() {
+      g.toString();
+      f.toString();
     }
   }
 }
