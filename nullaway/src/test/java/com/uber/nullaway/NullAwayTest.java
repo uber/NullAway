@@ -59,7 +59,8 @@ public class NullAwayTest {
             "-XepOpt:NullAway:ExcludedClassAnnotations="
                 + "com.uber.nullaway.testdata"
                 + ".TestAnnot",
-            "-XepOpt:NullAway:ExcludedFieldAnnotations=javax.inject.Inject"));
+            "-XepOpt:NullAway:ExcludedFieldAnnotations=javax.inject.Inject",
+            "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"));
   }
 
   @Test
@@ -140,11 +141,17 @@ public class NullAwayTest {
 
   @Test
   public void readBeforeInitPositiveCases() {
-    compilationHelper.addSourceFile("ReadBeforeInitPositiveCases.java").doTest();
+    compilationHelper
+        .addSourceFile("ReadBeforeInitPositiveCases.java")
+        .addSourceFile("Util.java")
+        .doTest();
   }
 
   @Test
   public void readBeforeInitNegativeCases() {
-    compilationHelper.addSourceFile("ReadBeforeInitNegativeCases.java").doTest();
+    compilationHelper
+        .addSourceFile("ReadBeforeInitNegativeCases.java")
+        .addSourceFile("Util.java")
+        .doTest();
   }
 }

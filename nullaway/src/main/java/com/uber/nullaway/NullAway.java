@@ -32,7 +32,6 @@ import static com.sun.source.tree.Tree.Kind.TYPE_CAST;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -41,6 +40,7 @@ import com.google.common.collect.LinkedHashMultimap;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
@@ -192,8 +192,18 @@ public class NullAway extends BugChecker
    */
   private final Handler handler = Handlers.buildDefault();
 
-  /** entities relevant to field initialization for the current class */
-  private final Map<ClassTree, FieldInitEntities> class2Entities = new LinkedHashMap<>();
+  /**
+   * entities relevant to field initialization per class. cached for performance. nulled out in
+   * {@link #matchClass(ClassTree, VisitorState)}
+   */
+  private final Map<Symbol.ClassSymbol, FieldInitEntities> class2Entities = new LinkedHashMap<>();
+
+  /**
+   * fields not initialized by constructors, per class. cached for performance. nulled out in {@link
+   * #matchClass(ClassTree, VisitorState)}
+   */
+  private final SetMultimap<Symbol.ClassSymbol, Symbol> class2ConstructorUninit =
+      LinkedHashMultimap.create();
 
   /**
    * maps each top-level initialization member (constructor, init block, field decl with initializer
@@ -201,7 +211,7 @@ public class NullAway extends BugChecker
    *
    * <p>cached for performance. nulled out in {@link #matchClass(ClassTree, VisitorState)}
    */
-  private final Map<ClassTree, Multimap<Tree, Element>> initTree2PrevFieldInit =
+  private final Map<Symbol.ClassSymbol, Multimap<Tree, Element>> initTree2PrevFieldInit =
       new LinkedHashMap<>();
 
   /**
@@ -487,8 +497,7 @@ public class NullAway extends BugChecker
       // is this possible?
       return Description.NO_MATCH;
     }
-    Tree methodLambdaOrBlock = enclosingBlockPath.getLeaf();
-    if (!relevantInitializerMethodOrBlock(methodLambdaOrBlock, state)) {
+    if (!relevantInitializerMethodOrBlock(enclosingBlockPath, state)) {
       return Description.NO_MATCH;
     }
 
@@ -500,16 +509,13 @@ public class NullAway extends BugChecker
     if (!symbol.getKind().equals(ElementKind.FIELD)) {
       return Description.NO_MATCH;
     }
-    if (lhsOfAssignment(path)) {
+    if (okToReadBeforeInitialized(path)) {
       // writing the field, not reading it
       return Description.NO_MATCH;
     }
 
     // check that the field might actually be problematic to read
-    TreePath enclosingClassPath =
-        ASTHelpers.findPathFromEnclosingNodeToTopLevel(enclosingBlockPath, ClassTree.class);
-    Preconditions.checkNotNull(enclosingClassPath);
-    FieldInitEntities entities = class2Entities.get((ClassTree) enclosingClassPath.getLeaf());
+    FieldInitEntities entities = class2Entities.get(enclosingClassSymbol(enclosingBlockPath));
     if (!(entities.nonnullInstanceFields().contains(symbol)
         || entities.nonnullStaticFields().contains(symbol))) {
       // field is either nullable or initialized at declaration
@@ -519,16 +525,41 @@ public class NullAway extends BugChecker
       // also suppress checking read before init, as we may not find explicit initialization
       return Description.NO_MATCH;
     }
-    return checkPossibleUninitFieldRead(
-        tree, state, symbol, path, enclosingBlockPath, enclosingClassPath);
+    return checkPossibleUninitFieldRead(tree, state, symbol, path, enclosingBlockPath);
   }
 
-  private boolean relevantInitializerMethodOrBlock(Tree methodLambdaOrBlock, VisitorState state) {
+  private Symbol.ClassSymbol enclosingClassSymbol(TreePath enclosingBlockPath) {
+    Tree leaf = enclosingBlockPath.getLeaf();
+    if (leaf instanceof BlockTree) {
+      // parent must be a ClassTree
+      Tree parent = enclosingBlockPath.getParentPath().getLeaf();
+      return ASTHelpers.getSymbol((ClassTree) parent);
+    } else {
+      return ASTHelpers.enclosingClass(ASTHelpers.getSymbol(leaf));
+    }
+  }
+
+  private boolean relevantInitializerMethodOrBlock(
+      TreePath enclosingBlockPath, VisitorState state) {
+    Tree methodLambdaOrBlock = enclosingBlockPath.getLeaf();
     if (methodLambdaOrBlock instanceof LambdaExpressionTree) {
       return false;
     } else if (methodLambdaOrBlock instanceof MethodTree) {
       MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
-      return isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state);
+      if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) return true;
+      if (ASTHelpers.getSymbol(methodTree).isStatic()) {
+        Set<MethodTree> staticInitializerMethods =
+            class2Entities.get(enclosingClassSymbol(enclosingBlockPath)).staticInitializerMethods();
+        return staticInitializerMethods.size() == 1
+            && staticInitializerMethods.contains(methodTree);
+      } else {
+        Set<MethodTree> instanceInitializerMethods =
+            class2Entities
+                .get(enclosingClassSymbol(enclosingBlockPath))
+                .instanceInitializerMethods();
+        return instanceInitializerMethods.size() == 1
+            && instanceInitializerMethods.contains(methodTree);
+      }
     } else {
       // initializer or field declaration
       return true;
@@ -540,12 +571,9 @@ public class NullAway extends BugChecker
       VisitorState state,
       Symbol symbol,
       TreePath path,
-      TreePath enclosingBlockPath,
-      TreePath enclosingClassPath) {
-    if (!fieldInitializedByPreviousInitializer(
-            symbol, enclosingBlockPath, enclosingClassPath, state)
-        && !fieldAlwaysInitializedBeforeRead(
-            symbol, path, state, enclosingBlockPath, enclosingClassPath)) {
+      TreePath enclosingBlockPath) {
+    if (!fieldInitializedByPreviousInitializer(symbol, enclosingBlockPath, state)
+        && !fieldAlwaysInitializedBeforeRead(symbol, path, state, enclosingBlockPath)) {
       return createErrorDescription(
           MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT,
           tree,
@@ -561,16 +589,11 @@ public class NullAway extends BugChecker
    * @param pathToRead TreePath to the read operation
    * @param state visitor state
    * @param enclosingBlockPath TreePath to enclosing initializer block
-   * @param enclosingClassPath TreePath to enclosing class
    * @return true if within the initializer, the field is always initialized before the read
    *     operation, false otherwise
    */
   private boolean fieldAlwaysInitializedBeforeRead(
-      Symbol symbol,
-      TreePath pathToRead,
-      VisitorState state,
-      TreePath enclosingBlockPath,
-      TreePath enclosingClassPath) {
+      Symbol symbol, TreePath pathToRead, VisitorState state, TreePath enclosingBlockPath) {
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
     Set<Element> nonnullFields;
     if (symbol.isStatic()) {
@@ -579,8 +602,7 @@ public class NullAway extends BugChecker
       nonnullFields = new LinkedHashSet<>();
       nonnullFields.addAll(
           nullnessAnalysis.getNonnullFieldsOfReceiverBefore(pathToRead, state.context));
-      nonnullFields.addAll(
-          safeInitByCalleeBefore(pathToRead, state, enclosingBlockPath, enclosingClassPath));
+      nonnullFields.addAll(safeInitByCalleeBefore(pathToRead, state, enclosingBlockPath));
     }
     return nonnullFields.contains(symbol);
   }
@@ -592,10 +614,7 @@ public class NullAway extends BugChecker
    * docs</a> for what is considered a safe initializer method.
    */
   private Set<Element> safeInitByCalleeBefore(
-      TreePath pathToRead,
-      VisitorState state,
-      TreePath enclosingBlockPath,
-      TreePath enclosingClassPath) {
+      TreePath pathToRead, VisitorState state, TreePath enclosingBlockPath) {
     Set<Element> result = new LinkedHashSet<>();
     Set<Element> safeInitMethods = new LinkedHashSet<>();
     Tree enclosingBlockOrMethod = enclosingBlockPath.getLeaf();
@@ -609,7 +628,7 @@ public class NullAway extends BugChecker
     List<? extends StatementTree> statements = blockTree.getStatements();
     Tree readExprTree = pathToRead.getLeaf();
     int readStartPos = getStartPos((JCTree) readExprTree);
-    Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol((ClassTree) enclosingClassPath.getLeaf());
+    Symbol.ClassSymbol classSymbol = enclosingClassSymbol(enclosingBlockPath);
     // bound loop at size-1 since the final statement cannot appear before the read
     for (int i = 0; i < statements.size() - 1; i++) {
       StatementTree curStmt = statements.get(i), nextStmt = statements.get(i + 1);
@@ -636,18 +655,18 @@ public class NullAway extends BugChecker
   /**
    * @param fieldSymbol the field
    * @param initTreePath TreePath to the initializer method / block
-   * @param enclosingClassPath TreePath to enclosing class
    * @param state visitor state
    * @return true if the field is always initialized (by some other initializer) before the
    *     initializer corresponding to initTreePath executes
    */
   private boolean fieldInitializedByPreviousInitializer(
-      Symbol fieldSymbol, TreePath initTreePath, TreePath enclosingClassPath, VisitorState state) {
+      Symbol fieldSymbol, TreePath initTreePath, VisitorState state) {
+    TreePath enclosingClassPath = initTreePath.getParentPath();
     ClassTree enclosingClass = (ClassTree) enclosingClassPath.getLeaf();
     Multimap<Tree, Element> tree2Init = initTree2PrevFieldInit.get(enclosingClass);
     if (tree2Init == null) {
       tree2Init = computeTree2Init(enclosingClassPath, state);
-      initTree2PrevFieldInit.put(enclosingClass, tree2Init);
+      initTree2PrevFieldInit.put(ASTHelpers.getSymbol(enclosingClass), tree2Init);
     }
     return tree2Init.containsEntry(initTreePath.getLeaf(), fieldSymbol);
   }
@@ -694,14 +713,60 @@ public class NullAway extends BugChecker
     }
     // all the initializer blocks have run before any code inside a constructor
     constructors.stream().forEach((c) -> builder.putAll(c, initThusFar));
+    Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
+    FieldInitEntities entities = class2Entities.get(classSymbol);
+    if (entities.instanceInitializerMethods().size() == 1) {
+      MethodTree initMethod = entities.instanceInitializerMethods().iterator().next();
+      // collect the fields that may not be initialized by *some* constructor NC
+      Set<Symbol> constructorUninitSymbols = class2ConstructorUninit.get(classSymbol);
+      // fields initialized after constructors is initThusFar + (nonNullFields - constructorUninit)
+      Sets.SetView<Element> initAfterConstructors =
+          Sets.union(
+              initThusFar,
+              Sets.difference(entities.nonnullInstanceFields(), constructorUninitSymbols));
+      builder.putAll(initMethod, initAfterConstructors);
+    }
+    if (entities.staticInitializerMethods().size() == 1) {
+      MethodTree staticInitMethod = entities.staticInitializerMethods().iterator().next();
+      // constructors aren't relevant here; just use initThusFar
+      builder.putAll(staticInitMethod, initThusFar);
+    }
     return builder.build();
   }
 
-  private boolean lhsOfAssignment(TreePath path) {
+  /**
+   * @param path tree path to read operation
+   * @return true if it is permissible to perform this read before the field has been initialized,
+   *     false otherwise
+   */
+  private boolean okToReadBeforeInitialized(TreePath path) {
     TreePath parentPath = path.getParentPath();
-    if (parentPath.getLeaf() instanceof AssignmentTree) {
-      AssignmentTree assignment = (AssignmentTree) parentPath.getLeaf();
-      return assignment.getVariable().equals(path.getLeaf());
+    Tree leaf = path.getLeaf();
+    Tree parent = parentPath.getLeaf();
+    if (parent instanceof AssignmentTree) {
+      // ok if it's actually a write
+      AssignmentTree assignment = (AssignmentTree) parent;
+      return assignment.getVariable().equals(leaf);
+    } else if (parent instanceof BinaryTree) {
+      // ok if we're comparing to null
+      BinaryTree binaryTree = (BinaryTree) parent;
+      Tree.Kind kind = binaryTree.getKind();
+      if (kind.equals(Tree.Kind.EQUAL_TO) || kind.equals(Tree.Kind.NOT_EQUAL_TO)) {
+        ExpressionTree left = binaryTree.getLeftOperand();
+        ExpressionTree right = binaryTree.getRightOperand();
+        return (left.equals(leaf) && right.getKind().equals(Tree.Kind.NULL_LITERAL))
+            || (right.equals(leaf) && left.getKind().equals(Tree.Kind.NULL_LITERAL));
+      }
+    } else if (parent instanceof MethodInvocationTree) {
+      // ok if it's invoking castToNonNull and the read is the argument
+      MethodInvocationTree methodInvoke = (MethodInvocationTree) parent;
+      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
+      String qualifiedName =
+          ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
+      if (qualifiedName.equals(config.getCastToNonNullMethod())) {
+        List<? extends ExpressionTree> arguments = methodInvoke.getArguments();
+        return arguments.size() == 1 && leaf.equals(arguments.get(0));
+      }
     }
     return false;
   }
@@ -782,6 +847,7 @@ public class NullAway extends BugChecker
       getNullnessAnalysis(state).invalidateCaches();
       initTree2PrevFieldInit.clear();
       class2Entities.clear();
+      class2ConstructorUninit.clear();
     }
     if (matchWithinClass) {
       checkFieldInitialization(tree, state);
@@ -932,8 +998,9 @@ public class NullAway extends BugChecker
    */
   private void checkFieldInitialization(ClassTree tree, VisitorState state) {
     FieldInitEntities entities = collectEntities(tree, state);
-    class2Entities.put(tree, entities);
-    // For instance fields
+    Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(tree);
+    class2Entities.put(classSymbol, entities);
+    // set of all non-null instance fields f such that *some* constructor does not initialize f
     Set<Symbol> notInitializedInConstructors;
     SetMultimap<MethodTree, Symbol> constructorInitInfo;
     if (entities.constructors().isEmpty()) {
@@ -943,6 +1010,7 @@ public class NullAway extends BugChecker
       constructorInitInfo = checkConstructorInitialization(entities, state);
       notInitializedInConstructors = ImmutableSet.copyOf(constructorInitInfo.values());
     }
+    class2ConstructorUninit.putAll(classSymbol, notInitializedInConstructors);
     Set<Symbol> notInitializedAtAll =
         notAssignedInAnyInitializer(entities, notInitializedInConstructors, state);
     SetMultimap<Element, Element> errorFieldsForInitializer = LinkedHashMultimap.create();
@@ -1042,6 +1110,11 @@ public class NullAway extends BugChecker
         state, trees, safeInitMethods, nullnessAnalysis, initInSomeInitializer);
   }
 
+  /**
+   * @param entities field init info
+   * @param state visitor state
+   * @return a map from each constructor C to the nonnull fields that C does *not* initialize
+   */
   private SetMultimap<MethodTree, Symbol> checkConstructorInitialization(
       FieldInitEntities entities, VisitorState state) {
     SetMultimap<MethodTree, Symbol> result = LinkedHashMultimap.create();
@@ -1051,15 +1124,8 @@ public class NullAway extends BugChecker
       if (constructorInvokesAnother(constructor, state)) {
         continue;
       }
-      Set<Element> safeInitMethods =
-          getSafeInitMethods(constructor.getBody(), entities.classSymbol(), state);
-      AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-      Set<Element> guaranteedNonNull = new LinkedHashSet<>();
-      guaranteedNonNull.addAll(
-          nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
-              new TreePath(state.getPath(), constructor), state.context));
-      addGuaranteedNonNullFromInvokes(
-          state, trees, safeInitMethods, nullnessAnalysis, guaranteedNonNull);
+      Set<Element> guaranteedNonNull =
+          guaranteedNonNullForConstructor(entities, state, trees, constructor);
       for (Symbol fieldSymbol : nonnullInstanceFields) {
         if (!guaranteedNonNull.contains(fieldSymbol)) {
           result.put(constructor, fieldSymbol);
@@ -1067,6 +1133,21 @@ public class NullAway extends BugChecker
       }
     }
     return result;
+  }
+
+  private Set<Element> guaranteedNonNullForConstructor(
+      FieldInitEntities entities, VisitorState state, Trees trees, MethodTree constructor) {
+    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(constructor);
+    Set<Element> safeInitMethods =
+        getSafeInitMethods(constructor.getBody(), entities.classSymbol(), state);
+    AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
+    Set<Element> guaranteedNonNull = new LinkedHashSet<>();
+    guaranteedNonNull.addAll(
+        nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
+            new TreePath(state.getPath(), constructor), state.context));
+    addGuaranteedNonNullFromInvokes(
+        state, trees, safeInitMethods, nullnessAnalysis, guaranteedNonNull);
+    return guaranteedNonNull;
   }
 
   /** does the constructor invoke another constructor in the same class via this(...)? */

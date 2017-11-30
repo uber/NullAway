@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.testdata;
 
+import com.facebook.infer.annotation.Initializer;
+
 public class ReadBeforeInitPositiveCases {
 
   class T1 {
@@ -138,6 +140,71 @@ public class ReadBeforeInitPositiveCases {
       this.foo.baz = new Object();
       this.foo = new NestedWrite();
       this.baz = new Object();
+    }
+  }
+
+  static class SingleInitializer {
+
+    Object f;
+
+    @Initializer
+    public void init() {
+      // BUG: Diagnostic contains: read of @NonNull field f before
+      f.toString();
+      f = new Object();
+    }
+  }
+
+  static class SingleInitializer2 {
+
+    Object f;
+    Object g;
+
+    SingleInitializer2() {
+      f = new Object();
+      g = new Object();
+    }
+
+    SingleInitializer2(boolean b) {
+      if (b) {
+        f = new Object();
+      }
+      g = new Object();
+    }
+
+    @Initializer
+    public void init() {
+      g.toString();
+      // BUG: Diagnostic contains: read of @NonNull field f before
+      f.toString();
+    }
+  }
+
+  static class SingleStaticInitializer {
+
+    static Object f;
+    static Object g;
+
+    @Initializer
+    static void init() {
+      g.toString();
+      // BUG: Diagnostic contains: read of @NonNull field f before
+      f.toString();
+    }
+
+    static {
+      g = new Object();
+    }
+  }
+
+  static class StaticCallTest {
+
+    Object f;
+
+    @Initializer
+    void init() {
+      // BUG: Diagnostic contains: read of @NonNull field f before
+      f = Util.id(f);
     }
   }
 }
