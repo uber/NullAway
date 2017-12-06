@@ -181,6 +181,14 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put(member("javax.lang.model.util.Elements", "getPackageElement"), 0)
             .put(member("javax.lang.model.util.Elements", "getTypeElement"), 0)
             .put(member("javax.lang.model.util.Elements", "getDocComment"), 0)
+            .put(member("java.util.ArrayDeque", "addFirst"), 0)
+            .put(member("java.util.ArrayDeque", "addLast"), 0)
+            .put(member("java.util.ArrayDeque", "offerFirst"), 0)
+            .put(member("java.util.ArrayDeque", "offerLast"), 0)
+            .put(member("java.util.ArrayDeque", "add"), 0)
+            .put(member("java.util.ArrayDeque", "offer"), 0)
+            .put(member("java.util.ArrayDeque", "push"), 0)
+            .put(member("java.util.ArrayDeque", "toArray"), 0)
             .build();
 
     private static final ImmutableSetMultimap<MemberName, Integer> NULL_IMPLIES_TRUE_PARAMETERS =
