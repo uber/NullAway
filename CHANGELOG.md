@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 0.2.1
+-------------
+* Fix bug with accesses of fields from unannotated packages (#67)
+* Add models for ArrayDeque (#68)
+
 Version 0.2.0
 -------------
 * New feature: NullAway now does some checking that `@NonNull` fields
