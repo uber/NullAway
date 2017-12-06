@@ -79,6 +79,7 @@ public class NullAwayTest {
         .addSourceFile("NullAwayNegativeCases.java")
         .addSourceFile("OtherStuff.java")
         .addSourceFile("TestAnnot.java")
+        .addSourceFile("unannotated/UnannotatedClass.java")
         .doTest();
   }
 

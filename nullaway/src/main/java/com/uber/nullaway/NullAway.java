@@ -1506,7 +1506,8 @@ public class NullAway extends BugChecker
   }
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
-    if (exprSymbol != null && !Nullness.hasNullableAnnotation(exprSymbol)) {
+    if (exprSymbol != null
+        && (fromUnannotatedPackage(exprSymbol) || !Nullness.hasNullableAnnotation(exprSymbol))) {
       return false;
     }
     return nullnessFromDataflow(state, expr);
