@@ -26,6 +26,7 @@ import static com.uber.nullaway.testdata.OtherStuff.OtherEnum.TOP;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
+import com.uber.nullaway.testdata.unannotated.UnannotatedClass;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -675,6 +676,15 @@ public class NullAwayNegativeCases {
     @Override
     Object retNullMaybe() {
       return new Object();
+    }
+  }
+
+  static class ExcNullField {
+
+    void foo() {
+      UnannotatedClass e = new UnannotatedClass();
+      // no error since not annotated
+      e.maybeNull.hashCode();
     }
   }
 }

@@ -22,12 +22,16 @@
 
 package com.uber.nullaway.testdata.unannotated;
 
+import javax.annotation.Nullable;
+
 public class UnannotatedClass {
 
   private Object field;
 
+  @Nullable public Object maybeNull;
+
   // should get no initialization error
-  UnannotatedClass() {}
+  public UnannotatedClass() {}
 
   /**
    * This is an identity method, without Nullability annotations.
