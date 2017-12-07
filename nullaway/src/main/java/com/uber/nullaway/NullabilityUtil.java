@@ -136,4 +136,14 @@ public class NullabilityUtil {
             : element.asType();
     return Iterables.concat(element.getAnnotationMirrors(), typeMirror.getAnnotationMirrors());
   }
+
+  public static boolean mayBeNullFieldFromType(@Nullable Symbol symbol, Config config) {
+    return symbol == null
+        || (!fromUnannotatedPackage(symbol, config) && Nullness.hasNullableAnnotation(symbol));
+  }
+
+  public static boolean fromUnannotatedPackage(Symbol symbol, Config config) {
+    Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
+    return !config.fromAnnotatedPackage(outermostClassSymbol.toString());
+  }
 }
