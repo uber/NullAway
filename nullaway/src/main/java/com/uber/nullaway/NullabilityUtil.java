@@ -137,6 +137,12 @@ public class NullabilityUtil {
     return Iterables.concat(element.getAnnotationMirrors(), typeMirror.getAnnotationMirrors());
   }
 
+  /**
+   * @param symbol symbol for field
+   * @param config NullAway config
+   * @return true if based on the type, package, and name of the field, the analysis should assume
+   *     the field might be null; false otherwise
+   */
   public static boolean mayBeNullFieldFromType(@Nullable Symbol symbol, Config config) {
     if (symbol == null) {
       return true;
@@ -147,6 +153,12 @@ public class NullabilityUtil {
         && Nullness.hasNullableAnnotation(symbol);
   }
 
+  /**
+   * @param symbol symbol for entity
+   * @param config NullAway config
+   * @return true if symbol represents an entity from a package not marked as annotated in the
+   *     config; false otherwise
+   */
   public static boolean fromUnannotatedPackage(Symbol symbol, Config config) {
     Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
     return !config.fromAnnotatedPackage(outermostClassSymbol.toString());
