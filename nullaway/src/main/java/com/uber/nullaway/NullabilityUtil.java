@@ -142,9 +142,9 @@ public class NullabilityUtil {
       return true;
     }
     return !(symbol.getSimpleName().toString().equals("class")
-        || symbol.isEnum()
-        || fromUnannotatedPackage(symbol, config)
-        || !Nullness.hasNullableAnnotation(symbol));
+            || symbol.isEnum()
+            || fromUnannotatedPackage(symbol, config))
+        && Nullness.hasNullableAnnotation(symbol);
   }
 
   public static boolean fromUnannotatedPackage(Symbol symbol, Config config) {
