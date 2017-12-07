@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.2.2
+-------------
+* minor fixes (#69, #70)
+
 Version 0.2.1
 -------------
 * Fix bug with accesses of fields from unannotated packages (#67)

@@ -32,7 +32,7 @@ plugins {
 }
 
 dependencies {
-  apt "com.uber.nullaway:nullaway:0.2.1"
+  apt "com.uber.nullaway:nullaway:0.2.2"
 
   // Optional, some source of nullability annotations
   compileOnly "com.google.code.findbugs:jsr305:3.0.2"
@@ -83,7 +83,7 @@ The configuration for an Android project is very similar to the Java case, with 
 
 ```gradle
 dependencies {
-  annotationProcessor "com.uber.nullaway:nullaway:0.2.1"
+  annotationProcessor "com.uber.nullaway:nullaway:0.2.2"
 }
 ```
 
