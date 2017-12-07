@@ -138,8 +138,13 @@ public class NullabilityUtil {
   }
 
   public static boolean mayBeNullFieldFromType(@Nullable Symbol symbol, Config config) {
-    return symbol == null
-        || (!fromUnannotatedPackage(symbol, config) && Nullness.hasNullableAnnotation(symbol));
+    if (symbol == null) {
+      return true;
+    }
+    return !(symbol.getSimpleName().toString().equals("class")
+        || symbol.isEnum()
+        || fromUnannotatedPackage(symbol, config)
+        || !Nullness.hasNullableAnnotation(symbol));
   }
 
   public static boolean fromUnannotatedPackage(Symbol symbol, Config config) {
