@@ -60,7 +60,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final ImmutableSet<String> DEFAULT_INITIALIZER_ANNOT =
       ImmutableSet.of(
           "org.junit.Before",
-          "org.junit.BeforeClass"); // + Anything with @Initializer as its "simple name"
+          "org.junit.BeforeClass",
+          "org.junit.jupiter.api.BeforeAll",
+          "org.junit.jupiter.api.BeforeEach"); // + Anything with @Initializer as its "simple name"
 
   ErrorProneCLIFlagsConfig(ErrorProneFlags flags) {
     if (!flags.get(FL_ANNOTATED_PACKAGES).isPresent()) {
