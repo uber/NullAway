@@ -675,11 +675,11 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore<Nullness>> visitFieldAccess(
       FieldAccessNode fieldAccessNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
     ReadableUpdates updates = new ReadableUpdates();
-    setReceiverNonnull(
-        updates, fieldAccessNode.getReceiver(), ASTHelpers.getSymbol(fieldAccessNode.getTree()));
+    Symbol symbol = ASTHelpers.getSymbol(fieldAccessNode.getTree());
+    setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
     VariableElement element = fieldAccessNode.getElement();
     Nullness nullness = Nullness.NULLABLE;
-    if (!Nullness.hasNullableAnnotation(element)) {
+    if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config)) {
       nullness = NONNULL;
     } else {
       nullness = input.getRegularStore().valueOfField(fieldAccessNode, nullness);

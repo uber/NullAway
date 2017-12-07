@@ -685,6 +685,10 @@ public class NullAwayNegativeCases {
       UnannotatedClass e = new UnannotatedClass();
       // no error since not annotated
       e.maybeNull.hashCode();
+      UnannotatedClass f = new UnannotatedClass();
+      Object y = f.maybeNull;
+      // no error since not annotated
+      y.hashCode();
     }
   }
 }

@@ -164,10 +164,7 @@ public class NullAway extends BugChecker
   private static final Matcher<ExpressionTree> THIS_MATCHER =
       (expressionTree, state) -> isThisIdentifier(expressionTree);
 
-  private final Predicate<MethodInvocationNode> nonAnnotatedMethod =
-      invocationNode ->
-          invocationNode == null
-              || fromUnannotatedPackage(ASTHelpers.getSymbol(invocationNode.getTree()));
+  private final Predicate<MethodInvocationNode> nonAnnotatedMethod;
 
   /** should we match within the current class? */
   private boolean matchWithinClass = true;
@@ -222,13 +219,22 @@ public class NullAway extends BugChecker
    */
   public NullAway() {
     config = new DummyOptionsConfig();
+    nonAnnotatedMethod = nonAnnotatedMethodCheck();
   }
 
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
+    nonAnnotatedMethod = nonAnnotatedMethodCheck();
     // workaround for Checker Framework static state bug;
     // See https://github.com/typetools/checker-framework/issues/1482
     AnnotationUtils.clear();
+  }
+
+  private Predicate<MethodInvocationNode> nonAnnotatedMethodCheck() {
+    return invocationNode ->
+        invocationNode == null
+            || NullabilityUtil.fromUnannotatedPackage(
+                ASTHelpers.getSymbol(invocationNode.getTree()), config);
   }
 
   @Override
@@ -386,7 +392,7 @@ public class NullAway extends BugChecker
       if (closestOverriddenMethod == null) {
         return Description.NO_MATCH;
       }
-      if (fromUnannotatedPackage(closestOverriddenMethod)) {
+      if (NullabilityUtil.fromUnannotatedPackage(closestOverriddenMethod, config)) {
         return Description.NO_MATCH;
       }
       // if the super method returns nonnull,
@@ -453,7 +459,8 @@ public class NullAway extends BugChecker
     if (returnType.toString().equals("java.lang.Void")) {
       return Description.NO_MATCH;
     }
-    if (fromUnannotatedPackage(methodSymbol) || Nullness.hasNullableAnnotation(methodSymbol)) {
+    if (NullabilityUtil.fromUnannotatedPackage(methodSymbol, config)
+        || Nullness.hasNullableAnnotation(methodSymbol)) {
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, retExpr)) {
@@ -940,7 +947,7 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams) {
     ImmutableSet<Integer> nonNullPositions = null;
-    if (fromUnannotatedPackage(methodSymbol)) {
+    if (NullabilityUtil.fromUnannotatedPackage(methodSymbol, config)) {
       nonNullPositions =
           handler.onUnannotatedInvocationGetNonNullPositions(
               this, state, methodSymbol, actualParams, ImmutableSet.of());
@@ -1394,11 +1401,6 @@ public class NullAway extends BugChecker
     return false;
   }
 
-  private boolean fromUnannotatedPackage(Symbol symbol) {
-    Symbol.ClassSymbol outermostClassSymbol = NullabilityUtil.getOutermostClassSymbol(symbol);
-    return !config.fromAnnotatedPackage(outermostClassSymbol.toString());
-  }
-
   private boolean mayBeNullExpr(VisitorState state, ExpressionTree expr) {
     expr = stripParensAndCasts(expr);
     if (ASTHelpers.constValue(expr) != null) {
@@ -1480,7 +1482,7 @@ public class NullAway extends BugChecker
 
   private boolean mayBeNullMethodCall(
       VisitorState state, ExpressionTree expr, Symbol.MethodSymbol exprSymbol) {
-    if (fromUnannotatedPackage(exprSymbol)) {
+    if (NullabilityUtil.fromUnannotatedPackage(exprSymbol, config)) {
       return false;
     }
     if (!Nullness.hasNullableAnnotation(exprSymbol)) {
@@ -1506,8 +1508,7 @@ public class NullAway extends BugChecker
   }
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
-    if (exprSymbol != null
-        && (fromUnannotatedPackage(exprSymbol) || !Nullness.hasNullableAnnotation(exprSymbol))) {
+    if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config)) {
       return false;
     }
     return nullnessFromDataflow(state, expr);
