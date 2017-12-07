@@ -219,23 +219,22 @@ public class NullAway extends BugChecker
    */
   public NullAway() {
     config = new DummyOptionsConfig();
-    nonAnnotatedMethod =
-        invocationNode ->
-            invocationNode == null
-                || NullabilityUtil.fromUnannotatedPackage(
-                    ASTHelpers.getSymbol(invocationNode.getTree()), config);
+    nonAnnotatedMethod = nonAnnotatedMethodCheck();
   }
 
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
-    nonAnnotatedMethod =
-        invocationNode ->
-            invocationNode == null
-                || NullabilityUtil.fromUnannotatedPackage(
-                    ASTHelpers.getSymbol(invocationNode.getTree()), config);
+    nonAnnotatedMethod = nonAnnotatedMethodCheck();
     // workaround for Checker Framework static state bug;
     // See https://github.com/typetools/checker-framework/issues/1482
     AnnotationUtils.clear();
+  }
+
+  private Predicate<MethodInvocationNode> nonAnnotatedMethodCheck() {
+    return invocationNode ->
+        invocationNode == null
+            || NullabilityUtil.fromUnannotatedPackage(
+                ASTHelpers.getSymbol(invocationNode.getTree()), config);
   }
 
   @Override
