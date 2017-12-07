@@ -3,7 +3,7 @@ Changelog
 
 Version 0.2.2
 -------------
-* minor fixes (#69, #70)
+* minor fixes (#69, #71)
 
 Version 0.2.1
 -------------
