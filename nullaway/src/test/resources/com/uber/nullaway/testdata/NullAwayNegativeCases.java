@@ -690,5 +690,10 @@ public class NullAwayNegativeCases {
       // no error since not annotated
       y.hashCode();
     }
+
+    void weird() {
+      Class klazz = int.class;
+      klazz.hashCode();
+    }
   }
 }
