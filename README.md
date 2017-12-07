@@ -72,6 +72,8 @@ Finally, in the `tasks.withType(JavaCompile)` section, we pass some configuratio
 
 We recommend addressing all the issues that Error Prone reports, particularly those reported as errors (rather than warnings).  But, if you'd like to try out NullAway without running other Error Prone checks, you can pass `"-XepDisableAllChecks"` to the compiler, before the NullAway-specific arguments.
 
+Snapshots of the development version are available in [Sonatype's snapshots repository][snapshots].
+
 #### Android
 
 The configuration for an Android project is very similar to the Java case, with two key differences:
@@ -141,3 +143,5 @@ Please feel free to [open a GitHub issue](https://github.com/uber/NullAway/issue
 ## License
 
 NullAway is licensed under the MIT license.  See the LICENSE.txt file for more information.
+
+ [snapshots]: https://oss.sonatype.org/content/repositories/snapshots/com/uber/nullaway/
