@@ -38,11 +38,11 @@ def build = [
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
 
     // android stuff
-    buildToolsVersion: "25.0.2",
-    compileSdkVersion: 25,
+    buildToolsVersion: "27.0.2",
+    compileSdkVersion: 27,
     ci: "true" == System.getenv("CI"),
     minSdkVersion: 16,
-    targetSdkVersion: 25,
+    targetSdkVersion: 27,
 
     gradlePlugins: [
         android: "com.android.tools.build:gradle:2.3.1",

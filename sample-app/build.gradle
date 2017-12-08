@@ -40,10 +40,8 @@ android {
         targetCompatibility JavaVersion.VERSION_1_7
     }
 
-    // Setup a simple lint config for an android app/library.
     lintOptions {
-        abortOnError true
-        lintConfig rootProject.file('config/lint/lint.xml')
+        abortOnError false
     }
 }
 

@@ -25,6 +25,7 @@ public class MainActivity extends AppCompatActivity {
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     setContentView(R.layout.activity_main);
+    // uncomment to show that NullAway is actually running
     // Object x = null;
     // x.hashCode();
   }
