@@ -15,6 +15,10 @@
  */
 
 buildscript {
+    repositories {
+      // for android gradle plugin 3
+      google()
+    }
     dependencies {
         classpath deps.build.gradlePlugins.android
         classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.11"
