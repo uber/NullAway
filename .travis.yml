@@ -3,6 +3,15 @@ language: android
 jdk:
   - oraclejdk8
 
+android:
+  components:
+    - tools
+    - platform-tools
+    - tools
+
+    # The BuildTools version used by your project
+    - build-tools-27.0.2
+
 script:
   - ./gradlew verGJF build
 
