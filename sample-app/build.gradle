@@ -21,7 +21,7 @@ buildscript {
     }
     dependencies {
         classpath deps.build.gradlePlugins.android
-        classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.11"
+        classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.13"
     }
 }
 
@@ -54,9 +54,11 @@ dependencies {
 
     testCompile deps.test.junit
 
-    annotationProcessor "com.uber.nullaway:nullaway:0.2.2"
+    annotationProcessor project(path: ":nullaway", configuration: "shadow")
 
-    errorprone "com.google.errorprone:error_prone_core:2.1.1"
+    annotationProcessor project(path: ":sample-library-model")
+
+    errorprone "com.google.errorprone:error_prone_core:2.1.3"
 }
 
 tasks.withType(JavaCompile) {

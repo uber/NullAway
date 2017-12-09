@@ -16,7 +16,9 @@
 package com.uber.myapplication;
 
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
+import org.utilities.StringUtils;
 
 /** Sample activity. */
 public class MainActivity extends AppCompatActivity {
@@ -28,5 +30,12 @@ public class MainActivity extends AppCompatActivity {
     // uncomment to show that NullAway is actually running
     // Object x = null;
     // x.hashCode();
+  }
+
+  static int checkModel(@Nullable String s) {
+    if (!StringUtils.isEmptyOrNull(s)) {
+      return s.hashCode();
+    }
+    return 0;
   }
 }
