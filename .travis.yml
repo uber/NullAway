@@ -5,15 +5,15 @@ jdk:
 
 android:
   components:
-    - tools
-    - platform-tools
-    - tools
 
     # The BuildTools version used by your project
     - build-tools-27.0.2
 
     # The SDK version used to compile your project
     - android-27
+    
+    - extra-google-m2repository
+    - extra-android-m2repository
 
 script:
   - ./gradlew verGJF build
