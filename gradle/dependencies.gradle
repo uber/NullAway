@@ -18,7 +18,7 @@ def versions = [
     checkerFramework       : "2.1.14",
     checkerFrameworkNAFork : "2.1.14.1-nullaway",
     errorProne             : "2.1.1",
-    support                : "25.0.1"
+    support                : "27.0.2"
 ]
 
 def apt = [
