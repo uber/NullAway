@@ -140,6 +140,11 @@ For more details on NullAway's checks, error messages, and limitations, see [our
 
 Please feel free to [open a GitHub issue](https://github.com/uber/NullAway/issues) if you have any questions on how to use NullAway.  Or, you can [join the NullAway Discord server](https://discord.gg/QH2F779) and ask us a question there.
 
+## Contributors
+
+We'd love for you to contribute to NullAway!  Please note that once
+you create a pull request, you will be asked to sign our [Uber Contributor License Agreement](https://docs.google.com/a/uber.com/forms/d/1pAwS_-dA1KhPlfxzYLBqK6rsSWwRwH95OCCZrcsY5rk/viewform).
+
 ## License
 
 NullAway is licensed under the MIT license.  See the LICENSE.txt file for more information.
