@@ -18,6 +18,7 @@ def versions = [
     checkerFramework       : "2.1.14",
     checkerFrameworkNAFork : "2.1.14.1-nullaway",
     errorProne             : "2.1.1",
+    support                : "27.0.2"
 ]
 
 def apt = [
@@ -35,6 +36,22 @@ def build = [
     gradleErrorPronePlugin  : "net.ltgt.gradle:gradle-errorprone-plugin:0.0.8",
     guava                   : "com.google.guava:guava:21.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
+
+    // android stuff
+    buildToolsVersion: "27.0.2",
+    compileSdkVersion: 27,
+    ci: "true" == System.getenv("CI"),
+    minSdkVersion: 16,
+    targetSdkVersion: 27,
+
+    gradlePlugins: [
+        android: "com.android.tools.build:gradle:3.0.1",
+    ]
+
+]
+
+def support = [
+    appcompat   : "com.android.support:appcompat-v7:${versions.support}"
 ]
 
 def test = [
@@ -47,6 +64,7 @@ def test = [
 ext.deps = [
     "apt": apt,
     "build": build,
+    "support": support,
     "test": test,
     "versions": versions
 ]

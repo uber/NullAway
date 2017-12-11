@@ -38,6 +38,7 @@ subprojects {
             url "https://raw.githubusercontent.com/msridhar/checker-framework/repository/"
         }
         jcenter()
+        google()
     }
 
 }
