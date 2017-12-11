@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 plugins {
-  id "net.ltgt.errorprone" version "0.0.11"
+  id "net.ltgt.errorprone" version "0.0.13"
   id "com.github.johnrengelman.shadow" version "2.0.1"
   id "com.github.johnrengelman.plugin-shadow" version "2.0.0"
   id "java"
