@@ -49,11 +49,11 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.NullnessStore;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -499,7 +499,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
    */
   private static class StreamModelBuilder {
 
-    private final List<StreamTypeRecord> typeRecords = new LinkedList<StreamTypeRecord>();
+    private final List<StreamTypeRecord> typeRecords = new ArrayList<StreamTypeRecord>();
     private TypePredicate tp = null;
     private Set<String> filterMethodSigs;
     private Set<String> filterMethodSimpleNames;
