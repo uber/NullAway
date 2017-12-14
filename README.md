@@ -34,8 +34,9 @@ plugins {
 dependencies {
   apt "com.uber.nullaway:nullaway:0.2.2"
 
-  // Optional, some source of nullability annotations
-  // Not required on Android
+  // Optional, some source of nullability annotations.
+  // Not required on Android if you use the support 
+  // library nullability annotations.
   compileOnly "com.google.code.findbugs:jsr305:3.0.2"
 
   errorprone "com.google.errorprone:error_prone_core:2.1.3"
@@ -81,7 +82,7 @@ The configuration for an Android project is very similar to the Java case, with 
 
 1. The `net.ltgt.apt` plugin is not required.
 2. The `com.google.code.findbugs:jsr305:3.0.2` dependence can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library.
-3. Rather than declaring NullAway as an `apt` dependence, use an `annotationProcessor` dependence:
+3. Rather than declaring NullAway as an `apt` dependence, use the `annotationProcessor` configuration:
 
 ```gradle
 dependencies {
