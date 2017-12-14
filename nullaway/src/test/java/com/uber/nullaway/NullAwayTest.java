@@ -52,14 +52,11 @@ public class NullAwayTest {
                 + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases"
                 + ".SuperInterface.doInit2",
             "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
-            "-XepOpt:NullAway:UnannotatedSubPackages=" + "com.uber.nullaway.testdata.unannotated",
+            "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.testdata.unannotated",
             "-XepOpt:NullAway:ExcludedClasses="
                 + "com.uber.nullaway.testdata.Shape_Stuff,"
                 + "com.uber.nullaway.testdata.excluded",
-            "-XepOpt:NullAway:ExcludedClassAnnotations="
-                + "com.uber.nullaway.testdata"
-                + ".TestAnnot",
-            "-XepOpt:NullAway:ExcludedFieldAnnotations=javax.inject.Inject",
+            "-XepOpt:NullAway:ExcludedClassAnnotations=" + "com.uber.nullaway.testdata.TestAnnot",
             "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"));
   }
 

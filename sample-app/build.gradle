@@ -52,7 +52,7 @@ android {
 dependencies {
     compile deps.support.appcompat
 
-    testCompile deps.test.junit
+    testCompile deps.test.junit4
 
     annotationProcessor project(path: ":nullaway", configuration: "shadow")
 

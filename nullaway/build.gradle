@@ -45,10 +45,11 @@ dependencies {
 
     errorprone deps.build.errorProneCore
 
-    testCompile deps.test.junit
+    testCompile deps.test.junit4
     testCompile(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
+    testCompile deps.test.junit5Jupiter
     testCompile deps.test.cfQual
     testCompile deps.test.inferAnnotations
     testCompile deps.apt.javaxInject
