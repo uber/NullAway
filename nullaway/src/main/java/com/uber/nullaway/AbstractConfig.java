@@ -56,7 +56,7 @@ public abstract class AbstractConfig implements Config {
   /** Source code in these packages will not be analyzed for nullability issues */
   @Nullable protected ImmutableSet<String> sourceClassesToExclude;
 
-  @Nullable protected Pattern fieldAnnotPattern;
+  protected Pattern fieldAnnotPattern;
 
   protected boolean isExhaustiveOverride;
 

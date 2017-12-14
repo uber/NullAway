@@ -57,10 +57,18 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "android.app.Fragment.onCreate",
           "android.app.Application.onCreate",
           "javax.annotation.processing.Processor.init");
+
   static final ImmutableSet<String> DEFAULT_INITIALIZER_ANNOT =
       ImmutableSet.of(
           "org.junit.Before",
-          "org.junit.BeforeClass"); // + Anything with @Initializer as its "simple name"
+          "org.junit.BeforeClass",
+          "org.junit.jupiter.api.BeforeAll",
+          "org.junit.jupiter.api.BeforeEach"); // + Anything with @Initializer as its "simple name"
+
+  static final ImmutableSet<String> DEFAULT_EXCLUDED_FIELD_ANNOT =
+      ImmutableSet.of(
+          "javax.inject.Inject", // no explicit initialization when there is dependency injection
+          "com.google.errorprone.annotations.concurrent.LazyInit");
 
   ErrorProneCLIFlagsConfig(ErrorProneFlags flags) {
     if (!flags.get(FL_ANNOTATED_PACKAGES).isPresent()) {
@@ -81,8 +89,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
         getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);
     isExhaustiveOverride = flags.getBoolean(FL_EXHAUSTIVE_OVERRIDE).orElse(false);
     isSuggestSuppressions = flags.getBoolean(FL_SUGGEST_SUPPRESSIONS).orElse(false);
-    ImmutableSet<String> propStrings = getFlagStringSet(flags, FL_EXCLUDED_FIELD_ANNOT);
-    fieldAnnotPattern = propStrings.isEmpty() ? null : getPackagePattern(propStrings);
+    fieldAnnotPattern =
+        getPackagePattern(
+            getFlagStringSet(flags, FL_EXCLUDED_FIELD_ANNOT, DEFAULT_EXCLUDED_FIELD_ANNOT));
     castToNonNullMethod = flags.get(FL_CTNN_METHOD).orElse(null);
   }
 

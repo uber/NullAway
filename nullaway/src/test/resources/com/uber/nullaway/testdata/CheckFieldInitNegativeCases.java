@@ -23,9 +23,12 @@
 package com.uber.nullaway.testdata;
 
 import com.facebook.infer.annotation.Initializer;
+import com.google.errorprone.annotations.concurrent.LazyInit;
 import javax.inject.Inject;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 
 /** Created by msridhar on 3/8/17. */
 public class CheckFieldInitNegativeCases {
@@ -43,6 +46,8 @@ public class CheckFieldInitNegativeCases {
     Object k;
 
     @Inject Object m;
+
+    @LazyInit Object lazy;
 
     T1(Object h, Object k, boolean b) {
       g = new Object();
@@ -132,6 +137,24 @@ public class CheckFieldInitNegativeCases {
     @BeforeClass
     static void init2() {
       T6.g = new Object();
+    }
+  }
+
+  static class T7 {
+
+    Object f;
+    static Object g;
+
+    T7() {}
+
+    @BeforeEach
+    void init1() {
+      this.f = new Object();
+    }
+
+    @BeforeAll
+    static void init2() {
+      T7.g = new Object();
     }
   }
 

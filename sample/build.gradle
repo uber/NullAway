@@ -30,7 +30,7 @@ dependencies {
     errorprone deps.build.errorProneCore
 
     compileOnly deps.build.jsr305Annotations
-    testCompile deps.test.junit
+    testCompile deps.test.junit4
 }
 
 tasks.withType(JavaCompile) {
