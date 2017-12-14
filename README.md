@@ -80,7 +80,7 @@ Snapshots of the development version are available in [Sonatype's snapshots repo
 The configuration for an Android project is very similar to the Java case, with two key differences:
 
 1. The `net.ltgt.apt` plugin is not required.
-2. The `com.google.code.findbugs:jsr305:3.0.2` can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library.
+2. The `com.google.code.findbugs:jsr305:3.0.2` dependence can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library.
 3. Rather than declaring NullAway as an `apt` dependence, use an `annotationProcessor` dependence:
 
 ```gradle
