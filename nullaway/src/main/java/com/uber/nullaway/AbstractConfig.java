@@ -36,7 +36,6 @@ import javax.annotation.Nullable;
 /** abstract base class for null checker {@link Config} implementations */
 public abstract class AbstractConfig implements Config {
 
-  private static final Pattern NULLABLE_PATTERN = Pattern.compile("(?:(.*)\\.Nullable$)");
   /**
    * Packages that we assume have appropriate nullability annotations.
    *
@@ -123,7 +122,7 @@ public abstract class AbstractConfig implements Config {
 
   @Override
   public boolean isExcludedFieldAnnotation(String annotationName) {
-    return NULLABLE_PATTERN.matcher(annotationName).matches()
+    return Nullness.isNullableAnnotation(annotationName)
         || (fieldAnnotPattern != null && fieldAnnotPattern.matcher(annotationName).matches());
   }
 

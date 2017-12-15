@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.checkerframework.checker.nullness.compatqual.NullableDecl;
 
 public class NullAwayNegativeCases {
 
@@ -672,6 +673,37 @@ public class NullAwayNegativeCases {
   }
 
   static class CFExtends extends CFNullable {
+
+    @Override
+    Object retNullMaybe() {
+      return new Object();
+    }
+  }
+
+  static class CFNullableDecl {
+
+    @NullableDecl String cfNullableString;
+
+    CFNullableDecl() {}
+
+    static int fizz(@NullableDecl String str) {
+      if (str != null) {
+        return str.hashCode();
+      }
+      return 10;
+    }
+
+    static void bizz() {
+      fizz(null);
+    }
+
+    @NullableDecl
+    Object retNullMaybe() {
+      return null;
+    }
+  }
+
+  static class CFExtends2 extends CFNullableDecl {
 
     @Override
     Object retNullMaybe() {
