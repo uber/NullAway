@@ -129,11 +129,21 @@ public enum Nullness implements AbstractValue<Nullness> {
 
   private static Nullness nullnessFromAnnotations(Element element) {
     for (AnnotationMirror anno : NullabilityUtil.getAllAnnotations(element)) {
-      if (anno.getAnnotationType().toString().endsWith(".Nullable")) {
+      String annotStr = anno.getAnnotationType().toString();
+      if (isNullableAnnotation(annotStr)) {
         return Nullness.NULLABLE;
       }
     }
     return Nullness.NONNULL;
+  }
+
+  /**
+   * @param annotName annotation name
+   * @return true if we treat annotName as a <code>@Nullable</code> annotation, false otherwise
+   */
+  public static boolean isNullableAnnotation(String annotName) {
+    return annotName.endsWith(".Nullable")
+        || annotName.equals("org.checkerframework.checker.nullness.compatqual.NullableDecl");
   }
 
   public static boolean hasNullableAnnotation(Element element) {

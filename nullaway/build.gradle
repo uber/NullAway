@@ -51,6 +51,7 @@ dependencies {
     }
     testCompile deps.test.junit5Jupiter
     testCompile deps.test.cfQual
+    testCompile deps.test.cfCompatQual
     testCompile deps.test.inferAnnotations
     testCompile deps.apt.javaxInject
     testCompile deps.test.rxjava2
