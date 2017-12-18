@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.lang.ref.WeakReference;
 import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -200,6 +201,26 @@ public class NullAwayNativeModels {
 
   static void arrayDequeStuff() {
     ArrayDeque<Object> d = new ArrayDeque<>();
+    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+    d.add(null);
+    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+    d.addFirst(null);
+    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+    d.addLast(null);
+    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+    d.offerFirst(null);
+    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+    d.offerLast(null);
+    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+    d.offer(null);
+    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+    d.push(null);
+    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+    d.toArray(null);
+  }
+
+  static void dequeStuff() {
+    Deque<Object> d = new ArrayDeque<>();
     // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
     d.add(null);
     // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
