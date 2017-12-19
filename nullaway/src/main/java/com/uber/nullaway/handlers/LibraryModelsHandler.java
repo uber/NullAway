@@ -245,7 +245,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_TRUE_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
             .put(methodRef(Strings.class, "isNullOrEmpty(java.lang.String)"), 0)
-            .put(methodRef("android.text.TextUtils", "isEmpty(java.lang.String)"), 0)
+            .put(methodRef("android.text.TextUtils", "isEmpty(java.lang.CharSequence)"), 0)
             .build();
 
     private static final ImmutableSet<MethodRef> NULLABLE_RETURNS =

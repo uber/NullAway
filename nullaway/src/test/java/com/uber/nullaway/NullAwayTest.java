@@ -97,6 +97,7 @@ public class NullAwayTest {
     compilationHelper
         .addSourceFile("NullAwayNativeModels.java")
         .addSourceFile("androidstubs/WebView.java")
+        .addSourceFile("androidstubs/TextUtils.java")
         .doTest();
   }
 

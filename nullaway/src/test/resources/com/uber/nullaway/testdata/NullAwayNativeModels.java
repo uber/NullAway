@@ -288,5 +288,10 @@ public class NullAwayNativeModels {
     android.webkit.WebView webView = new WebView();
     // BUG: Diagnostic contains: dereferenced expression
     webView.getUrl().toString();
+    String s = null;
+    if (!android.text.TextUtils.isEmpty(s)) {
+      // no warning due to isEmpty check
+      s.hashCode();
+    }
   }
 }
