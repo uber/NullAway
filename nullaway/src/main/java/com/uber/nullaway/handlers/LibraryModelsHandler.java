@@ -156,7 +156,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private static final ImmutableSetMultimap<MethodRef, Integer> FAIL_IF_NULL_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
-            .put(MethodRef.methodRef(Preconditions.class, "<T>checkNotNull(T)"), 0)
+            .put(methodRef(Preconditions.class, "<T>checkNotNull(T)"), 0)
             .build();
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NON_NULL_PARAMETERS =
@@ -164,14 +164,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put(
                 methodRef(
                     "com.android.sdklib.build.ApkBuilder",
-                    "ApkBuilder(java.io.File,java"
-                        + ".io.File,java.io.File,java.lang.String,java.io.PrintStream))"),
+                    "ApkBuilder(java.io.File,java.io.File,java.io.File,java.lang.String,java.io.PrintStream))"),
                 0)
             .put(
                 methodRef(
                     "com.android.sdklib.build.ApkBuilder",
-                    "ApkBuilder(java.io.File,java"
-                        + ".io.File,java.io.File,java.lang.String,java.io.PrintStream))"),
+                    "ApkBuilder(java.io.File,java.io.File,java.io.File,java.lang.String,java.io.PrintStream))"),
                 1)
             .put(methodRef("com.google.common.collect.ImmutableList.Builder", "add(E)"), 0)
             .put(
@@ -183,23 +181,23 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put(
                 methodRef(
                     "com.google.common.collect.ImmutableSet.Builder",
-                    "addAll(java.lang" + ".Iterable<? extends E>)"),
+                    "addAll(java.lang.Iterable<? extends E>)"),
                 0)
             .put(methodRef("com.google.common.collect.ImmutableSortedSet.Builder", "add(E)"), 0)
             .put(
                 methodRef(
                     "com.google.common.collect.ImmutableSortedSet.Builder",
-                    "addAll(java" + ".lang" + ".Iterable<? extends E>)"),
+                    "addAll(java.lang.Iterable<? extends E>)"),
                 0)
             .put(
                 methodRef(
                     "com.google.common.collect.Iterables",
-                    "<T>getFirst(java" + ".lang.Iterable<? extends T>,T)"),
+                    "<T>getFirst(java.lang.Iterable<? extends T>,T)"),
                 0)
             .put(
                 methodRef(
                     "com.google.common.util.concurrent.SettableFuture",
-                    "setException" + "(java.lang.Throwable)"),
+                    "setException(java.lang.Throwable)"),
                 0)
             .put(methodRef("java.io.File", "File(java.lang.String)"), 0)
             .put(methodRef("java.lang.Class", "getResource(java.lang.String)"), 0)
@@ -207,8 +205,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put(methodRef("java.lang.System", "getProperty(java.lang.String)"), 0)
             .put(
                 methodRef(
-                    "java.net.URLClassLoader",
-                    "newInstance(java.net.URL[],java.lang" + ".ClassLoader)"),
+                    "java.net.URLClassLoader", "newInstance(java.net.URL[],java.lang.ClassLoader)"),
                 0)
             .put(
                 methodRef(
@@ -216,18 +213,16 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 0)
             .put(
                 methodRef(
-                    "javax.lang.model.util.Elements",
-                    "getPackageElement(java.lang" + ".CharSequence)"),
+                    "javax.lang.model.util.Elements", "getPackageElement(java.lang.CharSequence)"),
+                0)
+            .put(
+                methodRef(
+                    "javax.lang.model.util.Elements", "getTypeElement(java.lang.CharSequence)"),
                 0)
             .put(
                 methodRef(
                     "javax.lang.model.util.Elements",
-                    "getTypeElement(java.lang" + ".CharSequence)"),
-                0)
-            .put(
-                methodRef(
-                    "javax.lang.model.util.Elements",
-                    "getDocComment(javax.lang.model" + ".element.Element)"),
+                    "getDocComment(javax.lang.model.element.Element)"),
                 0)
             .put(methodRef("java.util.Deque", "addFirst(E)"), 0)
             .put(methodRef("java.util.Deque", "addLast(E)"), 0)
@@ -249,7 +244,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_TRUE_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
-            .put(MethodRef.methodRef(Strings.class, "isNullOrEmpty(java.lang.String)"), 0)
+            .put(methodRef(Strings.class, "isNullOrEmpty(java.lang.String)"), 0)
             .put(methodRef("android.text.TextUtils", "isEmpty(java.lang.String)"), 0)
             .build();
 
