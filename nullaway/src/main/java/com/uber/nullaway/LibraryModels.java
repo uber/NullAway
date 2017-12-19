@@ -32,7 +32,7 @@ import com.sun.tools.javac.code.Types;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
-/** Provides models for library routines for the null checker */
+/** Provides models for library routines for the null checker. */
 public interface LibraryModels {
 
   /**
@@ -61,7 +61,25 @@ public interface LibraryModels {
   /** @return set of library methods that may return null */
   ImmutableSet<MethodRef> nullableReturns();
 
-  /** representation of a method as a qualified class name + a signature for the method */
+  /**
+   * representation of a method as a qualified class name + a signature for the method
+   *
+   * <p>The formatting of a method signature should match the result of calling {@link
+   * Symbol.MethodSymbol#toString()} on the corresponding symbol. See {@link
+   * com.uber.nullaway.handlers.LibraryModelsHandler.DefaultLibraryModels} for examples. Basic
+   * principles:
+   *
+   * <ul>
+   *   <li>signature is a method name plus argument types, e.g., <code>foo(java.lang.Object,
+   *  java.lang.String)</code>
+   *   <li>constructor for class Foo looks like <code>Foo(java.lang.String)</code>
+   *   <li>If the method has its own type parameters, they need to be declared, like <code>
+   *       &lt;T&gt;checkNotNull(T)</code>
+   *   <li>Type bounds matter for generics, e.g., <code>addAll(java.lang.Iterable&lt;? extends
+   *   E&gt;)
+   *  </code>
+   * </ul>
+   */
   final class MethodRef {
 
     public final String clazz;
@@ -72,13 +90,23 @@ public interface LibraryModels {
       this.methodSig = methodSig;
     }
 
+    /**
+     * @param clazz containing class
+     * @param methodSig method signature in the appropriate format (see class docs)
+     * @return corresponding {@link MethodRef}
+     */
     public static MethodRef methodRef(Class<?> clazz, String methodSig) {
       return methodRef(clazz.getName(), methodSig);
     }
 
+    /**
+     * @param clazz containing class
+     * @param methodSig method signature in the appropriate format (see class docs)
+     * @return corresponding {@link MethodRef}
+     */
     public static MethodRef methodRef(String clazz, String methodSig) {
       Preconditions.checkArgument(
-          isValidMethodSig(methodSig), methodSig + " is not a valid " + "method signature");
+          isValidMethodSig(methodSig), methodSig + " is not a valid method signature");
       return new MethodRef(clazz, methodSig);
     }
 
