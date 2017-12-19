@@ -15,7 +15,7 @@
  */
 package com.uber.modelexample;
 
-import static com.uber.nullaway.LibraryModels.MemberName.member;
+import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableSet;
@@ -26,24 +26,24 @@ import com.uber.nullaway.LibraryModels;
 public class ExampleLibraryModels implements LibraryModels {
 
   @Override
-  public ImmutableSetMultimap<MemberName, Integer> failIfNullParameters() {
+  public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
     return ImmutableSetMultimap.of();
   }
 
   @Override
-  public ImmutableSetMultimap<MemberName, Integer> nonNullParameters() {
+  public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
     return ImmutableSetMultimap.of();
   }
 
   @Override
-  public ImmutableSetMultimap<MemberName, Integer> nullImpliesTrueParameters() {
-    return ImmutableSetMultimap.<MemberName, Integer>builder()
-        .put(member("org.utilities.StringUtils", "isEmptyOrNull"), 0)
+  public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
+    return ImmutableSetMultimap.<MethodRef, Integer>builder()
+        .put(methodRef("org.utilities.StringUtils", "isEmptyOrNull(java.lang.CharSequence)"), 0)
         .build();
   }
 
   @Override
-  public ImmutableSet<MemberName> nullableReturns() {
+  public ImmutableSet<MethodRef> nullableReturns() {
     return ImmutableSet.of();
   }
 }
