@@ -264,6 +264,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .add(methodRef("android.app.ActivityManager", "getRunningAppProcesses()"))
             .add(methodRef("android.view.View", "getHandler()"))
             .add(methodRef("java.lang.Throwable", "getMessage()"))
+            .add(methodRef("android.webkit.WebView", "getUrl()"))
             .build();
 
     @Override

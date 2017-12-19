@@ -94,7 +94,10 @@ public class NullAwayTest {
 
   @Test
   public void coreNullabilityNativeModels() {
-    compilationHelper.addSourceFile("NullAwayNativeModels.java").doTest();
+    compilationHelper
+        .addSourceFile("NullAwayNativeModels.java")
+        .addSourceFile("androidstubs/WebView.java")
+        .doTest();
   }
 
   @Test
