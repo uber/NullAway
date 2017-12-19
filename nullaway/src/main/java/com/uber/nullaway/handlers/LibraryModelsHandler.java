@@ -22,7 +22,7 @@
 
 package com.uber.nullaway.handlers;
 
-import static com.uber.nullaway.LibraryModels.MemberName.member;
+import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 import static com.uber.nullaway.Nullness.NONNULL;
 
 import com.google.common.base.Preconditions;
@@ -74,9 +74,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       ImmutableSet<Integer> nonNullPositions) {
     return Sets.union(
             nonNullPositions,
-            libraryModels
-                .nonNullParameters()
-                .get(LibraryModels.MemberName.fromSymbol(methodSymbol)))
+            libraryModels.nonNullParameters().get(LibraryModels.MethodRef.fromSymbol(methodSymbol)))
         .immutableCopy();
   }
 
@@ -113,7 +111,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       List<Node> arguments,
       Symbol.MethodSymbol callee) {
     Set<Integer> nullImpliesTrueParameters =
-        libraryModels.nullImpliesTrueParameters().get(LibraryModels.MemberName.fromSymbol(callee));
+        libraryModels.nullImpliesTrueParameters().get(LibraryModels.MethodRef.fromSymbol(callee));
     for (AccessPath accessPath : accessPathsAtIndexes(nullImpliesTrueParameters, arguments)) {
       elseUpdates.set(accessPath, NONNULL);
     }
@@ -140,7 +138,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       List<Node> arguments,
       Symbol.MethodSymbol callee) {
     Set<Integer> requiredNonNullParameters =
-        libraryModels.failIfNullParameters().get(LibraryModels.MemberName.fromSymbol(callee));
+        libraryModels.failIfNullParameters().get(LibraryModels.MethodRef.fromSymbol(callee));
     for (AccessPath accessPath : accessPathsAtIndexes(requiredNonNullParameters, arguments)) {
       bothUpdates.set(accessPath, NONNULL);
     }
@@ -156,125 +154,169 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
   private static class DefaultLibraryModels implements LibraryModels {
 
-    private static final ImmutableSetMultimap<MemberName, Integer> FAIL_IF_NULL_PARAMETERS =
-        new ImmutableSetMultimap.Builder<MemberName, Integer>()
-            .put(member(Preconditions.class, "checkNotNull"), 0)
+    private static final ImmutableSetMultimap<MethodRef, Integer> FAIL_IF_NULL_PARAMETERS =
+        new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+            .put(methodRef(Preconditions.class, "<T>checkNotNull(T)"), 0)
             .build();
 
-    private static final ImmutableSetMultimap<MemberName, Integer> NON_NULL_PARAMETERS =
-        new ImmutableSetMultimap.Builder<MemberName, Integer>()
-            .put(member("com.android.sdklib.build.ApkBuilder", "<init>"), 0)
-            .put(member("com.android.sdklib.build.ApkBuilder", "<init>"), 1)
-            .put(member("com.android.util.CommandLineParser$Mode", "process"), 0)
-            .put(member("com.google.common.base.Objects$ToStringHelper", "add"), 0)
-            .put(member("com.google.common.collect.ImmutableList$Builder", "add"), 0)
-            .put(member("com.google.common.collect.ImmutableList$Builder", "addAll"), 0)
-            .put(member("com.google.common.collect.ImmutableSortedSet$Builder", "add"), 0)
-            .put(member("com.google.common.collect.Iterables", "getFirst"), 0)
-            .put(member("com.google.common.util.concurrent.SettableFuture", "setException"), 0)
-            .put(member("java.io.File", "<init>"), 0)
-            .put(member("java.lang.Class", "getResource"), 0)
-            .put(member("java.lang.Class", "isAssignableFrom"), 0)
-            .put(member("java.lang.System", "getProperty"), 0)
-            .put(member("java.net.URLClassLoader", "newInstance"), 0)
-            .put(member("javax.lang.model.element.Element", "getAnnotation"), 0)
-            .put(member("javax.lang.model.util.Elements", "getPackageElement"), 0)
-            .put(member("javax.lang.model.util.Elements", "getTypeElement"), 0)
-            .put(member("javax.lang.model.util.Elements", "getDocComment"), 0)
-            .put(member("java.util.Deque", "addFirst"), 0)
-            .put(member("java.util.Deque", "addLast"), 0)
-            .put(member("java.util.Deque", "offerFirst"), 0)
-            .put(member("java.util.Deque", "offerLast"), 0)
-            .put(member("java.util.Deque", "add"), 0)
-            .put(member("java.util.Deque", "offer"), 0)
-            .put(member("java.util.Deque", "push"), 0)
-            .put(member("java.util.Collection", "toArray"), 0)
-            .put(member("java.util.ArrayDeque", "addFirst"), 0)
-            .put(member("java.util.ArrayDeque", "addLast"), 0)
-            .put(member("java.util.ArrayDeque", "offerFirst"), 0)
-            .put(member("java.util.ArrayDeque", "offerLast"), 0)
-            .put(member("java.util.ArrayDeque", "add"), 0)
-            .put(member("java.util.ArrayDeque", "offer"), 0)
-            .put(member("java.util.ArrayDeque", "push"), 0)
-            .put(member("java.util.ArrayDeque", "toArray"), 0)
+    private static final ImmutableSetMultimap<MethodRef, Integer> NON_NULL_PARAMETERS =
+        new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+            .put(
+                methodRef(
+                    "com.android.sdklib.build.ApkBuilder",
+                    "ApkBuilder(java.io.File,java.io.File,java.io.File,java.lang.String,java.io.PrintStream))"),
+                0)
+            .put(
+                methodRef(
+                    "com.android.sdklib.build.ApkBuilder",
+                    "ApkBuilder(java.io.File,java.io.File,java.io.File,java.lang.String,java.io.PrintStream))"),
+                1)
+            .put(methodRef("com.google.common.collect.ImmutableList.Builder", "add(E)"), 0)
+            .put(
+                methodRef(
+                    "com.google.common.collect.ImmutableList.Builder",
+                    "addAll(java.lang.Iterable<? extends E>)"),
+                0)
+            .put(methodRef("com.google.common.collect.ImmutableSet.Builder", "add(E)"), 0)
+            .put(
+                methodRef(
+                    "com.google.common.collect.ImmutableSet.Builder",
+                    "addAll(java.lang.Iterable<? extends E>)"),
+                0)
+            .put(methodRef("com.google.common.collect.ImmutableSortedSet.Builder", "add(E)"), 0)
+            .put(
+                methodRef(
+                    "com.google.common.collect.ImmutableSortedSet.Builder",
+                    "addAll(java.lang.Iterable<? extends E>)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.collect.Iterables",
+                    "<T>getFirst(java.lang.Iterable<? extends T>,T)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.util.concurrent.SettableFuture",
+                    "setException(java.lang.Throwable)"),
+                0)
+            .put(methodRef("java.io.File", "File(java.lang.String)"), 0)
+            .put(methodRef("java.lang.Class", "getResource(java.lang.String)"), 0)
+            .put(methodRef("java.lang.Class", "isAssignableFrom(java.lang.Class<?>)"), 0)
+            .put(methodRef("java.lang.System", "getProperty(java.lang.String)"), 0)
+            .put(
+                methodRef(
+                    "java.net.URLClassLoader", "newInstance(java.net.URL[],java.lang.ClassLoader)"),
+                0)
+            .put(
+                methodRef(
+                    "javax.lang.model.element.Element", "<A>getAnnotation(java.lang.Class<A>)"),
+                0)
+            .put(
+                methodRef(
+                    "javax.lang.model.util.Elements", "getPackageElement(java.lang.CharSequence)"),
+                0)
+            .put(
+                methodRef(
+                    "javax.lang.model.util.Elements", "getTypeElement(java.lang.CharSequence)"),
+                0)
+            .put(
+                methodRef(
+                    "javax.lang.model.util.Elements",
+                    "getDocComment(javax.lang.model.element.Element)"),
+                0)
+            .put(methodRef("java.util.Deque", "addFirst(E)"), 0)
+            .put(methodRef("java.util.Deque", "addLast(E)"), 0)
+            .put(methodRef("java.util.Deque", "offerFirst(E)"), 0)
+            .put(methodRef("java.util.Deque", "offerLast(E)"), 0)
+            .put(methodRef("java.util.Deque", "add(E)"), 0)
+            .put(methodRef("java.util.Deque", "offer(E)"), 0)
+            .put(methodRef("java.util.Deque", "push(E)"), 0)
+            .put(methodRef("java.util.Collection", "<T>toArray(T[])"), 0)
+            .put(methodRef("java.util.ArrayDeque", "addFirst(E)"), 0)
+            .put(methodRef("java.util.ArrayDeque", "addLast(E)"), 0)
+            .put(methodRef("java.util.ArrayDeque", "offerFirst(E)"), 0)
+            .put(methodRef("java.util.ArrayDeque", "offerLast(E)"), 0)
+            .put(methodRef("java.util.ArrayDeque", "add(E)"), 0)
+            .put(methodRef("java.util.ArrayDeque", "offer(E)"), 0)
+            .put(methodRef("java.util.ArrayDeque", "push(E)"), 0)
+            .put(methodRef("java.util.ArrayDeque", "<T>toArray(T[])"), 0)
             .build();
 
-    private static final ImmutableSetMultimap<MemberName, Integer> NULL_IMPLIES_TRUE_PARAMETERS =
-        new ImmutableSetMultimap.Builder<MemberName, Integer>()
-            .put(member(Strings.class, "isNullOrEmpty"), 0)
-            .put(member("android.text.TextUtils", "isEmpty"), 0)
+    private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_TRUE_PARAMETERS =
+        new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+            .put(methodRef(Strings.class, "isNullOrEmpty(java.lang.String)"), 0)
+            .put(methodRef("android.text.TextUtils", "isEmpty(java.lang.String)"), 0)
             .build();
 
-    private static final ImmutableSet<MemberName> NULLABLE_RETURNS =
-        new ImmutableSet.Builder<MemberName>()
-            .add(member("java.lang.ref.Reference", "get"))
-            .add(member("java.lang.ref.PhantomReference", "get"))
-            .add(member("java.lang.ref.SoftReference", "get"))
-            .add(member("java.lang.ref.WeakReference", "get"))
-            .add(member("java.util.concurrent.atomic.AtomicReference", "get"))
-            .add(member("java.util.Map", "get"))
-            .add(member("javax.lang.model.element.Element", "getEnclosingElement"))
-            .add(member("javax.lang.model.element.ExecutableElement", "getDefaultValue"))
-            .add(member("javax.lang.model.element.PackageElement", "getEnclosingElement"))
-            .add(member("javax.lang.model.element.VariableElement", "getConstantValue"))
-            .add(member("javax.lang.model.type.WildcardType", "getSuperBound"))
-            .add(member("android.app.ActivityManager", "getRunningAppProcesses"))
-            .add(member("android.view.View", "getHandler"))
-            .add(member("java.lang.Throwable", "getMessage"))
+    private static final ImmutableSet<MethodRef> NULLABLE_RETURNS =
+        new ImmutableSet.Builder<MethodRef>()
+            .add(methodRef("java.lang.ref.Reference", "get()"))
+            .add(methodRef("java.lang.ref.PhantomReference", "get()"))
+            .add(methodRef("java.lang.ref.SoftReference", "get()"))
+            .add(methodRef("java.lang.ref.WeakReference", "get()"))
+            .add(methodRef("java.util.concurrent.atomic.AtomicReference", "get()"))
+            .add(methodRef("java.util.Map", "get(java.lang.Object)"))
+            .add(methodRef("javax.lang.model.element.Element", "getEnclosingElement()"))
+            .add(methodRef("javax.lang.model.element.ExecutableElement", "getDefaultValue()"))
+            .add(methodRef("javax.lang.model.element.PackageElement", "getEnclosingElement()"))
+            .add(methodRef("javax.lang.model.element.VariableElement", "getConstantValue()"))
+            .add(methodRef("javax.lang.model.type.WildcardType", "getSuperBound()"))
+            .add(methodRef("android.app.ActivityManager", "getRunningAppProcesses()"))
+            .add(methodRef("android.view.View", "getHandler()"))
+            .add(methodRef("java.lang.Throwable", "getMessage()"))
             .build();
 
     @Override
-    public ImmutableSetMultimap<MemberName, Integer> failIfNullParameters() {
+    public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
       return FAIL_IF_NULL_PARAMETERS;
     }
 
     @Override
-    public ImmutableSetMultimap<MemberName, Integer> nonNullParameters() {
+    public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
       return NON_NULL_PARAMETERS;
     }
 
     @Override
-    public ImmutableSetMultimap<MemberName, Integer> nullImpliesTrueParameters() {
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
       return NULL_IMPLIES_TRUE_PARAMETERS;
     }
 
     @Override
-    public ImmutableSet<MemberName> nullableReturns() {
+    public ImmutableSet<MethodRef> nullableReturns() {
       return NULLABLE_RETURNS;
     }
   }
 
   private static class CombinedLibraryModels implements LibraryModels {
 
-    private final ImmutableSetMultimap<MemberName, Integer> fail_if_null_parameters;
+    private final ImmutableSetMultimap<MethodRef, Integer> fail_if_null_parameters;
 
-    private final ImmutableSetMultimap<MemberName, Integer> non_null_parameters;
+    private final ImmutableSetMultimap<MethodRef, Integer> non_null_parameters;
 
-    private final ImmutableSetMultimap<MemberName, Integer> null_implies_true_parameters;
+    private final ImmutableSetMultimap<MethodRef, Integer> null_implies_true_parameters;
 
-    private final ImmutableSet<MemberName> nullable_returns;
+    private final ImmutableSet<MethodRef> nullable_returns;
 
     public CombinedLibraryModels(Iterable<LibraryModels> models) {
-      ImmutableSetMultimap.Builder<MemberName, Integer> failIfNullParametersBuilder =
+      ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
-      ImmutableSetMultimap.Builder<MemberName, Integer> nonNullParametersBuilder =
+      ImmutableSetMultimap.Builder<MethodRef, Integer> nonNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
-      ImmutableSetMultimap.Builder<MemberName, Integer> nullImpliesTrueParametersBuilder =
+      ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
-      ImmutableSet.Builder<MemberName> nullableReturnsBuilder = new ImmutableSet.Builder<>();
+      ImmutableSet.Builder<MethodRef> nullableReturnsBuilder = new ImmutableSet.Builder<>();
       for (LibraryModels libraryModels : models) {
-        for (Map.Entry<MemberName, Integer> entry :
-            libraryModels.failIfNullParameters().entries()) {
+        for (Map.Entry<MethodRef, Integer> entry : libraryModels.failIfNullParameters().entries()) {
           failIfNullParametersBuilder.put(entry);
         }
-        for (Map.Entry<MemberName, Integer> entry : libraryModels.nonNullParameters().entries()) {
+        for (Map.Entry<MethodRef, Integer> entry : libraryModels.nonNullParameters().entries()) {
           nonNullParametersBuilder.put(entry);
         }
-        for (Map.Entry<MemberName, Integer> entry :
+        for (Map.Entry<MethodRef, Integer> entry :
             libraryModels.nullImpliesTrueParameters().entries()) {
           nullImpliesTrueParametersBuilder.put(entry);
         }
-        for (MemberName name : libraryModels.nullableReturns()) {
+        for (MethodRef name : libraryModels.nullableReturns()) {
           nullableReturnsBuilder.add(name);
         }
       }
@@ -285,22 +327,22 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     @Override
-    public ImmutableSetMultimap<MemberName, Integer> failIfNullParameters() {
+    public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
       return fail_if_null_parameters;
     }
 
     @Override
-    public ImmutableSetMultimap<MemberName, Integer> nonNullParameters() {
+    public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
       return non_null_parameters;
     }
 
     @Override
-    public ImmutableSetMultimap<MemberName, Integer> nullImpliesTrueParameters() {
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
       return null_implies_true_parameters;
     }
 
     @Override
-    public ImmutableSet<MemberName> nullableReturns() {
+    public ImmutableSet<MethodRef> nullableReturns() {
       return nullable_returns;
     }
   }

@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -31,14 +32,14 @@ import com.sun.tools.javac.code.Types;
 import java.util.Objects;
 import javax.annotation.Nullable;
 
-/** Provides models for library routines for the null checker */
+/** Provides models for library routines for the null checker. */
 public interface LibraryModels {
 
   /**
    * @return map from the names of null-rejecting methods to the indexes of the arguments that
    *     aren't permitted to be null.
    */
-  ImmutableSetMultimap<MemberName, Integer> failIfNullParameters();
+  ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters();
 
   /**
    * @return map from the names of methods with @NonNull parameters to the indexes of the arguments
@@ -49,57 +50,92 @@ public interface LibraryModels {
    *     #failIfNullParameters()}, it just learns that after the call the relevant parameters cannot
    *     be null.
    */
-  ImmutableSetMultimap<MemberName, Integer> nonNullParameters();
+  ImmutableSetMultimap<MethodRef, Integer> nonNullParameters();
 
   /**
    * @return map from the names of null-querying methods to the indexes of the arguments that are
    *     compared against null.
    */
-  ImmutableSetMultimap<MemberName, Integer> nullImpliesTrueParameters();
+  ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters();
 
   /** @return set of library methods that may return null */
-  ImmutableSet<MemberName> nullableReturns();
+  ImmutableSet<MethodRef> nullableReturns();
 
-  /** representation of a member name as a qualified class name + a name for the member */
-  final class MemberName {
+  /**
+   * representation of a method as a qualified class name + a signature for the method
+   *
+   * <p>The formatting of a method signature should match the result of calling {@link
+   * Symbol.MethodSymbol#toString()} on the corresponding symbol. See {@link
+   * com.uber.nullaway.handlers.LibraryModelsHandler.DefaultLibraryModels} for examples. Basic
+   * principles:
+   *
+   * <ul>
+   *   <li>signature is a method name plus argument types, e.g., <code>foo(java.lang.Object,
+   *  java.lang.String)</code>
+   *   <li>constructor for class Foo looks like <code>Foo(java.lang.String)</code>
+   *   <li>If the method has its own type parameters, they need to be declared, like <code>
+   *       &lt;T&gt;checkNotNull(T)</code>
+   *   <li>Type bounds matter for generics, e.g., <code>addAll(java.lang.Iterable&lt;? extends
+   *   E&gt;)
+   *  </code>
+   * </ul>
+   */
+  final class MethodRef {
 
     public final String clazz;
-    public final String member;
+    public final String methodSig;
 
-    private MemberName(String clazz, String member) {
+    private MethodRef(String clazz, String methodSig) {
       this.clazz = clazz;
-      this.member = member;
+      this.methodSig = methodSig;
     }
 
-    public static MemberName member(Class<?> clazz, String member) {
-      return member(clazz.getName(), member);
+    /**
+     * @param clazz containing class
+     * @param methodSig method signature in the appropriate format (see class docs)
+     * @return corresponding {@link MethodRef}
+     */
+    public static MethodRef methodRef(Class<?> clazz, String methodSig) {
+      return methodRef(clazz.getName(), methodSig);
     }
 
-    public static MemberName member(String clazz, String member) {
-      return new MemberName(clazz, member);
+    /**
+     * @param clazz containing class
+     * @param methodSig method signature in the appropriate format (see class docs)
+     * @return corresponding {@link MethodRef}
+     */
+    public static MethodRef methodRef(String clazz, String methodSig) {
+      Preconditions.checkArgument(
+          isValidMethodSig(methodSig), methodSig + " is not a valid method signature");
+      return new MethodRef(clazz, methodSig);
     }
 
-    public static MemberName fromSymbol(Symbol.MethodSymbol symbol) {
-      return member(symbol.owner.getQualifiedName().toString(), symbol.getSimpleName().toString());
+    private static boolean isValidMethodSig(String methodSig) {
+      // some basic checking to make sure it's not just a method name
+      return methodSig.contains("(") && methodSig.contains(")");
+    }
+
+    public static MethodRef fromSymbol(Symbol.MethodSymbol symbol) {
+      return methodRef(symbol.owner.getQualifiedName().toString(), symbol.toString());
     }
 
     @Override
     public boolean equals(Object obj) {
-      if (obj instanceof MemberName) {
-        MemberName other = (MemberName) obj;
-        return clazz.equals(other.clazz) && member.equals(other.member);
+      if (obj instanceof MethodRef) {
+        MethodRef other = (MethodRef) obj;
+        return clazz.equals(other.clazz) && methodSig.equals(other.methodSig);
       }
       return false;
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(clazz, member);
+      return Objects.hash(clazz, methodSig);
     }
 
     @Override
     public String toString() {
-      return "MemberName{" + "clazz='" + clazz + '\'' + ", member='" + member + '\'' + '}';
+      return "MethodRef{" + "clazz='" + clazz + '\'' + ", methodSig='" + methodSig + '\'' + '}';
     }
   }
 
@@ -116,12 +152,12 @@ public interface LibraryModels {
 
     @Nullable
     private static Symbol.MethodSymbol methodInSet(
-        Symbol.MethodSymbol symbol, Types types, ImmutableCollection<MemberName> memberNames) {
-      if (memberNames.contains(MemberName.fromSymbol(symbol))) {
+        Symbol.MethodSymbol symbol, Types types, ImmutableCollection<MethodRef> memberNames) {
+      if (memberNames.contains(MethodRef.fromSymbol(symbol))) {
         return symbol;
       }
       for (Symbol.MethodSymbol superSymbol : ASTHelpers.findSuperMethods(symbol, types)) {
-        if (memberNames.contains(MemberName.fromSymbol(superSymbol))) {
+        if (memberNames.contains(MethodRef.fromSymbol(superSymbol))) {
           return superSymbol;
         }
       }
