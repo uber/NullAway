@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.testdata;
 
+import android.webkit.WebView;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -281,5 +282,11 @@ public class NullAwayNativeModels {
     ImmutableSortedSet.builder().add(o).build();
     // BUG: Diagnostic contains: passing @Nullable parameter 'c' where @NonNull is required
     Iterables.getFirst(c, "hi");
+  }
+
+  static void androidStuff() {
+    android.webkit.WebView webView = new WebView();
+    // BUG: Diagnostic contains: dereferenced expression
+    webView.getUrl().toString();
   }
 }
