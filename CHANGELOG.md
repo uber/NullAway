@@ -1,6 +1,17 @@
 Changelog
 =========
 
+Version 0.3.0
+-------------
+* Update library models to require full method signatures rather than
+  just method names (#90).  This is an API-breaking change; if you've
+  written your own library models, they will need to be updated.
+* Support @BeforeEach and @BeforeAll as initializer annotations, and
+  @Inject and @LazyInit as excluded field annotations. (#81)
+* Support Checker Framework's @NullableDecl annotation (#84)
+* Add models for java.util.Deque methods (#86)
+* Add model for WebView.getUrl() (#91)
+
 Version 0.2.2
 -------------
 * minor fixes (#69, #71)

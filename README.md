@@ -32,7 +32,7 @@ plugins {
 }
 
 dependencies {
-  apt "com.uber.nullaway:nullaway:0.2.2"
+  apt "com.uber.nullaway:nullaway:0.3.0"
 
   // Optional, some source of nullability annotations.
   // Not required on Android if you use the support 
@@ -86,7 +86,7 @@ The configuration for an Android project is very similar to the Java case, with 
 
 ```gradle
 dependencies {
-  annotationProcessor "com.uber.nullaway:nullaway:0.2.2"
+  annotationProcessor "com.uber.nullaway:nullaway:0.3.0"
 }
 ```
 See the [sample-app `build.gradle`](https://github.com/uber/NullAway/blob/master/sample-app/build.gradle) for a complete example.
