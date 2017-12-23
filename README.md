@@ -89,7 +89,7 @@ dependencies {
   annotationProcessor "com.uber.nullaway:nullaway:0.3.0"
 }
 ```
-See the [sample-app `build.gradle`](https://github.com/uber/NullAway/blob/master/sample-app/build.gradle) for a complete example.
+A complete Android `build.gradle` example is [here](https://gist.github.com/msridhar/6cacd429567f1d1ad9a278e06809601c).  Also see our [sample app](https://github.com/uber/NullAway/blob/master/sample-app/).
 
 #### Annotation Processors / Generated Code
 
