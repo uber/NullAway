@@ -59,13 +59,13 @@ buildscript {
     }
   }
   dependencies {
-    classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.11"
-    classpath "net.ltgt.gradle:gradle-apt-plugin:0.11"
+    classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.13"
+    classpath "net.ltgt.gradle:gradle-apt-plugin:0.13"
   }
 }
 
 apply plugin: 'net.ltgt.errorprone'
-apply plugin: 'let.ltgt.apt'
+apply plugin: 'net.ltgt.apt'
 ```
 
 In `dependencies`, the `apt` line loads NullAway, and the `compileOnly` line loads a [JSR 305](https://jcp.org/en/jsr/detail?id=305) library which provides a suitable `@Nullable` annotation (`javax.annotation.Nullable`).  NullAway allows for any `@Nullable` annotation to be used, so, e.g., `@Nullable` from the Android Support Library or JetBrains annotations is also fine. The `errorprone` line ensures that a compatible version of Error Prone is used.
