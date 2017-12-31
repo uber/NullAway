@@ -70,7 +70,7 @@ javadoc {
 }
 
 compileJava {
-    options.compilerArgs += ["-Xlint:unchecked", "-Werror"]
+    options.compilerArgs += ["-Xlint:unchecked", "-Xlint:rawtypes", "-Werror"]
 }
 
 test {
