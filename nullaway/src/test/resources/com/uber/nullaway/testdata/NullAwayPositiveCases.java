@@ -435,4 +435,14 @@ public class NullAwayPositiveCases {
       return null;
     }
   }
+
+  static class TestAnon {
+
+    TestAnon(Object p) {}
+  }
+
+  static TestAnon testAnon(@Nullable Object q) {
+    // BUG: Diagnostic contains: passing @Nullable parameter 'q' where
+    return new TestAnon(q) {};
+  }
 }
