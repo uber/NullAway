@@ -158,6 +158,21 @@ public class AccessPathNullnessPropagation
     return input::getValueOfSubNode;
   }
 
+  /**
+   * @param node CFG node
+   * @return if node is an {@link AssignmentNode} unwraps it to its LHS. otherwise returns node
+   */
+  private static Node unwrapAssignExpr(Node node) {
+    if (node instanceof AssignmentNode) {
+      // in principle, we could separately handle the LHS and RHS and add new facts
+      // about both.  For now, just handle the LHS as that seems like the more common
+      // case (see https://github.com/uber/NullAway/issues/97)
+      return ((AssignmentNode) node).getTarget();
+    } else {
+      return node;
+    }
+  }
+
   @Override
   public NullnessStore<Nullness> initialStore(
       UnderlyingAST underlyingAST, List<LocalVariableNode> parameters) {
@@ -488,61 +503,22 @@ public class AccessPathNullnessPropagation
     Updates equalBranchUpdates = equalTo ? thenUpdates : elseUpdates;
     Updates notEqualBranchUpdates = equalTo ? elseUpdates : thenUpdates;
 
-    if (leftNode instanceof LocalVariableNode) {
-      LocalVariableNode localVar = (LocalVariableNode) leftNode;
-      equalBranchUpdates.set(localVar, equalBranchValue);
+    Node realLeftNode = unwrapAssignExpr(leftNode);
+    Node realRightNode = unwrapAssignExpr(rightNode);
+
+    AccessPath leftAP = AccessPath.getAccessPathForNodeWithMapGet(realLeftNode, types);
+    if (leftAP != null) {
+      equalBranchUpdates.set(leftAP, equalBranchValue);
       notEqualBranchUpdates.set(
-          localVar, leftVal.greatestLowerBound(rightVal.deducedValueWhenNotEqual()));
+          leftAP, leftVal.greatestLowerBound(rightVal.deducedValueWhenNotEqual()));
     }
 
-    if (rightNode instanceof LocalVariableNode) {
-      LocalVariableNode localVar = (LocalVariableNode) rightNode;
-      equalBranchUpdates.set(localVar, equalBranchValue);
+    AccessPath rightAP = AccessPath.getAccessPathForNodeWithMapGet(realRightNode, types);
+    if (rightAP != null) {
+      equalBranchUpdates.set(rightAP, equalBranchValue);
       notEqualBranchUpdates.set(
-          localVar, rightVal.greatestLowerBound(leftVal.deducedValueWhenNotEqual()));
+          rightAP, rightVal.greatestLowerBound(leftVal.deducedValueWhenNotEqual()));
     }
-
-    if (isAnalyzeableFieldAccess(leftNode)) {
-      // noinspection ConstantConditions
-      FieldAccessNode fieldAccess = (FieldAccessNode) leftNode;
-      equalBranchUpdates.set(fieldAccess, equalBranchValue);
-      notEqualBranchUpdates.set(
-          fieldAccess, leftVal.greatestLowerBound(rightVal.deducedValueWhenNotEqual()));
-    }
-
-    if (isAnalyzeableFieldAccess(rightNode)) {
-      // noinspection ConstantConditions
-      FieldAccessNode fieldAccess = (FieldAccessNode) rightNode;
-      equalBranchUpdates.set(fieldAccess, equalBranchValue);
-      notEqualBranchUpdates.set(
-          fieldAccess, rightVal.greatestLowerBound(leftVal.deducedValueWhenNotEqual()));
-    }
-
-    if (isAnalyzeableMethodCall(leftNode)) {
-      // noinspection ConstantConditions
-      MethodInvocationNode invNode = (MethodInvocationNode) leftNode;
-      equalBranchUpdates.set(invNode, equalBranchValue);
-      notEqualBranchUpdates.set(
-          invNode, leftVal.greatestLowerBound(rightVal.deducedValueWhenNotEqual()));
-    }
-
-    if (isAnalyzeableMethodCall(rightNode)) {
-      // noinspection ConstantConditions
-      MethodInvocationNode invNode = (MethodInvocationNode) rightNode;
-      equalBranchUpdates.set(invNode, equalBranchValue);
-      notEqualBranchUpdates.set(
-          invNode, rightVal.greatestLowerBound(leftVal.deducedValueWhenNotEqual()));
-    }
-  }
-
-  private static boolean isAnalyzeableFieldAccess(Node node) {
-    return node instanceof FieldAccessNode
-        && AccessPath.fromFieldAccess((FieldAccessNode) node) != null;
-  }
-
-  private boolean isAnalyzeableMethodCall(Node node) {
-    return node instanceof MethodInvocationNode
-        && AccessPath.fromMethodCall((MethodInvocationNode) node, types) != null;
   }
 
   @Override
@@ -620,12 +596,9 @@ public class AccessPathNullnessPropagation
    * the updates
    */
   private void setNonnullIfAnalyzeable(Updates updates, Node node) {
-    if (node instanceof LocalVariableNode) {
-      updates.set((LocalVariableNode) node, NONNULL);
-    } else if (isAnalyzeableFieldAccess(node)) {
-      updates.set((FieldAccessNode) node, NONNULL);
-    } else if (isAnalyzeableMethodCall(node)) {
-      updates.set((MethodInvocationNode) node, NONNULL);
+    AccessPath ap = AccessPath.getAccessPathForNodeWithMapGet(node, types);
+    if (ap != null) {
+      updates.set(ap, NONNULL);
     }
   }
 
