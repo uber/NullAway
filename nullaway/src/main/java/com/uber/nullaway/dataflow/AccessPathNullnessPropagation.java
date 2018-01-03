@@ -158,6 +158,10 @@ public class AccessPathNullnessPropagation
     return input::getValueOfSubNode;
   }
 
+  /**
+   * @param node CFG node
+   * @return if node is an {@link AssignmentNode} unwraps it to its LHS. otherwise returns node
+   */
   private static Node unwrapAssignExpr(Node node) {
     if (node instanceof AssignmentNode) {
       // in principle, we could separately handle the LHS and RHS and add new facts
