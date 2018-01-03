@@ -738,4 +738,13 @@ public class NullAwayNegativeCases {
       klazz.hashCode();
     }
   }
+
+  static class TestAnon {
+
+    TestAnon(@Nullable Object p) {}
+  }
+
+  static TestAnon testAnon(@Nullable Object q) {
+    return new TestAnon(q) {};
+  }
 }
