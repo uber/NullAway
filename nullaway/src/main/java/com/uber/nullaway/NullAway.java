@@ -1878,9 +1878,8 @@ public class NullAway extends BugChecker
     Scope scope = superType.tsym.members();
     for (Symbol sym : scope.getSymbolsByName(methodSymbol.name)) {
       if (sym != null
-          && !sym.isStatic()
+          && sym.isConstructor()
           && ((sym.flags() & Flags.SYNTHETIC) == 0)
-          && sym.name.contentEquals(methodSymbol.name)
           && hasSameArgTypes((Symbol.MethodSymbol) sym, methodSymbol, types)) {
         return (Symbol.MethodSymbol) sym;
       }
