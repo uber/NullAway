@@ -521,16 +521,6 @@ public class AccessPathNullnessPropagation
     }
   }
 
-  private static boolean isAnalyzeableFieldAccess(Node node) {
-    return node instanceof FieldAccessNode
-        && AccessPath.fromFieldAccess((FieldAccessNode) node) != null;
-  }
-
-  private boolean isAnalyzeableMethodCall(Node node) {
-    return node instanceof MethodInvocationNode
-        && AccessPath.fromMethodCall((MethodInvocationNode) node, types) != null;
-  }
-
   @Override
   public TransferResult<Nullness, NullnessStore<Nullness>> visitConditionalAnd(
       ConditionalAndNode conditionalAndNode,
@@ -606,12 +596,9 @@ public class AccessPathNullnessPropagation
    * the updates
    */
   private void setNonnullIfAnalyzeable(Updates updates, Node node) {
-    if (node instanceof LocalVariableNode) {
-      updates.set((LocalVariableNode) node, NONNULL);
-    } else if (isAnalyzeableFieldAccess(node)) {
-      updates.set((FieldAccessNode) node, NONNULL);
-    } else if (isAnalyzeableMethodCall(node)) {
-      updates.set((MethodInvocationNode) node, NONNULL);
+    AccessPath ap = AccessPath.getAccessPathForNodeWithMapGet(node, types);
+    if (ap != null) {
+      updates.set(ap, NONNULL);
     }
   }
 
