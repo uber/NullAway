@@ -319,6 +319,9 @@ public class NullAway extends BugChecker
       Type supertype = state.getTypes().supertype(methodSymbol.owner.type);
       Symbol.MethodSymbol superConstructor =
           findSuperConstructorInType(methodSymbol, supertype, state.getTypes());
+      if (superConstructor == null) {
+        throw new RuntimeException("must find constructor in supertype");
+      }
       methodSymbol = superConstructor;
     }
     return handleInvocation(state, methodSymbol, actualParams);
