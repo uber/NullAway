@@ -27,12 +27,12 @@ mainClassName = "com.uber.nullaway.benchmark.NullAwayBenchmarkHarness"
 configurations.maybeCreate("epJavac")
 
 dependencies {
-    compile "com.google.errorprone:error_prone_core:2.1.3"
-    compile project(":nullaway")
+    compile deps.build.errorProneCore
+    compile project(path: ":nullaway", configuration: "shadow")
 
-    errorprone "com.google.errorprone:error_prone_core:2.1.3"
+    errorprone deps.build.errorProneCore
 
-    epJavac "com.google.errorprone:error_prone_core:2.1.3"
+    epJavac deps.build.errorProneCore
 
 }
 

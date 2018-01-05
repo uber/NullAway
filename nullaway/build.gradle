@@ -15,8 +15,7 @@
  */
 plugins {
   id "net.ltgt.errorprone" version "0.0.13"
-  id "com.github.johnrengelman.shadow" version "2.0.1"
-  id "com.github.johnrengelman.plugin-shadow" version "2.0.0"
+  id "com.github.johnrengelman.shadow" version "2.0.2"
   id "java"
 }
 
@@ -62,8 +61,10 @@ dependencies {
 
 shadowJar {
     classifier = null
+    relocate "org.checkerframework", "shadow.checkerframework"
 }
-build.dependsOn shadowJar
+shadowJar.dependsOn assemble
+test.dependsOn shadowJar
 
 javadoc {
     failOnError = false
