@@ -749,6 +749,15 @@ public class NullAwayNegativeCases {
     return new TestAnon(q) {};
   }
 
+  static class TestAnon2<T> {
+
+    TestAnon2(@Nullable List<? extends T> q) {}
+  }
+
+  static <Q> TestAnon2<Q> testAnon2(@Nullable List<Q> q) {
+    return new TestAnon2<Q>(q) {};
+  }
+
   // https://github.com/uber/NullAway/issues/104
 
   static class TwoParamIterator<T, R> implements Iterator<T> {

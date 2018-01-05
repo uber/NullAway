@@ -1895,7 +1895,8 @@ public class NullAway extends BugChecker
       return false;
     }
     for (int i = 0; i < method1params.size(); i++) {
-      if (!types.isSameType(method1params.get(i).type, method2params.get(i).type)) {
+      if (!types.isSameType(
+          types.erasure(method1params.get(i).type), types.erasure(method2params.get(i).type))) {
         return false;
       }
     }
