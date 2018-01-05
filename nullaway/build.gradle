@@ -71,6 +71,9 @@ shadowJar {
 // the same name, which can cause races if we are not careful.  We force shadowJar to depend on
 // assemble, so we know that the shadow jar will always overwrite the normal one.  We also force
 // test to depend on shadowJar, to avoid races between running tests and building the shadow jar.
+// We also require that any other sub-projects only depend on the shadow configuration of this
+// project; otherwise weird races can occur.  Eventually, we should fix this by only renaming the
+// shadow jar artifact before the uploadArchives task runs.
 shadowJar.dependsOn assemble
 test.dependsOn shadowJar
 
