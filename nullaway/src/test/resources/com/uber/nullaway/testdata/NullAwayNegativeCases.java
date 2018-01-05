@@ -28,6 +28,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.uber.nullaway.testdata.unannotated.UnannotatedClass;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -746,5 +747,33 @@ public class NullAwayNegativeCases {
 
   static TestAnon testAnon(@Nullable Object q) {
     return new TestAnon(q) {};
+  }
+
+  // https://github.com/uber/NullAway/issues/104
+
+  static class TwoParamIterator<T, R> implements Iterator<T> {
+    @Override
+    public boolean hasNext() {
+      return false;
+    }
+
+    @Override
+    public T next() {
+      return (T) new Object();
+    }
+  }
+
+  static class TwoParamCollection<T, R> implements Iterable<T> {
+    @Override
+    public TwoParamIterator<T, R> iterator() {
+      return new TwoParamIterator<T, R>();
+    }
+  }
+
+  static void testTwoParamIter() {
+    TwoParamCollection<String, String> c = new TwoParamCollection<>();
+    for (String s : c) {
+      s.hashCode();
+    }
   }
 }
