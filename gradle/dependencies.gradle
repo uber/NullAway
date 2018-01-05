@@ -15,8 +15,8 @@
  */
 
 def versions = [
-    checkerFramework       : "2.1.14",
-    checkerFrameworkNAFork : "2.1.14.1-nullaway",
+    checkerFramework       : "2.3.1",
+    checkerFrameworkNAFork : "2.3.1.1-nullaway",
     errorProne             : "2.1.1",
     support                : "27.0.2"
 ]
@@ -31,8 +31,8 @@ def build = [
     errorProneCheckApi      : "com.google.errorprone:error_prone_check_api:${versions.errorProne}",
     errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProne}",
     errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProne}",
-    checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFrameworkNAFork}",
-                               "org.checkerframework:javacutil:${versions.checkerFramework}"],
+    checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFramework}",
+                               "org.checkerframework:javacutil:${versions.checkerFrameworkNAFork}"],
     gradleErrorPronePlugin  : "net.ltgt.gradle:gradle-errorprone-plugin:0.0.8",
     guava                   : "com.google.guava:guava:21.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
