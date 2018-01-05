@@ -59,10 +59,18 @@ dependencies {
     epJavac deps.build.checkerDataflow
 }
 
+// We include and shade the checker framework jars into the NullAway jar, as we may have custom
+// changes.
 shadowJar {
+    // set classifier to null since we want the artifact uploaded to Maven Central to be the
+    // shadow jar.  Without this, the shadow jar is built with a '-all' suffix in the name.
     classifier = null
     relocate "org.checkerframework", "shadow.checkerframework"
 }
+// Since we set classifier to null above, both the normal jar artifact and the shadow jar have
+// the same name, which can cause races if we are not careful.  We force shadowJar to depend on
+// assemble, so we know that the shadow jar will always overwrite the normal one.  We also force
+// test to depend on shadowJar, to avoid races between running tests and building the shadow jar.
 shadowJar.dependsOn assemble
 test.dependsOn shadowJar
 
