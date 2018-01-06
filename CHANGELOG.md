@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.3.1
+-------------
+* Bug fixes (#107, #108, #110, #112)
+
 Version 0.3.0
 -------------
 * Update library models to require full method signatures rather than
