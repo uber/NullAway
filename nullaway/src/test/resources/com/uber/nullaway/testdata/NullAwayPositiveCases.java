@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.testdata;
 
+import java.util.List;
 import javax.annotation.Nullable;
 
 public class NullAwayPositiveCases {
@@ -444,5 +445,27 @@ public class NullAwayPositiveCases {
   static TestAnon testAnon(@Nullable Object q) {
     // BUG: Diagnostic contains: passing @Nullable parameter 'q' where
     return new TestAnon(q) {};
+  }
+
+  static class TestAnon2<T> {
+
+    TestAnon2(List<? extends T> q) {}
+  }
+
+  static <Q> TestAnon2<Q> testAnon2(@Nullable List<Q> q) {
+    // BUG: Diagnostic contains: passing @Nullable parameter 'q' where
+    return new TestAnon2<Q>(q) {};
+  }
+
+  static class TestAnon3 {
+
+    TestAnon3(@Nullable Integer p) {}
+
+    TestAnon3(String p) {}
+  }
+
+  static TestAnon3 testAnon3(@Nullable String q) {
+    // BUG: Diagnostic contains: passing @Nullable parameter 'q' where
+    return new TestAnon3(q) {};
   }
 }
