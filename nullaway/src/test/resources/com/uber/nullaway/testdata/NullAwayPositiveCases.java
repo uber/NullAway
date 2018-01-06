@@ -456,4 +456,16 @@ public class NullAwayPositiveCases {
     // BUG: Diagnostic contains: passing @Nullable parameter 'q' where
     return new TestAnon2<Q>(q) {};
   }
+
+  static class TestAnon3 {
+
+    TestAnon3(@Nullable Integer p) {}
+
+    TestAnon3(String p) {}
+  }
+
+  static TestAnon3 testAnon3(@Nullable String q) {
+    // BUG: Diagnostic contains: passing @Nullable parameter 'q' where
+    return new TestAnon3(q) {};
+  }
 }

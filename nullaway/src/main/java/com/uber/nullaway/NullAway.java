@@ -1889,18 +1889,9 @@ public class NullAway extends BugChecker
 
   private static boolean hasSameArgTypes(
       Symbol.MethodSymbol method1, Symbol.MethodSymbol method2, Types types) {
-    com.sun.tools.javac.util.List<VarSymbol> method1params = method1.getParameters();
-    com.sun.tools.javac.util.List<VarSymbol> method2params = method2.getParameters();
-    if (method1params.size() != method2params.size()) {
-      return false;
-    }
-    for (int i = 0; i < method1params.size(); i++) {
-      if (!types.isSameType(
-          types.erasure(method1params.get(i).type), types.erasure(method2params.get(i).type))) {
-        return false;
-      }
-    }
-    return true;
+    com.sun.tools.javac.util.List<Type> method1ArgTypes = method1.type.asMethodType().argtypes;
+    com.sun.tools.javac.util.List<Type> method2ArgTypes = method2.type.asMethodType().argtypes;
+    return types.isSameTypes(types.erasure(method1ArgTypes), types.erasure(method2ArgTypes));
   }
 
   public enum MessageTypes {
