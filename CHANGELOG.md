@@ -1,7 +1,11 @@
 Changelog
 =========
 
-Version 0.3.1
+Version 0.3.2
+-------------
+* Just fixed a Gradle configuration problem
+
+Version 0.3.1 (never made it to Maven Central)
 -------------
 * Bug fixes (#107, #108, #110, #112)
 
