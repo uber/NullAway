@@ -23,6 +23,7 @@
 package com.uber.nullaway;
 
 import com.sun.tools.javac.code.Symbol;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Provides configuration parameters for the nullability checker. */
@@ -89,4 +90,11 @@ public interface Config {
    */
   @Nullable
   String getCastToNonNullMethod();
+
+  /**
+   * @return a set of all annotations that should be interpreted as "@Nullable". This set might
+   *     include either fully qualified class names, as well as ".MyClass", meaning "Any class named
+   *     MyClass in any package."
+   */
+  Set<String> getNullableAnnotations();
 }

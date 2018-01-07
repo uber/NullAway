@@ -796,4 +796,29 @@ public class NullAwayNegativeCases {
       s.hashCode();
     }
   }
+
+  // Passing -XepOpt:NullAway:NullableAnnotations=
+  //  com.uber.nullaway.testdata.CustomNullableAnnotation,.CustomNullableAnnotation2
+  static class CustomNullableAnnotations {
+
+    @CustomNullableAnnotation String cfNullableString;
+
+    CustomNullableAnnotations() {}
+
+    static int fizz(@CustomNullableAnnotation String str) {
+      if (str != null) {
+        return str.hashCode();
+      }
+      return 10;
+    }
+
+    static void bizz() {
+      fizz(null);
+    }
+
+    @CustomNullableAnnotation2
+    Object retNullMaybe() {
+      return null;
+    }
+  }
 }

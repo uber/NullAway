@@ -143,14 +143,15 @@ public class NullabilityUtil {
    * @return true if based on the type, package, and name of the field, the analysis should assume
    *     the field might be null; false otherwise
    */
-  public static boolean mayBeNullFieldFromType(@Nullable Symbol symbol, Config config) {
+  public static boolean mayBeNullFieldFromType(
+      @Nullable Symbol symbol, Config config, Nullness.AnnotationReader nullnessAnnotationReader) {
     if (symbol == null) {
       return true;
     }
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
             || fromUnannotatedPackage(symbol, config))
-        && Nullness.hasNullableAnnotation(symbol);
+        && nullnessAnnotationReader.hasNullableAnnotation(symbol);
   }
 
   /**

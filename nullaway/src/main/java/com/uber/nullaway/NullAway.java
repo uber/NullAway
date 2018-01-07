@@ -215,6 +215,15 @@ public class NullAway extends BugChecker
       new LinkedHashMap<>();
 
   /**
+   * Util reader to parse Nullable annotations from source, as defined in a Config object.
+   *
+   * <p>See ErrorProneCLIFlagsConfig.DEFAULT_NULLABLE_ANNOTATIONS for the default annotations
+   * (including @Nullable itself). Users can pass new annotation names through
+   * -XepOpt:NullAway:KnownInitializers.
+   */
+  private final Nullness.AnnotationReader nullnessAnnotationReader;
+
+  /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
    * else. Checker objects constructed with this constructor will fail with IllegalStateException if
@@ -223,11 +232,13 @@ public class NullAway extends BugChecker
   public NullAway() {
     config = new DummyOptionsConfig();
     nonAnnotatedMethod = nonAnnotatedMethodCheck();
+    nullnessAnnotationReader = new Nullness.AnnotationReader(config);
   }
 
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
     nonAnnotatedMethod = nonAnnotatedMethodCheck();
+    nullnessAnnotationReader = new Nullness.AnnotationReader(config);
     // workaround for Checker Framework static state bug;
     // See https://github.com/typetools/checker-framework/issues/1482
     AnnotationUtils.clear();
@@ -342,7 +353,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    if (Nullness.hasNullableAnnotation(assigned)) {
+    if (nullnessAnnotationReader.hasNullableAnnotation(assigned)) {
       // field already annotated
       return Description.NO_MATCH;
     }
@@ -414,8 +425,8 @@ public class NullAway extends BugChecker
       }
       // if the super method returns nonnull,
       // overriding method better not return nullable
-      if (!Nullness.hasNullableAnnotation(closestOverriddenMethod)) {
-        if (Nullness.hasNullableAnnotation(methodSymbol)) {
+      if (!nullnessAnnotationReader.hasNullableAnnotation(closestOverriddenMethod)) {
+        if (nullnessAnnotationReader.hasNullableAnnotation(methodSymbol)) {
           String message =
               "method returns @Nullable, but superclass method "
                   + ASTHelpers.enclosingClass(closestOverriddenMethod)
@@ -441,13 +452,13 @@ public class NullAway extends BugChecker
         closestOverriddenMethod.getParameters();
     for (int i = 0; i < superParamSymbols.size(); i++) {
       VarSymbol superParam = superParamSymbols.get(i);
-      if (Nullness.hasNullableAnnotation(superParam)) {
+      if (nullnessAnnotationReader.hasNullableAnnotation(superParam)) {
         VariableTree param = methodParams.get(i);
         VarSymbol paramSymbol = ASTHelpers.getSymbol(param);
         // in the case where we have a parameter of a lambda expression, we do
         // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
         // nullability from the corresponding functional interface method
-        if (!Nullness.hasNullableAnnotation(paramSymbol)
+        if (!nullnessAnnotationReader.hasNullableAnnotation(paramSymbol)
             && !(isLambda && !NullabilityUtil.lambdaParamIsExplicitlyTyped(param))) {
           String message =
               "parameter "
@@ -477,7 +488,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     if (NullabilityUtil.fromUnannotatedPackage(methodSymbol, config)
-        || Nullness.hasNullableAnnotation(methodSymbol)) {
+        || nullnessAnnotationReader.hasNullableAnnotation(methodSymbol)) {
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, retExpr)) {
@@ -988,7 +999,7 @@ public class NullAway extends BugChecker
             continue;
           }
         }
-        boolean nullable = Nullness.hasNullableAnnotation(param);
+        boolean nullable = nullnessAnnotationReader.hasNullableAnnotation(param);
         if (!nullable) {
           builder.add(i);
         }
@@ -1394,7 +1405,8 @@ public class NullAway extends BugChecker
   private boolean skipDueToFieldAnnotation(Symbol fieldSymbol) {
     for (AnnotationMirror anno : NullabilityUtil.getAllAnnotations(fieldSymbol)) {
       String annoTypeStr = anno.getAnnotationType().toString();
-      if (config.isExcludedFieldAnnotation(annoTypeStr)) {
+      if (nullnessAnnotationReader.isNullableAnnotation(annoTypeStr)
+          || config.isExcludedFieldAnnotation(annoTypeStr)) {
         return true;
       }
     }
@@ -1502,7 +1514,7 @@ public class NullAway extends BugChecker
     if (NullabilityUtil.fromUnannotatedPackage(exprSymbol, config)) {
       return false;
     }
-    if (!Nullness.hasNullableAnnotation(exprSymbol)) {
+    if (!nullnessAnnotationReader.hasNullableAnnotation(exprSymbol)) {
       return false;
     }
     return nullnessFromDataflow(state, expr);
@@ -1525,7 +1537,7 @@ public class NullAway extends BugChecker
   }
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
-    if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config)) {
+    if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, nullnessAnnotationReader)) {
       return false;
     }
     return nullnessFromDataflow(state, expr);

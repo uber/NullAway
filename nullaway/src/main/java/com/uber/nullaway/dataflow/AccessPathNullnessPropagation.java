@@ -140,6 +140,8 @@ public class AccessPathNullnessPropagation
 
   private final Handler handler;
 
+  private final Nullness.AnnotationReader nullnessAnnotationReader;
+
   AccessPathNullnessPropagation(
       Nullness defaultAssumption,
       Predicate<MethodInvocationNode> methodReturnsNonNull,
@@ -151,6 +153,7 @@ public class AccessPathNullnessPropagation
     this.types = types;
     this.config = config;
     this.handler = handler;
+    nullnessAnnotationReader = new Nullness.AnnotationReader(config);
   }
 
   private static SubNodeValues values(
@@ -204,7 +207,7 @@ public class AccessPathNullnessPropagation
       Nullness assumed;
       // we treat lambda parameters differently; they "inherit" the nullability of the
       // corresponding functional interface parameter, unless they are explicitly annotated
-      if (Nullness.hasNullableAnnotation(element)) {
+      if (nullnessAnnotationReader.hasNullableAnnotation(element)) {
         assumed = NULLABLE;
       } else if (NullabilityUtil.lambdaParamIsExplicitlyTyped(variableTree)) {
         // the parameter has a declared type with no @Nullable annotation
@@ -215,7 +218,10 @@ public class AccessPathNullnessPropagation
           // optimistically assume parameter is non-null
           assumed = NONNULL;
         } else {
-          assumed = Nullness.hasNullableAnnotation(fiMethodParameters.get(i)) ? NULLABLE : NONNULL;
+          assumed =
+              nullnessAnnotationReader.hasNullableAnnotation(fiMethodParameters.get(i))
+                  ? NULLABLE
+                  : NONNULL;
         }
       }
       result.setInformation(AccessPath.fromLocal(param), assumed);
@@ -235,7 +241,8 @@ public class AccessPathNullnessPropagation
     NullnessStore.Builder<Nullness> result = NullnessStore.<Nullness>empty().toBuilder();
     for (LocalVariableNode param : parameters) {
       Element element = param.getElement();
-      Nullness assumed = Nullness.hasNullableAnnotation(element) ? NULLABLE : NONNULL;
+      Nullness assumed =
+          nullnessAnnotationReader.hasNullableAnnotation(element) ? NULLABLE : NONNULL;
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
@@ -652,7 +659,7 @@ public class AccessPathNullnessPropagation
     setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
     VariableElement element = fieldAccessNode.getElement();
     Nullness nullness = Nullness.NULLABLE;
-    if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config)) {
+    if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config, nullnessAnnotationReader)) {
       nullness = NONNULL;
     } else {
       nullness = input.getRegularStore().valueOfField(fieldAccessNode, nullness);
@@ -858,7 +865,7 @@ public class AccessPathNullnessPropagation
       nullness = input.getRegularStore().valueOfMethodCall(node, types, NULLABLE);
     } else if (node == null
         || methodReturnsNonNull.test(node)
-        || !Nullness.hasNullableAnnotation(node.getTarget().getMethod())) {
+        || !nullnessAnnotationReader.hasNullableAnnotation(node.getTarget().getMethod())) {
       // definite non-null return
       nullness = NONNULL;
     } else {

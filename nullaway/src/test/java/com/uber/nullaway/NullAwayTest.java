@@ -57,7 +57,10 @@ public class NullAwayTest {
                 + "com.uber.nullaway.testdata.Shape_Stuff,"
                 + "com.uber.nullaway.testdata.excluded",
             "-XepOpt:NullAway:ExcludedClassAnnotations=" + "com.uber.nullaway.testdata.TestAnnot",
-            "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"));
+            "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
+            "-XepOpt:NullAway:NullableAnnotations="
+                + "com.uber.nullaway.testdata.CustomNullableAnnotation,"
+                + ".CustomNullableAnnotation2"));
   }
 
   @Test
@@ -77,6 +80,8 @@ public class NullAwayTest {
         .addSourceFile("OtherStuff.java")
         .addSourceFile("TestAnnot.java")
         .addSourceFile("unannotated/UnannotatedClass.java")
+        .addSourceFile("CustomNullableAnnotation.java")
+        .addSourceFile("CustomNullableAnnotation2.java")
         .doTest();
   }
 

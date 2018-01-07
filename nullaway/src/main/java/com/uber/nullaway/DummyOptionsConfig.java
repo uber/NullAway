@@ -25,7 +25,9 @@ package com.uber.nullaway;
 import static com.uber.nullaway.ErrorProneCLIFlagsConfig.EP_FL_NAMESPACE;
 import static com.uber.nullaway.ErrorProneCLIFlagsConfig.FL_ANNOTATED_PACKAGES;
 
+import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -96,4 +98,9 @@ public class DummyOptionsConfig implements Config {
   public String getCastToNonNullMethod() {
     throw new IllegalStateException(error_msg);
   }
+
+  @Override
+  public Set<String> getNullableAnnotations() {
+    return ImmutableSet.of(".Nullable");
+  } // Called, but val not used.
 }

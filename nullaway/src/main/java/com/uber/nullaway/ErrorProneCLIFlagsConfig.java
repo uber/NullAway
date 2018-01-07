@@ -41,6 +41,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_CLASSES_TO_EXCLUDE = EP_FL_NAMESPACE + ":ExcludedClasses";
   static final String FL_EXHAUSTIVE_OVERRIDE = EP_FL_NAMESPACE + ":ExhaustiveOverride";
   static final String FL_KNOWN_INITIALIZERS = EP_FL_NAMESPACE + ":KnownInitializers";
+  static final String FL_NULLABLE_ANNOTATIONS = EP_FL_NAMESPACE + ":NullableAnnotations";
   static final String FL_CLASS_ANNOTATIONS_TO_EXCLUDE =
       EP_FL_NAMESPACE + ":ExcludedClassAnnotations";
   static final String FL_SUGGEST_SUPPRESSIONS = EP_FL_NAMESPACE + ":SuggestSuppressions";
@@ -48,6 +49,12 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
   private static final String DELIMITER = ",";
+
+  static final ImmutableSet<String> DEFAULT_NULLABLE_ANNOTATIONS =
+      ImmutableSet.of(
+          ".Nullable",
+          ".CheckForNull",
+          "org.checkerframework.checker.nullness.compatqual.NullableDecl");
 
   static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS =
       ImmutableSet.of(
@@ -84,6 +91,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     knownInitializers =
         getKnownInitializers(
             getFlagStringSet(flags, FL_KNOWN_INITIALIZERS, DEFAULT_KNOWN_INITIALIZERS));
+    nullableAnnotations =
+        getFlagStringSet(flags, FL_NULLABLE_ANNOTATIONS, DEFAULT_NULLABLE_ANNOTATIONS);
     excludedClassAnnotations = getFlagStringSet(flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE);
     initializerAnnotations =
         getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);

@@ -18,6 +18,7 @@
 
 package com.uber.nullaway;
 
+import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import org.checkerframework.dataflow.analysis.AbstractValue;
@@ -127,26 +128,41 @@ public enum Nullness implements AbstractValue<Nullness> {
     return displayName;
   }
 
-  private static Nullness nullnessFromAnnotations(Element element) {
-    for (AnnotationMirror anno : NullabilityUtil.getAllAnnotations(element)) {
-      String annotStr = anno.getAnnotationType().toString();
-      if (isNullableAnnotation(annotStr)) {
-        return Nullness.NULLABLE;
-      }
+  public static final class AnnotationReader {
+
+    private Set<String> nullableAnnotations;
+
+    public AnnotationReader(Config config) {
+      nullableAnnotations = config.getNullableAnnotations();
     }
-    return Nullness.NONNULL;
-  }
 
-  /**
-   * @param annotName annotation name
-   * @return true if we treat annotName as a <code>@Nullable</code> annotation, false otherwise
-   */
-  public static boolean isNullableAnnotation(String annotName) {
-    return annotName.endsWith(".Nullable")
-        || annotName.equals("org.checkerframework.checker.nullness.compatqual.NullableDecl");
-  }
+    private Nullness nullnessFromAnnotations(Element element) {
+      for (AnnotationMirror anno : NullabilityUtil.getAllAnnotations(element)) {
+        String annotStr = anno.getAnnotationType().toString();
+        if (isNullableAnnotation(annotStr)) {
+          return Nullness.NULLABLE;
+        }
+      }
+      return Nullness.NONNULL;
+    }
 
-  public static boolean hasNullableAnnotation(Element element) {
-    return nullnessFromAnnotations(element) == Nullness.NULLABLE;
+    /**
+     * @param annotName annotation name
+     * @return true if we treat annotName as a <code>@Nullable</code> annotation, false otherwise
+     */
+    public boolean isNullableAnnotation(String annotName) {
+      for (String nullableAnnotation : nullableAnnotations) {
+        if (nullableAnnotation.startsWith(".") && annotName.endsWith(nullableAnnotation)) {
+          return true;
+        } else if (annotName.equals(nullableAnnotation)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    public boolean hasNullableAnnotation(Element element) {
+      return nullnessFromAnnotations(element) == Nullness.NULLABLE;
+    }
   }
 }

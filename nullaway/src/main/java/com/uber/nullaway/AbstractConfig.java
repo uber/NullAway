@@ -61,6 +61,8 @@ public abstract class AbstractConfig implements Config {
 
   protected boolean isSuggestSuppressions;
 
+  protected Set<String> nullableAnnotations;
+
   protected Set<MethodClassAndName> knownInitializers;
 
   protected Set<String> excludedClassAnnotations;
@@ -122,8 +124,7 @@ public abstract class AbstractConfig implements Config {
 
   @Override
   public boolean isExcludedFieldAnnotation(String annotationName) {
-    return Nullness.isNullableAnnotation(annotationName)
-        || (fieldAnnotPattern != null && fieldAnnotPattern.matcher(annotationName).matches());
+    return fieldAnnotPattern != null && fieldAnnotPattern.matcher(annotationName).matches();
   }
 
   @Override
@@ -135,6 +136,11 @@ public abstract class AbstractConfig implements Config {
   @Nullable
   public String getCastToNonNullMethod() {
     return castToNonNullMethod;
+  }
+
+  @Override
+  public Set<String> getNullableAnnotations() {
+    return nullableAnnotations;
   }
 
   protected Set<MethodClassAndName> getKnownInitializers(Set<String> qualifiedNames) {
