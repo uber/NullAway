@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.testdata;
 
+import java.io.IOException;
 import javax.annotation.Nullable;
 
 // This code tests our, admitedly quite unsound, handling of try{ ... }finally{ ... } blocks.
@@ -53,22 +54,98 @@ public class NullAwayTryFinallyCases {
     }
   }
 
-  public void derefOnFinallySafe(@Nullable Object o) {
+  public void tryFinallyThrowWFix(@Nullable Object o) {
     try {
-      if (o == null) {
-        return;
-      }
+      o = new Object();
+      throw new Error();
     } finally {
+      /// ToDo: This should be safe
+      // BUG: Diagnostic contains: dereferenced expression
+      System.out.println(o.toString()); // Safe.
+    }
+  }
+
+  public void tryFinallyThrowWFix2(@Nullable Object o) {
+    o = new Object();
+    try {
+      throw new Error();
+    } finally {
+      System.out.println(o.toString()); // Safe.
+    }
+  }
+
+  public void tryCatchMininal(@Nullable Object o) {
+    try {
+    } catch (Exception e) {
+      System.out.println(o.toString()); // Can't happen. Safe.
+    }
+  }
+
+  public void tryCatchMininalRet(@Nullable Object o) {
+    try {
+      return;
+    } catch (Exception e) {
+      System.out.println(o.toString()); // Can't happen. Safe.
+    }
+  }
+
+  public void tryCatchMininalThrow(@Nullable Object o) {
+    try {
+      throw new Error();
+    } catch (Exception e) {
+      // BUG: Diagnostic contains: dereferenced expression
       System.out.println(o.toString());
     }
   }
 
-  public void derefOnFinallyUnsafe(@Nullable Object o) {
+  public void derefOnFinallyReturn(@Nullable Object o) {
+    try {
+      if (o == null) {
+        return;
+      }
+      System.out.println(o.toString()); // Safe
+    } finally {
+      // This should be an error, but isn't.
+      System.out.println(o.toString());
+    }
+  }
+
+  public void derefOnFinallyThrow(@Nullable Object o) {
     try {
       if (o == null) {
         throw new Error();
       }
+      System.out.println(o.toString()); // Safe
     } finally {
+      // BUG: Diagnostic contains: dereferenced expression
+      System.out.println(o.toString());
+    }
+  }
+
+  public void derefOnFinallyThrowFixBefore(@Nullable Object o) {
+    try {
+      if (o == null) {
+        o = new Object();
+        throw new Error();
+      }
+      System.out.println(o.toString()); // Safe
+    } finally {
+      /// ToDo: This should be safe
+      // BUG: Diagnostic contains: dereferenced expression
+      System.out.println(o.toString()); // Safe
+    }
+  }
+
+  public void derefOnFinallySafeOnBothPaths(@Nullable Object o) {
+    try {
+      if (o == null) {
+        throw new Exception();
+      }
+      System.out.println(o.toString()); // Safe
+    } catch (Exception e) {
+      o = new Object();
+    } finally {
+      /// ToDo: This should be safe
       // BUG: Diagnostic contains: dereferenced expression
       System.out.println(o.toString());
     }
@@ -107,12 +184,28 @@ public class NullAwayTryFinallyCases {
     }
   }
 
+  public void tryMultipleCatch(@Nullable Object o) {
+    try {
+      if (o == null) {
+        throw new IOException();
+      } else {
+        throw new Exception();
+      }
+    } catch (IOException ioe) {
+      return;
+    } catch (Exception e) {
+      /// ToDo: This should be safe, because the previous handler executes instead of this one.
+      // BUG: Diagnostic contains: dereferenced expression
+      System.out.println(o.toString());
+    }
+  }
+
   class Initializers {
 
     Object f;
     Object g;
 
-    // ToDo: Fix or work-around for this one.
+    /// ToDo: Fix or work-around for this one.
     // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g is
     // initialized
     Initializers() {
