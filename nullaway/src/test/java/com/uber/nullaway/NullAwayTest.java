@@ -156,4 +156,9 @@ public class NullAwayTest {
         .addSourceFile("Util.java")
         .doTest();
   }
+
+  @Test
+  public void tryFinallySupport() {
+    compilationHelper.addSourceFile("NullAwayTryFinallyCases.java").doTest();
+  }
 }
