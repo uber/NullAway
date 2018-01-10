@@ -59,9 +59,12 @@ public class NullAwayTryFinallyCases {
       o = new Object();
       throw new Error();
     } finally {
-      /// ToDo: This should be safe
+      /// ToDo: This could potentially be safe, or, pedantically, we could be assuming an
+      // OutOfMemoryError is possible
+      /// and thus o might be uninitialized. Consider ignoring unchecked exceptions in the CFG
+      // somehow.
       // BUG: Diagnostic contains: dereferenced expression
-      System.out.println(o.toString()); // Safe.
+      System.out.println(o.toString()); // Safe(?)
     }
   }
 
@@ -71,6 +74,19 @@ public class NullAwayTryFinallyCases {
       throw new Error();
     } finally {
       System.out.println(o.toString()); // Safe.
+    }
+  }
+
+  public void tryFinallyPassThrough(@Nullable Object o) {
+    try {
+      o = new Object();
+    } finally {
+      /// ToDo: This could potentially be safe, or, pedantically, we could be assuming an
+      // OutOfMemoryError is possible
+      /// and thus o might be uninitialized. Consider ignoring unchecked exceptions in the CFG
+      // somehow.
+      // BUG: Diagnostic contains: dereferenced expression
+      System.out.println(o.toString()); // Safe(?)
     }
   }
 
