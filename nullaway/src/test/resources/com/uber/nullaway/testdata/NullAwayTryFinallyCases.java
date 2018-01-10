@@ -27,6 +27,32 @@ import javax.annotation.Nullable;
 // This code tests our, admitedly quite unsound, handling of try{ ... }finally{ ... } blocks.
 public class NullAwayTryFinallyCases {
 
+  public void tryFinallyMininal(@Nullable Object o) {
+    try {
+    } finally {
+      // BUG: Diagnostic contains: dereferenced expression
+      System.out.println(o.toString());
+    }
+  }
+
+  public void tryFinallyMininalRet(@Nullable Object o) {
+    try {
+      return;
+    } finally {
+      // This should be an error, but isn't.
+      System.out.println(o.toString());
+    }
+  }
+
+  public void tryFinallyMininalThrow(@Nullable Object o) {
+    try {
+      throw new Error();
+    } finally {
+      // BUG: Diagnostic contains: dereferenced expression
+      System.out.println(o.toString());
+    }
+  }
+
   public void derefOnFinallySafe(@Nullable Object o) {
     try {
       if (o == null) {
@@ -105,9 +131,8 @@ public class NullAwayTryFinallyCases {
       } finally {
         System.out.println("No-op");
       }
-      g =
-          new Object(); // This is ok, because we are ignoring the actual exceptional exit from the
-                        // method... mmh
+      g = new Object(); // This is ok, because we are ignoring the actual exceptional exit from the
+      // method... mmh
     }
 
     Initializers(Object o1, Object o2) {
@@ -118,9 +143,8 @@ public class NullAwayTryFinallyCases {
       } finally {
         System.out.println("No-op");
       }
-      g =
-          new Object(); // This is ok, because we are ignoring the actual exceptional exit from the
-                        // method... mmh
+      g = new Object(); // This is ok, because we are ignoring the actual exceptional exit from the
+      // method... mmh
     }
   }
 }
