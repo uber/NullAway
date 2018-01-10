@@ -40,7 +40,7 @@ public class NullAwayTryFinallyCases {
     try {
       return;
     } finally {
-      // This should be an error, but isn't.
+      /// ToDo: This should be an error, but isn't.
       System.out.println(o.toString());
     }
   }
@@ -105,7 +105,7 @@ public class NullAwayTryFinallyCases {
       }
       System.out.println(o.toString()); // Safe
     } finally {
-      // This should be an error, but isn't.
+      /// ToDo: This should be an error, but isn't.
       System.out.println(o.toString());
     }
   }
@@ -159,26 +159,26 @@ public class NullAwayTryFinallyCases {
     throw new Error();
   }
 
-  public void derefOnFinallySafe2(@Nullable Object o) {
+  public void derefOnCatchSafe(@Nullable Object o) {
     try {
       if (o == null) {
         doesNotThrowException();
         return;
       }
-    } finally {
+    } catch (Exception e) {
       // No interproc, it believes doesNotThrowException() can throw an exception.
       // BUG: Diagnostic contains: dereferenced expression
       System.out.println(o.toString());
     }
   }
 
-  public void derefOnFinallyUnsafe2(@Nullable Object o) {
+  public void derefOnCatchUnsafe(@Nullable Object o) {
     try {
       if (o == null) {
         throwsException();
         return;
       }
-    } finally {
+    } catch (Exception e) {
       // BUG: Diagnostic contains: dereferenced expression
       System.out.println(o.toString());
     }
@@ -231,13 +231,115 @@ public class NullAwayTryFinallyCases {
     Initializers(Object o1, Object o2) {
       f = new Object();
       try {
-        g = new Object();
         throwsException(); // Even ok with this call, since we are intra-proc.
+        g = new Object();
       } finally {
         System.out.println("No-op");
       }
       g = new Object(); // This is ok, because we are ignoring the actual exceptional exit from the
       // method... mmh
+    }
+
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g is
+    // initialized
+    Initializers(Object o1, Object o2, Object o3) {
+      f = new Object();
+      try {
+        if (o1 == o2) {
+          throw new Exception();
+        }
+        g = new Object();
+      } catch (Exception e) {
+        return; // g might not have been initialized here
+      } finally {
+        System.out.println("No-op");
+      }
+      g = new Object(); // This is ok, because we are ignoring the actual exceptional exit from the
+      // method... mmh
+    }
+
+    Initializers(Object o1, Object o2, Object o3, Object o4) {
+      f = new Object();
+      try {
+        if (o1 == o2) {
+          throw new Exception();
+        }
+        g = new Object();
+      } catch (Exception e) {
+        g = new Object();
+        return;
+      } finally {
+        System.out.println("No-op");
+      }
+      g = new Object(); // This is ok, because we are ignoring the actual exceptional exit from the
+      // method... mmh
+    }
+
+    /// ToDo: This should be safe, but requires matching the Exception type.
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g is
+    // initialized
+    Initializers(Object o1, Object o2, Object o3, Object o4, Object o5) {
+      f = new Object();
+      try {
+        if (o1 == o2) {
+          throw new Exception();
+        }
+        g = new Object();
+      } catch (Exception e) {
+        g = new Object();
+        return;
+      } finally {
+        System.out.println("No-op");
+      }
+    }
+
+    Initializers(Object o1, Object o2, Object o3, Object o4, Object o5, Object o6) {
+      f = new Object();
+      try {
+        if (o1 == o2) {
+          throw new Error();
+        }
+      } finally {
+        g = new Object();
+      }
+    }
+
+    /// ToDo: This should be safe. But return doesn't seem to be flowing into finally.
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g is
+    // initialized
+    Initializers(
+        Object o1, Object o2, Object o3, Object o4, Object o5, Object o6, Object o7, Object o8) {
+      f = new Object();
+      try {
+        if (o1 == o2) {
+          throw new Error();
+        }
+        return;
+      } finally {
+        g = new Object();
+      }
+    }
+
+    Initializers(
+        Object o1,
+        Object o2,
+        Object o3,
+        Object o4,
+        Object o5,
+        Object o6,
+        Object o7,
+        Object o8,
+        Object o9) {
+      f = new Object();
+      try {
+        if (o1 == o2) {
+          throw new Error();
+        }
+        g = new Object(); // This works
+        return;
+      } finally {
+        g = new Object();
+      }
     }
   }
 }
