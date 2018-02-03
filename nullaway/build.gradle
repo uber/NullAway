@@ -41,6 +41,7 @@ dependencies {
 
     compileOnly deps.build.errorProneCheckApi
     compile deps.build.checkerDataflow
+    shadow deps.build.guava
 
     errorprone deps.build.errorProneCore
 
