@@ -34,7 +34,7 @@ def build = [
     checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFramework}",
                                "org.checkerframework:javacutil:${versions.checkerFrameworkNAFork}"],
     gradleErrorPronePlugin  : "net.ltgt.gradle:gradle-errorprone-plugin:0.0.8",
-    guava                   : "com.google.guava:guava:21.0",
+    guava                   : "com.google.guava:guava:22.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
 
     // android stuff
