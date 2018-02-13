@@ -720,7 +720,9 @@ public class AccessPathNullnessPropagation
       TransferInput<Nullness, NullnessStore<Nullness>> input) {
     handler.onDataflowVisitLambdaResultExpression(
         resultNode.getTree(), input.getThenStore(), input.getElseStore());
-    return noStoreChanges(NULLABLE, input);
+    SubNodeValues values = values(input);
+    Nullness nullness = values.valueOfSubNode(resultNode.getResult());
+    return noStoreChanges(nullness, input);
   }
 
   @Override

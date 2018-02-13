@@ -40,7 +40,7 @@ public class NullAwayTryFinallyCases {
     try {
       return;
     } finally {
-      /// ToDo: This should be an error, but isn't.
+      // BUG: Diagnostic contains: dereferenced expression
       System.out.println(o.toString());
     }
   }
@@ -221,9 +221,6 @@ public class NullAwayTryFinallyCases {
     Object f;
     Object g;
 
-    /// ToDo: Fix or work-around for this one.
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g is
-    // initialized
     Initializers() {
       f = new Object();
       try {
@@ -291,9 +288,6 @@ public class NullAwayTryFinallyCases {
       // method... mmh
     }
 
-    /// ToDo: This should be safe, but requires matching the Exception type.
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g is
-    // initialized
     Initializers(Object o1, Object o2, Object o3, Object o4, Object o5) {
       f = new Object();
       try {
@@ -320,9 +314,6 @@ public class NullAwayTryFinallyCases {
       }
     }
 
-    /// ToDo: This should be safe. But return doesn't seem to be flowing into finally.
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g is
-    // initialized
     Initializers(
         Object o1, Object o2, Object o3, Object o4, Object o5, Object o6, Object o7, Object o8) {
       f = new Object();
@@ -356,6 +347,92 @@ public class NullAwayTryFinallyCases {
       } finally {
         g = new Object();
       }
+    }
+  }
+
+  private boolean nestedCFGConstructionTest(Object o) {
+    boolean result = true;
+    java.io.BufferedWriter out = null;
+    try {
+      try {
+      } finally {
+        out = new java.io.BufferedWriter(new java.io.OutputStreamWriter(System.err));
+      }
+      if (o != null) {
+        out.write(' ');
+      }
+    } catch (Exception e) {
+    } finally {
+    }
+    return result;
+  }
+
+  private boolean nestedCFGConstructionTest2() throws IOException {
+    java.io.BufferedWriter out =
+        new java.io.BufferedWriter(new java.io.OutputStreamWriter(System.err));
+    try {
+      try {
+        return true;
+      } finally {
+      }
+    } finally {
+      out.write(' ');
+      out.close();
+    }
+  }
+
+  class IndirectInitialization {
+    Object f;
+
+    IndirectInitialization(Object o1) {
+      // Do or do not...
+      init();
+    }
+
+    IndirectInitialization(Object o1, Object o2) {
+      // ... but here there is try
+      try {
+        init();
+      } finally {
+      }
+    }
+
+    private void init() {
+      this.f = new Object();
+    }
+  }
+
+  class IndirectInitialization2 {
+    Object f;
+
+    //// Fixme: This should work recursivelly
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field
+    IndirectInitialization2(Object o1) {
+      wrappedInitNoTry();
+    }
+
+    //// Fixme: This should work recursivelly
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field
+    IndirectInitialization2(Object o1, Object o2) {
+      try {
+        wrappedInitTry();
+      } finally {
+      }
+    }
+
+    private void wrappedInitNoTry() {
+      init();
+    }
+
+    private void wrappedInitTry() {
+      try {
+        init();
+      } finally {
+      }
+    }
+
+    private void init() {
+      this.f = new Object();
     }
   }
 }
