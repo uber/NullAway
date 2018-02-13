@@ -73,6 +73,7 @@ import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.TryTree;
 import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
@@ -652,14 +653,31 @@ public class NullAway extends BugChecker
     List<? extends StatementTree> statements = blockTree.getStatements();
     Tree readExprTree = pathToRead.getLeaf();
     int readStartPos = getStartPos((JCTree) readExprTree);
-    Symbol.ClassSymbol classSymbol = enclosingClassSymbol(enclosingBlockPath);
-    // bound loop at size-1 since the final statement cannot appear before the read
-    for (int i = 0; i < statements.size() - 1; i++) {
-      StatementTree curStmt = statements.get(i), nextStmt = statements.get(i + 1);
-      if (getStartPos((JCTree) nextStmt) <= readStartPos) {
+    TreePath classTreePath = enclosingBlockPath;
+    while (!classTreePath.getLeaf().getKind().equals(Tree.Kind.CLASS)) {
+      classTreePath = classTreePath.getParentPath();
+    }
+    Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol((ClassTree) classTreePath.getLeaf());
+    for (int i = 0; i < statements.size(); i++) {
+      StatementTree curStmt = statements.get(i);
+      if (getStartPos((JCTree) curStmt) <= readStartPos) {
         Element privMethodElem = getInvokeOfSafeInitMethod(curStmt, classSymbol, state);
         if (privMethodElem != null) {
           safeInitMethods.add(privMethodElem);
+        }
+        // Hack: Handling try{...}finally{...} statement, see getSafeInitMethods
+        if (curStmt.getKind().equals(Tree.Kind.TRY)) {
+          TryTree tryTree = (TryTree) curStmt;
+          if (tryTree.getCatches().size() == 0) {
+            result.addAll(
+                safeInitByCalleeBefore(
+                    pathToRead, state, new TreePath(enclosingBlockPath, tryTree.getBlock())));
+            result.addAll(
+                safeInitByCalleeBefore(
+                    pathToRead,
+                    state,
+                    new TreePath(enclosingBlockPath, tryTree.getFinallyBlock())));
+          }
         }
       }
     }
@@ -1239,6 +1257,18 @@ public class NullAway extends BugChecker
       Element privMethodElem = getInvokeOfSafeInitMethod(stmt, classSymbol, state);
       if (privMethodElem != null) {
         result.add(privMethodElem);
+      }
+      // Hack: If we see a try{...}finally{...} statement, without a catch, we consider the methods
+      // inside both blocks
+      // as "top level" for the purposes of finding initialization methods. Any exception happening
+      // there is also an
+      // exception of the full method.
+      if (stmt.getKind().equals(Tree.Kind.TRY)) {
+        TryTree tryTree = (TryTree) stmt;
+        if (tryTree.getCatches().size() == 0) {
+          result.addAll(getSafeInitMethods(tryTree.getBlock(), classSymbol, state));
+          result.addAll(getSafeInitMethods(tryTree.getFinallyBlock(), classSymbol, state));
+        }
       }
     }
     return result;
