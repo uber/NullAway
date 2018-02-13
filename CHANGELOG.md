@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 0.3.3
+-------------
+* Made dependence on Guava explicit (#120)
+* Significantly improved handling of try/finally (#123)
+
 Version 0.3.2
 -------------
 * Just fixed a Gradle configuration problem
