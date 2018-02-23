@@ -99,6 +99,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -1183,13 +1184,9 @@ public class NullAway extends BugChecker
   }
 
   private boolean isExternalInit(Symbol.ClassSymbol classSymbol) {
-    for (AnnotationMirror anno : NullabilityUtil.getAllAnnotations(classSymbol)) {
-      String annotStr = anno.getAnnotationType().toString();
-      if (config.isExternalInitClassAnnotation(annotStr)) {
-        return true;
-      }
-    }
-    return false;
+    return StreamSupport.stream(NullabilityUtil.getAllAnnotations(classSymbol).spliterator(), false)
+        .map((anno) -> anno.getAnnotationType().toString())
+        .anyMatch(config::isExternalInitClassAnnotation);
   }
 
   private Set<Element> guaranteedNonNullForConstructor(
