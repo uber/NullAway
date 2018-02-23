@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.3.4
+-------------
+* Support for classes with external initialization (#124)
+
 Version 0.3.3
 -------------
 * Made dependence on Guava explicit (#120)
