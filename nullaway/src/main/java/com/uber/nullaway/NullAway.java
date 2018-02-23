@@ -1162,8 +1162,13 @@ public class NullAway extends BugChecker
     SetMultimap<MethodTree, Symbol> result = LinkedHashMultimap.create();
     Set<Symbol> nonnullInstanceFields = entities.nonnullInstanceFields();
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
+    boolean isExternalInit = isExternalInit(entities.classSymbol());
     for (MethodTree constructor : entities.constructors()) {
       if (constructorInvokesAnother(constructor, state)) {
+        continue;
+      }
+      if (constructor.getParameters().size() == 0 && isExternalInit) {
+        // external framework initializes fields in this case
         continue;
       }
       Set<Element> guaranteedNonNull =
@@ -1175,6 +1180,16 @@ public class NullAway extends BugChecker
       }
     }
     return result;
+  }
+
+  private boolean isExternalInit(Symbol.ClassSymbol classSymbol) {
+    for (AnnotationMirror anno : NullabilityUtil.getAllAnnotations(classSymbol)) {
+      String annotStr = anno.getAnnotationType().toString();
+      if (config.isExternalInitClassAnnotation(annotStr)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private Set<Element> guaranteedNonNullForConstructor(

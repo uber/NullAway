@@ -67,6 +67,8 @@ public abstract class AbstractConfig implements Config {
 
   protected Set<String> initializerAnnotations;
 
+  protected Set<String> externalInitAnnotations;
+
   @Nullable protected String castToNonNullMethod;
 
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
@@ -135,6 +137,11 @@ public abstract class AbstractConfig implements Config {
   @Nullable
   public String getCastToNonNullMethod() {
     return castToNonNullMethod;
+  }
+
+  @Override
+  public boolean isExternalInitClassAnnotation(String annotationName) {
+    return externalInitAnnotations.contains(annotationName);
   }
 
   protected Set<MethodClassAndName> getKnownInitializers(Set<String> qualifiedNames) {

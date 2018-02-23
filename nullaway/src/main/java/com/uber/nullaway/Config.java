@@ -77,6 +77,15 @@ public interface Config {
   boolean isKnownInitializerMethod(Symbol.MethodSymbol methodSymbol);
 
   /**
+   * Checks if annotation marks an "external-init class," i.e., a class where some external
+   * framework initializes object fields after invoking the zero-argument constructor.
+   *
+   * @param annotationName fully-qualified annotation name
+   * @return true if classes with the annotation are external-init
+   */
+  boolean isExternalInitClassAnnotation(String annotationName);
+
+  /**
    * @return true if the null checker should suggest adding warning suppressions. Only useful for
    *     suppressing all warnings in a large code base.
    */

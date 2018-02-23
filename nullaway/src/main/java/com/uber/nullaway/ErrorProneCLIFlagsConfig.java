@@ -47,6 +47,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
+  static final String FL_EXTERNAL_INIT_ANNOT = EP_FL_NAMESPACE + ":ExternalInitAnnotations";
   private static final String DELIMITER = ",";
 
   static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS =
@@ -87,6 +88,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     excludedClassAnnotations = getFlagStringSet(flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE);
     initializerAnnotations =
         getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);
+    externalInitAnnotations = getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT);
     isExhaustiveOverride = flags.getBoolean(FL_EXHAUSTIVE_OVERRIDE).orElse(false);
     isSuggestSuppressions = flags.getBoolean(FL_SUGGEST_SUPPRESSIONS).orElse(false);
     fieldAnnotPattern =
