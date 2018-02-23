@@ -99,6 +99,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -1162,8 +1163,13 @@ public class NullAway extends BugChecker
     SetMultimap<MethodTree, Symbol> result = LinkedHashMultimap.create();
     Set<Symbol> nonnullInstanceFields = entities.nonnullInstanceFields();
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
+    boolean isExternalInit = isExternalInit(entities.classSymbol());
     for (MethodTree constructor : entities.constructors()) {
       if (constructorInvokesAnother(constructor, state)) {
+        continue;
+      }
+      if (constructor.getParameters().size() == 0 && isExternalInit) {
+        // external framework initializes fields in this case
         continue;
       }
       Set<Element> guaranteedNonNull =
@@ -1175,6 +1181,12 @@ public class NullAway extends BugChecker
       }
     }
     return result;
+  }
+
+  private boolean isExternalInit(Symbol.ClassSymbol classSymbol) {
+    return StreamSupport.stream(NullabilityUtil.getAllAnnotations(classSymbol).spliterator(), false)
+        .map((anno) -> anno.getAnnotationType().toString())
+        .anyMatch(config::isExternalInitClassAnnotation);
   }
 
   private Set<Element> guaranteedNonNullForConstructor(

@@ -56,8 +56,9 @@ public class NullAwayTest {
             "-XepOpt:NullAway:ExcludedClasses="
                 + "com.uber.nullaway.testdata.Shape_Stuff,"
                 + "com.uber.nullaway.testdata.excluded",
-            "-XepOpt:NullAway:ExcludedClassAnnotations=" + "com.uber.nullaway.testdata.TestAnnot",
-            "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"));
+            "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.nullaway.testdata.TestAnnot",
+            "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
+            "-XepOpt:NullAway:ExternalInitAnnotations=com.uber.ExternalInit"));
   }
 
   @Test
@@ -160,5 +161,27 @@ public class NullAwayTest {
   @Test
   public void tryFinallySupport() {
     compilationHelper.addSourceFile("NullAwayTryFinallyCases.java").doTest();
+  }
+
+  @Test
+  public void externalInitSupport() {
+    compilationHelper
+        .addSourceLines(
+            "ExternalInit.java",
+            "package com.uber;",
+            "@java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS)",
+            "public @interface ExternalInit {}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "@ExternalInit",
+            "class Test {",
+            "  Object f;",
+            // no error here due to external init
+            "  public Test() {}",
+            "  // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field",
+            "  public Test(int x) {}",
+            "}")
+        .doTest();
   }
 }
