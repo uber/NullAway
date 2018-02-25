@@ -52,7 +52,7 @@ public class DummyOptionsConfig implements Config {
   public DummyOptionsConfig() {}
 
   @Override
-  public boolean fromAnnotatedPackage(String className) {
+  public boolean fromAnnotatedPackage(Symbol.ClassSymbol symbol) {
     throw new IllegalStateException(error_msg);
   }
 

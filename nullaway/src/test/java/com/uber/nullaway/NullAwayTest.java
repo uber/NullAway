@@ -184,4 +184,27 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void generatedAsUnannotated() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true"))
+        .addSourceLines(
+            "Generated.java",
+            "package com.uber;",
+            "@javax.annotation.Generated(\"foo\")",
+            "public class Generated { public void takeObj(Object o) {} }")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  void foo() { (new Generated()).takeObj(null); }",
+            "}")
+        .doTest();
+  }
 }

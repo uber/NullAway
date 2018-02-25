@@ -161,6 +161,6 @@ public class NullabilityUtil {
    */
   public static boolean fromUnannotatedPackage(Symbol symbol, Config config) {
     Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
-    return !config.fromAnnotatedPackage(outermostClassSymbol.toString());
+    return !config.fromAnnotatedPackage(outermostClassSymbol);
   }
 }

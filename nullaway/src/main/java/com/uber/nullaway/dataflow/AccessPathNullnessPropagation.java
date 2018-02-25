@@ -211,7 +211,7 @@ public class AccessPathNullnessPropagation
         // treat as non-null
         assumed = NONNULL;
       } else {
-        if (fromUnannotatedPackage(fiMethodSymbol)) {
+        if (NullabilityUtil.fromUnannotatedPackage(fiMethodSymbol, config)) {
           // optimistically assume parameter is non-null
           assumed = NONNULL;
         } else {
@@ -222,12 +222,6 @@ public class AccessPathNullnessPropagation
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
     return result.build();
-  }
-
-  private boolean fromUnannotatedPackage(Symbol symbol) {
-    Symbol.ClassSymbol outermostClassSymbol = NullabilityUtil.getOutermostClassSymbol(symbol);
-
-    return !config.fromAnnotatedPackage(outermostClassSymbol.toString());
   }
 
   private NullnessStore<Nullness> methodInitialStore(

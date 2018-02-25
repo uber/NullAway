@@ -61,6 +61,12 @@ public abstract class AbstractConfig implements Config {
 
   protected boolean isSuggestSuppressions;
 
+  /**
+   * if true, {@link #fromAnnotatedPackage(Symbol.ClassSymbol)} will return false for any class
+   * annotated with {@link javax.annotation.Generated}
+   */
+  protected boolean treatGeneratedAsUnannotated;
+
   protected Set<MethodClassAndName> knownInitializers;
 
   protected Set<String> excludedClassAnnotations;
@@ -80,9 +86,12 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public boolean fromAnnotatedPackage(String className) {
+  public boolean fromAnnotatedPackage(Symbol.ClassSymbol symbol) {
+    String className = symbol.getQualifiedName().toString();
     return annotatedPackages.matcher(className).matches()
-        && !unannotatedSubPackages.matcher(className).matches();
+        && !unannotatedSubPackages.matcher(className).matches()
+        && (!treatGeneratedAsUnannotated
+            || !ASTHelpers.hasDirectAnnotationWithSimpleName(symbol, "Generated"));
   }
 
   @Override
