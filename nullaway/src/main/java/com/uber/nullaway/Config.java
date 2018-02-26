@@ -34,7 +34,7 @@ public interface Config {
    *     according to our convention (every possibly null parameter / return / field
    *     annotated @Nullable), false otherwise
    */
-  boolean fromAnnotatedPackage(String className);
+  boolean fromAnnotatedPackage(Symbol.ClassSymbol symbol);
 
   /**
    * @param className fully-qualified class name
