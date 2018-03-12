@@ -43,14 +43,13 @@ dependencies {
     compile deps.build.checkerDataflow
     shadow deps.build.guava
 
-    compile deps.build.jetbrainAnnotations
-
     errorprone deps.build.errorProneCore
 
     testCompile deps.test.junit4
     testCompile(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
+    testCompile deps.test.jetbrainAnnotations
     testCompile deps.test.junit5Jupiter
     testCompile deps.test.cfQual
     testCompile deps.test.cfCompatQual

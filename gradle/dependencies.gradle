@@ -36,7 +36,6 @@ def build = [
     gradleErrorPronePlugin  : "net.ltgt.gradle:gradle-errorprone-plugin:0.0.8",
     guava                   : "com.google.guava:guava:22.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
-    jetbrainAnnotations     : "org.jetbrains:annotations:13.0",
 
     // android stuff
     buildToolsVersion: "27.0.2",
@@ -56,12 +55,13 @@ def support = [
 ]
 
 def test = [
-    junit4            : "junit:junit:4.12",
-    junit5Jupiter     : ["org.junit.jupiter:junit-jupiter-api:5.0.2","org.apiguardian:apiguardian-api:1.0.0"],
-    inferAnnotations  : "com.facebook.infer.annotation:infer-annotation:0.11.0",
-    cfQual            : "org.checkerframework:checker-qual:2.3.0",
-    cfCompatQual      : "org.checkerframework:checker-compat-qual:2.3.0",
-    rxjava2           : "io.reactivex.rxjava2:rxjava:2.1.2",
+    junit4                  : "junit:junit:4.12",
+    junit5Jupiter           : ["org.junit.jupiter:junit-jupiter-api:5.0.2","org.apiguardian:apiguardian-api:1.0.0"],
+    jetbrainAnnotations     : "org.jetbrains:annotations:13.0",
+    inferAnnotations        : "com.facebook.infer.annotation:infer-annotation:0.11.0",
+    cfQual                  : "org.checkerframework:checker-qual:2.3.0",
+    cfCompatQual            : "org.checkerframework:checker-compat-qual:2.3.0",
+    rxjava2                  : "io.reactivex.rxjava2:rxjava:2.1.2",
 ]
 
 ext.deps = [

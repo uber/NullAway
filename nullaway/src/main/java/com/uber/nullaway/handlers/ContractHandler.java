@@ -29,8 +29,11 @@ import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
+import java.util.Map;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.ExecutableElement;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
-import org.jetbrains.annotations.Contract;
 
 /**
  * This Handler parses the jetbrains @Contract annotation and honors the nullness spec defined there
@@ -53,9 +56,9 @@ import org.jetbrains.annotations.Contract;
  * <p>However, when the return depends on multiple arguments, this handler usually ignores the rule,
  * since it is not clear which of the values in question are null or not. For example,
  * for @Contract("null, null -> true") we know nothing when the method returns true (because truth
- * of the consequent doesn't imply truth of the antecedent), and we only know that at least one of
- * the two arguments was non-null, but can't know for sure which one. NullAway doesn't reason about
- * multiple value conditional nullness constraints in any general way.
+ * of the consequent doesn't imply truth of the antecedent), and if it return false, we only know
+ * that at least one of the two arguments was non-null, but can't know for sure which one. NullAway
+ * doesn't reason about multiple value conditional nullness constraints in any general way.
  *
  * <p>In some cases, this handler can determine that some arguments are already known to be non-null
  * and reason in terms of the remaining (under-constrained) arguments, to see if the final value of
@@ -78,8 +81,7 @@ public class ContractHandler extends BaseNoOpHandler {
     // Check to see if this method has an @Contract annotation
     if (ASTHelpers.hasDirectAnnotationWithSimpleName(callee, "Contract")) {
       // Found a contract, lets parse it.
-      Contract contract = ASTHelpers.getAnnotation(callee, Contract.class);
-      String[] clauses = contract.value().split(";");
+      String[] clauses = getContractFromAnnotation(callee).split(";");
       for (String clause : clauses) {
         String[] parts = clause.split("->");
         assert parts.length == 2;
@@ -160,5 +162,31 @@ public class ContractHandler extends BaseNoOpHandler {
       }
     }
     return NullnessHint.UNKNOWN;
+  }
+
+  /**
+   * Retrieve the string value inside an @Contract annotation without statically depending on the
+   * type.
+   *
+   * @param sym A method which has an @Contract annotation.
+   * @return The string value spec inside the annotation.
+   */
+  private static String getContractFromAnnotation(Symbol.MethodSymbol sym) {
+    for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
+      if (annotation.getAnnotationType().asElement().getSimpleName().contentEquals("Contract")) {
+        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
+            annotation.getElementValues().entrySet()) {
+          if (e.getKey().getSimpleName().contentEquals("value")) {
+            String value = e.getValue().toString();
+            if (value.startsWith("\"") && value.endsWith("\"")) {
+              value = value.substring(1, value.length() - 1);
+            }
+            return value;
+          }
+        }
+      }
+    }
+    throw new AssertionError(
+        "This method should never be called on a method without an @Contract annotation.");
   }
 }
