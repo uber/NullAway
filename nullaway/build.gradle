@@ -43,6 +43,8 @@ dependencies {
     compile deps.build.checkerDataflow
     shadow deps.build.guava
 
+    compile deps.build.jetbrainAnnotations
+
     errorprone deps.build.errorProneCore
 
     testCompile deps.test.junit4

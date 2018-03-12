@@ -207,4 +207,77 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void basicContractAnnotation() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class NullnessChecker {",
+            "  @Contract(\"_, null -> true\")",
+            "  static boolean isNull(boolean flag, @Nullable Object o) { return o == null; }",
+            "  @Contract(\"null -> false\")",
+            "  static boolean isNonNull(@Nullable Object o) { return o != null; }",
+            "  @Contract(\"null -> fail\")",
+            "  static void assertNonNull(@Nullable Object o) { if (o != null) throw new Error(); }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test1(@Nullable Object o) {",
+            "    return NullnessChecker.isNonNull(o) ? o.toString() : \"null\";",
+            "  }",
+            "  String test2(@Nullable Object o) {",
+            "    return NullnessChecker.isNull(false, o) ? \"null\" : o.toString();",
+            "  }",
+            "  String test3(@Nullable Object o) {",
+            "    NullnessChecker.assertNonNull(o);",
+            "    return o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void impliesNonNullContractAnnotation() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class NullnessChecker {",
+            "  @Contract(\"!null -> !null\")",
+            "  static @Nullable Object noOp(@Nullable Object o) { return o; }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test1(@Nullable Object o1) {",
+            "  // BUG: Diagnostic contains: dereferenced expression",
+            "    return NullnessChecker.noOp(o1).toString();",
+            "  }",
+            "  String test2(Object o2) {",
+            "    return NullnessChecker.noOp(o2).toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

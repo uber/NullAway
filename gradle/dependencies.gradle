@@ -18,7 +18,7 @@ def versions = [
     checkerFramework       : "2.3.2",
     checkerFrameworkNAFork : "2.3.2.1-nullaway",
     errorProne             : "2.1.1",
-    support                : "27.0.2"
+    support                : "27.0.2",
 ]
 
 def apt = [
@@ -36,6 +36,7 @@ def build = [
     gradleErrorPronePlugin  : "net.ltgt.gradle:gradle-errorprone-plugin:0.0.8",
     guava                   : "com.google.guava:guava:22.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
+    jetbrainAnnotations     : "org.jetbrains:annotations:13.0",
 
     // android stuff
     buildToolsVersion: "27.0.2",

@@ -116,14 +116,15 @@ abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public Nullness onDataflowVisitMethodInvocation(
+  public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
       Types types,
+      AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     // NoOp
-    return Nullness.NONNULL;
+    return NullnessHint.UNKNOWN;
   }
 
   @Override

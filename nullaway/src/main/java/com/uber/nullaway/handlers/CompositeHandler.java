@@ -138,22 +138,21 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public Nullness onDataflowVisitMethodInvocation(
+  public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
       Types types,
+      AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    Nullness nullness = Nullness.NONNULL;
+    NullnessHint nullnessHint = NullnessHint.UNKNOWN;
     for (Handler h : handlers) {
-      Nullness n =
-          h.onDataflowVisitMethodInvocation(node, types, thenUpdates, elseUpdates, bothUpdates);
-      // If any handler says this is @Nullable, then it is @Nullable
-      if (n == Nullness.NULLABLE) {
-        nullness = Nullness.NULLABLE;
-      }
+      NullnessHint n =
+          h.onDataflowVisitMethodInvocation(
+              node, types, inputs, thenUpdates, elseUpdates, bothUpdates);
+      nullnessHint = nullnessHint.merge(n);
     }
-    return nullness;
+    return nullnessHint;
   }
 
   @Override

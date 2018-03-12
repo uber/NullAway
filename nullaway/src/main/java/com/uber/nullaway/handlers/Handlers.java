@@ -37,6 +37,7 @@ public class Handlers {
   public static Handler buildDefault() {
     // In the future we can add LibraryModels functionality here, and even plug-in handlers.
     return new CompositeHandler(
-        ImmutableList.of(new LibraryModelsHandler(), new RxNullabilityPropagator()));
+        ImmutableList.of(
+            new LibraryModelsHandler(), new RxNullabilityPropagator(), new ContractHandler()));
   }
 }

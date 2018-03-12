@@ -38,7 +38,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.ArrayList;
@@ -90,9 +89,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public Nullness onDataflowVisitMethodInvocation(
+  public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
       Types types,
+      AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
@@ -101,8 +101,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee);
     setConditionalArgumentNullness(thenUpdates, elseUpdates, node.getArguments(), callee);
     return LibraryModels.LibraryModelUtil.hasNullableReturn(libraryModels, callee, types)
-        ? Nullness.NULLABLE
-        : Nullness.NONNULL;
+        ? NullnessHint.HINT_NULLABLE
+        : NullnessHint.UNKNOWN;
   }
 
   private void setConditionalArgumentNullness(
