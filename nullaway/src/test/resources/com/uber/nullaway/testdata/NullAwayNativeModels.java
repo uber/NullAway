@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.util.Elements;
 
@@ -198,6 +199,13 @@ public class NullAwayNativeModels {
     if (m.containsKey(x)) {
       m.get(x).toString();
     }
+  }
+
+  static void failIfNull(@Nullable Object o1, @Nullable Object o2) {
+    org.junit.Assert.assertNotNull(o1);
+    o1.toString();
+    org.junit.Assert.assertNotNull("Null!", o2);
+    o2.toString();
   }
 
   static void nonNullParameters() {
