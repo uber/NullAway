@@ -157,6 +157,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private static final ImmutableSetMultimap<MethodRef, Integer> FAIL_IF_NULL_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
             .put(methodRef(Preconditions.class, "<T>checkNotNull(T)"), 0)
+            .put(methodRef("java.util.Objects", "<T>requireNonNull(T)"), 0)
             .put(methodRef("org.junit.Assert", "assertNotNull(java.lang.Object)"), 0)
             .put(
                 methodRef("org.junit.Assert", "assertNotNull(java.lang.String,java.lang.Object)"),
