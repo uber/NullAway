@@ -1,4 +1,6 @@
-Thank you for contributing to NullAway.  Note that once you click "Create Pull Request" you will be asked to sign our [Uber Contributor License Agreement](https://docs.google.com/a/uber.com/forms/d/1pAwS_-dA1KhPlfxzYLBqK6rsSWwRwH95OCCZrcsY5rk/viewform).
+Thank you for contributing to NullAway!
+
+Please note that once you click "Create Pull Request" you will be asked to sign our [Uber Contributor License Agreement](https://cla-assistant.io/uber/NullAway) via [CLA assistant](https://cla-assistant.io/).
 
 Before pressing the "Create Pull Request" button, please provide the following:
 
