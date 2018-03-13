@@ -206,6 +206,12 @@ public class NullAwayNativeModels {
     o1.toString();
     org.junit.Assert.assertNotNull("Null!", o2);
     o2.toString();
+    org.junit.jupiter.api.Assertions.assertNotNull(o1);
+    o1.toString();
+    org.junit.jupiter.api.Assertions.assertNotNull(o2, "Null!");
+    o2.toString();
+    org.junit.jupiter.api.Assertions.assertNotNull(o2, () -> "Null!");
+    o2.toString();
   }
 
   static void nonNullParameters() {
