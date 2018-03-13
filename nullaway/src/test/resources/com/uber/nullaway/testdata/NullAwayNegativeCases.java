@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -520,6 +521,11 @@ public class NullAwayNegativeCases {
 
   static void checkNotNull(@Nullable Object o) {
     Preconditions.checkNotNull(o);
+    o.toString();
+  }
+
+  static void requireNonNull(@Nullable Object o) {
+    Objects.requireNonNull(o);
     o.toString();
   }
 
