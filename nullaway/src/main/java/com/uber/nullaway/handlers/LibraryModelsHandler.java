@@ -161,6 +161,18 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put(
                 methodRef("org.junit.Assert", "assertNotNull(java.lang.String,java.lang.Object)"),
                 1)
+            .put(
+                methodRef("org.junit.jupiter.api.Assertions", "assertNotNull(java.lang.Object)"), 0)
+            .put(
+                methodRef(
+                    "org.junit.jupiter.api.Assertions",
+                    "assertNotNull(java.lang.Object,java.lang.String)"),
+                1)
+            .put(
+                methodRef(
+                    "org.junit.jupiter.api.Assertions",
+                    "assertNotNull(java.lang.Object,java.util.function.Supplier<String>)"),
+                1)
             .build();
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NON_NULL_PARAMETERS =
