@@ -30,9 +30,13 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.Map;
+import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.TypeElement;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 
 /**
@@ -79,12 +83,19 @@ public class ContractHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
-    if (ASTHelpers.hasDirectAnnotationWithSimpleName(callee, "Contract")) {
+    String contractString = getContractFromAnnotation(callee);
+    if (contractString != null) {
       // Found a contract, lets parse it.
-      String[] clauses = getContractFromAnnotation(callee).split(";");
+      String[] clauses = contractString.split(";");
       for (String clause : clauses) {
         String[] parts = clause.split("->");
-        assert parts.length == 2;
+        if (parts.length != 2) {
+          throw new AssertionError(
+              "Invalid @Contract annotation detected for method "
+                  + callee
+                  + ". It contains the following uparseable clause: "
+                  + clause);
+        }
         String[] antecedent = parts[0].split(",");
         String consequent = parts[1].trim();
         // Find a single value constraint that is not already known. If more than one arguments with
@@ -94,8 +105,19 @@ public class ContractHandler extends BaseNoOpHandler {
         Nullness argAntecedentNullness = null;
         boolean supported =
             true; // Set to false if the rule is detected to be one we don't yet support
-        // Fixme: Proper error reporting for malformed clauses:
-        assert antecedent.length == node.getArguments().size();
+        if (antecedent.length != node.getArguments().size()) {
+          throw new AssertionError(
+              "Invalid @Contract annotation detected for method "
+                  + callee
+                  + ". It contains the following uparseable clause: "
+                  + clause
+                  + " (incorrect number of arguments in the clause's antecedent ["
+                  + antecedent.length
+                  + "], should be the same as the number of "
+                  + "arguments in for the method ["
+                  + node.getArguments().size()
+                  + "]).");
+        }
         for (int i = 0; i < antecedent.length; ++i) {
           String valueConstraint = antecedent[i].trim();
           if (valueConstraint.equals("_")) {
@@ -171,9 +193,13 @@ public class ContractHandler extends BaseNoOpHandler {
    * @param sym A method which has an @Contract annotation.
    * @return The string value spec inside the annotation.
    */
-  private static String getContractFromAnnotation(Symbol.MethodSymbol sym) {
+  private static @Nullable String getContractFromAnnotation(Symbol.MethodSymbol sym) {
     for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
-      if (annotation.getAnnotationType().asElement().getSimpleName().contentEquals("Contract")) {
+      Element element = annotation.getAnnotationType().asElement();
+      assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
+      if (((TypeElement) element)
+          .getQualifiedName()
+          .contentEquals("org.jetbrains.annotations.Contract")) {
         for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
             annotation.getElementValues().entrySet()) {
           if (e.getKey().getSimpleName().contentEquals("value")) {
@@ -185,8 +211,10 @@ public class ContractHandler extends BaseNoOpHandler {
           }
         }
       }
+      if (element.getSimpleName().contentEquals("Contract")) {
+        throw new Error("HERE3");
+      }
     }
-    throw new AssertionError(
-        "This method should never be called on a method without an @Contract annotation.");
+    return null;
   }
 }
