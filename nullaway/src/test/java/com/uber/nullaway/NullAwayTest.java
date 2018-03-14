@@ -271,11 +271,50 @@ public class NullAwayTest {
             "import javax.annotation.Nullable;",
             "class Test {",
             "  String test1(@Nullable Object o1) {",
-            "  // BUG: Diagnostic contains: dereferenced expression",
+            "    // BUG: Diagnostic contains: dereferenced expression",
             "    return NullnessChecker.noOp(o1).toString();",
             "  }",
             "  String test2(Object o2) {",
             "    return NullnessChecker.noOp(o2).toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void malformedContractAnnotations() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "class Test {",
+            "  @Contract(\"!null -> -> !null\")",
+            "  static @Nullable Object foo(@Nullable Object o) { return o; }",
+            "  @Contract(\"!null -> !null\")",
+            "  static @Nullable Object bar(@Nullable Object o, String s) { return o; }",
+            "  @Contract(\"jabberwocky -> !null\")",
+            "  static @Nullable Object baz(@Nullable Object o) { return o; }",
+            // We don't care as long as nobody calls the method:
+            "  @Contract(\"!null -> -> !null\")",
+            "  static @Nullable Object dontcare(@Nullable Object o) { return o; }",
+            "  static Object test1() {",
+            "    // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "    return foo(null);",
+            "  }",
+            "  static Object test2() {",
+            "    // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "    return bar(null, \"\");",
+            "  }",
+            "  static Object test3() {",
+            "    // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "    return baz(null);",
             "  }",
             "}")
         .doTest();

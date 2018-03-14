@@ -23,9 +23,13 @@
 package com.uber.nullaway.handlers;
 
 import com.google.common.base.Preconditions;
+import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
+import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
@@ -72,6 +76,16 @@ import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
  */
 public class ContractHandler extends BaseNoOpHandler {
 
+  private @Nullable NullAway analysis;
+  private @Nullable VisitorState state;
+
+  @Override
+  public void onMatchTopLevelClass(
+      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+    this.analysis = analysis;
+    this.state = state;
+  }
+
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
@@ -90,11 +104,13 @@ public class ContractHandler extends BaseNoOpHandler {
       for (String clause : clauses) {
         String[] parts = clause.split("->");
         if (parts.length != 2) {
-          throw new AssertionError(
+          reportMatch(
+              node.getTree(),
               "Invalid @Contract annotation detected for method "
                   + callee
                   + ". It contains the following uparseable clause: "
-                  + clause);
+                  + clause
+                  + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).");
         }
         String[] antecedent = parts[0].split(",");
         String consequent = parts[1].trim();
@@ -106,7 +122,8 @@ public class ContractHandler extends BaseNoOpHandler {
         boolean supported =
             true; // Set to false if the rule is detected to be one we don't yet support
         if (antecedent.length != node.getArguments().size()) {
-          throw new AssertionError(
+          reportMatch(
+              node.getTree(),
               "Invalid @Contract annotation detected for method "
                   + callee
                   + ". It contains the following uparseable clause: "
@@ -141,7 +158,15 @@ public class ContractHandler extends BaseNoOpHandler {
             argAntecedentNullness =
                 valueConstraint.equals("null") ? Nullness.NULLABLE : Nullness.NONNULL;
           } else {
-            assert false;
+            reportMatch(
+                node.getTree(),
+                "Invalid @Contract annotation detected for method "
+                    + callee
+                    + ". It contains the following uparseable clause: "
+                    + clause
+                    + " (unknown value constraint: "
+                    + valueConstraint
+                    + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).");
             supported = false;
             break;
           }
@@ -186,6 +211,15 @@ public class ContractHandler extends BaseNoOpHandler {
     return NullnessHint.UNKNOWN;
   }
 
+  private void reportMatch(Tree errorLocTree, String message) {
+    assert this.analysis != null && this.state != null;
+    if (this.analysis != null && this.state != null) {
+      this.state.reportMatch(
+          this.analysis.createErrorDescription(
+              NullAway.MessageTypes.ANNOTATION_VALUE_INVALID, errorLocTree, message, errorLocTree));
+    }
+  }
+
   /**
    * Retrieve the string value inside an @Contract annotation without statically depending on the
    * type.
@@ -210,9 +244,6 @@ public class ContractHandler extends BaseNoOpHandler {
             return value;
           }
         }
-      }
-      if (element.getSimpleName().contentEquals("Contract")) {
-        throw new Error("HERE3");
       }
     }
     return null;
