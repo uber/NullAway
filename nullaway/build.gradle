@@ -49,6 +49,7 @@ dependencies {
     testCompile(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
+    testCompile deps.test.jetbrainsAnnotations
     testCompile deps.test.junit5Jupiter
     testCompile deps.test.cfQual
     testCompile deps.test.cfCompatQual

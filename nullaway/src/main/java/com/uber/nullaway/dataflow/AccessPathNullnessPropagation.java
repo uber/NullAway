@@ -33,6 +33,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
+import com.uber.nullaway.handlers.Handler.NullnessHint;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -799,9 +800,10 @@ public class AccessPathNullnessPropagation
     setReceiverNonnull(bothUpdates, node.getTarget().getReceiver(), callee);
     setNullnessForMapCalls(
         node, callee, node.getArguments(), types, values(input), thenUpdates, bothUpdates);
-    Nullness nullnessFromHandlers =
-        handler.onDataflowVisitMethodInvocation(node, types, thenUpdates, elseUpdates, bothUpdates);
-    Nullness nullness = returnValueNullness(node, input, nullnessFromHandlers);
+    NullnessHint nullnessHint =
+        handler.onDataflowVisitMethodInvocation(
+            node, types, values(input), thenUpdates, elseUpdates, bothUpdates);
+    Nullness nullness = returnValueNullness(node, input, nullnessHint);
     if (booleanReturnType(node)) {
       ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates, bothUpdates);
       ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates, bothUpdates);
@@ -845,10 +847,17 @@ public class AccessPathNullnessPropagation
   Nullness returnValueNullness(
       MethodInvocationNode node,
       TransferInput<Nullness, NullnessStore<Nullness>> input,
-      Nullness returnValueNullness) {
+      NullnessHint returnValueNullnessHint) {
     // NULLABLE is our default
     Nullness nullness;
-    if (node != null && returnValueNullness == NULLABLE) {
+    if (node != null && returnValueNullnessHint == NullnessHint.FORCE_NONNULL) {
+      // A handler says this is definitely non-null; trust it. Note that FORCE_NONNULL is quite
+      // dangerous, since it
+      // ignores our analysis' own best judgement, so both this value and the annotations that cause
+      // it (e.g.
+      // @Contract ) should be used with care.
+      nullness = NONNULL;
+    } else if (node != null && returnValueNullnessHint == NullnessHint.HINT_NULLABLE) {
       // we have a model saying return value is nullable.
       // still, rely on dataflow fact if there is one available
       nullness = input.getRegularStore().valueOfMethodCall(node, types, NULLABLE);
@@ -944,8 +953,8 @@ public class AccessPathNullnessPropagation
    * Provides the previously computed nullness values of descendant nodes. All descendant nodes have
    * already been assigned a value, if only the default of {@code NULLABLE}.
    */
-  interface SubNodeValues {
-    Nullness valueOfSubNode(Node node);
+  public interface SubNodeValues {
+    public Nullness valueOfSubNode(Node node);
   }
 
   private static final class ResultingStore {

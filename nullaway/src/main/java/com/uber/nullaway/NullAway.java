@@ -1637,7 +1637,7 @@ public class NullAway extends BugChecker
    * @param suggestTree the location at which a fix suggestion should be made
    * @return the error description
    */
-  private Description createErrorDescription(
+  public Description createErrorDescription(
       MessageTypes errorType, Tree errorLocTree, String message, @Nullable Tree suggestTree) {
     Description.Builder builder = buildDescription(errorLocTree).setMessage(message);
     if (config.suggestSuppressions() && suggestTree != null) {
@@ -1661,6 +1661,8 @@ public class NullAway extends BugChecker
         case METHOD_NO_INIT:
         case FIELD_NO_INIT:
           builder = addSuppressWarningsFix(suggestTree, builder, INITIALIZATION_CHECK_NAME);
+          break;
+        case ANNOTATION_VALUE_INVALID:
           break;
         default:
           builder = addSuppressWarningsFix(suggestTree, builder, canonicalName());
@@ -1946,7 +1948,8 @@ public class NullAway extends BugChecker
     METHOD_NO_INIT,
     FIELD_NO_INIT,
     UNBOX_NULLABLE,
-    NONNULL_FIELD_READ_BEFORE_INIT;
+    NONNULL_FIELD_READ_BEFORE_INIT,
+    ANNOTATION_VALUE_INVALID;
   }
 
   @AutoValue

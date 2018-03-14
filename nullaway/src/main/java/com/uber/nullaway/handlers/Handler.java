@@ -166,19 +166,21 @@ public interface Handler {
    *
    * @param node The AST node for the method callsite.
    * @param types The types of the method's arguments.
+   * @param inputs NullnessStore information known before the method invocation.
    * @param thenUpdates NullnessStore updates to be added along the then path, handlers can add via
    *     the set() method.
    * @param elseUpdates NullnessStore updates to be added along the else path, handlers can add via
    *     the set() method.
    * @param bothUpdates NullnessStore updates to be added along both paths, handlers can add via the
    *     set() method.
-   * @return The Nullness information for this method's return computed by this handler. If any
-   *     handler in a handler chain (see CompositeHandler) returns NULLABLE, then the final return
-   *     should be NULLABLE.
+   * @return The Nullness information for this method's return computed by this handler. See
+   *     NullnessHint and CompositeHandler for more information about how this values get merged
+   *     into a final Nullness value.
    */
-  Nullness onDataflowVisitMethodInvocation(
+  NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
       Types types,
+      AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates);
@@ -215,4 +217,46 @@ public interface Handler {
    */
   void onDataflowVisitLambdaResultExpression(
       ExpressionTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore);
+
+  /**
+   * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
+   * their knowledge of the method return nullability to the the rest of NullAway.
+   */
+  public enum NullnessHint {
+    /**
+     * No new information about return nullability, defer to the core algorithm and other handlers.
+     */
+    UNKNOWN(0, Nullness.NONNULL),
+    /**
+     * The method is nullable in general (e.g. due to a library model or a return type annotation).
+     * Override core behavior and mark this method as Nullable, unless a handler returns
+     * FORCE_NONNULL.
+     */
+    HINT_NULLABLE(1, Nullness.NULLABLE),
+    /**
+     * Handler asserts this method is guaranteed to be NonNull for the current invocation (e.g. used
+     * by ContractHandler when all preconditions for a "-> !null" clause are known to hold).
+     */
+    FORCE_NONNULL(2, Nullness.NONNULL);
+
+    private final int priority;
+    private final Nullness nullness;
+
+    NullnessHint(int priority, Nullness nullness) {
+      this.priority = priority;
+      this.nullness = nullness;
+    }
+
+    public Nullness toNullness() {
+      return nullness;
+    }
+
+    public NullnessHint merge(NullnessHint other) {
+      if (other.priority > this.priority) {
+        return other;
+      } else {
+        return this;
+      }
+    }
+  }
 }
