@@ -57,7 +57,7 @@ def support = [
 def test = [
     junit4                  : "junit:junit:4.12",
     junit5Jupiter           : ["org.junit.jupiter:junit-jupiter-api:5.0.2","org.apiguardian:apiguardian-api:1.0.0"],
-    jetbrainAnnotations     : "org.jetbrains:annotations:13.0",
+    jetbrainsAnnotations    : "org.jetbrains:annotations:13.0",
     inferAnnotations        : "com.facebook.infer.annotation:infer-annotation:0.11.0",
     cfQual                  : "org.checkerframework:checker-qual:2.3.0",
     cfCompatQual            : "org.checkerframework:checker-compat-qual:2.3.0",
