@@ -1278,8 +1278,12 @@ public class NullAway extends BugChecker
       if (stmt.getKind().equals(Tree.Kind.TRY)) {
         TryTree tryTree = (TryTree) stmt;
         if (tryTree.getCatches().size() == 0) {
-          result.addAll(getSafeInitMethods(tryTree.getBlock(), classSymbol, state));
-          result.addAll(getSafeInitMethods(tryTree.getFinallyBlock(), classSymbol, state));
+          if (tryTree.getBlock() != null) {
+            result.addAll(getSafeInitMethods(tryTree.getBlock(), classSymbol, state));
+          }
+          if (tryTree.getFinallyBlock() != null) {
+            result.addAll(getSafeInitMethods(tryTree.getFinallyBlock(), classSymbol, state));
+          }
         }
       }
     }
