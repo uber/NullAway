@@ -190,6 +190,9 @@ public class ContractHandler extends BaseNoOpHandler {
         // consequent to
         // fix the nullness of this argument.
         AccessPath accessPath = AccessPath.getAccessPathForNodeNoMapGet(node.getArgument(argIdx));
+        if (accessPath == null) {
+          continue;
+        }
         if (consequent.equals("false") && argAntecedentNullness.equals(Nullness.NULLABLE)) {
           // If argIdx being null implies the return of the method being false, then the return
           // being true
