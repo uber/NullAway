@@ -23,6 +23,7 @@
 package com.uber.nullaway.testdata;
 
 import java.io.IOException;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 // This code tests our, admitedly quite unsound, handling of try{ ... }finally{ ... } blocks.
@@ -214,6 +215,11 @@ public class NullAwayTryFinallyCases {
       // BUG: Diagnostic contains: dereferenced expression
       System.out.println(o.toString());
     }
+  }
+
+  public void tryWithResourcesNoBlock() {
+    // Just check that this doesn't blow up
+    try (Stream<Integer> stream = Stream.of(1, 2, 3)) {}
   }
 
   class Initializers {
@@ -433,6 +439,13 @@ public class NullAwayTryFinallyCases {
 
     private void init() {
       this.f = new Object();
+    }
+  }
+
+  class TryWithResourceInitializer {
+    TryWithResourceInitializer() {
+      // Just check that this doesn't blow up
+      try (Stream<Integer> stream = Stream.of(1, 2, 3)) {}
     }
   }
 }
