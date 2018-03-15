@@ -1,7 +1,13 @@
 Changelog
 =========
 
-Version 0.3.4
+Version 0.3.6
+-------------
+* Support for a subset of JetBrains `@Contract` annotations (#129)
+* Built-in support for JUnit 4/5 assertNotNull, Objects.requireNonNull
+* Fix crash when using try-with-resource with an empty try block. (#135)
+
+Version 0.3.5
 -------------
 * Support for treating `@Generated`-annotated classes as unannotated (#127) 
 
