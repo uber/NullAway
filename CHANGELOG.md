@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.3.7
+-------------
+* Small bug fix in `@Contract` support (#136)
+
 Version 0.3.6
 -------------
 * Support for a subset of JetBrains `@Contract` annotations (#129)
