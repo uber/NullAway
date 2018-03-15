@@ -319,4 +319,33 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void contractNonVarArg() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class NullnessChecker {",
+            "  @Contract(\"null -> fail\")",
+            "  static void assertNonNull(@Nullable Object o) { if (o != null) throw new Error(); }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  void test(java.util.function.Function<Object, Object> fun) {",
+            "    NullnessChecker.assertNonNull(fun.apply(new Object()));",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
