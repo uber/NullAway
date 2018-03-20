@@ -300,6 +300,40 @@ public class NullAwayRxSupportNegativeCases {
     return observable.filter(s -> s != null && perhaps()).map(s -> s.length());
   }
 
+  private Observable<Integer> filterThenDoOnNextThenMapLambdas(Observable<String> observable) {
+    return observable
+        .filter(s -> s != null && perhaps())
+        .doOnNext(
+            s -> {
+              if (s.length() == 0) {
+                throw new Error();
+              } else {
+                return;
+              }
+            })
+        .map(s -> s.length());
+  }
+
+  private Observable<Integer> filterThenDoOnNextThenMapLambdas2(
+      Observable<NullableContainer<String>> observable) {
+    return observable
+        .filter(c -> c.get() != null && perhaps())
+        .doOnNext(
+            c -> {
+              String s = c.get();
+              if (s.length() == 0) {
+                throw new Error();
+              } else {
+                return;
+              }
+            })
+        .map(
+            c -> {
+              String s = c.get();
+              return s.length();
+            });
+  }
+
   private static <T> boolean predtest(Predicate<T> f, T val) {
     try {
       return f.test(val);
