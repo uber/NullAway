@@ -95,9 +95,9 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
           .withPassthroughMethodFromSignature("distinctUntilChanged()")
           .withPassthroughMethodAllFromName("observeOn")
           // List of methods of io.reactivex.Observable that both use the nullability information
-          // internally (like map
-          // does), but also don't change the values flowing through the stream and thus propagate
-          // the nullability  information of the last call
+          // internally (like map does), but also don't change the values flowing through the stream
+          // and thus propagate
+          // the nullability information of the last call.
           .withUseAndPassthroughMethodAllFromName("doOnNext", "accept", ImmutableSet.of(0))
           .addStreamType(new DescendantOf(Suppliers.typeFromString("io.reactivex.Maybe")))
           .withFilterMethodFromSignature("filter(io.reactivex.functions.Predicate<? super T>)")
@@ -714,8 +714,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     // List of methods of io.reactivex.Observable through which we just propagate the nullability
     // information of the last call, e.g. m() in Observable.filter(...).m().map(...) means the
     // nullability information from filter(...) should still be propagated to map(...), ignoring the
-    // interleaving
-    // call to m().
+    // interleaving call to m().
     // We assume that if m() is a pass-through method for Observable, so are m(a1), m(a1,a2), etc.
     // If that is ever not the case, we can use a more complex method subsignature her.
     private final ImmutableSet<String> passthroughMethodSigs;
