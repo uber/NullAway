@@ -75,8 +75,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
           .withFilterMethodFromSignature("filter(io.reactivex.functions.Predicate<? super T>)")
           // Names and relevant arguments of all the methods of io.reactivex.Observable that behave
           // like .map(...) for the purposes of this checker (the listed arguments are those that
-          // take
-          // the potentially filtered objects from the stream)
+          // take the potentially filtered objects from the stream)
           .withMapMethodFromSignature(
               "<R>map(io.reactivex.functions.Function<? super T,? extends R>)",
               "apply",
@@ -91,16 +90,14 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
           // nullability information of the last call, e.g. m() in
           // Observable.filter(...).m().map(...) means the
           // nullability information from filter(...) should still be propagated to map(...),
-          // ignoring the
-          // interleaving call to m().
+          // ignoring the interleaving call to m().
           .withPassthroughMethodFromSignature("distinct()")
           .withPassthroughMethodFromSignature("distinctUntilChanged()")
           .withPassthroughMethodAllFromName("observeOn")
           // List of methods of io.reactivex.Observable that both use the nullability information
           // internally (like map
           // does), but also don't change the values flowing through the stream and thus propagate
-          // the nullability
-          // information of the last call
+          // the nullability  information of the last call
           .withUseAndPassthroughMethodAllFromName("doOnNext", "accept", ImmutableSet.of(0))
           .addStreamType(new DescendantOf(Suppliers.typeFromString("io.reactivex.Maybe")))
           .withFilterMethodFromSignature("filter(io.reactivex.functions.Predicate<? super T>)")
@@ -188,8 +185,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
   // Map from filter method (or lambda) to corresponding nullability info after the function returns
   // true.
   // Specifically, this is the least upper bound of the "then" store on the branch of every return
-  // statement in
-  // which the expression after the return can be true.
+  // statement in which the expression after the return can be true.
   private final Map<Tree, NullnessStore<Nullness>> filterToNSMap =
       new LinkedHashMap<Tree, NullnessStore<Nullness>>();
 
@@ -709,18 +705,17 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     private final ImmutableSet<String> filterMethodSimpleNames;
 
     // Names and relevant arguments of all the methods of this type that behave like .map(...) for
-    // the
-    // purposes of this checker (the listed arguments are those that take the potentially filtered
-    // objects from the
-    // stream)
+    // the purposes of this checker (the listed arguments are those that take the potentially
+    // filtered
+    // objects from the stream)
     private final ImmutableMap<String, MaplikeMethodRecord> mapMethodSigToRecord;
     private final ImmutableMap<String, MaplikeMethodRecord> mapMethodSimpleNameToRecord;
 
     // List of methods of io.reactivex.Observable through which we just propagate the nullability
     // information of the last call, e.g. m() in Observable.filter(...).m().map(...) means the
-    // nullability information
-    // from filter(...) should still be propagated to map(...), ignoring the interleaving call to
-    // m().
+    // nullability information from filter(...) should still be propagated to map(...), ignoring the
+    // interleaving
+    // call to m().
     // We assume that if m() is a pass-through method for Observable, so are m(a1), m(a1,a2), etc.
     // If that is ever not the case, we can use a more complex method subsignature her.
     private final ImmutableSet<String> passthroughMethodSigs;
