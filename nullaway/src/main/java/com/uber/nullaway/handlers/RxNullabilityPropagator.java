@@ -706,8 +706,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
 
     // Names and relevant arguments of all the methods of this type that behave like .map(...) for
     // the purposes of this checker (the listed arguments are those that take the potentially
-    // filtered
-    // objects from the stream)
+    // filtered objects from the stream)
     private final ImmutableMap<String, MaplikeMethodRecord> mapMethodSigToRecord;
     private final ImmutableMap<String, MaplikeMethodRecord> mapMethodSimpleNameToRecord;
 
