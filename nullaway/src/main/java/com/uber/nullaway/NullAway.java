@@ -469,9 +469,11 @@ public class NullAway extends BugChecker
         VarSymbol paramSymbol = ASTHelpers.getSymbol(param);
         // in the case where we have a parameter of a lambda expression, we do
         // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
-        // nullability from the corresponding functional interface method
+        // nullability from the corresponding functional interface method.
+        // So, we report an error if the @Nullable annotation is missing *and*
+        // we don't have a lambda with implicitly typed parameters
         if (!Nullness.hasNullableAnnotation(paramSymbol)
-            && !(isLambda && !NullabilityUtil.lambdaParamIsExplicitlyTyped(param))) {
+            && !(isLambda && NullabilityUtil.lambdaParamIsImplicitlyTyped(param))) {
           String message =
               "parameter "
                   + param.getName()
@@ -539,14 +541,18 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
+  /**
+   * for method references, we check that the referenced method correctly overrides the
+   * corresponding functional interface method
+   */
   @Override
   public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
+    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(tree);
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
-    MethodTree methodTree = trees.getTree(methodSymbol);
-    return checkOverriding(funcInterfaceSymbol, methodSymbol, methodTree, tree);
+    MethodTree methodTree = trees.getTree(referencedMethod);
+    return checkOverriding(funcInterfaceSymbol, referencedMethod, methodTree, tree);
   }
 
   /**

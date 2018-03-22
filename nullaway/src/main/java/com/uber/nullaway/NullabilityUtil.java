@@ -62,18 +62,18 @@ public class NullabilityUtil {
   }
 
   /**
-   * determines whether a lambda parameter has an explicit type declaration
+   * determines whether a lambda parameter is missing an explicit type declaration
    *
    * @param lambdaParameter the parameter
-   * @return true if there is a type declaration, false otherwise
+   * @return true if there is no type declaration, false otherwise
    */
-  public static boolean lambdaParamIsExplicitlyTyped(VariableTree lambdaParameter) {
+  public static boolean lambdaParamIsImplicitlyTyped(VariableTree lambdaParameter) {
     // kind of a hack; the "preferred position" seems to be the position
     // of the variable name.  if this differs from the start position, it
     // means there is an explicit type declaration
     JCDiagnostic.DiagnosticPosition diagnosticPosition =
         (JCDiagnostic.DiagnosticPosition) lambdaParameter;
-    return diagnosticPosition.getStartPosition() != diagnosticPosition.getPreferredPosition();
+    return diagnosticPosition.getStartPosition() == diagnosticPosition.getPreferredPosition();
   }
 
   /**

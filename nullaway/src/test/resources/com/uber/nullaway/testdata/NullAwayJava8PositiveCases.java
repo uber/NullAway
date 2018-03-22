@@ -24,6 +24,7 @@ package com.uber.nullaway.testdata;
 
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Function;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class NullAwayJava8PositiveCases {
@@ -62,6 +63,8 @@ public class NullAwayJava8PositiveCases {
     NullableParamFunction n2 = (Object x) -> x.toString();
     // BUG: Diagnostic contains: dereferenced expression x is @Nullable
     NonNullParamFunction n3 = (@Nullable Object x) -> x.toString();
+    // BUG: Diagnostic contains: parameter x is @NonNull, but parameter in functional interface
+    NullableParamFunction n4 = (@Nonnull Object x) -> x.toString();
   }
 
   static void testAnnoatedThirdParty() {
