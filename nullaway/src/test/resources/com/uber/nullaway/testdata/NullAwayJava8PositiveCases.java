@@ -75,4 +75,81 @@ public class NullAwayJava8PositiveCases {
     // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return
     BiFunction<String, String, Object> f3 = (x, y) -> null;
   }
+
+  ////////////////////////
+  // method references  //
+  ////////////////////////
+
+  interface Function<T, R> {
+    R apply(T t);
+  }
+
+  static <R, T> R map(T t, Function<T, R> fun) {
+    return fun.apply(t);
+  }
+
+  static String applyTakeVal(Object o, NullableParamFunction nn) {
+    return nn.takeVal(null);
+  }
+
+  @Nullable
+  static Object returnNull(String t) {
+    return null;
+  }
+
+  static String derefParam(Object o) {
+    return o.toString();
+  }
+
+  static void testRefsToStaticMethods() {
+    String ex = "hi";
+    // BUG: Diagnostic contains: referenced method returns @Nullable, but functional
+    map(ex, NullAwayJava8PositiveCases::returnNull);
+    // BUG: Diagnostic contains: parameter o of referenced method is @NonNull, but
+    applyTakeVal(ex, NullAwayJava8PositiveCases::derefParam);
+  }
+
+  @FunctionalInterface
+  interface NullableSecondParamFunction<T> {
+
+    String takeVal(T x, @Nullable Object y);
+  }
+
+  static <T> String applyDoubleTakeVal(NullableSecondParamFunction<T> ns, T firstParam) {
+    return ns.takeVal(firstParam, null);
+  }
+
+  static class MethodContainer {
+
+    @Nullable
+    Object returnNull(String t) {
+      return null;
+    }
+
+    @Nullable
+    String returnNullWithNullableParam(@Nullable Object t) {
+      return null;
+    }
+
+    String derefSecondParam(Object w, Object z) {
+      return z.toString();
+    }
+
+    String derefParam(Object p) {
+      return p.toString();
+    }
+
+    void testRefsToInstanceMethods() {
+      String ex = "bye";
+      MethodContainer m = new MethodContainer();
+      // BUG: Diagnostic contains: referenced method returns @Nullable, but functional
+      map(ex, m::returnNull);
+      // BUG: Diagnostic contains: parameter z of referenced method is @NonNull, but
+      applyDoubleTakeVal(m::derefSecondParam, new Object());
+      // BUG: Diagnostic contains: parameter p of referenced method is @NonNull, but parameter in
+      applyDoubleTakeVal(MethodContainer::derefParam, m);
+      // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface
+      applyDoubleTakeVal(MethodContainer::returnNullWithNullableParam, m);
+    }
+  }
 }

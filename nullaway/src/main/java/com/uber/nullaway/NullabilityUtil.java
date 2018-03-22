@@ -22,11 +22,14 @@
 
 package com.uber.nullaway;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
@@ -46,14 +49,15 @@ public class NullabilityUtil {
   private NullabilityUtil() {}
 
   /**
-   * finds the corresponding functional interface method for a lambda expression
+   * finds the corresponding functional interface method for a lambda expression or method reference
    *
-   * @param tree the lambda expression
+   * @param tree the lambda expression or method reference
    * @return the functional interface method
    */
-  public static Symbol.MethodSymbol getFunctionalInterfaceMethod(
-      LambdaExpressionTree tree, Types types) {
-    Type funcInterfaceType = ((JCTree.JCLambda) tree).type;
+  public static Symbol.MethodSymbol getFunctionalInterfaceMethod(ExpressionTree tree, Types types) {
+    Preconditions.checkArgument(
+        (tree instanceof LambdaExpressionTree) || (tree instanceof MemberReferenceTree));
+    Type funcInterfaceType = ((JCTree.JCFunctionalExpression) tree).type;
     return (Symbol.MethodSymbol) types.findDescriptorSymbol(funcInterfaceType.tsym);
   }
 
