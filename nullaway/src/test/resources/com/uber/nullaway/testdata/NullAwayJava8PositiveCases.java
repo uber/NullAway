@@ -44,9 +44,9 @@ public class NullAwayJava8PositiveCases {
   }
 
   @FunctionalInterface
-  interface NullableParamFunction {
+  interface NullableParamFunction<T> {
 
-    String takeVal(@Nullable Object x);
+    String takeVal(@Nullable T x);
   }
 
   @FunctionalInterface
@@ -88,7 +88,7 @@ public class NullAwayJava8PositiveCases {
     return fun.apply(t);
   }
 
-  static String applyTakeVal(Object o, NullableParamFunction nn) {
+  static <T> String applyTakeVal(NullableParamFunction<T> nn) {
     return nn.takeVal(null);
   }
 
@@ -106,7 +106,7 @@ public class NullAwayJava8PositiveCases {
     // BUG: Diagnostic contains: referenced method returns @Nullable, but functional
     map(ex, NullAwayJava8PositiveCases::returnNull);
     // BUG: Diagnostic contains: parameter o of referenced method is @NonNull, but
-    applyTakeVal(ex, NullAwayJava8PositiveCases::derefParam);
+    applyTakeVal(NullAwayJava8PositiveCases::derefParam);
   }
 
   @FunctionalInterface
@@ -139,6 +139,10 @@ public class NullAwayJava8PositiveCases {
       return p.toString();
     }
 
+    String makeStr() {
+      return "buzz";
+    }
+
     void testRefsToInstanceMethods() {
       String ex = "bye";
       MethodContainer m = new MethodContainer();
@@ -150,6 +154,8 @@ public class NullAwayJava8PositiveCases {
       applyDoubleTakeVal(MethodContainer::derefParam, m);
       // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface
       applyDoubleTakeVal(MethodContainer::returnNullWithNullableParam, m);
+      // BUG: Diagnostic contains: hello
+      applyTakeVal(MethodContainer::makeStr);
     }
   }
 }
