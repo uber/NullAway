@@ -154,7 +154,7 @@ public class NullAwayJava8PositiveCases {
       applyDoubleTakeVal(MethodContainer::derefParam, m);
       // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface
       applyDoubleTakeVal(MethodContainer::returnNullWithNullableParam, m);
-      // BUG: Diagnostic contains: hello
+      // BUG: Diagnostic contains: unbound instance method reference cannot be used
       applyTakeVal(MethodContainer::makeStr);
     }
   }

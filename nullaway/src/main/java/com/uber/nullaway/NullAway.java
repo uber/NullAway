@@ -418,18 +418,55 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
+  /**
+   * checks that an overriding method does not override a
+   *
+   * <pre>@Nullable</pre>
+   *
+   * parameter with a
+   *
+   * <pre>@NonNull</pre>
+   *
+   * parameter
+   *
+   * @param methodParams parameters of overriding method. If memberReferenceTree is non-null, these
+   *     are the parameters of the referenced method
+   * @param overriddenMethod method being overridden
+   * @param isLambda is the overriding method a lambda (which "overrides" a functional interface
+   *     method)
+   * @param memberReferenceTree if the overriding method is a member reference (which "overrides" a
+   *     functional interface method), the {@link MemberReferenceTree}; otherwise,
+   *     <pre>null</pre>
+   *
+   * @return
+   */
   private Description checkParamOverriding(
       List<? extends VariableTree> methodParams,
-      Symbol.MethodSymbol closestOverriddenMethod,
+      Symbol.MethodSymbol overriddenMethod,
       boolean isLambda,
       @Nullable MemberReferenceTree memberReferenceTree) {
-    com.sun.tools.javac.util.List<VarSymbol> superParamSymbols =
-        closestOverriddenMethod.getParameters();
+    com.sun.tools.javac.util.List<VarSymbol> superParamSymbols = overriddenMethod.getParameters();
     boolean unboundMemberRef =
         (memberReferenceTree != null)
             && ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
-    // if we have an unbound method reference, we skip the first super parameter (since null
-    // can never be passed there), and always look at the previous parameter of the child method
+    // if we have an unbound method reference, the first parameter of the overridden method must be
+    // @NonNull, as this parameter will be used as a method receiver inside the generated lambda
+    if (unboundMemberRef) {
+      // there must be at least one parameter; otherwise code wouldn't compile
+      if (Nullness.hasNullableAnnotation(superParamSymbols.get(0))) {
+        String message =
+            "unbound instance method reference cannot be used, as first parameter of "
+                + "functional interface method "
+                + ASTHelpers.enclosingClass(overriddenMethod)
+                + "."
+                + overriddenMethod.toString()
+                + " is @Nullable";
+        return createErrorDescription(
+            MessageTypes.WRONG_OVERRIDE_PARAM, memberReferenceTree, message, memberReferenceTree);
+      }
+    }
+    // for unbound member references, we need to adjust parameter indices by 1 when matching with
+    // overridden method
     int startParam = unboundMemberRef ? 1 : 0;
     for (int i = startParam; i < superParamSymbols.size(); i++) {
       VarSymbol superParam = superParamSymbols.get(i);
@@ -451,9 +488,9 @@ public class NullAway extends BugChecker
                       ? "functional interface "
                       : "superclass ")
                   + "method "
-                  + ASTHelpers.enclosingClass(closestOverriddenMethod)
+                  + ASTHelpers.enclosingClass(overriddenMethod)
                   + "."
-                  + closestOverriddenMethod.toString()
+                  + overriddenMethod.toString()
                   + " is @Nullable";
           Tree errorTree = memberReferenceTree != null ? memberReferenceTree : param;
           return createErrorDescription(
