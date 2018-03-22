@@ -52,9 +52,9 @@ public class NullAwayJava8NegativeCases {
   }
 
   @FunctionalInterface
-  interface NullableParamFunction<T> {
+  interface NullableParamFunction<T, U> {
 
-    String takeVal(@Nullable T x);
+    U takeVal(@Nullable T x);
   }
 
   static void testNonNullParam() {
@@ -141,7 +141,7 @@ public class NullAwayJava8NegativeCases {
     return fun.apply(t);
   }
 
-  static <T> String applyTakeVal(NullableParamFunction<T> nn) {
+  static <T, U> U applyTakeVal(NullableParamFunction<T, U> nn) {
     return nn.takeVal(null);
   }
 
@@ -214,6 +214,21 @@ public class NullAwayJava8NegativeCases {
 
     void testSuperRef() {
       applyDoubleTakeVal(this::derefSecondParam2, new Object());
+    }
+  }
+
+  static class ConstructorRefs {
+
+    public ConstructorRefs(@Nullable Object p) {}
+
+    class Inner {
+
+      public Inner(@Nullable Object q) {}
+    }
+
+    void testConstRefs() {
+      applyTakeVal(ConstructorRefs::new);
+      applyTakeVal(Inner::new);
     }
   }
 }

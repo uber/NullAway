@@ -44,9 +44,9 @@ public class NullAwayJava8PositiveCases {
   }
 
   @FunctionalInterface
-  interface NullableParamFunction<T> {
+  interface NullableParamFunction<T, U> {
 
-    String takeVal(@Nullable T x);
+    U takeVal(@Nullable T x);
   }
 
   @FunctionalInterface
@@ -88,7 +88,7 @@ public class NullAwayJava8PositiveCases {
     return fun.apply(t);
   }
 
-  static <T> String applyTakeVal(NullableParamFunction<T> nn) {
+  static <T, U> U applyTakeVal(NullableParamFunction<T, U> nn) {
     return nn.takeVal(null);
   }
 
@@ -168,6 +168,23 @@ public class NullAwayJava8PositiveCases {
     void testSuperRef() {
       // BUG: Diagnostic contains: parameter z of referenced method is @NonNull, but parameter
       applyDoubleTakeVal(super::derefSecondParam, new Object());
+    }
+  }
+
+  static class ConstructorRefs {
+
+    public ConstructorRefs(Object p) {}
+
+    class Inner {
+
+      public Inner(Object q) {}
+    }
+
+    void testConstRefs() {
+      // BUG: Diagnostic contains: parameter p of referenced method is @NonNull, but parameter
+      applyTakeVal(ConstructorRefs::new);
+      // BUG: Diagnostic contains: parameter q of referenced method is @NonNull, but parameter
+      applyTakeVal(Inner::new);
     }
   }
 }
