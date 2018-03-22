@@ -22,11 +22,14 @@
 
 package com.uber.nullaway;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
@@ -46,30 +49,31 @@ public class NullabilityUtil {
   private NullabilityUtil() {}
 
   /**
-   * finds the corresponding functional interface method for a lambda expression
+   * finds the corresponding functional interface method for a lambda expression or method reference
    *
-   * @param tree the lambda expression
+   * @param tree the lambda expression or method reference
    * @return the functional interface method
    */
-  public static Symbol.MethodSymbol getFunctionalInterfaceMethod(
-      LambdaExpressionTree tree, Types types) {
-    Type funcInterfaceType = ((JCTree.JCLambda) tree).type;
+  public static Symbol.MethodSymbol getFunctionalInterfaceMethod(ExpressionTree tree, Types types) {
+    Preconditions.checkArgument(
+        (tree instanceof LambdaExpressionTree) || (tree instanceof MemberReferenceTree));
+    Type funcInterfaceType = ((JCTree.JCFunctionalExpression) tree).type;
     return (Symbol.MethodSymbol) types.findDescriptorSymbol(funcInterfaceType.tsym);
   }
 
   /**
-   * determines whether a lambda parameter has an explicit type declaration
+   * determines whether a lambda parameter is missing an explicit type declaration
    *
    * @param lambdaParameter the parameter
-   * @return true if there is a type declaration, false otherwise
+   * @return true if there is no type declaration, false otherwise
    */
-  public static boolean lambdaParamIsExplicitlyTyped(VariableTree lambdaParameter) {
+  public static boolean lambdaParamIsImplicitlyTyped(VariableTree lambdaParameter) {
     // kind of a hack; the "preferred position" seems to be the position
     // of the variable name.  if this differs from the start position, it
     // means there is an explicit type declaration
     JCDiagnostic.DiagnosticPosition diagnosticPosition =
         (JCDiagnostic.DiagnosticPosition) lambdaParameter;
-    return diagnosticPosition.getStartPosition() != diagnosticPosition.getPreferredPosition();
+    return diagnosticPosition.getStartPosition() == diagnosticPosition.getPreferredPosition();
   }
 
   /**

@@ -207,7 +207,7 @@ public class AccessPathNullnessPropagation
       // corresponding functional interface parameter, unless they are explicitly annotated
       if (Nullness.hasNullableAnnotation(element)) {
         assumed = NULLABLE;
-      } else if (NullabilityUtil.lambdaParamIsExplicitlyTyped(variableTree)) {
+      } else if (!NullabilityUtil.lambdaParamIsImplicitlyTyped(variableTree)) {
         // the parameter has a declared type with no @Nullable annotation
         // treat as non-null
         assumed = NONNULL;

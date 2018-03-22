@@ -24,6 +24,7 @@ package com.uber.nullaway.testdata;
 
 import io.reactivex.functions.BiFunction;
 import io.reactivex.functions.Function;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 public class NullAwayJava8PositiveCases {
@@ -44,9 +45,9 @@ public class NullAwayJava8PositiveCases {
   }
 
   @FunctionalInterface
-  interface NullableParamFunction {
+  interface NullableParamFunction<T, U> {
 
-    String takeVal(@Nullable Object x);
+    U takeVal(@Nullable T x);
   }
 
   @FunctionalInterface
@@ -62,6 +63,8 @@ public class NullAwayJava8PositiveCases {
     NullableParamFunction n2 = (Object x) -> x.toString();
     // BUG: Diagnostic contains: dereferenced expression x is @Nullable
     NonNullParamFunction n3 = (@Nullable Object x) -> x.toString();
+    // BUG: Diagnostic contains: parameter x is @NonNull, but parameter in functional interface
+    NullableParamFunction n4 = (@Nonnull Object x) -> x.toString();
   }
 
   static void testAnnoatedThirdParty() {
@@ -74,5 +77,117 @@ public class NullAwayJava8PositiveCases {
         };
     // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return
     BiFunction<String, String, Object> f3 = (x, y) -> null;
+  }
+
+  ////////////////////////
+  // method references  //
+  ////////////////////////
+
+  interface Function<T, R> {
+    R apply(T t);
+  }
+
+  static <R, T> R map(T t, Function<T, R> fun) {
+    return fun.apply(t);
+  }
+
+  static <T, U> U applyTakeVal(NullableParamFunction<T, U> nn) {
+    return nn.takeVal(null);
+  }
+
+  @Nullable
+  static Object returnNull(String t) {
+    return null;
+  }
+
+  static String derefParam(Object o) {
+    return o.toString();
+  }
+
+  static void testRefsToStaticMethods() {
+    String ex = "hi";
+    // BUG: Diagnostic contains: referenced method returns @Nullable, but functional
+    map(ex, NullAwayJava8PositiveCases::returnNull);
+    // BUG: Diagnostic contains: parameter o of referenced method is @NonNull, but
+    applyTakeVal(NullAwayJava8PositiveCases::derefParam);
+  }
+
+  @FunctionalInterface
+  interface NullableSecondParamFunction<T> {
+
+    String takeVal(T x, @Nullable Object y);
+  }
+
+  static <T> String applyDoubleTakeVal(NullableSecondParamFunction<T> ns, T firstParam) {
+    return ns.takeVal(firstParam, null);
+  }
+
+  static class MethodContainer {
+
+    @Nullable
+    Object returnNull(String t) {
+      return null;
+    }
+
+    @Nullable
+    String returnNullWithNullableParam(@Nullable Object t) {
+      return null;
+    }
+
+    String derefSecondParam(Object w, Object z) {
+      return z.toString();
+    }
+
+    String derefParam(Object p) {
+      return p.toString();
+    }
+
+    String makeStr() {
+      return "buzz";
+    }
+
+    void testRefsToInstanceMethods() {
+      String ex = "bye";
+      MethodContainer m = new MethodContainer();
+      // BUG: Diagnostic contains: referenced method returns @Nullable, but functional
+      map(ex, m::returnNull);
+      // BUG: Diagnostic contains: parameter z of referenced method is @NonNull, but
+      applyDoubleTakeVal(m::derefSecondParam, new Object());
+      // BUG: Diagnostic contains: parameter p of referenced method is @NonNull, but parameter in
+      applyDoubleTakeVal(MethodContainer::derefParam, m);
+      // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface
+      applyDoubleTakeVal(MethodContainer::returnNullWithNullableParam, m);
+      // BUG: Diagnostic contains: unbound instance method reference cannot be used
+      applyTakeVal(MethodContainer::makeStr);
+    }
+  }
+
+  static class MethodContainerSub extends MethodContainer {
+    @Override
+    String derefSecondParam(Object w, @Nullable Object z) {
+      return "" + ((z != null) ? z.hashCode() : 10);
+    }
+
+    void testSuperRef() {
+      // BUG: Diagnostic contains: parameter z of referenced method is @NonNull, but parameter
+      applyDoubleTakeVal(super::derefSecondParam, new Object());
+    }
+  }
+
+  static class ConstructorRefs {
+
+    public ConstructorRefs(Object p) {}
+
+    class Inner {
+
+      public Inner(Object q) {}
+    }
+
+    void testConstRefs() {
+      // BUG: Diagnostic contains: parameter p of referenced method is @NonNull, but parameter
+      applyTakeVal(ConstructorRefs::new);
+      // BUG: Diagnostic contains: parameter q of referenced method is @NonNull, but parameter
+      applyTakeVal(Inner::new);
+    }
   }
 }
