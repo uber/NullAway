@@ -212,7 +212,7 @@ public class NullAwayJava8NegativeCases {
       return "" + ((z != null) ? z.hashCode() : 10);
     }
 
-    void testSuperRef() {
+    void testOverrideWithMethodRef() {
       applyDoubleTakeVal(this::derefSecondParam2, new Object());
     }
   }

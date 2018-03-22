@@ -426,7 +426,7 @@ public class NullAway extends BugChecker
    *     are the parameters of the referenced method
    * @param overriddenMethod method being overridden
    * @param isLambda is the overriding method a lambda (which "overrides" a functional interface
-   *     method)
+   *     method)?
    * @param memberReferenceTree if the overriding method is a member reference (which "overrides" a
    *     functional interface method), the {@link MemberReferenceTree}; otherwise,
    *     <pre>null</pre>
@@ -464,7 +464,7 @@ public class NullAway extends BugChecker
     for (int i = startParam; i < superParamSymbols.size(); i++) {
       VarSymbol superParam = superParamSymbols.get(i);
       if (Nullness.hasNullableAnnotation(superParam)) {
-        int methodParamInd = unboundMemberRef ? i - 1 : i;
+        int methodParamInd = i - startParam;
         VariableTree param = methodParams.get(methodParamInd);
         VarSymbol paramSymbol = ASTHelpers.getSymbol(param);
         // in the case where we have a parameter of a lambda expression, we do
@@ -561,7 +561,7 @@ public class NullAway extends BugChecker
    *
    * @param overriddenMethod method being overridden
    * @param overridingMethod overriding method
-   * @param overridingTree AST of overriding methods
+   * @param overridingTree AST of overriding method
    * @param memberReferenceTree if override is via a method reference, the relevant {@link
    *     MemberReferenceTree}; otherwise {@code null}. If non-null, overridingTree is the AST of the
    *     referenced method
@@ -577,29 +577,28 @@ public class NullAway extends BugChecker
     }
     // if the super method returns nonnull,
     // overriding method better not return nullable
-    if (!Nullness.hasNullableAnnotation(overriddenMethod)) {
-      if (Nullness.hasNullableAnnotation(overridingMethod)) {
-        String message;
-        if (memberReferenceTree != null) {
-          message =
-              "referenced method returns @Nullable, but functional interface method "
-                  + ASTHelpers.enclosingClass(overriddenMethod)
-                  + "."
-                  + overriddenMethod.toString()
-                  + " returns @NonNull";
+    if (!Nullness.hasNullableAnnotation(overriddenMethod)
+        && Nullness.hasNullableAnnotation(overridingMethod)) {
+      String message;
+      if (memberReferenceTree != null) {
+        message =
+            "referenced method returns @Nullable, but functional interface method "
+                + ASTHelpers.enclosingClass(overriddenMethod)
+                + "."
+                + overriddenMethod.toString()
+                + " returns @NonNull";
 
-        } else {
-          message =
-              "method returns @Nullable, but superclass method "
-                  + ASTHelpers.enclosingClass(overriddenMethod)
-                  + "."
-                  + overriddenMethod.toString()
-                  + " returns @NonNull";
-        }
-        Tree errorTree = memberReferenceTree != null ? memberReferenceTree : overridingTree;
-        return createErrorDescription(
-            MessageTypes.WRONG_OVERRIDE_RETURN, errorTree, message, errorTree);
+      } else {
+        message =
+            "method returns @Nullable, but superclass method "
+                + ASTHelpers.enclosingClass(overriddenMethod)
+                + "."
+                + overriddenMethod.toString()
+                + " returns @NonNull";
       }
+      Tree errorTree = memberReferenceTree != null ? memberReferenceTree : overridingTree;
+      return createErrorDescription(
+          MessageTypes.WRONG_OVERRIDE_RETURN, errorTree, message, errorTree);
     }
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
