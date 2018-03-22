@@ -419,15 +419,8 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * checks that an overriding method does not override a
-   *
-   * <pre>@Nullable</pre>
-   *
-   * parameter with a
-   *
-   * <pre>@NonNull</pre>
-   *
-   * parameter
+   * checks that an overriding method does not override a {@code @Nullable} parameter with a
+   * {@code @NonNull} parameter
    *
    * @param methodParams parameters of overriding method. If memberReferenceTree is non-null, these
    *     are the parameters of the referenced method
