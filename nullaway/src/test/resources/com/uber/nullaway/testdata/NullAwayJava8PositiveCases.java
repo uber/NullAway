@@ -158,4 +158,16 @@ public class NullAwayJava8PositiveCases {
       applyTakeVal(MethodContainer::makeStr);
     }
   }
+
+  static class MethodContainerSub extends MethodContainer {
+    @Override
+    String derefSecondParam(Object w, @Nullable Object z) {
+      return "" + ((z != null) ? z.hashCode() : 10);
+    }
+
+    void testSuperRef() {
+      // BUG: Diagnostic contains: parameter z of referenced method is @NonNull, but parameter
+      applyDoubleTakeVal(super::derefSecondParam, new Object());
+    }
+  }
 }

@@ -26,7 +26,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.function.BiFunction;
-import java.util.function.Function;
 import javax.annotation.Nullable;
 
 public class NullAwayJava8NegativeCases {
@@ -53,9 +52,9 @@ public class NullAwayJava8NegativeCases {
   }
 
   @FunctionalInterface
-  interface NullableParamFunction {
+  interface NullableParamFunction<T> {
 
-    String takeVal(@Nullable Object x);
+    String takeVal(@Nullable T x);
   }
 
   static void testNonNullParam() {
@@ -68,8 +67,9 @@ public class NullAwayJava8NegativeCases {
   static void testBuiltIn() {
     java.util.function.Function<String, String> foo = (x) -> x.toString();
     BiFunction<String, Object, String> bar = (x, y) -> x.toString() + y.toString();
-    Function<String, Object> foo2 = (x) -> null; // java.util.Function is unnanotated
-    Function<String, Object> foo3 =
+    java.util.function.Function<String, Object> foo2 = (x) -> null; // java.util.Function is
+    // unnanotated
+    java.util.function.Function<String, Object> foo3 =
         (x) -> {
           return null;
         };
@@ -127,5 +127,93 @@ public class NullAwayJava8NegativeCases {
     RetNullableFunction r = () -> null;
     VoidFunction v = () -> r.getVal();
     v.doSomething();
+  }
+
+  ////////////////////////
+  // method references  //
+  ////////////////////////
+
+  interface MyFunction<T, R> {
+    R apply(T t);
+  }
+
+  static <R, T> R map(T t, MyFunction<T, R> fun) {
+    return fun.apply(t);
+  }
+
+  static <T> String applyTakeVal(NullableParamFunction<T> nn) {
+    return nn.takeVal(null);
+  }
+
+  static Object returnNonNull(String t) {
+    return new Object();
+  }
+
+  static String derefParam(@Nullable Object o) {
+    return o != null ? o.toString() : "";
+  }
+
+  static void testRefsToStaticMethods() {
+    String ex = "hi";
+    map(ex, NullAwayJava8NegativeCases::returnNonNull);
+    applyTakeVal(NullAwayJava8NegativeCases::derefParam);
+  }
+
+  @FunctionalInterface
+  interface NullableSecondParamFunction<T> {
+
+    String takeVal(T x, @Nullable Object y);
+  }
+
+  static <T> String applyDoubleTakeVal(NullableSecondParamFunction<T> ns, T firstParam) {
+    return ns.takeVal(firstParam, null);
+  }
+
+  static class MethodContainer {
+
+    Object returnNonNull(String t) {
+      return new Object();
+    }
+
+    String returnNonNullWithNullableParam(@Nullable Object t) {
+      return "";
+    }
+
+    String derefSecondParam(Object w, @Nullable Object z) {
+      return z != null ? z.toString() : w.toString();
+    }
+
+    String derefSecondParam2(Object w, Object z) {
+      return z.toString();
+    }
+
+    String derefParam(@Nullable Object p) {
+      return (p != null) ? p.toString() : "";
+    }
+
+    String makeStr() {
+      return "buzz";
+    }
+
+    void testRefsToInstanceMethods() {
+      String ex = "bye";
+      MethodContainer m = new MethodContainer();
+      map(ex, m::returnNonNull);
+      applyDoubleTakeVal(m::derefSecondParam, new Object());
+      applyDoubleTakeVal(MethodContainer::derefParam, m);
+      applyDoubleTakeVal(MethodContainer::returnNonNullWithNullableParam, m);
+      map(this, MethodContainer::makeStr);
+    }
+  }
+
+  static class MethodContainerSub extends MethodContainer {
+    @Override
+    String derefSecondParam2(Object w, @Nullable Object z) {
+      return "" + ((z != null) ? z.hashCode() : 10);
+    }
+
+    void testSuperRef() {
+      applyDoubleTakeVal(this::derefSecondParam2, new Object());
+    }
   }
 }

@@ -536,8 +536,6 @@ public class NullAway extends BugChecker
   @Override
   public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
     // TODO XXX make sure we've tested:
-    //            /** super # instMethod */
-    //             SUPER(ReferenceMode.INVOKE, false),
     //             /** Inner # new */
     //            IMPLICIT_INNER(ReferenceMode.NEW, false),
     //            /** Toplevel # new */
