@@ -535,13 +535,6 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
-    // TODO XXX make sure we've tested:
-    //             /** Inner # new */
-    //            IMPLICIT_INNER(ReferenceMode.NEW, false),
-    //            /** Toplevel # new */
-    //            TOPLEVEL(ReferenceMode.NEW, false),
-    //            /** ArrayType # new */
-    //            ARRAY_CTOR(ReferenceMode.NEW, false);
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
