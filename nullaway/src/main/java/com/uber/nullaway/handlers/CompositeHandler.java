@@ -28,6 +28,7 @@ import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
@@ -81,6 +82,17 @@ class CompositeHandler implements Handler {
       Symbol.MethodSymbol methodSymbol) {
     for (Handler h : handlers) {
       h.onMatchLambdaExpression(analysis, tree, state, methodSymbol);
+    }
+  }
+
+  @Override
+  public void onMatchMethodReference(
+      NullAway analysis,
+      MemberReferenceTree tree,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol) {
+    for (Handler h : handlers) {
+      h.onMatchMethodReference(analysis, tree, state, methodSymbol);
     }
   }
 

@@ -34,6 +34,7 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
@@ -43,6 +44,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -55,6 +57,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ExecutableElement;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 
@@ -260,8 +265,9 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
               handleMapAnonClass(methodRecord, tree, annonClassBody, state);
             }
           } else if (argTree instanceof LambdaExpressionTree) {
-            LambdaExpressionTree lambdaTree = (LambdaExpressionTree) argTree;
-            handleMapLambda(streamType, tree, lambdaTree, state);
+            observableCallToInnerMethodOrLambda.put(tree, (LambdaExpressionTree) argTree);
+          } else if (argTree instanceof MemberReferenceTree) {
+            observableCallToInnerMethodOrLambda.put(tree, (MemberReferenceTree) argTree);
           }
         }
       }
@@ -345,14 +351,6 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     }
   }
 
-  private void handleMapLambda(
-      StreamTypeRecord streamType,
-      MethodInvocationTree observableDotMap,
-      LambdaExpressionTree lambdaTree,
-      VisitorState state) {
-    observableCallToInnerMethodOrLambda.put(observableDotMap, lambdaTree);
-  }
-
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
@@ -377,6 +375,48 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     }
     if (mapToFilterMap.containsKey(tree)) {
       bodyToMethodOrLambda.put(tree.getBody(), tree);
+    }
+  }
+
+  @Override
+  public void onMatchMethodReference(
+      NullAway analysis,
+      MemberReferenceTree tree,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol) {
+    if (mapToFilterMap.containsKey(tree) && ((JCTree.JCMemberReference) tree).kind.isUnbound()) {
+      // Unbound method reference, check if we know the corresponding path to be NonNull from the
+      // previous filter.
+      MaplikeToFilterInstanceRecord callInstanceRecord = mapToFilterMap.get(tree);
+      Tree filterTree = callInstanceRecord.getFilter();
+      assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
+      NullnessStore<Nullness> filterNullnessStore = filterToNSMap.get(filterTree);
+      assert filterNullnessStore != null;
+      for (AccessPath ap : filterNullnessStore.getAccessPathsWithValue(Nullness.NONNULL)) {
+        // Find the access path corresponding to the current unbound method reference after binding
+        ImmutableList<Element> elements = ap.getElements();
+        if (elements.size() == 1) {
+          // We only care for single method call chains (e.g. this.foo(), not this.f.bar())
+          Element element = elements.get(0);
+          if (!element.getKind().equals(ElementKind.METHOD)) {
+            // We are only looking for method APs
+            continue;
+          }
+          if (!element.getSimpleName().equals(methodSymbol.getSimpleName())) {
+            // Check for the name match
+            continue;
+          }
+          if (((ExecutableElement) element).getParameters().size() != 0) {
+            // Methods that take parameters might have return values that don't depend only on this
+            // and the AP
+            continue;
+          }
+          // We found our method, and it was non-null when called inside the filter, so we mark the
+          // return of the
+          // method reference as non-null here
+          analysis.setComputedNullness(tree, Nullness.NONNULL);
+        }
+      }
     }
   }
 
