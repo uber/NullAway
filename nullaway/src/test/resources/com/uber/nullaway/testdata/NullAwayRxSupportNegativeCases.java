@@ -351,4 +351,12 @@ public class NullAwayRxSupportNegativeCases {
         .filter(s -> predtest(r -> r != null, s))
         .map(s -> funcapply(r -> r.length(), s));
   }
+
+  private Observable<Integer> filterThenMapMethodRefs1(
+      Observable<NullableContainer<String>> observable) {
+    return observable
+        .filter(c -> c.get() != null && perhaps())
+        .map(NullableContainer::get)
+        .map(String::length);
+  }
 }

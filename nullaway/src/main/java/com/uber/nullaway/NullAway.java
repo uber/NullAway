@@ -220,6 +220,13 @@ public class NullAway extends BugChecker
       new LinkedHashMap<>();
 
   /**
+   * dynamically computer/overriden nullness facts for certain expressions, such as specific method
+   * calls where we can infer a more precise set of facts than those given by the method's
+   * annotations.
+   */
+  private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
+
+  /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
    * else. Checker objects constructed with this constructor will fail with IllegalStateException if
@@ -565,6 +572,7 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(tree);
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
+    handler.onMatchMethodReference(this, tree, state, referencedMethod);
     return checkOverriding(funcInterfaceSymbol, referencedMethod, tree, state);
   }
 
@@ -591,7 +599,8 @@ public class NullAway extends BugChecker
     // if the super method returns nonnull,
     // overriding method better not return nullable
     if (!Nullness.hasNullableAnnotation(overriddenMethod)
-        && Nullness.hasNullableAnnotation(overridingMethod)) {
+        && Nullness.hasNullableAnnotation(overridingMethod)
+        && getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE)) {
       String message;
       if (memberReferenceTree != null) {
         message =
@@ -1002,6 +1011,7 @@ public class NullAway extends BugChecker
       initTree2PrevFieldInit.clear();
       class2Entities.clear();
       class2ConstructorUninit.clear();
+      computedNullnessMap.clear();
     }
     if (matchWithinClass) {
       checkFieldInitialization(tree, state);
@@ -2024,6 +2034,41 @@ public class NullAway extends BugChecker
     }
     message += " along all control-flow paths (remember to check for exceptions or early returns).";
     return message;
+  }
+
+  /**
+   * Returns the computed nullness information from an expression. If none is available, it returns
+   * Nullable.
+   *
+   * <p>Computed information can be added by handlers or by the core, and should supersede that
+   * comming from annotations.
+   *
+   * <p>The default value of an expression without additional computed nullness information is
+   * always Nullable, since this method should only be called when the fact that the expression is
+   * NonNull is not clear from looking at annotations.
+   *
+   * @param e an expression
+   * @return computed nullness for e, if any, else Nullable
+   */
+  public Nullness getComputedNullness(ExpressionTree e) {
+    if (computedNullnessMap.containsKey(e)) {
+      return computedNullnessMap.get(e);
+    } else {
+      return Nullness.NULLABLE;
+    }
+  }
+
+  /**
+   * Add computed nullness informat to an expression.
+   *
+   * <p>Used by handlers to communicate that an expression should has a more precise nullness than
+   * what is known from source annotations.
+   *
+   * @param e
+   * @param nullness
+   */
+  public void setComputedNullness(ExpressionTree e, Nullness nullness) {
+    computedNullnessMap.put(e, nullness);
   }
 
   /**

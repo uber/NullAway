@@ -27,6 +27,7 @@ import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
@@ -80,6 +81,15 @@ abstract class BaseNoOpHandler implements Handler {
   public void onMatchLambdaExpression(
       NullAway analysis,
       LambdaExpressionTree tree,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol) {
+    // NoOp
+  }
+
+  @Override
+  public void onMatchMethodReference(
+      NullAway analysis,
+      MemberReferenceTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
     // NoOp

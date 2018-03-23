@@ -27,6 +27,7 @@ import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
@@ -89,7 +90,7 @@ public interface Handler {
       Symbol.MethodSymbol methodSymbol);
 
   /**
-   * Called when NullAway first matches a particular method call-site.
+   * Called when NullAway first matches a particular lambda expression.
    *
    * @param analysis A reference to the running NullAway analysis.
    * @param tree The AST node for the lambda expression being matched.
@@ -99,6 +100,20 @@ public interface Handler {
   void onMatchLambdaExpression(
       NullAway analysis,
       LambdaExpressionTree tree,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol);
+
+  /**
+   * Called when NullAway first matches a particular method reference expression
+   *
+   * @param analysis A reference to the running NullAway analysis.
+   * @param tree The AST node for the method reference expression being matched.
+   * @param state The current visitor state.
+   * @param methodSymbol The method symbol for the reference being matched.
+   */
+  void onMatchMethodReference(
+      NullAway analysis,
+      MemberReferenceTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol);
 
