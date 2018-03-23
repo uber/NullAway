@@ -1011,6 +1011,7 @@ public class NullAway extends BugChecker
       initTree2PrevFieldInit.clear();
       class2Entities.clear();
       class2ConstructorUninit.clear();
+      computedNullnessMap.clear();
     }
     if (matchWithinClass) {
       checkFieldInitialization(tree, state);
