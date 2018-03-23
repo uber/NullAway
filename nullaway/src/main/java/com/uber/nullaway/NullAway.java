@@ -100,6 +100,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
@@ -413,7 +414,7 @@ public class NullAway extends BugChecker
       if (closestOverriddenMethod == null) {
         return Description.NO_MATCH;
       }
-      return checkOverriding(closestOverriddenMethod, methodSymbol, tree, null);
+      return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
     }
     return Description.NO_MATCH;
   }
@@ -422,22 +423,20 @@ public class NullAway extends BugChecker
    * checks that an overriding method does not override a {@code @Nullable} parameter with a
    * {@code @NonNull} parameter
    *
-   * @param methodParams parameters of overriding method. If memberReferenceTree is non-null, these
-   *     are the parameters of the referenced method
+   * @param overridingParamSymbols parameters of the overriding method
    * @param overriddenMethod method being overridden
-   * @param isLambda is the overriding method a lambda (which "overrides" a functional interface
-   *     method)?
+   * @param lambdaExpressionTree if the overriding method is a lambda, the {@link
+   *     LambdaExpressionTree}; otherwise {@code null}
    * @param memberReferenceTree if the overriding method is a member reference (which "overrides" a
-   *     functional interface method), the {@link MemberReferenceTree}; otherwise,
-   *     <pre>null</pre>
-   *
+   *     functional interface method), the {@link MemberReferenceTree}; otherwise {@code null}
    * @return
    */
   private Description checkParamOverriding(
-      List<? extends VariableTree> methodParams,
+      List<VarSymbol> overridingParamSymbols,
       Symbol.MethodSymbol overriddenMethod,
-      boolean isLambda,
-      @Nullable MemberReferenceTree memberReferenceTree) {
+      @Nullable LambdaExpressionTree lambdaExpressionTree,
+      @Nullable MemberReferenceTree memberReferenceTree,
+      VisitorState state) {
     com.sun.tools.javac.util.List<VarSymbol> superParamSymbols = overriddenMethod.getParameters();
     boolean unboundMemberRef =
         (memberReferenceTree != null)
@@ -465,21 +464,23 @@ public class NullAway extends BugChecker
       VarSymbol superParam = superParamSymbols.get(i);
       if (Nullness.hasNullableAnnotation(superParam)) {
         int methodParamInd = i - startParam;
-        VariableTree param = methodParams.get(methodParamInd);
-        VarSymbol paramSymbol = ASTHelpers.getSymbol(param);
+        VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
         // in the case where we have a parameter of a lambda expression, we do
         // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
         // nullability from the corresponding functional interface method.
         // So, we report an error if the @Nullable annotation is missing *and*
         // we don't have a lambda with implicitly typed parameters
-        if (!Nullness.hasNullableAnnotation(paramSymbol)
-            && !(isLambda && NullabilityUtil.lambdaParamIsImplicitlyTyped(param))) {
+        boolean implicitlyTypedLambdaParam =
+            lambdaExpressionTree != null
+                && NullabilityUtil.lambdaParamIsImplicitlyTyped(
+                    lambdaExpressionTree.getParameters().get(methodParamInd));
+        if (!Nullness.hasNullableAnnotation(paramSymbol) && !implicitlyTypedLambdaParam) {
           String message =
               "parameter "
-                  + param.getName()
+                  + paramSymbol.name.toString()
                   + (memberReferenceTree != null ? " of referenced method" : "")
                   + " is @NonNull, but parameter in "
-                  + ((isLambda || memberReferenceTree != null)
+                  + ((lambdaExpressionTree != null || memberReferenceTree != null)
                       ? "functional interface "
                       : "superclass ")
                   + "method "
@@ -487,13 +488,22 @@ public class NullAway extends BugChecker
                   + "."
                   + overriddenMethod.toString()
                   + " is @Nullable";
-          Tree errorTree = memberReferenceTree != null ? memberReferenceTree : param;
+          Tree errorTree;
+          if (memberReferenceTree != null) {
+            errorTree = memberReferenceTree;
+          } else {
+            errorTree = getTreesInstance(state).getTree(paramSymbol);
+          }
           return createErrorDescription(
               MessageTypes.WRONG_OVERRIDE_PARAM, errorTree, message, errorTree);
         }
       }
     }
     return Description.NO_MATCH;
+  }
+
+  private static Trees getTreesInstance(VisitorState state) {
+    return Trees.instance(JavacProcessingEnvironment.instance(state.context));
   }
 
   private Description checkReturnExpression(
@@ -527,7 +537,12 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Description description =
-        checkParamOverriding(tree.getParameters(), funcInterfaceMethod, true, null);
+        checkParamOverriding(
+            tree.getParameters().stream().map(ASTHelpers::getSymbol).collect(Collectors.toList()),
+            funcInterfaceMethod,
+            tree,
+            null,
+            state);
     if (description != Description.NO_MATCH) {
       return description;
     }
@@ -550,9 +565,7 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(tree);
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
-    Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
-    MethodTree methodTree = trees.getTree(referencedMethod);
-    return checkOverriding(funcInterfaceSymbol, referencedMethod, methodTree, tree);
+    return checkOverriding(funcInterfaceSymbol, referencedMethod, tree, state);
   }
 
   /**
@@ -561,17 +574,17 @@ public class NullAway extends BugChecker
    *
    * @param overriddenMethod method being overridden
    * @param overridingMethod overriding method
-   * @param overridingTree AST of overriding method
    * @param memberReferenceTree if override is via a method reference, the relevant {@link
    *     MemberReferenceTree}; otherwise {@code null}. If non-null, overridingTree is the AST of the
    *     referenced method
+   * @param state
    * @return discovered error, or {@link Description#NO_MATCH} if no error
    */
   private Description checkOverriding(
       Symbol.MethodSymbol overriddenMethod,
       Symbol.MethodSymbol overridingMethod,
-      MethodTree overridingTree,
-      @Nullable MemberReferenceTree memberReferenceTree) {
+      @Nullable MemberReferenceTree memberReferenceTree,
+      VisitorState state) {
     if (NullabilityUtil.fromUnannotatedPackage(overriddenMethod, config)) {
       return Description.NO_MATCH;
     }
@@ -596,14 +609,17 @@ public class NullAway extends BugChecker
                 + overriddenMethod.toString()
                 + " returns @NonNull";
       }
-      Tree errorTree = memberReferenceTree != null ? memberReferenceTree : overridingTree;
+      Tree errorTree =
+          memberReferenceTree != null
+              ? memberReferenceTree
+              : getTreesInstance(state).getTree(overridingMethod);
       return createErrorDescription(
           MessageTypes.WRONG_OVERRIDE_RETURN, errorTree, message, errorTree);
     }
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
     return checkParamOverriding(
-        overridingTree.getParameters(), overriddenMethod, false, memberReferenceTree);
+        overridingMethod.getParameters(), overriddenMethod, null, memberReferenceTree, state);
   }
 
   @Override
@@ -782,11 +798,7 @@ public class NullAway extends BugChecker
       }
     }
     addGuaranteedNonNullFromInvokes(
-        state,
-        Trees.instance(JavacProcessingEnvironment.instance(state.context)),
-        safeInitMethods,
-        getNullnessAnalysis(state),
-        result);
+        state, getTreesInstance(state), safeInitMethods, getNullnessAnalysis(state), result);
     return result;
   }
 
@@ -1203,7 +1215,7 @@ public class NullAway extends BugChecker
    */
   private Set<Symbol> notAssignedInAnyInitializer(
       FieldInitEntities entities, Set<Symbol> notInitializedInConstructors, VisitorState state) {
-    Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
+    Trees trees = getTreesInstance(state);
     Symbol.ClassSymbol classSymbol = entities.classSymbol();
     Set<Element> initInSomeInitializer = new LinkedHashSet<>();
     for (MethodTree initMethodTree : entities.instanceInitializerMethods()) {
@@ -1261,7 +1273,7 @@ public class NullAway extends BugChecker
       FieldInitEntities entities, VisitorState state) {
     SetMultimap<MethodTree, Symbol> result = LinkedHashMultimap.create();
     Set<Symbol> nonnullInstanceFields = entities.nonnullInstanceFields();
-    Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
+    Trees trees = getTreesInstance(state);
     boolean isExternalInit = isExternalInit(entities.classSymbol());
     for (MethodTree constructor : entities.constructors()) {
       if (constructorInvokesAnother(constructor, state)) {
