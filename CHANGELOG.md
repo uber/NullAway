@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Version 0.4.0
+-------------
+* Support for checking uses of method references (#139, #140).  Note
+  that this may lead to new NullAway warnings being reported for code
+  that previously passed.
+* Add support for `Observable.doOnNext` to RxNullabilityPropagator
+  (#137)
+
 Version 0.3.7
 -------------
 * Small bug fix in `@Contract` support (#136)
