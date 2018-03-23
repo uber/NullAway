@@ -565,7 +565,6 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(tree);
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
-    Trees trees = getTreesInstance(state);
     return checkOverriding(funcInterfaceSymbol, referencedMethod, tree, state);
   }
 
