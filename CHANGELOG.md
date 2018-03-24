@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 0.4.1
+-------------
+* Initial RxNullabilityPropagator support for method
+  references. (#141)
+
 Version 0.4.0
 -------------
 * Support for checking uses of method references (#139, #140).  Note
