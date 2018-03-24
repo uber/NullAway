@@ -132,6 +132,13 @@ public class NullAwayRxSupportPositiveCases {
 
   private Observable<Integer> filterThenMapMethodRefs1(
       Observable<NullableContainer<String>> observable) {
+    // this is to make sure the analysis doesn't get confused by two instances of the same method
+    // ref
+    Object o =
+        observable
+            .filter(c -> c.get() != null && perhaps())
+            .map(NullableContainer::get)
+            .map(String::length);
     return observable
         .filter(c -> c.get() != null || perhaps())
         // BUG: Diagnostic contains: referenced method returns @Nullable
