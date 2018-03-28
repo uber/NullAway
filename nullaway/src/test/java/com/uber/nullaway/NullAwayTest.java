@@ -348,4 +348,24 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testEnumInit() {
+    compilationHelper
+        .addSourceLines(
+            "SomeEnum.java",
+            "package com.uber;",
+            "import java.util.Random;",
+            "enum SomeEnum {",
+            "  FOO, BAR;",
+            "  final Object o;",
+            "  final Object p;",
+            "  private SomeEnum() {",
+            "    this.o = new Object();",
+            "    this.p = new Object();",
+            "    this.o.equals(this.p);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
