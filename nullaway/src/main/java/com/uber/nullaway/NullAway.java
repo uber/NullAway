@@ -32,7 +32,6 @@ import static com.sun.source.tree.Tree.Kind.TYPE_CAST;
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -81,8 +80,6 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
-import com.sun.tools.javac.code.Flags;
-import com.sun.tools.javac.code.Scope;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
@@ -328,15 +325,27 @@ public class NullAway extends BugChecker
       // in the AST does not have the parameter nullability annotations from the superclass.
       // so, treat as if the superclass constructor is being invoked directly
       // see https://github.com/uber/NullAway/issues/102
-      Type supertype = state.getTypes().supertype(methodSymbol.owner.type);
-      Symbol.MethodSymbol superConstructor =
-          findSuperConstructorInType(methodSymbol, supertype, state.getTypes());
-      if (superConstructor == null) {
-        throw new RuntimeException("must find constructor in supertype");
-      }
-      methodSymbol = superConstructor;
+      methodSymbol = getSymbolOfSuperConstructor(methodSymbol, state);
     }
     return handleInvocation(state, methodSymbol, actualParams);
+  }
+
+  private Symbol.MethodSymbol getSymbolOfSuperConstructor(
+      Symbol.MethodSymbol anonClassConstructorSymbol, VisitorState state) {
+    // get the statements in the body of the anonymous class constructor
+    List<? extends StatementTree> statements =
+        getTreesInstance(state).getTree(anonClassConstructorSymbol).getBody().getStatements();
+    // there should be exactly one statement, which is an invocation of the super constructor
+    if (statements.size() == 1) {
+      StatementTree stmt = statements.get(0);
+      if (stmt instanceof ExpressionStatementTree) {
+        ExpressionTree expression = ((ExpressionStatementTree) stmt).getExpression();
+        if (expression instanceof MethodInvocationTree) {
+          return ASTHelpers.getSymbol((MethodInvocationTree) expression);
+        }
+      }
+    }
+    throw new IllegalStateException("unexpected anonymous class constructor body " + statements);
   }
 
   @Override
@@ -2075,33 +2084,6 @@ public class NullAway extends BugChecker
    */
   public void setComputedNullness(ExpressionTree e, Nullness nullness) {
     computedNullnessMap.put(e, nullness);
-  }
-
-  /**
-   * based heavily on {@link ASTHelpers#findSuperMethodInType(Symbol.MethodSymbol, Type, Types)},
-   * but works for constructors
-   */
-  @Nullable
-  private static Symbol.MethodSymbol findSuperConstructorInType(
-      Symbol.MethodSymbol methodSymbol, Type superType, Types types) {
-    Preconditions.checkArgument(methodSymbol.isConstructor(), "only accepts constructor methods");
-    Scope scope = superType.tsym.members();
-    for (Symbol sym : scope.getSymbolsByName(methodSymbol.name)) {
-      if (sym != null
-          && sym.isConstructor()
-          && ((sym.flags() & Flags.SYNTHETIC) == 0)
-          && hasSameArgTypes((Symbol.MethodSymbol) sym, methodSymbol, types)) {
-        return (Symbol.MethodSymbol) sym;
-      }
-    }
-    return null;
-  }
-
-  private static boolean hasSameArgTypes(
-      Symbol.MethodSymbol method1, Symbol.MethodSymbol method2, Types types) {
-    com.sun.tools.javac.util.List<Type> method1ArgTypes = method1.type.asMethodType().argtypes;
-    com.sun.tools.javac.util.List<Type> method2ArgTypes = method2.type.asMethodType().argtypes;
-    return types.isSameTypes(types.erasure(method1ArgTypes), types.erasure(method2ArgTypes));
   }
 
   public enum MessageTypes {
