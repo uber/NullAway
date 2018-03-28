@@ -348,4 +348,36 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void erasedIterator() {
+    // just checking for crash
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.*;",
+            "class Test {",
+            "  static class Foo implements Iterable {",
+            "    public Iterator iterator() {",
+            "      return new Iterator() {",
+            "        @Override",
+            "        public boolean hasNext() {",
+            "          return false;",
+            "        }",
+            "        @Override",
+            "        public Iterator next() {",
+            "          throw new NoSuchElementException();",
+            "        }",
+            "      };",
+            "    }",
+            "  }",
+            "  static void testErasedIterator(Foo foo) {",
+            "    for (Object x : foo) {",
+            "      x.hashCode();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
