@@ -350,32 +350,20 @@ public class NullAwayTest {
   }
 
   @Test
-  public void erasedIterator() {
-    // just checking for crash
+  public void testEnum() {
     compilationHelper
         .addSourceLines(
-            "Test.java",
+            "SomeEnum.java",
             "package com.uber;",
-            "import java.util.*;",
-            "class Test {",
-            "  static class Foo implements Iterable {",
-            "    public Iterator iterator() {",
-            "      return new Iterator() {",
-            "        @Override",
-            "        public boolean hasNext() {",
-            "          return false;",
-            "        }",
-            "        @Override",
-            "        public Iterator next() {",
-            "          throw new NoSuchElementException();",
-            "        }",
-            "      };",
-            "    }",
-            "  }",
-            "  static void testErasedIterator(Foo foo) {",
-            "    for (Object x : foo) {",
-            "      x.hashCode();",
-            "    }",
+            "import java.util.Random;",
+            "enum SomeEnum {",
+            "  FOO, BAR;",
+            "  final Object o;",
+            "  final Object p;",
+            "  private SomeEnum() {",
+            "    this.o = new Object();",
+            "    this.p = new Object();",
+            "    this.o.equals(this.p);",
             "  }",
             "}")
         .doTest();
