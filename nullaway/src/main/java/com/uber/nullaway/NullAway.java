@@ -779,8 +779,14 @@ public class NullAway extends BugChecker
     Tree readExprTree = pathToRead.getLeaf();
     int readStartPos = getStartPos((JCTree) readExprTree);
     TreePath classTreePath = enclosingBlockPath;
+    // look for the parent ClassTree node, which represents the enclosing class / enum / interface
     while (!(classTreePath.getLeaf() instanceof ClassTree)) {
       classTreePath = classTreePath.getParentPath();
+      if (classTreePath == null) {
+        throw new IllegalStateException(
+            "could not find enclosing class / enum / interface for "
+                + enclosingBlockPath.getLeaf());
+      }
     }
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol((ClassTree) classTreePath.getLeaf());
     for (int i = 0; i < statements.size(); i++) {
