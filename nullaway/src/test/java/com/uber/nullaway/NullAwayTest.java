@@ -368,4 +368,33 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testGenericAnonymousInner() {
+    compilationHelper
+        .addSourceLines(
+            "GenericSuper.java",
+            "package com.uber;",
+            "class GenericSuper<T> {",
+            "  T x;",
+            "  GenericSuper(T y) {",
+            "    this.x = y;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "AnonSub.java",
+            "package com.uber;",
+            "import java.util.List;",
+            "import javax.annotation.Nullable;",
+            "class AnonSub {",
+            "  static GenericSuper<List<String>> makeSuper(List<String> list) {",
+            "    return new GenericSuper<List<String>>(list) {};",
+            "  }",
+            "  static GenericSuper<List<String>> makeSuperBad(@Nullable List<String> list) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'list' where @NonNull",
+            "    return new GenericSuper<List<String>>(list) {};",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
