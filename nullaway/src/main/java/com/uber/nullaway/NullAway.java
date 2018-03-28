@@ -779,7 +779,7 @@ public class NullAway extends BugChecker
     Tree readExprTree = pathToRead.getLeaf();
     int readStartPos = getStartPos((JCTree) readExprTree);
     TreePath classTreePath = enclosingBlockPath;
-    while (!classTreePath.getLeaf().getKind().equals(Tree.Kind.CLASS)) {
+    while (!(classTreePath.getLeaf() instanceof ClassTree)) {
       classTreePath = classTreePath.getParentPath();
     }
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol((ClassTree) classTreePath.getLeaf());

@@ -350,7 +350,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void testEnum() {
+  public void testEnumInit() {
     compilationHelper
         .addSourceLines(
             "SomeEnum.java",
