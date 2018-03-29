@@ -82,7 +82,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
     return NullnessHint.UNKNOWN;
   }
 
-  private Pair<Element, Element> getFieldAndSetterForProperty(
+  private static Pair<Element, Element> getFieldAndSetterForProperty(
       Symbol.MethodSymbol symbol, String capPropName) {
     Element field = null;
     Element getter = null;
