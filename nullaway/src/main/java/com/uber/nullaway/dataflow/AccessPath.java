@@ -121,6 +121,22 @@ public class AccessPath {
   }
 
   /**
+   * @param base the base expression for the access path
+   * @param element the final element of the access path (a field or method)
+   * @return the {@link AccessPath} {@code base.element}
+   */
+  @Nullable
+  public static AccessPath fromBaseAndElement(Node base, Element element) {
+    List<Element> elements = new ArrayList<>();
+    Root root = populateElementsRec(base, elements);
+    if (root == null) {
+      return null;
+    }
+    elements.add(element);
+    return new AccessPath(root, elements);
+  }
+
+  /**
    * @param node a node invoking containsKey() or put() on a map
    * @return an AccessPath representing invoking get() on the same type of map as from node, passing
    *     the same first argument as is passed in node

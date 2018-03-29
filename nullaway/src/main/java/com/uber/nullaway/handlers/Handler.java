@@ -180,7 +180,7 @@ public interface Handler {
    * Called when the Dataflow analysis visits each method invocation.
    *
    * @param node The AST node for the method callsite.
-   * @param types The types of the method's arguments.
+   * @param types {@link Types} for the current compilation
    * @param inputs NullnessStore information known before the method invocation.
    * @param thenUpdates NullnessStore updates to be added along the then path, handlers can add via
    *     the set() method.
