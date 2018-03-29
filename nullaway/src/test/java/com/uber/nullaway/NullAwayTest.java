@@ -397,4 +397,39 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testThriftIsSet() {
+    compilationHelper
+        .addSourceLines("TBase.java", "package org.apache.thrift;", "public interface TBase {}")
+        .addSourceLines(
+            "Generated.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Generated implements org.apache.thrift.TBase {",
+            "  public @Nullable Object id;",
+            "  @Nullable public Object getId() { return this.id; }",
+            "  public boolean isSetId() { return this.id != null; }",
+            "}")
+        .addSourceLines(
+            "Client.java",
+            "package com.uber;",
+            "public class Client {",
+            "  public void testNeg(Generated g) {",
+            "    if (g.isSetId()) {",
+            "      g.getId().toString();",
+            "      g.id.hashCode();",
+            "    }",
+            "  }",
+            "  public void testPos(Generated g) {",
+            "    if (!g.isSetId()) {",
+            "      // BUG: Diagnostic contains: dereferenced expression g.getId() is @Nullable",
+            "      g.getId().hashCode();",
+            "    } else {",
+            "      g.id.toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
