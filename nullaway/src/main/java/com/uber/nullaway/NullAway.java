@@ -1793,10 +1793,10 @@ public class NullAway extends BugChecker
           }
           break;
         case WRONG_OVERRIDE_RETURN:
-          builder = changeReturnNullabilityFix(suggestTree, builder);
+          builder = addSuppressWarningsFix(suggestTree, builder, canonicalName());
           break;
         case WRONG_OVERRIDE_PARAM:
-          builder = changeParamNullabilityFix(suggestTree, builder);
+          builder = addSuppressWarningsFix(suggestTree, builder, canonicalName());
           break;
         case METHOD_NO_INIT:
         case FIELD_NO_INIT:
@@ -1882,6 +1882,7 @@ public class NullAway extends BugChecker
     return builder.addFix(fix);
   }
 
+  @SuppressWarnings("unused")
   private Description.Builder changeReturnNullabilityFix(
       Tree suggestTree, Description.Builder builder) {
     if (suggestTree.getKind() != Tree.Kind.METHOD) {
@@ -1900,6 +1901,7 @@ public class NullAway extends BugChecker
     return builder.addFix(fixBuilder.build());
   }
 
+  @SuppressWarnings("unused")
   private Description.Builder changeParamNullabilityFix(
       Tree suggestTree, Description.Builder builder) {
     return builder.addFix(SuggestedFix.prefixWith(suggestTree, "@Nullable "));
