@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Version 0.4.2
+-------------
+* Upgrade Checker Framework dependency to upstream version 2.5.0 (#150)
+* Don't crash on field initialization inside an enum (#146)
+* Properly find super constructor for anonymous classes (#147)
+* Add a Handler for supporting isSetXXXX() methods in Thrift-generated code (#148)
+* Use `@SuppressWarnings` as autofix in a couple more places (#149)
+
 Version 0.4.1
 -------------
 * Initial RxNullabilityPropagator support for method
