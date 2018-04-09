@@ -15,8 +15,8 @@
  */
 
 def versions = [
-    checkerFramework       : "2.3.2",
-    checkerFrameworkNAFork : "2.3.2.1-nullaway",
+    checkerFramework       : "2.5.0",
+    checkerFrameworkNAFork : "2.5.0",
     errorProne             : "2.1.1",
     support                : "27.0.2",
 ]
