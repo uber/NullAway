@@ -144,6 +144,19 @@ With this change, all the NullAway warnings are fixed.
 
 For more details on NullAway's checks, error messages, and limitations, see [our detailed guide](https://github.com/uber/NullAway/wiki).
 
+## Related projects
+
+Here are some related projects that you may find useful when using NullAway.
+
+### Violations Lib
+
+**Project home:** https://github.com/tomasbjerre/violations-lib
+
+This is a Java library for parsing report files from static code analysis. It supports NullAway and is used by Gradle, Maven and Jenkins plugins. It can be used to:
+
+* Comment GitLab, GitHub and Bitbucket Server pull requests.
+* Display a nice summary, of all your violation tools, in the build log. And optionally fail a build based on violations found.
+
 ## Support
 
 Please feel free to [open a GitHub issue](https://github.com/uber/NullAway/issues) if you have any questions on how to use NullAway.  Or, you can [join the NullAway Discord server](https://discord.gg/QH2F779) and ask us a question there.
