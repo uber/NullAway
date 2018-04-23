@@ -52,7 +52,8 @@ public class NullAwayTest {
                 + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases"
                 + ".SuperInterface.doInit2",
             "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
-            "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.testdata.unannotated",
+            // We give the following in Regexp format to test that support
+            "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
             "-XepOpt:NullAway:ExcludedClasses="
                 + "com.uber.nullaway.testdata.Shape_Stuff,"
                 + "com.uber.nullaway.testdata.excluded",
