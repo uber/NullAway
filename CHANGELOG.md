@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 0.4.3
+-------------
+* properly handle compound assignments (#157)
+* handle unboxing of array index expression (#158)
+
 Version 0.4.2
 -------------
 * Upgrade Checker Framework dependency to upstream version 2.5.0 (#150)
