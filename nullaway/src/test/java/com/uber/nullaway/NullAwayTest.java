@@ -465,4 +465,26 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void compoundAssignment() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  static void assignments() {",
+            "    String x = null; x += \"hello\";",
+            "    // BUG: Diagnostic contains: unboxing of a @Nullable value",
+            "    Integer y = null; y += 3;",
+            "    // BUG: Diagnostic contains: unboxing of a @Nullable value",
+            "    boolean b = false; Boolean c = null; b |= c;",
+            "  }",
+            "  static Integer returnCompound() {",
+            "    Integer z = 7;",
+            "    return (z += 10);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

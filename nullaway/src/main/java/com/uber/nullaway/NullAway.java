@@ -56,6 +56,7 @@ import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
@@ -162,7 +163,8 @@ public class NullAway extends BugChecker
         BugChecker.ForLoopTreeMatcher,
         BugChecker.LambdaExpressionTreeMatcher,
         BugChecker.IdentifierTreeMatcher,
-        BugChecker.MemberReferenceTreeMatcher {
+        BugChecker.MemberReferenceTreeMatcher,
+        BugChecker.CompoundAssignmentTreeMatcher {
 
   private static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
 
@@ -372,6 +374,20 @@ public class NullAway extends BugChecker
       String message = "assigning @Nullable expression to @NonNull field";
       return createErrorDescriptionForNullAssignment(
           MessageTypes.ASSIGN_FIELD_NULLABLE, tree, message, expression, state.getPath());
+    }
+    return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchCompoundAssignment(CompoundAssignmentTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
+    Type lhsType = ASTHelpers.getType(tree.getVariable());
+    Type stringType = state.getTypeFromString("java.lang.String");
+    if (lhsType != null && !lhsType.equals(stringType)) {
+      // both LHS and RHS could get unboxed
+      return doUnboxingCheck(state, tree.getVariable(), tree.getExpression());
     }
     return Description.NO_MATCH;
   }
@@ -1626,6 +1642,18 @@ public class NullAway extends BugChecker
         // Lambdas may return null, but the lambda literal itself should not be null
       case MEMBER_REFERENCE:
         // These cannot be null; the compiler would catch it
+      case MULTIPLY_ASSIGNMENT:
+      case DIVIDE_ASSIGNMENT:
+      case REMAINDER_ASSIGNMENT:
+      case PLUS_ASSIGNMENT:
+      case MINUS_ASSIGNMENT:
+      case LEFT_SHIFT_ASSIGNMENT:
+      case RIGHT_SHIFT_ASSIGNMENT:
+      case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT:
+      case AND_ASSIGNMENT:
+      case XOR_ASSIGNMENT:
+      case OR_ASSIGNMENT:
+        // result of compound assignment cannot be null
       case PLUS:
         // rest are for auto-boxing
       case MINUS:
