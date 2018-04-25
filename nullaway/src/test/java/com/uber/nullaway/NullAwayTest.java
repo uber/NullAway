@@ -487,4 +487,20 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void arrayIndexUnbox() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  static void indexUnbox() {",
+            "    Integer x = null; int[] fizz = { 0, 1 };",
+            "    // BUG: Diagnostic contains: unboxing of a @Nullable value",
+            "    int y = fizz[x];",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

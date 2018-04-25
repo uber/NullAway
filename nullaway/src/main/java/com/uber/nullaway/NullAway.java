@@ -397,7 +397,12 @@ public class NullAway extends BugChecker
     if (!matchWithinClass) {
       return Description.NO_MATCH;
     }
-    return matchDereference(tree.getExpression(), tree, state);
+    Description description = matchDereference(tree.getExpression(), tree, state);
+    if (!description.equals(Description.NO_MATCH)) {
+      return description;
+    }
+    // also check for unboxing of array index expression
+    return doUnboxingCheck(state, tree.getIndex());
   }
 
   @Override
