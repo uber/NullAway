@@ -49,6 +49,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
   static final String FL_EXTERNAL_INIT_ANNOT = EP_FL_NAMESPACE + ":ExternalInitAnnotations";
+  static final String FL_UNANNOTATED_CLASSES = EP_FL_NAMESPACE + ":UnannotatedClasses";
   private static final String DELIMITER = ",";
 
   static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS =
@@ -83,6 +84,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     annotatedPackages = getPackagePattern(getFlagStringSet(flags, FL_ANNOTATED_PACKAGES));
     unannotatedSubPackages = getPackagePattern(getFlagStringSet(flags, FL_UNANNOTATED_SUBPACKAGES));
     sourceClassesToExclude = getFlagStringSet(flags, FL_CLASSES_TO_EXCLUDE);
+    unannotatedClasses = getFlagStringSet(flags, FL_UNANNOTATED_CLASSES);
     knownInitializers =
         getKnownInitializers(
             getFlagStringSet(flags, FL_KNOWN_INITIALIZERS, DEFAULT_KNOWN_INITIALIZERS));

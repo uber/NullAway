@@ -52,8 +52,13 @@ public abstract class AbstractConfig implements Config {
    */
   protected Pattern unannotatedSubPackages;
 
-  /** Source code in these packages will not be analyzed for nullability issues */
+  /** Source code in these classes will not be analyzed for nullability issues */
   @Nullable protected ImmutableSet<String> sourceClassesToExclude;
+
+  /**
+   * these classes will be treated as unannotated (don't analyze *and* treat methods as unannotated)
+   */
+  @Nullable protected ImmutableSet<String> unannotatedClasses;
 
   protected Pattern fieldAnnotPattern;
 
@@ -100,6 +105,20 @@ public abstract class AbstractConfig implements Config {
       return false;
     }
     for (String classPrefix : sourceClassesToExclude) {
+      if (className.startsWith(classPrefix)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @Override
+  public boolean isUnannotatedClass(Symbol.ClassSymbol symbol) {
+    if (unannotatedClasses == null) {
+      return false;
+    }
+    String className = symbol.getQualifiedName().toString();
+    for (String classPrefix : unannotatedClasses) {
       if (className.startsWith(classPrefix)) {
         return true;
       }

@@ -503,4 +503,37 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void unannotatedClass() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedClasses=com.uber.UnAnnot"))
+        .addSourceLines(
+            "UnAnnot.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class UnAnnot {",
+            "  @Nullable static Object retNull() { return null; }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable static Object nullRetSameClass() { return null; }",
+            "  void test() {",
+            "    UnAnnot.retNull().toString();",
+            // make sure other classes in the package still get analyzed
+            "    Object x = nullRetSameClass();",
+            "    // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
+            "    x.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
