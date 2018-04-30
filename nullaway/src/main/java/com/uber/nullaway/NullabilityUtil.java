@@ -153,18 +153,18 @@ public class NullabilityUtil {
     }
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
-            || fromUnannotatedPackage(symbol, config))
+            || isUnannotated(symbol, config))
         && Nullness.hasNullableAnnotation(symbol);
   }
 
   /**
    * @param symbol symbol for entity
    * @param config NullAway config
-   * @return true if symbol represents an entity from a package not marked as annotated in the
-   *     config; false otherwise
+   * @return true if symbol represents an entity from a class that is unannotated; false otherwise
    */
-  public static boolean fromUnannotatedPackage(Symbol symbol, Config config) {
+  public static boolean isUnannotated(Symbol symbol, Config config) {
     Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
-    return !config.fromAnnotatedPackage(outermostClassSymbol);
+    return !config.fromAnnotatedPackage(outermostClassSymbol)
+        || config.isUnannotatedClass(outermostClassSymbol);
   }
 }

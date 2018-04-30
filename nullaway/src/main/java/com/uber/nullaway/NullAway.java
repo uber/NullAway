@@ -247,7 +247,7 @@ public class NullAway extends BugChecker
   private Predicate<MethodInvocationNode> nonAnnotatedMethodCheck() {
     return invocationNode ->
         invocationNode == null
-            || NullabilityUtil.fromUnannotatedPackage(
+            || NullabilityUtil.isUnannotated(
                 ASTHelpers.getSymbol(invocationNode.getTree()), config);
   }
 
@@ -553,7 +553,7 @@ public class NullAway extends BugChecker
     if (returnType.toString().equals("java.lang.Void")) {
       return Description.NO_MATCH;
     }
-    if (NullabilityUtil.fromUnannotatedPackage(methodSymbol, config)
+    if (NullabilityUtil.isUnannotated(methodSymbol, config)
         || Nullness.hasNullableAnnotation(methodSymbol)) {
       return Description.NO_MATCH;
     }
@@ -570,7 +570,7 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol funcInterfaceMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
     handler.onMatchLambdaExpression(this, tree, state, funcInterfaceMethod);
-    if (NullabilityUtil.fromUnannotatedPackage(funcInterfaceMethod, config)) {
+    if (NullabilityUtil.isUnannotated(funcInterfaceMethod, config)) {
       return Description.NO_MATCH;
     }
     Description description =
@@ -623,7 +623,7 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol overridingMethod,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
-    if (NullabilityUtil.fromUnannotatedPackage(overriddenMethod, config)) {
+    if (NullabilityUtil.isUnannotated(overriddenMethod, config)) {
       return Description.NO_MATCH;
     }
     // if the super method returns nonnull,
@@ -1140,7 +1140,7 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams) {
     ImmutableSet<Integer> nonNullPositions = null;
-    if (NullabilityUtil.fromUnannotatedPackage(methodSymbol, config)) {
+    if (NullabilityUtil.isUnannotated(methodSymbol, config)) {
       nonNullPositions =
           handler.onUnannotatedInvocationGetNonNullPositions(
               this, state, methodSymbol, actualParams, ImmutableSet.of());
@@ -1714,7 +1714,7 @@ public class NullAway extends BugChecker
 
   private boolean mayBeNullMethodCall(
       VisitorState state, ExpressionTree expr, Symbol.MethodSymbol exprSymbol) {
-    if (NullabilityUtil.fromUnannotatedPackage(exprSymbol, config)) {
+    if (NullabilityUtil.isUnannotated(exprSymbol, config)) {
       return false;
     }
     if (!Nullness.hasNullableAnnotation(exprSymbol)) {

@@ -62,6 +62,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public boolean isUnannotatedClass(Symbol.ClassSymbol symbol) {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
   public boolean isExcludedClassAnnotation(String annotationName) {
     throw new IllegalStateException(error_msg);
   }

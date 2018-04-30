@@ -212,7 +212,7 @@ public class AccessPathNullnessPropagation
         // treat as non-null
         assumed = NONNULL;
       } else {
-        if (NullabilityUtil.fromUnannotatedPackage(fiMethodSymbol, config)) {
+        if (NullabilityUtil.isUnannotated(fiMethodSymbol, config)) {
           // optimistically assume parameter is non-null
           assumed = NONNULL;
         } else {

@@ -44,6 +44,13 @@ public interface Config {
   boolean isExcludedClass(String className);
 
   /**
+   * @param className fully-qualified class name
+   * @return true if the class should be treated as unannotated (in spite of being in an annotated
+   *     package)
+   */
+  boolean isUnannotatedClass(Symbol.ClassSymbol symbol);
+
+  /**
    * @param annotationName fully-qualified annotation name
    * @return true if a top-level class with this annotation should be excluded from nullability
    *     analysis, false otherwise
