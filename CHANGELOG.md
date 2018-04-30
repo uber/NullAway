@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.4.4
+-------------
+* add UnannotatedClasses option (#160)
+
 Version 0.4.3
 -------------
 * properly handle compound assignments (#157)
