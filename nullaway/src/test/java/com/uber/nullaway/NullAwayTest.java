@@ -435,6 +435,28 @@ public class NullAwayTest {
   }
 
   @Test
+  public void testThriftIsSetWithArg() {
+    compilationHelper
+        .addSourceLines(
+            "TBase.java",
+            "package org.apache.thrift;",
+            "public interface TBase {",
+            "  boolean isSet(String fieldName);",
+            "}")
+        .addSourceLines(
+            "Client.java",
+            "package com.uber;",
+            "public class Client {",
+            "  public void testNeg(org.apache.thrift.TBase tBase) {",
+            "    if (tBase.isSet(\"Hello\")) {",
+            "      System.out.println(\"set\");",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void erasedIterator() {
     // just checking for crash
     compilationHelper

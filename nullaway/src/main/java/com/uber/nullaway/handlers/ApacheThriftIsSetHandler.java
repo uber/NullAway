@@ -116,6 +116,8 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
     // noinspection ConstantConditions
     return tbaseType.isPresent()
         && symbol.getSimpleName().toString().startsWith("isSet")
+        // weeds out the isSet() method in TBase itself
+        && symbol.getParameters().length() == 0
         && types.isSubtype(symbol.owner.type, tbaseType.get());
   }
 }
