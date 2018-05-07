@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.4.5
+-------------
+* Fix bug with handling Thrift `TBase.isSet()` calls (#161)
+
 Version 0.4.4
 -------------
 * add UnannotatedClasses option (#160)
