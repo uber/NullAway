@@ -487,6 +487,44 @@ public class NullAwayTest {
         .doTest();
   }
 
+  /** we do not have proper support for Thrift unions yet; just checks that we don't crash */
+  @Test
+  public void testThriftUnion() {
+    compilationHelper
+        .addSourceLines(
+            "TBase.java", "package org.apache.thrift;", "public interface TBase<T, F> {}")
+        .addSourceLines(
+            "TUnion.java",
+            "package org.apache.thrift;",
+            "public abstract class TUnion<T, F> implements TBase<T, F> {",
+            "  protected Object value_;",
+            "  public Object getFieldValue() {",
+            "    return this.value_;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Generated.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Generated extends org.apache.thrift.TUnion<String, Integer> {",
+            "  public Object getId() { return getFieldValue(); }",
+            "  public boolean isSetId() { return true; }",
+            "}")
+        .addSourceLines(
+            "Client.java",
+            "package com.uber;",
+            "public class Client {",
+            "  public void testNeg(Generated g) {",
+            "    if (!g.isSetId()) {",
+            "      return;",
+            "    }",
+            "    Object x = g.getId();",
+            "    if (x.toString() == null) return;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void erasedIterator() {
     // just checking for crash

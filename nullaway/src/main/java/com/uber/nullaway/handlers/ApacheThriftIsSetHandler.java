@@ -48,19 +48,26 @@ import org.checkerframework.javacutil.Pair;
 public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
 
   private static String TBASE_NAME = "org.apache.thrift.TBase";
+  private static String TUNION_NAME = "org.apache.thrift.TUnion";
 
-  @Nullable Optional<Type> tbaseType;
+  @Nullable private Optional<Type> tbaseType;
+  @Nullable private Optional<Type> tunionType;
 
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     if (tbaseType == null) {
-      Type tbaseFromString = state.getTypeFromString(TBASE_NAME);
-      if (tbaseFromString == null) {
-        tbaseType = Optional.empty();
-      } else {
-        tbaseType = Optional.of(state.getTypes().erasure(tbaseFromString));
-      }
+      tbaseType = getErasedTypeFromName(TBASE_NAME, state);
+      tunionType = getErasedTypeFromName(TUNION_NAME, state);
+    }
+  }
+
+  private Optional<Type> getErasedTypeFromName(String typeName, VisitorState state) {
+    Type typeFromString = state.getTypeFromString(typeName);
+    if (typeFromString == null) {
+      return Optional.empty();
+    } else {
+      return Optional.of(state.getTypes().erasure(typeFromString));
     }
   }
 
@@ -79,16 +86,20 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       String capPropName = methodName.substring(5);
       // build access paths for the getter and the field access, and
       // make them nonnull in the thenUpdates
-      Pair<Element, Element> fieldAndGetter = getFieldAndSetterForProperty(symbol, capPropName);
+      Pair<Element, Element> fieldAndGetter =
+          getFieldAndSetterForProperty(symbol, capPropName, types);
       Node base = node.getTarget().getReceiver();
-      thenUpdates.set(AccessPath.fromBaseAndElement(base, fieldAndGetter.first), Nullness.NONNULL);
+      if (fieldAndGetter.first != null) {
+        thenUpdates.set(
+            AccessPath.fromBaseAndElement(base, fieldAndGetter.first), Nullness.NONNULL);
+      }
       thenUpdates.set(AccessPath.fromBaseAndElement(base, fieldAndGetter.second), Nullness.NONNULL);
     }
     return NullnessHint.UNKNOWN;
   }
 
-  private static Pair<Element, Element> getFieldAndSetterForProperty(
-      Symbol.MethodSymbol symbol, String capPropName) {
+  private Pair<Element, Element> getFieldAndSetterForProperty(
+      Symbol.MethodSymbol symbol, String capPropName, Types types) {
     Element field = null;
     Element getter = null;
     String fieldName = capPropName.toLowerCase();
@@ -108,7 +119,11 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       }
     }
     if (field == null) {
-      throw new IllegalStateException("could not find field " + fieldName);
+      // can be no field in the case of a union
+      Preconditions.checkArgument(tunionType != null && tunionType.isPresent());
+      if (!types.isSubtype(symbol.owner.type, tunionType.get())) {
+        throw new IllegalStateException("could not find field " + fieldName);
+      }
     }
     if (getter == null) {
       throw new IllegalStateException("could not find getter " + getterName);
