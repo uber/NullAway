@@ -48,7 +48,6 @@ import org.checkerframework.javacutil.Pair;
 public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
 
   private static String TBASE_NAME = "org.apache.thrift.TBase";
-  private static String TUNION_NAME = "org.apache.thrift.TUnion";
 
   @Nullable private Optional<Type> tbaseType;
 
