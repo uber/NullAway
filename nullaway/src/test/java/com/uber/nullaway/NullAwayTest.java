@@ -435,6 +435,37 @@ public class NullAwayTest {
   }
 
   @Test
+  public void testThriftIsSetWithGenerics() {
+    compilationHelper
+        .addSourceLines(
+            "TBase.java", "package org.apache.thrift;", "public interface TBase<T, F> {}")
+        .addSourceLines(
+            "Generated.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Generated implements org.apache.thrift.TBase<String, Integer> {",
+            "  public @Nullable Object id;",
+            "  @Nullable public Object getId() { return this.id; }",
+            "  public boolean isSetId() { return this.id != null; }",
+            "}")
+        .addSourceLines(
+            "Client.java",
+            "package com.uber;",
+            "public class Client {",
+            "  public void testNeg(Generated g) {",
+            "    if (!g.isSetId()) {",
+            "      return;",
+            "    }",
+            "    Object x = g.getId();",
+            "    if (x.toString() == null) return;",
+            "    g.getId().toString();",
+            "    g.id.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testThriftIsSetWithArg() {
     compilationHelper
         .addSourceLines(
@@ -451,6 +482,44 @@ public class NullAwayTest {
             "    if (tBase.isSet(\"Hello\")) {",
             "      System.out.println(\"set\");",
             "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  /** we do not have proper support for Thrift unions yet; just checks that we don't crash */
+  @Test
+  public void testThriftUnion() {
+    compilationHelper
+        .addSourceLines(
+            "TBase.java", "package org.apache.thrift;", "public interface TBase<T, F> {}")
+        .addSourceLines(
+            "TUnion.java",
+            "package org.apache.thrift;",
+            "public abstract class TUnion<T, F> implements TBase<T, F> {",
+            "  protected Object value_;",
+            "  public Object getFieldValue() {",
+            "    return this.value_;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Generated.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Generated extends org.apache.thrift.TUnion<String, Integer> {",
+            "  public Object getId() { return getFieldValue(); }",
+            "  public boolean isSetId() { return true; }",
+            "}")
+        .addSourceLines(
+            "Client.java",
+            "package com.uber;",
+            "public class Client {",
+            "  public void testNeg(Generated g) {",
+            "    if (!g.isSetId()) {",
+            "      return;",
+            "    }",
+            "    Object x = g.getId();",
+            "    if (x.toString() == null) return;",
             "  }",
             "}")
         .doTest();

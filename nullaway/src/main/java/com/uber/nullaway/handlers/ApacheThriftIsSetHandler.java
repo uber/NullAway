@@ -49,13 +49,22 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
 
   private static String TBASE_NAME = "org.apache.thrift.TBase";
 
-  @Nullable Optional<Type> tbaseType;
+  @Nullable private Optional<Type> tbaseType;
 
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     if (tbaseType == null) {
-      tbaseType = Optional.ofNullable(state.getTypeFromString(TBASE_NAME));
+      tbaseType = getErasedTypeFromName(TBASE_NAME, state);
+    }
+  }
+
+  private Optional<Type> getErasedTypeFromName(String typeName, VisitorState state) {
+    Type typeFromString = state.getTypeFromString(typeName);
+    if (typeFromString == null) {
+      return Optional.empty();
+    } else {
+      return Optional.of(state.getTypes().erasure(typeFromString));
     }
   }
 
@@ -76,13 +85,20 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       // make them nonnull in the thenUpdates
       Pair<Element, Element> fieldAndGetter = getFieldAndSetterForProperty(symbol, capPropName);
       Node base = node.getTarget().getReceiver();
-      thenUpdates.set(AccessPath.fromBaseAndElement(base, fieldAndGetter.first), Nullness.NONNULL);
+      if (fieldAndGetter.first != null) {
+        thenUpdates.set(
+            AccessPath.fromBaseAndElement(base, fieldAndGetter.first), Nullness.NONNULL);
+      }
       thenUpdates.set(AccessPath.fromBaseAndElement(base, fieldAndGetter.second), Nullness.NONNULL);
     }
     return NullnessHint.UNKNOWN;
   }
 
-  private static Pair<Element, Element> getFieldAndSetterForProperty(
+  /**
+   * Returns the field (if it exists and is visible) and the setter for a property. If the field is
+   * not available, the first element of the returned pair is {@code null}.
+   */
+  private Pair<Element, Element> getFieldAndSetterForProperty(
       Symbol.MethodSymbol symbol, String capPropName) {
     Element field = null;
     Element getter = null;
@@ -101,9 +117,6 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
         }
         getter = elem;
       }
-    }
-    if (field == null) {
-      throw new IllegalStateException("could not find field " + fieldName);
     }
     if (getter == null) {
       throw new IllegalStateException("could not find getter " + getterName);
