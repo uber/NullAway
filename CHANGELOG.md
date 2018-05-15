@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Version 0.4.6
+-------------
+* Fix a couple of Thrift issues (#164)
+* Don't report initialization warnings on fields for @ExternalInit classes with 
+  no initializer methods (#166)
+
 Version 0.4.5
 -------------
 * Fix bug with handling Thrift `TBase.isSet()` calls (#161)
