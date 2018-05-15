@@ -51,14 +51,12 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
   private static String TUNION_NAME = "org.apache.thrift.TUnion";
 
   @Nullable private Optional<Type> tbaseType;
-  @Nullable private Optional<Type> tunionType;
 
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     if (tbaseType == null) {
       tbaseType = getErasedTypeFromName(TBASE_NAME, state);
-      tunionType = getErasedTypeFromName(TUNION_NAME, state);
     }
   }
 
@@ -86,8 +84,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       String capPropName = methodName.substring(5);
       // build access paths for the getter and the field access, and
       // make them nonnull in the thenUpdates
-      Pair<Element, Element> fieldAndGetter =
-          getFieldAndSetterForProperty(symbol, capPropName, types);
+      Pair<Element, Element> fieldAndGetter = getFieldAndSetterForProperty(symbol, capPropName);
       Node base = node.getTarget().getReceiver();
       if (fieldAndGetter.first != null) {
         thenUpdates.set(
@@ -98,8 +95,12 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
     return NullnessHint.UNKNOWN;
   }
 
+  /**
+   * Returns the field (if it exists and is visible) and the setter for a property. If the field is
+   * not available, the first element of the returned pair is {@code null}.
+   */
   private Pair<Element, Element> getFieldAndSetterForProperty(
-      Symbol.MethodSymbol symbol, String capPropName, Types types) {
+      Symbol.MethodSymbol symbol, String capPropName) {
     Element field = null;
     Element getter = null;
     String fieldName = capPropName.toLowerCase();
@@ -116,13 +117,6 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
           throw new RuntimeException("already found getter " + getterName);
         }
         getter = elem;
-      }
-    }
-    if (field == null) {
-      // can be no field in the case of a union
-      Preconditions.checkArgument(tunionType != null && tunionType.isPresent());
-      if (!types.isSubtype(symbol.owner.type, tunionType.get())) {
-        throw new IllegalStateException("could not find field " + fieldName);
       }
     }
     if (getter == null) {
