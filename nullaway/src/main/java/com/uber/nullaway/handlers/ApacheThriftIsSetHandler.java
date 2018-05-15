@@ -55,16 +55,8 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     if (tbaseType == null) {
-      tbaseType = getErasedTypeFromName(TBASE_NAME, state);
-    }
-  }
-
-  private Optional<Type> getErasedTypeFromName(String typeName, VisitorState state) {
-    Type typeFromString = state.getTypeFromString(typeName);
-    if (typeFromString == null) {
-      return Optional.empty();
-    } else {
-      return Optional.of(state.getTypes().erasure(typeFromString));
+      tbaseType =
+          Optional.ofNullable(state.getTypeFromString(TBASE_NAME)).map(state.getTypes()::erasure);
     }
   }
 
