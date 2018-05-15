@@ -183,6 +183,14 @@ public class NullAwayTest {
             "  // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field",
             "  public Test(int x) {}",
             "}")
+        .addSourceLines(
+            "Test2.java",
+            "package com.uber;",
+            "@ExternalInit",
+            "class Test2 {",
+            // no error here due to external init
+            "  Object f;",
+            "}")
         .doTest();
   }
 

@@ -1225,8 +1225,11 @@ public class NullAway extends BugChecker
         // report it on the initializer
         errorFieldsForInitializer.put(singleInitializerMethod, uninitField);
       } else if (constructorInitInfo == null) {
-        // report it on the field
-        fieldsWithInitializationErrors.add(uninitField);
+        // report it on the field, except in the case where the class is externalInit and
+        // we have no initializer methods
+        if (!(isExternalInit(classSymbol) && entities.instanceInitializerMethods().isEmpty())) {
+          fieldsWithInitializationErrors.add(uninitField);
+        }
       } else {
         // report it on each constructor that does not initialize it
         for (MethodTree methodTree : constructorInitInfo.keySet()) {
