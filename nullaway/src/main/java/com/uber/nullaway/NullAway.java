@@ -179,18 +179,6 @@ public class NullAway extends BugChecker
   private final Config config;
 
   /**
-   * Fields for which we should report an initialization error when we match them. We report an
-   * error on a field when there are no constructors in the class.
-   */
-  private final Set<Element> fieldsWithInitializationErrors = new LinkedHashSet<>();
-
-  /**
-   * Map from initializer elements (including constructors) to the error message we should when that
-   * constructor is matched.
-   */
-  private final Map<Element, String> initializerErrors = new LinkedHashMap<>();
-
-  /**
    * The handler passed to our analysis (usually a {@code CompositeHandler} including handlers for
    * various APIs.
    */
@@ -439,9 +427,6 @@ public class NullAway extends BugChecker
     // overridden method (if overridden method is in an annotated
     // package)
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
-    if (initializerErrors.containsKey(methodSymbol)) {
-      return reportInitializerError(methodSymbol, tree);
-    }
     handler.onMatchMethod(this, tree, state, methodSymbol);
     boolean isOverriding = ASTHelpers.hasAnnotation(methodSymbol, Override.class, state);
     boolean exhaustiveOverride = config.exhaustiveOverride();
@@ -974,7 +959,9 @@ public class NullAway extends BugChecker
     SuppressWarnings annotation = symbol.getAnnotation(SuppressWarnings.class);
     if (annotation != null) {
       for (String s : annotation.value()) {
-        if (s.equals(INITIALIZATION_CHECK_NAME)) {
+        // we need to check for standard suppressions here also since we may report initialization
+        // errors outside the normal ErrorProne match* methods
+        if (s.equals(INITIALIZATION_CHECK_NAME) || allNames().stream().anyMatch(s::equals)) {
           return true;
         }
       }
@@ -993,22 +980,6 @@ public class NullAway extends BugChecker
     }
     if (!symbol.getKind().equals(ElementKind.FIELD)) {
       return Description.NO_MATCH;
-    }
-    if (fieldsWithInitializationErrors.contains(symbol)) {
-      // be careful to delete entry to avoid leaks
-      fieldsWithInitializationErrors.remove(symbol);
-      if (symbolHasSuppressInitalizationWarningsAnnotation(symbol)) {
-        return Description.NO_MATCH;
-      }
-      if (symbol.isStatic()) {
-        return createErrorDescription(
-            MessageTypes.FIELD_NO_INIT,
-            tree,
-            "@NonNull static field " + symbol + " not initialized",
-            tree);
-      }
-      return createErrorDescription(
-          MessageTypes.FIELD_NO_INIT, tree, "@NonNull field " + symbol + " not initialized", tree);
     }
     ExpressionTree initializer = tree.getInitializer();
     if (initializer != null) {
@@ -1228,7 +1199,7 @@ public class NullAway extends BugChecker
         // report it on the field, except in the case where the class is externalInit and
         // we have no initializer methods
         if (!(isExternalInit(classSymbol) && entities.instanceInitializerMethods().isEmpty())) {
-          fieldsWithInitializationErrors.add(uninitField);
+          reportInitErrorOnField(uninitField, state);
         }
       } else {
         // report it on each constructor that does not initialize it
@@ -1241,9 +1212,10 @@ public class NullAway extends BugChecker
       }
     }
     for (Element constructorElement : errorFieldsForInitializer.keySet()) {
-      initializerErrors.put(
-          constructorElement,
-          errMsgForInitializer(errorFieldsForInitializer.get(constructorElement)));
+      reportInitializerError(
+          (Symbol.MethodSymbol) constructorElement,
+          errMsgForInitializer(errorFieldsForInitializer.get(constructorElement)),
+          state);
     }
     // For static fields
     Set<Symbol> notInitializedStaticFields = notInitializedStatic(entities, state);
@@ -1251,7 +1223,7 @@ public class NullAway extends BugChecker
       // Always report it on the field for static fields (can't do @SuppressWarnings on a static
       // initialization block
       // anyways).
-      fieldsWithInitializationErrors.add(uninitSField);
+      reportInitErrorOnField(uninitSField, state);
     }
   }
 
@@ -2067,15 +2039,14 @@ public class NullAway extends BugChecker
     return null;
   }
 
-  private Description reportInitializerError(
-      Symbol.MethodSymbol methodSymbol, MethodTree methodTree) {
-    String message = initializerErrors.get(methodSymbol);
-    // be careful to delete the entry in the map to avoid a leak
-    initializerErrors.remove(methodSymbol);
+  private void reportInitializerError(
+      Symbol.MethodSymbol methodSymbol, String message, VisitorState state) {
     if (symbolHasSuppressInitalizationWarningsAnnotation(methodSymbol)) {
-      return Description.NO_MATCH;
+      return;
     }
-    return createErrorDescription(MessageTypes.METHOD_NO_INIT, methodTree, message, methodTree);
+    Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
+    state.reportMatch(
+        createErrorDescription(MessageTypes.METHOD_NO_INIT, methodTree, message, methodTree));
   }
 
   private String errMsgForInitializer(Set<Element> uninitFields) {
@@ -2087,6 +2058,28 @@ public class NullAway extends BugChecker
     }
     message += " along all control-flow paths (remember to check for exceptions or early returns).";
     return message;
+  }
+
+  private void reportInitErrorOnField(Symbol symbol, VisitorState state) {
+    if (symbolHasSuppressInitalizationWarningsAnnotation(symbol)) {
+      return;
+    }
+    Tree tree = getTreesInstance(state).getTree(symbol);
+    if (symbol.isStatic()) {
+      state.reportMatch(
+          createErrorDescription(
+              MessageTypes.FIELD_NO_INIT,
+              tree,
+              "@NonNull static field " + symbol + " not initialized",
+              tree));
+    } else {
+      state.reportMatch(
+          createErrorDescription(
+              MessageTypes.FIELD_NO_INIT,
+              tree,
+              "@NonNull field " + symbol + " not initialized",
+              tree));
+    }
   }
 
   /**
