@@ -36,4 +36,4 @@ tasks.withType(JavaCompile) {
   if (!name.toLowerCase().contains("test")) {
     options.compilerArgs += ["-Xep:NullAway:ERROR", "-XepOpt:NullAway:AnnotatedPackages=com.uber"]
   }
-} 
+}
