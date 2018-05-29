@@ -644,4 +644,18 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void cfNullable() {
+    compilationHelper
+        .addSourceLines(
+            "CFNullable.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "import java.util.List;",
+            "abstract class CFNullable<E> {",
+            "  @Nullable List<E>[] table;",
+            "}")
+        .doTest();
+  }
 }
