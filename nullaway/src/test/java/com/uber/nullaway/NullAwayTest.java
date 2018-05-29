@@ -658,4 +658,18 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void cfNullableOverrideFromJar() {
+    compilationHelper
+        .addSourceLines(
+            "CFNullable.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "class LoaderImpl<K,V> implements com.uber.lib.Loader<K, V> {",
+            "  @Override",
+            "  public @Nullable V load(K key) { return null; }",
+            "}")
+        .doTest();
+  }
 }

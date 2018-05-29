@@ -1,5 +1,6 @@
 include ':nullaway'
 include ':sample-library-model'
+include ':sample-java-lib'
 include ':sample'
 include ':sample-app'
 include ':compile-bench'
