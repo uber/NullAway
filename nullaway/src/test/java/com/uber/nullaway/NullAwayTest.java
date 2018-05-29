@@ -646,7 +646,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void cfNullable() {
+  public void cfNullableArrayField() {
     compilationHelper
         .addSourceLines(
             "CFNullable.java",
@@ -654,7 +654,7 @@ public class NullAwayTest {
             "import org.checkerframework.checker.nullness.qual.Nullable;",
             "import java.util.List;",
             "abstract class CFNullable<E> {",
-            "  @Nullable List<E>[] table;",
+            "  List<E> @Nullable [] table;",
             "}")
         .doTest();
   }
