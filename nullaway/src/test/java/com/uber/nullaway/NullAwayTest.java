@@ -709,27 +709,29 @@ public class NullAwayTest {
         .doTest();
   }
 
-  //  @Test
-  //  public void cfNullableFromJar() {
-  //    compilationHelper
-  //        .addSourceLines(
-  //            "CFNullable.java",
-  //            "package com.uber;",
-  //            "import org.checkerframework.checker.nullness.qual.Nullable;",
-  //            "import com.uber.lib.*;",
-  //            "class LoaderImpl<K,V> implements Loader<K, V> {",
-  //            "  @Override",
-  //            "  public @Nullable V load(K key) { return null; }",
-  //            "  // BUG: Diagnostic contains: foo",
-  //            "  public void doSomething(Object o) { o.toString(); }",
-  //            "  public void derefNullable(Loader l) {",
-  //            "    // BUG: Diagnostic contains: dereferenced expression",
-  //            "    (new NullableField()).f.toString();",
-  //            "    // BUG: Diagnostic contains: dereferenced expression",
-  //            "    l.load(new Object()).hashCode();",
-  //            "    l.doSomething(null);",
-  //            "  }",
-  //            "}")
-  //        .doTest();
-  //  }
+  @Test
+  public void typeUseJarOverride() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.*;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "class Test {",
+            "  class Test1 implements CFNullableStuff.NullableReturn {",
+            "    public @Nullable Object get() { return null; }",
+            "  }",
+            "  class Test2 implements CFNullableStuff.NullableParam {",
+            "    // BUG: Diagnostic contains: parameter o is @NonNull",
+            "    public void doSomething(Object o) {}",
+            "    // BUG: Diagnostic contains: parameter p is @NonNull",
+            "    public void doSomething2(Object o, Object p) {}",
+            "  }",
+            "  class Test3 implements CFNullableStuff.NullableParam {",
+            "    public void doSomething(@Nullable Object o) {}",
+            "    public void doSomething2(Object o, @Nullable Object p) {}",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

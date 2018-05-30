@@ -483,8 +483,7 @@ public class NullAway extends BugChecker
     // overridden method
     int startParam = unboundMemberRef ? 1 : 0;
     for (int i = startParam; i < superParamSymbols.size(); i++) {
-      VarSymbol superParam = superParamSymbols.get(i);
-      if (Nullness.hasNullableAnnotation(superParam)) {
+      if (Nullness.paramHasNullableAnnotation(overriddenMethod, i)) {
         int methodParamInd = i - startParam;
         VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
         // in the case where we have a parameter of a lambda expression, we do
