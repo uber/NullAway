@@ -42,7 +42,6 @@ import com.sun.tools.javac.util.JCDiagnostic;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
 
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
@@ -130,13 +129,13 @@ public class NullabilityUtil {
   }
 
   /**
-   * @param element the element
-   * @return all annotations on the element and on the type of the element
+   * @param symbol the symbol
+   * @return all annotations on the symbol and on the type of the symbol
    */
-  public static Stream<? extends AnnotationMirror> getAllAnnotations(Element element) {
+  public static Stream<? extends AnnotationMirror> getAllAnnotations(Symbol symbol) {
     // for methods, we care about annotations on the return type, not on the method type itself
-    Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations((Symbol) element);
-    return Stream.concat(element.getAnnotationMirrors().stream(), typeUseAnnotations);
+    Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations(symbol);
+    return Stream.concat(symbol.getAnnotationMirrors().stream(), typeUseAnnotations);
   }
 
   public static Stream<? extends AnnotationMirror> getAllAnnotationsForParameter(
