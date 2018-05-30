@@ -685,6 +685,9 @@ public class NullAwayTest {
             "class Test {",
             "  void foo(CFNullableStuff.NullableParam p) {",
             "    p.doSomething(null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    p.doSomething2(null, new Object());",
+            "    p.doSomething2(new Object(), null);",
             "  }",
             "}")
         .doTest();

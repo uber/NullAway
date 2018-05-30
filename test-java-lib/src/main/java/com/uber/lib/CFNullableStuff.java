@@ -12,6 +12,8 @@ public class CFNullableStuff {
 
   public interface NullableParam {
     void doSomething(@Nullable Object o);
+
+    void doSomething2(Object o, @Nullable Object p);
   }
 
   @Nullable Object f;
