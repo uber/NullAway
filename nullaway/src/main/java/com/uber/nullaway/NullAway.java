@@ -483,6 +483,8 @@ public class NullAway extends BugChecker
     // overridden method
     int startParam = unboundMemberRef ? 1 : 0;
     for (int i = startParam; i < superParamSymbols.size(); i++) {
+      // we need to call paramHasNullableAnnotation here since overriddenMethod may be defined
+      // in a class file
       if (Nullness.paramHasNullableAnnotation(overriddenMethod, i)) {
         int methodParamInd = i - startParam;
         VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
@@ -1134,8 +1136,9 @@ public class NullAway extends BugChecker
             continue;
           }
         }
-        boolean nullable = Nullness.paramHasNullableAnnotation(methodSymbol, i);
-        if (!nullable) {
+        // we need to call paramHasNullableAnnotation here since the invoked method may be defined
+        // in a class file
+        if (!Nullness.paramHasNullableAnnotation(methodSymbol, i)) {
           builder.add(i);
         }
       }
