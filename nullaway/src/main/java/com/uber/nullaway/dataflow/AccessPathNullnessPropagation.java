@@ -205,7 +205,7 @@ public class AccessPathNullnessPropagation
       Nullness assumed;
       // we treat lambda parameters differently; they "inherit" the nullability of the
       // corresponding functional interface parameter, unless they are explicitly annotated
-      if (Nullness.hasNullableAnnotation(element)) {
+      if (Nullness.hasNullableAnnotation((Symbol) element)) {
         assumed = NULLABLE;
       } else if (!NullabilityUtil.lambdaParamIsImplicitlyTyped(variableTree)) {
         // the parameter has a declared type with no @Nullable annotation
@@ -230,7 +230,7 @@ public class AccessPathNullnessPropagation
     NullnessStore.Builder<Nullness> result = NullnessStore.<Nullness>empty().toBuilder();
     for (LocalVariableNode param : parameters) {
       Element element = param.getElement();
-      Nullness assumed = Nullness.hasNullableAnnotation(element) ? NULLABLE : NONNULL;
+      Nullness assumed = Nullness.hasNullableAnnotation((Symbol) element) ? NULLABLE : NONNULL;
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
@@ -645,7 +645,6 @@ public class AccessPathNullnessPropagation
     ReadableUpdates updates = new ReadableUpdates();
     Symbol symbol = ASTHelpers.getSymbol(fieldAccessNode.getTree());
     setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
-    VariableElement element = fieldAccessNode.getElement();
     Nullness nullness = Nullness.NULLABLE;
     if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config)) {
       nullness = NONNULL;
@@ -863,7 +862,7 @@ public class AccessPathNullnessPropagation
       nullness = input.getRegularStore().valueOfMethodCall(node, types, NULLABLE);
     } else if (node == null
         || methodReturnsNonNull.test(node)
-        || !Nullness.hasNullableAnnotation(node.getTarget().getMethod())) {
+        || !Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod())) {
       // definite non-null return
       nullness = NONNULL;
     } else {

@@ -23,7 +23,6 @@
 package com.uber.nullaway;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
@@ -33,15 +32,16 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.Element;
-import javax.lang.model.type.TypeMirror;
 
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
@@ -129,16 +129,46 @@ public class NullabilityUtil {
   }
 
   /**
-   * @param element the element
-   * @return all annotations on the element and on the type of the element
+   * NOTE: this method does not work for getting all annotations of parameters of methods from class
+   * files. For that case, use {@link #getAllAnnotationsForParameter(Symbol.MethodSymbol, int)}
+   *
+   * @param symbol the symbol
+   * @return all annotations on the symbol and on the type of the symbol
    */
-  public static Iterable<? extends AnnotationMirror> getAllAnnotations(Element element) {
+  public static Stream<? extends AnnotationMirror> getAllAnnotations(Symbol symbol) {
     // for methods, we care about annotations on the return type, not on the method type itself
-    TypeMirror typeMirror =
-        element instanceof Symbol.MethodSymbol
-            ? ((Symbol.MethodSymbol) element).getReturnType()
-            : element.asType();
-    return Iterables.concat(element.getAnnotationMirrors(), typeMirror.getAnnotationMirrors());
+    Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations(symbol);
+    return Stream.concat(symbol.getAnnotationMirrors().stream(), typeUseAnnotations);
+  }
+
+  /**
+   * Works for method parameters defined either in source or in class files
+   *
+   * @param symbol the method symbol
+   * @param paramInd index of the parameter
+   * @return all declaration and type-use annotations for the parameter
+   */
+  public static Stream<? extends AnnotationMirror> getAllAnnotationsForParameter(
+      Symbol.MethodSymbol symbol, int paramInd) {
+    Symbol.VarSymbol varSymbol = symbol.getParameters().get(paramInd);
+    return Stream.concat(
+        varSymbol.getAnnotationMirrors().stream(),
+        symbol
+            .getRawTypeAttributes()
+            .stream()
+            .filter(
+                t ->
+                    t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
+                        && t.position.parameter_index == paramInd));
+  }
+
+  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(Symbol symbol) {
+    Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
+    if (symbol instanceof Symbol.MethodSymbol) {
+      // for methods, we want the type-use annotations on the return type
+      return rawTypeAttributes.filter((t) -> t.position.type.equals(TargetType.METHOD_RETURN));
+    }
+    return rawTypeAttributes;
   }
 
   /**

@@ -422,6 +422,14 @@ public class NullAwayPositiveCases {
       return str.hashCode();
     }
 
+    static void fizz2(
+        Object o, @org.checkerframework.checker.nullness.qual.Nullable Object p, Object q) {}
+
+    static void caller() {
+      // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+      fizz2(new Object(), new Object(), null);
+    }
+
     Object retNonNull() {
       return new Object();
     }

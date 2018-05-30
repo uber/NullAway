@@ -483,8 +483,9 @@ public class NullAway extends BugChecker
     // overridden method
     int startParam = unboundMemberRef ? 1 : 0;
     for (int i = startParam; i < superParamSymbols.size(); i++) {
-      VarSymbol superParam = superParamSymbols.get(i);
-      if (Nullness.hasNullableAnnotation(superParam)) {
+      // we need to call paramHasNullableAnnotation here since overriddenMethod may be defined
+      // in a class file
+      if (Nullness.paramHasNullableAnnotation(overriddenMethod, i)) {
         int methodParamInd = i - startParam;
         VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
         // in the case where we have a parameter of a lambda expression, we do
@@ -1135,8 +1136,9 @@ public class NullAway extends BugChecker
             continue;
           }
         }
-        boolean nullable = Nullness.hasNullableAnnotation(param);
-        if (!nullable) {
+        // we need to call paramHasNullableAnnotation here since the invoked method may be defined
+        // in a class file
+        if (!Nullness.paramHasNullableAnnotation(methodSymbol, i)) {
           builder.add(i);
         }
       }
@@ -1570,13 +1572,9 @@ public class NullAway extends BugChecker
   }
 
   private boolean skipDueToFieldAnnotation(Symbol fieldSymbol) {
-    for (AnnotationMirror anno : NullabilityUtil.getAllAnnotations(fieldSymbol)) {
-      String annoTypeStr = anno.getAnnotationType().toString();
-      if (config.isExcludedFieldAnnotation(annoTypeStr)) {
-        return true;
-      }
-    }
-    return false;
+    return NullabilityUtil.getAllAnnotations(fieldSymbol)
+        .map(anno -> anno.getAnnotationType().toString())
+        .anyMatch(config::isExcludedFieldAnnotation);
   }
 
   private boolean isExcludedClass(Symbol.ClassSymbol classSymbol, VisitorState state) {
