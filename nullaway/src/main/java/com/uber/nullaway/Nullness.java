@@ -19,7 +19,7 @@
 package com.uber.nullaway;
 
 import com.sun.tools.javac.code.Symbol;
-import java.util.stream.StreamSupport;
+import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import org.checkerframework.dataflow.analysis.AbstractValue;
@@ -129,8 +129,8 @@ public enum Nullness implements AbstractValue<Nullness> {
     return displayName;
   }
 
-  private static boolean hasNullableAnnotation(Iterable<? extends AnnotationMirror> annotations) {
-    return StreamSupport.stream(annotations.spliterator(), false)
+  private static boolean hasNullableAnnotation(Stream<? extends AnnotationMirror> annotations) {
+    return annotations
         .map(anno -> anno.getAnnotationType().toString())
         .anyMatch(Nullness::isNullableAnnotation);
   }

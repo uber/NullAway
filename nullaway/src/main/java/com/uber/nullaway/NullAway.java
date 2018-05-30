@@ -1570,13 +1570,9 @@ public class NullAway extends BugChecker
   }
 
   private boolean skipDueToFieldAnnotation(Symbol fieldSymbol) {
-    for (AnnotationMirror anno : NullabilityUtil.getAllAnnotations(fieldSymbol)) {
-      String annoTypeStr = anno.getAnnotationType().toString();
-      if (config.isExcludedFieldAnnotation(annoTypeStr)) {
-        return true;
-      }
-    }
-    return false;
+    return NullabilityUtil.getAllAnnotations(fieldSymbol)
+        .map(anno -> anno.getAnnotationType().toString())
+        .anyMatch(config::isExcludedFieldAnnotation);
   }
 
   private boolean isExcludedClass(Symbol.ClassSymbol classSymbol, VisitorState state) {

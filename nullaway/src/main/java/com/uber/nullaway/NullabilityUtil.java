@@ -23,7 +23,6 @@
 package com.uber.nullaway;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
@@ -39,8 +38,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -134,38 +132,36 @@ public class NullabilityUtil {
    * @param element the element
    * @return all annotations on the element and on the type of the element
    */
-  public static Iterable<? extends AnnotationMirror> getAllAnnotations(Element element) {
+  public static Stream<? extends AnnotationMirror> getAllAnnotations(Element element) {
     // for methods, we care about annotations on the return type, not on the method type itself
-    List<? extends AnnotationMirror> annotationMirrors = getTypeUseAnnotations(element);
-    return Iterables.concat(element.getAnnotationMirrors(), annotationMirrors);
+    Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations(element);
+    return Stream.concat(element.getAnnotationMirrors().stream(), typeUseAnnotations);
   }
 
-  public static Iterable<? extends AnnotationMirror> getAllAnnotationsForParameter(
+  public static Stream<? extends AnnotationMirror> getAllAnnotationsForParameter(
       Symbol.MethodSymbol symbol, int paramInd) {
     Symbol.VarSymbol varSymbol = symbol.getParameters().get(paramInd);
-    return Iterables.concat(
-        varSymbol.getAnnotationMirrors(),
+    return Stream.concat(
+        varSymbol.getAnnotationMirrors().stream(),
         symbol
             .getRawTypeAttributes()
             .stream()
             .filter(
                 t ->
                     t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
-                        && t.position.parameter_index == paramInd)
-            .collect(Collectors.toList()));
+                        && t.position.parameter_index == paramInd));
   }
 
-  private static List<? extends AnnotationMirror> getTypeUseAnnotations(Element element) {
+  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(Element element) {
     if (element instanceof Symbol.MethodSymbol) {
       // for methods, we care about annotations on the return type, not on the method type itself
       Symbol.MethodSymbol symbol = (Symbol.MethodSymbol) element;
       return symbol
           .getRawTypeAttributes()
           .stream()
-          .filter((t) -> t.position.type.equals(TargetType.METHOD_RETURN))
-          .collect(Collectors.toList());
+          .filter((t) -> t.position.type.equals(TargetType.METHOD_RETURN));
     }
-    return element.asType().getAnnotationMirrors();
+    return element.asType().getAnnotationMirrors().stream();
   }
 
   /**
