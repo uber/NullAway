@@ -143,10 +143,20 @@ public enum Nullness implements AbstractValue<Nullness> {
         || annotName.equals("org.checkerframework.checker.nullness.compatqual.NullableDecl");
   }
 
+  /**
+   * Does the symbol have a {@code @Nullable} declaration or type-use annotation?
+   *
+   * <p>NOTE: this method does not work for checking all annotations of parameters of methods from
+   * class files. For that case, use {@link #paramHasNullableAnnotation(Symbol.MethodSymbol, int)}
+   */
   public static boolean hasNullableAnnotation(Symbol symbol) {
     return hasNullableAnnotation(NullabilityUtil.getAllAnnotations(symbol));
   }
 
+  /**
+   * Does the parameter of {@code symbol} at {@code paramInd} have a {@code @Nullable} declaration
+   * or type-use annotation? This method works for methods defined in either source or class files.
+   */
   public static boolean paramHasNullableAnnotation(Symbol.MethodSymbol symbol, int paramInd) {
     return hasNullableAnnotation(NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd));
   }
