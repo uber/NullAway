@@ -1135,7 +1135,7 @@ public class NullAway extends BugChecker
             continue;
           }
         }
-        boolean nullable = Nullness.hasNullableAnnotation(param);
+        boolean nullable = Nullness.paramHasNullableAnnotation(methodSymbol, i);
         if (!nullable) {
           builder.add(i);
         }

@@ -140,8 +140,24 @@ public class NullabilityUtil {
     return Iterables.concat(element.getAnnotationMirrors(), annotationMirrors);
   }
 
+  public static Iterable<? extends AnnotationMirror> getAllAnnotationsForParameter(
+      Symbol.MethodSymbol symbol, int paramInd) {
+    Symbol.VarSymbol varSymbol = symbol.getParameters().get(paramInd);
+    return Iterables.concat(
+        varSymbol.getAnnotationMirrors(),
+        symbol
+            .getRawTypeAttributes()
+            .stream()
+            .filter(
+                t ->
+                    t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
+                        && t.position.parameter_index == paramInd)
+            .collect(Collectors.toList()));
+  }
+
   private static List<? extends AnnotationMirror> getTypeUseAnnotations(Element element) {
     if (element instanceof Symbol.MethodSymbol) {
+      // for methods, we care about annotations on the return type, not on the method type itself
       Symbol.MethodSymbol symbol = (Symbol.MethodSymbol) element;
       return symbol
           .getRawTypeAttributes()

@@ -660,26 +660,57 @@ public class NullAwayTest {
   }
 
   @Test
-  public void cfNullableFromJar() {
+  public void typeUseJarReturn() {
     compilationHelper
         .addSourceLines(
-            "CFNullable.java",
+            "Test.java",
             "package com.uber;",
-            "import org.checkerframework.checker.nullness.qual.Nullable;",
             "import com.uber.lib.*;",
-            "class LoaderImpl<K,V> implements Loader<K, V> {",
-            "  @Override",
-            "  public @Nullable V load(K key) { return null; }",
-            "  // BUG: Diagnostic contains: foo",
-            "  public void doSomething(Object o) { o.toString(); }",
-            "  public void derefNullable(Loader l) {",
+            "class Test {",
+            "  void foo(CFNullableStuff.NullableReturn r) {",
             "    // BUG: Diagnostic contains: dereferenced expression",
-            "    (new NullableField()).f.toString();",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    l.load(new Object()).hashCode();",
-            "    l.doSomething(null);",
+            "    r.get().toString();",
             "  }",
             "}")
         .doTest();
   }
+
+  @Test
+  public void typeUseJarParam() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.*;",
+            "class Test {",
+            "  void foo(CFNullableStuff.NullableParam p) {",
+            "    p.doSomething(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  //  @Test
+  //  public void cfNullableFromJar() {
+  //    compilationHelper
+  //        .addSourceLines(
+  //            "CFNullable.java",
+  //            "package com.uber;",
+  //            "import org.checkerframework.checker.nullness.qual.Nullable;",
+  //            "import com.uber.lib.*;",
+  //            "class LoaderImpl<K,V> implements Loader<K, V> {",
+  //            "  @Override",
+  //            "  public @Nullable V load(K key) { return null; }",
+  //            "  // BUG: Diagnostic contains: foo",
+  //            "  public void doSomething(Object o) { o.toString(); }",
+  //            "  public void derefNullable(Loader l) {",
+  //            "    // BUG: Diagnostic contains: dereferenced expression",
+  //            "    (new NullableField()).f.toString();",
+  //            "    // BUG: Diagnostic contains: dereferenced expression",
+  //            "    l.load(new Object()).hashCode();",
+  //            "    l.doSomething(null);",
+  //            "  }",
+  //            "}")
+  //        .doTest();
+  //  }
 }
