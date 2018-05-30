@@ -32,6 +32,7 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
@@ -134,7 +135,7 @@ public class NullabilityUtil {
    */
   public static Stream<? extends AnnotationMirror> getAllAnnotations(Element element) {
     // for methods, we care about annotations on the return type, not on the method type itself
-    Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations(element);
+    Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations((Symbol) element);
     return Stream.concat(element.getAnnotationMirrors().stream(), typeUseAnnotations);
   }
 
@@ -152,16 +153,12 @@ public class NullabilityUtil {
                         && t.position.parameter_index == paramInd));
   }
 
-  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(Element element) {
-    if (element instanceof Symbol.MethodSymbol) {
-      // for methods, we care about annotations on the return type, not on the method type itself
-      Symbol.MethodSymbol symbol = (Symbol.MethodSymbol) element;
-      return symbol
-          .getRawTypeAttributes()
-          .stream()
-          .filter((t) -> t.position.type.equals(TargetType.METHOD_RETURN));
+  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(Symbol symbol) {
+    Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
+    if (symbol instanceof Symbol.MethodSymbol) {
+      return rawTypeAttributes.filter((t) -> t.position.type.equals(TargetType.METHOD_RETURN));
     }
-    return element.asType().getAnnotationMirrors().stream();
+    return rawTypeAttributes;
   }
 
   /**

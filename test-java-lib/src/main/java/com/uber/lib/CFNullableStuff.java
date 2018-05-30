@@ -16,5 +16,5 @@ public class CFNullableStuff {
     void doSomething2(Object o, @Nullable Object p);
   }
 
-  @Nullable Object f;
+  public @Nullable Object f;
 }

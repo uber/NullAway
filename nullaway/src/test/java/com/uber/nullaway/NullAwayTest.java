@@ -693,6 +693,22 @@ public class NullAwayTest {
         .doTest();
   }
 
+  @Test
+  public void typeUseJarField() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.*;",
+            "class Test {",
+            "  void foo(CFNullableStuff c) {",
+            "    // BUG: Diagnostic contains: dereferenced expression c.f",
+            "    c.f.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   //  @Test
   //  public void cfNullableFromJar() {
   //    compilationHelper
