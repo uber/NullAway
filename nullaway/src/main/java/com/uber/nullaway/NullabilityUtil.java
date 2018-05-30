@@ -34,14 +34,16 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
+import java.util.List;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
-import javax.lang.model.type.TypeMirror;
 
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
@@ -134,11 +136,20 @@ public class NullabilityUtil {
    */
   public static Iterable<? extends AnnotationMirror> getAllAnnotations(Element element) {
     // for methods, we care about annotations on the return type, not on the method type itself
-    TypeMirror typeMirror =
-        element instanceof Symbol.MethodSymbol
-            ? ((Symbol.MethodSymbol) element).getReturnType()
-            : element.asType();
-    return Iterables.concat(element.getAnnotationMirrors(), typeMirror.getAnnotationMirrors());
+    List<? extends AnnotationMirror> annotationMirrors = getTypeUseAnnotations(element);
+    return Iterables.concat(element.getAnnotationMirrors(), annotationMirrors);
+  }
+
+  private static List<? extends AnnotationMirror> getTypeUseAnnotations(Element element) {
+    if (element instanceof Symbol.MethodSymbol) {
+      Symbol.MethodSymbol symbol = (Symbol.MethodSymbol) element;
+      return symbol
+          .getRawTypeAttributes()
+          .stream()
+          .filter((t) -> t.position.type.equals(TargetType.METHOD_RETURN))
+          .collect(Collectors.toList());
+    }
+    return element.asType().getAnnotationMirrors();
   }
 
   /**

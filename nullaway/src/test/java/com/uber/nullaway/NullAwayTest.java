@@ -660,15 +660,25 @@ public class NullAwayTest {
   }
 
   @Test
-  public void cfNullableOverrideFromJar() {
+  public void cfNullableFromJar() {
     compilationHelper
         .addSourceLines(
             "CFNullable.java",
             "package com.uber;",
             "import org.checkerframework.checker.nullness.qual.Nullable;",
-            "class LoaderImpl<K,V> implements com.uber.lib.Loader<K, V> {",
+            "import com.uber.lib.*;",
+            "class LoaderImpl<K,V> implements Loader<K, V> {",
             "  @Override",
             "  public @Nullable V load(K key) { return null; }",
+            "  // BUG: Diagnostic contains: foo",
+            "  public void doSomething(Object o) { o.toString(); }",
+            "  public void derefNullable(Loader l) {",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    (new NullableField()).f.toString();",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    l.load(new Object()).hashCode();",
+            "    l.doSomething(null);",
+            "  }",
             "}")
         .doTest();
   }
