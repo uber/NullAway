@@ -2,7 +2,6 @@ package com.uber.nullaway.jarinfer;
 
 import com.ibm.wala.cfg.ControlFlowGraph;
 import com.ibm.wala.classLoader.IMethod;
-import com.ibm.wala.examples.util.ExampleUtil;
 import com.ibm.wala.ipa.callgraph.AnalysisCache;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
 import com.ibm.wala.ipa.callgraph.AnalysisOptions;
@@ -27,17 +26,17 @@ import java.util.*;
 import org.junit.Assert;
 
 /*
- * Driver for running {@link definitelyDerefedParams}
+ * Driver for running {@link DefinitelyDerefedParams}
  */
-public class definitelyDerefedParamsDriver {
-
-  public static final String SCOPE_FILE_PATH = "./tests/tests.scope.txt";
-  public static final String SCOPE_MAIN_CLASS = "Ltoys/Main";
+public class DefinitelyDerefedParamsDriver {
+  //TODO: pass as arguments to the tool
+  public static final String DEFAULT_SCOPE_FILE_PATH = "./tests/tests.scope.txt";
+  public static final String DEFAULT_SCOPE_MAIN_CLASS = "Ltoys/Main";
   public static final String TARGET_METHOD = "test";
   public static final String TARGET_METHOD_SIGN = "(Ljava/lang/String;Ltoys/Foo;Ltoys/Bar;)V";
 
   /*
-   * Usage: definitelyDerefedParamsDriver -scopeFile file_path -mainClass class_name
+   * Usage: DefinitelyDerefedParamsDriver -scopeFile file_path -mainClass class_name
    *
    * Uses main() method of class_name as entrypoint.
    *
@@ -46,7 +45,6 @@ public class definitelyDerefedParamsDriver {
    * @throws CallGraphBuilderCancelException
    * @throws IllegalArgumentException
    */
-
   public static void main(String[] args)
       throws IOException, ClassHierarchyException, IllegalArgumentException,
           CallGraphBuilderCancelException {
@@ -54,62 +52,44 @@ public class definitelyDerefedParamsDriver {
     Properties p = CommandLine.parse(args);
     String scopeFile = p.getProperty("scopeFile");
     if (scopeFile == null) {
-      scopeFile = SCOPE_FILE_PATH;
-      // throw new IllegalArgumentException("must specify scope file");
+      scopeFile = DEFAULT_SCOPE_FILE_PATH;
     }
     String mainClass = p.getProperty("mainClass");
     if (mainClass == null) {
-      mainClass = SCOPE_MAIN_CLASS;
-      // throw new IllegalArgumentException("must specify main class");
+      mainClass = DEFAULT_SCOPE_MAIN_CLASS;
     }
 
     AnalysisScope scope =
         AnalysisScopeReader.readJavaScope(
-            scopeFile, null, definitelyDerefedParamsDriver.class.getClassLoader());
+            scopeFile, null, DefinitelyDerefedParamsDriver.class.getClassLoader());
     AnalysisOptions options = new AnalysisOptions(scope, null);
     AnalysisCache cache = new AnalysisCacheImpl();
-    ExampleUtil.addDefaultExclusions(scope);
     IClassHierarchy cha = ClassHierarchyFactory.make(scope);
     System.out.println(cha.getNumberOfClasses() + " classes");
-    //	    System.out.println(Warnings.asString());
     Warnings.clear();
 
     MethodReference method =
         scope.findMethod(
             AnalysisScope.APPLICATION,
-            SCOPE_MAIN_CLASS,
+            mainClass,
             Atom.findOrCreateUnicodeAtom(TARGET_METHOD),
             new ImmutableByteArray(UTF8Convert.toUTF8(TARGET_METHOD_SIGN)));
     Assert.assertNotNull("method not found", method);
+    // TODO: convert this to a junit or WALA unit test,
+    // OR switch these to Preconditions.checkNotNull and add Guava as a dependency.
     IMethod imethod = cha.resolveMethod(method);
     Assert.assertNotNull("imethod not found", imethod);
     IR ir = cache.getIRFactory().makeIR(imethod, Everywhere.EVERYWHERE, options.getSSAOptions());
     System.out.println(ir);
 
     ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
-    //          ExplodedControlFlowGraph ecfg = ExplodedControlFlowGraph.make(ir);
-
-    //
-    //	    Iterable<Entrypoint> entrypoints = Util.makeMainEntrypoints(scope, cha, mainClass);
-    //	    options.setEntrypoints(entrypoints);
-    //	    options.setReflectionOptions(ReflectionOptions.NONE);
-    //
-    //	    AnalysisCache cache = new AnalysisCacheImpl();
-    //	    // other builders can be constructed with different Util methods
-    //		  CallGraphBuilder builder = Util.makeZeroOneContainerCFABuilder(options, cache, cha,
-    // scope);
-    //		  System.out.println("building call graph...");
-    //		  CallGraph cg = builder.makeCallGraph(options, null);
-    //
-    //          ExplodedInterproceduralCFG icfg = ExplodedInterproceduralCFG.make(cg);
-    definitelyDerefedParams derefedParamsFinder =
-        new definitelyDerefedParams(imethod, ir, cfg, cha);
+    DefinitelyDerefedParams derefedParamsFinder =
+        new DefinitelyDerefedParams(imethod, ir, cfg, cha);
     Set<String> result = derefedParamsFinder.analyze();
 
     long end = System.currentTimeMillis();
     System.out.println("done");
     System.out.println("took " + (end - start) + "ms");
     System.out.println("definitely-derefereced paramters: " + result.toString());
-    //		  System.out.println(CallGraphStats.getStats(cg));
   }
 }
