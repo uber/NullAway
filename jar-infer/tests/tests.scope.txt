@@ -1,0 +1,3 @@
+Primordial,Java,stdlib,none
+Primordial,Java,jarFile,primordial.jar.model
+Application,Java,jarFile,./tests/build/libs/tests.jar
