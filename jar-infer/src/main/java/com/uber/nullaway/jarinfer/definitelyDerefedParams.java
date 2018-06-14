@@ -1,9 +1,17 @@
-/**
- * **************************************************************************** Copyright (c) 2018
- * Uber Technologies Inc.
+/*
+ * Copyright (C) 2018. Uber Technologies
  *
- * <p>Contributors: Uber Technologies Inc.
- * ****************************************************************************
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 package com.uber.nullaway.jarinfer;
 
@@ -30,10 +38,8 @@ import java.util.*;
  * v0.1
  * Basic analysis that identifies function parameter dereferences in BBs that post-dominate the exit node.
  *
- * @author subarno
  */
-
-public class definitelyDerefedParams {
+public class DefinitelyDerefedParams {
 
   private final IMethod method;
   private final IR ir;
@@ -46,7 +52,7 @@ public class definitelyDerefedParams {
 
   private static final boolean VERBOSE = true;
 
-  public definitelyDerefedParams(
+  public DefinitelyDerefedParams(
       IMethod method,
       IR ir,
       ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg,
@@ -62,11 +68,11 @@ public class definitelyDerefedParams {
    *
    * @return the list of definitely-dereferenced function parameters
    */
-
   public Set<String> analyze() {
     // Get ExceptionPrunedCFG
     System.out.println("pruning exceptional edges in CFG...");
     PrunedCFG<SSAInstruction, ISSABasicBlock> prunedCFG = ExceptionPrunedCFG.make(cfg);
+    // In case the only control flows are exceptional, simply return.
     if (prunedCFG.getNumberOfNodes() == 2
         && prunedCFG.containsNode(cfg.entry())
         && prunedCFG.containsNode(cfg.exit())
@@ -82,17 +88,16 @@ public class definitelyDerefedParams {
     if (VERBOSE) {
       System.out.println("pdom: " + pdomTree.toString());
     }
-    // Note: WALA creates a single 'dummy' exit node. Multiple exits points will never post-dominate
+    // Note: WALA creates a single dummy exit node. Multiple exits points will never post-dominate
     // this exit node. (?)
     // TODO: [v0.2] Need data-flow analysis for dereferences on all paths
     // Walk from exit node in post-dominator tree and check for use of params
     ArrayList<ISSABasicBlock> nodeQueue = new ArrayList<ISSABasicBlock>();
     nodeQueue.add(prunedCFG.exit());
-    // Get number of params and value number of first param
-    // v1 is 'this' only for non-static methods
     Set<String> derefedParamList = new HashSet<String>();
+    // Get number of params and value number of first param
     int numParam = ir.getSymbolTable().getNumberOfParameters();
-    int firstParamIndex = (method.isStatic()) ? 1 : 2;
+    int firstParamIndex = (method.isStatic()) ? 1 : 2;  // v1 is 'this' only for non-static methods
     if (VERBOSE) {
       System.out.println("param value numbers : " + firstParamIndex + " ... " + numParam);
     }
@@ -100,7 +105,7 @@ public class definitelyDerefedParams {
       ISSABasicBlock node = nodeQueue.get(0);
       nodeQueue.remove(node);
       // check for use of params
-      if (!node.isExitBlock() && !node.isEntryBlock()) {
+      if (!node.isEntryBlock() && !node.isExitBlock()) { // entry and exit are dummy basic blocks
         if (VERBOSE) {
           System.out.println(">> bb: " + node.getNumber());
         }

@@ -25,5 +25,5 @@ This will pull in the required WALA jars and build the analysis code.
 ### Usage
 
     cd jar-infer
-    gradle run -PmainClass="com.uber.nullaway.jarinfer.definitelyDerefedParamsDriver"
+    gradle run -PmainClass="com.uber.nullaway.jarinfer.DefinitelyDerefedParamsDriver"
 
