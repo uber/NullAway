@@ -52,11 +52,8 @@ public class DefinitelyDerefedParamsDriver {
   /*
    * Usage: DefinitelyDerefedParamsDriver -scopeFile file_path -mainClass class_name
    *
-   * Uses main() method of class_name as entrypoint.
-   *
    * @throws IOException
    * @throws ClassHierarchyException
-   * @throws CallGraphBuilderCancelException
    * @throws IllegalArgumentException
    */
   public static void main(String[] args)
