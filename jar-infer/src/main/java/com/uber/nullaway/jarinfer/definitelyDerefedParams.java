@@ -97,7 +97,7 @@ public class DefinitelyDerefedParams {
     Set<String> derefedParamList = new HashSet<String>();
     // Get number of params and value number of first param
     int numParam = ir.getSymbolTable().getNumberOfParameters();
-    int firstParamIndex = (method.isStatic()) ? 1 : 2;  // v1 is 'this' only for non-static methods
+    int firstParamIndex = (method.isStatic()) ? 1 : 2;  // 1-indexed; v1 is 'this' only for non-static methods
     if (VERBOSE) {
       System.out.println("param value numbers : " + firstParamIndex + " ... " + numParam);
     }
@@ -112,7 +112,7 @@ public class DefinitelyDerefedParams {
         // Iterate over all instructions in BB
         for (int i = node.getFirstInstructionIndex(); i <= node.getLastInstructionIndex(); i++) {
           SSAInstruction instr = ir.getInstructions()[i];
-          if (instr == null) continue; // Some instructions are null (?)
+          if (instr == null) continue; // Some instructions are null (padding NoOps)
           if (VERBOSE) {
             System.out.println("\tinst: " + instr.toString());
           }
