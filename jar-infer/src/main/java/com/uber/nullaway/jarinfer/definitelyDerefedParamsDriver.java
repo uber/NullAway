@@ -28,6 +28,7 @@ import com.ibm.wala.ipa.cha.IClassHierarchy;
 import com.ibm.wala.ssa.IR;
 import com.ibm.wala.ssa.ISSABasicBlock;
 import com.ibm.wala.ssa.SSAInstruction;
+import com.ibm.wala.types.ClassLoaderReference;
 import com.ibm.wala.types.MethodReference;
 import com.ibm.wala.util.config.AnalysisScopeReader;
 import com.ibm.wala.util.io.CommandLine;
@@ -37,58 +38,42 @@ import com.ibm.wala.util.strings.UTF8Convert;
 import com.ibm.wala.util.warnings.Warnings;
 import java.io.IOException;
 import java.util.*;
-import org.junit.Assert;
+import com.google.common.base.Preconditions;
 
 /*
  * Driver for running {@link DefinitelyDerefedParams}
  */
 public class DefinitelyDerefedParamsDriver {
-  //TODO: pass as arguments to the tool
-  public static final String DEFAULT_SCOPE_FILE_PATH = "./tests/tests.scope.txt";
-  public static final String DEFAULT_SCOPE_MAIN_CLASS = "Ltoys/Main";
-  public static final String TARGET_METHOD = "test";
-  public static final String TARGET_METHOD_SIGN = "(Ljava/lang/String;Ltoys/Foo;Ltoys/Bar;)V";
+  private static final String PRIMORDIAL_SCOPE_FILE_PATH = "./src/test/resources/com/uber/nullaway/jarinfer/testdata/test.scope.txt";
 
   /*
-   * Usage: DefinitelyDerefedParamsDriver -scopeFile file_path -mainClass class_name
+   * Usage: DefinitelyDerefedParamsDriver ( class_file _dir, class_name, method_name, method_signature)
    *
    * @throws IOException
    * @throws ClassHierarchyException
    * @throws IllegalArgumentException
    */
-  public static void main(String[] args)
+  public static Set<String> run(String classFileDir, String mainClass, String targetMethod, String targetMethodSignature)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     long start = System.currentTimeMillis();
-    Properties p = CommandLine.parse(args);
-    String scopeFile = p.getProperty("scopeFile");
-    if (scopeFile == null) {
-      scopeFile = DEFAULT_SCOPE_FILE_PATH;
-    }
-    String mainClass = p.getProperty("mainClass");
-    if (mainClass == null) {
-      mainClass = DEFAULT_SCOPE_MAIN_CLASS;
-    }
-
     AnalysisScope scope =
         AnalysisScopeReader.readJavaScope(
-            scopeFile, null, DefinitelyDerefedParamsDriver.class.getClassLoader());
+            PRIMORDIAL_SCOPE_FILE_PATH, null, DefinitelyDerefedParamsDriver.class.getClassLoader());
+    AnalysisScopeReader.addClassPathToScope(classFileDir, scope, ClassLoaderReference.Application);
     AnalysisOptions options = new AnalysisOptions(scope, null);
     AnalysisCache cache = new AnalysisCacheImpl();
     IClassHierarchy cha = ClassHierarchyFactory.make(scope);
-    System.out.println(cha.getNumberOfClasses() + " classes");
     Warnings.clear();
 
     MethodReference method =
         scope.findMethod(
             AnalysisScope.APPLICATION,
             mainClass,
-            Atom.findOrCreateUnicodeAtom(TARGET_METHOD),
-            new ImmutableByteArray(UTF8Convert.toUTF8(TARGET_METHOD_SIGN)));
-    Assert.assertNotNull("method not found", method);
-    // TODO: convert this to a junit or WALA unit test,
-    // OR switch these to Preconditions.checkNotNull and add Guava as a dependency.
+            Atom.findOrCreateUnicodeAtom(targetMethod),
+            new ImmutableByteArray(UTF8Convert.toUTF8(targetMethodSignature)));
+    Preconditions.checkNotNull(method,"method not found");
     IMethod imethod = cha.resolveMethod(method);
-    Assert.assertNotNull("imethod not found", imethod);
+    Preconditions.checkNotNull(imethod,"imethod not found");
     IR ir = cache.getIRFactory().makeIR(imethod, Everywhere.EVERYWHERE, options.getSSAOptions());
     System.out.println(ir);
 
@@ -101,5 +86,18 @@ public class DefinitelyDerefedParamsDriver {
     System.out.println("done");
     System.out.println("took " + (end - start) + "ms");
     System.out.println("definitely-derefereced paramters: " + result.toString());
+
+    return result;
+  }
+
+/*
+ * Check set equality of results with expected results
+ *
+ */
+  public boolean verify(Set<String> result, Set<String> expected) {
+    for (String var : result) {
+      if (!expected.remove(var)) return false;
+    }
+    return expected.isEmpty();
   }
 }
