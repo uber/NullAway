@@ -34,8 +34,6 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 @SuppressWarnings("CheckTestExtendsBaseClass")
 public class JarInferTest {
-  private static final String DEFAULT_PACKAGE = "test";
-  private static final String DEFAULT_CLASS = "Test";
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
