@@ -1,5 +1,11 @@
-apply plugin: 'java'
-apply plugin: 'application'
+plugins {
+    id "net.ltgt.errorprone" version "0.0.13"
+    id "java"
+    id "application"
+}
+// we use this config to get the path of the JDK 9 javac jar, to
+// stick it in the bootclasspath when running tests
+configurations.maybeCreate("epJavac")
 
 sourceCompatibility = 1.8
 version = '0.1'
@@ -28,7 +34,18 @@ dependencies {
     // uncomment to use wala.dalvik or wala.scandroid
     //compile group: 'com.ibm.wala', name: 'com.ibm.wala.dalvik', version: '1.4.3'
     //compile group: 'com.ibm.wala', name: 'com.ibm.wala.scandroid', version: '1.4.3'
-    compile group: 'junit', name: 'junit', version: '4.+'
+
+    compile deps.build.guava
+    compileOnly deps.build.errorProneCheckApi
+    compile deps.build.checkerDataflow
+
+    errorprone deps.build.errorProneCore
+
+    testCompile deps.test.junit4
+    testCompile(deps.build.errorProneTestHelpers) {
+        exclude group: "junit", module: "junit"
+    }
+    epJavac deps.build.errorProneCheckApi
 }
 
 if (project.hasProperty('mainClass')) {
@@ -36,6 +53,11 @@ if (project.hasProperty('mainClass')) {
 } else {
     // use a default
     mainClassName = "com.ibm.wala.examples.drivers.definitelyDerefedParams"
+}
+
+test {
+    maxHeapSize = "1024m"
+    jvmArgs "-Xbootclasspath/p:${configurations.epJavac.asPath}"
 }
 
 run {
