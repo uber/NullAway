@@ -43,9 +43,6 @@ import java.util.*;
  * Driver for running {@link DefinitelyDerefedParams}
  */
 public class DefinitelyDerefedParamsDriver {
-  private static final String PRIMORDIAL_SCOPE_FILE_PATH =
-      "./src/test/resources/com/uber/nullaway/jarinfer/testdata/test.scope.txt";
-
   /*
    * Usage: DefinitelyDerefedParamsDriver ( class_file _dir, class_name, method_name, method_signature)
    *
@@ -57,9 +54,7 @@ public class DefinitelyDerefedParamsDriver {
       String classFileDir, String mainClass, String targetMethod, String targetMethodSignature)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     long start = System.currentTimeMillis();
-    AnalysisScope scope =
-        AnalysisScopeReader.readJavaScope(
-            PRIMORDIAL_SCOPE_FILE_PATH, null, DefinitelyDerefedParamsDriver.class.getClassLoader());
+    AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
     AnalysisScopeReader.addClassPathToScope(classFileDir, scope, ClassLoaderReference.Application);
     AnalysisOptions options = new AnalysisOptions(scope, null);
     AnalysisCache cache = new AnalysisCacheImpl();
