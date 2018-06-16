@@ -42,7 +42,7 @@ import java.util.*;
 /*
  * Driver for running {@link DefinitelyDerefedParams}
  */
-public class DefinitelyDerefedParamsDriverX {
+public class DefinitelyDerefedParamsDriver {
   private static final String PRIMORDIAL_SCOPE_FILE_PATH =
       "./src/test/resources/com/uber/nullaway/jarinfer/testdata/test.scope.txt";
 

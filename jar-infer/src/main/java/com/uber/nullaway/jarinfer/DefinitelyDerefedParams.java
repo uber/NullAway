@@ -39,7 +39,7 @@ import java.util.*;
  * Basic analysis that identifies function parameter dereferences in BBs that post-dominate the exit node.
  *
  */
-public class DefinitelyDerefedParamsX {
+public class DefinitelyDerefedParams {
 
   private final IMethod method;
   private final IR ir;
