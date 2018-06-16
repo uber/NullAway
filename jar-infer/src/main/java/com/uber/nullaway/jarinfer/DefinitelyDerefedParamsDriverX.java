@@ -15,6 +15,7 @@
  */
 package com.uber.nullaway.jarinfer;
 
+import com.google.common.base.Preconditions;
 import com.ibm.wala.cfg.ControlFlowGraph;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.ipa.callgraph.AnalysisCache;
@@ -31,20 +32,19 @@ import com.ibm.wala.ssa.SSAInstruction;
 import com.ibm.wala.types.ClassLoaderReference;
 import com.ibm.wala.types.MethodReference;
 import com.ibm.wala.util.config.AnalysisScopeReader;
-import com.ibm.wala.util.io.CommandLine;
 import com.ibm.wala.util.strings.Atom;
 import com.ibm.wala.util.strings.ImmutableByteArray;
 import com.ibm.wala.util.strings.UTF8Convert;
 import com.ibm.wala.util.warnings.Warnings;
 import java.io.IOException;
 import java.util.*;
-import com.google.common.base.Preconditions;
 
 /*
  * Driver for running {@link DefinitelyDerefedParams}
  */
-public class DefinitelyDerefedParamsDriver {
-  private static final String PRIMORDIAL_SCOPE_FILE_PATH = "./src/test/resources/com/uber/nullaway/jarinfer/testdata/test.scope.txt";
+public class DefinitelyDerefedParamsDriverX {
+  private static final String PRIMORDIAL_SCOPE_FILE_PATH =
+      "./src/test/resources/com/uber/nullaway/jarinfer/testdata/test.scope.txt";
 
   /*
    * Usage: DefinitelyDerefedParamsDriver ( class_file _dir, class_name, method_name, method_signature)
@@ -53,7 +53,8 @@ public class DefinitelyDerefedParamsDriver {
    * @throws ClassHierarchyException
    * @throws IllegalArgumentException
    */
-  public static Set<String> run(String classFileDir, String mainClass, String targetMethod, String targetMethodSignature)
+  public static Set<String> run(
+      String classFileDir, String mainClass, String targetMethod, String targetMethodSignature)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     long start = System.currentTimeMillis();
     AnalysisScope scope =
@@ -71,9 +72,9 @@ public class DefinitelyDerefedParamsDriver {
             mainClass,
             Atom.findOrCreateUnicodeAtom(targetMethod),
             new ImmutableByteArray(UTF8Convert.toUTF8(targetMethodSignature)));
-    Preconditions.checkNotNull(method,"method not found");
+    Preconditions.checkNotNull(method, "method not found");
     IMethod imethod = cha.resolveMethod(method);
-    Preconditions.checkNotNull(imethod,"imethod not found");
+    Preconditions.checkNotNull(imethod, "imethod not found");
     IR ir = cache.getIRFactory().makeIR(imethod, Everywhere.EVERYWHERE, options.getSSAOptions());
     System.out.println(ir);
 
@@ -90,10 +91,10 @@ public class DefinitelyDerefedParamsDriver {
     return result;
   }
 
-/*
- * Check set equality of results with expected results
- *
- */
+  /*
+   * Check set equality of results with expected results
+   *
+   */
   public boolean verify(Set<String> result, Set<String> expected) {
     for (String var : result) {
       if (!expected.remove(var)) return false;
