@@ -47,7 +47,7 @@ public class JarInferTest {
 
   private void testTemplate(
       String testName,
-      String pkg,
+      String pkg, // in dot syntax
       String cls,
       String method,
       String methodSignature,
@@ -68,7 +68,7 @@ public class JarInferTest {
           defDerefParamDriver.verify(
               defDerefParamDriver.run(
                   temporaryFolder.getRoot().getAbsolutePath(),
-                  "L" + pkg + "/" + cls,
+                  "L" + pkg.replaceAll("\\.", "/") + "/" + cls,
                   method,
                   methodSignature),
               expected));
