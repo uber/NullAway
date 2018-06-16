@@ -39,7 +39,7 @@ import java.util.*;
  * Basic analysis that identifies function parameter dereferences in BBs that post-dominate the exit node.
  *
  */
-public class DefinitelyDerefedParams {
+public class DefinitelyDerefedParamsX {
 
   private final IMethod method;
   private final IR ir;
@@ -97,7 +97,8 @@ public class DefinitelyDerefedParams {
     Set<String> derefedParamList = new HashSet<String>();
     // Get number of params and value number of first param
     int numParam = ir.getSymbolTable().getNumberOfParameters();
-    int firstParamIndex = (method.isStatic()) ? 1 : 2;  // 1-indexed; v1 is 'this' only for non-static methods
+    int firstParamIndex =
+        (method.isStatic()) ? 1 : 2; // 1-indexed; v1 is 'this' only for non-static methods
     if (VERBOSE) {
       System.out.println("param value numbers : " + firstParamIndex + " ... " + numParam);
     }
