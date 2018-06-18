@@ -49,9 +49,7 @@ public class JarInferTest {
       String testName,
       String pkg, // in dot syntax
       String cls,
-      String method,
-      String methodSignature,
-      Set<String> expected,
+      HashMap<String, Set<String>> expected,
       String... lines) {
     Result compileResult =
         compilerUtil
@@ -66,12 +64,7 @@ public class JarInferTest {
       Assert.assertTrue(
           testName + ": test failed!",
           defDerefParamDriver.verify(
-              defDerefParamDriver.run(
-                  temporaryFolder.getRoot().getAbsolutePath(),
-                  "L" + pkg.replaceAll("\\.", "/") + "/" + cls,
-                  method,
-                  methodSignature),
-              expected));
+              defDerefParamDriver.run(temporaryFolder.getRoot().getAbsolutePath()), expected));
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -83,9 +76,14 @@ public class JarInferTest {
         "toyStatic",
         "toys",
         "Test",
-        "test",
-        "(Ljava/lang/String;Ltoys/Foo;Ltoys/Bar;)V",
-        Sets.newHashSet("v1", "v3"),
+        new HashMap<String, Set<String>>() {
+          {
+            put(
+                "< Application, Ltoys/Test, test(Ljava/lang/String;Ltoys/Foo;Ltoys/Bar;)V >",
+                Sets.newHashSet("v1", "v3"));
+            put("< Application, Ltoys/Foo, run(Ljava/lang/String;)Z >", Sets.newHashSet("v2"));
+          }
+        },
         "class Foo {",
         "  private String foo;",
         "  public Foo(String str) {",
@@ -93,7 +91,7 @@ public class JarInferTest {
         "    this.foo = str;",
         "  }",
         "  public boolean run(String str) {",
-        "    if (str != null) {",
+        "    if (str.length() > 0) {",
         "      return str == foo;",
         "    }",
         "    return false;",
@@ -145,9 +143,13 @@ public class JarInferTest {
         "toyNonStatic",
         "toys",
         "Foo",
-        "test",
-        "(Ljava/lang/String;Ljava/lang/String;)V",
-        Sets.newHashSet("v2"),
+        new HashMap<String, Set<String>>() {
+          {
+            put(
+                "< Application, Ltoys/Foo, test(Ljava/lang/String;Ljava/lang/String;)V >",
+                Sets.newHashSet("v2"));
+          }
+        },
         "class Foo {",
         "  private String foo;",
         "  public Foo(String str) {",

@@ -40,7 +40,6 @@ import java.util.*;
  *
  */
 public class DefinitelyDerefedParams {
-
   private final IMethod method;
   private final IR ir;
 
@@ -50,7 +49,7 @@ public class DefinitelyDerefedParams {
   // used to resolve references to fields in putstatic instructions
   private final IClassHierarchy cha;
 
-  private static final boolean VERBOSE = true;
+  private static final boolean VERBOSE = false;
 
   public DefinitelyDerefedParams(
       IMethod method,
@@ -70,7 +69,7 @@ public class DefinitelyDerefedParams {
    */
   public Set<String> analyze() {
     // Get ExceptionPrunedCFG
-    System.out.println("pruning exceptional edges in CFG...");
+    System.out.println("exception pruning CFG...");
     PrunedCFG<SSAInstruction, ISSABasicBlock> prunedCFG = ExceptionPrunedCFG.make(cfg);
     // In case the only control flows are exceptional, simply return.
     if (prunedCFG.getNumberOfNodes() == 2
@@ -92,6 +91,7 @@ public class DefinitelyDerefedParams {
     // this exit node. (?)
     // TODO: [v0.2] Need data-flow analysis for dereferences on all paths
     // Walk from exit node in post-dominator tree and check for use of params
+    System.out.println("finding dereferenced params...");
     ArrayList<ISSABasicBlock> nodeQueue = new ArrayList<ISSABasicBlock>();
     nodeQueue.add(prunedCFG.exit());
     Set<String> derefedParamList = new HashSet<String>();
@@ -117,23 +117,21 @@ public class DefinitelyDerefedParams {
           if (VERBOSE) {
             System.out.println("\tinst: " + instr.toString());
           }
-          if ((instr instanceof SSAGetInstruction && !((SSAGetInstruction) instr).isStatic())
-              || (instr instanceof SSAPutInstruction && !((SSAPutInstruction) instr).isStatic())
-              || instr instanceof SSAAbstractInvokeInstruction) {
-            int derefValueNumber = -1;
-            if (instr instanceof SSAGetInstruction) {
-              derefValueNumber = ((SSAGetInstruction) instr).getRef();
-            } else if (instr instanceof SSAPutInstruction) {
-              derefValueNumber = ((SSAPutInstruction) instr).getRef();
-            } else if (instr instanceof SSAAbstractInvokeInstruction) {
-              derefValueNumber = ((SSAAbstractInvokeInstruction) instr).getReceiver();
+          int derefValueNumber = -1;
+          if (instr instanceof SSAGetInstruction && !((SSAGetInstruction) instr).isStatic()) {
+            derefValueNumber = ((SSAGetInstruction) instr).getRef();
+          } else if (instr instanceof SSAPutInstruction
+              && !((SSAPutInstruction) instr).isStatic()) {
+            derefValueNumber = ((SSAPutInstruction) instr).getRef();
+          } else if (instr instanceof SSAAbstractInvokeInstruction
+              && !((SSAAbstractInvokeInstruction) instr).isStatic()) {
+            derefValueNumber = ((SSAAbstractInvokeInstruction) instr).getReceiver();
+          }
+          if (derefValueNumber >= firstParamIndex && derefValueNumber <= numParam) {
+            if (VERBOSE) {
+              System.out.println("\t\tderefed param : " + derefValueNumber);
             }
-            if (derefValueNumber >= firstParamIndex && derefValueNumber <= numParam) {
-              if (VERBOSE) {
-                System.out.println("\t\tderefed param : " + derefValueNumber);
-              }
-              derefedParamList.add(ir.getSymbolTable().getValueString(derefValueNumber));
-            }
+            derefedParamList.add(ir.getSymbolTable().getValueString(derefValueNumber));
           }
         }
       }
@@ -141,6 +139,7 @@ public class DefinitelyDerefedParams {
         nodeQueue.add(succ);
       }
     }
+    System.out.println("done...");
     return derefedParamList;
   }
 }

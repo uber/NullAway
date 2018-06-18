@@ -17,6 +17,8 @@ package com.uber.nullaway.jarinfer;
 
 import com.google.common.base.Preconditions;
 import com.ibm.wala.cfg.ControlFlowGraph;
+import com.ibm.wala.classLoader.IClass;
+import com.ibm.wala.classLoader.IClassLoader;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.ipa.callgraph.AnalysisCache;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
@@ -30,11 +32,8 @@ import com.ibm.wala.ssa.IR;
 import com.ibm.wala.ssa.ISSABasicBlock;
 import com.ibm.wala.ssa.SSAInstruction;
 import com.ibm.wala.types.ClassLoaderReference;
-import com.ibm.wala.types.MethodReference;
+import com.ibm.wala.util.collections.Iterator2Iterable;
 import com.ibm.wala.util.config.AnalysisScopeReader;
-import com.ibm.wala.util.strings.Atom;
-import com.ibm.wala.util.strings.ImmutableByteArray;
-import com.ibm.wala.util.strings.UTF8Convert;
 import com.ibm.wala.util.warnings.Warnings;
 import java.io.IOException;
 import java.util.*;
@@ -50,8 +49,7 @@ public class DefinitelyDerefedParamsDriver {
    * @throws ClassHierarchyException
    * @throws IllegalArgumentException
    */
-  public static Set<String> run(
-      String classFileDir, String mainClass, String targetMethod, String targetMethodSignature)
+  public static HashMap<String, Set<String>> run(String classFileDir)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     long start = System.currentTimeMillis();
     AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
@@ -60,27 +58,34 @@ public class DefinitelyDerefedParamsDriver {
     AnalysisCache cache = new AnalysisCacheImpl();
     IClassHierarchy cha = ClassHierarchyFactory.make(scope);
     Warnings.clear();
+    HashMap<String, Set<String>> result = new HashMap<String, Set<String>>();
 
-    MethodReference method =
-        scope.findMethod(
-            AnalysisScope.APPLICATION,
-            mainClass,
-            Atom.findOrCreateUnicodeAtom(targetMethod),
-            new ImmutableByteArray(UTF8Convert.toUTF8(targetMethodSignature)));
-    Preconditions.checkNotNull(method, "method not found");
-    IMethod imethod = cha.resolveMethod(method);
-    Preconditions.checkNotNull(imethod, "imethod not found");
-    IR ir = cache.getIRFactory().makeIR(imethod, Everywhere.EVERYWHERE, options.getSSAOptions());
-    System.out.println(ir);
-
-    ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
-    DefinitelyDerefedParams derefedParamsFinder =
-        new DefinitelyDerefedParams(imethod, ir, cfg, cha);
-    Set<String> result = derefedParamsFinder.analyze();
-
+    // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
+    for (IClassLoader cldr : cha.getLoaders()) {
+      if (!cldr.getName().toString().equals("Primordial")) {
+        for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
+          for (IMethod mtd : Iterator2Iterable.make(cls.getAllMethods().iterator())) {
+            if (!mtd.getDeclaringClass()
+                .getClassLoader()
+                .getName()
+                .toString()
+                .equals("Primordial")) {
+              // some Application classes are Primordial (why?)
+              Preconditions.checkNotNull(mtd, "method not found");
+              System.out.println("@ " + mtd.toString());
+              IR ir =
+                  cache.getIRFactory().makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
+              ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
+              DefinitelyDerefedParams derefedParamsFinder =
+                  new DefinitelyDerefedParams(mtd, ir, cfg, cha);
+              result.put(mtd.toString(), derefedParamsFinder.analyze());
+            }
+          }
+        }
+      }
+    }
     long end = System.currentTimeMillis();
-    System.out.println("done");
-    System.out.println("took " + (end - start) + "ms");
+    System.out.println("-----\ndone\ntook " + (end - start) + "ms");
     System.out.println("definitely-derefereced paramters: " + result.toString());
 
     return result;
@@ -90,9 +95,19 @@ public class DefinitelyDerefedParamsDriver {
    * Check set equality of results with expected results
    *
    */
-  public boolean verify(Set<String> result, Set<String> expected) {
-    for (String var : result) {
-      if (!expected.remove(var)) return false;
+  public boolean verify(
+      HashMap<String, Set<String>> result, HashMap<String, Set<String>> expected) {
+    for (Map.Entry<String, Set<String>> entry : result.entrySet()) {
+      String mtd_sign = entry.getKey();
+      Set<String> ddParams = entry.getValue();
+      if (ddParams.isEmpty()) continue;
+      Set<String> xddParams = expected.get(mtd_sign);
+      if (xddParams == null) return false;
+      for (String var : ddParams) {
+        if (!xddParams.remove(var)) return false;
+      }
+      if (!xddParams.isEmpty()) return false;
+      expected.remove(mtd_sign);
     }
     return expected.isEmpty();
   }
