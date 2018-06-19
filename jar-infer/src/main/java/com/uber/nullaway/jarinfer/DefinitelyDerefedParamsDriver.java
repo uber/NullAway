@@ -47,8 +47,7 @@ import java.util.*;
  * Driver for running {@link DefinitelyDerefedParams}
  */
 public class DefinitelyDerefedParamsDriver {
-  private static String aStubXPath =
-      "/Users/subarno/src/NullAway/jar-infer/build/reports/tests/test.astubx";
+  private static String aStubXPath = "./build/reports/tests/test.astubx";
   /*
    * Usage: DefinitelyDerefedParamsDriver ( path, package_name, [jar_flag])
    * path: jar file OR directory containing class files
