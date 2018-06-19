@@ -75,6 +75,19 @@ public class JarInferTest {
       e.printStackTrace();
     }
   }
+
+  private void testJARTemplate(
+      String testName,
+      String pkg, // in dot syntax
+      String jarPath // in dot syntax
+      ) {
+    DefinitelyDerefedParamsDriver defDerefParamDriver = new DefinitelyDerefedParamsDriver();
+    try {
+      defDerefParamDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"), true);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
   /*
    * Check set equality of results with expected results
    *
@@ -192,5 +205,11 @@ public class JarInferTest {
         "    }",
         "  }",
         "}");
+  }
+
+  @Test
+  public void toy3() {
+    testJARTemplate(
+        "toyJAR", "toys", "./src/test/resources/com/uber/nullaway/jarinfer/testdata/toys.jar");
   }
 }

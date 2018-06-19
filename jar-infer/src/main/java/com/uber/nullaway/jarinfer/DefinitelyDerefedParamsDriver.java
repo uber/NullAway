@@ -47,27 +47,58 @@ import java.util.*;
  * Driver for running {@link DefinitelyDerefedParams}
  */
 public class DefinitelyDerefedParamsDriver {
-  private static final String defaultAStubXPath =
+  private static String aStubXPath =
       "/Users/subarno/src/NullAway/jar-infer/build/reports/tests/test.astubx";
   /*
-   * Usage: DefinitelyDerefedParamsDriver ( class_file _dir, package_name, [jar_flag])
-   *
+   * Usage: DefinitelyDerefedParamsDriver ( path, package_name, [jar_flag])
+   * path: jar file OR directory containing class files
    * @throws IOException
    * @throws ClassHierarchyException
    * @throws IllegalArgumentException
    */
-  public static HashMap<String, Set<Integer>> run(String classFilePath, String pkgName)
+  public static HashMap<String, Set<Integer>> run(String path, String pkgName, boolean isJar)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
-    return run(classFilePath, pkgName, false);
+    if (isJar) {
+      // Extract jar contents
+      // link: https://www.javaworld.com/article/2077548
+      Preconditions.checkArgument(path.endsWith(".jar"), "invalid jar path!");
+      String jarDir = path.substring(0, path.lastIndexOf('.'));
+      System.out.println("extracting " + path + "...");
+      java.util.jar.JarFile jar = new java.util.jar.JarFile(path);
+      java.util.Enumeration enumEntries = jar.entries();
+      while (enumEntries.hasMoreElements()) {
+        java.util.jar.JarEntry file = (java.util.jar.JarEntry) enumEntries.nextElement();
+        java.io.File f = new java.io.File(jarDir + java.io.File.separator + file.getName());
+        if (file.isDirectory()) {
+          continue;
+        }
+        f.getParentFile().mkdirs();
+        java.io.InputStream is = jar.getInputStream(file);
+        java.io.FileOutputStream fos = new java.io.FileOutputStream(f);
+        while (is.available() > 0) {
+          fos.write(is.read());
+        }
+        fos.close();
+        is.close();
+      }
+      jar.close();
+      path = jarDir;
+      aStubXPath =
+          jarDir
+              + java.io.File.separator
+              + "META-INF"
+              + java.io.File.separator
+              + pkgName
+              + ".astubx";
+    }
+    return run(path, pkgName);
   }
 
-  public static HashMap<String, Set<Integer>> run(
-      String classFilePath, String pkgName, boolean isJar)
+  public static HashMap<String, Set<Integer>> run(String path, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     long start = System.currentTimeMillis();
     AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
-    // TODO: handle passing jar
-    AnalysisScopeReader.addClassPathToScope(classFilePath, scope, ClassLoaderReference.Application);
+    AnalysisScopeReader.addClassPathToScope(path, scope, ClassLoaderReference.Application);
     AnalysisOptions options = new AnalysisOptions(scope, null);
     AnalysisCache cache = new AnalysisCacheImpl();
     IClassHierarchy cha = ClassHierarchyFactory.make(scope);
@@ -109,7 +140,7 @@ public class DefinitelyDerefedParamsDriver {
     System.out.println("-----\ndone\ntook " + (end - start) + "ms");
     System.out.println("definitely-derefereced paramters: " + map_str_result.toString());
 
-    writeJarModel((isJar ? classFilePath + ".astubx" : defaultAStubXPath), cha, map_mtd_result);
+    writeJarModel(cha, map_mtd_result);
     return map_str_result;
   }
 
@@ -118,7 +149,7 @@ public class DefinitelyDerefedParamsDriver {
    *
    */
   private static void writeJarModel(
-      String aStubXPath, IClassHierarchy cha, HashMap<IMethod, Set<Integer>> map_mtd_result) {
+      IClassHierarchy cha, HashMap<IMethod, Set<Integer>> map_mtd_result) {
     try {
       File aStubXFile = new File(aStubXPath);
       aStubXFile.createNewFile();
