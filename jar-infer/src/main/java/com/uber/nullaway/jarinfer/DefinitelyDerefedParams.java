@@ -69,7 +69,7 @@ public class DefinitelyDerefedParams {
    */
   public Set<Integer> analyze() {
     // Get ExceptionPrunedCFG
-    System.out.println("@ " + method.toString());
+    System.out.println("@ " + method.getSignature());
     System.out.println("exception pruning CFG...");
     PrunedCFG<SSAInstruction, ISSABasicBlock> prunedCFG = ExceptionPrunedCFG.make(cfg);
     // In case the only control flows are exceptional, simply return.

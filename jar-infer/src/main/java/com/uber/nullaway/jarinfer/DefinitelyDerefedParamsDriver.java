@@ -63,7 +63,8 @@ public class DefinitelyDerefedParamsDriver {
     AnalysisCache cache = new AnalysisCacheImpl();
     IClassHierarchy cha = ClassHierarchyFactory.make(scope);
     Warnings.clear();
-    HashMap<String, Set<Integer>> result = new HashMap<String, Set<Integer>>();
+    HashMap<IMethod, Set<Integer>> map_mtd_result = new HashMap<IMethod, Set<Integer>>();
+    HashMap<String, Set<Integer>> map_str_result = new HashMap<String, Set<Integer>>();
 
     // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
     for (IClassLoader cldr : cha.getLoaders()) {
@@ -84,9 +85,9 @@ public class DefinitelyDerefedParamsDriver {
                         .getIRFactory()
                         .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
                 ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
-                DefinitelyDerefedParams derefedParamsFinder =
-                    new DefinitelyDerefedParams(mtd, ir, cfg, cha);
-                result.put(mtd.toString(), derefedParamsFinder.analyze());
+                Set<Integer> result = new DefinitelyDerefedParams(mtd, ir, cfg, cha).analyze();
+                map_mtd_result.put(mtd, result);
+                map_str_result.put(mtd.getSignature(), result);
               }
             }
           }
@@ -95,16 +96,18 @@ public class DefinitelyDerefedParamsDriver {
     }
     long end = System.currentTimeMillis();
     System.out.println("-----\ndone\ntook " + (end - start) + "ms");
-    System.out.println("definitely-derefereced paramters: " + result.toString());
+    System.out.println("definitely-derefereced paramters: " + map_str_result.toString());
 
-    writeJarModel(result);
-    return result;
+    writeJarModel(cha, map_mtd_result);
+    return map_str_result;
   }
+
   /*
    * Write inferred Jar model in astubx format
    *
    */
-  private static void writeJarModel(HashMap<String, Set<Integer>> result) {
+  private static void writeJarModel(
+      IClassHierarchy cha, HashMap<IMethod, Set<Integer>> map_mtd_result) {
     String astubxPath = "/Users/subarno/src/NullAway/jar-infer/build/reports/tests/test.astubx";
     try {
       File astubxFile = new File(astubxPath);
@@ -120,8 +123,8 @@ public class DefinitelyDerefedParamsDriver {
       Map<String, Set<String>> typeAnnotations = new HashMap<>();
       Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
 
-      for (Map.Entry<String, Set<Integer>> entry : result.entrySet()) {
-        String mtd_sign = entry.getKey();
+      for (Map.Entry<IMethod, Set<Integer>> entry : map_mtd_result.entrySet()) {
+        IMethod mtd = entry.getKey();
         Set<Integer> ddParams = entry.getValue();
         if (ddParams.isEmpty()) continue;
         Map<Integer, ImmutableSet<String>> argAnnotation =
@@ -129,11 +132,8 @@ public class DefinitelyDerefedParamsDriver {
         for (Integer param : ddParams) {
           argAnnotation.put(param, ImmutableSet.of("@Nonnull"));
         }
-        // TODO: convert mtd_sign from WALA format to astubx format
-        // {FullyQualifiedEnclosingType}: {UnqualifiedMethodReturnType} {methodName}
-        // ([{UnqualifiedArgumentType}*])
         methodRecords.put(
-            mtd_sign,
+            getSignature(mtd),
             new MethodAnnotationsRecord(ImmutableSet.of(), ImmutableMap.copyOf(argAnnotation)));
       }
       StubxWriter.write(
@@ -141,5 +141,26 @@ public class DefinitelyDerefedParamsDriver {
     } catch (Exception e) {
       e.printStackTrace();
     }
+  }
+
+  /*
+   * Get astubx style method signature
+   * {FullyQualifiedEnclosingType}: {UnqualifiedMethodReturnType} {methodName} ([{UnqualifiedArgumentType}*])
+   * TODO: handle generics and inner classes
+   */
+  private static String getSignature(IMethod mtd) {
+    String mtd_sign =
+        mtd.getDeclaringClass().getName().toString()
+            + ": "
+            + mtd.getReturnType().getName().toString()
+            + " "
+            + mtd.getName().toString()
+            + "(";
+    for (int argi = 0; argi < mtd.getNumberOfParameters(); argi++) {
+      mtd_sign += mtd.getParameterType(argi).getName().toString() + ",";
+    }
+    mtd_sign = mtd_sign.substring(0, mtd_sign.length() - 1) + ")";
+    System.out.println("@ mtd_sign: " + mtd_sign);
+    return mtd_sign;
   }
 }

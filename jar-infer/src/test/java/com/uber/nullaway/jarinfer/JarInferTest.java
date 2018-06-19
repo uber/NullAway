@@ -104,10 +104,8 @@ public class JarInferTest {
         "Test",
         new HashMap<String, Set<Integer>>() {
           {
-            put(
-                "< Application, Ltoys/Test, test(Ljava/lang/String;Ltoys/Foo;Ltoys/Bar;)V >",
-                Sets.newHashSet(1, 3));
-            put("< Application, Ltoys/Foo, run(Ljava/lang/String;)Z >", Sets.newHashSet(2));
+            put("toys.Test.test(Ljava/lang/String;Ltoys/Foo;Ltoys/Bar;)V", Sets.newHashSet(1, 3));
+            put("toys.Foo.run(Ljava/lang/String;)Z", Sets.newHashSet(2));
           }
         },
         "class Foo {",
@@ -171,9 +169,7 @@ public class JarInferTest {
         "Foo",
         new HashMap<String, Set<Integer>>() {
           {
-            put(
-                "< Application, Ltoys/Foo, test(Ljava/lang/String;Ljava/lang/String;)V >",
-                Sets.newHashSet(2));
+            put("toys.Foo.test(Ljava/lang/String;Ljava/lang/String;)V", Sets.newHashSet(2));
           }
         },
         "class Foo {",
