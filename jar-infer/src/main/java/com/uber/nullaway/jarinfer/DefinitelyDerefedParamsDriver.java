@@ -86,8 +86,10 @@ public class DefinitelyDerefedParamsDriver {
                         .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
                 ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
                 Set<Integer> result = new DefinitelyDerefedParams(mtd, ir, cfg, cha).analyze();
-                map_mtd_result.put(mtd, result);
-                map_str_result.put(mtd.getSignature(), result);
+                if (!result.isEmpty()) {
+                  map_mtd_result.put(mtd, result);
+                  map_str_result.put(mtd.getSignature(), result);
+                }
               }
             }
           }

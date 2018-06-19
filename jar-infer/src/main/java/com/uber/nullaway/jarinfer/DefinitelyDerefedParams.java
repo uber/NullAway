@@ -70,7 +70,7 @@ public class DefinitelyDerefedParams {
   public Set<Integer> analyze() {
     // Get ExceptionPrunedCFG
     System.out.println("@ " + method.getSignature());
-    System.out.println("exception pruning CFG...");
+    System.out.println("   exception pruning CFG...");
     PrunedCFG<SSAInstruction, ISSABasicBlock> prunedCFG = ExceptionPrunedCFG.make(cfg);
     // In case the only control flows are exceptional, simply return.
     if (prunedCFG.getNumberOfNodes() == 2
@@ -80,7 +80,7 @@ public class DefinitelyDerefedParams {
       return null;
     }
     // Get Dominator Tree
-    System.out.println("building dominator tree...");
+    System.out.println("   building dominator tree...");
     Graph<ISSABasicBlock> domTree =
         new DominanceFrontiers<>(prunedCFG, prunedCFG.entry()).dominatorTree();
     // Get Post-dominator Tree
@@ -92,7 +92,7 @@ public class DefinitelyDerefedParams {
     // this exit node. (?)
     // TODO: [v0.2] Need data-flow analysis for dereferences on all paths
     // Walk from exit node in post-dominator tree and check for use of params
-    System.out.println("finding dereferenced params...");
+    System.out.println("   finding dereferenced params...");
     ArrayList<ISSABasicBlock> nodeQueue = new ArrayList<ISSABasicBlock>();
     nodeQueue.add(prunedCFG.exit());
     Set<Integer> derefedParamList = new HashSet<Integer>();
@@ -140,7 +140,7 @@ public class DefinitelyDerefedParams {
         nodeQueue.add(succ);
       }
     }
-    System.out.println("done...");
+    System.out.println("   done...");
     return derefedParamList;
   }
 }
