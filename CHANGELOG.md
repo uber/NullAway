@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Version 0.4.7
+-------------
+* Clean up some unnecessary state (#168)
+* Properly read type use annotations when code is present as a class file (#172)
+* Fix NPE inside NullAway when initializer methods use try-with-resources (#177)
+
 Version 0.4.6
 -------------
 * Fix a couple of Thrift issues (#164)
