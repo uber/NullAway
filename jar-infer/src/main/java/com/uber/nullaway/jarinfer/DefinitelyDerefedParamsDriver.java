@@ -16,6 +16,8 @@
 package com.uber.nullaway.jarinfer;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.ibm.wala.cfg.ControlFlowGraph;
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IClassLoader;
@@ -35,6 +37,9 @@ import com.ibm.wala.types.ClassLoaderReference;
 import com.ibm.wala.util.collections.Iterator2Iterable;
 import com.ibm.wala.util.config.AnalysisScopeReader;
 import com.ibm.wala.util.warnings.Warnings;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.*;
 
@@ -43,13 +48,13 @@ import java.util.*;
  */
 public class DefinitelyDerefedParamsDriver {
   /*
-   * Usage: DefinitelyDerefedParamsDriver ( class_file _dir, class_name, method_name, method_signature)
+   * Usage: DefinitelyDerefedParamsDriver ( class_file _dir, package_name)
    *
    * @throws IOException
    * @throws ClassHierarchyException
    * @throws IllegalArgumentException
    */
-  public static HashMap<String, Set<String>> run(String classFileDir)
+  public static HashMap<String, Set<Integer>> run(String classFileDir, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     long start = System.currentTimeMillis();
     AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
@@ -58,27 +63,31 @@ public class DefinitelyDerefedParamsDriver {
     AnalysisCache cache = new AnalysisCacheImpl();
     IClassHierarchy cha = ClassHierarchyFactory.make(scope);
     Warnings.clear();
-    HashMap<String, Set<String>> result = new HashMap<String, Set<String>>();
+    HashMap<String, Set<Integer>> result = new HashMap<String, Set<Integer>>();
 
     // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
     for (IClassLoader cldr : cha.getLoaders()) {
       if (!cldr.getName().toString().equals("Primordial")) {
         for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
-          for (IMethod mtd : Iterator2Iterable.make(cls.getAllMethods().iterator())) {
-            if (!mtd.getDeclaringClass()
-                .getClassLoader()
-                .getName()
-                .toString()
-                .equals("Primordial")) {
-              // some Application classes are Primordial (why?)
-              Preconditions.checkNotNull(mtd, "method not found");
-              System.out.println("@ " + mtd.toString());
-              IR ir =
-                  cache.getIRFactory().makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
-              ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
-              DefinitelyDerefedParams derefedParamsFinder =
-                  new DefinitelyDerefedParams(mtd, ir, cfg, cha);
-              result.put(mtd.toString(), derefedParamsFinder.analyze());
+          // Only process classes in specified classpath
+          if (cls.getName().toString().startsWith(pkgName)) {
+            for (IMethod mtd : Iterator2Iterable.make(cls.getAllMethods().iterator())) {
+              if (!mtd.getDeclaringClass()
+                  .getClassLoader()
+                  .getName()
+                  .toString()
+                  .equals("Primordial")) {
+                // some Application classes are Primordial (why?)
+                Preconditions.checkNotNull(mtd, "method not found");
+                IR ir =
+                    cache
+                        .getIRFactory()
+                        .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
+                ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
+                DefinitelyDerefedParams derefedParamsFinder =
+                    new DefinitelyDerefedParams(mtd, ir, cfg, cha);
+                result.put(mtd.toString(), derefedParamsFinder.analyze());
+              }
             }
           }
         }
@@ -88,27 +97,49 @@ public class DefinitelyDerefedParamsDriver {
     System.out.println("-----\ndone\ntook " + (end - start) + "ms");
     System.out.println("definitely-derefereced paramters: " + result.toString());
 
+    writeJarModel(result);
     return result;
   }
-
   /*
-   * Check set equality of results with expected results
+   * Write inferred Jar model in astubx format
    *
    */
-  public boolean verify(
-      HashMap<String, Set<String>> result, HashMap<String, Set<String>> expected) {
-    for (Map.Entry<String, Set<String>> entry : result.entrySet()) {
-      String mtd_sign = entry.getKey();
-      Set<String> ddParams = entry.getValue();
-      if (ddParams.isEmpty()) continue;
-      Set<String> xddParams = expected.get(mtd_sign);
-      if (xddParams == null) return false;
-      for (String var : ddParams) {
-        if (!xddParams.remove(var)) return false;
+  private static void writeJarModel(HashMap<String, Set<Integer>> result) {
+    String astubxPath = "/Users/subarno/src/NullAway/jar-infer/build/reports/tests/test.astubx";
+    try {
+      File astubxFile = new File(astubxPath);
+      astubxFile.createNewFile();
+      DataOutputStream out = new DataOutputStream(new FileOutputStream(astubxFile, false));
+      Map<String, String> importedAnnotations =
+          new HashMap<String, String>() {
+            {
+              put("@Nonnull", "javax.annotation.Nonnull");
+            }
+          };
+      Map<String, Set<String>> packageAnnotations = new HashMap<>();
+      Map<String, Set<String>> typeAnnotations = new HashMap<>();
+      Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
+
+      for (Map.Entry<String, Set<Integer>> entry : result.entrySet()) {
+        String mtd_sign = entry.getKey();
+        Set<Integer> ddParams = entry.getValue();
+        if (ddParams.isEmpty()) continue;
+        Map<Integer, ImmutableSet<String>> argAnnotation =
+            new HashMap<Integer, ImmutableSet<String>>();
+        for (Integer param : ddParams) {
+          argAnnotation.put(param, ImmutableSet.of("@Nonnull"));
+        }
+        // TODO: convert mtd_sign from WALA format to astubx format
+        // {FullyQualifiedEnclosingType}: {UnqualifiedMethodReturnType} {methodName}
+        // ([{UnqualifiedArgumentType}*])
+        methodRecords.put(
+            mtd_sign,
+            new MethodAnnotationsRecord(ImmutableSet.of(), ImmutableMap.copyOf(argAnnotation)));
       }
-      if (!xddParams.isEmpty()) return false;
-      expected.remove(mtd_sign);
+      StubxWriter.write(
+          out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
+    } catch (Exception e) {
+      e.printStackTrace();
     }
-    return expected.isEmpty();
   }
 }

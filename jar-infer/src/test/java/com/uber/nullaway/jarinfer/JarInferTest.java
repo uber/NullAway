@@ -45,11 +45,15 @@ public class JarInferTest {
     compilerUtil.setArgs(Arrays.asList("-d", temporaryFolder.getRoot().getAbsolutePath()));
   }
 
+  /*
+   * Create, compile, and run a unit test
+   *
+   */
   private void testTemplate(
       String testName,
       String pkg, // in dot syntax
       String cls,
-      HashMap<String, Set<String>> expected,
+      HashMap<String, Set<Integer>> expected,
       String... lines) {
     Result compileResult =
         compilerUtil
@@ -63,11 +67,33 @@ public class JarInferTest {
     try {
       Assert.assertTrue(
           testName + ": test failed!",
-          defDerefParamDriver.verify(
-              defDerefParamDriver.run(temporaryFolder.getRoot().getAbsolutePath()), expected));
+          verify(
+              defDerefParamDriver.run(
+                  temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/")),
+              expected));
     } catch (Exception e) {
       e.printStackTrace();
     }
+  }
+  /*
+   * Check set equality of results with expected results
+   *
+   */
+  private boolean verify(
+      HashMap<String, Set<Integer>> result, HashMap<String, Set<Integer>> expected) {
+    for (Map.Entry<String, Set<Integer>> entry : result.entrySet()) {
+      String mtd_sign = entry.getKey();
+      Set<Integer> ddParams = entry.getValue();
+      if (ddParams.isEmpty()) continue;
+      Set<Integer> xddParams = expected.get(mtd_sign);
+      if (xddParams == null) return false;
+      for (Integer var : ddParams) {
+        if (!xddParams.remove(var)) return false;
+      }
+      if (!xddParams.isEmpty()) return false;
+      expected.remove(mtd_sign);
+    }
+    return expected.isEmpty();
   }
 
   @Test
@@ -76,12 +102,12 @@ public class JarInferTest {
         "toyStatic",
         "toys",
         "Test",
-        new HashMap<String, Set<String>>() {
+        new HashMap<String, Set<Integer>>() {
           {
             put(
                 "< Application, Ltoys/Test, test(Ljava/lang/String;Ltoys/Foo;Ltoys/Bar;)V >",
-                Sets.newHashSet("v1", "v3"));
-            put("< Application, Ltoys/Foo, run(Ljava/lang/String;)Z >", Sets.newHashSet("v2"));
+                Sets.newHashSet(1, 3));
+            put("< Application, Ltoys/Foo, run(Ljava/lang/String;)Z >", Sets.newHashSet(2));
           }
         },
         "class Foo {",
@@ -143,11 +169,11 @@ public class JarInferTest {
         "toyNonStatic",
         "toys",
         "Foo",
-        new HashMap<String, Set<String>>() {
+        new HashMap<String, Set<Integer>>() {
           {
             put(
                 "< Application, Ltoys/Foo, test(Ljava/lang/String;Ljava/lang/String;)V >",
-                Sets.newHashSet("v2"));
+                Sets.newHashSet(2));
           }
         },
         "class Foo {",

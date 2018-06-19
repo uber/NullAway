@@ -67,8 +67,9 @@ public class DefinitelyDerefedParams {
    *
    * @return the list of definitely-dereferenced function parameters
    */
-  public Set<String> analyze() {
+  public Set<Integer> analyze() {
     // Get ExceptionPrunedCFG
+    System.out.println("@ " + method.toString());
     System.out.println("exception pruning CFG...");
     PrunedCFG<SSAInstruction, ISSABasicBlock> prunedCFG = ExceptionPrunedCFG.make(cfg);
     // In case the only control flows are exceptional, simply return.
@@ -94,7 +95,7 @@ public class DefinitelyDerefedParams {
     System.out.println("finding dereferenced params...");
     ArrayList<ISSABasicBlock> nodeQueue = new ArrayList<ISSABasicBlock>();
     nodeQueue.add(prunedCFG.exit());
-    Set<String> derefedParamList = new HashSet<String>();
+    Set<Integer> derefedParamList = new HashSet<Integer>();
     // Get number of params and value number of first param
     int numParam = ir.getSymbolTable().getNumberOfParameters();
     int firstParamIndex =
@@ -131,7 +132,7 @@ public class DefinitelyDerefedParams {
             if (VERBOSE) {
               System.out.println("\t\tderefed param : " + derefValueNumber);
             }
-            derefedParamList.add(ir.getSymbolTable().getValueString(derefValueNumber));
+            derefedParamList.add(derefValueNumber);
           }
         }
       }
