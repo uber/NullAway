@@ -65,7 +65,7 @@ public class DefinitelyDerefedParams {
   /*
    * run the analysis
    *
-   * @return the list of definitely-dereferenced function parameters
+   * @return the ordinal indices of formal parameters that are definitely-dereferenced
    */
   public Set<Integer> analyze() {
     // Get ExceptionPrunedCFG

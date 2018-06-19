@@ -86,10 +86,10 @@ public class DefinitelyDerefedParamsDriver {
                         .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
                 ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
                 Set<Integer> result = new DefinitelyDerefedParams(mtd, ir, cfg, cha).analyze();
-                if (!result.isEmpty()) {
-                  map_mtd_result.put(mtd, result);
-                  map_str_result.put(mtd.getSignature(), result);
-                }
+                //                if (!result.isEmpty()) {
+                map_mtd_result.put(mtd, result);
+                map_str_result.put(mtd.getSignature(), result);
+                //                }
               }
             }
           }
@@ -128,7 +128,7 @@ public class DefinitelyDerefedParamsDriver {
       for (Map.Entry<IMethod, Set<Integer>> entry : map_mtd_result.entrySet()) {
         IMethod mtd = entry.getKey();
         Set<Integer> ddParams = entry.getValue();
-        if (ddParams.isEmpty()) continue;
+        // if (ddParams.isEmpty()) continue;
         Map<Integer, ImmutableSet<String>> argAnnotation =
             new HashMap<Integer, ImmutableSet<String>>();
         for (Integer param : ddParams) {
@@ -151,17 +151,22 @@ public class DefinitelyDerefedParamsDriver {
    * TODO: handle generics and inner classes
    */
   private static String getSignature(IMethod mtd) {
-    String mtd_sign =
-        mtd.getDeclaringClass().getName().toString()
-            + ": "
-            + mtd.getReturnType().getName().toString()
-            + " "
-            + mtd.getName().toString()
-            + "(";
-    for (int argi = 0; argi < mtd.getNumberOfParameters(); argi++) {
-      mtd_sign += mtd.getParameterType(argi).getName().toString() + ",";
+    String mtd_sign = mtd.getDeclaringClass().getName().toString() + ": ";
+    if (!mtd.isInit()) {
+      mtd_sign += mtd.getReturnType().getName().toString().split("<")[0] + " ";
     }
-    mtd_sign = mtd_sign.substring(0, mtd_sign.length() - 1) + ")";
+    mtd_sign += mtd.getName().toString() + "(";
+    for (int argi = 0; argi < mtd.getNumberOfParameters(); argi++) {
+      if (mtd.getParameterType(argi).isArrayType()) {
+        mtd_sign += "Array";
+      } else {
+        mtd_sign += mtd.getParameterType(argi).getName().toString().split("<")[0];
+      }
+      if (argi < mtd.getNumberOfParameters() - 1) {
+        mtd_sign += ", ";
+      }
+    }
+    mtd_sign += ")";
     System.out.println("@ mtd_sign: " + mtd_sign);
     return mtd_sign;
   }
