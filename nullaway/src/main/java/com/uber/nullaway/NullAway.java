@@ -815,15 +815,21 @@ public class NullAway extends BugChecker
         // Hack: Handling try{...}finally{...} statement, see getSafeInitMethods
         if (curStmt.getKind().equals(Tree.Kind.TRY)) {
           TryTree tryTree = (TryTree) curStmt;
+          // ToDo: Should we check initialization inside tryTree.getResources ? What is the scope of
+          // that initialization?
           if (tryTree.getCatches().size() == 0) {
-            result.addAll(
-                safeInitByCalleeBefore(
-                    pathToRead, state, new TreePath(enclosingBlockPath, tryTree.getBlock())));
-            result.addAll(
-                safeInitByCalleeBefore(
-                    pathToRead,
-                    state,
-                    new TreePath(enclosingBlockPath, tryTree.getFinallyBlock())));
+            if (tryTree.getBlock() != null) {
+              result.addAll(
+                  safeInitByCalleeBefore(
+                      pathToRead, state, new TreePath(enclosingBlockPath, tryTree.getBlock())));
+            }
+            if (tryTree.getFinallyBlock() != null) {
+              result.addAll(
+                  safeInitByCalleeBefore(
+                      pathToRead,
+                      state,
+                      new TreePath(enclosingBlockPath, tryTree.getFinallyBlock())));
+            }
           }
         }
       }
