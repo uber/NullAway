@@ -47,18 +47,27 @@ import java.util.*;
  * Driver for running {@link DefinitelyDerefedParams}
  */
 public class DefinitelyDerefedParamsDriver {
+  private static final String defaultAStubXPath =
+      "/Users/subarno/src/NullAway/jar-infer/build/reports/tests/test.astubx";
   /*
-   * Usage: DefinitelyDerefedParamsDriver ( class_file _dir, package_name)
+   * Usage: DefinitelyDerefedParamsDriver ( class_file _dir, package_name, [jar_flag])
    *
    * @throws IOException
    * @throws ClassHierarchyException
    * @throws IllegalArgumentException
    */
-  public static HashMap<String, Set<Integer>> run(String classFileDir, String pkgName)
+  public static HashMap<String, Set<Integer>> run(String classFilePath, String pkgName)
+      throws IOException, ClassHierarchyException, IllegalArgumentException {
+    return run(classFilePath, pkgName, false);
+  }
+
+  public static HashMap<String, Set<Integer>> run(
+      String classFilePath, String pkgName, boolean isJar)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     long start = System.currentTimeMillis();
     AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
-    AnalysisScopeReader.addClassPathToScope(classFileDir, scope, ClassLoaderReference.Application);
+    // TODO: handle passing jar
+    AnalysisScopeReader.addClassPathToScope(classFilePath, scope, ClassLoaderReference.Application);
     AnalysisOptions options = new AnalysisOptions(scope, null);
     AnalysisCache cache = new AnalysisCacheImpl();
     IClassHierarchy cha = ClassHierarchyFactory.make(scope);
@@ -86,10 +95,10 @@ public class DefinitelyDerefedParamsDriver {
                         .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
                 ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
                 Set<Integer> result = new DefinitelyDerefedParams(mtd, ir, cfg, cha).analyze();
-                //                if (!result.isEmpty()) {
-                map_mtd_result.put(mtd, result);
-                map_str_result.put(mtd.getSignature(), result);
-                //                }
+                if (!result.isEmpty()) {
+                  map_mtd_result.put(mtd, result);
+                  map_str_result.put(mtd.getSignature(), result);
+                }
               }
             }
           }
@@ -100,7 +109,7 @@ public class DefinitelyDerefedParamsDriver {
     System.out.println("-----\ndone\ntook " + (end - start) + "ms");
     System.out.println("definitely-derefereced paramters: " + map_str_result.toString());
 
-    writeJarModel(cha, map_mtd_result);
+    writeJarModel((isJar ? classFilePath + ".astubx" : defaultAStubXPath), cha, map_mtd_result);
     return map_str_result;
   }
 
@@ -109,12 +118,11 @@ public class DefinitelyDerefedParamsDriver {
    *
    */
   private static void writeJarModel(
-      IClassHierarchy cha, HashMap<IMethod, Set<Integer>> map_mtd_result) {
-    String astubxPath = "/Users/subarno/src/NullAway/jar-infer/build/reports/tests/test.astubx";
+      String aStubXPath, IClassHierarchy cha, HashMap<IMethod, Set<Integer>> map_mtd_result) {
     try {
-      File astubxFile = new File(astubxPath);
-      astubxFile.createNewFile();
-      DataOutputStream out = new DataOutputStream(new FileOutputStream(astubxFile, false));
+      File aStubXFile = new File(aStubXPath);
+      aStubXFile.createNewFile();
+      DataOutputStream out = new DataOutputStream(new FileOutputStream(aStubXFile, false));
       Map<String, String> importedAnnotations =
           new HashMap<String, String>() {
             {
@@ -128,7 +136,7 @@ public class DefinitelyDerefedParamsDriver {
       for (Map.Entry<IMethod, Set<Integer>> entry : map_mtd_result.entrySet()) {
         IMethod mtd = entry.getKey();
         Set<Integer> ddParams = entry.getValue();
-        // if (ddParams.isEmpty()) continue;
+        if (ddParams.isEmpty()) continue;
         Map<Integer, ImmutableSet<String>> argAnnotation =
             new HashMap<Integer, ImmutableSet<String>>();
         for (Integer param : ddParams) {
@@ -151,23 +159,45 @@ public class DefinitelyDerefedParamsDriver {
    * TODO: handle generics and inner classes
    */
   private static String getSignature(IMethod mtd) {
-    String mtd_sign = mtd.getDeclaringClass().getName().toString() + ": ";
-    if (!mtd.isInit()) {
-      mtd_sign += mtd.getReturnType().getName().toString().split("<")[0] + " ";
+    final Map<String, String> mapFullTypeName =
+        new HashMap<String, String>() {
+          {
+            put("B", "byte");
+            put("C", "char");
+            put("D", "double");
+            put("F", "float");
+            put("I", "int");
+            put("J", "long");
+            put("S", "short");
+            put("Z", "boolean");
+          }
+        };
+    String classType =
+        mtd.getDeclaringClass().getName().toString().replaceAll("/", "\\.").substring(1);
+    String returnType = mtd.isInit() ? "" : mtd.getReturnType().getName().toString().split("<")[0];
+    if (returnType.startsWith("L")) {
+      returnType = returnType.replaceAll("/", "\\.").substring(1);
+    } else {
+      returnType = mapFullTypeName.get(returnType);
     }
-    mtd_sign += mtd.getName().toString() + "(";
+    String argTypes = "";
     for (int argi = 0; argi < mtd.getNumberOfParameters(); argi++) {
       if (mtd.getParameterType(argi).isArrayType()) {
-        mtd_sign += "Array";
+        argTypes += "Array";
       } else {
-        mtd_sign += mtd.getParameterType(argi).getName().toString().split("<")[0];
+        String argType = mtd.getParameterType(argi).getName().toString().split("<")[0].substring(1);
+        argTypes += argType.substring(argType.lastIndexOf('/') + 1);
       }
       if (argi < mtd.getNumberOfParameters() - 1) {
-        mtd_sign += ", ";
+        argTypes += ", ";
       }
     }
-    mtd_sign += ")";
-    System.out.println("@ mtd_sign: " + mtd_sign);
-    return mtd_sign;
+    return classType
+        + ":"
+        + (returnType == null ? "" : returnType + " ")
+        + mtd.getName().toString()
+        + "("
+        + argTypes
+        + ")";
   }
 }
