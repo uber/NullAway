@@ -163,7 +163,8 @@ public class DefinitelyDerefedParamsDriver {
 
   /*
    * Write inferred Jar model in astubx format
-   *
+   * Note: Need version compatibility check between generated stub files and when reading models
+   *       StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
    */
   private static void writeJarModel(
       IClassHierarchy cha, HashMap<IMethod, Set<Integer>> map_mtd_result) {
