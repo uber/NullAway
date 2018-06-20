@@ -20,8 +20,12 @@ import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
 import com.sun.tools.javac.main.Main;
 import com.sun.tools.javac.main.Main.Result;
+import java.io.File;
+import java.nio.file.*;
+import java.security.MessageDigest;
 import java.util.*;
 import java.util.Arrays;
+import javax.xml.bind.DatatypeConverter;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -45,13 +49,15 @@ public class JarInferTest {
     compilerUtil.setArgs(Arrays.asList("-d", temporaryFolder.getRoot().getAbsolutePath()));
   }
 
+  /*
+   * Create, compile, and run a unit test
+   *
+   */
   private void testTemplate(
       String testName,
       String pkg, // in dot syntax
       String cls,
-      String method,
-      String methodSignature,
-      Set<String> expected,
+      HashMap<String, Set<Integer>> expected,
       String... lines) {
     Result compileResult =
         compilerUtil
@@ -65,16 +71,57 @@ public class JarInferTest {
     try {
       Assert.assertTrue(
           testName + ": test failed!",
-          defDerefParamDriver.verify(
+          verify(
               defDerefParamDriver.run(
-                  temporaryFolder.getRoot().getAbsolutePath(),
-                  "L" + pkg.replaceAll("\\.", "/") + "/" + cls,
-                  method,
-                  methodSignature),
+                  temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/")),
               expected));
     } catch (Exception e) {
       e.printStackTrace();
     }
+  }
+
+  private void testJARTemplate(
+      String testName,
+      String pkg, // in dot syntax
+      String jarPath, // in dot syntax
+      String expected // expected astubx MD5 hash
+      ) {
+    DefinitelyDerefedParamsDriver defDerefParamDriver = new DefinitelyDerefedParamsDriver();
+    try {
+      defDerefParamDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
+      String aStubXPath =
+          jarPath.substring(0, jarPath.lastIndexOf('.'))
+              + "/META-INF/nullaway/"
+              + pkg.replaceAll("/", "\\.")
+              + ".astubx";
+      Assert.assertTrue("astubx file not found! - " + aStubXPath, new File(aStubXPath).exists());
+      String hash =
+          DatatypeConverter.printHexBinary(
+              MessageDigest.getInstance("MD5").digest(Files.readAllBytes(Paths.get(aStubXPath))));
+      Assert.assertEquals("astubx MD5 checksum mismatch!", expected, hash);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+  }
+  /*
+   * Check set equality of results with expected results
+   *
+   */
+  private boolean verify(
+      HashMap<String, Set<Integer>> result, HashMap<String, Set<Integer>> expected) {
+    for (Map.Entry<String, Set<Integer>> entry : result.entrySet()) {
+      String mtd_sign = entry.getKey();
+      Set<Integer> ddParams = entry.getValue();
+      if (ddParams.isEmpty()) continue;
+      Set<Integer> xddParams = expected.get(mtd_sign);
+      if (xddParams == null) return false;
+      for (Integer var : ddParams) {
+        if (!xddParams.remove(var)) return false;
+      }
+      if (!xddParams.isEmpty()) return false;
+      expected.remove(mtd_sign);
+    }
+    return expected.isEmpty();
   }
 
   @Test
@@ -83,9 +130,12 @@ public class JarInferTest {
         "toyStatic",
         "toys",
         "Test",
-        "test",
-        "(Ljava/lang/String;Ltoys/Foo;Ltoys/Bar;)V",
-        Sets.newHashSet("v1", "v3"),
+        new HashMap<String, Set<Integer>>() {
+          {
+            put("toys.Test.test(Ljava/lang/String;Ltoys/Foo;Ltoys/Bar;)V", Sets.newHashSet(1, 3));
+            put("toys.Foo.run(Ljava/lang/String;)Z", Sets.newHashSet(2));
+          }
+        },
         "class Foo {",
         "  private String foo;",
         "  public Foo(String str) {",
@@ -93,7 +143,7 @@ public class JarInferTest {
         "    this.foo = str;",
         "  }",
         "  public boolean run(String str) {",
-        "    if (str != null) {",
+        "    if (str.length() > 0) {",
         "      return str == foo;",
         "    }",
         "    return false;",
@@ -145,9 +195,11 @@ public class JarInferTest {
         "toyNonStatic",
         "toys",
         "Foo",
-        "test",
-        "(Ljava/lang/String;Ljava/lang/String;)V",
-        Sets.newHashSet("v2"),
+        new HashMap<String, Set<Integer>>() {
+          {
+            put("toys.Foo.test(Ljava/lang/String;Ljava/lang/String;)V", Sets.newHashSet(2));
+          }
+        },
         "class Foo {",
         "  private String foo;",
         "  public Foo(String str) {",
@@ -168,5 +220,14 @@ public class JarInferTest {
         "    }",
         "  }",
         "}");
+  }
+
+  @Test
+  public void toy3() {
+    testJARTemplate(
+        "toyJAR",
+        "toys",
+        "./src/test/resources/com/uber/nullaway/jarinfer/testdata/toys.jar",
+        "EE40D8C28CF6F9D7E3916D34D2AFD53E");
   }
 }
