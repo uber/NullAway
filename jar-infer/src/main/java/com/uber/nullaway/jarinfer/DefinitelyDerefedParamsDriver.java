@@ -41,7 +41,12 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.*;
 import java.util.*;
+import java.util.Enumeration;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 /*
  * Driver for running {@link DefinitelyDerefedParams}
@@ -49,53 +54,34 @@ import java.util.*;
 public class DefinitelyDerefedParamsDriver {
   private static String aStubXPath = "./build/reports/tests/test.astubx";
   /*
-   * Usage: DefinitelyDerefedParamsDriver ( path, package_name, [jar_flag])
+   * Usage: DefinitelyDerefedParamsDriver ( path, package_name)
    * path: jar file OR directory containing class files
    * @throws IOException
    * @throws ClassHierarchyException
    * @throws IllegalArgumentException
    */
-  public static HashMap<String, Set<Integer>> run(String path, String pkgName, boolean isJar)
-      throws IOException, ClassHierarchyException, IllegalArgumentException {
-    if (isJar) {
-      // Extract jar contents
-      // link: https://www.javaworld.com/article/2077548
-      Preconditions.checkArgument(path.endsWith(".jar"), "invalid jar path!");
-      String jarDir = path.substring(0, path.lastIndexOf('.'));
-      System.out.println("extracting " + path + "...");
-      java.util.jar.JarFile jar = new java.util.jar.JarFile(path);
-      java.util.Enumeration enumEntries = jar.entries();
-      while (enumEntries.hasMoreElements()) {
-        java.util.jar.JarEntry file = (java.util.jar.JarEntry) enumEntries.nextElement();
-        java.io.File f = new java.io.File(jarDir + java.io.File.separator + file.getName());
-        if (file.isDirectory()) {
-          continue;
-        }
-        f.getParentFile().mkdirs();
-        java.io.InputStream is = jar.getInputStream(file);
-        java.io.FileOutputStream fos = new java.io.FileOutputStream(f);
-        while (is.available() > 0) {
-          fos.write(is.read());
-        }
-        fos.close();
-        is.close();
-      }
-      jar.close();
-      path = jarDir;
-      aStubXPath =
-          jarDir
-              + java.io.File.separator
-              + "META-INF"
-              + java.io.File.separator
-              + pkgName
-              + ".astubx";
-    }
-    return run(path, pkgName);
-  }
 
   public static HashMap<String, Set<Integer>> run(String path, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     long start = System.currentTimeMillis();
+    if (path.endsWith(".jar")) {
+      path = extractJAR(path);
+      aStubXPath =
+          path
+              + File.separator
+              + "META-INF"
+              + File.separator
+              + "nullaway"
+              + File.separator
+              + pkgName.replaceAll("/", "\\.").substring(1)
+              + ".astubx";
+    } else if (path.endsWith(".aar")) {
+      // TODO
+      Preconditions.checkArgument(false, "aar not supported yet!");
+    } else {
+      Preconditions.checkArgument(Files.isDirectory(Paths.get(path)), "invalid path!");
+    }
+
     AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
     AnalysisScopeReader.addClassPathToScope(path, scope, ClassLoaderReference.Application);
     AnalysisOptions options = new AnalysisOptions(scope, null);
@@ -142,6 +128,38 @@ public class DefinitelyDerefedParamsDriver {
     writeJarModel(cha, map_mtd_result);
     return map_str_result;
   }
+  /*
+   * Unpack JAR archive and return directory path
+   *
+   */
+  private static String extractJAR(String jarPath) {
+    Preconditions.checkArgument(jarPath.endsWith(".jar"), "invalid jar path!");
+    System.out.println("extracting " + jarPath + "...");
+    String jarDir = jarPath.substring(0, jarPath.lastIndexOf('.'));
+    try {
+      JarFile jar = new JarFile(jarPath);
+      Enumeration enumEntries = jar.entries();
+      while (enumEntries.hasMoreElements()) {
+        JarEntry file = (JarEntry) enumEntries.nextElement();
+        File f = new File(jarDir + File.separator + file.getName());
+        if (file.isDirectory()) {
+          continue;
+        }
+        f.getParentFile().mkdirs();
+        InputStream is = jar.getInputStream(file);
+        FileOutputStream fos = new FileOutputStream(f);
+        while (is.available() > 0) {
+          fos.write(is.read());
+        }
+        fos.close();
+        is.close();
+      }
+      jar.close();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return jarDir;
+  }
 
   /*
    * Write inferred Jar model in astubx format
@@ -151,12 +169,13 @@ public class DefinitelyDerefedParamsDriver {
       IClassHierarchy cha, HashMap<IMethod, Set<Integer>> map_mtd_result) {
     try {
       File aStubXFile = new File(aStubXPath);
+      aStubXFile.getParentFile().mkdirs();
       aStubXFile.createNewFile();
       DataOutputStream out = new DataOutputStream(new FileOutputStream(aStubXFile, false));
       Map<String, String> importedAnnotations =
           new HashMap<String, String>() {
             {
-              put("@Nonnull", "javax.annotation.Nonnull");
+              put("Nonnull", "javax.annotation.Nonnull");
             }
           };
       Map<String, Set<String>> packageAnnotations = new HashMap<>();
@@ -170,7 +189,7 @@ public class DefinitelyDerefedParamsDriver {
         Map<Integer, ImmutableSet<String>> argAnnotation =
             new HashMap<Integer, ImmutableSet<String>>();
         for (Integer param : ddParams) {
-          argAnnotation.put(param, ImmutableSet.of("@Nonnull"));
+          argAnnotation.put(param, ImmutableSet.of("Nonnull"));
         }
         methodRecords.put(
             getSignature(mtd),
