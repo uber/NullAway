@@ -44,7 +44,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.*;
 import java.util.*;
-import java.util.Enumeration;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
@@ -133,7 +132,8 @@ public class DefinitelyDerefedParamsDriver {
    *
    */
   private static String extractJAR(String jarPath) {
-    Preconditions.checkArgument(jarPath.endsWith(".jar"), "invalid jar path!");
+    Preconditions.checkArgument(
+        jarPath.endsWith(".jar") && Files.exists(Paths.get(jarPath)), "invalid jar path!");
     System.out.println("extracting " + jarPath + "...");
     String jarDir = jarPath.substring(0, jarPath.lastIndexOf('.'));
     try {
