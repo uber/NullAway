@@ -155,8 +155,8 @@ public class DefinitelyDerefedParamsDriver {
         is.close();
       }
       jar.close();
-    } catch (Exception e) {
-      e.printStackTrace();
+    } catch (IOException e) {
+      throw new Error(e);
     }
     return jarDir;
   }
