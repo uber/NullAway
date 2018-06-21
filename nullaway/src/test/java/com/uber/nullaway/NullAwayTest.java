@@ -808,4 +808,22 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void supportObjectsIsNull() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  private void foo(@Nullable String s) {",
+            "    if (!Objects.isNull(s)) {",
+            "      s.toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
