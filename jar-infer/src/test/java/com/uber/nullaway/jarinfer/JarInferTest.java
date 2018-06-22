@@ -22,10 +22,8 @@ import com.sun.tools.javac.main.Main;
 import com.sun.tools.javac.main.Main.Result;
 import java.io.File;
 import java.nio.file.*;
-import java.security.MessageDigest;
 import java.util.*;
 import java.util.Arrays;
-import javax.xml.bind.DatatypeConverter;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -83,22 +81,13 @@ public class JarInferTest {
   private void testJARTemplate(
       String testName,
       String pkg, // in dot syntax
-      String jarPath, // in dot syntax
-      String expected // expected astubx MD5 hash
+      String jarPath // in dot syntax
       ) {
     DefinitelyDerefedParamsDriver defDerefParamDriver = new DefinitelyDerefedParamsDriver();
     try {
       defDerefParamDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
-      String aStubXPath =
-          jarPath.substring(0, jarPath.lastIndexOf('.'))
-              + "/META-INF/nullaway/"
-              + pkg.replaceAll("/", "\\.")
-              + ".astubx";
-      Assert.assertTrue("astubx file not found! - " + aStubXPath, new File(aStubXPath).exists());
-      String hash =
-          DatatypeConverter.printHexBinary(
-              MessageDigest.getInstance("MD5").digest(Files.readAllBytes(Paths.get(aStubXPath))));
-      Assert.assertEquals("astubx MD5 checksum mismatch!", expected, hash);
+      String outJARPath = jarPath.substring(0, jarPath.lastIndexOf('.')) + ".ji.jar";
+      Assert.assertTrue("jar file not found! - " + outJARPath, new File(outJARPath).exists());
     } catch (Exception e) {
       e.printStackTrace();
     }

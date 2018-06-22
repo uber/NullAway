@@ -39,6 +39,7 @@ import com.ibm.wala.util.config.AnalysisScopeReader;
 import com.ibm.wala.util.warnings.Warnings;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,6 +47,11 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.JarOutputStream;
+import java.util.jar.Manifest;
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.io.filefilter.IOFileFilter;
+import org.apache.commons.io.filefilter.TrueFileFilter;
 
 /*
  * Driver for running {@link DefinitelyDerefedParams}
@@ -62,11 +68,12 @@ public class DefinitelyDerefedParamsDriver {
 
   public static HashMap<String, Set<Integer>> run(String path, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
+    String workDir = path;
     long start = System.currentTimeMillis();
     if (path.endsWith(".jar")) {
-      path = extractJAR(path);
+      workDir = extractJAR(path);
       aStubXPath =
-          path
+          workDir
               + File.separator
               + "META-INF"
               + File.separator
@@ -81,7 +88,7 @@ public class DefinitelyDerefedParamsDriver {
     }
 
     AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
-    AnalysisScopeReader.addClassPathToScope(path, scope, ClassLoaderReference.Application);
+    AnalysisScopeReader.addClassPathToScope(workDir, scope, ClassLoaderReference.Application);
     AnalysisOptions options = new AnalysisOptions(scope, null);
     AnalysisCache cache = new AnalysisCacheImpl();
     IClassHierarchy cha = ClassHierarchyFactory.make(scope);
@@ -124,6 +131,13 @@ public class DefinitelyDerefedParamsDriver {
     System.out.println("definitely-derefereced paramters: " + map_str_result.toString());
 
     writeJarModel(cha, map_mtd_result);
+
+    if (path.endsWith(".jar")) {
+      packJAR(workDir);
+    } else if (path.endsWith(".aar")) {
+      // TODO
+      Preconditions.checkArgument(false, "aar not supported yet!");
+    }
     return map_str_result;
   }
   /*
@@ -141,10 +155,10 @@ public class DefinitelyDerefedParamsDriver {
       Enumeration enumEntries = jar.entries();
       while (enumEntries.hasMoreElements()) {
         JarEntry file = (JarEntry) enumEntries.nextElement();
-        File f = new File(jarDir + File.separator + file.getName());
         if (file.isDirectory()) {
           continue;
         }
+        File f = new File(jarDir + File.separator + file.getName());
         f.getParentFile().mkdirs();
         InputStream is = jar.getInputStream(file);
         FileOutputStream fos = new FileOutputStream(f);
