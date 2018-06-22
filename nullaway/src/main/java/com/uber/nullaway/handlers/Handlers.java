@@ -39,6 +39,7 @@ public class Handlers {
     return new CompositeHandler(
         ImmutableList.of(
             new LibraryModelsHandler(),
+            new InferredJARModelsHandler(),
             new RxNullabilityPropagator(),
             new ContractHandler(),
             new ApacheThriftIsSetHandler()));

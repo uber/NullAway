@@ -113,8 +113,13 @@ public class JarInferTest {
     return expected.isEmpty();
   }
 
+  @Test
+  public void emptyTest() {
+    Assert.assertTrue("this test never fails!", true);
+  }
+
   //  @Test
-  public void toy1() {
+  public void toyStatic() {
     testTemplate(
         "toyStatic",
         "toys",
@@ -179,7 +184,7 @@ public class JarInferTest {
   }
 
   //  @Test
-  public void toy2() {
+  public void toyNonStatic() {
     testTemplate(
         "toyNonStatic",
         "toys",
@@ -212,8 +217,10 @@ public class JarInferTest {
   }
 
   @Test
-  public void toy3() {
+  public void toyJAR() {
     testJARTemplate(
-        "toyJAR", "toys", "./src/test/resources/com/uber/nullaway/jarinfer/testdata/toys.jar");
+        "toyJAR",
+        "com.uber.nullaway.jarinfer.toys.unannotated",
+        "./src/test/resources/com/uber/nullaway/jarinfer/testdata/test-java-lib-jarinfer.jar");
   }
 }

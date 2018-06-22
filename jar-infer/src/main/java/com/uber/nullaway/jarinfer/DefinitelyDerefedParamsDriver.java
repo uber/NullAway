@@ -79,8 +79,7 @@ public class DefinitelyDerefedParamsDriver {
               + File.separator
               + "nullaway"
               + File.separator
-              + pkgName.replaceAll("/", "\\.").substring(1)
-              + ".astubx";
+              + "jarinfer.astubx";
     } else if (path.endsWith(".aar")) {
       // TODO
       Preconditions.checkArgument(false, "aar not supported yet!");
@@ -148,7 +147,8 @@ public class DefinitelyDerefedParamsDriver {
    */
   private static String extractJAR(String jarPath) {
     Preconditions.checkArgument(
-        jarPath.endsWith(".jar") && Files.exists(Paths.get(jarPath)), "invalid jar path!");
+        jarPath.endsWith(".jar") && Files.exists(Paths.get(jarPath)),
+        "invalid jar path! " + jarPath);
     System.out.println("extracting " + jarPath + "...");
     String jarDir = jarPath.substring(0, jarPath.lastIndexOf('.'));
     try {
@@ -181,7 +181,8 @@ public class DefinitelyDerefedParamsDriver {
    *
    */
   private static String packJAR(String jarDir) {
-    Preconditions.checkArgument(Files.isDirectory(Paths.get(jarDir)), "invalid jar directory!");
+    Preconditions.checkArgument(
+        Files.isDirectory(Paths.get(jarDir)), "invalid jar directory!" + jarDir);
     String jarPath = jarDir + ".ji.jar";
     System.out.println("repacking " + jarPath + "...");
     File jarDirFile = new File(jarDir);
