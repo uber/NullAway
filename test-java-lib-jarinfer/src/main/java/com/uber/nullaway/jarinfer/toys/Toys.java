@@ -1,4 +1,4 @@
-package toys;
+package com.uber.nullaway.jarinfer.toys.unannotated;
 
 class Foo {
   private String foo;
@@ -10,7 +10,7 @@ class Foo {
 
   public boolean run(String str) {
     if (str.length() > 0) {
-      return str == foo;
+      return str.equals(foo);
     }
     return false;
   }
@@ -45,10 +45,20 @@ public class Toys {
     b.run(s);
   }
 
+  public static void test1(String s, String t, String u) {
+    if (s.length() >= 5) {
+      Foo fs = new Foo(s);
+      fs.run(u);
+    } else {
+      Foo ft = new Foo(t);
+      ft.run(u);
+    }
+  }
+
   public static void main(String arg[]) throws java.io.IOException {
     String s = new String("test string...");
-    Foo f = new Foo("try");
-    Bar b = new Bar(null);
+    Foo f = new Foo("let's");
+    Bar b = new Bar("try");
     try {
       test(s, f, b);
     } catch (Error e) {

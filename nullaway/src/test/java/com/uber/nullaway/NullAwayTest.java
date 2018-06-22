@@ -63,6 +63,23 @@ public class NullAwayTest {
   }
 
   @Test
+  public void jarinferLoadStubsTest() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
+            "class Test {",
+            "  void test1(@Nullable String s) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required",
+            "    Toys.test1(s, \"let's\", \"try\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void coreNullabilityPositiveCases() {
     compilationHelper.addSourceFile("NullAwayPositiveCases.java").doTest();
   }
