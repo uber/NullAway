@@ -67,14 +67,13 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     try {
       ClassLoader cl = Class.forName(className).getClassLoader();
       InputStream astubxIS;
-      if (cl != null) {
-        astubxIS = cl.getResourceAsStream(DEFAULT_ASTUBX_LOCATION);
-      } else {
+      if (cl == null) {
         if (VERBOSE) {
           System.out.println("[JI Warn] Cannnot find ClassLoader for " + className);
         }
         return nonNullPositions;
       }
+      astubxIS = cl.getResourceAsStream(DEFAULT_ASTUBX_LOCATION);
       if (astubxIS == null) {
         if (VERBOSE) {
           System.out.println("[JI Warn] Cannnot find jarinfer.astubx inside JAR for " + className);
@@ -174,23 +173,23 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     // Read each (package, annotation) entry, where the int values point into the string
     // dictionary loaded before.
     for (int i = 0; i < numPackages; ++i) {
-      String packageName = strings[in.readInt()];
-      String annotation = strings[in.readInt()];
+      in.readInt(); // String packageName = strings[in.readInt()];
+      in.readInt(); // String annotation = strings[in.readInt()];
     }
     // Read the number of (type, annotation) entries
     int numTypes = in.readInt();
     // Read each (type, annotation) entry, where the int values point into the string
     // dictionary loaded before.
     for (int i = 0; i < numTypes; ++i) {
-      String typeName = strings[in.readInt()];
-      String annotation = strings[in.readInt()];
+      in.readInt(); // String typeName = strings[in.readInt()];
+      in.readInt(); // String annotation = strings[in.readInt()];
     }
     // Read the number of (method, annotation) entries
     int numMethods = in.readInt();
     // Read each (method, annotation) record
     for (int i = 0; i < numMethods; ++i) {
-      String methodSig = strings[in.readInt()];
-      String annotation = strings[in.readInt()];
+      in.readInt(); // String methodSig = strings[in.readInt()];
+      in.readInt(); // String annotation = strings[in.readInt()];
     }
     // Read the number of (method, argument, annotation) entries
     int numArgumentRecords = in.readInt();

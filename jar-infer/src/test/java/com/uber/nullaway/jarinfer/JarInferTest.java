@@ -118,7 +118,7 @@ public class JarInferTest {
     Assert.assertTrue("this test never fails!", true);
   }
 
-  //  @Test
+  @Test
   public void toyStatic() {
     testTemplate(
         "toyStatic",
@@ -183,7 +183,7 @@ public class JarInferTest {
         "}");
   }
 
-  //  @Test
+  @Test
   public void toyNonStatic() {
     testTemplate(
         "toyNonStatic",
