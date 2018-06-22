@@ -43,6 +43,7 @@ import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
@@ -262,6 +263,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_TRUE_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
             .put(methodRef(Strings.class, "isNullOrEmpty(java.lang.String)"), 0)
+            .put(methodRef(Objects.class, "isNull(java.lang.Object)"), 0)
             .put(methodRef("android.text.TextUtils", "isEmpty(java.lang.CharSequence)"), 0)
             .build();
 
