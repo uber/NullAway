@@ -72,8 +72,7 @@ public class DefinitelyDerefedParamsDriver {
               + File.separator
               + "nullaway"
               + File.separator
-              + pkgName.replaceAll("/", "\\.").substring(1)
-              + ".astubx";
+              + "jarinfer.astubx";
     } else if (path.endsWith(".aar")) {
       // TODO
       Preconditions.checkArgument(false, "aar not supported yet!");
@@ -133,7 +132,8 @@ public class DefinitelyDerefedParamsDriver {
    */
   private static String extractJAR(String jarPath) {
     Preconditions.checkArgument(
-        jarPath.endsWith(".jar") && Files.exists(Paths.get(jarPath)), "invalid jar path!");
+        jarPath.endsWith(".jar") && Files.exists(Paths.get(jarPath)),
+        "invalid jar path! " + jarPath);
     System.out.println("extracting " + jarPath + "...");
     String jarDir = jarPath.substring(0, jarPath.lastIndexOf('.'));
     try {
@@ -159,6 +159,58 @@ public class DefinitelyDerefedParamsDriver {
       throw new Error(e);
     }
     return jarDir;
+  }
+
+  /*
+   * Repack JAR archive and return path
+   *
+   */
+  private static String packJAR(String jarDir) {
+    Preconditions.checkArgument(
+        Files.isDirectory(Paths.get(jarDir)), "invalid jar directory!" + jarDir);
+    String jarPath = jarDir + ".ji.jar";
+    System.out.println("repacking " + jarPath + "...");
+    File jarDirFile = new File(jarDir);
+    try {
+      FileOutputStream fos = new FileOutputStream(jarPath);
+      JarOutputStream jos = new JarOutputStream(fos, new Manifest());
+      final IOFileFilter jarFilter =
+          new IOFileFilter() {
+            @Override
+            public boolean accept(File dir, String name) {
+              return !(name.endsWith(".DS_Store") || name.endsWith("MANIFEST.MF"));
+            }
+
+            @Override
+            public boolean accept(File file) {
+              return accept(file, file.getName());
+            }
+          };
+      byte buffer[] = new byte[10240];
+      for (File file :
+          Iterator2Iterable.make(
+              FileUtils.iterateFilesAndDirs(jarDirFile, jarFilter, TrueFileFilter.TRUE))) {
+        if (file == null || !file.exists() || file.isDirectory()) continue;
+        JarEntry jarEntry =
+            new JarEntry(
+                file.getAbsolutePath().replace(jarDirFile.getAbsolutePath() + File.separator, ""));
+        jos.putNextEntry(jarEntry);
+        jarEntry.setTime(file.lastModified());
+        FileInputStream in = new FileInputStream(file);
+        while (true) {
+          int nRead = in.read(buffer, 0, buffer.length);
+          if (nRead <= 0) break;
+          jos.write(buffer, 0, nRead);
+        }
+        in.close();
+      }
+      jos.close();
+      fos.close();
+      FileUtils.deleteDirectory(jarDirFile);
+    } catch (IOException e) {
+      throw new Error(e);
+    }
+    return jarPath;
   }
 
   /*
