@@ -43,6 +43,7 @@ public class Handlers {
       // bytecode annotations
       handlerListBuilder.add(new RestrictiveAnnotationHandler(config));
     }
+    handlerListBuilder.add(new InferredJARModelsHandler());
     handlerListBuilder.add(new LibraryModelsHandler());
     handlerListBuilder.add(new RxNullabilityPropagator());
     handlerListBuilder.add(new ContractHandler());
