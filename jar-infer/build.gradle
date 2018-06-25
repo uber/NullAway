@@ -23,19 +23,9 @@ repositories {
 }
 
 dependencies {
-    compile group: 'com.ibm.wala', name: 'com.ibm.wala.shrike', version: '1.4.3'
-    compile group: 'com.ibm.wala', name: 'com.ibm.wala.util', version: '1.4.3'
-    compile group: 'com.ibm.wala', name: 'com.ibm.wala.core', version: '1.4.3'
-    compile group: 'com.ibm.wala', name: 'com.ibm.wala.cast', version: '1.4.3'
-    compile group: 'com.ibm.wala', name: 'com.ibm.wala.cast.js', version: '1.4.3'
-    compile group: 'com.ibm.wala', name: 'com.ibm.wala.cast.js.rhino', version: '1.4.3'
-    compile group: 'com.ibm.wala', name: 'com.ibm.wala.cast.java', version: '1.4.3'
-    compile group: 'com.ibm.wala', name: 'com.ibm.wala.cast.java.ecj', version: '1.4.3'
-    // uncomment to use wala.dalvik or wala.scandroid
-    //compile group: 'com.ibm.wala', name: 'com.ibm.wala.dalvik', version: '1.4.3'
-    //compile group: 'com.ibm.wala', name: 'com.ibm.wala.scandroid', version: '1.4.3'
-
+    compile deps.build.wala
     compile deps.build.guava
+    compile deps.build.commonsIO
     compileOnly deps.build.errorProneCheckApi
     compile deps.build.checkerDataflow
 
@@ -66,3 +56,4 @@ run {
     }
 }
 
+apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
