@@ -23,10 +23,7 @@ repositories {
 }
 
 dependencies {
-    compile group: 'com.ibm.wala', name: 'com.ibm.wala.shrike', version: '1.4.3'
-    compile group: 'com.ibm.wala', name: 'com.ibm.wala.util', version: '1.4.3'
-    compile group: 'com.ibm.wala', name: 'com.ibm.wala.core', version: '1.4.3'
-
+    compile deps.build.wala
     compile deps.build.guava
     compile deps.build.commonsIO
     compileOnly deps.build.errorProneCheckApi
