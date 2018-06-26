@@ -772,7 +772,6 @@ public class NullAwayTest {
             "class Test {",
             "  private String path;",
             "  private String f;",
-            "  @SuppressWarnings(\"NullAway\")",
             "  Test(String p) throws IOException {",
             "    path = p;",
             "    try (BufferedReader br = new BufferedReader(new FileReader(path))) {",
