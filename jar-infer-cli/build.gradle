@@ -1,5 +1,6 @@
 plugins {
     id "net.ltgt.errorprone" version "0.0.13"
+    id "com.github.johnrengelman.shadow" version "2.0.2"
     id "java"
     id "application"
 }
@@ -9,25 +10,19 @@ configurations.maybeCreate("epJavac")
 
 sourceCompatibility = 1.8
 version = '0.1'
-jar {
-    manifest {
-        attributes 'Implementation-Title': 'WALA Start',
-                   'Implementation-Version': version
-    }
-}
 
 repositories {
     mavenCentral()
-    // uncomment if you want to use wala.dalvik or wala.scandroid
-    //maven { url "https://raw.github.com/msridhar/maven-jars/mvn-repo/" }
 }
 
 dependencies {
-    compile deps.build.wala
+    compile 'commons-cli:commons-cli:1.4'
+
     compile deps.build.guava
-    compile deps.build.commonsIO
     compileOnly deps.build.errorProneCheckApi
     compile deps.build.checkerDataflow
+
+    compile project(":jar-infer-lib")
 
     errorprone deps.build.errorProneCore
 
@@ -38,11 +33,26 @@ dependencies {
     epJavac deps.build.errorProneCheckApi
 }
 
+jar {
+    manifest {
+        attributes(
+        //'Class-Path': configurations.compile.collect {it.getName()}.join(' '),
+        'Main-Class': 'com.uber.nullaway.jarinfer.JarInfer'
+        )
+    }
+}
+
+shadowJar {
+    classifier = null
+}
+shadowJar.dependsOn jar
+assemble.dependsOn shadowJar
+
 if (project.hasProperty('mainClass')) {
     mainClassName = project.getProperty('mainClass')
 } else {
     // use a default
-    mainClassName = "com.uber.nullaway.jarinfer.DefinitelyDerefedParamsDriver"
+    mainClassName = "com.uber.nullaway.jarinfer.JarInfer"
 }
 
 test {
@@ -57,3 +67,24 @@ run {
 }
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
+
+def configurePomForShadow(pom) {
+    pom.scopeMappings.mappings.remove(project.configurations.compile)
+    pom.scopeMappings.mappings.remove(project.configurations.runtime)
+    pom.scopeMappings.addMapping(MavenPlugin.COMPILE_PRIORITY, project.configurations.shadow, Conf2ScopeMappingContainer.COMPILE)
+}
+
+install {
+    repositories.mavenInstaller {
+        configurePomForShadow(pom)
+    }
+}
+install.dependsOn shadowJar
+
+uploadArchives {
+    repositories.mavenDeployer {
+        configurePomForShadow(pom)
+    }
+}
+uploadArchives.dependsOn shadowJar
+

@@ -57,9 +57,8 @@ import org.apache.commons.io.filefilter.TrueFileFilter;
  * Driver for running {@link DefinitelyDerefedParams}
  */
 public class DefinitelyDerefedParamsDriver {
-  private static String aStubXPath = "./build/reports/tests/test.astubx";
   /*
-   * Usage: DefinitelyDerefedParamsDriver ( path, package_name)
+   * Usage: DefinitelyDerefedParamsDriver ( path, package_name, [output_jar_path])
    * path: jar file OR directory containing class files
    * @throws IOException
    * @throws ClassHierarchyException
@@ -68,27 +67,46 @@ public class DefinitelyDerefedParamsDriver {
 
   public static HashMap<String, Set<Integer>> run(String path, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
+    String outPath = "";
+    if (path.endsWith(".jar") || path.endsWith(".aar")) {
+      outPath =
+          path.substring(0, path.lastIndexOf('.'))
+              + ".ji."
+              + path.substring(path.lastIndexOf('.') + 1);
+    }
+    return run(path, pkgName, outPath);
+  }
+
+  public static HashMap<String, Set<Integer>> run(String path, String pkgName, String outPath)
+      throws IOException, ClassHierarchyException, IllegalArgumentException {
     String workDir = path;
     long start = System.currentTimeMillis();
     if (path.endsWith(".jar")) {
       workDir = extractJAR(path);
-      aStubXPath =
-          workDir
-              + File.separator
-              + "META-INF"
-              + File.separator
-              + "nullaway"
-              + File.separator
-              + "jarinfer.astubx";
     } else if (path.endsWith(".aar")) {
-      // TODO
-      Preconditions.checkArgument(false, "aar not supported yet!");
+      workDir = extractAAR(path);
     } else {
       Preconditions.checkArgument(Files.isDirectory(Paths.get(path)), "invalid path!");
     }
+    String aStubXPath =
+        workDir
+            + File.separator
+            + "META-INF"
+            + File.separator
+            + "nullaway"
+            + File.separator
+            + "jarinfer.astubx";
 
     AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
     AnalysisScopeReader.addClassPathToScope(workDir, scope, ClassLoaderReference.Application);
+    if (path.endsWith(".aar")) {
+      AnalysisScopeReader.addClassPathToScope(
+          "/Users/subarno/android-sdk/platforms/android-28/android.jar",
+          scope,
+          ClassLoaderReference.Extension);
+      //
+      // AnalysisScopeReader.addClassPathToScope("/Users/subarno/android-sdk/extras/android/m2repository/com/android/support/appcompat-v7/25.3.1/appcompat-v7-25.3.1.aar", scope, ClassLoaderReference.Extension);
+    }
     AnalysisOptions options = new AnalysisOptions(scope, null);
     AnalysisCache cache = new AnalysisCacheImpl();
     IClassHierarchy cha = ClassHierarchyFactory.make(scope);
@@ -100,9 +118,12 @@ public class DefinitelyDerefedParamsDriver {
     for (IClassLoader cldr : cha.getLoaders()) {
       if (!cldr.getName().toString().equals("Primordial")) {
         for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
-          // Only process classes in specified classpath
+          // Only process classes in specified classpath and not its dependencies.
+          // TODO: figure the right way to do this
+          System.out.println("[dbg] cls: " + cls.getName().toString());
           if (cls.getName().toString().startsWith(pkgName)) {
             for (IMethod mtd : Iterator2Iterable.make(cls.getAllMethods().iterator())) {
+              System.out.println("[dbg] mtd: " + mtd.toString());
               if (!mtd.getDeclaringClass()
                   .getClassLoader()
                   .getName()
@@ -124,19 +145,20 @@ public class DefinitelyDerefedParamsDriver {
             }
           }
         }
-      }
+      } else
+        for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses()))
+          System.out.println("[dbg] primordial cls: " + cls.getName().toString());
     }
     long end = System.currentTimeMillis();
     System.out.println("-----\ndone\ntook " + (end - start) + "ms");
     System.out.println("definitely-derefereced paramters: " + map_str_result.toString());
 
-    writeJarModel(cha, map_mtd_result);
+    writeJarModel(cha, map_mtd_result, aStubXPath);
 
     if (path.endsWith(".jar")) {
-      packJAR(workDir);
+      packJAR(workDir, outPath);
     } else if (path.endsWith(".aar")) {
-      // TODO
-      Preconditions.checkArgument(false, "aar not supported yet!");
+      packAAR(workDir, outPath);
     }
     return map_str_result;
   }
@@ -146,7 +168,7 @@ public class DefinitelyDerefedParamsDriver {
    */
   private static String extractJAR(String jarPath) {
     Preconditions.checkArgument(
-        jarPath.endsWith(".jar") && Files.exists(Paths.get(jarPath)),
+        (jarPath.endsWith(".jar") || jarPath.endsWith(".aar")) && Files.exists(Paths.get(jarPath)),
         "invalid jar path! " + jarPath);
     System.out.println("extracting " + jarPath + "...");
     String jarDir = jarPath.substring(0, jarPath.lastIndexOf('.'));
@@ -155,10 +177,11 @@ public class DefinitelyDerefedParamsDriver {
       Enumeration enumEntries = jar.entries();
       while (enumEntries.hasMoreElements()) {
         JarEntry file = (JarEntry) enumEntries.nextElement();
+        File f = new File(jarDir + File.separator + file.getName());
         if (file.isDirectory()) {
+          f.mkdirs();
           continue;
         }
-        File f = new File(jarDir + File.separator + file.getName());
         f.getParentFile().mkdirs();
         InputStream is = jar.getInputStream(file);
         FileOutputStream fos = new FileOutputStream(f);
@@ -176,18 +199,30 @@ public class DefinitelyDerefedParamsDriver {
   }
 
   /*
-   * Repack JAR archive and return path
+   * Unpack AAR archive and return 'clasees' directory path
    *
    */
-  private static String packJAR(String jarDir) {
+  private static String extractAAR(String aarPath) {
+    return extractJAR(extractJAR(aarPath) + File.separator + "classes.jar");
+  }
+
+  /*
+   * Repack JAR archive
+   *
+   */
+  private static void packJAR(String jarDir, String outPath) {
     Preconditions.checkArgument(
         Files.isDirectory(Paths.get(jarDir)), "invalid jar directory!" + jarDir);
-    String jarPath = jarDir + ".ji.jar";
-    System.out.println("repacking " + jarPath + "...");
+    System.out.println("repacking " + outPath + "...");
     File jarDirFile = new File(jarDir);
     try {
-      FileOutputStream fos = new FileOutputStream(jarPath);
-      JarOutputStream jos = new JarOutputStream(fos, new Manifest());
+      FileOutputStream fos = new FileOutputStream(outPath);
+      JarOutputStream jos;
+      if (outPath.endsWith(".aar")) {
+        jos = new JarOutputStream(fos);
+      } else {
+        jos = new JarOutputStream(fos, new Manifest());
+      }
       final IOFileFilter jarFilter =
           new IOFileFilter() {
             @Override
@@ -204,19 +239,24 @@ public class DefinitelyDerefedParamsDriver {
       for (File file :
           Iterator2Iterable.make(
               FileUtils.iterateFilesAndDirs(jarDirFile, jarFilter, TrueFileFilter.TRUE))) {
-        if (file == null || !file.exists() || file.isDirectory()) continue;
+        if (file == null
+            || !file.exists()
+            || (file.isDirectory() && file.getAbsolutePath().endsWith(jarDir))) continue;
         JarEntry jarEntry =
             new JarEntry(
-                file.getAbsolutePath().replace(jarDirFile.getAbsolutePath() + File.separator, ""));
+                file.getAbsolutePath().replace(jarDirFile.getAbsolutePath() + File.separator, "")
+                    + (file.isDirectory() ? File.separator : ""));
         jos.putNextEntry(jarEntry);
         jarEntry.setTime(file.lastModified());
-        FileInputStream in = new FileInputStream(file);
-        while (true) {
-          int nRead = in.read(buffer, 0, buffer.length);
-          if (nRead <= 0) break;
-          jos.write(buffer, 0, nRead);
+        if (!file.isDirectory()) {
+          FileInputStream in = new FileInputStream(file);
+          while (true) {
+            int nRead = in.read(buffer, 0, buffer.length);
+            if (nRead <= 0) break;
+            jos.write(buffer, 0, nRead);
+          }
+          in.close();
         }
-        in.close();
       }
       jos.close();
       fos.close();
@@ -224,7 +264,15 @@ public class DefinitelyDerefedParamsDriver {
     } catch (IOException e) {
       throw new Error(e);
     }
-    return jarPath;
+  }
+
+  /*
+   * Repack AAR archive
+   *
+   */
+  private static void packAAR(String jarDir, String outPath) {
+    packJAR(jarDir, jarDir + ".jar");
+    packJAR(jarDir.substring(0, jarDir.lastIndexOf('/')), outPath);
   }
 
   /*
@@ -233,7 +281,7 @@ public class DefinitelyDerefedParamsDriver {
    *       StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
    */
   private static void writeJarModel(
-      IClassHierarchy cha, HashMap<IMethod, Set<Integer>> map_mtd_result) {
+      IClassHierarchy cha, HashMap<IMethod, Set<Integer>> map_mtd_result, String aStubXPath) {
     try {
       File aStubXFile = new File(aStubXPath);
       aStubXFile.getParentFile().mkdirs();
