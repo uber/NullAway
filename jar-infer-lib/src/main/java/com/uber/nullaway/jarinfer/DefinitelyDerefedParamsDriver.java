@@ -99,14 +99,6 @@ public class DefinitelyDerefedParamsDriver {
 
     AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
     AnalysisScopeReader.addClassPathToScope(workDir, scope, ClassLoaderReference.Application);
-    if (path.endsWith(".aar")) {
-      AnalysisScopeReader.addClassPathToScope(
-          "/Users/subarno/android-sdk/platforms/android-28/android.jar",
-          scope,
-          ClassLoaderReference.Extension);
-      //
-      // AnalysisScopeReader.addClassPathToScope("/Users/subarno/android-sdk/extras/android/m2repository/com/android/support/appcompat-v7/25.3.1/appcompat-v7-25.3.1.aar", scope, ClassLoaderReference.Extension);
-    }
     AnalysisOptions options = new AnalysisOptions(scope, null);
     AnalysisCache cache = new AnalysisCacheImpl();
     IClassHierarchy cha = ClassHierarchyFactory.make(scope);
@@ -120,10 +112,8 @@ public class DefinitelyDerefedParamsDriver {
         for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
           // Only process classes in specified classpath and not its dependencies.
           // TODO: figure the right way to do this
-          System.out.println("[dbg] cls: " + cls.getName().toString());
           if (cls.getName().toString().startsWith(pkgName)) {
             for (IMethod mtd : Iterator2Iterable.make(cls.getAllMethods().iterator())) {
-              System.out.println("[dbg] mtd: " + mtd.toString());
               if (!mtd.getDeclaringClass()
                   .getClassLoader()
                   .getName()
@@ -145,9 +135,7 @@ public class DefinitelyDerefedParamsDriver {
             }
           }
         }
-      } else
-        for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses()))
-          System.out.println("[dbg] primordial cls: " + cls.getName().toString());
+      }
     }
     long end = System.currentTimeMillis();
     System.out.println("-----\ndone\ntook " + (end - start) + "ms");
