@@ -16,8 +16,7 @@ repositories {
 }
 
 dependencies {
-    compile 'commons-cli:commons-cli:1.4'
-
+    compile deps.build.commonscli
     compile deps.build.guava
     compileOnly deps.build.errorProneCheckApi
     compile deps.build.checkerDataflow
