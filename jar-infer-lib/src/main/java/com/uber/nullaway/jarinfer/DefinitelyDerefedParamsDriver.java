@@ -56,21 +56,8 @@ class Result extends HashMap<IMethod, Set<Integer>> {}
 
 /** Driver for running {@link DefinitelyDerefedParams} */
 public class DefinitelyDerefedParamsDriver {
-  /**
-   * Driver for the analysis. {@link DefinitelyDerefedParams} Usage: DefinitelyDerefedParamsDriver (
-   * jar/aar_path, package_name, [output_path])
-   *
-   * @param inPath Path to input jar/aar file to be analyzed.
-   * @param pkgName Qualified package name.
-   * @param outPath Path to output processed jar/aar file. default outPath for 'a/b/c/x.jar' is
-   *     'a/b/c/x-ji.jar'.
-   * @return HashMap<String, Set<Integer>> Map of 'method signatures' to their 'list of NonNull
-   *     parameters'.
-   * @throws IOException
-   * @throws ClassHierarchyException
-   * @throws IllegalArgumentException
-   */
-  private static final String DEFAULT_ASTUBX_LOACTION = "META-INF/nullaway/jarinfer.astubx";
+
+  public static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
 
   public static HashMap<String, Set<Integer>> run(String inPath, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
@@ -84,7 +71,20 @@ public class DefinitelyDerefedParamsDriver {
     }
     return run(inPath, pkgName, outPath);
   }
-
+  /**
+   * Driver for the analysis. {@link DefinitelyDerefedParams} Usage: DefinitelyDerefedParamsDriver (
+   * jar/aar_path, package_name, [output_path])
+   *
+   * @param inPath Path to input jar/aar file to be analyzed.
+   * @param pkgName Qualified package name.
+   * @param outPath Path to output processed jar/aar file. Default outPath for 'a/b/c/x.jar' is
+   *     'a/b/c/x-ji.jar'.
+   * @return HashMap<String, Set<Integer>> Map of 'method signatures' to their 'list of NonNull
+   *     parameters'.
+   * @throws IOException
+   * @throws ClassHierarchyException
+   * @throws IllegalArgumentException
+   */
   public static HashMap<String, Set<Integer>> run(String inPath, String pkgName, String outPath)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String workDir = inPath;
@@ -164,7 +164,7 @@ public class DefinitelyDerefedParamsDriver {
       Enumeration enumEntries = jar.entries();
       while (enumEntries.hasMoreElements()) {
         JarEntry jarEntry = (JarEntry) enumEntries.nextElement();
-        if (jarEntry.getName().endsWith(DEFAULT_ASTUBX_LOACTION)) {
+        if (jarEntry.getName().endsWith(DEFAULT_ASTUBX_LOCATION)) {
           throw new Error("jar-infer called on already processed library: " + jarPath);
         }
         if (jarEntry.isDirectory() || !jarEntry.getName().endsWith(".class")) continue;
@@ -204,7 +204,7 @@ public class DefinitelyDerefedParamsDriver {
           JarInputStream jis = new JarInputStream(aar.getInputStream(aarEntry));
           JarEntry jarEntry = null;
           while ((jarEntry = jis.getNextJarEntry()) != null) {
-            if (jarEntry.getName().endsWith(DEFAULT_ASTUBX_LOACTION)) {
+            if (jarEntry.getName().endsWith(DEFAULT_ASTUBX_LOCATION)) {
               throw new Error("jar-infer called on already processed library: " + aarPath);
             }
             if (jarEntry.isDirectory() || !jarEntry.getName().endsWith(".class")) continue;
@@ -247,7 +247,7 @@ public class DefinitelyDerefedParamsDriver {
         IOUtils.copy(jis, jos);
         jis.close();
       }
-      jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOACTION));
+      jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
       writeModel(new DataOutputStream(jos), map_mtd_result);
       jos.close();
       jar.close();
@@ -286,7 +286,7 @@ public class DefinitelyDerefedParamsDriver {
             IOUtils.copy(jis, jos);
           }
           jis.close();
-          jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOACTION));
+          jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
           writeModel(new DataOutputStream(jos), map_mtd_result);
           jos.finish();
         } else {

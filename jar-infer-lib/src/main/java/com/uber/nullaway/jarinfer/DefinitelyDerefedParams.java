@@ -56,7 +56,7 @@ public class DefinitelyDerefedParams {
    *
    * @param method The target method of the analysis.
    * @param ir The IR code for the target method.
-   * @parag cfg The Control Flow Graph of the target method.
+   * @param cfg The Control Flow Graph of the target method.
    * @param cha The Class Hierarchy
    */
   public DefinitelyDerefedParams(

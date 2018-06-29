@@ -45,6 +45,8 @@ dependencies {
 
     errorprone deps.build.errorProneCore
 
+    compile project(":jar-infer-lib")
+
     testCompile deps.test.junit4
     testCompile(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
