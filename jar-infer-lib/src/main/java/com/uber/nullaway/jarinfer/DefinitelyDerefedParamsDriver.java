@@ -81,9 +81,9 @@ public class DefinitelyDerefedParamsDriver {
    *     'a/b/c/x-ji.jar'.
    * @return HashMap<String, Set<Integer>> Map of 'method signatures' to their 'list of NonNull
    *     parameters'.
-   * @throws IOException
-   * @throws ClassHierarchyException
-   * @throws IllegalArgumentException
+   * @throws IOException on IO error.
+   * @throws ClassHierarchyException on Class Hierarchy factory error.
+   * @throws IllegalArgumentException on illegal argument to WALA API.
    */
   public static HashMap<String, Set<Integer>> run(String inPath, String pkgName, String outPath)
       throws IOException, ClassHierarchyException, IllegalArgumentException {

@@ -23,7 +23,7 @@ public final class StubxWriter {
    *
    * @param out Output stream.
    * @param importedAnnotations Mapping of 'custom annotations' to their 'definition classes'.
-   * @parm packageAnnotations Map of 'package names' to their 'list of package-level annotations'.
+   * @param packageAnnotations Map of 'package names' to their 'list of package-level annotations'.
    * @param typeAnnotations Map of 'type names' to their 'list of type annotations'.
    * @param methodRecords Map of 'method signatures' to their 'method annotations record'. Method
    *     annotations record consists of return value annotations and argument annotations. {@link
