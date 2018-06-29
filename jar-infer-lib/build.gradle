@@ -1,20 +1,12 @@
 plugins {
     id "net.ltgt.errorprone" version "0.0.13"
     id "java"
-    id "application"
 }
 // we use this config to get the path of the JDK 9 javac jar, to
 // stick it in the bootclasspath when running tests
 configurations.maybeCreate("epJavac")
 
 sourceCompatibility = 1.8
-version = '0.1'
-jar {
-    manifest {
-        attributes 'Implementation-Title': 'WALA Start',
-                   'Implementation-Version': version
-    }
-}
 
 repositories {
     mavenCentral()
@@ -38,22 +30,9 @@ dependencies {
     epJavac deps.build.errorProneCheckApi
 }
 
-if (project.hasProperty('mainClass')) {
-    mainClassName = project.getProperty('mainClass')
-} else {
-    // use a default
-    mainClassName = "com.uber.nullaway.jarinfer.DefinitelyDerefedParamsDriver"
-}
-
 test {
     maxHeapSize = "1024m"
     jvmArgs "-Xbootclasspath/p:${configurations.epJavac.asPath}"
-}
-
-run {
-    if(project.hasProperty('appArgs')){
-        args Eval.me(appArgs)
-    }
 }
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")

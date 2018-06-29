@@ -57,7 +57,7 @@ class Result extends HashMap<IMethod, Set<Integer>> {}
 /** Driver for running {@link DefinitelyDerefedParams} */
 public class DefinitelyDerefedParamsDriver {
 
-  public static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
+  private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
 
   public static HashMap<String, Set<Integer>> run(String inPath, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {

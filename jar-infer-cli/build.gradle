@@ -8,8 +8,8 @@ plugins {
 // stick it in the bootclasspath when running tests
 configurations.maybeCreate("epJavac")
 
-sourceCompatibility = 1.8
-version = '0.1'
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
 
 repositories {
     mavenCentral()

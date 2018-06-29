@@ -28,8 +28,6 @@ import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.jarinfer.DefinitelyDerefedParamsDriver;
-import com.uber.nullaway.jarinfer.StubxWriter;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,6 +39,9 @@ import java.util.Set;
 
 /** This handler loads inferred nullability model from stubs for methods in unannotated packages. */
 public class InferredJARModelsHandler extends BaseNoOpHandler {
+
+  private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
+  private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
 
   private static final boolean VERBOSE = false;
   private static final boolean DEBUG = false;
@@ -74,8 +75,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         return nonNullPositions;
       }
       // TODO: Does this work for aar ?
-      String astubxLocation = DefinitelyDerefedParamsDriver.DEFAULT_ASTUBX_LOCATION;
-      astubxIS = cl.getResourceAsStream(astubxLocation);
+      astubxIS = cl.getResourceAsStream(DEFAULT_ASTUBX_LOCATION);
       if (astubxIS == null) {
         if (VERBOSE) {
           System.out.println("[JI Warn] Cannnot find jarinfer.astubx inside JAR for " + className);
@@ -86,9 +86,10 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       if (!argAnnotCache.containsKey(className)) {
         argAnnotCache.put(className, new LinkedHashMap<>());
         if (DEBUG) {
-          System.out.println("[JI DEBUG] Parsing " + className + ": " + astubxLocation);
+          System.out.println("[JI DEBUG] Parsing " + className + ": " + DEFAULT_ASTUBX_LOCATION);
         }
-        parseStubStream(astubxIS, className + ": " + astubxLocation, argAnnotCache.get(className));
+        parseStubStream(
+            astubxIS, className + ": " + DEFAULT_ASTUBX_LOCATION, argAnnotCache.get(className));
       }
       // Generate method signature
       // TODO handle Arrays
@@ -158,7 +159,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     String[] strings;
     DataInputStream in = new DataInputStream(stubxInputStream);
     // Read and check the magic version number
-    if (in.readInt() != StubxWriter.VERSION_0_FILE_MAGIC_NUMBER) {
+    if (in.readInt() != VERSION_0_FILE_MAGIC_NUMBER) {
       throw new Error("Invalid file version/magic number for stubx file!" + stubxLocation);
     }
     // Read the number of strings in the string dictionary

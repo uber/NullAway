@@ -16,7 +16,7 @@ public final class StubxWriter {
    * The file magic number for version 0 .astubx files. It should be the first four bytes of any
    * compatible .astubx file.
    */
-  public static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
+  private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
 
   /**
    * This method writes the provided list of annotations to a DataOutputStream in the astubx format.
