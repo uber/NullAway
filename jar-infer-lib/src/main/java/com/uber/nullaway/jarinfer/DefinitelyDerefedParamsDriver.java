@@ -75,7 +75,7 @@ public class DefinitelyDerefedParamsDriver {
       outPath =
           FilenameUtils.getFullPath(inPath)
               + FilenameUtils.getBaseName(inPath)
-              + ".ji."
+              + "-ji."
               + FilenameUtils.getExtension(inPath);
     }
     return run(inPath, pkgName, outPath);
@@ -146,7 +146,7 @@ public class DefinitelyDerefedParamsDriver {
     return map_str_result;
   }
   /*
-   * Ectract class files from JAR archive and return directory path
+   * Extract class files from JAR archive and return directory path
    *
    */
   private static String extractJARClasses(String jarPath) {
@@ -180,7 +180,7 @@ public class DefinitelyDerefedParamsDriver {
   }
 
   /*
-   * Ectract class files from AAR archive and return directory path
+   * Extract class files from AAR archive and return directory path
    *
    */
   private static String extractAARClasses(String aarPath) {
