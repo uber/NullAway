@@ -39,7 +39,6 @@ import com.ibm.wala.util.config.AnalysisScopeReader;
 import com.ibm.wala.util.warnings.Warnings;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,11 +46,13 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
-import java.util.jar.Manifest;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.filefilter.IOFileFilter;
-import org.apache.commons.io.filefilter.TrueFileFilter;
+import org.apache.commons.io.FilenameUtils;
+import org.apache.commons.io.IOUtils;
+
+class Result extends HashMap<IMethod, Set<Integer>> {}
 
 /*
  * Driver for running {@link DefinitelyDerefedParams}
@@ -65,37 +66,32 @@ public class DefinitelyDerefedParamsDriver {
    * @throws IllegalArgumentException
    */
 
-  public static HashMap<String, Set<Integer>> run(String path, String pkgName)
+  private static final String DEFAULT_ASTUBX_LOACTION = "META-INF/nullaway/jarinfer.astubx";
+
+  public static HashMap<String, Set<Integer>> run(String inPath, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String outPath = "";
-    if (path.endsWith(".jar") || path.endsWith(".aar")) {
+    if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
       outPath =
-          path.substring(0, path.lastIndexOf('.'))
+          FilenameUtils.getFullPath(inPath)
+              + FilenameUtils.getBaseName(inPath)
               + ".ji."
-              + path.substring(path.lastIndexOf('.') + 1);
+              + FilenameUtils.getExtension(inPath);
     }
-    return run(path, pkgName, outPath);
+    return run(inPath, pkgName, outPath);
   }
 
-  public static HashMap<String, Set<Integer>> run(String path, String pkgName, String outPath)
+  public static HashMap<String, Set<Integer>> run(String inPath, String pkgName, String outPath)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
-    String workDir = path;
+    String workDir = inPath;
     long start = System.currentTimeMillis();
-    if (path.endsWith(".jar")) {
-      workDir = extractJAR(path);
-    } else if (path.endsWith(".aar")) {
-      workDir = extractAAR(path);
+    if (inPath.endsWith(".jar")) {
+      workDir = extractJARClasses(inPath);
+    } else if (inPath.endsWith(".aar")) {
+      workDir = extractAARClasses(inPath);
     } else {
-      Preconditions.checkArgument(Files.isDirectory(Paths.get(path)), "invalid path!");
+      Preconditions.checkArgument(Files.isDirectory(Paths.get(inPath)), "invalid path!");
     }
-    String aStubXPath =
-        workDir
-            + File.separator
-            + "META-INF"
-            + File.separator
-            + "nullaway"
-            + File.separator
-            + "jarinfer.astubx";
 
     AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
     AnalysisScopeReader.addClassPathToScope(workDir, scope, ClassLoaderReference.Application);
@@ -103,7 +99,7 @@ public class DefinitelyDerefedParamsDriver {
     AnalysisCache cache = new AnalysisCacheImpl();
     IClassHierarchy cha = ClassHierarchyFactory.make(scope);
     Warnings.clear();
-    HashMap<IMethod, Set<Integer>> map_mtd_result = new HashMap<IMethod, Set<Integer>>();
+    Result map_mtd_result = new Result();
     HashMap<String, Set<Integer>> map_str_result = new HashMap<String, Set<Integer>>();
 
     // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
@@ -141,140 +137,171 @@ public class DefinitelyDerefedParamsDriver {
     System.out.println("-----\ndone\ntook " + (end - start) + "ms");
     System.out.println("definitely-derefereced paramters: " + map_str_result.toString());
 
-    writeJarModel(cha, map_mtd_result, aStubXPath);
-
-    if (path.endsWith(".jar")) {
-      packJAR(workDir, outPath);
-    } else if (path.endsWith(".aar")) {
-      packAAR(workDir, outPath);
+    if (inPath.endsWith(".jar")) {
+      writeProcessedJAR(inPath, outPath, map_mtd_result);
+    } else if (inPath.endsWith(".aar")) {
+      writeProcessedAAR(inPath, outPath, map_mtd_result);
     }
+    FileUtils.deleteDirectory(new File(workDir));
     return map_str_result;
   }
   /*
-   * Unpack JAR archive and return directory path
+   * Ectract class files from JAR archive and return directory path
    *
    */
-  private static String extractJAR(String jarPath) {
+  private static String extractJARClasses(String jarPath) {
     Preconditions.checkArgument(
-        (jarPath.endsWith(".jar") || jarPath.endsWith(".aar")) && Files.exists(Paths.get(jarPath)),
+        jarPath.endsWith(".jar") && Files.exists(Paths.get(jarPath)),
         "invalid jar path! " + jarPath);
     System.out.println("extracting " + jarPath + "...");
-    String jarDir = jarPath.substring(0, jarPath.lastIndexOf('.'));
+    String classDir = FilenameUtils.getFullPath(jarPath) + FilenameUtils.getBaseName(jarPath);
     try {
       JarFile jar = new JarFile(jarPath);
       Enumeration enumEntries = jar.entries();
       while (enumEntries.hasMoreElements()) {
-        JarEntry file = (JarEntry) enumEntries.nextElement();
-        File f = new File(jarDir + File.separator + file.getName());
-        if (file.isDirectory()) {
-          f.mkdirs();
-          continue;
+        JarEntry jarEntry = (JarEntry) enumEntries.nextElement();
+        if (jarEntry.getName().endsWith(DEFAULT_ASTUBX_LOACTION)) {
+          throw new Error("jar-infer called on already processed library: " + jarPath);
         }
+        if (jarEntry.isDirectory() || !jarEntry.getName().endsWith(".class")) continue;
+        File f = new File(classDir + File.separator + jarEntry.getName());
         f.getParentFile().mkdirs();
-        InputStream is = jar.getInputStream(file);
+        InputStream jis = jar.getInputStream(jarEntry);
         FileOutputStream fos = new FileOutputStream(f);
-        while (is.available() > 0) {
-          fos.write(is.read());
-        }
+        IOUtils.copy(jis, fos);
         fos.close();
-        is.close();
+        jis.close();
       }
       jar.close();
     } catch (IOException e) {
       throw new Error(e);
     }
-    return jarDir;
+    return classDir;
   }
 
   /*
-   * Unpack AAR archive and return 'clasees' directory path
+   * Ectract class files from AAR archive and return directory path
    *
    */
-  private static String extractAAR(String aarPath) {
-    return extractJAR(extractJAR(aarPath) + File.separator + "classes.jar");
-  }
-
-  /*
-   * Repack JAR archive
-   *
-   */
-  private static void packJAR(String jarDir, String outPath) {
+  private static String extractAARClasses(String aarPath) {
     Preconditions.checkArgument(
-        Files.isDirectory(Paths.get(jarDir)), "invalid jar directory!" + jarDir);
-    System.out.println("repacking " + outPath + "...");
-    File jarDirFile = new File(jarDir);
+        aarPath.endsWith(".aar") && Files.exists(Paths.get(aarPath)),
+        "invalid aar path! " + aarPath);
+    System.out.println("extracting " + aarPath + "...");
+    String classDir = FilenameUtils.getFullPath(aarPath) + FilenameUtils.getBaseName(aarPath);
     try {
-      FileOutputStream fos = new FileOutputStream(outPath);
-      JarOutputStream jos;
-      if (outPath.endsWith(".aar")) {
-        jos = new JarOutputStream(fos);
-      } else {
-        jos = new JarOutputStream(fos, new Manifest());
-      }
-      final IOFileFilter jarFilter =
-          new IOFileFilter() {
-            @Override
-            public boolean accept(File dir, String name) {
-              return !(name.endsWith(".DS_Store") || name.endsWith("MANIFEST.MF"));
+      JarFile aar = new JarFile(aarPath);
+      Enumeration enumEntries = aar.entries();
+      while (enumEntries.hasMoreElements()) {
+        JarEntry aarEntry = (JarEntry) enumEntries.nextElement();
+        if (aarEntry.getName().endsWith("classes.jar")) {
+          JarInputStream jis = new JarInputStream(aar.getInputStream(aarEntry));
+          JarEntry jarEntry = null;
+          while ((jarEntry = jis.getNextJarEntry()) != null) {
+            if (jarEntry.getName().endsWith(DEFAULT_ASTUBX_LOACTION)) {
+              throw new Error("jar-infer called on already processed library: " + aarPath);
             }
-
-            @Override
-            public boolean accept(File file) {
-              return accept(file, file.getName());
-            }
-          };
-      byte buffer[] = new byte[10240];
-      for (File file :
-          Iterator2Iterable.make(
-              FileUtils.iterateFilesAndDirs(jarDirFile, jarFilter, TrueFileFilter.TRUE))) {
-        if (file == null
-            || !file.exists()
-            || (file.isDirectory() && file.getAbsolutePath().endsWith(jarDir))) continue;
-        JarEntry jarEntry =
-            new JarEntry(
-                file.getAbsolutePath().replace(jarDirFile.getAbsolutePath() + File.separator, "")
-                    + (file.isDirectory() ? File.separator : ""));
-        jos.putNextEntry(jarEntry);
-        jarEntry.setTime(file.lastModified());
-        if (!file.isDirectory()) {
-          FileInputStream in = new FileInputStream(file);
-          while (true) {
-            int nRead = in.read(buffer, 0, buffer.length);
-            if (nRead <= 0) break;
-            jos.write(buffer, 0, nRead);
+            if (jarEntry.isDirectory() || !jarEntry.getName().endsWith(".class")) continue;
+            File f = new File(classDir + File.separator + jarEntry.getName());
+            f.getParentFile().mkdirs();
+            FileOutputStream fos = new FileOutputStream(f);
+            IOUtils.copy(jis, fos);
+            fos.close();
           }
-          in.close();
+          jis.close();
         }
       }
+      aar.close();
+    } catch (IOException e) {
+      throw new Error(e);
+    }
+    return classDir;
+  }
+
+  /*
+   * Write processed jar with nullability model
+   *
+   */
+  private static void writeProcessedJAR(
+      String inJarPath, String outJarPath, Result map_mtd_result) {
+    Preconditions.checkArgument(
+        inJarPath.endsWith(".jar") && Files.exists(Paths.get(inJarPath)),
+        "invalid jar file! " + inJarPath);
+    try {
+      JarFile jar = new JarFile(inJarPath);
+      JarOutputStream jos = new JarOutputStream(new FileOutputStream(outJarPath));
+      Enumeration enumEntries = jar.entries();
+      while (enumEntries.hasMoreElements()) {
+        JarEntry jarEntry = (JarEntry) enumEntries.nextElement();
+        InputStream jis = jar.getInputStream(jarEntry);
+        jos.putNextEntry(jarEntry);
+        IOUtils.copy(jis, jos);
+        jis.close();
+      }
+      jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOACTION));
+      writeModel(new DataOutputStream(jos), map_mtd_result);
       jos.close();
-      fos.close();
-      FileUtils.deleteDirectory(jarDirFile);
+      jar.close();
+      System.out.println("processed jar to: " + outJarPath);
     } catch (IOException e) {
       throw new Error(e);
     }
   }
 
   /*
-   * Repack AAR archive
+   * Write processed aar with nullability model
    *
    */
-  private static void packAAR(String jarDir, String outPath) {
-    packJAR(jarDir, jarDir + ".jar");
-    packJAR(jarDir.substring(0, jarDir.lastIndexOf('/')), outPath);
+  private static void writeProcessedAAR(
+      String inAarPath, String outAarPath, Result map_mtd_result) {
+    Preconditions.checkArgument(
+        inAarPath.endsWith(".aar") && Files.exists(Paths.get(inAarPath)),
+        "invalid aar file! " + inAarPath);
+    try {
+      JarFile aar = new JarFile(inAarPath);
+      JarOutputStream aos = new JarOutputStream(new FileOutputStream(outAarPath));
+      Enumeration enumEntries = aar.entries();
+      JarEntry jce = null;
+      while (enumEntries.hasMoreElements()) {
+        JarEntry aarEntry = (JarEntry) enumEntries.nextElement();
+        if (aarEntry.getName().endsWith("classes.jar")) {
+          jce = aarEntry;
+        } else {
+          InputStream ais = aar.getInputStream(aarEntry);
+          aos.putNextEntry(aarEntry);
+          IOUtils.copy(ais, aos);
+          ais.close();
+        }
+      }
+      aos.putNextEntry(new JarEntry("classes.jar"));
+      JarInputStream jis = new JarInputStream(aar.getInputStream(jce));
+      //                  JarOutputStream jos = new JarOutputStream(new
+      // FileOutputStream(outAarPath+".jar"));
+      JarOutputStream jos = new JarOutputStream(aos);
+      JarEntry jarEntry = null;
+      while ((jarEntry = jis.getNextJarEntry()) != null) {
+        jos.putNextEntry(jarEntry);
+        IOUtils.copy(jis, jos);
+      }
+      jis.close();
+      jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOACTION));
+      writeModel(new DataOutputStream(jos), map_mtd_result);
+      //                  jos.close();
+      aos.close();
+      aar.close();
+      System.out.println("processed aar to: " + outAarPath);
+    } catch (IOException e) {
+      throw new Error(e);
+    }
   }
 
   /*
-   * Write inferred Jar model in astubx format
+   * Write inferred Jar model in astubx format to the JarOutputStream for the processed jar/aar
    * Note: Need version compatibility check between generated stub files and when reading models
    *       StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
    */
-  private static void writeJarModel(
-      IClassHierarchy cha, HashMap<IMethod, Set<Integer>> map_mtd_result, String aStubXPath) {
+  private static void writeModel(DataOutputStream out, Result map_mtd_result) {
     try {
-      File aStubXFile = new File(aStubXPath);
-      aStubXFile.getParentFile().mkdirs();
-      aStubXFile.createNewFile();
-      DataOutputStream out = new DataOutputStream(new FileOutputStream(aStubXFile, false));
       Map<String, String> importedAnnotations =
           new HashMap<String, String>() {
             {

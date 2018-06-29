@@ -16,7 +16,12 @@
 package com.uber.nullaway.jarinfer;
 
 import java.io.File;
-import org.apache.commons.cli.*;
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 
 /*
  * CLI interface for running the jarinfer analysis {@link DefinitelyDerefedParamsDriver}
@@ -30,17 +35,17 @@ public class JarInfer {
     HelpFormatter hf = new HelpFormatter();
     hf.setWidth(100);
     options.addOption(
-        Option.builder("j")
-            .argName("jar_path")
-            .longOpt("jar")
+        Option.builder("i")
+            .argName("in_path")
+            .longOpt("input-file")
             .hasArg()
             .required()
-            .desc("path to target jar file")
+            .desc("path to target jar/aar file")
             .build());
     options.addOption(
         Option.builder("p")
             .argName("pkg_name")
-            .longOpt("pkg")
+            .longOpt("package")
             .hasArg()
             .required()
             .desc("qualified package name")
@@ -48,10 +53,10 @@ public class JarInfer {
     options.addOption(
         Option.builder("o")
             .argName("out_path")
-            .longOpt("out")
+            .longOpt("output-file")
             .hasArg()
             .required()
-            .desc("path to processed jar file")
+            .desc("path to processed jar/aar file")
             .build());
     options.addOption(
         Option.builder("h")
@@ -65,7 +70,7 @@ public class JarInfer {
         hf.printHelp(appName, options, true);
         return;
       }
-      String jarPath = line.getOptionValue('j');
+      String jarPath = line.getOptionValue('i');
       String pkgName = line.getOptionValue('p');
       String outPath = line.getOptionValue('o');
       DefinitelyDerefedParamsDriver defDerefParamDriver = new DefinitelyDerefedParamsDriver();
