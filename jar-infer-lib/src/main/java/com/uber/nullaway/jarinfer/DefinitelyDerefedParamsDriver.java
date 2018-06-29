@@ -39,6 +39,7 @@ import com.ibm.wala.util.config.AnalysisScopeReader;
 import com.ibm.wala.util.warnings.Warnings;
 import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -157,30 +158,14 @@ public class DefinitelyDerefedParamsDriver {
     Preconditions.checkArgument(
         jarPath.endsWith(".jar") && Files.exists(Paths.get(jarPath)),
         "invalid jar path! " + jarPath);
-    System.out.println("extracting " + jarPath + "...");
-    String classDir = FilenameUtils.getFullPath(jarPath) + FilenameUtils.getBaseName(jarPath);
     try {
-      JarFile jar = new JarFile(jarPath);
-      Enumeration enumEntries = jar.entries();
-      while (enumEntries.hasMoreElements()) {
-        JarEntry jarEntry = (JarEntry) enumEntries.nextElement();
-        if (jarEntry.getName().endsWith(DEFAULT_ASTUBX_LOCATION)) {
-          throw new Error("jar-infer called on already processed library: " + jarPath);
-        }
-        if (jarEntry.isDirectory() || !jarEntry.getName().endsWith(".class")) continue;
-        File f = new File(classDir + File.separator + jarEntry.getName());
-        f.getParentFile().mkdirs();
-        InputStream jis = jar.getInputStream(jarEntry);
-        FileOutputStream fos = new FileOutputStream(f);
-        IOUtils.copy(jis, fos);
-        fos.close();
-        jis.close();
-      }
-      jar.close();
+      System.out.println("extracting " + jarPath + "...");
+      String classDir = FilenameUtils.getFullPath(jarPath) + FilenameUtils.getBaseName(jarPath);
+      extractJarStreamClasses(new JarInputStream(new FileInputStream(jarPath)), jarPath, classDir);
+      return classDir;
     } catch (IOException e) {
       throw new Error(e);
     }
-    return classDir;
   }
 
   /**
@@ -193,35 +178,47 @@ public class DefinitelyDerefedParamsDriver {
     Preconditions.checkArgument(
         aarPath.endsWith(".aar") && Files.exists(Paths.get(aarPath)),
         "invalid aar path! " + aarPath);
-    System.out.println("extracting " + aarPath + "...");
-    String classDir = FilenameUtils.getFullPath(aarPath) + FilenameUtils.getBaseName(aarPath);
     try {
+      System.out.println("extracting " + aarPath + "...");
+      String classDir = FilenameUtils.getFullPath(aarPath) + FilenameUtils.getBaseName(aarPath);
       JarFile aar = new JarFile(aarPath);
-      Enumeration enumEntries = aar.entries();
-      while (enumEntries.hasMoreElements()) {
-        JarEntry aarEntry = (JarEntry) enumEntries.nextElement();
-        if (aarEntry.getName().endsWith("classes.jar")) {
-          JarInputStream jis = new JarInputStream(aar.getInputStream(aarEntry));
-          JarEntry jarEntry = null;
-          while ((jarEntry = jis.getNextJarEntry()) != null) {
-            if (jarEntry.getName().endsWith(DEFAULT_ASTUBX_LOCATION)) {
-              throw new Error("jar-infer called on already processed library: " + aarPath);
-            }
-            if (jarEntry.isDirectory() || !jarEntry.getName().endsWith(".class")) continue;
-            File f = new File(classDir + File.separator + jarEntry.getName());
-            f.getParentFile().mkdirs();
-            FileOutputStream fos = new FileOutputStream(f);
-            IOUtils.copy(jis, fos);
-            fos.close();
-          }
-          jis.close();
-        }
+      JarEntry jarEntry = aar.getJarEntry("classes.jar");
+      if (jarEntry == null) {
+        throw new Error("classes.jar not found in invalid aar: " + aarPath);
       }
+      extractJarStreamClasses(new JarInputStream(aar.getInputStream(jarEntry)), aarPath, classDir);
       aar.close();
+      return classDir;
     } catch (IOException e) {
       throw new Error(e);
     }
-    return classDir;
+  }
+
+  /**
+   * Extract class files from a JAR Input Stream.
+   *
+   * @param jis Jar Input Stream.
+   * @param libPath Path to jar/aar library being extracted.
+   * @param classDir Path to output directory.
+   */
+  private static void extractJarStreamClasses(JarInputStream jis, String libPath, String classDir) {
+    try {
+      JarEntry jarEntry = null;
+      while ((jarEntry = jis.getNextJarEntry()) != null) {
+        if (jarEntry.getName().endsWith(DEFAULT_ASTUBX_LOCATION)) {
+          throw new Error("jar-infer called on already processed library: " + libPath);
+        }
+        if (jarEntry.isDirectory() || !jarEntry.getName().endsWith(".class")) continue;
+        File f = new File(classDir + File.separator + jarEntry.getName());
+        f.getParentFile().mkdirs();
+        FileOutputStream fos = new FileOutputStream(f);
+        IOUtils.copy(jis, fos);
+        fos.close();
+      }
+      jis.close();
+    } catch (IOException e) {
+      throw new Error(e);
+    }
   }
 
   /**
@@ -237,20 +234,10 @@ public class DefinitelyDerefedParamsDriver {
         inJarPath.endsWith(".jar") && Files.exists(Paths.get(inJarPath)),
         "invalid jar file! " + inJarPath);
     try {
-      JarFile jar = new JarFile(inJarPath);
-      JarOutputStream jos = new JarOutputStream(new FileOutputStream(outJarPath));
-      Enumeration enumEntries = jar.entries();
-      while (enumEntries.hasMoreElements()) {
-        JarEntry jarEntry = (JarEntry) enumEntries.nextElement();
-        InputStream jis = jar.getInputStream(jarEntry);
-        jos.putNextEntry(jarEntry);
-        IOUtils.copy(jis, jos);
-        jis.close();
-      }
-      jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
-      writeModel(new DataOutputStream(jos), map_mtd_result);
-      jos.close();
-      jar.close();
+      writeModelToJarStream(
+          new JarInputStream(new FileInputStream(inJarPath)),
+          new JarOutputStream(new FileOutputStream(outJarPath)),
+          map_mtd_result);
       System.out.println("processed jar to: " + outJarPath);
     } catch (IOException e) {
       throw new Error(e);
@@ -278,17 +265,10 @@ public class DefinitelyDerefedParamsDriver {
         JarEntry aarEntry = (JarEntry) enumEntries.nextElement();
         if (aarEntry.getName().endsWith("classes.jar")) {
           aos.putNextEntry(new JarEntry("classes.jar"));
-          JarInputStream jis = new JarInputStream(aar.getInputStream(aarEntry));
-          JarOutputStream jos = new JarOutputStream(aos);
-          JarEntry jarEntry = null;
-          while ((jarEntry = jis.getNextJarEntry()) != null) {
-            jos.putNextEntry(jarEntry);
-            IOUtils.copy(jis, jos);
-          }
-          jis.close();
-          jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
-          writeModel(new DataOutputStream(jos), map_mtd_result);
-          jos.finish();
+          writeModelToJarStream(
+              new JarInputStream(aar.getInputStream(aarEntry)),
+              new JarOutputStream(aos),
+              map_mtd_result);
         } else {
           InputStream ais = aar.getInputStream(aarEntry);
           aos.putNextEntry(aarEntry);
@@ -299,6 +279,29 @@ public class DefinitelyDerefedParamsDriver {
       aos.close();
       aar.close();
       System.out.println("processed aar to: " + outAarPath);
+    } catch (IOException e) {
+      throw new Error(e);
+    }
+  }
+  /**
+   * Copy Jar Input Stream to Jar Output Stream and add nullability model.
+   *
+   * @param jis Jar Input Stream.
+   * @param jos Jar Output Stream.
+   * @param map_mtd_result Map of 'method references' to their 'list of NonNull parameters'.
+   */
+  private static void writeModelToJarStream(
+      JarInputStream jis, JarOutputStream jos, Result map_mtd_result) {
+    try {
+      JarEntry jarEntry = null;
+      while ((jarEntry = jis.getNextJarEntry()) != null) {
+        jos.putNextEntry(jarEntry);
+        IOUtils.copy(jis, jos);
+      }
+      jis.close();
+      jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
+      writeModel(new DataOutputStream(jos), map_mtd_result);
+      jos.finish();
     } catch (IOException e) {
       throw new Error(e);
     }
