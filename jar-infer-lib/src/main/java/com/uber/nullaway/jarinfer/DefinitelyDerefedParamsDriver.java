@@ -261,11 +261,21 @@ public class DefinitelyDerefedParamsDriver {
       JarFile aar = new JarFile(inAarPath);
       JarOutputStream aos = new JarOutputStream(new FileOutputStream(outAarPath));
       Enumeration enumEntries = aar.entries();
-      JarEntry jce = null;
       while (enumEntries.hasMoreElements()) {
         JarEntry aarEntry = (JarEntry) enumEntries.nextElement();
         if (aarEntry.getName().endsWith("classes.jar")) {
-          jce = aarEntry;
+          aos.putNextEntry(new JarEntry("classes.jar"));
+          JarInputStream jis = new JarInputStream(aar.getInputStream(aarEntry));
+          JarOutputStream jos = new JarOutputStream(aos);
+          JarEntry jarEntry = null;
+          while ((jarEntry = jis.getNextJarEntry()) != null) {
+            jos.putNextEntry(jarEntry);
+            IOUtils.copy(jis, jos);
+          }
+          jis.close();
+          jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOACTION));
+          writeModel(new DataOutputStream(jos), map_mtd_result);
+          jos.finish();
         } else {
           InputStream ais = aar.getInputStream(aarEntry);
           aos.putNextEntry(aarEntry);
@@ -273,20 +283,6 @@ public class DefinitelyDerefedParamsDriver {
           ais.close();
         }
       }
-      aos.putNextEntry(new JarEntry("classes.jar"));
-      JarInputStream jis = new JarInputStream(aar.getInputStream(jce));
-      //                  JarOutputStream jos = new JarOutputStream(new
-      // FileOutputStream(outAarPath+".jar"));
-      JarOutputStream jos = new JarOutputStream(aos);
-      JarEntry jarEntry = null;
-      while ((jarEntry = jis.getNextJarEntry()) != null) {
-        jos.putNextEntry(jarEntry);
-        IOUtils.copy(jis, jos);
-      }
-      jis.close();
-      jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOACTION));
-      writeModel(new DataOutputStream(jos), map_mtd_result);
-      //                  jos.close();
       aos.close();
       aar.close();
       System.out.println("processed aar to: " + outAarPath);
