@@ -112,25 +112,22 @@ public class DefinitelyDerefedParamsDriver {
         for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
           // Only process classes in specified classpath and not its dependencies.
           // TODO: figure the right way to do this
-          if (cls.getName().toString().startsWith(pkgName)) {
-            for (IMethod mtd : Iterator2Iterable.make(cls.getAllMethods().iterator())) {
-              if (!mtd.getDeclaringClass()
-                  .getClassLoader()
-                  .getName()
-                  .toString()
-                  .equals("Primordial")) {
-                // some Application classes are Primordial (why?)
-                Preconditions.checkNotNull(mtd, "method not found");
-                IR ir =
-                    cache
-                        .getIRFactory()
-                        .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
-                ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
-                Set<Integer> result = new DefinitelyDerefedParams(mtd, ir, cfg, cha).analyze();
-                if (!result.isEmpty()) {
-                  map_mtd_result.put(mtd, result);
-                  map_str_result.put(mtd.getSignature(), result);
-                }
+          if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
+          for (IMethod mtd : Iterator2Iterable.make(cls.getAllMethods().iterator())) {
+            if (!mtd.getDeclaringClass()
+                .getClassLoader()
+                .getName()
+                .toString()
+                .equals("Primordial")) {
+              // some Application classes are Primordial (why?)
+              Preconditions.checkNotNull(mtd, "method not found");
+              IR ir =
+                  cache.getIRFactory().makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
+              ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
+              Set<Integer> result = new DefinitelyDerefedParams(mtd, ir, cfg, cha).analyze();
+              if (!result.isEmpty()) {
+                map_mtd_result.put(mtd, result);
+                map_str_result.put(mtd.getSignature(), result);
               }
             }
           }

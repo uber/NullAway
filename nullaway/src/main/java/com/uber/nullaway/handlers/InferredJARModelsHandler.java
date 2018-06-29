@@ -73,6 +73,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         }
         return nonNullPositions;
       }
+      // TODO: Does this work for aar ?
       astubxIS = cl.getResourceAsStream(DEFAULT_ASTUBX_LOCATION);
       if (astubxIS == null) {
         if (VERBOSE) {

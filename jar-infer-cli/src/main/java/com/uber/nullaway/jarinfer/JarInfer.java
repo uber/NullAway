@@ -50,7 +50,6 @@ public class JarInfer {
             .argName("pkg_name")
             .longOpt("package")
             .hasArg()
-            .required()
             .desc("qualified package name")
             .build());
     options.addOption(
