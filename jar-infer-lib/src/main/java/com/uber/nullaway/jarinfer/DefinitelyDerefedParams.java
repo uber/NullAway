@@ -33,11 +33,11 @@ import com.ibm.wala.util.graph.dominators.DominanceFrontiers;
 import com.ibm.wala.util.graph.impl.GraphInverter;
 import java.util.*;
 
-/*
- * Identify definitely-dereferenced function parameters
- * v0.1
- * Basic analysis that identifies function parameter dereferences in BBs that post-dominate the exit node.
+/**
+ * /** Identify definitely-dereferenced function parameters
  *
+ * @version v0.1 Basic analysis that identifies function parameter dereferences in BBs that
+ *     post-dominate the exit node.
  */
 public class DefinitelyDerefedParams {
   private final IMethod method;
@@ -51,6 +51,14 @@ public class DefinitelyDerefedParams {
 
   private static final boolean VERBOSE = false;
 
+  /**
+   * The constructor for the analysis class.
+   *
+   * @param method The target method of the analysis.
+   * @param ir The IR code for the target method.
+   * @parag cfg The Control Flow Graph of the target method.
+   * @param cha The Class Hierarchy
+   */
   public DefinitelyDerefedParams(
       IMethod method,
       IR ir,
@@ -62,10 +70,10 @@ public class DefinitelyDerefedParams {
     this.cha = cha;
   }
 
-  /*
-   * run the analysis
+  /**
+   * This method runs the core analysis that identifies definitely-dereferenced parameters.
    *
-   * @return the ordinal indices of formal parameters that are definitely-dereferenced
+   * @return Set<Integer> The ordinal indices of formal parameters that are definitely-dereferenced.
    */
   public Set<Integer> analyze() {
     // Get ExceptionPrunedCFG

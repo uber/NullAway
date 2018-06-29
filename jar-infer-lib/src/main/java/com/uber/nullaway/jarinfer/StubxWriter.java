@@ -18,6 +18,18 @@ public final class StubxWriter {
    */
   public static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
 
+  /**
+   * This method writes the provided list of annotations to a DataOutputStream in the astubx format.
+   *
+   * @param out Output stream.
+   * @param importedAnnotations Mapping of 'custom annotations' to their 'definition classes'.
+   * @parm packageAnnotations Map of 'package names' to their 'list of package-level annotations'.
+   * @param typeAnnotations Map of 'type names' to their 'list of type annotations'.
+   * @param methodRecords Map of 'method signatures' to their 'method annotations record'. Method
+   *     annotations record consists of return value annotations and argument annotations. {@link
+   *     MethodAnnotationsRecord}
+   * @exception IOException On output error.
+   */
   public static void write(
       DataOutputStream out,
       Map<String, String> importedAnnotations,

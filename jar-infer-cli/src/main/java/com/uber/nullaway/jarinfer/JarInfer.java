@@ -23,13 +23,16 @@ import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-/*
- * CLI interface for running the jarinfer analysis {@link DefinitelyDerefedParamsDriver}
- *
- */
+/** CLI interface for running the jarinfer analysis. {@link DefinitelyDerefedParamsDriver} */
 public class JarInfer {
   private static final String appName = JarInfer.class.getName();
 
+  /**
+   * This is the main method of the cli tool. It parses the arguments, invokes the analysis driver
+   * and checks that the output file is written.
+   *
+   * @param args Command line arguments.
+   */
   public static void main(String[] args) {
     Options options = new Options();
     HelpFormatter hf = new HelpFormatter();

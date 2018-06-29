@@ -47,9 +47,14 @@ public class JarInferTest {
     compilerUtil.setArgs(Arrays.asList("-d", temporaryFolder.getRoot().getAbsolutePath()));
   }
 
-  /*
-   * Create, compile, and run a unit test
+  /**
+   * Create, compile, and run a unit test.
    *
+   * @param testName An useful name for the unit test.
+   * @param pkg Qualified package name.
+   * @param cls Target class to be analyzed.
+   * @param expected Map of 'method signatures' to their 'expected list of NonNull parameters'.
+   * @param lines Source lines for the test code.
    */
   private void testTemplate(
       String testName,
@@ -78,6 +83,13 @@ public class JarInferTest {
     }
   }
 
+  /**
+   * Run a unit test with a specified jar file.
+   *
+   * @param testName An useful name for the unit test.
+   * @param pkg Qualified package name.
+   * @param jarPath Path to the target jar file.
+   */
   private void testJARTemplate(
       String testName,
       String pkg, // in dot syntax
@@ -92,9 +104,12 @@ public class JarInferTest {
       e.printStackTrace();
     }
   }
-  /*
-   * Check set equality of results with expected results
+
+  /**
+   * Check set equality of results with expected results.
    *
+   * @param result Map of 'method signatures' to their 'inferred list of NonNull parameters'.
+   * @param expected Map of 'method signatures' to their 'expected list of NonNull parameters'.
    */
   private boolean verify(
       HashMap<String, Set<Integer>> result, HashMap<String, Set<Integer>> expected) {

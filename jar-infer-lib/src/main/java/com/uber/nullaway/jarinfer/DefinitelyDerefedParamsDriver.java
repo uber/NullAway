@@ -54,18 +54,22 @@ import org.apache.commons.io.IOUtils;
 
 class Result extends HashMap<IMethod, Set<Integer>> {}
 
-/*
- * Driver for running {@link DefinitelyDerefedParams}
- */
+/** Driver for running {@link DefinitelyDerefedParams} */
 public class DefinitelyDerefedParamsDriver {
-  /*
-   * Usage: DefinitelyDerefedParamsDriver ( path, package_name, [output_jar_path])
-   * path: jar file OR directory containing class files
+  /**
+   * Driver for the analysis. {@link DefinitelyDerefedParams} Usage: DefinitelyDerefedParamsDriver (
+   * jar/aar_path, package_name, [output_path])
+   *
+   * @param inPath Path to input jar/aar file to be analyzed.
+   * @param pkgName Qualified package name.
+   * @param outPath Path to output processed jar/aar file. default outPath for 'a/b/c/x.jar' is
+   *     'a/b/c/x-ji.jar'.
+   * @return HashMap<String, Set<Integer>> Map of 'method signatures' to their 'list of NonNull
+   *     parameters'.
    * @throws IOException
    * @throws ClassHierarchyException
    * @throws IllegalArgumentException
    */
-
   private static final String DEFAULT_ASTUBX_LOACTION = "META-INF/nullaway/jarinfer.astubx";
 
   public static HashMap<String, Set<Integer>> run(String inPath, String pkgName)
@@ -145,9 +149,12 @@ public class DefinitelyDerefedParamsDriver {
     FileUtils.deleteDirectory(new File(workDir));
     return map_str_result;
   }
-  /*
-   * Extract class files from JAR archive and return directory path
+
+  /**
+   * Extract class files from JAR archive and return directory path.
    *
+   * @param jarPath Path to input jar file to be analyzed.
+   * @return String Path to temporary directory containing the class files.
    */
   private static String extractJARClasses(String jarPath) {
     Preconditions.checkArgument(
@@ -179,9 +186,11 @@ public class DefinitelyDerefedParamsDriver {
     return classDir;
   }
 
-  /*
-   * Extract class files from AAR archive and return directory path
+  /**
+   * Extract class files from AAR archive and return directory path.
    *
+   * @param aarPath Path to input aar file to be analyzed.
+   * @return String Path to temporary directory containing the class files.
    */
   private static String extractAARClasses(String aarPath) {
     Preconditions.checkArgument(
@@ -218,9 +227,12 @@ public class DefinitelyDerefedParamsDriver {
     return classDir;
   }
 
-  /*
-   * Write processed jar with nullability model
+  /**
+   * Write processed jar with nullability model in jar -> META-INF/nullaway/jarinfer.astubx
    *
+   * @param inJarPath Path of input jar file.
+   * @param outJarPath Path of output jar file.
+   * @param map_mtd_result Map of 'method references' to their 'list of NonNull parameters'.
    */
   private static void writeProcessedJAR(
       String inJarPath, String outJarPath, Result map_mtd_result) {
@@ -248,9 +260,13 @@ public class DefinitelyDerefedParamsDriver {
     }
   }
 
-  /*
-   * Write processed aar with nullability model
+  /**
+   * Write processed aar with nullability model in aar -> classes.jar ->
+   * META-INF/nullaway/jarinfer.astubx
    *
+   * @param inAarPath Path of input aar file.
+   * @param outAarPath Path of output aar file.
+   * @param map_mtd_result Map of 'method references' to their 'list of NonNull parameters'.
    */
   private static void writeProcessedAAR(
       String inAarPath, String outAarPath, Result map_mtd_result) {
@@ -291,11 +307,15 @@ public class DefinitelyDerefedParamsDriver {
     }
   }
 
-  /*
-   * Write inferred Jar model in astubx format to the JarOutputStream for the processed jar/aar
-   * Note: Need version compatibility check between generated stub files and when reading models
-   *       StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
+  /**
+   * Write inferred nullability model in astubx format to the JarOutputStream for the processed
+   * jar/aar.
+   *
+   * @param out JarOutputStream for writing the astubx
+   * @param map_mtd_result Map of 'method references' to their 'list of NonNull parameters'.
    */
+  //  Note: Need version compatibility check between generated stub files and when reading models
+  //    StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
   private static void writeModel(DataOutputStream out, Result map_mtd_result) {
     try {
       Map<String, String> importedAnnotations =
@@ -328,11 +348,14 @@ public class DefinitelyDerefedParamsDriver {
     }
   }
 
-  /*
-   * Get astubx style method signature
-   * {FullyQualifiedEnclosingType}: {UnqualifiedMethodReturnType} {methodName} ([{UnqualifiedArgumentType}*])
-   * TODO: handle generics and inner classes
+  /**
+   * Get astubx style method signature. {FullyQualifiedEnclosingType}: {UnqualifiedMethodReturnType}
+   * {methodName} ([{UnqualifiedArgumentType}*])
+   *
+   * @param mtd Method reference.
+   * @return String Method signature.
    */
+  // TODO: handle generics and inner classes
   private static String getSignature(IMethod mtd) {
     final Map<String, String> mapFullTypeName =
         new HashMap<String, String>() {
