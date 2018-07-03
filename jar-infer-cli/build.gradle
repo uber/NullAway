@@ -1,0 +1,88 @@
+plugins {
+    id "net.ltgt.errorprone" version "0.0.13"
+    id "com.github.johnrengelman.shadow" version "2.0.2"
+    id "java"
+    id "application"
+}
+// we use this config to get the path of the JDK 9 javac jar, to
+// stick it in the bootclasspath when running tests
+configurations.maybeCreate("epJavac")
+
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile deps.build.commonscli
+    compile deps.build.guava
+    compileOnly deps.build.errorProneCheckApi
+    compile deps.build.checkerDataflow
+
+    compile project(":jar-infer-lib")
+
+    errorprone deps.build.errorProneCore
+
+    testCompile deps.test.junit4
+    testCompile(deps.build.errorProneTestHelpers) {
+        exclude group: "junit", module: "junit"
+    }
+    epJavac deps.build.errorProneCheckApi
+}
+
+jar {
+    manifest {
+        attributes(
+        'Main-Class': 'com.uber.nullaway.jarinfer.JarInfer'
+        )
+    }
+}
+
+shadowJar {
+    classifier = null
+}
+shadowJar.dependsOn jar
+assemble.dependsOn shadowJar
+
+if (project.hasProperty('mainClass')) {
+    mainClassName = project.getProperty('mainClass')
+} else {
+    // use a default
+    mainClassName = "com.uber.nullaway.jarinfer.JarInfer"
+}
+
+test {
+    maxHeapSize = "1024m"
+    jvmArgs "-Xbootclasspath/p:${configurations.epJavac.asPath}"
+}
+
+run {
+    if(project.hasProperty('appArgs')){
+        args Eval.me(appArgs)
+    }
+}
+
+apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
+
+def configurePomForShadow(pom) {
+    pom.scopeMappings.mappings.remove(project.configurations.compile)
+    pom.scopeMappings.mappings.remove(project.configurations.runtime)
+    pom.scopeMappings.addMapping(MavenPlugin.COMPILE_PRIORITY, project.configurations.shadow, Conf2ScopeMappingContainer.COMPILE)
+}
+
+install {
+    repositories.mavenInstaller {
+        configurePomForShadow(pom)
+    }
+}
+install.dependsOn shadowJar
+
+uploadArchives {
+    repositories.mavenDeployer {
+        configurePomForShadow(pom)
+    }
+}
+uploadArchives.dependsOn shadowJar
+
