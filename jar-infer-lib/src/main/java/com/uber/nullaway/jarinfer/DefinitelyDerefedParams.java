@@ -79,13 +79,14 @@ public class DefinitelyDerefedParams {
     // Get ExceptionPrunedCFG
     System.out.println("@ " + method.getSignature());
     System.out.println("   exception pruning CFG...");
+    Set<Integer> derefedParamList = new HashSet<Integer>();
     PrunedCFG<SSAInstruction, ISSABasicBlock> prunedCFG = ExceptionPrunedCFG.make(cfg);
     // In case the only control flows are exceptional, simply return.
     if (prunedCFG.getNumberOfNodes() == 2
         && prunedCFG.containsNode(cfg.entry())
         && prunedCFG.containsNode(cfg.exit())
         && GraphUtil.countEdges(prunedCFG) == 0) {
-      return null;
+      return derefedParamList;
     }
     // Get Dominator Tree
     System.out.println("   building dominator tree...");
@@ -103,7 +104,6 @@ public class DefinitelyDerefedParams {
     System.out.println("   finding dereferenced params...");
     ArrayList<ISSABasicBlock> nodeQueue = new ArrayList<ISSABasicBlock>();
     nodeQueue.add(prunedCFG.exit());
-    Set<Integer> derefedParamList = new HashSet<Integer>();
     // Get number of params and value number of first param
     int numParam = ir.getSymbolTable().getNumberOfParameters();
     int firstParamIndex =

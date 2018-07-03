@@ -86,7 +86,11 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       if (!argAnnotCache.containsKey(className)) {
         argAnnotCache.put(className, new LinkedHashMap<>());
         if (DEBUG) {
-          System.out.println("[JI DEBUG] Parsing " + className + ": " + DEFAULT_ASTUBX_LOCATION);
+          System.out.println(
+              "[JI DEBUG] Looking for class: "
+                  + className
+                  + " in resource: "
+                  + cl.getResource(DEFAULT_ASTUBX_LOCATION).toString());
         }
         parseStubStream(
             astubxIS, className + ": " + DEFAULT_ASTUBX_LOCATION, argAnnotCache.get(className));

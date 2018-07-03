@@ -73,9 +73,12 @@ public class JarInfer {
         return;
       }
       String jarPath = line.getOptionValue('i');
-      String pkgName = line.getOptionValue('p');
+      String pkgName = line.getOptionValue('p', "");
       String outPath = line.getOptionValue('o');
-      DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkgName.replaceAll("\\.", "/"), outPath);
+      if (!pkgName.isEmpty()) {
+        pkgName = "L" + pkgName.replaceAll("\\.", "/");
+      }
+      DefinitelyDerefedParamsDriver.run(jarPath, pkgName, outPath);
       if (!new File(outPath).exists()) {
         System.out.println("Could not write jar file: " + outPath);
       }

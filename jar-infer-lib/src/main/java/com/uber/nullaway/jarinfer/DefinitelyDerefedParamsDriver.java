@@ -36,13 +36,16 @@ import com.ibm.wala.ssa.SSAInstruction;
 import com.ibm.wala.types.ClassLoaderReference;
 import com.ibm.wala.util.collections.Iterator2Iterable;
 import com.ibm.wala.util.config.AnalysisScopeReader;
+import com.ibm.wala.util.config.FileOfClasses;
 import com.ibm.wala.util.warnings.Warnings;
+import java.io.ByteArrayInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 import java.util.jar.JarEntry;
@@ -59,6 +62,10 @@ class Result extends HashMap<IMethod, Set<Integer>> {}
 public class DefinitelyDerefedParamsDriver {
 
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
+  // TODO: Exclusions-
+  // org.ow2.asm : InvalidBytecodeException on
+  // com.ibm.wala.classLoader.ShrikeCTMethod.makeDecoder:110
+  private static final String DEFAULT_EXCLUSIONS = "org\\/objectweb\\/asm\\/.*";
 
   public static HashMap<String, Set<Integer>> run(String inPath, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
@@ -90,6 +97,9 @@ public class DefinitelyDerefedParamsDriver {
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String workDir = inPath;
     long start = System.currentTimeMillis();
+    Result map_mtd_result = new Result();
+    HashMap<String, Set<Integer>> map_str_result = new HashMap<String, Set<Integer>>();
+
     if (inPath.endsWith(".jar")) {
       workDir = extractJARClasses(inPath);
     } else if (inPath.endsWith(".aar")) {
@@ -97,48 +107,55 @@ public class DefinitelyDerefedParamsDriver {
     } else {
       Preconditions.checkArgument(Files.isDirectory(Paths.get(inPath)), "invalid path!");
     }
+    if (Files.exists(Paths.get(workDir))) {
+      AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
+      scope.setExclusions(
+          new FileOfClasses(
+              new ByteArrayInputStream(DEFAULT_EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
+      AnalysisScopeReader.addClassPathToScope(workDir, scope, ClassLoaderReference.Application);
+      AnalysisOptions options = new AnalysisOptions(scope, null);
+      AnalysisCache cache = new AnalysisCacheImpl();
+      IClassHierarchy cha = ClassHierarchyFactory.make(scope);
+      Warnings.clear();
 
-    AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
-    AnalysisScopeReader.addClassPathToScope(workDir, scope, ClassLoaderReference.Application);
-    AnalysisOptions options = new AnalysisOptions(scope, null);
-    AnalysisCache cache = new AnalysisCacheImpl();
-    IClassHierarchy cha = ClassHierarchyFactory.make(scope);
-    Warnings.clear();
-    Result map_mtd_result = new Result();
-    HashMap<String, Set<Integer>> map_str_result = new HashMap<String, Set<Integer>>();
-
-    // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
-    for (IClassLoader cldr : cha.getLoaders()) {
-      if (!cldr.getName().toString().equals("Primordial")) {
-        for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
-          // Only process classes in specified classpath and not its dependencies.
-          // TODO: figure the right way to do this
-          if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
-          for (IMethod mtd : Iterator2Iterable.make(cls.getAllMethods().iterator())) {
-            if (!mtd.getDeclaringClass()
-                .getClassLoader()
-                .getName()
-                .toString()
-                .equals("Primordial")) {
+      // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
+      for (IClassLoader cldr : cha.getLoaders()) {
+        if (!cldr.getName().toString().equals("Primordial")) {
+          for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
+            // Only process classes in specified classpath and not its dependencies.
+            // TODO: figure the right way to do this
+            if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
+            for (IMethod mtd : Iterator2Iterable.make(cls.getAllMethods().iterator())) {
+              // Skip methods without parameters, abstract methods, native methods
               // some Application classes are Primordial (why?)
-              Preconditions.checkNotNull(mtd, "method not found");
-              IR ir =
-                  cache.getIRFactory().makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
-              ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
-              Set<Integer> result = new DefinitelyDerefedParams(mtd, ir, cfg, cha).analyze();
-              if (!result.isEmpty()) {
-                map_mtd_result.put(mtd, result);
-                map_str_result.put(mtd.getSignature(), result);
+              if (mtd.getNumberOfParameters() > 0
+                  && !mtd.isAbstract()
+                  && !mtd.isNative()
+                  && !mtd.getDeclaringClass()
+                      .getClassLoader()
+                      .getName()
+                      .toString()
+                      .equals("Primordial")) {
+                Preconditions.checkNotNull(mtd, "method not found");
+                IR ir =
+                    cache
+                        .getIRFactory()
+                        .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
+                ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
+                Set<Integer> result = new DefinitelyDerefedParams(mtd, ir, cfg, cha).analyze();
+                if (!result.isEmpty()) {
+                  map_mtd_result.put(mtd, result);
+                  map_str_result.put(mtd.getSignature(), result);
+                }
               }
             }
           }
         }
       }
+      long end = System.currentTimeMillis();
+      System.out.println("-----\ndone\ntook " + (end - start) + "ms");
+      System.out.println("definitely-derefereced paramters: " + map_str_result.toString());
     }
-    long end = System.currentTimeMillis();
-    System.out.println("-----\ndone\ntook " + (end - start) + "ms");
-    System.out.println("definitely-derefereced paramters: " + map_str_result.toString());
-
     if (inPath.endsWith(".jar")) {
       writeProcessedJAR(inPath, outPath, map_mtd_result);
     } else if (inPath.endsWith(".aar")) {
@@ -161,7 +178,11 @@ public class DefinitelyDerefedParamsDriver {
     try {
       System.out.println("extracting " + jarPath + "...");
       String classDir = FilenameUtils.getFullPath(jarPath) + FilenameUtils.getBaseName(jarPath);
-      extractJarStreamClasses(new JarInputStream(new FileInputStream(jarPath)), jarPath, classDir);
+      if (!extractJarStreamClasses(
+          new JarInputStream(new FileInputStream(jarPath)), jarPath, classDir)) {
+        FileUtils.deleteDirectory(new File(classDir));
+        classDir = "";
+      }
       return classDir;
     } catch (IOException e) {
       throw new Error(e);
@@ -184,9 +205,12 @@ public class DefinitelyDerefedParamsDriver {
       JarFile aar = new JarFile(aarPath);
       JarEntry jarEntry = aar.getJarEntry("classes.jar");
       if (jarEntry == null) {
-        throw new Error("classes.jar not found in invalid aar: " + aarPath);
+        classDir = "";
+      } else if (!extractJarStreamClasses(
+          new JarInputStream(aar.getInputStream(jarEntry)), aarPath, classDir)) {
+        FileUtils.deleteDirectory(new File(classDir));
+        classDir = "";
       }
-      extractJarStreamClasses(new JarInputStream(aar.getInputStream(jarEntry)), aarPath, classDir);
       aar.close();
       return classDir;
     } catch (IOException e) {
@@ -200,15 +224,19 @@ public class DefinitelyDerefedParamsDriver {
    * @param jis Jar Input Stream.
    * @param libPath Path to jar/aar library being extracted.
    * @param classDir Path to output directory.
+   * @return boolean True if found class files in jis, else False.
    */
-  private static void extractJarStreamClasses(JarInputStream jis, String libPath, String classDir) {
+  private static boolean extractJarStreamClasses(
+      JarInputStream jis, String libPath, String classDir) {
     try {
+      boolean found = false;
       JarEntry jarEntry = null;
       while ((jarEntry = jis.getNextJarEntry()) != null) {
         if (jarEntry.getName().endsWith(DEFAULT_ASTUBX_LOCATION)) {
           throw new Error("jar-infer called on already processed library: " + libPath);
         }
         if (jarEntry.isDirectory() || !jarEntry.getName().endsWith(".class")) continue;
+        found = true;
         File f = new File(classDir + File.separator + jarEntry.getName());
         f.getParentFile().mkdirs();
         FileOutputStream fos = new FileOutputStream(f);
@@ -216,6 +244,7 @@ public class DefinitelyDerefedParamsDriver {
         fos.close();
       }
       jis.close();
+      return found;
     } catch (IOException e) {
       throw new Error(e);
     }
@@ -299,8 +328,10 @@ public class DefinitelyDerefedParamsDriver {
         IOUtils.copy(jis, jos);
       }
       jis.close();
-      jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
-      writeModel(new DataOutputStream(jos), map_mtd_result);
+      if (!map_mtd_result.isEmpty()) {
+        jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
+        writeModel(new DataOutputStream(jos), map_mtd_result);
+      }
       jos.finish();
     } catch (IOException e) {
       throw new Error(e);
