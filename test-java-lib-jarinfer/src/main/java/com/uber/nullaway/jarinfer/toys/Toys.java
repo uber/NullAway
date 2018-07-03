@@ -56,7 +56,7 @@ public class Toys {
   }
 
   public static void main(String arg[]) throws java.io.IOException {
-    String s = new String("test string...");
+    String s = "test string...";
     Foo f = new Foo("let's");
     Bar b = new Bar("try");
     try {

@@ -40,11 +40,12 @@ import java.util.Set;
 /** This handler loads inferred nullability model from stubs for methods in unannotated packages. */
 public class InferredJARModelsHandler extends BaseNoOpHandler {
 
-  public static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
+  private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
+  private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
+
   private static final boolean VERBOSE = false;
   private static final boolean DEBUG = false;
 
-  private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
   private static Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
 
   public InferredJARModelsHandler() {
@@ -73,6 +74,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         }
         return nonNullPositions;
       }
+      // TODO: Does this work for aar ?
       astubxIS = cl.getResourceAsStream(DEFAULT_ASTUBX_LOCATION);
       if (astubxIS == null) {
         if (VERBOSE) {
@@ -84,7 +86,11 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       if (!argAnnotCache.containsKey(className)) {
         argAnnotCache.put(className, new LinkedHashMap<>());
         if (DEBUG) {
-          System.out.println("[JI DEBUG] Parsing " + className + ": " + DEFAULT_ASTUBX_LOCATION);
+          System.out.println(
+              "[JI DEBUG] Looking for class: "
+                  + className
+                  + " in resource: "
+                  + cl.getResource(DEFAULT_ASTUBX_LOCATION).toString());
         }
         parseStubStream(
             astubxIS, className + ": " + DEFAULT_ASTUBX_LOCATION, argAnnotCache.get(className));
