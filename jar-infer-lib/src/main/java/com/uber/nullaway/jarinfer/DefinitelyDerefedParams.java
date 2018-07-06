@@ -140,7 +140,8 @@ public class DefinitelyDerefedParams {
             if (VERBOSE) {
               System.out.println("\t\tderefed param : " + derefValueNumber);
             }
-            derefedParamList.add(derefValueNumber);
+            // Translate from WALA 1-indexed params, to 0-indexed
+            derefedParamList.add(derefValueNumber - 1);
           }
         }
       }

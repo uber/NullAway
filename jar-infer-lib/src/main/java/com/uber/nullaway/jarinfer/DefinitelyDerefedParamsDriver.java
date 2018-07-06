@@ -56,7 +56,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 
-class Result extends HashMap<IMethod, Set<Integer>> {}
+class Result extends HashMap<String, Set<Integer>> {}
 
 /** Driver for running {@link DefinitelyDerefedParams} */
 public class DefinitelyDerefedParamsDriver {
@@ -67,7 +67,7 @@ public class DefinitelyDerefedParamsDriver {
   // com.ibm.wala.classLoader.ShrikeCTMethod.makeDecoder:110
   private static final String DEFAULT_EXCLUSIONS = "org\\/objectweb\\/asm\\/.*";
 
-  public static HashMap<String, Set<Integer>> run(String inPath, String pkgName)
+  public static Result run(String inPath, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String outPath = "";
     if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
@@ -87,18 +87,16 @@ public class DefinitelyDerefedParamsDriver {
    * @param pkgName Qualified package name.
    * @param outPath Path to output processed jar/aar file. Default outPath for 'a/b/c/x.jar' is
    *     'a/b/c/x-ji.jar'.
-   * @return HashMap<String, Set<Integer>> Map of 'method signatures' to their 'list of NonNull
-   *     parameters'.
+   * @return Result Map of 'method signatures' to their 'list of NonNull parameters'.
    * @throws IOException on IO error.
    * @throws ClassHierarchyException on Class Hierarchy factory error.
    * @throws IllegalArgumentException on illegal argument to WALA API.
    */
-  public static HashMap<String, Set<Integer>> run(String inPath, String pkgName, String outPath)
+  public static Result run(String inPath, String pkgName, String outPath)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String workDir = inPath;
     long start = System.currentTimeMillis();
-    Result map_mtd_result = new Result();
-    HashMap<String, Set<Integer>> map_str_result = new HashMap<String, Set<Integer>>();
+    Result map_result = new Result();
 
     if (inPath.endsWith(".jar")) {
       workDir = extractJARClasses(inPath);
@@ -144,8 +142,7 @@ public class DefinitelyDerefedParamsDriver {
                 ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
                 Set<Integer> result = new DefinitelyDerefedParams(mtd, ir, cfg, cha).analyze();
                 if (!result.isEmpty()) {
-                  map_mtd_result.put(mtd, result);
-                  map_str_result.put(mtd.getSignature(), result);
+                  map_result.put(getSignature(mtd), result);
                 }
               }
             }
@@ -154,15 +151,15 @@ public class DefinitelyDerefedParamsDriver {
       }
       long end = System.currentTimeMillis();
       System.out.println("-----\ndone\ntook " + (end - start) + "ms");
-      System.out.println("definitely-derefereced paramters: " + map_str_result.toString());
+      System.out.println("definitely-derefereced paramters: " + map_result.toString());
     }
     if (inPath.endsWith(".jar")) {
-      writeProcessedJAR(inPath, outPath, map_mtd_result);
+      writeProcessedJAR(inPath, outPath, map_result);
     } else if (inPath.endsWith(".aar")) {
-      writeProcessedAAR(inPath, outPath, map_mtd_result);
+      writeProcessedAAR(inPath, outPath, map_result);
     }
     FileUtils.deleteDirectory(new File(workDir));
-    return map_str_result;
+    return map_result;
   }
 
   /**
@@ -255,10 +252,9 @@ public class DefinitelyDerefedParamsDriver {
    *
    * @param inJarPath Path of input jar file.
    * @param outJarPath Path of output jar file.
-   * @param map_mtd_result Map of 'method references' to their 'list of NonNull parameters'.
+   * @param map_result Map of 'method signatures' to their 'list of NonNull parameters'.
    */
-  private static void writeProcessedJAR(
-      String inJarPath, String outJarPath, Result map_mtd_result) {
+  private static void writeProcessedJAR(String inJarPath, String outJarPath, Result map_result) {
     Preconditions.checkArgument(
         inJarPath.endsWith(".jar") && Files.exists(Paths.get(inJarPath)),
         "invalid jar file! " + inJarPath);
@@ -266,7 +262,7 @@ public class DefinitelyDerefedParamsDriver {
       writeModelToJarStream(
           new JarInputStream(new FileInputStream(inJarPath)),
           new JarOutputStream(new FileOutputStream(outJarPath)),
-          map_mtd_result);
+          map_result);
       System.out.println("processed jar to: " + outJarPath);
     } catch (IOException e) {
       throw new Error(e);
@@ -279,10 +275,9 @@ public class DefinitelyDerefedParamsDriver {
    *
    * @param inAarPath Path of input aar file.
    * @param outAarPath Path of output aar file.
-   * @param map_mtd_result Map of 'method references' to their 'list of NonNull parameters'.
+   * @param map_result Map of 'method signatures' to their 'list of NonNull parameters'.
    */
-  private static void writeProcessedAAR(
-      String inAarPath, String outAarPath, Result map_mtd_result) {
+  private static void writeProcessedAAR(String inAarPath, String outAarPath, Result map_result) {
     Preconditions.checkArgument(
         inAarPath.endsWith(".aar") && Files.exists(Paths.get(inAarPath)),
         "invalid aar file! " + inAarPath);
@@ -297,7 +292,7 @@ public class DefinitelyDerefedParamsDriver {
           writeModelToJarStream(
               new JarInputStream(aar.getInputStream(aarEntry)),
               new JarOutputStream(aos),
-              map_mtd_result);
+              map_result);
         } else {
           InputStream ais = aar.getInputStream(aarEntry);
           aos.putNextEntry(aarEntry);
@@ -317,10 +312,10 @@ public class DefinitelyDerefedParamsDriver {
    *
    * @param jis Jar Input Stream.
    * @param jos Jar Output Stream.
-   * @param map_mtd_result Map of 'method references' to their 'list of NonNull parameters'.
+   * @param map_result Map of 'method signatures' to their 'list of NonNull parameters'.
    */
   private static void writeModelToJarStream(
-      JarInputStream jis, JarOutputStream jos, Result map_mtd_result) {
+      JarInputStream jis, JarOutputStream jos, Result map_result) {
     try {
       JarEntry jarEntry = null;
       while ((jarEntry = jis.getNextJarEntry()) != null) {
@@ -328,9 +323,9 @@ public class DefinitelyDerefedParamsDriver {
         IOUtils.copy(jis, jos);
       }
       jis.close();
-      if (!map_mtd_result.isEmpty()) {
+      if (!map_result.isEmpty()) {
         jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
-        writeModel(new DataOutputStream(jos), map_mtd_result);
+        writeModel(new DataOutputStream(jos), map_result);
       }
       jos.finish();
     } catch (IOException e) {
@@ -343,11 +338,11 @@ public class DefinitelyDerefedParamsDriver {
    * jar/aar.
    *
    * @param out JarOutputStream for writing the astubx
-   * @param map_mtd_result Map of 'method references' to their 'list of NonNull parameters'.
+   * @param map_result Map of 'method signatures' to their 'list of NonNull parameters'.
    */
   //  Note: Need version compatibility check between generated stub files and when reading models
   //    StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
-  private static void writeModel(DataOutputStream out, Result map_mtd_result) {
+  private static void writeModel(DataOutputStream out, Result map_result) {
     try {
       Map<String, String> importedAnnotations =
           new HashMap<String, String>() {
@@ -359,8 +354,7 @@ public class DefinitelyDerefedParamsDriver {
       Map<String, Set<String>> typeAnnotations = new HashMap<>();
       Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
 
-      for (Map.Entry<IMethod, Set<Integer>> entry : map_mtd_result.entrySet()) {
-        IMethod mtd = entry.getKey();
+      for (Map.Entry<String, Set<Integer>> entry : map_result.entrySet()) {
         Set<Integer> ddParams = entry.getValue();
         if (ddParams.isEmpty()) continue;
         Map<Integer, ImmutableSet<String>> argAnnotation =
@@ -369,7 +363,7 @@ public class DefinitelyDerefedParamsDriver {
           argAnnotation.put(param, ImmutableSet.of("Nonnull"));
         }
         methodRecords.put(
-            getSignature(mtd),
+            entry.getKey(),
             new MethodAnnotationsRecord(ImmutableSet.of(), ImmutableMap.copyOf(argAnnotation)));
       }
       StubxWriter.write(
@@ -403,19 +397,27 @@ public class DefinitelyDerefedParamsDriver {
         };
     String classType =
         mtd.getDeclaringClass().getName().toString().replaceAll("/", "\\.").substring(1);
+    // TODO: handle void
     String returnType = mtd.isInit() ? "" : mtd.getReturnType().getName().toString().split("<")[0];
     if (returnType.startsWith("L")) {
-      returnType = returnType.replaceAll("/", "\\.").substring(1);
+      returnType = returnType.substring(1);
+      returnType = returnType.substring(returnType.lastIndexOf('/') + 1);
     } else {
       returnType = mapFullTypeName.get(returnType);
     }
     String argTypes = "";
-    for (int argi = 0; argi < mtd.getNumberOfParameters(); argi++) {
+    int argi = mtd.isStatic() ? 0 : 1; // Skip 'this' parameter
+    for (; argi < mtd.getNumberOfParameters(); argi++) {
+      String argType = mtd.getParameterType(argi).getName().toString();
       if (mtd.getParameterType(argi).isArrayType()) {
         argTypes += "Array";
+      } else if (argType.startsWith("L")) {
+        argType = argType.split("<")[0].substring(1); // handle generics
+        argType = argType.substring(argType.lastIndexOf('/') + 1); // get unqualified name
+        argType = argType.substring(argType.lastIndexOf('$') + 1); // handle inner classes
+        argTypes += argType;
       } else {
-        String argType = mtd.getParameterType(argi).getName().toString().split("<")[0].substring(1);
-        argTypes += argType.substring(argType.lastIndexOf('/') + 1);
+        argTypes += mapFullTypeName.get(argType);
       }
       if (argi < mtd.getNumberOfParameters() - 1) {
         argTypes += ", ";
@@ -423,7 +425,7 @@ public class DefinitelyDerefedParamsDriver {
     }
     return classType
         + ":"
-        + (returnType == null ? "" : returnType + " ")
+        + (returnType == null ? "void " : returnType + " ")
         + mtd.getName().toString()
         + "("
         + argTypes

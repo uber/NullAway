@@ -31,11 +31,10 @@ import com.uber.nullaway.NullAway;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.net.JarURLConnection;
+import java.util.*;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 
 /** This handler loads inferred nullability model from stubs for methods in unannotated packages. */
 public class InferredJARModelsHandler extends BaseNoOpHandler {
@@ -43,14 +42,16 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
 
-  private static final boolean VERBOSE = false;
-  private static final boolean DEBUG = false;
+  private static boolean VERBOSE = true;
+  private static boolean DEBUG = true;
 
   private static Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
+  private static Set<String> loadedJars;
 
   public InferredJARModelsHandler() {
     super();
     argAnnotCache = new LinkedHashMap<>();
+    loadedJars = new HashSet<>();
   }
 
   @Override
@@ -60,57 +61,93 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
       ImmutableSet<Integer> nonNullPositions) {
-
-    String className = methodSymbol.enclClass().getQualifiedName().toString();
-    if (DEBUG) {
-      System.out.println("[JI DEBUG] class: " + className);
-    }
+    Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
+    String className = classSymbol.getQualifiedName().toString();
     try {
-      ClassLoader cl = Class.forName(className).getClassLoader();
-      InputStream astubxIS;
-      if (cl == null) {
-        if (VERBOSE) {
-          System.out.println("[JI Warn] Cannnot find ClassLoader for " + className);
-        }
-        return nonNullPositions;
+      if (DEBUG) {
+        System.out.println("[JI DEBUG] Looking for class: " + className);
       }
-      // TODO: Does this work for aar ?
-      astubxIS = cl.getResourceAsStream(DEFAULT_ASTUBX_LOCATION);
-      if (astubxIS == null) {
+      if (classSymbol.classfile == null) {
         if (VERBOSE) {
-          System.out.println("[JI Warn] Cannnot find jarinfer.astubx inside JAR for " + className);
+          System.out.println("[JI Warn] Cannot resolve source for class: " + className);
         }
         return nonNullPositions;
       }
       // Annotation cache
       if (!argAnnotCache.containsKey(className)) {
-        argAnnotCache.put(className, new LinkedHashMap<>());
+        if (DEBUG) {
+          System.out.println("[JI DEBUG] Resolving source jar for: " + className);
+        }
+        JarURLConnection juc =
+            ((JarURLConnection) classSymbol.classfile.toUri().toURL().openConnection());
+        String jarPath = juc.getJarFileURL().getPath();
         if (DEBUG) {
           System.out.println(
-              "[JI DEBUG] Looking for class: "
-                  + className
-                  + " in resource: "
-                  + cl.getResource(DEFAULT_ASTUBX_LOCATION).toString());
+              "[JI DEBUG] Found source of class: " + className + ", jar: " + jarPath);
         }
-        parseStubStream(
-            astubxIS, className + ": " + DEFAULT_ASTUBX_LOCATION, argAnnotCache.get(className));
+        // Avoid reloading for classes w/o any stubs from already loaded jars.
+        if (!loadedJars.contains(jarPath)) {
+          // TODO: Does this work for aar ?
+          JarFile jar = juc.getJarFile();
+          if (jar == null) {
+            throw new Error("Cannot open jar: " + jarPath);
+          }
+          JarEntry astubxJE = jar.getJarEntry(DEFAULT_ASTUBX_LOCATION);
+          if (astubxJE == null) {
+            if (VERBOSE) {
+              System.out.println("[JI Warn] Cannot find jarinfer.astubx in jar: " + jarPath);
+            }
+            return nonNullPositions;
+          }
+          InputStream astubxIS = jar.getInputStream(astubxJE);
+          if (astubxIS == null) {
+            if (VERBOSE) {
+              System.out.println("[JI Warn] Cannot load jarinfer.astubx in jar: " + jarPath);
+            }
+            return nonNullPositions;
+          }
+          parseStubStream(astubxIS, jarPath + ": " + DEFAULT_ASTUBX_LOCATION);
+          loadedJars.add(jarPath);
+          if (DEBUG) {
+            System.out.println(
+                "[JI DEBUG] Loaded "
+                    + argAnnotCache.keySet().size()
+                    + " astubx for class: "
+                    + className
+                    + " from jar: "
+                    + jarPath);
+          }
+        } else if (DEBUG) {
+          System.out.println("[JI DEBUG] Skipping already loaded jar: " + jarPath);
+        }
+      } else if (DEBUG) {
+        System.out.println("[JI DEBUG] Hit annotation cache for " + className);
       }
       // Generate method signature
       // TODO handle Arrays
       String methodSign =
-          methodSymbol.owner.getQualifiedName().toString()
+          className
               + ":"
+              + (methodSymbol.isStaticOrInstanceInit()
+                  ? ""
+                  : methodSymbol.getReturnType().tsym.getSimpleName() + " ")
               + methodSymbol.getSimpleName()
               + "(";
-      for (Symbol.VarSymbol var : methodSymbol.getParameters()) {
-        String argType = var.type.toString().split("<")[0];
-        methodSign += argType.substring(argType.lastIndexOf('.') + 1) + ", ";
+      if (!methodSymbol.getParameters().isEmpty()) {
+        for (Symbol.VarSymbol var : methodSymbol.getParameters()) {
+          String argType = var.type.toString().split("<")[0];
+          methodSign += argType.substring(argType.lastIndexOf('.') + 1) + ", ";
+        }
+        methodSign = methodSign.substring(0, methodSign.lastIndexOf(','));
       }
-      methodSign = methodSign.substring(0, methodSign.length() - 2) + ")";
+      methodSign += ")";
+      if (DEBUG) {
+        System.out.println("[JI DEBUG] @ method sign: " + methodSign);
+      }
 
       if (!argAnnotCache.containsKey(className)) {
         if (VERBOSE) {
-          System.out.println("[JI Warn] Cannnot find Annotation Cache for class " + className);
+          System.out.println("[JI Warn] Cannot find Annotation Cache for class: " + className);
         }
         return nonNullPositions;
       }
@@ -118,18 +155,18 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       if (methodArgAnnotations == null) {
         if (VERBOSE) {
           System.out.println(
-              "[JI Warn] Cannnot find Annotation Cache entry for method "
+              "[JI Warn] Cannot find Annotation Cache entry for method: "
                   + methodSign
-                  + " in "
+                  + " in class: "
                   + className);
         }
         return nonNullPositions;
       }
       if (DEBUG) {
         System.out.println(
-            "[JI Debug] Found Annotation Cache entry for method "
+            "[JI DEBUG] Found Annotation Cache entry for method: "
                 + methodSign
-                + " in "
+                + " in class: "
                 + className
                 + " -- "
                 + methodArgAnnotations.toString());
@@ -137,28 +174,20 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       Set<Integer> jiNonNullParams = new LinkedHashSet<>();
       for (Map.Entry<Integer, Set<String>> annotationEntry : methodArgAnnotations.entrySet()) {
         if (annotationEntry.getValue().contains("javax.annotation.Nonnull")) {
-          // Parameters are 0-indexed, vs. 1-indexed in WALA
-          jiNonNullParams.add(annotationEntry.getKey() - 1);
+          // Skip 'this' param for non-static methods
+          jiNonNullParams.add(annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1));
         }
       }
       if (DEBUG) {
         System.out.println("[JI DEBUG] Nonnull params  : " + jiNonNullParams.toString());
       }
       return Sets.union(nonNullPositions, jiNonNullParams).immutableCopy();
-    } catch (ClassNotFoundException cnfe) {
-      if (VERBOSE) {
-        System.out.println("[JI Warn] Cannnot find Class " + className);
-      }
-      return nonNullPositions;
     } catch (IOException e) {
       throw new Error(e);
     }
   }
 
-  private void parseStubStream(
-      InputStream stubxInputStream,
-      String stubxLocation,
-      Map<String, Map<Integer, Set<String>>> argAnnotations)
+  private void parseStubStream(InputStream stubxInputStream, String stubxLocation)
       throws IOException {
     String[] strings;
     DataInputStream in = new DataInputStream(stubxInputStream);
@@ -217,13 +246,18 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
                 + ", annotation: "
                 + annotation);
       }
-      if (!argAnnotations.containsKey(methodSig)) {
-        argAnnotations.put(methodSig, new LinkedHashMap<>());
-      }
-      if (!argAnnotations.get(methodSig).containsKey(argNum)) {
-        argAnnotations.get(methodSig).put(argNum, new LinkedHashSet<>());
-      }
-      argAnnotations.get(methodSig).get(argNum).add(annotation);
+      cacheAnnotation(methodSig, argNum, annotation);
     }
+  }
+
+  private void cacheAnnotation(String methodSig, Integer argNum, String annotation) {
+    // TODO: handle inner classes properly
+    String className = methodSig.split(":")[0].replace('$', '.');
+    if (!argAnnotCache.containsKey(className)) argAnnotCache.put(className, new LinkedHashMap<>());
+    if (!argAnnotCache.get(className).containsKey(methodSig))
+      argAnnotCache.get(className).put(methodSig, new LinkedHashMap<>());
+    if (!argAnnotCache.get(className).get(methodSig).containsKey(argNum))
+      argAnnotCache.get(className).get(methodSig).put(argNum, new LinkedHashSet<>());
+    argAnnotCache.get(className).get(methodSig).get(argNum).add(annotation);
   }
 }
