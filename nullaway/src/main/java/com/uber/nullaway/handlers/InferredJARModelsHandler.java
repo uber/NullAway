@@ -36,6 +36,7 @@ import java.net.JarURLConnection;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeKind;
 
 /** This handler loads inferred nullability model from stubs for methods in unannotated packages. */
@@ -66,6 +67,16 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
     String className = classSymbol.getQualifiedName().toString();
     try {
+      if (methodSymbol.getModifiers().contains(Modifier.ABSTRACT)) {
+        if (VERBOSE) {
+          System.out.println(
+              "[JI Warn] Skipping abstract method: "
+                  + className
+                  + " : "
+                  + methodSymbol.getQualifiedName());
+        }
+        return nonNullPositions;
+      }
       if (DEBUG) {
         System.out.println("[JI DEBUG] Looking for class: " + className);
       }
