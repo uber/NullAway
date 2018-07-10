@@ -34,6 +34,7 @@ import com.ibm.wala.ssa.IR;
 import com.ibm.wala.ssa.ISSABasicBlock;
 import com.ibm.wala.ssa.SSAInstruction;
 import com.ibm.wala.types.ClassLoaderReference;
+import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.util.collections.Iterator2Iterable;
 import com.ibm.wala.util.config.AnalysisScopeReader;
 import com.ibm.wala.util.config.FileOfClasses;
@@ -60,6 +61,7 @@ class Result extends HashMap<String, Set<Integer>> {}
 
 /** Driver for running {@link DefinitelyDerefedParams} */
 public class DefinitelyDerefedParamsDriver {
+  private static boolean DEBUG = false;
 
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
   // TODO: Exclusions-
@@ -151,7 +153,13 @@ public class DefinitelyDerefedParamsDriver {
       }
       long end = System.currentTimeMillis();
       System.out.println("-----\ndone\ntook " + (end - start) + "ms");
-      System.out.println("definitely-derefereced paramters: " + map_result.toString());
+      if (DEBUG) {
+        System.out.println("definitely-dereferenced parameters: ");
+        for (Map.Entry<String, Set<Integer>> resultEntry : map_result.entrySet()) {
+          System.out.println(
+              "@ method: " + resultEntry.getKey() + " = " + resultEntry.getValue().toString());
+        }
+      }
     }
     if (inPath.endsWith(".jar")) {
       writeProcessedJAR(inPath, outPath, map_result);
@@ -364,7 +372,8 @@ public class DefinitelyDerefedParamsDriver {
         }
         methodRecords.put(
             entry.getKey(),
-            new MethodAnnotationsRecord(ImmutableSet.of(), ImmutableMap.copyOf(argAnnotation)));
+            new MethodAnnotationsRecord(
+                ImmutableSet.of("Nonnull"), ImmutableMap.copyOf(argAnnotation)));
       }
       StubxWriter.write(
           out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
@@ -382,6 +391,31 @@ public class DefinitelyDerefedParamsDriver {
    */
   // TODO: handle generics and inner classes
   private static String getSignature(IMethod mtd) {
+    String classType =
+        mtd.getDeclaringClass().getName().toString().replaceAll("/", "\\.").substring(1);
+    classType = classType.replaceAll("\\$", "\\."); // handle inner class
+    String returnType = mtd.isInit() ? null : getSimpleTypeName(mtd.getReturnType());
+    String strArgTypes = "";
+    int argi = mtd.isStatic() ? 0 : 1; // Skip 'this' parameter
+    for (; argi < mtd.getNumberOfParameters(); argi++) {
+      strArgTypes += getSimpleTypeName(mtd.getParameterType(argi));
+      if (argi < mtd.getNumberOfParameters() - 1) strArgTypes += ", ";
+    }
+    return classType
+        + ":"
+        + (returnType == null ? "void " : returnType + " ")
+        + mtd.getName().toString()
+        + "("
+        + strArgTypes
+        + ")";
+  }
+  /**
+   * Get simple unqualified type name.
+   *
+   * @param typ Type Reference.
+   * @return String Unqualified type name.
+   */
+  private static String getSimpleTypeName(TypeReference typ) {
     final Map<String, String> mapFullTypeName =
         new HashMap<String, String>() {
           {
@@ -395,40 +429,15 @@ public class DefinitelyDerefedParamsDriver {
             put("Z", "boolean");
           }
         };
-    String classType =
-        mtd.getDeclaringClass().getName().toString().replaceAll("/", "\\.").substring(1);
-    // TODO: handle void
-    String returnType = mtd.isInit() ? "" : mtd.getReturnType().getName().toString().split("<")[0];
-    if (returnType.startsWith("L")) {
-      returnType = returnType.substring(1);
-      returnType = returnType.substring(returnType.lastIndexOf('/') + 1);
+    if (typ.isArrayType()) return "Array";
+    String typName = typ.getName().toString();
+    if (typName.startsWith("L")) {
+      typName = typName.split("<")[0].substring(1); // handle generics
+      typName = typName.substring(typName.lastIndexOf('/') + 1); // get unqualified name
+      typName = typName.substring(typName.lastIndexOf('$') + 1); // handle inner classes
     } else {
-      returnType = mapFullTypeName.get(returnType);
+      typName = mapFullTypeName.get(typName);
     }
-    String argTypes = "";
-    int argi = mtd.isStatic() ? 0 : 1; // Skip 'this' parameter
-    for (; argi < mtd.getNumberOfParameters(); argi++) {
-      String argType = mtd.getParameterType(argi).getName().toString();
-      if (mtd.getParameterType(argi).isArrayType()) {
-        argTypes += "Array";
-      } else if (argType.startsWith("L")) {
-        argType = argType.split("<")[0].substring(1); // handle generics
-        argType = argType.substring(argType.lastIndexOf('/') + 1); // get unqualified name
-        argType = argType.substring(argType.lastIndexOf('$') + 1); // handle inner classes
-        argTypes += argType;
-      } else {
-        argTypes += mapFullTypeName.get(argType);
-      }
-      if (argi < mtd.getNumberOfParameters() - 1) {
-        argTypes += ", ";
-      }
-    }
-    return classType
-        + ":"
-        + (returnType == null ? "void " : returnType + " ")
-        + mtd.getName().toString()
-        + "("
-        + argTypes
-        + ")";
+    return typName;
   }
 }

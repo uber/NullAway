@@ -27,6 +27,7 @@ import com.google.common.collect.Sets;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.NullAway;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -35,6 +36,7 @@ import java.net.JarURLConnection;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import javax.lang.model.type.TypeKind;
 
 /** This handler loads inferred nullability model from stubs for methods in unannotated packages. */
 public class InferredJARModelsHandler extends BaseNoOpHandler {
@@ -42,8 +44,8 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
 
-  private static boolean VERBOSE = true;
-  private static boolean DEBUG = true;
+  private static boolean VERBOSE = false;
+  private static boolean DEBUG = false;
 
   private static Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
   private static Set<String> loadedJars;
@@ -74,24 +76,23 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         return nonNullPositions;
       }
       // Annotation cache
+      String jarPath = "";
       if (!argAnnotCache.containsKey(className)) {
-        if (DEBUG) {
-          System.out.println("[JI DEBUG] Resolving source jar for: " + className);
-        }
+        // this works for aar !
         JarURLConnection juc =
             ((JarURLConnection) classSymbol.classfile.toUri().toURL().openConnection());
-        String jarPath = juc.getJarFileURL().getPath();
+        jarPath = juc.getJarFileURL().getPath();
         if (DEBUG) {
           System.out.println(
               "[JI DEBUG] Found source of class: " + className + ", jar: " + jarPath);
         }
         // Avoid reloading for classes w/o any stubs from already loaded jars.
         if (!loadedJars.contains(jarPath)) {
-          // TODO: Does this work for aar ?
           JarFile jar = juc.getJarFile();
           if (jar == null) {
             throw new Error("Cannot open jar: " + jarPath);
           }
+          loadedJars.add(jarPath);
           JarEntry astubxJE = jar.getJarEntry(DEFAULT_ASTUBX_LOCATION);
           if (astubxJE == null) {
             if (VERBOSE) {
@@ -107,7 +108,6 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
             return nonNullPositions;
           }
           parseStubStream(astubxIS, jarPath + ": " + DEFAULT_ASTUBX_LOCATION);
-          loadedJars.add(jarPath);
           if (DEBUG) {
             System.out.println(
                 "[JI DEBUG] Loaded "
@@ -121,22 +121,20 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
           System.out.println("[JI DEBUG] Skipping already loaded jar: " + jarPath);
         }
       } else if (DEBUG) {
-        System.out.println("[JI DEBUG] Hit annotation cache for " + className);
+        System.out.println("[JI DEBUG] Hit annotation cache for class: " + className);
       }
       // Generate method signature
-      // TODO handle Arrays
       String methodSign =
           className
               + ":"
               + (methodSymbol.isStaticOrInstanceInit()
                   ? ""
-                  : methodSymbol.getReturnType().tsym.getSimpleName() + " ")
+                  : getSimpleTypeName(methodSymbol.getReturnType()) + " ")
               + methodSymbol.getSimpleName()
               + "(";
       if (!methodSymbol.getParameters().isEmpty()) {
         for (Symbol.VarSymbol var : methodSymbol.getParameters()) {
-          String argType = var.type.toString().split("<")[0];
-          methodSign += argType.substring(argType.lastIndexOf('.') + 1) + ", ";
+          methodSign += getSimpleTypeName(var.type) + ", ";
         }
         methodSign = methodSign.substring(0, methodSign.lastIndexOf(','));
       }
@@ -147,7 +145,11 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
 
       if (!argAnnotCache.containsKey(className)) {
         if (VERBOSE) {
-          System.out.println("[JI Warn] Cannot find Annotation Cache for class: " + className);
+          System.out.println(
+              "[JI Warn] Cannot find Annotation Cache for class: "
+                  + className
+                  + ", jar: "
+                  + jarPath);
         }
         return nonNullPositions;
       }
@@ -178,13 +180,20 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
           jiNonNullParams.add(annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1));
         }
       }
-      if (DEBUG) {
-        System.out.println("[JI DEBUG] Nonnull params  : " + jiNonNullParams.toString());
-      }
+      //      if (DEBUG) {
+      System.out.println(
+          "[JI DEBUG] Nonnull params: " + jiNonNullParams.toString() + " for " + methodSign);
+      //      }
       return Sets.union(nonNullPositions, jiNonNullParams).immutableCopy();
     } catch (IOException e) {
       throw new Error(e);
     }
+  }
+
+  private String getSimpleTypeName(Type typ) {
+    if (typ.getKind() == TypeKind.TYPEVAR)
+      return typ.getUpperBound().tsym.getSimpleName().toString();
+    else return typ.tsym.getSimpleName().toString();
   }
 
   private void parseStubStream(InputStream stubxInputStream, String stubxLocation)
