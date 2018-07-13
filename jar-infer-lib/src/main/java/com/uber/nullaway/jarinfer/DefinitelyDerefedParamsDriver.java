@@ -128,10 +128,11 @@ public class DefinitelyDerefedParamsDriver {
             for (IMethod mtd : Iterator2Iterable.make(cls.getAllMethods().iterator())) {
               // Skip methods without parameters, abstract methods, native methods
               // some Application classes are Primordial (why?)
-              if (mtd.getNumberOfParameters() > 0
+              if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)
                   && !mtd.isPrivate()
                   && !mtd.isAbstract()
                   && !mtd.isNative()
+                  && !isAllPrimitiveTypes(mtd)
                   && !mtd.getDeclaringClass()
                       .getClassLoader()
                       .getName()
@@ -171,6 +172,21 @@ public class DefinitelyDerefedParamsDriver {
     }
     lastOutPath = outPath;
     return map_result;
+  }
+
+  /**
+   * Checks if all parameters and return value of a method have primitive types.
+   *
+   * @param mtd Method.
+   * @return boolean True if all parameters and return value are of primitive type, otherwise false.
+   */
+  private static boolean isAllPrimitiveTypes(IMethod mtd) {
+    if (!mtd.getReturnType().isPrimitiveType()) return false;
+    for (int i = (mtd.isStatic() ? 0 : 1); i < mtd.getNumberOfParameters(); i++) {
+      if (!mtd.getParameterType(i).isPrimitiveType()) return false;
+    }
+    System.out.println("[JI DEBUG] # all primitive: " + mtd.getSignature());
+    return true;
   }
 
   /**
