@@ -45,8 +45,8 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
 
-  private static boolean VERBOSE = false;
-  private static boolean DEBUG = false;
+  private static final boolean DEBUG = false;
+  private static final boolean VERBOSE = false;
 
   private static Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
   private static Set<String> loadedJars;
