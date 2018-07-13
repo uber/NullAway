@@ -185,7 +185,6 @@ public class DefinitelyDerefedParamsDriver {
     for (int i = (mtd.isStatic() ? 0 : 1); i < mtd.getNumberOfParameters(); i++) {
       if (!mtd.getParameterType(i).isPrimitiveType()) return false;
     }
-    System.out.println("[JI DEBUG] # all primitive: " + mtd.getSignature());
     return true;
   }
 
