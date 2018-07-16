@@ -191,10 +191,10 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
           jiNonNullParams.add(annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1));
         }
       }
-      //      if (DEBUG) {
-      System.out.println(
-          "[JI DEBUG] Nonnull params: " + jiNonNullParams.toString() + " for " + methodSign);
-      //      }
+      if (DEBUG) {
+        System.out.println(
+            "[JI DEBUG] Nonnull params: " + jiNonNullParams.toString() + " for " + methodSign);
+      }
       return Sets.union(nonNullPositions, jiNonNullParams).immutableCopy();
     } catch (IOException e) {
       throw new Error(e);

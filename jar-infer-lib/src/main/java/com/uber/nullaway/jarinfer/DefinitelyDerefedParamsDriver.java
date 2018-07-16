@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.ibm.wala.cfg.ControlFlowGraph;
+import com.ibm.wala.classLoader.CodeScanner;
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IClassLoader;
 import com.ibm.wala.classLoader.IMethod;
@@ -139,6 +140,21 @@ public class DefinitelyDerefedParamsDriver {
                       .toString()
                       .equals("Primordial")) {
                 Preconditions.checkNotNull(mtd, "method not found");
+                // Skip methods by looking at bytecode
+                try {
+                  if (CodeScanner.getFieldsRead(mtd).isEmpty()
+                      && CodeScanner.getFieldsWritten(mtd).isEmpty()
+                      && CodeScanner.getCallSites(mtd).isEmpty()) {
+                    if (DEBUG) {
+                      System.out.println(
+                          "[JI DEBUG] No relevant instructions found! Skipping method: "
+                              + mtd.getSignature());
+                    }
+                    continue;
+                  }
+                } catch (Exception e) {
+                  e.printStackTrace();
+                }
                 IR ir =
                     cache
                         .getIRFactory()
