@@ -51,10 +51,7 @@ import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
-import java.util.jar.JarInputStream;
-import java.util.jar.JarOutputStream;
+import java.util.zip.*;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 
@@ -102,7 +99,7 @@ public class DefinitelyDerefedParamsDriver {
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     long start = System.currentTimeMillis();
     Result map_result = new Result();
-    InputStream jarIS = getJARInputStream(inPath);
+    InputStream jarIS = getInputStream(inPath);
     if (jarIS != null) {
       //      File scopeFile = File.createTempFile("walaScopeFile", ".tmp");
       //      FileUtils.writeStringToFile(scopeFile, makeScopeFileStr());
@@ -210,7 +207,7 @@ public class DefinitelyDerefedParamsDriver {
    * @param libPath Path to input jar / aar file to be analyzed.
    * @return InputStream InputStream for the jar.
    */
-  private static InputStream getJARInputStream(String libPath) throws IOException {
+  private static InputStream getInputStream(String libPath) throws IOException {
     Preconditions.checkArgument(
         (libPath.endsWith(".jar") || libPath.endsWith(".aar")) && Files.exists(Paths.get(libPath)),
         "invalid library path! " + libPath);
@@ -221,8 +218,8 @@ public class DefinitelyDerefedParamsDriver {
     if (libPath.endsWith(".jar")) {
       jarIS = new FileInputStream(libPath);
     } else if (libPath.endsWith(".aar")) {
-      JarFile aar = new JarFile(libPath);
-      JarEntry jarEntry = aar.getJarEntry("classes.jar");
+      ZipFile aar = new ZipFile(libPath);
+      ZipEntry jarEntry = aar.getEntry("classes.jar");
       jarIS = (jarEntry == null ? null : aar.getInputStream(jarEntry));
     }
     return jarIS;
@@ -241,8 +238,8 @@ public class DefinitelyDerefedParamsDriver {
         "invalid jar file! " + inJarPath);
     try {
       writeModelToJarStream(
-          new JarInputStream(new FileInputStream(inJarPath)),
-          new JarOutputStream(new FileOutputStream(outJarPath)),
+          new ZipInputStream(new FileInputStream(inJarPath)),
+          new ZipOutputStream(new FileOutputStream(outJarPath)),
           map_result);
       if (VERBOSE) {
         System.out.println("processed jar to: " + outJarPath);
@@ -265,26 +262,21 @@ public class DefinitelyDerefedParamsDriver {
         inAarPath.endsWith(".aar") && Files.exists(Paths.get(inAarPath)),
         "invalid aar file! " + inAarPath);
     try {
-      JarFile aar = new JarFile(inAarPath);
-      JarOutputStream aos = new JarOutputStream(new FileOutputStream(outAarPath));
-      Enumeration enumEntries = aar.entries();
-      while (enumEntries.hasMoreElements()) {
-        JarEntry aarEntry = (JarEntry) enumEntries.nextElement();
-        if (aarEntry.getName().endsWith("classes.jar")) {
-          aos.putNextEntry(new JarEntry("classes.jar"));
+      ZipFile zip = new ZipFile(inAarPath);
+      ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outAarPath));
+      for (Enumeration zes = zip.entries(); zes.hasMoreElements(); ) {
+        ZipEntry ze = (ZipEntry) zes.nextElement();
+        zos.putNextEntry(new ZipEntry(ze.getName()));
+        if (ze.getName().endsWith("classes.jar")) {
           writeModelToJarStream(
-              new JarInputStream(aar.getInputStream(aarEntry)),
-              new JarOutputStream(aos),
-              map_result);
+              new ZipInputStream(zip.getInputStream(ze)), new ZipOutputStream(zos), map_result);
         } else {
-          InputStream ais = aar.getInputStream(aarEntry);
-          aos.putNextEntry(aarEntry);
-          IOUtils.copy(ais, aos);
-          ais.close();
+          IOUtils.copy(zip.getInputStream(ze), zos);
         }
+        zos.closeEntry();
       }
-      aos.close();
-      aar.close();
+      zip.close();
+      zos.close();
       if (VERBOSE) {
         System.out.println("processed aar to: " + outAarPath);
       }
@@ -295,24 +287,25 @@ public class DefinitelyDerefedParamsDriver {
   /**
    * Copy Jar Input Stream to Jar Output Stream and add nullability model.
    *
-   * @param jis Jar Input Stream.
-   * @param jos Jar Output Stream.
+   * @param zis Jar Input Stream.
+   * @param zos Jar Output Stream.
    * @param map_result Map of 'method signatures' to their 'list of NonNull parameters'.
    */
   private static void writeModelToJarStream(
-      JarInputStream jis, JarOutputStream jos, Result map_result) {
+      ZipInputStream zis, ZipOutputStream zos, Result map_result) {
     try {
-      JarEntry jarEntry = null;
-      while ((jarEntry = jis.getNextJarEntry()) != null) {
-        jos.putNextEntry(jarEntry);
-        IOUtils.copy(jis, jos);
+      for (ZipEntry ze; (ze = zis.getNextEntry()) != null; ) {
+        zos.putNextEntry(ze);
+        IOUtils.copy(zis, zos);
+        zos.closeEntry();
       }
-      jis.close();
+      zis.close();
       if (!map_result.isEmpty()) {
-        jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
-        writeModel(new DataOutputStream(jos), map_result);
+        zos.putNextEntry(new ZipEntry(DEFAULT_ASTUBX_LOCATION));
+        writeModel(new DataOutputStream(zos), map_result);
+        zos.closeEntry();
       }
-      jos.finish();
+      zos.finish();
     } catch (IOException e) {
       throw new Error(e);
     }
