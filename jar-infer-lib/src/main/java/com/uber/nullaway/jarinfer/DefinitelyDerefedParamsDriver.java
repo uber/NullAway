@@ -102,6 +102,7 @@ public class DefinitelyDerefedParamsDriver {
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     long start = System.currentTimeMillis();
     Result map_result = new Result();
+    Set<String> nullableReturns = new HashSet<>();
     InputStream jarIS = getJARInputStream(inPath);
     if (jarIS != null) {
       //      File scopeFile = File.createTempFile("walaScopeFile", ".tmp");
@@ -155,14 +156,24 @@ public class DefinitelyDerefedParamsDriver {
                 } catch (Exception e) {
                   e.printStackTrace();
                 }
+                // Make CFG
                 IR ir =
                     cache
                         .getIRFactory()
                         .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
                 ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
-                Set<Integer> result = new DefinitelyDerefedParams(mtd, ir, cfg, cha).analyze();
+                // Analyze parameters
+                DefinitelyDerefedParams analysisDriver =
+                    new DefinitelyDerefedParams(mtd, ir, cfg, cha);
+                Set<Integer> result = analysisDriver.analyze();
+                String sign = getSignature(mtd);
                 if (!result.isEmpty() || DEBUG) {
-                  map_result.put(getSignature(mtd), result);
+                  map_result.put(sign, result);
+                }
+                // Analyze return value
+                if (analysisDriver.analyzeReturnType()
+                    == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
+                  nullableReturns.add(sign);
                 }
               }
             }
@@ -182,9 +193,9 @@ public class DefinitelyDerefedParamsDriver {
       }
     }
     if (inPath.endsWith(".jar")) {
-      writeProcessedJAR(inPath, outPath, map_result);
+      writeProcessedJAR(inPath, outPath, map_result, nullableReturns);
     } else if (inPath.endsWith(".aar")) {
-      writeProcessedAAR(inPath, outPath, map_result);
+      writeProcessedAAR(inPath, outPath, map_result, nullableReturns);
     }
     lastOutPath = outPath;
     return map_result;
@@ -235,7 +246,8 @@ public class DefinitelyDerefedParamsDriver {
    * @param outJarPath Path of output jar file.
    * @param map_result Map of 'method signatures' to their 'list of NonNull parameters'.
    */
-  private static void writeProcessedJAR(String inJarPath, String outJarPath, Result map_result) {
+  private static void writeProcessedJAR(
+      String inJarPath, String outJarPath, Result map_result, Set<String> nullableReturns) {
     Preconditions.checkArgument(
         inJarPath.endsWith(".jar") && Files.exists(Paths.get(inJarPath)),
         "invalid jar file! " + inJarPath);
@@ -243,7 +255,8 @@ public class DefinitelyDerefedParamsDriver {
       writeModelToJarStream(
           new JarInputStream(new FileInputStream(inJarPath)),
           new JarOutputStream(new FileOutputStream(outJarPath)),
-          map_result);
+          map_result,
+          nullableReturns);
       if (VERBOSE) {
         System.out.println("processed jar to: " + outJarPath);
       }
@@ -260,7 +273,8 @@ public class DefinitelyDerefedParamsDriver {
    * @param outAarPath Path of output aar file.
    * @param map_result Map of 'method signatures' to their 'list of NonNull parameters'.
    */
-  private static void writeProcessedAAR(String inAarPath, String outAarPath, Result map_result) {
+  private static void writeProcessedAAR(
+      String inAarPath, String outAarPath, Result map_result, Set<String> nullableReturns) {
     Preconditions.checkArgument(
         inAarPath.endsWith(".aar") && Files.exists(Paths.get(inAarPath)),
         "invalid aar file! " + inAarPath);
@@ -275,7 +289,8 @@ public class DefinitelyDerefedParamsDriver {
           writeModelToJarStream(
               new JarInputStream(aar.getInputStream(aarEntry)),
               new JarOutputStream(aos),
-              map_result);
+              map_result,
+              nullableReturns);
         } else {
           InputStream ais = aar.getInputStream(aarEntry);
           aos.putNextEntry(aarEntry);
@@ -300,7 +315,7 @@ public class DefinitelyDerefedParamsDriver {
    * @param map_result Map of 'method signatures' to their 'list of NonNull parameters'.
    */
   private static void writeModelToJarStream(
-      JarInputStream jis, JarOutputStream jos, Result map_result) {
+      JarInputStream jis, JarOutputStream jos, Result map_result, Set<String> nullableReturns) {
     try {
       JarEntry jarEntry = null;
       while ((jarEntry = jis.getNextJarEntry()) != null) {
@@ -310,7 +325,7 @@ public class DefinitelyDerefedParamsDriver {
       jis.close();
       if (!map_result.isEmpty()) {
         jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
-        writeModel(new DataOutputStream(jos), map_result);
+        writeModel(new DataOutputStream(jos), map_result, nullableReturns);
       }
       jos.finish();
     } catch (IOException e) {
@@ -327,12 +342,14 @@ public class DefinitelyDerefedParamsDriver {
    */
   //  Note: Need version compatibility check between generated stub files and when reading models
   //    StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
-  private static void writeModel(DataOutputStream out, Result map_result) {
+  private static void writeModel(
+      DataOutputStream out, Result map_result, Set<String> nullableReturns) {
     try {
       Map<String, String> importedAnnotations =
           new HashMap<String, String>() {
             {
               put("Nonnull", "javax.annotation.Nonnull");
+              put("Nullable", "javax.annotation.Nullable");
             }
           };
       Map<String, Set<String>> packageAnnotations = new HashMap<>();
@@ -340,17 +357,19 @@ public class DefinitelyDerefedParamsDriver {
       Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
 
       for (Map.Entry<String, Set<Integer>> entry : map_result.entrySet()) {
+        String sign = entry.getKey();
         Set<Integer> ddParams = entry.getValue();
-        if (ddParams.isEmpty()) continue;
+        if (ddParams.isEmpty() && !nullableReturns.contains(sign)) continue;
         Map<Integer, ImmutableSet<String>> argAnnotation =
             new HashMap<Integer, ImmutableSet<String>>();
         for (Integer param : ddParams) {
           argAnnotation.put(param, ImmutableSet.of("Nonnull"));
         }
         methodRecords.put(
-            entry.getKey(),
+            sign,
             new MethodAnnotationsRecord(
-                ImmutableSet.of("Nonnull"), ImmutableMap.copyOf(argAnnotation)));
+                nullableReturns.contains(sign) ? ImmutableSet.of("Nullable") : ImmutableSet.of(),
+                ImmutableMap.copyOf(argAnnotation)));
       }
       StubxWriter.write(
           out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);

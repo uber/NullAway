@@ -26,6 +26,7 @@ import com.ibm.wala.ssa.SSAAbstractInvokeInstruction;
 import com.ibm.wala.ssa.SSAGetInstruction;
 import com.ibm.wala.ssa.SSAInstruction;
 import com.ibm.wala.ssa.SSAPutInstruction;
+import com.ibm.wala.ssa.SSAReturnInstruction;
 import com.ibm.wala.util.collections.Iterator2Iterable;
 import com.ibm.wala.util.graph.Graph;
 import com.ibm.wala.util.graph.GraphUtil;
@@ -45,6 +46,7 @@ public class DefinitelyDerefedParams {
 
   // the exploded control-flow graph without exceptional edges
   private final ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg;
+  private PrunedCFG<SSAInstruction, ISSABasicBlock> prunedCFG;
 
   // used to resolve references to fields in putstatic instructions
   private final IClassHierarchy cha;
@@ -69,10 +71,11 @@ public class DefinitelyDerefedParams {
     this.ir = ir;
     this.cfg = cfg;
     this.cha = cha;
+    prunedCFG = null;
   }
 
   /**
-   * This method runs the core analysis that identifies definitely-dereferenced parameters.
+   * This is the core analysis that identifies definitely-dereferenced parameters.
    *
    * @return Set<Integer> The ordinal indices of formal parameters that are definitely-dereferenced.
    */
@@ -83,7 +86,7 @@ public class DefinitelyDerefedParams {
       System.out.println("   exception pruning CFG...");
     }
     Set<Integer> derefedParamList = new HashSet<Integer>();
-    PrunedCFG<SSAInstruction, ISSABasicBlock> prunedCFG = ExceptionPrunedCFG.make(cfg);
+    prunedCFG = ExceptionPrunedCFG.make(cfg);
     // In case the only control flows are exceptional, simply return.
     if (prunedCFG.getNumberOfNodes() == 2
         && prunedCFG.containsNode(cfg.entry())
@@ -159,5 +162,49 @@ public class DefinitelyDerefedParams {
       System.out.println("   done...");
     }
     return derefedParamList;
+  }
+
+  public enum NullnessHint {
+    UNKNOWN,
+    NULLABLE,
+    NONNULL
+  }
+
+  /**
+   * This is the nullability analysis for the method return value.
+   *
+   * @return NullnessHint The inferred nullness type for the method return value.
+   */
+  public NullnessHint analyzeReturnType() {
+    if (method.getReturnType().isPrimitiveType()) return NullnessHint.UNKNOWN;
+    if (VERBOSE) {
+      System.out.println("@ Return type analysis for: " + method.getSignature());
+    }
+    // Get ExceptionPrunedCFG
+    if (prunedCFG == null) {
+      prunedCFG = ExceptionPrunedCFG.make(cfg);
+    }
+    // In case the only control flows are exceptional, simply return.
+    if (prunedCFG.getNumberOfNodes() == 2
+        && prunedCFG.containsNode(cfg.entry())
+        && prunedCFG.containsNode(cfg.exit())
+        && GraphUtil.countEdges(prunedCFG) == 0) {
+      return NullnessHint.UNKNOWN;
+    }
+    for (ISSABasicBlock bb : prunedCFG.getNormalPredecessors(prunedCFG.exit())) {
+      for (int i = bb.getFirstInstructionIndex(); i <= bb.getLastInstructionIndex(); i++) {
+        SSAInstruction instr = ir.getInstructions()[i];
+        if (instr instanceof SSAReturnInstruction) {
+          SSAReturnInstruction retInstr = (SSAReturnInstruction) instr;
+          if (ir.getSymbolTable().isNullConstant(retInstr.getResult())) {
+            if (DEBUG) {
+              System.out.println("[JI DEBUG] 'return null;' in method: " + method.getSignature());
+            }
+            return NullnessHint.NULLABLE;
+          }
+        }
+      }
+    }
+    return NullnessHint.UNKNOWN;
   }
 }
