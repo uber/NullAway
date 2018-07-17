@@ -81,6 +81,7 @@ public class DefinitelyDerefedParams {
    */
   public Set<Integer> analyze() {
     // Get ExceptionPrunedCFG
+    System.out.println("[JI DEBUG] Analyzing method: " + method.getSignature());
     if (VERBOSE) {
       System.out.println("@ " + method.getSignature());
       System.out.println("   exception pruning CFG...");
@@ -176,10 +177,13 @@ public class DefinitelyDerefedParams {
    * @return NullnessHint The inferred nullness type for the method return value.
    */
   public NullnessHint analyzeReturnType() {
-    if (method.getReturnType().isPrimitiveType()) return NullnessHint.UNKNOWN;
-    if (VERBOSE) {
-      System.out.println("@ Return type analysis for: " + method.getSignature());
+    if (method.getReturnType().isPrimitiveType()) {
+      System.out.println("[JI DEBUG] Primitive Return type for method: " + method.getSignature());
+      return NullnessHint.UNKNOWN;
     }
+    //    if (VERBOSE) {
+    System.out.println("[JI DEBUG] @ Return type analysis for: " + method.getSignature());
+    //    }
     // Get ExceptionPrunedCFG
     if (prunedCFG == null) {
       prunedCFG = ExceptionPrunedCFG.make(cfg);
@@ -197,9 +201,9 @@ public class DefinitelyDerefedParams {
         if (instr instanceof SSAReturnInstruction) {
           SSAReturnInstruction retInstr = (SSAReturnInstruction) instr;
           if (ir.getSymbolTable().isNullConstant(retInstr.getResult())) {
-            if (DEBUG) {
-              System.out.println("[JI DEBUG] 'return null;' in method: " + method.getSignature());
-            }
+            //            if (DEBUG) {
+            System.out.println("[JI DEBUG] 'return null;' in method: " + method.getSignature());
+            //            }
             return NullnessHint.NULLABLE;
           }
         }

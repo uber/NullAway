@@ -66,6 +66,8 @@ public class DefinitelyDerefedParamsDriver {
   private static final boolean VERBOSE = false;
 
   public static String lastOutPath = "";
+  private static Result map_result = new Result();
+  private static Set<String> nullableReturns = new HashSet<>();
 
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
   // TODO: Exclusions-
@@ -101,8 +103,6 @@ public class DefinitelyDerefedParamsDriver {
   public static Result run(String inPath, String pkgName, String outPath)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     long start = System.currentTimeMillis();
-    Result map_result = new Result();
-    Set<String> nullableReturns = new HashSet<>();
     InputStream jarIS = getJARInputStream(inPath);
     if (jarIS != null) {
       //      File scopeFile = File.createTempFile("walaScopeFile", ".tmp");
@@ -134,23 +134,29 @@ public class DefinitelyDerefedParamsDriver {
                   && !mtd.isPrivate()
                   && !mtd.isAbstract()
                   && !mtd.isNative()
-                  && !isAllPrimitiveTypes(mtd)
+                  //                  && !isAllPrimitiveTypes(mtd)
                   && !mtd.getDeclaringClass()
                       .getClassLoader()
                       .getName()
                       .toString()
                       .equals("Primordial")) {
                 Preconditions.checkNotNull(mtd, "method not found");
+                System.out.println("[JI DEBUG] All methods: " + mtd.getSignature());
+                if (isAllPrimitiveTypes(mtd)) {
+                  System.out.println(
+                      "[JI DEBUG] Primitive Types! Skipping method: " + mtd.getSignature());
+                  continue;
+                }
                 // Skip methods by looking at bytecode
                 try {
                   if (CodeScanner.getFieldsRead(mtd).isEmpty()
                       && CodeScanner.getFieldsWritten(mtd).isEmpty()
                       && CodeScanner.getCallSites(mtd).isEmpty()) {
-                    if (DEBUG) {
-                      System.out.println(
-                          "[JI DEBUG] No relevant instructions found! Skipping method: "
-                              + mtd.getSignature());
-                    }
+                    //                    if (DEBUG) {
+                    System.out.println(
+                        "[JI DEBUG] No relevant instructions found! Skipping method: "
+                            + mtd.getSignature());
+                    //                    }
                     continue;
                   }
                 } catch (Exception e) {
@@ -192,10 +198,11 @@ public class DefinitelyDerefedParamsDriver {
         }
       }
     }
+    System.out.println("[JI DEBUG] Nullable returns count: " + nullableReturns.size());
     if (inPath.endsWith(".jar")) {
-      writeProcessedJAR(inPath, outPath, map_result, nullableReturns);
+      writeProcessedJAR(inPath, outPath);
     } else if (inPath.endsWith(".aar")) {
-      writeProcessedAAR(inPath, outPath, map_result, nullableReturns);
+      writeProcessedAAR(inPath, outPath);
     }
     lastOutPath = outPath;
     return map_result;
@@ -244,19 +251,15 @@ public class DefinitelyDerefedParamsDriver {
    *
    * @param inJarPath Path of input jar file.
    * @param outJarPath Path of output jar file.
-   * @param map_result Map of 'method signatures' to their 'list of NonNull parameters'.
    */
-  private static void writeProcessedJAR(
-      String inJarPath, String outJarPath, Result map_result, Set<String> nullableReturns) {
+  private static void writeProcessedJAR(String inJarPath, String outJarPath) {
     Preconditions.checkArgument(
         inJarPath.endsWith(".jar") && Files.exists(Paths.get(inJarPath)),
         "invalid jar file! " + inJarPath);
     try {
       writeModelToJarStream(
           new JarInputStream(new FileInputStream(inJarPath)),
-          new JarOutputStream(new FileOutputStream(outJarPath)),
-          map_result,
-          nullableReturns);
+          new JarOutputStream(new FileOutputStream(outJarPath)));
       if (VERBOSE) {
         System.out.println("processed jar to: " + outJarPath);
       }
@@ -271,10 +274,8 @@ public class DefinitelyDerefedParamsDriver {
    *
    * @param inAarPath Path of input aar file.
    * @param outAarPath Path of output aar file.
-   * @param map_result Map of 'method signatures' to their 'list of NonNull parameters'.
    */
-  private static void writeProcessedAAR(
-      String inAarPath, String outAarPath, Result map_result, Set<String> nullableReturns) {
+  private static void writeProcessedAAR(String inAarPath, String outAarPath) {
     Preconditions.checkArgument(
         inAarPath.endsWith(".aar") && Files.exists(Paths.get(inAarPath)),
         "invalid aar file! " + inAarPath);
@@ -287,10 +288,7 @@ public class DefinitelyDerefedParamsDriver {
         if (aarEntry.getName().endsWith("classes.jar")) {
           aos.putNextEntry(new JarEntry("classes.jar"));
           writeModelToJarStream(
-              new JarInputStream(aar.getInputStream(aarEntry)),
-              new JarOutputStream(aos),
-              map_result,
-              nullableReturns);
+              new JarInputStream(aar.getInputStream(aarEntry)), new JarOutputStream(aos));
         } else {
           InputStream ais = aar.getInputStream(aarEntry);
           aos.putNextEntry(aarEntry);
@@ -312,10 +310,8 @@ public class DefinitelyDerefedParamsDriver {
    *
    * @param jis Jar Input Stream.
    * @param jos Jar Output Stream.
-   * @param map_result Map of 'method signatures' to their 'list of NonNull parameters'.
    */
-  private static void writeModelToJarStream(
-      JarInputStream jis, JarOutputStream jos, Result map_result, Set<String> nullableReturns) {
+  private static void writeModelToJarStream(JarInputStream jis, JarOutputStream jos) {
     try {
       JarEntry jarEntry = null;
       while ((jarEntry = jis.getNextJarEntry()) != null) {
@@ -325,7 +321,7 @@ public class DefinitelyDerefedParamsDriver {
       jis.close();
       if (!map_result.isEmpty()) {
         jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
-        writeModel(new DataOutputStream(jos), map_result, nullableReturns);
+        writeModel(new DataOutputStream(jos));
       }
       jos.finish();
     } catch (IOException e) {
@@ -338,12 +334,10 @@ public class DefinitelyDerefedParamsDriver {
    * jar/aar.
    *
    * @param out JarOutputStream for writing the astubx
-   * @param map_result Map of 'method signatures' to their 'list of NonNull parameters'.
    */
   //  Note: Need version compatibility check between generated stub files and when reading models
   //    StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
-  private static void writeModel(
-      DataOutputStream out, Result map_result, Set<String> nullableReturns) {
+  private static void writeModel(DataOutputStream out) {
     try {
       Map<String, String> importedAnnotations =
           new HashMap<String, String>() {
@@ -365,11 +359,22 @@ public class DefinitelyDerefedParamsDriver {
         for (Integer param : ddParams) {
           argAnnotation.put(param, ImmutableSet.of("Nonnull"));
         }
+        if (nullableReturns.contains(sign)) {
+          System.out.println("[JI DEBUG] Writing Nullable return of method: " + sign);
+        }
         methodRecords.put(
             sign,
             new MethodAnnotationsRecord(
                 nullableReturns.contains(sign) ? ImmutableSet.of("Nullable") : ImmutableSet.of(),
                 ImmutableMap.copyOf(argAnnotation)));
+        nullableReturns.remove(sign);
+      }
+      for (String nullableReturnMethodSign : Iterator2Iterable.make(nullableReturns.iterator())) {
+        methodRecords.put(
+            nullableReturnMethodSign,
+            new MethodAnnotationsRecord(ImmutableSet.of("Nullable"), ImmutableMap.of()));
+        System.out.println(
+            "[JI DEBUG] Writing Nullable return of method: " + nullableReturnMethodSign);
       }
       StubxWriter.write(
           out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
