@@ -51,10 +51,7 @@ import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
-import java.util.jar.JarInputStream;
-import java.util.jar.JarOutputStream;
+import java.util.zip.*;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 
@@ -103,7 +100,8 @@ public class DefinitelyDerefedParamsDriver {
   public static Result run(String inPath, String pkgName, String outPath)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     long start = System.currentTimeMillis();
-    InputStream jarIS = getJARInputStream(inPath);
+
+    InputStream jarIS = getInputStream(inPath);
     if (jarIS != null) {
       //      File scopeFile = File.createTempFile("walaScopeFile", ".tmp");
       //      FileUtils.writeStringToFile(scopeFile, makeScopeFileStr());
@@ -216,7 +214,7 @@ public class DefinitelyDerefedParamsDriver {
    * @param libPath Path to input jar / aar file to be analyzed.
    * @return InputStream InputStream for the jar.
    */
-  private static InputStream getJARInputStream(String libPath) throws IOException {
+  private static InputStream getInputStream(String libPath) throws IOException {
     Preconditions.checkArgument(
         (libPath.endsWith(".jar") || libPath.endsWith(".aar")) && Files.exists(Paths.get(libPath)),
         "invalid library path! " + libPath);
@@ -227,8 +225,8 @@ public class DefinitelyDerefedParamsDriver {
     if (libPath.endsWith(".jar")) {
       jarIS = new FileInputStream(libPath);
     } else if (libPath.endsWith(".aar")) {
-      JarFile aar = new JarFile(libPath);
-      JarEntry jarEntry = aar.getJarEntry("classes.jar");
+      ZipFile aar = new ZipFile(libPath);
+      ZipEntry jarEntry = aar.getEntry("classes.jar");
       jarIS = (jarEntry == null ? null : aar.getInputStream(jarEntry));
     }
     return jarIS;
@@ -240,19 +238,15 @@ public class DefinitelyDerefedParamsDriver {
    * @param inJarPath Path of input jar file.
    * @param outJarPath Path of output jar file.
    */
-  private static void writeProcessedJAR(String inJarPath, String outJarPath) {
+  private static void writeProcessedJAR(String inJarPath, String outJarPath) throws IOException {
     Preconditions.checkArgument(
         inJarPath.endsWith(".jar") && Files.exists(Paths.get(inJarPath)),
         "invalid jar file! " + inJarPath);
-    try {
-      writeModelToJarStream(
-          new JarInputStream(new FileInputStream(inJarPath)),
-          new JarOutputStream(new FileOutputStream(outJarPath)));
-      if (VERBOSE) {
-        System.out.println("processed jar to: " + outJarPath);
-      }
-    } catch (IOException e) {
-      throw new Error(e);
+    writeModelToJarStream(
+        new ZipInputStream(new FileInputStream(inJarPath)),
+        new ZipOutputStream(new FileOutputStream(outJarPath)));
+    if (VERBOSE) {
+      System.out.println("processed jar to: " + outJarPath);
     }
   }
 
@@ -263,58 +257,48 @@ public class DefinitelyDerefedParamsDriver {
    * @param inAarPath Path of input aar file.
    * @param outAarPath Path of output aar file.
    */
-  private static void writeProcessedAAR(String inAarPath, String outAarPath) {
+  private static void writeProcessedAAR(String inAarPath, String outAarPath) throws IOException {
     Preconditions.checkArgument(
         inAarPath.endsWith(".aar") && Files.exists(Paths.get(inAarPath)),
         "invalid aar file! " + inAarPath);
-    try {
-      JarFile aar = new JarFile(inAarPath);
-      JarOutputStream aos = new JarOutputStream(new FileOutputStream(outAarPath));
-      Enumeration enumEntries = aar.entries();
-      while (enumEntries.hasMoreElements()) {
-        JarEntry aarEntry = (JarEntry) enumEntries.nextElement();
-        if (aarEntry.getName().endsWith("classes.jar")) {
-          aos.putNextEntry(new JarEntry("classes.jar"));
-          writeModelToJarStream(
-              new JarInputStream(aar.getInputStream(aarEntry)), new JarOutputStream(aos));
-        } else {
-          InputStream ais = aar.getInputStream(aarEntry);
-          aos.putNextEntry(aarEntry);
-          IOUtils.copy(ais, aos);
-          ais.close();
-        }
+    ZipFile zip = new ZipFile(inAarPath);
+    ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outAarPath));
+    for (Enumeration zes = zip.entries(); zes.hasMoreElements(); ) {
+      ZipEntry ze = (ZipEntry) zes.nextElement();
+      zos.putNextEntry(new ZipEntry(ze.getName()));
+      if (ze.getName().endsWith("classes.jar")) {
+        writeModelToJarStream(new ZipInputStream(zip.getInputStream(ze)), new ZipOutputStream(zos));
+      } else {
+        IOUtils.copy(zip.getInputStream(ze), zos);
       }
-      aos.close();
-      aar.close();
-      if (VERBOSE) {
-        System.out.println("processed aar to: " + outAarPath);
-      }
-    } catch (IOException e) {
-      throw new Error(e);
+      zos.closeEntry();
+    }
+    zip.close();
+    zos.close();
+    if (VERBOSE) {
+      System.out.println("processed aar to: " + outAarPath);
     }
   }
   /**
    * Copy Jar Input Stream to Jar Output Stream and add nullability model.
    *
-   * @param jis Jar Input Stream.
-   * @param jos Jar Output Stream.
+   * @param zis Jar Input Stream.
+   * @param zos Jar Output Stream.
    */
-  private static void writeModelToJarStream(JarInputStream jis, JarOutputStream jos) {
-    try {
-      JarEntry jarEntry = null;
-      while ((jarEntry = jis.getNextJarEntry()) != null) {
-        jos.putNextEntry(jarEntry);
-        IOUtils.copy(jis, jos);
-      }
-      jis.close();
-      if (!map_result.isEmpty()) {
-        jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
-        writeModel(new DataOutputStream(jos));
-      }
-      jos.finish();
-    } catch (IOException e) {
-      throw new Error(e);
+  private static void writeModelToJarStream(ZipInputStream zis, ZipOutputStream zos)
+      throws IOException {
+    for (ZipEntry ze; (ze = zis.getNextEntry()) != null; ) {
+      zos.putNextEntry(ze);
+      IOUtils.copy(zis, zos);
+      zos.closeEntry();
     }
+    zis.close();
+    if (!map_result.isEmpty()) {
+      zos.putNextEntry(new ZipEntry(DEFAULT_ASTUBX_LOCATION));
+      writeModel(new DataOutputStream(zos));
+      zos.closeEntry();
+    }
+    zos.finish();
   }
 
   /**
@@ -325,45 +309,40 @@ public class DefinitelyDerefedParamsDriver {
    */
   //  Note: Need version compatibility check between generated stub files and when reading models
   //    StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
-  private static void writeModel(DataOutputStream out) {
-    try {
-      Map<String, String> importedAnnotations =
-          new HashMap<String, String>() {
-            {
-              put("Nonnull", "javax.annotation.Nonnull");
-              put("Nullable", "javax.annotation.Nullable");
-            }
-          };
-      Map<String, Set<String>> packageAnnotations = new HashMap<>();
-      Map<String, Set<String>> typeAnnotations = new HashMap<>();
-      Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
+  private static void writeModel(DataOutputStream out) throws IOException {
+    Map<String, String> importedAnnotations =
+        new HashMap<String, String>() {
+          {
+            put("Nonnull", "javax.annotation.Nonnull");
+            put("Nullable", "javax.annotation.Nullable");
+          }
+        };
+    Map<String, Set<String>> packageAnnotations = new HashMap<>();
+    Map<String, Set<String>> typeAnnotations = new HashMap<>();
+    Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
 
-      for (Map.Entry<String, Set<Integer>> entry : map_result.entrySet()) {
-        String sign = entry.getKey();
-        Set<Integer> ddParams = entry.getValue();
-        if (ddParams.isEmpty() && !nullableReturns.contains(sign)) continue;
-        Map<Integer, ImmutableSet<String>> argAnnotation =
-            new HashMap<Integer, ImmutableSet<String>>();
-        for (Integer param : ddParams) {
-          argAnnotation.put(param, ImmutableSet.of("Nonnull"));
-        }
-        methodRecords.put(
-            sign,
-            new MethodAnnotationsRecord(
-                nullableReturns.contains(sign) ? ImmutableSet.of("Nullable") : ImmutableSet.of(),
-                ImmutableMap.copyOf(argAnnotation)));
-        nullableReturns.remove(sign);
+    for (Map.Entry<String, Set<Integer>> entry : map_result.entrySet()) {
+      String sign = entry.getKey();
+      Set<Integer> ddParams = entry.getValue();
+      if (ddParams.isEmpty() && !nullableReturns.contains(sign)) continue;
+      Map<Integer, ImmutableSet<String>> argAnnotation =
+          new HashMap<Integer, ImmutableSet<String>>();
+      for (Integer param : ddParams) {
+        argAnnotation.put(param, ImmutableSet.of("Nonnull"));
       }
-      for (String nullableReturnMethodSign : Iterator2Iterable.make(nullableReturns.iterator())) {
-        methodRecords.put(
-            nullableReturnMethodSign,
-            new MethodAnnotationsRecord(ImmutableSet.of("Nullable"), ImmutableMap.of()));
-      }
-      StubxWriter.write(
-          out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
-    } catch (Exception e) {
-      e.printStackTrace();
+      methodRecords.put(
+          sign,
+          new MethodAnnotationsRecord(
+              nullableReturns.contains(sign) ? ImmutableSet.of("Nullable") : ImmutableSet.of(),
+              ImmutableMap.copyOf(argAnnotation)));
+      nullableReturns.remove(sign);
     }
+    for (String nullableReturnMethodSign : Iterator2Iterable.make(nullableReturns.iterator())) {
+      methodRecords.put(
+          nullableReturnMethodSign,
+          new MethodAnnotationsRecord(ImmutableSet.of("Nullable"), ImmutableMap.of()));
+    }
+    StubxWriter.write(out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
   }
 
   /**
