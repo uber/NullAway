@@ -26,10 +26,11 @@ import com.ibm.wala.ssa.SSAAbstractInvokeInstruction;
 import com.ibm.wala.ssa.SSAGetInstruction;
 import com.ibm.wala.ssa.SSAInstruction;
 import com.ibm.wala.ssa.SSAPutInstruction;
+import com.ibm.wala.ssa.SSAReturnInstruction;
 import com.ibm.wala.util.collections.Iterator2Iterable;
 import com.ibm.wala.util.graph.Graph;
 import com.ibm.wala.util.graph.GraphUtil;
-import com.ibm.wala.util.graph.dominators.DominanceFrontiers;
+import com.ibm.wala.util.graph.dominators.Dominators;
 import com.ibm.wala.util.graph.impl.GraphInverter;
 import java.util.*;
 
@@ -45,10 +46,12 @@ public class DefinitelyDerefedParams {
 
   // the exploded control-flow graph without exceptional edges
   private final ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg;
+  private PrunedCFG<SSAInstruction, ISSABasicBlock> prunedCFG;
 
   // used to resolve references to fields in putstatic instructions
   private final IClassHierarchy cha;
 
+  private static final boolean DEBUG = false;
   private static final boolean VERBOSE = false;
 
   /**
@@ -68,19 +71,22 @@ public class DefinitelyDerefedParams {
     this.ir = ir;
     this.cfg = cfg;
     this.cha = cha;
+    prunedCFG = null;
   }
 
   /**
-   * This method runs the core analysis that identifies definitely-dereferenced parameters.
+   * This is the core analysis that identifies definitely-dereferenced parameters.
    *
    * @return Set<Integer> The ordinal indices of formal parameters that are definitely-dereferenced.
    */
   public Set<Integer> analyze() {
     // Get ExceptionPrunedCFG
-    System.out.println("@ " + method.getSignature());
-    System.out.println("   exception pruning CFG...");
+    if (VERBOSE) {
+      System.out.println("@ " + method.getSignature());
+      System.out.println("   exception pruning CFG...");
+    }
     Set<Integer> derefedParamList = new HashSet<Integer>();
-    PrunedCFG<SSAInstruction, ISSABasicBlock> prunedCFG = ExceptionPrunedCFG.make(cfg);
+    prunedCFG = ExceptionPrunedCFG.make(cfg);
     // In case the only control flows are exceptional, simply return.
     if (prunedCFG.getNumberOfNodes() == 2
         && prunedCFG.containsNode(cfg.entry())
@@ -89,26 +95,29 @@ public class DefinitelyDerefedParams {
       return derefedParamList;
     }
     // Get Dominator Tree
-    System.out.println("   building dominator tree...");
-    Graph<ISSABasicBlock> domTree =
-        new DominanceFrontiers<>(prunedCFG, prunedCFG.entry()).dominatorTree();
+    if (VERBOSE) {
+      System.out.println("   building dominator tree...");
+    }
+    Graph<ISSABasicBlock> domTree = Dominators.make(prunedCFG, prunedCFG.entry()).dominatorTree();
     // Get Post-dominator Tree
     Graph<ISSABasicBlock> pdomTree = GraphInverter.invert(domTree);
-    if (VERBOSE) {
+    if (DEBUG) {
       System.out.println("pdom: " + pdomTree.toString());
     }
     // Note: WALA creates a single dummy exit node. Multiple exits points will never post-dominate
     // this exit node. (?)
     // TODO: [v0.2] Need data-flow analysis for dereferences on all paths
     // Walk from exit node in post-dominator tree and check for use of params
-    System.out.println("   finding dereferenced params...");
+    if (VERBOSE) {
+      System.out.println("   finding dereferenced params...");
+    }
     ArrayList<ISSABasicBlock> nodeQueue = new ArrayList<ISSABasicBlock>();
     nodeQueue.add(prunedCFG.exit());
     // Get number of params and value number of first param
     int numParam = ir.getSymbolTable().getNumberOfParameters();
     int firstParamIndex =
         (method.isStatic()) ? 1 : 2; // 1-indexed; v1 is 'this' only for non-static methods
-    if (VERBOSE) {
+    if (DEBUG) {
       System.out.println("param value numbers : " + firstParamIndex + " ... " + numParam);
     }
     while (!nodeQueue.isEmpty()) {
@@ -116,14 +125,14 @@ public class DefinitelyDerefedParams {
       nodeQueue.remove(node);
       // check for use of params
       if (!node.isEntryBlock() && !node.isExitBlock()) { // entry and exit are dummy basic blocks
-        if (VERBOSE) {
+        if (DEBUG) {
           System.out.println(">> bb: " + node.getNumber());
         }
         // Iterate over all instructions in BB
         for (int i = node.getFirstInstructionIndex(); i <= node.getLastInstructionIndex(); i++) {
           SSAInstruction instr = ir.getInstructions()[i];
           if (instr == null) continue; // Some instructions are null (padding NoOps)
-          if (VERBOSE) {
+          if (DEBUG) {
             System.out.println("\tinst: " + instr.toString());
           }
           int derefValueNumber = -1;
@@ -137,10 +146,11 @@ public class DefinitelyDerefedParams {
             derefValueNumber = ((SSAAbstractInvokeInstruction) instr).getReceiver();
           }
           if (derefValueNumber >= firstParamIndex && derefValueNumber <= numParam) {
-            if (VERBOSE) {
+            if (DEBUG) {
               System.out.println("\t\tderefed param : " + derefValueNumber);
             }
-            derefedParamList.add(derefValueNumber);
+            // Translate from WALA 1-indexed params, to 0-indexed
+            derefedParamList.add(derefValueNumber - 1);
           }
         }
       }
@@ -148,7 +158,59 @@ public class DefinitelyDerefedParams {
         nodeQueue.add(succ);
       }
     }
-    System.out.println("   done...");
+    if (VERBOSE) {
+      System.out.println("   done...");
+    }
     return derefedParamList;
+  }
+
+  public enum NullnessHint {
+    UNKNOWN,
+    NULLABLE,
+    NONNULL
+  }
+
+  /**
+   * This is the nullability analysis for the method return value.
+   *
+   * @return NullnessHint The inferred nullness type for the method return value.
+   */
+  public NullnessHint analyzeReturnType() {
+    if (method.getReturnType().isPrimitiveType()) {
+      if (DEBUG) {
+        System.out.println(
+            "[JI DEBUG] Skipping method with primitive return type: " + method.getSignature());
+      }
+      return NullnessHint.UNKNOWN;
+    }
+    if (DEBUG) {
+      System.out.println("[JI DEBUG] @ Return type analysis for: " + method.getSignature());
+    }
+    // Get ExceptionPrunedCFG
+    if (prunedCFG == null) {
+      prunedCFG = ExceptionPrunedCFG.make(cfg);
+    }
+    // In case the only control flows are exceptional, simply return.
+    if (prunedCFG.getNumberOfNodes() == 2
+        && prunedCFG.containsNode(cfg.entry())
+        && prunedCFG.containsNode(cfg.exit())
+        && GraphUtil.countEdges(prunedCFG) == 0) {
+      return NullnessHint.UNKNOWN;
+    }
+    for (ISSABasicBlock bb : prunedCFG.getNormalPredecessors(prunedCFG.exit())) {
+      for (int i = bb.getFirstInstructionIndex(); i <= bb.getLastInstructionIndex(); i++) {
+        SSAInstruction instr = ir.getInstructions()[i];
+        if (instr instanceof SSAReturnInstruction) {
+          SSAReturnInstruction retInstr = (SSAReturnInstruction) instr;
+          if (ir.getSymbolTable().isNullConstant(retInstr.getResult())) {
+            if (DEBUG) {
+              System.out.println("[JI DEBUG] Nullable return in method: " + method.getSignature());
+            }
+            return NullnessHint.NULLABLE;
+          }
+        }
+      }
+    }
+    return NullnessHint.UNKNOWN;
   }
 }

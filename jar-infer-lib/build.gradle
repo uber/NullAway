@@ -20,6 +20,7 @@ dependencies {
     compile deps.build.commonsIO
     compileOnly deps.build.errorProneCheckApi
     compile deps.build.checkerDataflow
+    compile files('libs/minrt.jar')
 
     errorprone deps.build.errorProneCore
 

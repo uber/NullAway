@@ -26,6 +26,7 @@ repositories {
 subprojects {
     buildscript {
         repositories {
+            mavenLocal()
             jcenter()
             maven {
                url "https://plugins.gradle.org/m2/"
@@ -34,6 +35,7 @@ subprojects {
     }
 
     repositories {
+        mavenLocal()
         maven {
             url "https://raw.githubusercontent.com/msridhar/checker-framework/repository/"
         }
