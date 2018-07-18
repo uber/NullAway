@@ -120,9 +120,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
     if (methodAnnotations == null) return NullnessHint.UNKNOWN;
     if (methodAnnotations.contains("javax.annotation.Nullable")) {
-      //      if (DEBUG) {
-      System.out.println("[JI DEBUG] Reading Nullable return for method: " + methodSign);
-      //      }
+      if (DEBUG) {
+        System.out.println("[JI DEBUG] Nullable return for method: " + methodSign);
+      }
       return NullnessHint.HINT_NULLABLE;
     }
     return NullnessHint.UNKNOWN;

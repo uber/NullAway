@@ -178,12 +178,15 @@ public class DefinitelyDerefedParams {
    */
   public NullnessHint analyzeReturnType() {
     if (method.getReturnType().isPrimitiveType()) {
-      System.out.println("[JI DEBUG] Primitive Return type for method: " + method.getSignature());
+      if (DEBUG) {
+        System.out.println(
+            "[JI DEBUG] Skipping method with primitive return type: " + method.getSignature());
+      }
       return NullnessHint.UNKNOWN;
     }
-    //    if (VERBOSE) {
-    System.out.println("[JI DEBUG] @ Return type analysis for: " + method.getSignature());
-    //    }
+    if (DEBUG) {
+      System.out.println("[JI DEBUG] @ Return type analysis for: " + method.getSignature());
+    }
     // Get ExceptionPrunedCFG
     if (prunedCFG == null) {
       prunedCFG = ExceptionPrunedCFG.make(cfg);
@@ -201,9 +204,9 @@ public class DefinitelyDerefedParams {
         if (instr instanceof SSAReturnInstruction) {
           SSAReturnInstruction retInstr = (SSAReturnInstruction) instr;
           if (ir.getSymbolTable().isNullConstant(retInstr.getResult())) {
-            //            if (DEBUG) {
-            System.out.println("[JI DEBUG] 'return null;' in method: " + method.getSignature());
-            //            }
+            if (DEBUG) {
+              System.out.println("[JI DEBUG] Nullable return in method: " + method.getSignature());
+            }
             return NullnessHint.NULLABLE;
           }
         }

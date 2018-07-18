@@ -134,29 +134,18 @@ public class DefinitelyDerefedParamsDriver {
                   && !mtd.isPrivate()
                   && !mtd.isAbstract()
                   && !mtd.isNative()
-                  //                  && !isAllPrimitiveTypes(mtd)
+                  && !isAllPrimitiveTypes(mtd)
                   && !mtd.getDeclaringClass()
                       .getClassLoader()
                       .getName()
                       .toString()
                       .equals("Primordial")) {
                 Preconditions.checkNotNull(mtd, "method not found");
-                System.out.println("[JI DEBUG] All methods: " + mtd.getSignature());
-                if (isAllPrimitiveTypes(mtd)) {
-                  System.out.println(
-                      "[JI DEBUG] Primitive Types! Skipping method: " + mtd.getSignature());
-                  continue;
-                }
                 // Skip methods by looking at bytecode
                 try {
                   if (CodeScanner.getFieldsRead(mtd).isEmpty()
                       && CodeScanner.getFieldsWritten(mtd).isEmpty()
                       && CodeScanner.getCallSites(mtd).isEmpty()) {
-                    //                    if (DEBUG) {
-                    System.out.println(
-                        "[JI DEBUG] No relevant instructions found! Skipping method: "
-                            + mtd.getSignature());
-                    //                    }
                     continue;
                   }
                 } catch (Exception e) {
@@ -198,7 +187,6 @@ public class DefinitelyDerefedParamsDriver {
         }
       }
     }
-    System.out.println("[JI DEBUG] Nullable returns count: " + nullableReturns.size());
     if (inPath.endsWith(".jar")) {
       writeProcessedJAR(inPath, outPath);
     } else if (inPath.endsWith(".aar")) {
@@ -359,9 +347,6 @@ public class DefinitelyDerefedParamsDriver {
         for (Integer param : ddParams) {
           argAnnotation.put(param, ImmutableSet.of("Nonnull"));
         }
-        if (nullableReturns.contains(sign)) {
-          System.out.println("[JI DEBUG] Writing Nullable return of method: " + sign);
-        }
         methodRecords.put(
             sign,
             new MethodAnnotationsRecord(
@@ -373,8 +358,6 @@ public class DefinitelyDerefedParamsDriver {
         methodRecords.put(
             nullableReturnMethodSign,
             new MethodAnnotationsRecord(ImmutableSet.of("Nullable"), ImmutableMap.of()));
-        System.out.println(
-            "[JI DEBUG] Writing Nullable return of method: " + nullableReturnMethodSign);
       }
       StubxWriter.write(
           out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
