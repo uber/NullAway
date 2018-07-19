@@ -19,7 +19,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.ibm.wala.cfg.ControlFlowGraph;
-import com.ibm.wala.classLoader.*;
+import com.ibm.wala.classLoader.CodeScanner;
+import com.ibm.wala.classLoader.IClass;
+import com.ibm.wala.classLoader.IClassLoader;
+import com.ibm.wala.classLoader.IMethod;
+import com.ibm.wala.classLoader.PhantomClass;
 import com.ibm.wala.ipa.callgraph.AnalysisCache;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
 import com.ibm.wala.ipa.callgraph.AnalysisOptions;
@@ -58,6 +62,8 @@ class Result extends HashMap<String, Set<Integer>> {}
 public class DefinitelyDerefedParamsDriver {
   private static final boolean DEBUG = false;
   private static final boolean VERBOSE = false;
+
+  private static final long buildMe = 1;
 
   public static String lastOutPath = "";
   private static Result map_result = new Result();
