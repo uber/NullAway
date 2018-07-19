@@ -19,10 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.ibm.wala.cfg.ControlFlowGraph;
-import com.ibm.wala.classLoader.CodeScanner;
-import com.ibm.wala.classLoader.IClass;
-import com.ibm.wala.classLoader.IClassLoader;
-import com.ibm.wala.classLoader.IMethod;
+import com.ibm.wala.classLoader.*;
 import com.ibm.wala.ipa.callgraph.AnalysisCache;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
 import com.ibm.wala.ipa.callgraph.AnalysisOptions;
@@ -65,6 +62,8 @@ public class DefinitelyDerefedParamsDriver {
   public static String lastOutPath = "";
   private static Result map_result = new Result();
   private static Set<String> nullableReturns = new HashSet<>();
+
+  private static int buildMe = 2;
 
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
   // TODO: Exclusions-
@@ -115,17 +114,18 @@ public class DefinitelyDerefedParamsDriver {
       scope.addInputStreamForJarToScope(ClassLoaderReference.Application, jarIS);
       AnalysisOptions options = new AnalysisOptions(scope, null);
       AnalysisCache cache = new AnalysisCacheImpl();
-      IClassHierarchy cha = ClassHierarchyFactory.make(scope);
+      IClassHierarchy cha = ClassHierarchyFactory.makeWithPhantom(scope);
       Warnings.clear();
 
       // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
       for (IClassLoader cldr : cha.getLoaders()) {
         if (!cldr.getName().toString().equals("Primordial")) {
           for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
+            if (cls instanceof PhantomClass) continue;
             // Only process classes in specified classpath and not its dependencies.
             // TODO: figure the right way to do this
             if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
-            for (IMethod mtd : Iterator2Iterable.make(cls.getAllMethods().iterator())) {
+            for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
               // Skip methods without parameters, abstract methods, native methods
               // some Application classes are Primordial (why?)
               if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)

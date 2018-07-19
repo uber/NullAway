@@ -94,10 +94,10 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         jiNonNullParams.add(annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1));
       }
     }
-    if (DEBUG && !jiNonNullParams.isEmpty()) {
-      System.out.println(
-          "[JI DEBUG] Nonnull params: " + jiNonNullParams.toString() + " for " + methodSign);
-    }
+    //    if (DEBUG && !jiNonNullParams.isEmpty()) {
+    System.out.println(
+        "[JI DEBUG] Nonnull params: " + jiNonNullParams.toString() + " for " + methodSign);
+    //    }
     return Sets.union(nonNullPositions, jiNonNullParams).immutableCopy();
   }
 
@@ -120,9 +120,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
     if (methodAnnotations == null) return NullnessHint.UNKNOWN;
     if (methodAnnotations.contains("javax.annotation.Nullable")) {
-      if (DEBUG) {
-        System.out.println("[JI DEBUG] Nullable return for method: " + methodSign);
-      }
+      //      if (DEBUG) {
+      System.out.println("[JI DEBUG] Nullable return for method: " + methodSign);
+      //      }
       return NullnessHint.HINT_NULLABLE;
     }
     return NullnessHint.UNKNOWN;
