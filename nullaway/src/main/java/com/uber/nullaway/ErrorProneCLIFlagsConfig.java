@@ -50,6 +50,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
   static final String FL_EXTERNAL_INIT_ANNOT = EP_FL_NAMESPACE + ":ExternalInitAnnotations";
   static final String FL_UNANNOTATED_CLASSES = EP_FL_NAMESPACE + ":UnannotatedClasses";
+  static final String FL_ACKNOWLEDGE_RESTRICTIVE =
+      EP_FL_NAMESPACE + ":AcknowledgeRestrictiveAnnotations";
   private static final String DELIMITER = ",";
 
   static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS =
@@ -94,6 +96,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     externalInitAnnotations = getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT);
     isExhaustiveOverride = flags.getBoolean(FL_EXHAUSTIVE_OVERRIDE).orElse(false);
     isSuggestSuppressions = flags.getBoolean(FL_SUGGEST_SUPPRESSIONS).orElse(false);
+    iscknowledgeRestrictive = flags.getBoolean(FL_ACKNOWLEDGE_RESTRICTIVE).orElse(false);
     treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
     fieldAnnotPattern =
         getPackagePattern(

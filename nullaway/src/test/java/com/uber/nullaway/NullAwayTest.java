@@ -825,4 +825,58 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void defaultPermissiveOnUnannotated() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=false"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.RestrictivelyAnnotatedClass;",
+            "class Test {",
+            "  Object test() {",
+            "    // Assume methods take @Nullable, even if annotated otherwise",
+            "    RestrictivelyAnnotatedClass.consumesObjectUnannotated(null);",
+            "    RestrictivelyAnnotatedClass.consumesObjectNonNull(null);",
+            "    // Ignore explict @Nullable return",
+            "    return RestrictivelyAnnotatedClass.returnsNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void acknowledgeRestrictiveAnnotationsWhenFlagSet() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.RestrictivelyAnnotatedClass;",
+            "class Test {",
+            "  Object test() {",
+            "    RestrictivelyAnnotatedClass.consumesObjectUnannotated(null);",
+            "    // BUG: Diagnostic contains: @NonNull is required",
+            "    RestrictivelyAnnotatedClass.consumesObjectNonNull(null);",
+            "    // BUG: Diagnostic contains: returning @Nullable",
+            "    return RestrictivelyAnnotatedClass.returnsNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

@@ -182,7 +182,7 @@ public class NullAway extends BugChecker
    * The handler passed to our analysis (usually a {@code CompositeHandler} including handlers for
    * various APIs.
    */
-  private final Handler handler = Handlers.buildDefault();
+  private final Handler handler;
 
   /**
    * entities relevant to field initialization per class. cached for performance. nulled out in
@@ -221,11 +221,13 @@ public class NullAway extends BugChecker
    */
   public NullAway() {
     config = new DummyOptionsConfig();
+    handler = Handlers.buildEmpty();
     nonAnnotatedMethod = nonAnnotatedMethodCheck();
   }
 
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
+    handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = nonAnnotatedMethodCheck();
     // workaround for Checker Framework static state bug;
     // See https://github.com/typetools/checker-framework/issues/1482

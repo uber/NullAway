@@ -66,6 +66,8 @@ public abstract class AbstractConfig implements Config {
 
   protected boolean isSuggestSuppressions;
 
+  protected boolean iscknowledgeRestrictive;
+
   /**
    * if true, {@link #fromAnnotatedPackage(Symbol.ClassSymbol)} will return false for any class
    * annotated with {@link javax.annotation.Generated}
@@ -159,6 +161,11 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean suggestSuppressions() {
     return isSuggestSuppressions;
+  }
+
+  @Override
+  public boolean acknowledgeRestrictiveAnnotations() {
+    return iscknowledgeRestrictive;
   }
 
   @Override

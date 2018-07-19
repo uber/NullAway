@@ -102,6 +102,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public boolean acknowledgeRestrictiveAnnotations() {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
   @Nullable
   public String getCastToNonNullMethod() {
     throw new IllegalStateException(error_msg);
