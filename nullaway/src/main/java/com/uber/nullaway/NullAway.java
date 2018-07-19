@@ -1663,6 +1663,8 @@ public class NullAway extends BugChecker
       case AND:
       case OR:
       case XOR:
+      case LEFT_SHIFT:
+      case RIGHT_SHIFT:
         // clearly not null
         exprMayBeNull = false;
         break;
