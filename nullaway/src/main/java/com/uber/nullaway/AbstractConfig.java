@@ -66,7 +66,7 @@ public abstract class AbstractConfig implements Config {
 
   protected boolean isSuggestSuppressions;
 
-  protected boolean iscknowledgeRestrictive;
+  protected boolean isAcknowledgeRestrictive;
 
   /**
    * if true, {@link #fromAnnotatedPackage(Symbol.ClassSymbol)} will return false for any class
@@ -165,7 +165,7 @@ public abstract class AbstractConfig implements Config {
 
   @Override
   public boolean acknowledgeRestrictiveAnnotations() {
-    return iscknowledgeRestrictive;
+    return isAcknowledgeRestrictive;
   }
 
   @Override
