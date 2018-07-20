@@ -99,6 +99,15 @@ public interface Config {
   boolean suggestSuppressions();
 
   /**
+   * @return true if the null checker should acknowledge stricter nullability annotations whenever
+   *     they are available in unannotated code, defaulting to optimistic defaults only when
+   *     explicit annotations are missing. false if any annotations in code not explicitly marked as
+   *     annotated should be ignored completely and unannotated code should always be treated
+   *     optimistically.
+   */
+  boolean acknowledgeRestrictiveAnnotations();
+
+  /**
    * @return the fully qualified name of a method which will take a @Nullable version of a value and
    *     return an @NonNull copy (likely through an unsafe downcast, but performing runtime checking
    *     and logging)
