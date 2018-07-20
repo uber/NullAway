@@ -122,15 +122,18 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
     if (methodArgAnnotations == null) return NullnessHint.UNKNOWN;
     Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
-    if (methodAnnotations == null) return NullnessHint.UNKNOWN;
-    if (methodAnnotations.contains("javax.annotation.Nullable")) {
-      //      if (DEBUG) {
-      System.out.println("[JI DEBUG] Nullable return for method: " + methodSign);
-      //      }
-      return NullnessHint.HINT_NULLABLE;
+    if (methodAnnotations != null) {
+      if (methodAnnotations.contains("javax.annotation.Nullable")) {
+        //      if (DEBUG) {
+        System.out.println("[JI DEBUG] Nullable return for method: " + methodSign);
+        //      }
+        return NullnessHint.HINT_NULLABLE;
+      }
     }
+    return NullnessHint.UNKNOWN;
   }
 
+  @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
