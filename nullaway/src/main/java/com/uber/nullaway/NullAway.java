@@ -1152,18 +1152,39 @@ public class NullAway extends BugChecker
       }
       nonNullPositions = builder.build();
     }
-    if (nonNullPositions.isEmpty()) {
-      return Description.NO_MATCH;
-    }
     // now actually check the arguments
+    ExpressionTree actual;
     for (int argPos : nonNullPositions) {
       // make sure we are passing a non-null value
-      ExpressionTree actual = actualParams.get(argPos);
+      actual = actualParams.get(argPos);
       if (mayBeNullExpr(state, actual)) {
         String message =
             "passing @Nullable parameter '" + actual.toString() + "' where @NonNull is required";
         return createErrorDescriptionForNullAssignment(
             MessageTypes.PASS_NULLABLE, actual, message, actual, state.getPath());
+      }
+    }
+    // Check for @NonNull being passed to castToNonNull (if configured)
+    String qualifiedName =
+        ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
+    if (qualifiedName.equals(config.getCastToNonNullMethod())) {
+      if (actualParams.size() != 1) {
+        throw new RuntimeException(
+            "Invalid number of parameters passed to configured CastToNonNullMethod.");
+      }
+      actual = actualParams.get(0);
+      MethodTree enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
+      if (!isInitializerMethod(state, ASTHelpers.getSymbol(enclosingMethod))
+          && !mayBeNullExpr(state, actual)) {
+        String message =
+            "passing known @NonNull parameter '"
+                + actual.toString()
+                + "' to CastToNonNullMethod ("
+                + qualifiedName
+                + "). This method should only take arguments that NullAway considers @Nullable "
+                + "at the invocation site, but which are known not to be null at runtime.";
+        return createErrorDescription(
+            MessageTypes.CAST_TO_NONNULL_ARG_NONNULL, actual, message, enclosingMethod);
       }
     }
     // NOTE: the case of an invocation on a possibly-null reference
@@ -2136,7 +2157,8 @@ public class NullAway extends BugChecker
     FIELD_NO_INIT,
     UNBOX_NULLABLE,
     NONNULL_FIELD_READ_BEFORE_INIT,
-    ANNOTATION_VALUE_INVALID;
+    ANNOTATION_VALUE_INVALID,
+    CAST_TO_NONNULL_ARG_NONNULL;
   }
 
   @AutoValue
