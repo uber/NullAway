@@ -43,6 +43,7 @@ import com.ibm.wala.util.config.FileOfClasses;
 import com.ibm.wala.util.warnings.Warnings;
 import java.io.ByteArrayInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -71,23 +72,24 @@ public class DefinitelyDerefedParamsDriver {
   // com.ibm.wala.classLoader.ShrikeCTMethod.makeDecoder:110
   private static final String DEFAULT_EXCLUSIONS = "org\\/objectweb\\/asm\\/.*";
 
-  public static Result run(String inPath, String pkgName)
+  public static Result run(String inPaths, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String outPath = "";
-    if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
+    String firstInPath = inPaths.split(",")[0];
+    if (firstInPath.endsWith(".jar") || firstInPath.endsWith(".aar")) {
       outPath =
-          FilenameUtils.getFullPath(inPath)
-              + FilenameUtils.getBaseName(inPath)
+          FilenameUtils.getFullPath(firstInPath)
+              + FilenameUtils.getBaseName(firstInPath)
               + "-ji."
-              + FilenameUtils.getExtension(inPath);
+              + FilenameUtils.getExtension(firstInPath);
     }
-    return run(inPath, pkgName, outPath, DEBUG, VERBOSE);
+    return run(inPaths, pkgName, outPath, DEBUG, VERBOSE);
   }
   /**
    * Driver for the analysis. {@link DefinitelyDerefedParams} Usage: DefinitelyDerefedParamsDriver (
    * jar/aar_path, package_name, [output_path])
    *
-   * @param inPath Path to input jar/aar file to be analyzed.
+   * @param inPaths Comma separated paths to input jar/aar file to be analyzed.
    * @param pkgName Qualified package name.
    * @param outPath Path to output processed jar/aar file. Default outPath for 'a/b/c/x.jar' is
    *     'a/b/c/x-ji.jar'.
@@ -96,96 +98,102 @@ public class DefinitelyDerefedParamsDriver {
    * @throws ClassHierarchyException on Class Hierarchy factory error.
    * @throws IllegalArgumentException on illegal argument to WALA API.
    */
-  public static Result run(String inPath, String pkgName, String outPath, boolean dbg, boolean vbs)
+  public static Result run(String inPaths, String pkgName, String outPath, boolean dbg, boolean vbs)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     DEBUG = dbg;
     VERBOSE = vbs;
     long start = System.currentTimeMillis();
+    String firstInPath = inPaths.split(",")[0];
+    Set<String> setInPaths = new HashSet<>(Arrays.asList(inPaths.split(",")));
+    for (String inPath : setInPaths) {
+      InputStream jarIS = getInputStream(inPath);
+      if (jarIS != null) {
+        AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
+        scope.setExclusions(
+            new FileOfClasses(
+                new ByteArrayInputStream(DEFAULT_EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
+        scope.addInputStreamForJarToScope(ClassLoaderReference.Application, jarIS);
+        AnalysisOptions options = new AnalysisOptions(scope, null);
+        AnalysisCache cache = new AnalysisCacheImpl();
+        IClassHierarchy cha = ClassHierarchyFactory.makeWithPhantom(scope);
+        Warnings.clear();
 
-    InputStream jarIS = getInputStream(inPath);
-    if (jarIS != null) {
-      AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
-      scope.setExclusions(
-          new FileOfClasses(
-              new ByteArrayInputStream(DEFAULT_EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
-      scope.addInputStreamForJarToScope(ClassLoaderReference.Application, jarIS);
-      AnalysisOptions options = new AnalysisOptions(scope, null);
-      AnalysisCache cache = new AnalysisCacheImpl();
-      IClassHierarchy cha = ClassHierarchyFactory.makeWithPhantom(scope);
-      Warnings.clear();
-
-      // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
-      for (IClassLoader cldr : cha.getLoaders()) {
-        if (!cldr.getName().toString().equals("Primordial")) {
-          for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
-            if (cls instanceof PhantomClass) continue;
-            // Only process classes in specified classpath and not its dependencies.
-            // TODO: figure the right way to do this
-            if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
-            for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
-              // Skip methods without parameters, abstract methods, native methods
-              // some Application classes are Primordial (why?)
-              if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)
-                  && !mtd.isPrivate()
-                  && !mtd.isAbstract()
-                  && !mtd.isNative()
-                  && !isAllPrimitiveTypes(mtd)
-                  && !mtd.getDeclaringClass()
-                      .getClassLoader()
-                      .getName()
-                      .toString()
-                      .equals("Primordial")) {
-                Preconditions.checkNotNull(mtd, "method not found");
-                // Skip methods by looking at bytecode
-                try {
-                  if (CodeScanner.getFieldsRead(mtd).isEmpty()
-                      && CodeScanner.getFieldsWritten(mtd).isEmpty()
-                      && CodeScanner.getCallSites(mtd).isEmpty()) {
-                    continue;
+        // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
+        for (IClassLoader cldr : cha.getLoaders()) {
+          if (!cldr.getName().toString().equals("Primordial")) {
+            for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
+              if (cls instanceof PhantomClass) continue;
+              // Only process classes in specified classpath and not its dependencies.
+              // TODO: figure the right way to do this
+              if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
+              for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
+                // Skip methods without parameters, abstract methods, native methods
+                // some Application classes are Primordial (why?)
+                if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)
+                    && !mtd.isPrivate()
+                    && !mtd.isAbstract()
+                    && !mtd.isNative()
+                    && !isAllPrimitiveTypes(mtd)
+                    && !mtd.getDeclaringClass()
+                        .getClassLoader()
+                        .getName()
+                        .toString()
+                        .equals("Primordial")) {
+                  Preconditions.checkNotNull(mtd, "method not found");
+                  // Skip methods by looking at bytecode
+                  try {
+                    if (CodeScanner.getFieldsRead(mtd).isEmpty()
+                        && CodeScanner.getFieldsWritten(mtd).isEmpty()
+                        && CodeScanner.getCallSites(mtd).isEmpty()) {
+                      continue;
+                    }
+                  } catch (Exception e) {
+                    e.printStackTrace();
                   }
-                } catch (Exception e) {
-                  e.printStackTrace();
-                }
-                // Make CFG
-                IR ir =
-                    cache
-                        .getIRFactory()
-                        .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
-                ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
-                // Analyze parameters
-                DefinitelyDerefedParams analysisDriver =
-                    new DefinitelyDerefedParams(mtd, ir, cfg, cha);
-                Set<Integer> result = analysisDriver.analyze();
-                String sign = getSignature(mtd);
-                if (!result.isEmpty() || DEBUG) {
-                  map_result.put(sign, result);
-                }
-                // Analyze return value
-                if (analysisDriver.analyzeReturnType()
-                    == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
-                  nullableReturns.add(sign);
+                  // Make CFG
+                  IR ir =
+                      cache
+                          .getIRFactory()
+                          .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
+                  ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
+                  // Analyze parameters
+                  DefinitelyDerefedParams analysisDriver =
+                      new DefinitelyDerefedParams(mtd, ir, cfg, cha);
+                  Set<Integer> result = analysisDriver.analyze();
+                  String sign = getSignature(mtd);
+                  if (!result.isEmpty() || DEBUG) {
+                    map_result.put(sign, result);
+                  }
+                  // Analyze return value
+                  if (analysisDriver.analyzeReturnType()
+                      == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
+                    nullableReturns.add(sign);
+                  }
                 }
               }
             }
           }
         }
-      }
-      long end = System.currentTimeMillis();
-      if (VERBOSE) {
-        System.out.println("-----\ndone\ntook " + (end - start) + "ms");
-      }
-      if (DEBUG) {
-        System.out.println("definitely-dereferenced parameters: ");
-        for (Map.Entry<String, Set<Integer>> resultEntry : map_result.entrySet()) {
-          System.out.println(
-              "@ method: " + resultEntry.getKey() + " = " + resultEntry.getValue().toString());
+        long end = System.currentTimeMillis();
+        if (VERBOSE) {
+          System.out.println("-----\ndone\ntook " + (end - start) + "ms");
+        }
+        if (DEBUG) {
+          System.out.println("definitely-dereferenced parameters: ");
+          for (Map.Entry<String, Set<Integer>> resultEntry : map_result.entrySet()) {
+            System.out.println(
+                "@ method: " + resultEntry.getKey() + " = " + resultEntry.getValue().toString());
+          }
         }
       }
     }
-    if (inPath.endsWith(".jar")) {
-      writeProcessedJAR(inPath, outPath);
-    } else if (inPath.endsWith(".aar")) {
-      writeProcessedAAR(inPath, outPath);
+    new File(outPath).getParentFile().mkdirs();
+    if (outPath.endsWith(".astubx")) {
+      writeModel(new DataOutputStream(new FileOutputStream(outPath)));
+    } else if (firstInPath.endsWith(".jar")) {
+      writeProcessedJAR(firstInPath, outPath);
+    } else if (firstInPath.endsWith(".aar")) {
+      writeProcessedAAR(firstInPath, outPath);
     }
     lastOutPath = outPath;
     return map_result;
@@ -321,7 +329,7 @@ public class DefinitelyDerefedParamsDriver {
     for (Map.Entry<String, Set<Integer>> entry : map_result.entrySet()) {
       String sign = entry.getKey();
       Set<Integer> ddParams = entry.getValue();
-      if (ddParams.isEmpty() && !nullableReturns.contains(sign)) continue;
+      if (ddParams.isEmpty()) continue;
       Map<Integer, ImmutableSet<String>> argAnnotation =
           new HashMap<Integer, ImmutableSet<String>>();
       for (Integer param : ddParams) {

@@ -91,15 +91,16 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     if (methodArgAnnotations == null) return nonNullPositions;
     Set<Integer> jiNonNullParams = new LinkedHashSet<>();
     for (Map.Entry<Integer, Set<String>> annotationEntry : methodArgAnnotations.entrySet()) {
-      if (annotationEntry.getValue().contains("javax.annotation.Nonnull")) {
+      if (annotationEntry.getKey() != RETURN
+          && annotationEntry.getValue().contains("javax.annotation.Nonnull")) {
         // Skip 'this' param for non-static methods
         jiNonNullParams.add(annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1));
       }
     }
-    //    if (DEBUG && !jiNonNullParams.isEmpty()) {
-    System.out.println(
-        "[JI DEBUG] Nonnull params: " + jiNonNullParams.toString() + " for " + methodSign);
-    //    }
+    if (DEBUG && !jiNonNullParams.isEmpty()) {
+      System.out.println(
+          "[JI DEBUG] Nonnull params: " + jiNonNullParams.toString() + " for " + methodSign);
+    }
     return Sets.union(nonNullPositions, jiNonNullParams).immutableCopy();
   }
 
@@ -124,9 +125,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
     if (methodAnnotations != null) {
       if (methodAnnotations.contains("javax.annotation.Nullable")) {
-        //      if (DEBUG) {
-        System.out.println("[JI DEBUG] Nullable return for method: " + methodSign);
-        //      }
+        if (DEBUG) {
+          System.out.println("[JI DEBUG] Nullable return for method: " + methodSign);
+        }
         return NullnessHint.HINT_NULLABLE;
       }
     }
@@ -148,9 +149,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
       if (methodAnnotations != null) {
         if (methodAnnotations.contains("javax.annotation.Nullable")) {
-          //      if (DEBUG) {
-          System.out.println("[JI DEBUG] Nullable return for method: " + methodSign);
-          //      }
+          if (DEBUG) {
+            System.out.println("[JI DEBUG] Nullable return for method: " + methodSign);
+          }
           return NULLABLE;
         }
       }
