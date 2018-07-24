@@ -1155,10 +1155,11 @@ public class NullAway extends BugChecker
       nonNullPositions = builder.build();
     }
     // now actually check the arguments
-    ExpressionTree actual;
+    // NOTE: the case of an invocation on a possibly-null reference
+    // is handled by matchMemberSelect()
     for (int argPos : nonNullPositions) {
       // make sure we are passing a non-null value
-      actual = actualParams.get(argPos);
+      ExpressionTree actual = actualParams.get(argPos);
       if (mayBeNullExpr(state, actual)) {
         String message =
             "passing @Nullable parameter '" + actual.toString() + "' where @NonNull is required";
@@ -1167,6 +1168,14 @@ public class NullAway extends BugChecker
       }
     }
     // Check for @NonNull being passed to castToNonNull (if configured)
+    return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
+  }
+
+  private Description checkCastToNonNullTakesNullable(
+      Tree tree,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      List<? extends ExpressionTree> actualParams) {
     String qualifiedName =
         ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
     if (qualifiedName.equals(config.getCastToNonNullMethod())) {
@@ -1174,7 +1183,7 @@ public class NullAway extends BugChecker
         throw new RuntimeException(
             "Invalid number of parameters passed to configured CastToNonNullMethod.");
       }
-      actual = actualParams.get(0);
+      ExpressionTree actual = actualParams.get(0);
       TreePath enclosingMethodOrLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath());
       boolean isInitializer;
@@ -1202,8 +1211,6 @@ public class NullAway extends BugChecker
             MessageTypes.CAST_TO_NONNULL_ARG_NONNULL, tree, message, tree);
       }
     }
-    // NOTE: the case of an invocation on a possibly-null reference
-    // is handled by matchMemberSelect()
     return Description.NO_MATCH;
   }
 
