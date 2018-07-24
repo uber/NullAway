@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Version 0.5.0
+-------------
+* Breaking change: Warn when castToNonNull method is not passed @NonNull (#191)
+* Add -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations config flag. (#189)
+* Add support for LEFT_SHIFT and RIGHT_SHIFT (#188)
+* Remove a suppression from a test that doesn't need it. (#183)
+* Support Objects.isNull (#179)
+
 Version 0.4.7
 -------------
 * Clean up some unnecessary state (#168)
