@@ -1199,7 +1199,7 @@ public class NullAway extends BugChecker
                 + "). This method should only take arguments that NullAway considers @Nullable "
                 + "at the invocation site, but which are known not to be null at runtime.";
         return createErrorDescription(
-            MessageTypes.CAST_TO_NONNULL_ARG_NONNULL, actual, message, tree);
+            MessageTypes.CAST_TO_NONNULL_ARG_NONNULL, tree, message, tree);
       }
     }
     // NOTE: the case of an invocation on a possibly-null reference
