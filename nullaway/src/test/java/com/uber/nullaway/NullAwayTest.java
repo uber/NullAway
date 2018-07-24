@@ -879,4 +879,25 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testCastToNonNull() {
+    compilationHelper
+        .addSourceFile("Util.java")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "class Test {",
+            "  Object test1(@Nullable Object o) {",
+            "    return castToNonNull(o);",
+            "  }",
+            "  Object test2(Object o) {",
+            "    // BUG: Diagnostic contains: passing known @NonNull parameter 'o' to CastToNonNullMethod",
+            "    return castToNonNull(o);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
