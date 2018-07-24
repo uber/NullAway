@@ -66,6 +66,14 @@ public class JarInfer {
             .longOpt("help")
             .desc("print usage information")
             .build());
+    options.addOption(
+        Option.builder("d")
+            .argName("debug")
+            .longOpt("debug")
+            .desc("print debug information")
+            .build());
+    options.addOption(
+        Option.builder("v").argName("verbose").longOpt("verbose").desc("set verbosity").build());
     try {
       CommandLine line = (new DefaultParser()).parse(options, args);
       if (line.hasOption('h')) {
@@ -75,10 +83,12 @@ public class JarInfer {
       String jarPath = line.getOptionValue('i');
       String pkgName = line.getOptionValue('p', "");
       String outPath = line.getOptionValue('o');
+      boolean debug = line.hasOption('d');
+      boolean verbose = line.hasOption('v');
       if (!pkgName.isEmpty()) {
         pkgName = "L" + pkgName.replaceAll("\\.", "/");
       }
-      DefinitelyDerefedParamsDriver.run(jarPath, pkgName, outPath);
+      DefinitelyDerefedParamsDriver.run(jarPath, pkgName, outPath, debug, verbose);
       if (!new File(outPath).exists()) {
         System.out.println("Could not write jar file: " + outPath);
       }

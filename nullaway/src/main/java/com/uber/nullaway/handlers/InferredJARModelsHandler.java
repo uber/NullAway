@@ -54,8 +54,8 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
 
   private static final int RETURN = -1; // '-1' indexes Return type in the Annotation Cache
 
-  private static final boolean DEBUG = false;
-  private static final boolean VERBOSE = false;
+  private static boolean DEBUG = false;
+  private static boolean VERBOSE = false;
 
   private static Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
   private static Set<String> loadedJars;

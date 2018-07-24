@@ -47,8 +47,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
@@ -60,16 +58,12 @@ class Result extends HashMap<String, Set<Integer>> {}
 
 /** Driver for running {@link DefinitelyDerefedParams} */
 public class DefinitelyDerefedParamsDriver {
-  private static final boolean DEBUG = false;
-  private static final boolean VERBOSE = false;
-
-  private static final long buildMe = 1;
+  private static boolean DEBUG = false;
+  private static boolean VERBOSE = false;
 
   public static String lastOutPath = "";
   private static Result map_result = new Result();
   private static Set<String> nullableReturns = new HashSet<>();
-
-  private static int buildMe = 2;
 
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
   // TODO: Exclusions-
@@ -87,7 +81,7 @@ public class DefinitelyDerefedParamsDriver {
               + "-ji."
               + FilenameUtils.getExtension(inPath);
     }
-    return run(inPath, pkgName, outPath);
+    return run(inPath, pkgName, outPath, DEBUG, VERBOSE);
   }
   /**
    * Driver for the analysis. {@link DefinitelyDerefedParams} Usage: DefinitelyDerefedParamsDriver (
@@ -102,17 +96,14 @@ public class DefinitelyDerefedParamsDriver {
    * @throws ClassHierarchyException on Class Hierarchy factory error.
    * @throws IllegalArgumentException on illegal argument to WALA API.
    */
-  public static Result run(String inPath, String pkgName, String outPath)
+  public static Result run(String inPath, String pkgName, String outPath, boolean dbg, boolean vbs)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
+    DEBUG = dbg;
+    VERBOSE = vbs;
     long start = System.currentTimeMillis();
 
     InputStream jarIS = getInputStream(inPath);
     if (jarIS != null) {
-      //      File scopeFile = File.createTempFile("walaScopeFile", ".tmp");
-      //      FileUtils.writeStringToFile(scopeFile, makeScopeFileStr());
-      //      AnalysisScope scope =
-      // AnalysisScopeReader.readJavaScope(scopeFile.getAbsolutePath(),null,
-      // ClassLoader.getSystemClassLoader());
       AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
       scope.setExclusions(
           new FileOfClasses(
@@ -408,25 +399,5 @@ public class DefinitelyDerefedParamsDriver {
       typName = mapFullTypeName.get(typName);
     }
     return typName;
-  }
-
-  private static String getMinRTJarPath() {
-    ClassLoader sysClassLoader = ClassLoader.getSystemClassLoader();
-    URL[] urls = ((URLClassLoader) sysClassLoader).getURLs();
-    for (int i = 0; i < urls.length; i++) {
-      String file = urls[i].getFile();
-      if (file.contains("minrt")) { // com.uber.xpanalysis.
-        return file;
-      }
-    }
-    throw new RuntimeException("couldn't find minrt.jar");
-  }
-
-  static String makeScopeFileStr() {
-    String minRTJarPath = getMinRTJarPath();
-    return "Primordial,Java,jarFile,"
-        + minRTJarPath
-        + "\n"
-        + "Primordial,Java,jarFile,primordial.jar.model";
   }
 }
