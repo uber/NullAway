@@ -298,7 +298,7 @@ public class NullAway extends BugChecker
     handler.onMatchMethodInvocation(this, tree, state, methodSymbol);
     // assuming this list does not include the receiver
     List<? extends ExpressionTree> actualParams = tree.getArguments();
-    return handleInvocation(state, methodSymbol, actualParams);
+    return handleInvocation(tree, state, methodSymbol, actualParams);
   }
 
   @Override
@@ -319,7 +319,7 @@ public class NullAway extends BugChecker
       // see https://github.com/uber/NullAway/issues/102
       methodSymbol = getSymbolOfSuperConstructor(methodSymbol, state);
     }
-    return handleInvocation(state, methodSymbol, actualParams);
+    return handleInvocation(tree, state, methodSymbol, actualParams);
   }
 
   private Symbol.MethodSymbol getSymbolOfSuperConstructor(
@@ -1110,12 +1110,14 @@ public class NullAway extends BugChecker
   /**
    * handle either a method invocation or a 'new' invocation
    *
+   * @param tree the corresponding MethodInvocationTree or NewClassTree
    * @param state visitor state
    * @param methodSymbol symbol for invoked method
    * @param actualParams parameters passed at call
    * @return description of error or NO_MATCH if no error
    */
   private Description handleInvocation(
+      Tree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams) {
@@ -1152,10 +1154,9 @@ public class NullAway extends BugChecker
       }
       nonNullPositions = builder.build();
     }
-    if (nonNullPositions.isEmpty()) {
-      return Description.NO_MATCH;
-    }
     // now actually check the arguments
+    // NOTE: the case of an invocation on a possibly-null reference
+    // is handled by matchMemberSelect()
     for (int argPos : nonNullPositions) {
       // make sure we are passing a non-null value
       ExpressionTree actual = actualParams.get(argPos);
@@ -1166,8 +1167,50 @@ public class NullAway extends BugChecker
             MessageTypes.PASS_NULLABLE, actual, message, actual, state.getPath());
       }
     }
-    // NOTE: the case of an invocation on a possibly-null reference
-    // is handled by matchMemberSelect()
+    // Check for @NonNull being passed to castToNonNull (if configured)
+    return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
+  }
+
+  private Description checkCastToNonNullTakesNullable(
+      Tree tree,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      List<? extends ExpressionTree> actualParams) {
+    String qualifiedName =
+        ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
+    if (qualifiedName.equals(config.getCastToNonNullMethod())) {
+      if (actualParams.size() != 1) {
+        throw new RuntimeException(
+            "Invalid number of parameters passed to configured CastToNonNullMethod.");
+      }
+      ExpressionTree actual = actualParams.get(0);
+      TreePath enclosingMethodOrLambda =
+          NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath());
+      boolean isInitializer;
+      if (enclosingMethodOrLambda == null) {
+        throw new RuntimeException("no enclosing method, lambda or initializer!");
+      } else if (enclosingMethodOrLambda.getLeaf() instanceof LambdaExpressionTree) {
+        isInitializer = false;
+      } else if (enclosingMethodOrLambda.getLeaf() instanceof MethodTree) {
+        MethodTree enclosingMethod = (MethodTree) enclosingMethodOrLambda.getLeaf();
+        isInitializer = isInitializerMethod(state, ASTHelpers.getSymbol(enclosingMethod));
+      } else {
+        // Initializer block
+        isInitializer = true;
+      }
+      MethodTree enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
+      if (!isInitializer && !mayBeNullExpr(state, actual)) {
+        String message =
+            "passing known @NonNull parameter '"
+                + actual.toString()
+                + "' to CastToNonNullMethod ("
+                + qualifiedName
+                + "). This method should only take arguments that NullAway considers @Nullable "
+                + "at the invocation site, but which are known not to be null at runtime.";
+        return createErrorDescription(
+            MessageTypes.CAST_TO_NONNULL_ARG_NONNULL, tree, message, tree);
+      }
+    }
     return Description.NO_MATCH;
   }
 
@@ -1808,6 +1851,9 @@ public class NullAway extends BugChecker
             builder = addSuppressWarningsFix(suggestTree, builder, canonicalName());
           }
           break;
+        case CAST_TO_NONNULL_ARG_NONNULL:
+          builder = removeCastToNonNullFix(suggestTree, builder);
+          break;
         case WRONG_OVERRIDE_RETURN:
           builder = addSuppressWarningsFix(suggestTree, builder, canonicalName());
           break;
@@ -1894,6 +1940,24 @@ public class NullAway extends BugChecker
         SuggestedFix.builder()
             .replace(suggestTree, replacement)
             .addStaticImport(fullMethodName) // ensure castToNonNull static import
+            .build();
+    return builder.addFix(fix);
+  }
+
+  private Description.Builder removeCastToNonNullFix(
+      Tree suggestTree, Description.Builder builder) {
+    assert suggestTree.getKind() == Tree.Kind.METHOD_INVOCATION;
+    MethodInvocationTree invTree = (MethodInvocationTree) suggestTree;
+    final Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invTree);
+    String qualifiedName =
+        ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
+    if (!qualifiedName.equals(config.getCastToNonNullMethod())) {
+      throw new RuntimeException("suggestTree should point to the castToNonNull invocation.");
+    }
+    // Remove the call to castToNonNull:
+    SuggestedFix fix =
+        SuggestedFix.builder()
+            .replace(suggestTree, invTree.getArguments().get(0).toString())
             .build();
     return builder.addFix(fix);
   }
@@ -2136,7 +2200,8 @@ public class NullAway extends BugChecker
     FIELD_NO_INIT,
     UNBOX_NULLABLE,
     NONNULL_FIELD_READ_BEFORE_INIT,
-    ANNOTATION_VALUE_INVALID;
+    ANNOTATION_VALUE_INVALID,
+    CAST_TO_NONNULL_ARG_NONNULL;
   }
 
   @AutoValue
