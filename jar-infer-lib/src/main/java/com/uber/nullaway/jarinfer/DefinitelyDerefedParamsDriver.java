@@ -178,7 +178,7 @@ public class DefinitelyDerefedParamsDriver {
                   if (analysisDriver.analyzeReturnType()
                       == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
                     nullableReturns.add(sign);
-                    LOG(DEBUG, "DEBUG", "Inferred Nullable return for method: " + sign);
+                    LOG(DEBUG, "DEBUG", "Inferred Nullable method return: " + sign);
                   }
                 }
               }
