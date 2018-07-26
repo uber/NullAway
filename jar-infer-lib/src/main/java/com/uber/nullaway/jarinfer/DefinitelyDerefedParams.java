@@ -41,6 +41,12 @@ import java.util.*;
  *     post-dominate the exit node.
  */
 public class DefinitelyDerefedParams {
+  private static final boolean DEBUG = false;
+
+  private static void LOG(boolean cond, String tag, String msg) {
+    if (cond) System.out.println("[JI " + tag + "] " + msg);
+  }
+
   private final IMethod method;
   private final IR ir;
 
@@ -50,9 +56,6 @@ public class DefinitelyDerefedParams {
 
   // used to resolve references to fields in putstatic instructions
   private final IClassHierarchy cha;
-
-  private static final boolean DEBUG = false;
-  private static final boolean VERBOSE = false;
 
   /**
    * The constructor for the analysis class.
@@ -81,10 +84,7 @@ public class DefinitelyDerefedParams {
    */
   public Set<Integer> analyze() {
     // Get ExceptionPrunedCFG
-    if (VERBOSE) {
-      System.out.println("@ " + method.getSignature());
-      System.out.println("   exception pruning CFG...");
-    }
+    LOG(DEBUG, "DEBUG", "@ " + method.getSignature());
     Set<Integer> derefedParamList = new HashSet<Integer>();
     prunedCFG = ExceptionPrunedCFG.make(cfg);
     // In case the only control flows are exceptional, simply return.
@@ -95,46 +95,34 @@ public class DefinitelyDerefedParams {
       return derefedParamList;
     }
     // Get Dominator Tree
-    if (VERBOSE) {
-      System.out.println("   building dominator tree...");
-    }
+    LOG(DEBUG, "DEBUG", "\tbuilding dominator tree...");
     Graph<ISSABasicBlock> domTree = Dominators.make(prunedCFG, prunedCFG.entry()).dominatorTree();
     // Get Post-dominator Tree
     Graph<ISSABasicBlock> pdomTree = GraphInverter.invert(domTree);
-    if (DEBUG) {
-      System.out.println("pdom: " + pdomTree.toString());
-    }
+    LOG(DEBUG, "DEBUG", "post-dominator tree:" + pdomTree.toString());
     // Note: WALA creates a single dummy exit node. Multiple exits points will never post-dominate
     // this exit node. (?)
     // TODO: [v0.2] Need data-flow analysis for dereferences on all paths
     // Walk from exit node in post-dominator tree and check for use of params
-    if (VERBOSE) {
-      System.out.println("   finding dereferenced params...");
-    }
+    LOG(DEBUG, "DEBUG", "\tfinding dereferenced params...");
     ArrayList<ISSABasicBlock> nodeQueue = new ArrayList<ISSABasicBlock>();
     nodeQueue.add(prunedCFG.exit());
     // Get number of params and value number of first param
     int numParam = ir.getSymbolTable().getNumberOfParameters();
     int firstParamIndex =
-        (method.isStatic()) ? 1 : 2; // 1-indexed; v1 is 'this' only for non-static methods
-    if (DEBUG) {
-      System.out.println("param value numbers : " + firstParamIndex + " ... " + numParam);
-    }
+        (method.isStatic()) ? 1 : 2; // 1-indexed; v1 is 'this' for non-static methods
+    LOG(DEBUG, "DEBUG", "param value numbers : " + firstParamIndex + " ... " + numParam);
     while (!nodeQueue.isEmpty()) {
       ISSABasicBlock node = nodeQueue.get(0);
       nodeQueue.remove(node);
       // check for use of params
       if (!node.isEntryBlock() && !node.isExitBlock()) { // entry and exit are dummy basic blocks
-        if (DEBUG) {
-          System.out.println(">> bb: " + node.getNumber());
-        }
+        LOG(DEBUG, "DEBUG", ">> bb: " + node.getNumber());
         // Iterate over all instructions in BB
         for (int i = node.getFirstInstructionIndex(); i <= node.getLastInstructionIndex(); i++) {
           SSAInstruction instr = ir.getInstructions()[i];
           if (instr == null) continue; // Some instructions are null (padding NoOps)
-          if (DEBUG) {
-            System.out.println("\tinst: " + instr.toString());
-          }
+          LOG(DEBUG, "DEBUG", "\tinst: " + instr.toString());
           int derefValueNumber = -1;
           if (instr instanceof SSAGetInstruction && !((SSAGetInstruction) instr).isStatic()) {
             derefValueNumber = ((SSAGetInstruction) instr).getRef();
@@ -146,9 +134,7 @@ public class DefinitelyDerefedParams {
             derefValueNumber = ((SSAAbstractInvokeInstruction) instr).getReceiver();
           }
           if (derefValueNumber >= firstParamIndex && derefValueNumber <= numParam) {
-            if (DEBUG) {
-              System.out.println("\t\tderefed param : " + derefValueNumber);
-            }
+            LOG(DEBUG, "DEBUG", "\t\tderefed param : " + derefValueNumber);
             // Translate from WALA 1-indexed params, to 0-indexed
             derefedParamList.add(derefValueNumber - 1);
           }
@@ -158,9 +144,7 @@ public class DefinitelyDerefedParams {
         nodeQueue.add(succ);
       }
     }
-    if (VERBOSE) {
-      System.out.println("   done...");
-    }
+    LOG(DEBUG, "DEBUG", "\tdone...");
     return derefedParamList;
   }
 
@@ -177,15 +161,10 @@ public class DefinitelyDerefedParams {
    */
   public NullnessHint analyzeReturnType() {
     if (method.getReturnType().isPrimitiveType()) {
-      if (DEBUG) {
-        System.out.println(
-            "[JI DEBUG] Skipping method with primitive return type: " + method.getSignature());
-      }
+      LOG(DEBUG, "DEBUG", "Skipping method with primitive return type: " + method.getSignature());
       return NullnessHint.UNKNOWN;
     }
-    if (DEBUG) {
-      System.out.println("[JI DEBUG] @ Return type analysis for: " + method.getSignature());
-    }
+    LOG(DEBUG, "DEBUG", "@ Return type analysis for: " + method.getSignature());
     // Get ExceptionPrunedCFG
     if (prunedCFG == null) {
       prunedCFG = ExceptionPrunedCFG.make(cfg);
@@ -203,9 +182,7 @@ public class DefinitelyDerefedParams {
         if (instr instanceof SSAReturnInstruction) {
           SSAReturnInstruction retInstr = (SSAReturnInstruction) instr;
           if (ir.getSymbolTable().isNullConstant(retInstr.getResult())) {
-            if (DEBUG) {
-              System.out.println("[JI DEBUG] Nullable return in method: " + method.getSignature());
-            }
+            LOG(DEBUG, "DEBUG", "Nullable return in method: " + method.getSignature());
             return NullnessHint.NULLABLE;
           }
         }

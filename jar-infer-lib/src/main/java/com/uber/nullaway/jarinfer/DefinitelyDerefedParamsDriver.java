@@ -62,6 +62,10 @@ public class DefinitelyDerefedParamsDriver {
   private static boolean DEBUG = false;
   private static boolean VERBOSE = false;
 
+  private static void LOG(boolean cond, String tag, String msg) {
+    if (cond) System.out.println("[JI " + tag + "] " + msg);
+  }
+
   public static String lastOutPath = "";
   private static Result map_result = new Result();
   private static Set<String> nullableReturns = new HashSet<>();
@@ -126,6 +130,7 @@ public class DefinitelyDerefedParamsDriver {
               // Only process classes in specified classpath and not its dependencies.
               // TODO: figure the right way to do this
               if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
+              LOG(DEBUG, "DEBUG", "analyzing class: " + cls.getName().toString());
               for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
                 // Skip methods without parameters, abstract methods, native methods
                 // some Application classes are Primordial (why?)
@@ -161,13 +166,19 @@ public class DefinitelyDerefedParamsDriver {
                       new DefinitelyDerefedParams(mtd, ir, cfg, cha);
                   Set<Integer> result = analysisDriver.analyze();
                   String sign = getSignature(mtd);
+                  LOG(DEBUG, "DEBUG", "analyzed method: " + sign);
                   if (!result.isEmpty() || DEBUG) {
                     map_result.put(sign, result);
+                    LOG(
+                        DEBUG,
+                        "DEBUG",
+                        "Inferred Nonnull param for method: " + sign + " = " + result.toString());
                   }
                   // Analyze return value
                   if (analysisDriver.analyzeReturnType()
                       == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
                     nullableReturns.add(sign);
+                    LOG(DEBUG, "DEBUG", "Inferred Nullable return for method: " + sign);
                   }
                 }
               }
@@ -175,16 +186,7 @@ public class DefinitelyDerefedParamsDriver {
           }
         }
         long end = System.currentTimeMillis();
-        if (VERBOSE) {
-          System.out.println("-----\ndone\ntook " + (end - start) + "ms");
-        }
-        if (DEBUG) {
-          System.out.println("definitely-dereferenced parameters: ");
-          for (Map.Entry<String, Set<Integer>> resultEntry : map_result.entrySet()) {
-            System.out.println(
-                "@ method: " + resultEntry.getKey() + " = " + resultEntry.getValue().toString());
-          }
-        }
+        LOG(VERBOSE, "Stats", "took " + (end - start) + "ms");
       }
     }
     new File(outPath).getParentFile().mkdirs();
@@ -223,9 +225,7 @@ public class DefinitelyDerefedParamsDriver {
     Preconditions.checkArgument(
         (libPath.endsWith(".jar") || libPath.endsWith(".aar")) && Files.exists(Paths.get(libPath)),
         "invalid library path! " + libPath);
-    if (VERBOSE) {
-      System.out.println("opening " + libPath + "...");
-    }
+    LOG(VERBOSE, "Info", "opening library: " + libPath + "...");
     InputStream jarIS = null;
     if (libPath.endsWith(".jar")) {
       jarIS = new FileInputStream(libPath);
@@ -250,9 +250,7 @@ public class DefinitelyDerefedParamsDriver {
     writeModelToJarStream(
         new ZipInputStream(new FileInputStream(inJarPath)),
         new ZipOutputStream(new FileOutputStream(outJarPath)));
-    if (VERBOSE) {
-      System.out.println("processed jar to: " + outJarPath);
-    }
+    LOG(VERBOSE, "Info", "processed jar to: " + outJarPath);
   }
 
   /**
@@ -280,9 +278,7 @@ public class DefinitelyDerefedParamsDriver {
     }
     zip.close();
     zos.close();
-    if (VERBOSE) {
-      System.out.println("processed aar to: " + outAarPath);
-    }
+    LOG(VERBOSE, "Info", "processed aar to: " + outAarPath);
   }
   /**
    * Copy Jar Input Stream to Jar Output Stream and add nullability model.

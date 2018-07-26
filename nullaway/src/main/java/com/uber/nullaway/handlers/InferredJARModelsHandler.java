@@ -48,14 +48,17 @@ import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 
 /** This handler loads inferred nullability model from stubs for methods in unannotated packages. */
 public class InferredJARModelsHandler extends BaseNoOpHandler {
+  private static boolean DEBUG = false;
+  private static boolean VERBOSE = false;
+
+  private static void LOG(boolean cond, String tag, String msg) {
+    if (cond) System.out.println("[JI " + tag + "] " + msg);
+  }
 
   private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
 
   private static final int RETURN = -1; // '-1' indexes Return type in the Annotation Cache
-
-  private static boolean DEBUG = false;
-  private static boolean VERBOSE = false;
 
   private static Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
   private static Set<String> loadedJars;
@@ -76,13 +79,10 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
     String className = classSymbol.getQualifiedName().toString();
     if (methodSymbol.getModifiers().contains(Modifier.ABSTRACT)) {
-      if (VERBOSE) {
-        System.out.println(
-            "[JI Warn] Skipping abstract method: "
-                + className
-                + " : "
-                + methodSymbol.getQualifiedName());
-      }
+      LOG(
+          VERBOSE,
+          "Warn",
+          "Skipping abstract method: " + className + " : " + methodSymbol.getQualifiedName());
       return nonNullPositions;
     }
     if (!lookupAndBuildCache(classSymbol)) return nonNullPositions;
@@ -97,10 +97,8 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         jiNonNullParams.add(annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1));
       }
     }
-    if (DEBUG && !jiNonNullParams.isEmpty()) {
-      System.out.println(
-          "[JI DEBUG] Nonnull params: " + jiNonNullParams.toString() + " for " + methodSign);
-    }
+    if (!jiNonNullParams.isEmpty())
+      LOG(DEBUG, "DEBUG", "Nonnull params: " + jiNonNullParams.toString() + " for " + methodSign);
     return Sets.union(nonNullPositions, jiNonNullParams).immutableCopy();
   }
 
@@ -125,9 +123,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
     if (methodAnnotations != null) {
       if (methodAnnotations.contains("javax.annotation.Nullable")) {
-        if (DEBUG) {
-          System.out.println("[JI DEBUG] Nullable return for method: " + methodSign);
-        }
+        LOG(DEBUG, "DEBUG", "Nullable return for method: " + methodSign);
         return NullnessHint.HINT_NULLABLE;
       }
     }
@@ -149,9 +145,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
       if (methodAnnotations != null) {
         if (methodAnnotations.contains("javax.annotation.Nullable")) {
-          if (DEBUG) {
-            System.out.println("[JI DEBUG] Nullable return for method: " + methodSign);
-          }
+          LOG(DEBUG, "DEBUG", "Nullable return for method: " + methodSign);
           return NULLABLE;
         }
       }
@@ -162,13 +156,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   private boolean lookupAndBuildCache(Symbol.ClassSymbol klass) {
     String className = klass.getQualifiedName().toString();
     try {
-      if (DEBUG) {
-        System.out.println("[JI DEBUG] Looking for class: " + className);
-      }
+      LOG(DEBUG, "DEBUG", "Looking for class: " + className);
       if (klass.classfile == null) {
-        if (VERBOSE) {
-          System.out.println("[JI Warn] Cannot resolve source for class: " + className);
-        }
+        LOG(VERBOSE, "Warn", "Cannot resolve source for class: " + className);
         return false;
       }
       // Annotation cache
@@ -178,10 +168,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         JarURLConnection juc =
             ((JarURLConnection) klass.classfile.toUri().toURL().openConnection());
         jarPath = juc.getJarFileURL().getPath();
-        if (DEBUG) {
-          System.out.println(
-              "[JI DEBUG] Found source of class: " + className + ", jar: " + jarPath);
-        }
+        LOG(DEBUG, "DEBUG", "Found source of class: " + className + ", jar: " + jarPath);
         // Avoid reloading for classes w/o any stubs from already loaded jars.
         if (!loadedJars.contains(jarPath)) {
           JarFile jar = juc.getJarFile();
@@ -191,42 +178,31 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
           loadedJars.add(jarPath);
           JarEntry astubxJE = jar.getJarEntry(DEFAULT_ASTUBX_LOCATION);
           if (astubxJE == null) {
-            if (VERBOSE) {
-              System.out.println("[JI Warn] Cannot find jarinfer.astubx in jar: " + jarPath);
-            }
+            LOG(VERBOSE, "Warn", "Cannot find jarinfer.astubx in jar: " + jarPath);
             return false;
           }
           InputStream astubxIS = jar.getInputStream(astubxJE);
           if (astubxIS == null) {
-            if (VERBOSE) {
-              System.out.println("[JI Warn] Cannot load jarinfer.astubx in jar: " + jarPath);
-            }
+            LOG(VERBOSE, "Warn", "Cannot load jarinfer.astubx in jar: " + jarPath);
             return false;
           }
           parseStubStream(astubxIS, jarPath + ": " + DEFAULT_ASTUBX_LOCATION);
-          if (DEBUG) {
-            System.out.println(
-                "[JI DEBUG] Loaded "
-                    + argAnnotCache.keySet().size()
-                    + " astubx for class: "
-                    + className
-                    + " from jar: "
-                    + jarPath);
-          }
-        } else if (DEBUG) {
-          System.out.println("[JI DEBUG] Skipping already loaded jar: " + jarPath);
-        }
-      } else if (DEBUG) {
-        System.out.println("[JI DEBUG] Hit annotation cache for class: " + className);
-      }
-      if (!argAnnotCache.containsKey(className)) {
-        if (VERBOSE) {
-          System.out.println(
-              "[JI Warn] Cannot find Annotation Cache for class: "
+          LOG(
+              DEBUG,
+              "DEBUG",
+              "Loaded "
+                  + argAnnotCache.keySet().size()
+                  + " astubx for class: "
                   + className
-                  + ", jar: "
+                  + " from jar: "
                   + jarPath);
-        }
+        } else LOG(DEBUG, "DEBUG", "Skipping already loaded jar: " + jarPath);
+      } else LOG(DEBUG, "DEBUG", "Hit annotation cache for class: " + className);
+      if (!argAnnotCache.containsKey(className)) {
+        LOG(
+            VERBOSE,
+            "Warn",
+            "Cannot find Annotation Cache for class: " + className + ", jar: " + jarPath);
         return false;
       }
     } catch (IOException e) {
@@ -239,24 +215,24 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     if (!argAnnotCache.containsKey(className)) return null;
     Map<Integer, Set<String>> methodArgAnnotations = argAnnotCache.get(className).get(methodSign);
     if (methodArgAnnotations == null) {
-      if (VERBOSE) {
-        System.out.println(
-            "[JI Warn] Cannot find Annotation Cache entry for method: "
-                + methodSign
-                + " in class: "
-                + className);
-      }
-      return null;
-    }
-    if (DEBUG) {
-      System.out.println(
-          "[JI DEBUG] Found Annotation Cache entry for method: "
+      LOG(
+          VERBOSE,
+          "Warn",
+          "Cannot find Annotation Cache entry for method: "
               + methodSign
               + " in class: "
-              + className
-              + " -- "
-              + methodArgAnnotations.toString());
+              + className);
+      return null;
     }
+    LOG(
+        DEBUG,
+        "DEBUG",
+        "Found Annotation Cache entry for method: "
+            + methodSign
+            + " in class: "
+            + className
+            + " -- "
+            + methodArgAnnotations.toString());
     return methodArgAnnotations;
   }
 
@@ -277,9 +253,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       methodSign = methodSign.substring(0, methodSign.lastIndexOf(','));
     }
     methodSign += ")";
-    if (DEBUG) {
-      System.out.println("[JI DEBUG] @ method sign: " + methodSign);
-    }
+    LOG(DEBUG, "DEBUG", "@ method sign: " + methodSign);
     return methodSign;
   }
 
@@ -327,10 +301,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     for (int i = 0; i < numMethods; ++i) {
       String methodSig = strings[in.readInt()];
       String annotation = strings[in.readInt()];
-      if (DEBUG) {
-        System.out.println(
-            "[JI DEBUG] method: " + methodSig + ", return annotation: " + annotation);
-      }
+      LOG(DEBUG, "DEBUG", "method: " + methodSig + ", return annotation: " + annotation);
       cacheAnnotation(methodSig, RETURN, annotation);
     }
     // Read the number of (method, argument, annotation) entries
@@ -344,15 +315,10 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       }
       int argNum = in.readInt();
       String annotation = strings[in.readInt()];
-      if (DEBUG) {
-        System.out.println(
-            "[JI DEBUG] method: "
-                + methodSig
-                + ", argNum: "
-                + argNum
-                + ", annotation: "
-                + annotation);
-      }
+      LOG(
+          DEBUG,
+          "DEBUG",
+          "method: " + methodSig + ", argNum: " + argNum + ", arg annotation: " + annotation);
       cacheAnnotation(methodSig, argNum, annotation);
     }
   }
