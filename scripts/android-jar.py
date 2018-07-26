@@ -1,7 +1,7 @@
 import subprocess
 from optparse import OptionParser
 
-ajars_dir = "/Volumes/AOSP/out/target/common/obj/JAVA_LIBRARIES/framework_intermediates"
+ajars_dir = "/Volumes/AOSP8.1/out/target/common/obj/JAVA_LIBRARIES/framework_intermediates"
 stubsjar = "~/android-sdk/platforms/android-27/android.jar"
 nullaway_dir = "~/src/NullAway"
 jarinfer = nullaway_dir + "/jar-infer-cli/build/libs/jar-infer-cli-0.4.8-SNAPSHOT.jar"
@@ -43,10 +43,12 @@ print "Found " + str(found) + " / " + str(len(ajar_classes)) + " in " + str(len(
 ### Running jarinfer ###
 print "> Running jarinfer on android jars..."
 cmd = "java -jar " + jarinfer + " -i " + ",".join(list(jars_to_process)) + " -o " + nullaway_dir + "/" + astubx_file
-subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+if options.verbose:
+  cmd += " -dv"
+subprocess.call(cmd, shell=True)
 
 ### Writing models ###
 print "> Writing jarinfer models to android jar..."
 cmd = "cd " + nullaway_dir + " && jar uf " + stubsjar + " " + astubx_file
-subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True)
+subprocess.call(cmd, shell=True)
 print "> Done. Annotated android jar: " + stubsjar
