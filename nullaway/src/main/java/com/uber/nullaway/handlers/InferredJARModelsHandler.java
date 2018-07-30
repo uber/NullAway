@@ -102,8 +102,6 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     return Sets.union(nonNullPositions, jiNonNullParams).immutableCopy();
   }
 
-  private static final boolean NULLABLE = true;
-
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
@@ -129,6 +127,8 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     }
     return NullnessHint.UNKNOWN;
   }
+
+  private static final boolean NULLABLE = true;
 
   @Override
   public boolean onOverrideMayBeNullExpr(

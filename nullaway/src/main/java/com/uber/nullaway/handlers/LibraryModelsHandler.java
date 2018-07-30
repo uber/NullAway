@@ -85,6 +85,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             libraryModels, (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
       return analysis.nullnessFromDataflow(state, expr) || exprMayBeNull;
     }
+    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
+        && LibraryModels.LibraryModelUtil.hasNonNullReturn(
+            libraryModels, (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
+      return false;
+    }
     return exprMayBeNull;
   }
 
@@ -100,9 +105,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     Preconditions.checkNotNull(callee);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee);
     setConditionalArgumentNullness(thenUpdates, elseUpdates, node.getArguments(), callee);
-    return LibraryModels.LibraryModelUtil.hasNullableReturn(libraryModels, callee, types)
-        ? NullnessHint.HINT_NULLABLE
-        : NullnessHint.UNKNOWN;
+    if (LibraryModels.LibraryModelUtil.hasNonNullReturn(libraryModels, callee, types)) {
+      return NullnessHint.FORCE_NONNULL;
+    } else if (LibraryModels.LibraryModelUtil.hasNullableReturn(libraryModels, callee, types)) {
+      return NullnessHint.HINT_NULLABLE;
+    } else {
+      return NullnessHint.UNKNOWN;
+    }
   }
 
   private void setConditionalArgumentNullness(
@@ -284,6 +293,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .add(methodRef("android.webkit.WebView", "getUrl()"))
             .build();
 
+    private static final ImmutableSet<MethodRef> NONNULL_RETURNS =
+        new ImmutableSet.Builder<MethodRef>()
+            .add(methodRef("android.view.View", "<T>findViewById(int)"))
+            .add(methodRef("android.app.Activity", "<T>findViewById(int)"))
+            .build();
+
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
       return FAIL_IF_NULL_PARAMETERS;
@@ -303,6 +318,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     public ImmutableSet<MethodRef> nullableReturns() {
       return NULLABLE_RETURNS;
     }
+
+    @Override
+    public ImmutableSet<MethodRef> nonNullReturns() {
+      return NONNULL_RETURNS;
+    }
   }
 
   private static class CombinedLibraryModels implements LibraryModels {
@@ -315,6 +335,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSet<MethodRef> nullable_returns;
 
+    private final ImmutableSet<MethodRef> nonnull_returns;
+
     public CombinedLibraryModels(Iterable<LibraryModels> models) {
       ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
@@ -323,6 +345,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSet.Builder<MethodRef> nullableReturnsBuilder = new ImmutableSet.Builder<>();
+      ImmutableSet.Builder<MethodRef> nonNullReturnsBuilder = new ImmutableSet.Builder<>();
       for (LibraryModels libraryModels : models) {
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.failIfNullParameters().entries()) {
           failIfNullParametersBuilder.put(entry);
@@ -337,11 +360,15 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         for (MethodRef name : libraryModels.nullableReturns()) {
           nullableReturnsBuilder.add(name);
         }
+        for (MethodRef name : libraryModels.nonNullReturns()) {
+          nonNullReturnsBuilder.add(name);
+        }
       }
       fail_if_null_parameters = failIfNullParametersBuilder.build();
       non_null_parameters = nonNullParametersBuilder.build();
       null_implies_true_parameters = nullImpliesTrueParametersBuilder.build();
       nullable_returns = nullableReturnsBuilder.build();
+      nonnull_returns = nonNullReturnsBuilder.build();
     }
 
     @Override
@@ -362,6 +389,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSet<MethodRef> nullableReturns() {
       return nullable_returns;
+    }
+
+    @Override
+    public ImmutableSet<MethodRef> nonNullReturns() {
+      return nonnull_returns;
     }
   }
 }

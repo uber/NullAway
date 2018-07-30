@@ -61,6 +61,9 @@ public interface LibraryModels {
   /** @return set of library methods that may return null */
   ImmutableSet<MethodRef> nullableReturns();
 
+  /** @return set of library methods that are assumed not to return null */
+  ImmutableSet<MethodRef> nonNullReturns();
+
   /**
    * representation of a method as a qualified class name + a signature for the method
    *
@@ -148,6 +151,12 @@ public interface LibraryModels {
         LibraryModels models, Symbol.MethodSymbol symbol, Types types) {
       // need to check if symbol is in the model or if it overrides a method in the model
       return methodInSet(symbol, types, models.nullableReturns()) != null;
+    }
+
+    public static boolean hasNonNullReturn(
+        LibraryModels models, Symbol.MethodSymbol symbol, Types types) {
+      // need to check if symbol is in the model or if it overrides a method in the model
+      return methodInSet(symbol, types, models.nonNullReturns()) != null;
     }
 
     @Nullable
