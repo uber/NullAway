@@ -5,6 +5,16 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class RestrictivelyAnnotatedClass {
 
+  private final Object field;
+
+  public RestrictivelyAnnotatedClass(Object field) {
+    this.field = field;
+  }
+
+  public @Nullable Object getField() {
+    return field;
+  }
+
   public static @Nullable Object returnsNull() {
     return null;
   }
