@@ -308,6 +308,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .add(methodRef("android.support.v4.app.Fragment", "getContext()"))
             .add(
                 methodRef(
+                    "android.support.v4.app.Fragment",
+                    "onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)"))
+            .add(
+                methodRef(
                     "android.support.v4.content.ContextCompat",
                     "getDrawable(android.content.Context,int)"))
             .add(methodRef("android.support.v7.app.AppCompatDialog", "<T>findViewById(int)"))
@@ -342,15 +346,15 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
   private static class CombinedLibraryModels implements LibraryModels {
 
-    private final ImmutableSetMultimap<MethodRef, Integer> fail_if_null_parameters;
+    private final ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters;
 
-    private final ImmutableSetMultimap<MethodRef, Integer> non_null_parameters;
+    private final ImmutableSetMultimap<MethodRef, Integer> nonNullParameters;
 
-    private final ImmutableSetMultimap<MethodRef, Integer> null_implies_true_parameters;
+    private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters;
 
-    private final ImmutableSet<MethodRef> nullable_returns;
+    private final ImmutableSet<MethodRef> nullableReturns;
 
-    private final ImmutableSet<MethodRef> nonnull_returns;
+    private final ImmutableSet<MethodRef> nonNullReturns;
 
     public CombinedLibraryModels(Iterable<LibraryModels> models) {
       ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
@@ -379,36 +383,36 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           nonNullReturnsBuilder.add(name);
         }
       }
-      fail_if_null_parameters = failIfNullParametersBuilder.build();
-      non_null_parameters = nonNullParametersBuilder.build();
-      null_implies_true_parameters = nullImpliesTrueParametersBuilder.build();
-      nullable_returns = nullableReturnsBuilder.build();
-      nonnull_returns = nonNullReturnsBuilder.build();
+      failIfNullParameters = failIfNullParametersBuilder.build();
+      nonNullParameters = nonNullParametersBuilder.build();
+      nullImpliesTrueParameters = nullImpliesTrueParametersBuilder.build();
+      nullableReturns = nullableReturnsBuilder.build();
+      nonNullReturns = nonNullReturnsBuilder.build();
     }
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
-      return fail_if_null_parameters;
+      return failIfNullParameters;
     }
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
-      return non_null_parameters;
+      return nonNullParameters;
     }
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
-      return null_implies_true_parameters;
+      return nullImpliesTrueParameters;
     }
 
     @Override
     public ImmutableSet<MethodRef> nullableReturns() {
-      return nullable_returns;
+      return nullableReturns;
     }
 
     @Override
     public ImmutableSet<MethodRef> nonNullReturns() {
-      return nonnull_returns;
+      return nonNullReturns;
     }
   }
 }
