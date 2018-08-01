@@ -46,4 +46,9 @@ public class ExampleLibraryModels implements LibraryModels {
   public ImmutableSet<MethodRef> nullableReturns() {
     return ImmutableSet.of();
   }
+
+  @Override
+  public ImmutableSet<MethodRef> nonNullReturns() {
+    return ImmutableSet.of();
+  }
 }

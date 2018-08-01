@@ -898,6 +898,32 @@ public class NullAwayTest {
   }
 
   @Test
+  public void restrictivelyAnnotatedMethodsWorkWithNullnessFromDataflow() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.RestrictivelyAnnotatedClass;",
+            "class Test {",
+            "  Object test(RestrictivelyAnnotatedClass instance) {",
+            "    if (instance.getField() != null) {",
+            "      return instance.getField();",
+            "    }",
+            "    throw new Error();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testCastToNonNull() {
     compilationHelper
         .addSourceFile("Util.java")

@@ -38,14 +38,16 @@ public class Handlers {
    */
   public static Handler buildDefault(Config config) {
     ImmutableList.Builder<Handler> handlerListBuilder = ImmutableList.builder();
+    if (config.acknowledgeRestrictiveAnnotations()) {
+      // This runs before LibraryModelsHandler, so that library models can override third-party
+      // bytecode annotations
+      handlerListBuilder.add(new RestrictiveAnnotationHandler(config));
+    }
     handlerListBuilder.add(new LibraryModelsHandler());
     handlerListBuilder.add(new InferredJARModelsHandler());
     handlerListBuilder.add(new RxNullabilityPropagator());
     handlerListBuilder.add(new ContractHandler());
     handlerListBuilder.add(new ApacheThriftIsSetHandler());
-    if (config.acknowledgeRestrictiveAnnotations()) {
-      handlerListBuilder.add(new RestrictiveAnnotationHandler());
-    }
     return new CompositeHandler(handlerListBuilder.build());
   }
 
