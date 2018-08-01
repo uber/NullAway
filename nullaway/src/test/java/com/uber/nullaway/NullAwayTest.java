@@ -446,6 +446,10 @@ public class NullAwayTest {
             "    } else {",
             "      g.id.toString();",
             "    }",
+            "    java.util.List<Generated> l = new java.util.ArrayList<>();",
+            "    if (l.get(0).isSetId()) {",
+            "      l.get(0).getId().hashCode();",
+            "    }",
             "  }",
             "}")
         .doTest();
