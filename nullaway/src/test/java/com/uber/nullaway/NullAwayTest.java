@@ -59,7 +59,8 @@ public class NullAwayTest {
                 + "com.uber.nullaway.testdata.excluded",
             "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.nullaway.testdata.TestAnnot",
             "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
-            "-XepOpt:NullAway:ExternalInitAnnotations=com.uber.ExternalInit"));
+            "-XepOpt:NullAway:ExternalInitAnnotations=com.uber.ExternalInit",
+            "-XepOpt:NullAway:ExcludedFieldAnnotations=com.uber.ExternalFieldInit"));
   }
 
   @Test
@@ -215,6 +216,46 @@ public class NullAwayTest {
             "class Test3 {",
             "  Object f;",
             "  // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field",
+            "  public Test3(int x) {}",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void externalInitexternalInitSupportFields() {
+    compilationHelper
+        .addSourceLines(
+            "ExternalFieldInit.java",
+            "package com.uber;",
+            "@java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS)",
+            "public @interface ExternalFieldInit {}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  @ExternalFieldInit Object f;",
+            // no error here due to external init
+            "  public Test() {}",
+            // no error here due to external init
+            "  public Test(int x) {}",
+            "}")
+        .addSourceLines(
+            "Test2.java",
+            "package com.uber;",
+            "class Test2 {",
+            // no error here due to external init
+            "  @ExternalFieldInit Object f;",
+            "}")
+        .addSourceLines(
+            "Test3.java",
+            "package com.uber;",
+            "class Test3 {",
+            "  @ExternalFieldInit Object f;",
+            // no error here due to external init
+            "  @ExternalFieldInit", // See GitHub#184
+            "  public Test3() {}",
+            // no error here due to external init
+            "  @ExternalFieldInit", // See GitHub#184
             "  public Test3(int x) {}",
             "}")
         .doTest();
