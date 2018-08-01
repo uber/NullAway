@@ -1,6 +1,25 @@
 Changelog
 =========
 
+Version 0.5.1
+-------------
+* Various fixes for AcknowledgeRestrictiveAnnotations (#194)
+
+Version 0.5.0
+-------------
+* Breaking change: Warn when castToNonNull method is not passed @NonNull (#191)
+* Add -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations config flag. (#189)
+  - WARNING: This feature is broken in this release, fixed on 0.5.1
+* Add support for LEFT_SHIFT and RIGHT_SHIFT (#188)
+* Remove a suppression from a test that doesn't need it. (#183)
+* Support Objects.isNull (#179)
+
+Version 0.4.7
+-------------
+* Clean up some unnecessary state (#168)
+* Properly read type use annotations when code is present as a class file (#172)
+* Fix NPE inside NullAway when initializer methods use try-with-resources (#177)
+
 Version 0.4.6
 -------------
 * Fix a couple of Thrift issues (#164)

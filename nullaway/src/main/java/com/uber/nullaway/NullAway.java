@@ -182,7 +182,7 @@ public class NullAway extends BugChecker
    * The handler passed to our analysis (usually a {@code CompositeHandler} including handlers for
    * various APIs.
    */
-  private final Handler handler = Handlers.buildDefault();
+  private final Handler handler;
 
   /**
    * entities relevant to field initialization per class. cached for performance. nulled out in
@@ -221,11 +221,13 @@ public class NullAway extends BugChecker
    */
   public NullAway() {
     config = new DummyOptionsConfig();
+    handler = Handlers.buildEmpty();
     nonAnnotatedMethod = nonAnnotatedMethodCheck();
   }
 
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
+    handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = nonAnnotatedMethodCheck();
     // workaround for Checker Framework static state bug;
     // See https://github.com/typetools/checker-framework/issues/1482
@@ -296,7 +298,7 @@ public class NullAway extends BugChecker
     handler.onMatchMethodInvocation(this, tree, state, methodSymbol);
     // assuming this list does not include the receiver
     List<? extends ExpressionTree> actualParams = tree.getArguments();
-    return handleInvocation(state, methodSymbol, actualParams);
+    return handleInvocation(tree, state, methodSymbol, actualParams);
   }
 
   @Override
@@ -317,7 +319,7 @@ public class NullAway extends BugChecker
       // see https://github.com/uber/NullAway/issues/102
       methodSymbol = getSymbolOfSuperConstructor(methodSymbol, state);
     }
-    return handleInvocation(state, methodSymbol, actualParams);
+    return handleInvocation(tree, state, methodSymbol, actualParams);
   }
 
   private Symbol.MethodSymbol getSymbolOfSuperConstructor(
@@ -815,15 +817,21 @@ public class NullAway extends BugChecker
         // Hack: Handling try{...}finally{...} statement, see getSafeInitMethods
         if (curStmt.getKind().equals(Tree.Kind.TRY)) {
           TryTree tryTree = (TryTree) curStmt;
+          // ToDo: Should we check initialization inside tryTree.getResources ? What is the scope of
+          // that initialization?
           if (tryTree.getCatches().size() == 0) {
-            result.addAll(
-                safeInitByCalleeBefore(
-                    pathToRead, state, new TreePath(enclosingBlockPath, tryTree.getBlock())));
-            result.addAll(
-                safeInitByCalleeBefore(
-                    pathToRead,
-                    state,
-                    new TreePath(enclosingBlockPath, tryTree.getFinallyBlock())));
+            if (tryTree.getBlock() != null) {
+              result.addAll(
+                  safeInitByCalleeBefore(
+                      pathToRead, state, new TreePath(enclosingBlockPath, tryTree.getBlock())));
+            }
+            if (tryTree.getFinallyBlock() != null) {
+              result.addAll(
+                  safeInitByCalleeBefore(
+                      pathToRead,
+                      state,
+                      new TreePath(enclosingBlockPath, tryTree.getFinallyBlock())));
+            }
           }
         }
       }
@@ -1102,12 +1110,14 @@ public class NullAway extends BugChecker
   /**
    * handle either a method invocation or a 'new' invocation
    *
+   * @param tree the corresponding MethodInvocationTree or NewClassTree
    * @param state visitor state
    * @param methodSymbol symbol for invoked method
    * @param actualParams parameters passed at call
    * @return description of error or NO_MATCH if no error
    */
   private Description handleInvocation(
+      Tree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams) {
@@ -1144,10 +1154,9 @@ public class NullAway extends BugChecker
       }
       nonNullPositions = builder.build();
     }
-    if (nonNullPositions.isEmpty()) {
-      return Description.NO_MATCH;
-    }
     // now actually check the arguments
+    // NOTE: the case of an invocation on a possibly-null reference
+    // is handled by matchMemberSelect()
     for (int argPos : nonNullPositions) {
       // make sure we are passing a non-null value
       ExpressionTree actual = actualParams.get(argPos);
@@ -1158,8 +1167,50 @@ public class NullAway extends BugChecker
             MessageTypes.PASS_NULLABLE, actual, message, actual, state.getPath());
       }
     }
-    // NOTE: the case of an invocation on a possibly-null reference
-    // is handled by matchMemberSelect()
+    // Check for @NonNull being passed to castToNonNull (if configured)
+    return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
+  }
+
+  private Description checkCastToNonNullTakesNullable(
+      Tree tree,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      List<? extends ExpressionTree> actualParams) {
+    String qualifiedName =
+        ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
+    if (qualifiedName.equals(config.getCastToNonNullMethod())) {
+      if (actualParams.size() != 1) {
+        throw new RuntimeException(
+            "Invalid number of parameters passed to configured CastToNonNullMethod.");
+      }
+      ExpressionTree actual = actualParams.get(0);
+      TreePath enclosingMethodOrLambda =
+          NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath());
+      boolean isInitializer;
+      if (enclosingMethodOrLambda == null) {
+        throw new RuntimeException("no enclosing method, lambda or initializer!");
+      } else if (enclosingMethodOrLambda.getLeaf() instanceof LambdaExpressionTree) {
+        isInitializer = false;
+      } else if (enclosingMethodOrLambda.getLeaf() instanceof MethodTree) {
+        MethodTree enclosingMethod = (MethodTree) enclosingMethodOrLambda.getLeaf();
+        isInitializer = isInitializerMethod(state, ASTHelpers.getSymbol(enclosingMethod));
+      } else {
+        // Initializer block
+        isInitializer = true;
+      }
+      MethodTree enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
+      if (!isInitializer && !mayBeNullExpr(state, actual)) {
+        String message =
+            "passing known @NonNull parameter '"
+                + actual.toString()
+                + "' to CastToNonNullMethod ("
+                + qualifiedName
+                + "). This method should only take arguments that NullAway considers @Nullable "
+                + "at the invocation site, but which are known not to be null at runtime.";
+        return createErrorDescription(
+            MessageTypes.CAST_TO_NONNULL_ARG_NONNULL, tree, message, tree);
+      }
+    }
     return Description.NO_MATCH;
   }
 
@@ -1657,6 +1708,8 @@ public class NullAway extends BugChecker
       case AND:
       case OR:
       case XOR:
+      case LEFT_SHIFT:
+      case RIGHT_SHIFT:
         // clearly not null
         exprMayBeNull = false;
         break;
@@ -1664,6 +1717,8 @@ public class NullAway extends BugChecker
         exprMayBeNull = mayBeNullFieldAccess(state, expr, exprSymbol);
         break;
       case IDENTIFIER:
+        // ToDo: Also run handler.onOverrideMayBeNullExpr BEFORE dataflow, rather than after, in
+        // these two cases?
         if (exprSymbol != null && exprSymbol.getKind().equals(ElementKind.FIELD)) {
           exprMayBeNull = mayBeNullFieldAccess(state, expr, exprSymbol);
           break;
@@ -1672,10 +1727,12 @@ public class NullAway extends BugChecker
           break;
         }
       case METHOD_INVOCATION:
-        exprMayBeNull = mayBeNullMethodCall(state, expr, (Symbol.MethodSymbol) exprSymbol);
-        break;
+        // Special case: mayBeNullMethodCall runs handler.onOverrideMayBeNullExpr before dataflow.
+        return mayBeNullMethodCall(state, expr, (Symbol.MethodSymbol) exprSymbol);
       case CONDITIONAL_EXPRESSION:
       case ASSIGNMENT:
+        // ToDo: Also run handler.onOverrideMayBeNullExpr BEFORE dataflow, rather than after, in
+        // these case?
         exprMayBeNull = nullnessFromDataflow(state, expr);
         break;
       default:
@@ -1687,13 +1744,15 @@ public class NullAway extends BugChecker
 
   private boolean mayBeNullMethodCall(
       VisitorState state, ExpressionTree expr, Symbol.MethodSymbol exprSymbol) {
+    boolean exprMayBeNull = true;
     if (NullabilityUtil.isUnannotated(exprSymbol, config)) {
-      return false;
+      exprMayBeNull = false;
     }
     if (!Nullness.hasNullableAnnotation(exprSymbol)) {
-      return false;
+      exprMayBeNull = false;
     }
-    return nullnessFromDataflow(state, expr);
+    exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);
+    return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
   }
 
   public boolean nullnessFromDataflow(VisitorState state, ExpressionTree expr) {
@@ -1798,6 +1857,9 @@ public class NullAway extends BugChecker
             builder = addSuppressWarningsFix(suggestTree, builder, canonicalName());
           }
           break;
+        case CAST_TO_NONNULL_ARG_NONNULL:
+          builder = removeCastToNonNullFix(suggestTree, builder);
+          break;
         case WRONG_OVERRIDE_RETURN:
           builder = addSuppressWarningsFix(suggestTree, builder, canonicalName());
           break;
@@ -1884,6 +1946,24 @@ public class NullAway extends BugChecker
         SuggestedFix.builder()
             .replace(suggestTree, replacement)
             .addStaticImport(fullMethodName) // ensure castToNonNull static import
+            .build();
+    return builder.addFix(fix);
+  }
+
+  private Description.Builder removeCastToNonNullFix(
+      Tree suggestTree, Description.Builder builder) {
+    assert suggestTree.getKind() == Tree.Kind.METHOD_INVOCATION;
+    MethodInvocationTree invTree = (MethodInvocationTree) suggestTree;
+    final Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invTree);
+    String qualifiedName =
+        ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
+    if (!qualifiedName.equals(config.getCastToNonNullMethod())) {
+      throw new RuntimeException("suggestTree should point to the castToNonNull invocation.");
+    }
+    // Remove the call to castToNonNull:
+    SuggestedFix fix =
+        SuggestedFix.builder()
+            .replace(suggestTree, invTree.getArguments().get(0).toString())
             .build();
     return builder.addFix(fix);
   }
@@ -2126,7 +2206,8 @@ public class NullAway extends BugChecker
     FIELD_NO_INIT,
     UNBOX_NULLABLE,
     NONNULL_FIELD_READ_BEFORE_INIT,
-    ANNOTATION_VALUE_INVALID;
+    ANNOTATION_VALUE_INVALID,
+    CAST_TO_NONNULL_ARG_NONNULL;
   }
 
   @AutoValue

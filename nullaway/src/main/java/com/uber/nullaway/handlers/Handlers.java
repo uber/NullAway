@@ -23,6 +23,7 @@
 package com.uber.nullaway.handlers;
 
 import com.google.common.collect.ImmutableList;
+import com.uber.nullaway.Config;
 
 /** Utility static methods for the handlers package. */
 public class Handlers {
@@ -32,16 +33,30 @@ public class Handlers {
   /**
    * Builds the default handler for the checker.
    *
+   * @param config NullAway config
    * @return A {@code CompositeHandler} including the standard handlers for the nullness checker.
    */
-  public static Handler buildDefault() {
-    // In the future we can add LibraryModels functionality here, and even plug-in handlers.
-    return new CompositeHandler(
-        ImmutableList.of(
-            new InferredJARModelsHandler(),
-            new LibraryModelsHandler(),
-            new RxNullabilityPropagator(),
-            new ContractHandler(),
-            new ApacheThriftIsSetHandler()));
+  public static Handler buildDefault(Config config) {
+    ImmutableList.Builder<Handler> handlerListBuilder = ImmutableList.builder();
+    if (config.acknowledgeRestrictiveAnnotations()) {
+      // This runs before LibraryModelsHandler, so that library models can override third-party
+      // bytecode annotations
+      handlerListBuilder.add(new RestrictiveAnnotationHandler(config));
+    }
+    handlerListBuilder.add(new InferredJARModelsHandler());
+    handlerListBuilder.add(new LibraryModelsHandler());
+    handlerListBuilder.add(new RxNullabilityPropagator());
+    handlerListBuilder.add(new ContractHandler());
+    handlerListBuilder.add(new ApacheThriftIsSetHandler());
+    return new CompositeHandler(handlerListBuilder.build());
+  }
+
+  /**
+   * Builds an empty handler chain (used for the NullAway dummy empty constructor).
+   *
+   * @return An empty {@code CompositeHandler}.
+   */
+  public static Handler buildEmpty() {
+    return new CompositeHandler(ImmutableList.of());
   }
 }

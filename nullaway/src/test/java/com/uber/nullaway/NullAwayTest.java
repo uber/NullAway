@@ -59,7 +59,8 @@ public class NullAwayTest {
                 + "com.uber.nullaway.testdata.excluded",
             "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.nullaway.testdata.TestAnnot",
             "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
-            "-XepOpt:NullAway:ExternalInitAnnotations=com.uber.ExternalInit"));
+            "-XepOpt:NullAway:ExternalInitAnnotations=com.uber.ExternalInit",
+            "-XepOpt:NullAway:ExcludedFieldAnnotations=com.uber.ExternalFieldInit"));
   }
 
   @Test
@@ -215,6 +216,46 @@ public class NullAwayTest {
             "class Test3 {",
             "  Object f;",
             "  // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field",
+            "  public Test3(int x) {}",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void externalInitexternalInitSupportFields() {
+    compilationHelper
+        .addSourceLines(
+            "ExternalFieldInit.java",
+            "package com.uber;",
+            "@java.lang.annotation.Retention(java.lang.annotation.RetentionPolicy.CLASS)",
+            "public @interface ExternalFieldInit {}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  @ExternalFieldInit Object f;",
+            // no error here due to external init
+            "  public Test() {}",
+            // no error here due to external init
+            "  public Test(int x) {}",
+            "}")
+        .addSourceLines(
+            "Test2.java",
+            "package com.uber;",
+            "class Test2 {",
+            // no error here due to external init
+            "  @ExternalFieldInit Object f;",
+            "}")
+        .addSourceLines(
+            "Test3.java",
+            "package com.uber;",
+            "class Test3 {",
+            "  @ExternalFieldInit Object f;",
+            // no error here due to external init
+            "  @ExternalFieldInit", // See GitHub#184
+            "  public Test3() {}",
+            // no error here due to external init
+            "  @ExternalFieldInit", // See GitHub#184
             "  public Test3(int x) {}",
             "}")
         .doTest();
@@ -462,6 +503,11 @@ public class NullAwayTest {
             "      g.getId().hashCode();",
             "    } else {",
             "      g.id.toString();",
+            "    }",
+            "    java.util.List<Generated> l = new java.util.ArrayList<>();",
+            "    if (l.get(0).isSetId()) {",
+            "      // BUG: Diagnostic contains: dereferenced expression l.get(0).getId()",
+            "      l.get(0).getId().hashCode();",
             "    }",
             "  }",
             "}")
@@ -747,6 +793,198 @@ public class NullAwayTest {
             "  class Test3 implements CFNullableStuff.NullableParam {",
             "    public void doSomething(@Nullable Object o) {}",
             "    public void doSomething2(Object o, @Nullable Object p) {}",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void tryWithResourcesSupport() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import java.io.BufferedReader;",
+            "import java.io.FileReader;",
+            "import java.io.IOException;",
+            "class Test {",
+            "  String foo(String path, @Nullable String s, @Nullable Object o) throws IOException {",
+            "    try (BufferedReader br = new BufferedReader(new FileReader(path))) {",
+            "      // Code inside try-resource gets analyzed",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      o.toString();",
+            "      s = br.readLine();",
+            "      return s;",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void tryWithResourcesSupportInit() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import java.io.BufferedReader;",
+            "import java.io.FileReader;",
+            "import java.io.IOException;",
+            "class Test {",
+            "  private String path;",
+            "  private String f;",
+            "  Test(String p) throws IOException {",
+            "    path = p;",
+            "    try (BufferedReader br = new BufferedReader(new FileReader(path))) {",
+            "      f = br.readLine();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void tryFinallySupportInit() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import java.io.BufferedReader;",
+            "import java.io.FileReader;",
+            "import java.io.IOException;",
+            "class Test {",
+            "  private String path;",
+            "  private String f;",
+            "  Test(String p) throws IOException {",
+            "    path = p;",
+            "    try {",
+            "      BufferedReader br = new BufferedReader(new FileReader(path));",
+            "      f = br.readLine();",
+            "    } finally {",
+            "      f = \"DEFAULT\";",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportObjectsIsNull() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  private void foo(@Nullable String s) {",
+            "    if (!Objects.isNull(s)) {",
+            "      s.toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void defaultPermissiveOnUnannotated() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=false"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.RestrictivelyAnnotatedClass;",
+            "class Test {",
+            "  Object test() {",
+            "    // Assume methods take @Nullable, even if annotated otherwise",
+            "    RestrictivelyAnnotatedClass.consumesObjectUnannotated(null);",
+            "    RestrictivelyAnnotatedClass.consumesObjectNonNull(null);",
+            "    // Ignore explict @Nullable return",
+            "    return RestrictivelyAnnotatedClass.returnsNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void acknowledgeRestrictiveAnnotationsWhenFlagSet() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.RestrictivelyAnnotatedClass;",
+            "class Test {",
+            "  Object test() {",
+            "    RestrictivelyAnnotatedClass.consumesObjectUnannotated(null);",
+            "    // BUG: Diagnostic contains: @NonNull is required",
+            "    RestrictivelyAnnotatedClass.consumesObjectNonNull(null);",
+            "    // BUG: Diagnostic contains: returning @Nullable",
+            "    return RestrictivelyAnnotatedClass.returnsNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void restrictivelyAnnotatedMethodsWorkWithNullnessFromDataflow() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.RestrictivelyAnnotatedClass;",
+            "class Test {",
+            "  Object test(RestrictivelyAnnotatedClass instance) {",
+            "    if (instance.getField() != null) {",
+            "      return instance.getField();",
+            "    }",
+            "    throw new Error();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testCastToNonNull() {
+    compilationHelper
+        .addSourceFile("Util.java")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "class Test {",
+            "  Object test1(@Nullable Object o) {",
+            "    return castToNonNull(o);",
+            "  }",
+            "  Object test2(Object o) {",
+            "    // BUG: Diagnostic contains: passing known @NonNull parameter 'o' to CastToNonNullMethod",
+            "    return castToNonNull(o);",
             "  }",
             "}")
         .doTest();
