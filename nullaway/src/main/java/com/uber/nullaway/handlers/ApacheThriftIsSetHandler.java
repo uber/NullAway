@@ -78,10 +78,15 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       Pair<Element, Element> fieldAndGetter = getFieldAndSetterForProperty(symbol, capPropName);
       Node base = node.getTarget().getReceiver();
       if (fieldAndGetter.first != null) {
-        thenUpdates.set(
-            AccessPath.fromBaseAndElement(base, fieldAndGetter.first), Nullness.NONNULL);
+        AccessPath ap = AccessPath.fromBaseAndElement(base, fieldAndGetter.first);
+        if (ap != null) {
+          thenUpdates.set(ap, Nullness.NONNULL);
+        }
       }
-      thenUpdates.set(AccessPath.fromBaseAndElement(base, fieldAndGetter.second), Nullness.NONNULL);
+      AccessPath ap = AccessPath.fromBaseAndElement(base, fieldAndGetter.second);
+      if (ap != null) {
+        thenUpdates.set(ap, Nullness.NONNULL);
+      }
     }
     return NullnessHint.UNKNOWN;
   }
