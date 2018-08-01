@@ -448,6 +448,7 @@ public class NullAwayTest {
             "    }",
             "    java.util.List<Generated> l = new java.util.ArrayList<>();",
             "    if (l.get(0).isSetId()) {",
+            "      // BUG: Diagnostic contains: dereferenced expression l.get(0).getId()",
             "      l.get(0).getId().hashCode();",
             "    }",
             "  }",
