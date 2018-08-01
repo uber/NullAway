@@ -86,6 +86,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             libraryModels, (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
       return analysis.nullnessFromDataflow(state, expr) || exprMayBeNull;
     }
+    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
+        && LibraryModels.LibraryModelUtil.hasNonNullReturn(
+            libraryModels, (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
+      return false;
+    }
     return exprMayBeNull;
   }
 
@@ -101,9 +106,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     Preconditions.checkNotNull(callee);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee);
     setConditionalArgumentNullness(thenUpdates, elseUpdates, node.getArguments(), callee);
-    return LibraryModels.LibraryModelUtil.hasNullableReturn(libraryModels, callee, types)
-        ? NullnessHint.HINT_NULLABLE
-        : NullnessHint.UNKNOWN;
+    if (LibraryModels.LibraryModelUtil.hasNonNullReturn(libraryModels, callee, types)) {
+      return NullnessHint.FORCE_NONNULL;
+    } else if (LibraryModels.LibraryModelUtil.hasNullableReturn(libraryModels, callee, types)) {
+      return NullnessHint.HINT_NULLABLE;
+    } else {
+      return NullnessHint.UNKNOWN;
+    }
   }
 
   private void setConditionalArgumentNullness(
@@ -286,6 +295,30 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .add(methodRef("android.webkit.WebView", "getUrl()"))
             .build();
 
+    private static final ImmutableSet<MethodRef> NONNULL_RETURNS =
+        new ImmutableSet.Builder<MethodRef>()
+            .add(methodRef("android.app.Activity", "<T>findViewById(int)"))
+            .add(methodRef("android.view.View", "<T>findViewById(int)"))
+            .add(methodRef("android.view.View", "getResources()"))
+            .add(
+                methodRef(
+                    "android.content.res.Resources",
+                    "getDrawable(int,android.content.res.Resources.Theme)"))
+            .add(methodRef("android.support.v4.app.Fragment", "getActivity()"))
+            .add(methodRef("android.support.v4.app.Fragment", "getArguments()"))
+            .add(methodRef("android.support.v4.app.Fragment", "getContext()"))
+            .add(
+                methodRef(
+                    "android.support.v4.app.Fragment",
+                    "onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)"))
+            .add(
+                methodRef(
+                    "android.support.v4.content.ContextCompat",
+                    "getDrawable(android.content.Context,int)"))
+            .add(methodRef("android.support.v7.app.AppCompatDialog", "<T>findViewById(int)"))
+            .add(methodRef("android.support.design.widget.TextInputLayout", "getEditText()"))
+            .build();
+
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
       return FAIL_IF_NULL_PARAMETERS;
@@ -305,17 +338,24 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     public ImmutableSet<MethodRef> nullableReturns() {
       return NULLABLE_RETURNS;
     }
+
+    @Override
+    public ImmutableSet<MethodRef> nonNullReturns() {
+      return NONNULL_RETURNS;
+    }
   }
 
   private static class CombinedLibraryModels implements LibraryModels {
 
-    private final ImmutableSetMultimap<MethodRef, Integer> fail_if_null_parameters;
+    private final ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters;
 
-    private final ImmutableSetMultimap<MethodRef, Integer> non_null_parameters;
+    private final ImmutableSetMultimap<MethodRef, Integer> nonNullParameters;
 
-    private final ImmutableSetMultimap<MethodRef, Integer> null_implies_true_parameters;
+    private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters;
 
-    private final ImmutableSet<MethodRef> nullable_returns;
+    private final ImmutableSet<MethodRef> nullableReturns;
+
+    private final ImmutableSet<MethodRef> nonNullReturns;
 
     public CombinedLibraryModels(Iterable<LibraryModels> models) {
       ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
@@ -325,6 +365,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSet.Builder<MethodRef> nullableReturnsBuilder = new ImmutableSet.Builder<>();
+      ImmutableSet.Builder<MethodRef> nonNullReturnsBuilder = new ImmutableSet.Builder<>();
       for (LibraryModels libraryModels : models) {
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.failIfNullParameters().entries()) {
           failIfNullParametersBuilder.put(entry);
@@ -339,31 +380,40 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         for (MethodRef name : libraryModels.nullableReturns()) {
           nullableReturnsBuilder.add(name);
         }
+        for (MethodRef name : libraryModels.nonNullReturns()) {
+          nonNullReturnsBuilder.add(name);
+        }
       }
-      fail_if_null_parameters = failIfNullParametersBuilder.build();
-      non_null_parameters = nonNullParametersBuilder.build();
-      null_implies_true_parameters = nullImpliesTrueParametersBuilder.build();
-      nullable_returns = nullableReturnsBuilder.build();
+      failIfNullParameters = failIfNullParametersBuilder.build();
+      nonNullParameters = nonNullParametersBuilder.build();
+      nullImpliesTrueParameters = nullImpliesTrueParametersBuilder.build();
+      nullableReturns = nullableReturnsBuilder.build();
+      nonNullReturns = nonNullReturnsBuilder.build();
     }
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
-      return fail_if_null_parameters;
+      return failIfNullParameters;
     }
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
-      return non_null_parameters;
+      return nonNullParameters;
     }
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
-      return null_implies_true_parameters;
+      return nullImpliesTrueParameters;
     }
 
     @Override
     public ImmutableSet<MethodRef> nullableReturns() {
-      return nullable_returns;
+      return nullableReturns;
+    }
+
+    @Override
+    public ImmutableSet<MethodRef> nonNullReturns() {
+      return nonNullReturns;
     }
   }
 }

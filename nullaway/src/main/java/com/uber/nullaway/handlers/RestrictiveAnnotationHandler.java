@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.handlers;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -33,13 +32,22 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Types;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.HashSet;
 import java.util.List;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 
 public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
+
+  private final Config config;
+
+  RestrictiveAnnotationHandler(Config config) {
+    this.config = config;
+  }
 
   @Override
   public ImmutableSet<Integer> onUnannotatedInvocationGetNonNullPositions(
@@ -64,7 +72,11 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) expr);
-      return isMethodSymbolAnnotatedNullable(methodSymbol);
+      if (NullabilityUtil.isUnannotated(methodSymbol, config)) {
+        return Nullness.hasNullableAnnotation(methodSymbol) || exprMayBeNull;
+      } else {
+        return exprMayBeNull;
+      }
     }
     return exprMayBeNull;
   }
@@ -78,19 +90,10 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-    return (isMethodSymbolAnnotatedNullable(methodSymbol)
-        ? NullnessHint.HINT_NULLABLE
-        : NullnessHint.UNKNOWN);
-  }
-
-  private boolean isMethodSymbolAnnotatedNullable(Symbol.MethodSymbol methodSymbol) {
-    Preconditions.checkNotNull(methodSymbol);
-    for (Attribute.TypeCompound tc : methodSymbol.getRawTypeAttributes()) {
-      if (tc.position.type.equals(TargetType.METHOD_RETURN)
-          && tc.getAnnotationType().asElement().getSimpleName().contentEquals("Nullable")) {
-        return true;
-      }
+    if (NullabilityUtil.isUnannotated(methodSymbol, config)
+        && Nullness.hasNullableAnnotation(methodSymbol)) {
+      return NullnessHint.HINT_NULLABLE;
     }
-    return false;
+    return NullnessHint.UNKNOWN;
   }
 }

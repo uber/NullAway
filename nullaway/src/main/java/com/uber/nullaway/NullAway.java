@@ -1717,6 +1717,8 @@ public class NullAway extends BugChecker
         exprMayBeNull = mayBeNullFieldAccess(state, expr, exprSymbol);
         break;
       case IDENTIFIER:
+        // ToDo: Also run handler.onOverrideMayBeNullExpr BEFORE dataflow, rather than after, in
+        // these two cases?
         if (exprSymbol != null && exprSymbol.getKind().equals(ElementKind.FIELD)) {
           exprMayBeNull = mayBeNullFieldAccess(state, expr, exprSymbol);
           break;
@@ -1725,10 +1727,12 @@ public class NullAway extends BugChecker
           break;
         }
       case METHOD_INVOCATION:
-        exprMayBeNull = mayBeNullMethodCall(state, expr, (Symbol.MethodSymbol) exprSymbol);
-        break;
+        // Special case: mayBeNullMethodCall runs handler.onOverrideMayBeNullExpr before dataflow.
+        return mayBeNullMethodCall(state, expr, (Symbol.MethodSymbol) exprSymbol);
       case CONDITIONAL_EXPRESSION:
       case ASSIGNMENT:
+        // ToDo: Also run handler.onOverrideMayBeNullExpr BEFORE dataflow, rather than after, in
+        // these case?
         exprMayBeNull = nullnessFromDataflow(state, expr);
         break;
       default:
@@ -1740,13 +1744,15 @@ public class NullAway extends BugChecker
 
   private boolean mayBeNullMethodCall(
       VisitorState state, ExpressionTree expr, Symbol.MethodSymbol exprSymbol) {
+    boolean exprMayBeNull = true;
     if (NullabilityUtil.isUnannotated(exprSymbol, config)) {
-      return false;
+      exprMayBeNull = false;
     }
     if (!Nullness.hasNullableAnnotation(exprSymbol)) {
-      return false;
+      exprMayBeNull = false;
     }
-    return nullnessFromDataflow(state, expr);
+    exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);
+    return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
   }
 
   public boolean nullnessFromDataflow(VisitorState state, ExpressionTree expr) {
