@@ -95,58 +95,6 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     return Sets.union(nonNullPositions, jiNonNullParams).immutableCopy();
   }
 
-  //  @Override
-  //  public NullnessHint onDataflowVisitMethodInvocation(
-  //      MethodInvocationNode node,
-  //      Types types,
-  //      AccessPathNullnessPropagation.SubNodeValues inputs,
-  //      AccessPathNullnessPropagation.Updates thenUpdates,
-  //      AccessPathNullnessPropagation.Updates elseUpdates,
-  //      AccessPathNullnessPropagation.Updates bothUpdates) {
-  //    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-  //    Preconditions.checkNotNull(methodSymbol);
-  //    Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
-  //    String className = classSymbol.getQualifiedName().toString();
-  //    if (!lookupAndBuildCache(classSymbol)) return NullnessHint.UNKNOWN;
-  //    String methodSign = getMethodSignature(methodSymbol);
-  //    Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
-  //    if (methodArgAnnotations == null) return NullnessHint.UNKNOWN;
-  //    Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
-  //    if (methodAnnotations != null) {
-  //      if (methodAnnotations.contains("javax.annotation.Nullable")) {
-  //        LOG(DEBUG, "DEBUG", "Nullable return for method: " + methodSign);
-  //        return NullnessHint.HINT_NULLABLE;
-  //      }
-  //    }
-  //    return NullnessHint.UNKNOWN;
-  //  }
-  //
-  //  private static final boolean NULLABLE = true;
-  //
-  //  @Override
-  //  public boolean onOverrideMayBeNullExpr(
-  //      NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
-  //    if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
-  //      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) expr);
-  //      Preconditions.checkNotNull(methodSymbol);
-  //      Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
-  //      String className = classSymbol.getQualifiedName().toString();
-  //      if (!lookupAndBuildCache(classSymbol)) return exprMayBeNull;
-  //      String methodSign = getMethodSignature(methodSymbol);
-  //      Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className,
-  // methodSign);
-  //      if (methodArgAnnotations == null) return exprMayBeNull;
-  //      Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
-  //      if (methodAnnotations != null) {
-  //        if (methodAnnotations.contains("javax.annotation.Nullable")) {
-  //          LOG(DEBUG, "DEBUG", "Nullable return for method: " + methodSign);
-  //          return NULLABLE;
-  //        }
-  //      }
-  //    }
-  //    return exprMayBeNull;
-  //  }
-
   private boolean lookupAndBuildCache(Symbol.ClassSymbol klass) {
     String className = klass.getQualifiedName().toString();
     try {
