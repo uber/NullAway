@@ -77,18 +77,20 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       // make them nonnull in the thenUpdates
       Pair<Element, Element> fieldAndGetter = getFieldAndSetterForProperty(symbol, capPropName);
       Node base = node.getTarget().getReceiver();
-      if (fieldAndGetter.first != null) {
-        AccessPath ap = AccessPath.fromBaseAndElement(base, fieldAndGetter.first);
-        if (ap != null) {
-          thenUpdates.set(ap, Nullness.NONNULL);
-        }
-      }
-      AccessPath ap = AccessPath.fromBaseAndElement(base, fieldAndGetter.second);
-      if (ap != null) {
-        thenUpdates.set(ap, Nullness.NONNULL);
-      }
+      updateNonNullAPsForElement(thenUpdates, fieldAndGetter.first, base);
+      updateNonNullAPsForElement(thenUpdates, fieldAndGetter.second, base);
     }
     return NullnessHint.UNKNOWN;
+  }
+
+  private void updateNonNullAPsForElement(
+      AccessPathNullnessPropagation.Updates updates, @Nullable Element elem, Node base) {
+    if (elem != null) {
+      AccessPath ap = AccessPath.fromBaseAndElement(base, elem);
+      if (ap != null) {
+        updates.set(ap, Nullness.NONNULL);
+      }
+    }
   }
 
   /**
@@ -99,7 +101,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       Symbol.MethodSymbol symbol, String capPropName) {
     Element field = null;
     Element getter = null;
-    String fieldName = capPropName.toLowerCase();
+    String fieldName = decapitalize(capPropName);
     String getterName = "get" + capPropName;
     for (Symbol elem : symbol.owner.getEnclosedElements()) {
       if (elem.getKind().isField() && elem.getSimpleName().toString().equals(fieldName)) {
@@ -115,10 +117,18 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
         getter = elem;
       }
     }
-    if (getter == null) {
-      throw new IllegalStateException("could not find getter " + getterName);
+    if (field != null && field.asType().getKind().isPrimitive()) {
+      // ignore primitive properties
+      return Pair.of(null, null);
     }
     return Pair.of(field, getter);
+  }
+
+  private static String decapitalize(String str) {
+    // assumes str is non-null and non-empty
+    char c[] = str.toCharArray();
+    c[0] = Character.toLowerCase(c[0]);
+    return new String(c);
   }
 
   private boolean thriftIsSetCall(Symbol.MethodSymbol symbol, Types types) {

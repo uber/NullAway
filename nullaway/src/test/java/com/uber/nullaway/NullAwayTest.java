@@ -426,8 +426,11 @@ public class NullAwayTest {
             "import javax.annotation.Nullable;",
             "public class Generated implements org.apache.thrift.TBase {",
             "  public @Nullable Object id;",
+            "  public boolean isFixed;",
             "  @Nullable public Object getId() { return this.id; }",
             "  public boolean isSetId() { return this.id != null; }",
+            "  public boolean isFixed() { return this.isFixed; }",
+            "  public boolean isSetIsFixed() { return false; }",
             "}")
         .addSourceLines(
             "Client.java",
@@ -437,6 +440,9 @@ public class NullAwayTest {
             "    if (g.isSetId()) {",
             "      g.getId().toString();",
             "      g.id.hashCode();",
+            "    }",
+            "    if (g.isSetIsFixed()) {",
+            "      g.isFixed();",
             "    }",
             "  }",
             "  public void testPos(Generated g) {",
