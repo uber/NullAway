@@ -940,4 +940,24 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testReadStaticInConstructor() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  // BUG: Diagnostic contains: @NonNull static field o not initialized",
+            "  static Object o;",
+            "  Object f, g;",
+            "  public Test() {",
+            "    f = new String(\"hi\");",
+            "    o = new Object();",
+            "    g = o;",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
