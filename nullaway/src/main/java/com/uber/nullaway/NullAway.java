@@ -677,6 +677,16 @@ public class NullAway extends BugChecker
     if (!symbol.getKind().equals(ElementKind.FIELD)) {
       return Description.NO_MATCH;
     }
+    // for static fields, make sure the enclosing init is a static method or block
+    if (symbol.isStatic()) {
+      Tree enclosing = enclosingBlockPath.getLeaf();
+      if (enclosing instanceof MethodTree
+          && !ASTHelpers.getSymbol((MethodTree) enclosing).isStatic()) {
+        return Description.NO_MATCH;
+      } else if (enclosing instanceof BlockTree && !((BlockTree) enclosing).isStatic()) {
+        return Description.NO_MATCH;
+      }
+    }
     if (okToReadBeforeInitialized(path)) {
       // writing the field, not reading it
       return Description.NO_MATCH;

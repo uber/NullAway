@@ -467,8 +467,13 @@ public class NullAwayTest {
             "import javax.annotation.Nullable;",
             "public class Generated implements org.apache.thrift.TBase {",
             "  public @Nullable Object id;",
+            "  public boolean isFixed;",
             "  @Nullable public Object getId() { return this.id; }",
+            "  // this is to ensure we don't crash on unions",
+            "  public boolean isSet() { return false; }",
             "  public boolean isSetId() { return this.id != null; }",
+            "  public boolean isFixed() { return this.isFixed; }",
+            "  public boolean isSetIsFixed() { return false; }",
             "}")
         .addSourceLines(
             "Client.java",
@@ -479,6 +484,10 @@ public class NullAwayTest {
             "      g.getId().toString();",
             "      g.id.hashCode();",
             "    }",
+            "    if (g.isSetIsFixed()) {",
+            "      g.isFixed();",
+            "    }",
+            "    if (g.isSet()) {}",
             "  }",
             "  public void testPos(Generated g) {",
             "    if (!g.isSetId()) {",
@@ -968,6 +977,26 @@ public class NullAwayTest {
             "  Object test2(Object o) {",
             "    // BUG: Diagnostic contains: passing known @NonNull parameter 'o' to CastToNonNullMethod",
             "    return castToNonNull(o);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testReadStaticInConstructor() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  // BUG: Diagnostic contains: @NonNull static field o not initialized",
+            "  static Object o;",
+            "  Object f, g;",
+            "  public Test() {",
+            "    f = new String(\"hi\");",
+            "    o = new Object();",
+            "    g = o;",
             "  }",
             "}")
         .doTest();
