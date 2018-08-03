@@ -33,6 +33,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.JarURLConnection;
+import java.net.URLConnection;
 import java.util.*;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -107,8 +108,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       String jarPath = "";
       if (!argAnnotCache.containsKey(className)) {
         // this works for aar !
-        JarURLConnection juc =
-            ((JarURLConnection) klass.classfile.toUri().toURL().openConnection());
+        URLConnection uc = klass.classfile.toUri().toURL().openConnection();
+        if (!(uc instanceof JarURLConnection)) return false;
+        JarURLConnection juc = (JarURLConnection) uc;
         jarPath = juc.getJarFileURL().getPath();
         LOG(DEBUG, "DEBUG", "Found source of class: " + className + ", jar: " + jarPath);
         // Avoid reloading for classes w/o any stubs from already loaded jars.
