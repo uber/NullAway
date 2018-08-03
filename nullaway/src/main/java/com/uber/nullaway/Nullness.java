@@ -134,6 +134,12 @@ public enum Nullness implements AbstractValue<Nullness> {
         .anyMatch(Nullness::isNullableAnnotation);
   }
 
+  private static boolean hasNonNullAnnotation(Stream<? extends AnnotationMirror> annotations) {
+    return annotations
+        .map(anno -> anno.getAnnotationType().toString())
+        .anyMatch((s) -> s.endsWith(".NonNull"));
+  }
+
   /**
    * @param annotName annotation name
    * @return true if we treat annotName as a <code>@Nullable</code> annotation, false otherwise
@@ -159,5 +165,13 @@ public enum Nullness implements AbstractValue<Nullness> {
    */
   public static boolean paramHasNullableAnnotation(Symbol.MethodSymbol symbol, int paramInd) {
     return hasNullableAnnotation(NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd));
+  }
+
+  /**
+   * Does the parameter of {@code symbol} at {@code paramInd} have a {@code @NonNull} declaration or
+   * type-use annotation? This method works for methods defined in either source or class files.
+   */
+  public static boolean paramHasNonNullAnnotation(Symbol.MethodSymbol symbol, int paramInd) {
+    return hasNonNullAnnotation(NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd));
   }
 }

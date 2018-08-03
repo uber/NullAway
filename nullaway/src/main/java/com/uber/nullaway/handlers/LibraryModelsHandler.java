@@ -316,6 +316,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                     "android.support.v4.content.ContextCompat",
                     "getDrawable(android.content.Context,int)"))
             .add(methodRef("android.support.v7.app.AppCompatDialog", "<T>findViewById(int)"))
+            .add(
+                methodRef(
+                    "android.support.v7.content.res.AppCompatResources",
+                    "getDrawable(android.content.Context,int)"))
             .add(methodRef("android.support.design.widget.TextInputLayout", "getEditText()"))
             .build();
 
