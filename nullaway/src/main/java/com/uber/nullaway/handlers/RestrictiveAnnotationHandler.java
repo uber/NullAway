@@ -28,9 +28,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
-import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
@@ -58,10 +56,9 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       ImmutableSet<Integer> nonNullPositions) {
     HashSet<Integer> positions = new HashSet<Integer>();
     positions.addAll(nonNullPositions);
-    for (Attribute.TypeCompound tc : methodSymbol.getRawTypeAttributes()) {
-      if (tc.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
-          && tc.getAnnotationType().asElement().getSimpleName().contentEquals("NonNull")) {
-        positions.add(tc.position.parameter_index);
+    for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {
+      if (Nullness.paramHasNonNullAnnotation(methodSymbol, i)) {
+        positions.add(i);
       }
     }
     return ImmutableSet.copyOf(positions);
