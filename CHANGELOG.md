@@ -1,6 +1,13 @@
 Changelog
 =========
 
+Version 0.5.2
+-------------
+* Fix NPE in Thrift handler on complex receiver expressions (#195)
+* Add ExcludedFieldAnnotations unit tests. (#192) 
+* Various crash fixes (#196)
+* Fix @NonNull argument detection in RestrictiveAnnotationHandler. (#198)
+
 Version 0.5.1
 -------------
 * Various fixes for AcknowledgeRestrictiveAnnotations (#194)
