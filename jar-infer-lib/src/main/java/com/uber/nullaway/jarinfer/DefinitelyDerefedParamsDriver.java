@@ -19,9 +19,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.ibm.wala.cfg.ControlFlowGraph;
+import com.ibm.wala.classLoader.CodeScanner;
 import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IClassLoader;
 import com.ibm.wala.classLoader.IMethod;
+import com.ibm.wala.classLoader.PhantomClass;
 import com.ibm.wala.ipa.callgraph.AnalysisCache;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
 import com.ibm.wala.ipa.callgraph.AnalysisOptions;
@@ -34,6 +36,7 @@ import com.ibm.wala.ssa.IR;
 import com.ibm.wala.ssa.ISSABasicBlock;
 import com.ibm.wala.ssa.SSAInstruction;
 import com.ibm.wala.types.ClassLoaderReference;
+import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.util.collections.Iterator2Iterable;
 import com.ibm.wala.util.config.AnalysisScopeReader;
 import com.ibm.wala.util.config.FileOfClasses;
@@ -48,18 +51,24 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
-import java.util.jar.JarInputStream;
-import java.util.jar.JarOutputStream;
-import org.apache.commons.io.FileUtils;
+import java.util.zip.*;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 
-class Result extends HashMap<IMethod, Set<Integer>> {}
+class Result extends HashMap<String, Set<Integer>> {}
 
 /** Driver for running {@link DefinitelyDerefedParams} */
 public class DefinitelyDerefedParamsDriver {
+  private static boolean DEBUG = false;
+  private static boolean VERBOSE = false;
+
+  private static void LOG(boolean cond, String tag, String msg) {
+    if (cond) System.out.println("[JI " + tag + "] " + msg);
+  }
+
+  public static String lastOutPath = "";
+  private static Result map_result = new Result();
+  private static Set<String> nullableReturns = new HashSet<>();
 
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
   // TODO: Exclusions-
@@ -67,85 +76,119 @@ public class DefinitelyDerefedParamsDriver {
   // com.ibm.wala.classLoader.ShrikeCTMethod.makeDecoder:110
   private static final String DEFAULT_EXCLUSIONS = "org\\/objectweb\\/asm\\/.*";
 
-  public static HashMap<String, Set<Integer>> run(String inPath, String pkgName)
+  public static void reset() {
+    map_result.clear();
+    nullableReturns.clear();
+  }
+
+  public static Result run(String inPaths, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String outPath = "";
-    if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
+    String firstInPath = inPaths.split(",")[0];
+    if (firstInPath.endsWith(".jar") || firstInPath.endsWith(".aar")) {
       outPath =
-          FilenameUtils.getFullPath(inPath)
-              + FilenameUtils.getBaseName(inPath)
+          FilenameUtils.getFullPath(firstInPath)
+              + FilenameUtils.getBaseName(firstInPath)
               + "-ji."
-              + FilenameUtils.getExtension(inPath);
+              + FilenameUtils.getExtension(firstInPath);
+    } else if (new File(firstInPath).exists()) {
+      outPath = FilenameUtils.getFullPath(firstInPath) + DEFAULT_ASTUBX_LOCATION;
     }
-    return run(inPath, pkgName, outPath);
+    return run(inPaths, pkgName, outPath, DEBUG, VERBOSE);
   }
   /**
    * Driver for the analysis. {@link DefinitelyDerefedParams} Usage: DefinitelyDerefedParamsDriver (
    * jar/aar_path, package_name, [output_path])
    *
-   * @param inPath Path to input jar/aar file to be analyzed.
+   * @param inPaths Comma separated paths to input jar/aar file to be analyzed.
    * @param pkgName Qualified package name.
    * @param outPath Path to output processed jar/aar file. Default outPath for 'a/b/c/x.jar' is
    *     'a/b/c/x-ji.jar'.
-   * @return HashMap<String, Set<Integer>> Map of 'method signatures' to their 'list of NonNull
-   *     parameters'.
+   * @return Result Map of 'method signatures' to their 'list of NonNull parameters'.
    * @throws IOException on IO error.
    * @throws ClassHierarchyException on Class Hierarchy factory error.
    * @throws IllegalArgumentException on illegal argument to WALA API.
    */
-  public static HashMap<String, Set<Integer>> run(String inPath, String pkgName, String outPath)
+  public static Result run(String inPaths, String pkgName, String outPath, boolean dbg, boolean vbs)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
-    String workDir = inPath;
+    DEBUG = dbg;
+    VERBOSE = vbs;
     long start = System.currentTimeMillis();
-    Result map_mtd_result = new Result();
-    HashMap<String, Set<Integer>> map_str_result = new HashMap<String, Set<Integer>>();
-
-    if (inPath.endsWith(".jar")) {
-      workDir = extractJARClasses(inPath);
-    } else if (inPath.endsWith(".aar")) {
-      workDir = extractAARClasses(inPath);
-    } else {
-      Preconditions.checkArgument(Files.isDirectory(Paths.get(inPath)), "invalid path!");
-    }
-    if (Files.exists(Paths.get(workDir))) {
+    String firstInPath = inPaths.split(",")[0];
+    Set<String> setInPaths = new HashSet<>(Arrays.asList(inPaths.split(",")));
+    for (String inPath : setInPaths) {
+      InputStream jarIS = null;
+      if (inPath.endsWith(".jar") || inPath.endsWith(".aar"))
+        if ((jarIS = getInputStream(inPath)) == null) continue;
+        else if (!new File(inPath).exists()) continue;
       AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
       scope.setExclusions(
           new FileOfClasses(
               new ByteArrayInputStream(DEFAULT_EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
-      AnalysisScopeReader.addClassPathToScope(workDir, scope, ClassLoaderReference.Application);
+      if (jarIS != null) scope.addInputStreamForJarToScope(ClassLoaderReference.Application, jarIS);
+      else AnalysisScopeReader.addClassPathToScope(inPath, scope, ClassLoaderReference.Application);
       AnalysisOptions options = new AnalysisOptions(scope, null);
       AnalysisCache cache = new AnalysisCacheImpl();
-      IClassHierarchy cha = ClassHierarchyFactory.make(scope);
+      IClassHierarchy cha = ClassHierarchyFactory.makeWithPhantom(scope);
       Warnings.clear();
 
       // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
       for (IClassLoader cldr : cha.getLoaders()) {
         if (!cldr.getName().toString().equals("Primordial")) {
           for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
+            if (cls instanceof PhantomClass) continue;
             // Only process classes in specified classpath and not its dependencies.
             // TODO: figure the right way to do this
             if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
-            for (IMethod mtd : Iterator2Iterable.make(cls.getAllMethods().iterator())) {
+            LOG(DEBUG, "DEBUG", "analyzing class: " + cls.getName().toString());
+            for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
               // Skip methods without parameters, abstract methods, native methods
               // some Application classes are Primordial (why?)
-              if (mtd.getNumberOfParameters() > 0
+              if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)
+                  && !mtd.isPrivate()
                   && !mtd.isAbstract()
                   && !mtd.isNative()
+                  && !isAllPrimitiveTypes(mtd)
                   && !mtd.getDeclaringClass()
                       .getClassLoader()
                       .getName()
                       .toString()
                       .equals("Primordial")) {
                 Preconditions.checkNotNull(mtd, "method not found");
+                // Skip methods by looking at bytecode
+                try {
+                  if (CodeScanner.getFieldsRead(mtd).isEmpty()
+                      && CodeScanner.getFieldsWritten(mtd).isEmpty()
+                      && CodeScanner.getCallSites(mtd).isEmpty()) {
+                    continue;
+                  }
+                } catch (Exception e) {
+                  e.printStackTrace();
+                }
+                // Make CFG
                 IR ir =
                     cache
                         .getIRFactory()
                         .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
                 ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
-                Set<Integer> result = new DefinitelyDerefedParams(mtd, ir, cfg, cha).analyze();
-                if (!result.isEmpty()) {
-                  map_mtd_result.put(mtd, result);
-                  map_str_result.put(mtd.getSignature(), result);
+                // Analyze parameters
+                DefinitelyDerefedParams analysisDriver =
+                    new DefinitelyDerefedParams(mtd, ir, cfg, cha);
+                Set<Integer> result = analysisDriver.analyze();
+                String sign = getSignature(mtd);
+                LOG(DEBUG, "DEBUG", "analyzed method: " + sign);
+                if (!result.isEmpty() || DEBUG) {
+                  map_result.put(sign, result);
+                  LOG(
+                      DEBUG,
+                      "DEBUG",
+                      "Inferred Nonnull param for method: " + sign + " = " + result.toString());
+                }
+                // Analyze return value
+                if (analysisDriver.analyzeReturnType()
+                    == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
+                  nullableReturns.add(sign);
+                  LOG(DEBUG, "DEBUG", "Inferred Nullable method return: " + sign);
                 }
               }
             }
@@ -153,101 +196,54 @@ public class DefinitelyDerefedParamsDriver {
         }
       }
       long end = System.currentTimeMillis();
-      System.out.println("-----\ndone\ntook " + (end - start) + "ms");
-      System.out.println("definitely-derefereced paramters: " + map_str_result.toString());
+      LOG(VERBOSE, "Stats", "took " + (end - start) + "ms");
     }
-    if (inPath.endsWith(".jar")) {
-      writeProcessedJAR(inPath, outPath, map_mtd_result);
-    } else if (inPath.endsWith(".aar")) {
-      writeProcessedAAR(inPath, outPath, map_mtd_result);
+    new File(outPath).getParentFile().mkdirs();
+    if (outPath.endsWith(".astubx")) {
+      writeModel(new DataOutputStream(new FileOutputStream(outPath)));
+    } else if (firstInPath.endsWith(".jar")) {
+      writeProcessedJAR(firstInPath, outPath);
+    } else if (firstInPath.endsWith(".aar")) {
+      writeProcessedAAR(firstInPath, outPath);
     }
-    FileUtils.deleteDirectory(new File(workDir));
-    return map_str_result;
+    lastOutPath = outPath;
+    return map_result;
   }
 
   /**
-   * Extract class files from JAR archive and return directory path.
+   * Checks if all parameters and return value of a method have primitive types.
    *
-   * @param jarPath Path to input jar file to be analyzed.
-   * @return String Path to temporary directory containing the class files.
+   * @param mtd Method.
+   * @return boolean True if all parameters and return value are of primitive type, otherwise false.
    */
-  private static String extractJARClasses(String jarPath) {
+  private static boolean isAllPrimitiveTypes(IMethod mtd) {
+    if (!mtd.getReturnType().isPrimitiveType()) return false;
+    for (int i = (mtd.isStatic() ? 0 : 1); i < mtd.getNumberOfParameters(); i++) {
+      if (!mtd.getParameterType(i).isPrimitiveType()) return false;
+    }
+    return true;
+  }
+
+  /**
+   * Get InputStream of the jar of class files to be analyzed.
+   *
+   * @param libPath Path to input jar / aar file to be analyzed.
+   * @return InputStream InputStream for the jar.
+   */
+  private static InputStream getInputStream(String libPath) throws IOException {
     Preconditions.checkArgument(
-        jarPath.endsWith(".jar") && Files.exists(Paths.get(jarPath)),
-        "invalid jar path! " + jarPath);
-    try {
-      System.out.println("extracting " + jarPath + "...");
-      String classDir = FilenameUtils.getFullPath(jarPath) + FilenameUtils.getBaseName(jarPath);
-      if (!extractJarStreamClasses(
-          new JarInputStream(new FileInputStream(jarPath)), jarPath, classDir)) {
-        FileUtils.deleteDirectory(new File(classDir));
-        classDir = "";
-      }
-      return classDir;
-    } catch (IOException e) {
-      throw new Error(e);
+        (libPath.endsWith(".jar") || libPath.endsWith(".aar")) && Files.exists(Paths.get(libPath)),
+        "invalid library path! " + libPath);
+    LOG(VERBOSE, "Info", "opening library: " + libPath + "...");
+    InputStream jarIS = null;
+    if (libPath.endsWith(".jar")) {
+      jarIS = new FileInputStream(libPath);
+    } else if (libPath.endsWith(".aar")) {
+      ZipFile aar = new ZipFile(libPath);
+      ZipEntry jarEntry = aar.getEntry("classes.jar");
+      jarIS = (jarEntry == null ? null : aar.getInputStream(jarEntry));
     }
-  }
-
-  /**
-   * Extract class files from AAR archive and return directory path.
-   *
-   * @param aarPath Path to input aar file to be analyzed.
-   * @return String Path to temporary directory containing the class files.
-   */
-  private static String extractAARClasses(String aarPath) {
-    Preconditions.checkArgument(
-        aarPath.endsWith(".aar") && Files.exists(Paths.get(aarPath)),
-        "invalid aar path! " + aarPath);
-    try {
-      System.out.println("extracting " + aarPath + "...");
-      String classDir = FilenameUtils.getFullPath(aarPath) + FilenameUtils.getBaseName(aarPath);
-      JarFile aar = new JarFile(aarPath);
-      JarEntry jarEntry = aar.getJarEntry("classes.jar");
-      if (jarEntry == null) {
-        classDir = "";
-      } else if (!extractJarStreamClasses(
-          new JarInputStream(aar.getInputStream(jarEntry)), aarPath, classDir)) {
-        FileUtils.deleteDirectory(new File(classDir));
-        classDir = "";
-      }
-      aar.close();
-      return classDir;
-    } catch (IOException e) {
-      throw new Error(e);
-    }
-  }
-
-  /**
-   * Extract class files from a JAR Input Stream.
-   *
-   * @param jis Jar Input Stream.
-   * @param libPath Path to jar/aar library being extracted.
-   * @param classDir Path to output directory.
-   * @return boolean True if found class files in jis, else False.
-   */
-  private static boolean extractJarStreamClasses(
-      JarInputStream jis, String libPath, String classDir) {
-    try {
-      boolean found = false;
-      JarEntry jarEntry = null;
-      while ((jarEntry = jis.getNextJarEntry()) != null) {
-        if (jarEntry.getName().endsWith(DEFAULT_ASTUBX_LOCATION)) {
-          throw new Error("jar-infer called on already processed library: " + libPath);
-        }
-        if (jarEntry.isDirectory() || !jarEntry.getName().endsWith(".class")) continue;
-        found = true;
-        File f = new File(classDir + File.separator + jarEntry.getName());
-        f.getParentFile().mkdirs();
-        FileOutputStream fos = new FileOutputStream(f);
-        IOUtils.copy(jis, fos);
-        fos.close();
-      }
-      jis.close();
-      return found;
-    } catch (IOException e) {
-      throw new Error(e);
-    }
+    return jarIS;
   }
 
   /**
@@ -255,22 +251,15 @@ public class DefinitelyDerefedParamsDriver {
    *
    * @param inJarPath Path of input jar file.
    * @param outJarPath Path of output jar file.
-   * @param map_mtd_result Map of 'method references' to their 'list of NonNull parameters'.
    */
-  private static void writeProcessedJAR(
-      String inJarPath, String outJarPath, Result map_mtd_result) {
+  private static void writeProcessedJAR(String inJarPath, String outJarPath) throws IOException {
     Preconditions.checkArgument(
         inJarPath.endsWith(".jar") && Files.exists(Paths.get(inJarPath)),
         "invalid jar file! " + inJarPath);
-    try {
-      writeModelToJarStream(
-          new JarInputStream(new FileInputStream(inJarPath)),
-          new JarOutputStream(new FileOutputStream(outJarPath)),
-          map_mtd_result);
-      System.out.println("processed jar to: " + outJarPath);
-    } catch (IOException e) {
-      throw new Error(e);
-    }
+    writeModelToJarStream(
+        new ZipInputStream(new FileInputStream(inJarPath)),
+        new ZipOutputStream(new FileOutputStream(outJarPath)));
+    LOG(VERBOSE, "Info", "processed jar to: " + outJarPath);
   }
 
   /**
@@ -279,63 +268,47 @@ public class DefinitelyDerefedParamsDriver {
    *
    * @param inAarPath Path of input aar file.
    * @param outAarPath Path of output aar file.
-   * @param map_mtd_result Map of 'method references' to their 'list of NonNull parameters'.
    */
-  private static void writeProcessedAAR(
-      String inAarPath, String outAarPath, Result map_mtd_result) {
+  private static void writeProcessedAAR(String inAarPath, String outAarPath) throws IOException {
     Preconditions.checkArgument(
         inAarPath.endsWith(".aar") && Files.exists(Paths.get(inAarPath)),
         "invalid aar file! " + inAarPath);
-    try {
-      JarFile aar = new JarFile(inAarPath);
-      JarOutputStream aos = new JarOutputStream(new FileOutputStream(outAarPath));
-      Enumeration enumEntries = aar.entries();
-      while (enumEntries.hasMoreElements()) {
-        JarEntry aarEntry = (JarEntry) enumEntries.nextElement();
-        if (aarEntry.getName().endsWith("classes.jar")) {
-          aos.putNextEntry(new JarEntry("classes.jar"));
-          writeModelToJarStream(
-              new JarInputStream(aar.getInputStream(aarEntry)),
-              new JarOutputStream(aos),
-              map_mtd_result);
-        } else {
-          InputStream ais = aar.getInputStream(aarEntry);
-          aos.putNextEntry(aarEntry);
-          IOUtils.copy(ais, aos);
-          ais.close();
-        }
+    ZipFile zip = new ZipFile(inAarPath);
+    ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outAarPath));
+    for (Enumeration zes = zip.entries(); zes.hasMoreElements(); ) {
+      ZipEntry ze = (ZipEntry) zes.nextElement();
+      zos.putNextEntry(new ZipEntry(ze.getName()));
+      if (ze.getName().endsWith("classes.jar")) {
+        writeModelToJarStream(new ZipInputStream(zip.getInputStream(ze)), new ZipOutputStream(zos));
+      } else {
+        IOUtils.copy(zip.getInputStream(ze), zos);
       }
-      aos.close();
-      aar.close();
-      System.out.println("processed aar to: " + outAarPath);
-    } catch (IOException e) {
-      throw new Error(e);
+      zos.closeEntry();
     }
+    zip.close();
+    zos.close();
+    LOG(VERBOSE, "Info", "processed aar to: " + outAarPath);
   }
   /**
    * Copy Jar Input Stream to Jar Output Stream and add nullability model.
    *
-   * @param jis Jar Input Stream.
-   * @param jos Jar Output Stream.
-   * @param map_mtd_result Map of 'method references' to their 'list of NonNull parameters'.
+   * @param zis Jar Input Stream.
+   * @param zos Jar Output Stream.
    */
-  private static void writeModelToJarStream(
-      JarInputStream jis, JarOutputStream jos, Result map_mtd_result) {
-    try {
-      JarEntry jarEntry = null;
-      while ((jarEntry = jis.getNextJarEntry()) != null) {
-        jos.putNextEntry(jarEntry);
-        IOUtils.copy(jis, jos);
-      }
-      jis.close();
-      if (!map_mtd_result.isEmpty()) {
-        jos.putNextEntry(new JarEntry(DEFAULT_ASTUBX_LOCATION));
-        writeModel(new DataOutputStream(jos), map_mtd_result);
-      }
-      jos.finish();
-    } catch (IOException e) {
-      throw new Error(e);
+  private static void writeModelToJarStream(ZipInputStream zis, ZipOutputStream zos)
+      throws IOException {
+    for (ZipEntry ze; (ze = zis.getNextEntry()) != null; ) {
+      zos.putNextEntry(ze);
+      IOUtils.copy(zis, zos);
+      zos.closeEntry();
     }
+    zis.close();
+    if (!map_result.isEmpty()) {
+      zos.putNextEntry(new ZipEntry(DEFAULT_ASTUBX_LOCATION));
+      writeModel(new DataOutputStream(zos));
+      zos.closeEntry();
+    }
+    zos.finish();
   }
 
   /**
@@ -343,40 +316,43 @@ public class DefinitelyDerefedParamsDriver {
    * jar/aar.
    *
    * @param out JarOutputStream for writing the astubx
-   * @param map_mtd_result Map of 'method references' to their 'list of NonNull parameters'.
    */
   //  Note: Need version compatibility check between generated stub files and when reading models
   //    StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
-  private static void writeModel(DataOutputStream out, Result map_mtd_result) {
-    try {
-      Map<String, String> importedAnnotations =
-          new HashMap<String, String>() {
-            {
-              put("Nonnull", "javax.annotation.Nonnull");
-            }
-          };
-      Map<String, Set<String>> packageAnnotations = new HashMap<>();
-      Map<String, Set<String>> typeAnnotations = new HashMap<>();
-      Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
+  private static void writeModel(DataOutputStream out) throws IOException {
+    Map<String, String> importedAnnotations =
+        new HashMap<String, String>() {
+          {
+            put("Nonnull", "javax.annotation.Nonnull");
+            put("Nullable", "javax.annotation.Nullable");
+          }
+        };
+    Map<String, Set<String>> packageAnnotations = new HashMap<>();
+    Map<String, Set<String>> typeAnnotations = new HashMap<>();
+    Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
 
-      for (Map.Entry<IMethod, Set<Integer>> entry : map_mtd_result.entrySet()) {
-        IMethod mtd = entry.getKey();
-        Set<Integer> ddParams = entry.getValue();
-        if (ddParams.isEmpty()) continue;
-        Map<Integer, ImmutableSet<String>> argAnnotation =
-            new HashMap<Integer, ImmutableSet<String>>();
-        for (Integer param : ddParams) {
-          argAnnotation.put(param, ImmutableSet.of("Nonnull"));
-        }
-        methodRecords.put(
-            getSignature(mtd),
-            new MethodAnnotationsRecord(ImmutableSet.of(), ImmutableMap.copyOf(argAnnotation)));
+    for (Map.Entry<String, Set<Integer>> entry : map_result.entrySet()) {
+      String sign = entry.getKey();
+      Set<Integer> ddParams = entry.getValue();
+      if (ddParams.isEmpty()) continue;
+      Map<Integer, ImmutableSet<String>> argAnnotation =
+          new HashMap<Integer, ImmutableSet<String>>();
+      for (Integer param : ddParams) {
+        argAnnotation.put(param, ImmutableSet.of("Nonnull"));
       }
-      StubxWriter.write(
-          out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
-    } catch (Exception e) {
-      e.printStackTrace();
+      methodRecords.put(
+          sign,
+          new MethodAnnotationsRecord(
+              nullableReturns.contains(sign) ? ImmutableSet.of("Nullable") : ImmutableSet.of(),
+              ImmutableMap.copyOf(argAnnotation)));
+      nullableReturns.remove(sign);
     }
+    for (String nullableReturnMethodSign : Iterator2Iterable.make(nullableReturns.iterator())) {
+      methodRecords.put(
+          nullableReturnMethodSign,
+          new MethodAnnotationsRecord(ImmutableSet.of("Nullable"), ImmutableMap.of()));
+    }
+    StubxWriter.write(out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
   }
 
   /**
@@ -388,6 +364,31 @@ public class DefinitelyDerefedParamsDriver {
    */
   // TODO: handle generics and inner classes
   private static String getSignature(IMethod mtd) {
+    String classType =
+        mtd.getDeclaringClass().getName().toString().replaceAll("/", "\\.").substring(1);
+    classType = classType.replaceAll("\\$", "\\."); // handle inner class
+    String returnType = mtd.isInit() ? null : getSimpleTypeName(mtd.getReturnType());
+    String strArgTypes = "";
+    int argi = mtd.isStatic() ? 0 : 1; // Skip 'this' parameter
+    for (; argi < mtd.getNumberOfParameters(); argi++) {
+      strArgTypes += getSimpleTypeName(mtd.getParameterType(argi));
+      if (argi < mtd.getNumberOfParameters() - 1) strArgTypes += ", ";
+    }
+    return classType
+        + ":"
+        + (returnType == null ? "void " : returnType + " ")
+        + mtd.getName().toString()
+        + "("
+        + strArgTypes
+        + ")";
+  }
+  /**
+   * Get simple unqualified type name.
+   *
+   * @param typ Type Reference.
+   * @return String Unqualified type name.
+   */
+  private static String getSimpleTypeName(TypeReference typ) {
     final Map<String, String> mapFullTypeName =
         new HashMap<String, String>() {
           {
@@ -401,32 +402,15 @@ public class DefinitelyDerefedParamsDriver {
             put("Z", "boolean");
           }
         };
-    String classType =
-        mtd.getDeclaringClass().getName().toString().replaceAll("/", "\\.").substring(1);
-    String returnType = mtd.isInit() ? "" : mtd.getReturnType().getName().toString().split("<")[0];
-    if (returnType.startsWith("L")) {
-      returnType = returnType.replaceAll("/", "\\.").substring(1);
+    if (typ.isArrayType()) return "Array";
+    String typName = typ.getName().toString();
+    if (typName.startsWith("L")) {
+      typName = typName.split("<")[0].substring(1); // handle generics
+      typName = typName.substring(typName.lastIndexOf('/') + 1); // get unqualified name
+      typName = typName.substring(typName.lastIndexOf('$') + 1); // handle inner classes
     } else {
-      returnType = mapFullTypeName.get(returnType);
+      typName = mapFullTypeName.get(typName);
     }
-    String argTypes = "";
-    for (int argi = 0; argi < mtd.getNumberOfParameters(); argi++) {
-      if (mtd.getParameterType(argi).isArrayType()) {
-        argTypes += "Array";
-      } else {
-        String argType = mtd.getParameterType(argi).getName().toString().split("<")[0].substring(1);
-        argTypes += argType.substring(argType.lastIndexOf('/') + 1);
-      }
-      if (argi < mtd.getNumberOfParameters() - 1) {
-        argTypes += ", ";
-      }
-    }
-    return classType
-        + ":"
-        + (returnType == null ? "" : returnType + " ")
-        + mtd.getName().toString()
-        + "("
-        + argTypes
-        + ")";
+    return typName;
   }
 }

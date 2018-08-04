@@ -19,7 +19,7 @@ def versions = [
     checkerFrameworkNAFork : "2.5.0",
     errorProne             : "2.1.1",
     support                : "27.0.2",
-    wala                   : "1.4.3",
+    wala                   : "1.5.0-uber.1",
     commonscli             : "1.4",
 ]
 

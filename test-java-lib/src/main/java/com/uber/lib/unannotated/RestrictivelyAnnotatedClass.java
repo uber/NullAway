@@ -5,7 +5,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
 
 public class RestrictivelyAnnotatedClass {
 
-  private final Object field;
+  public final Object field;
 
   public RestrictivelyAnnotatedClass(Object field) {
     this.field = field;
