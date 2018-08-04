@@ -140,8 +140,12 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
                   + className
                   + " from jar: "
                   + jarPath);
-        } else LOG(DEBUG, "DEBUG", "Skipping already loaded jar: " + jarPath);
-      } else LOG(DEBUG, "DEBUG", "Hit annotation cache for class: " + className);
+        } else {
+          LOG(DEBUG, "DEBUG", "Skipping already loaded jar: " + jarPath);
+        }
+      } else {
+        LOG(DEBUG, "DEBUG", "Hit annotation cache for class: " + className);
+      }
       if (!argAnnotCache.containsKey(className)) {
         LOG(
             VERBOSE,

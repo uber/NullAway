@@ -71,6 +71,7 @@ public class JarInferTest {
         Main.Result.OK,
         compileResult);
     try {
+      DefinitelyDerefedParamsDriver.reset();
       Assert.assertTrue(
           testName + ": test failed!",
           verify(
@@ -95,6 +96,7 @@ public class JarInferTest {
       String jarPath // in dot syntax
       ) {
     try {
+      DefinitelyDerefedParamsDriver.reset();
       DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
       String outJARPath = DefinitelyDerefedParamsDriver.lastOutPath;
       Assert.assertTrue("jar file not found! - " + outJARPath, new File(outJARPath).exists());
@@ -131,7 +133,7 @@ public class JarInferTest {
     Assert.assertTrue("this test never fails!", true);
   }
 
-  //  @Test
+  @Test
   public void toyStatic() {
     testTemplate(
         "toyStatic",
@@ -196,7 +198,7 @@ public class JarInferTest {
         "}");
   }
 
-  //  @Test
+  @Test
   public void toyNonStatic() {
     testTemplate(
         "toyNonStatic",

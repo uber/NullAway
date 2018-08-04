@@ -1,18 +1,22 @@
-import subprocess
+import sys, os, subprocess, ConfigParser
 from optparse import OptionParser
-
-ajars_dir = "/Volumes/AOSP8.1/out/target/common/obj/JAVA_LIBRARIES/framework_intermediates"
-stubsjar = "~/android-sdk/platforms/android-27/android.jar"
-nullaway_dir = "~/src/NullAway"
-jarinfer = nullaway_dir + "/jar-infer-cli/build/libs/jar-infer-cli-0.4.8-SNAPSHOT.jar"
-astubx_file = "META-INF/nullaway/jarinfer.astubx"
 
 class2jar = dict()
 jars_to_process = set()
 
 parser = OptionParser()
-parser.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False)
+parser.add_option("-v", "--verbose", action="store_true", dest="verbose", default=False, help="set verbosity")
+parser.add_option("-c", "--config", dest="config", default=os.path.dirname(sys.argv[0])+"/android-jar.conf", help="configuration file path")
 (options, args) = parser.parse_args()
+if not os.path.isfile(options.config):
+  sys.exit('Error! No configuration file at: '+options.config)
+configParser = ConfigParser.RawConfigParser()   
+configParser.read(options.config)
+ajars_dir = configParser.get('android-paths', 'aosp-out-dir')
+stubsjar = configParser.get('android-paths', 'android-jar-path')
+nullaway_dir = configParser.get('jar-infer-paths', 'nullaway-dir')
+jarinfer = configParser.get('jar-infer-paths', 'jar-infer-path')
+astubx_file = configParser.get('jar-infer-paths', 'astubx-path')
 
 ### Finding android libraries ###
 print "> Finding android libraries..."
