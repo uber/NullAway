@@ -49,9 +49,19 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
-import java.util.*;
-import java.util.zip.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 
@@ -118,9 +128,11 @@ public class DefinitelyDerefedParamsDriver {
     Set<String> setInPaths = new HashSet<>(Arrays.asList(inPaths.split(",")));
     for (String inPath : setInPaths) {
       InputStream jarIS = null;
-      if (inPath.endsWith(".jar") || inPath.endsWith(".aar"))
+      if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
         if ((jarIS = getInputStream(inPath)) == null) continue;
-        else if (!new File(inPath).exists()) continue;
+      } else {
+        if (!new File(inPath).exists()) continue;
+      }
       AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
       scope.setExclusions(
           new FileOfClasses(
