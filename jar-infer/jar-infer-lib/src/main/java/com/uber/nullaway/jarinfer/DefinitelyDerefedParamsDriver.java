@@ -24,6 +24,7 @@ import com.ibm.wala.classLoader.IClass;
 import com.ibm.wala.classLoader.IClassLoader;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.classLoader.PhantomClass;
+import com.ibm.wala.classLoader.ShrikeCTMethod;
 import com.ibm.wala.ipa.callgraph.AnalysisCache;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
 import com.ibm.wala.ipa.callgraph.AnalysisOptions;
@@ -77,6 +78,7 @@ public class DefinitelyDerefedParamsDriver {
   }
 
   public static String lastOutPath = "";
+  public static long analyzedBytes = 0;
   private static Result map_result = new Result();
   private static Set<String> nullableReturns = new HashSet<>();
 
@@ -87,6 +89,7 @@ public class DefinitelyDerefedParamsDriver {
   private static final String DEFAULT_EXCLUSIONS = "org\\/objectweb\\/asm\\/.*";
 
   public static void reset() {
+    analyzedBytes = 0;
     map_result.clear();
     nullableReturns.clear();
   }
@@ -129,10 +132,9 @@ public class DefinitelyDerefedParamsDriver {
     for (String inPath : setInPaths) {
       InputStream jarIS = null;
       if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
-        if ((jarIS = getInputStream(inPath)) == null) continue;
-      } else {
-        if (!new File(inPath).exists()) continue;
-      }
+        jarIS = getInputStream(inPath);
+        if (jarIS == null) continue;
+      } else if (!new File(inPath).exists()) continue;
       AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
       scope.setExclusions(
           new FileOfClasses(
@@ -188,6 +190,10 @@ public class DefinitelyDerefedParamsDriver {
                     new DefinitelyDerefedParams(mtd, ir, cfg, cha);
                 Set<Integer> result = analysisDriver.analyze();
                 String sign = getSignature(mtd);
+                // Get method bytecode size
+                if (mtd instanceof ShrikeCTMethod) {
+                  analyzedBytes += ((ShrikeCTMethod) mtd).getBytecodes().length;
+                }
                 LOG(DEBUG, "DEBUG", "analyzed method: " + sign);
                 if (!result.isEmpty() || DEBUG) {
                   map_result.put(sign, result);
@@ -208,7 +214,16 @@ public class DefinitelyDerefedParamsDriver {
         }
       }
       long end = System.currentTimeMillis();
-      LOG(VERBOSE, "Stats", "took " + (end - start) + "ms");
+      LOG(
+          VERBOSE,
+          "Stats",
+          inPath
+              + " >> time(ms): "
+              + (end - start)
+              + ", bytecode size: "
+              + analyzedBytes
+              + ", rate (ms/KB): "
+              + (analyzedBytes > 0 ? (((end - start) * 1000) / analyzedBytes) : 0));
     }
     new File(outPath).getParentFile().mkdirs();
     if (outPath.endsWith(".astubx")) {
