@@ -17,7 +17,7 @@ dependencies {
     compile deps.build.guava
     compileOnly deps.build.errorProneCheckApi
 
-    compile project(":jar-infer/jar-infer-lib")
+    compile project(":jar-infer:jar-infer-lib")
 
     errorprone deps.build.errorProneCore
 

@@ -54,7 +54,7 @@ dependencies {
     testCompile deps.test.cfQual
     testCompile deps.test.cfCompatQual
     testCompile project(":test-java-lib")
-    testCompile project(":jar-infer/test-java-lib-jarinfer")
+    testCompile project(":jar-infer:test-java-lib-jarinfer")
     testCompile deps.test.inferAnnotations
     testCompile deps.apt.javaxInject
     testCompile deps.test.rxjava2

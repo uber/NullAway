@@ -133,8 +133,12 @@ public class DefinitelyDerefedParamsDriver {
       InputStream jarIS = null;
       if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
         jarIS = getInputStream(inPath);
-        if (jarIS == null) continue;
-      } else if (!new File(inPath).exists()) continue;
+        if (jarIS == null) {
+          continue;
+        }
+      } else if (!new File(inPath).exists()) {
+        continue;
+      }
       AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
       scope.setExclusions(
           new FileOfClasses(
