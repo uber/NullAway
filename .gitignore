@@ -44,9 +44,6 @@ gen/
 .gradle/
 .gradletasknamecache
 build/
-**/gradle/
-**/gradlew
-**/gradlew.bat
 
 # Local configuration file (sdk path, etc)
 local.properties

@@ -22,5 +22,11 @@ This will pull in the required WALA jars and build the analysis code.
 
 ### Usage
 
-    ./gradlew test
+    java -jar <path-to-jar-infer-cli-tool> -i <in_path> -o <out_path> [-p <pkg_name>] [-vdh]
+     -i,--input-file <in_path>     path to target jar/aar file
+     -o,--output-file <out_path>   path to processed jar/aar file
+     -p,--package <pkg_name>       qualified package name
+     -v,--verbose                  set verbosity
+     -d,--debug                    print debug information
+     -h,--help                     print usage information
 

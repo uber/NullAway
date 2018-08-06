@@ -19,7 +19,6 @@ dependencies {
     compile deps.build.guava
     compile deps.build.commonsIO
     compileOnly deps.build.errorProneCheckApi
-    compile deps.build.checkerDataflow
 
     errorprone deps.build.errorProneCore
 

@@ -32,7 +32,9 @@ import com.ibm.wala.util.graph.Graph;
 import com.ibm.wala.util.graph.GraphUtil;
 import com.ibm.wala.util.graph.dominators.Dominators;
 import com.ibm.wala.util.graph.impl.GraphInverter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * /** Identify definitely-dereferenced function parameters
