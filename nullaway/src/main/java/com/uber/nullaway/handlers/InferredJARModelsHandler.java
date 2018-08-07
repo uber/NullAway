@@ -80,7 +80,10 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         LOG(DEBUG, "DEBUG", "Loaded Android RT models.");
       }
     } catch (ClassNotFoundException e) {
-      LOG(DEBUG, "DEBUG", "Cannot find Android RT models locator class.");
+      LOG(
+          DEBUG,
+          "DEBUG",
+          "Cannot find Android RT models locator class. This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
     } catch (Exception e) {
       LOG(DEBUG, "DEBUG", "Cannot load Android RT models.");
     }
