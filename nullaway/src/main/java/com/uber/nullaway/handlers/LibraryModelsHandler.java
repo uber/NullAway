@@ -300,6 +300,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .add(methodRef("android.app.Activity", "<T>findViewById(int)"))
             .add(methodRef("android.view.View", "<T>findViewById(int)"))
             .add(methodRef("android.view.View", "getResources()"))
+            .add(methodRef("android.view.ViewGroup", "getChildAt(int)"))
             .add(
                 methodRef(
                     "android.content.res.Resources",

@@ -19,6 +19,8 @@ def versions = [
     checkerFrameworkNAFork : "2.5.0",
     errorProne             : "2.1.1",
     support                : "27.0.2",
+    wala                   : "1.5.0-uber.1",
+    commonscli             : "1.4",
 ]
 
 def apt = [
@@ -36,6 +38,11 @@ def build = [
     gradleErrorPronePlugin  : "net.ltgt.gradle:gradle-errorprone-plugin:0.0.8",
     guava                   : "com.google.guava:guava:22.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
+    commonsIO               : "commons-io:commons-io:2.4",
+    wala                    : ["com.ibm.wala:com.ibm.wala.util:${versions.wala}",
+                               "com.ibm.wala:com.ibm.wala.shrike:${versions.wala}",
+                               "com.ibm.wala:com.ibm.wala.core:${versions.wala}"],
+    commonscli              : "commons-cli:commons-cli:${versions.commonscli}",
 
     // android stuff
     buildToolsVersion: "27.0.2",

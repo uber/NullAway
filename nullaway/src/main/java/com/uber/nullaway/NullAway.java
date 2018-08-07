@@ -1727,22 +1727,20 @@ public class NullAway extends BugChecker
         exprMayBeNull = mayBeNullFieldAccess(state, expr, exprSymbol);
         break;
       case IDENTIFIER:
-        // ToDo: Also run handler.onOverrideMayBeNullExpr BEFORE dataflow, rather than after, in
-        // these two cases?
         if (exprSymbol != null && exprSymbol.getKind().equals(ElementKind.FIELD)) {
-          exprMayBeNull = mayBeNullFieldAccess(state, expr, exprSymbol);
-          break;
+          // Special case: mayBeNullFieldAccess runs handler.onOverrideMayBeNullExpr before
+          // dataflow.
+          return mayBeNullFieldAccess(state, expr, exprSymbol);
         } else {
-          exprMayBeNull = nullnessFromDataflow(state, expr);
-          break;
+          // Check handler.onOverrideMayBeNullExpr before dataflow.
+          exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, true);
+          return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
         }
       case METHOD_INVOCATION:
         // Special case: mayBeNullMethodCall runs handler.onOverrideMayBeNullExpr before dataflow.
         return mayBeNullMethodCall(state, expr, (Symbol.MethodSymbol) exprSymbol);
       case CONDITIONAL_EXPRESSION:
       case ASSIGNMENT:
-        // ToDo: Also run handler.onOverrideMayBeNullExpr BEFORE dataflow, rather than after, in
-        // these case?
         exprMayBeNull = nullnessFromDataflow(state, expr);
         break;
       default:
@@ -1782,10 +1780,12 @@ public class NullAway extends BugChecker
   }
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
+    boolean exprMayBeNull = true;
     if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config)) {
-      return false;
+      exprMayBeNull = false;
     }
-    return nullnessFromDataflow(state, expr);
+    exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);
+    return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
   }
 
   /**

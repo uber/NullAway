@@ -37,6 +37,9 @@ subprojects {
         maven {
             url "https://raw.githubusercontent.com/msridhar/checker-framework/repository/"
         }
+        maven {
+            url "https://raw.githubusercontent.com/lazaroclapp/WALA/repository/"
+        }
         jcenter()
         google()
     }

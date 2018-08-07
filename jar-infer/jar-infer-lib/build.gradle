@@ -1,0 +1,37 @@
+plugins {
+    id "net.ltgt.errorprone" version "0.0.13"
+    id "java"
+}
+// we use this config to get the path of the JDK 9 javac jar, to
+// stick it in the bootclasspath when running tests
+configurations.maybeCreate("epJavac")
+
+sourceCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+    // uncomment if you want to use wala.dalvik or wala.scandroid
+    //maven { url "https://raw.github.com/msridhar/maven-jars/mvn-repo/" }
+}
+
+dependencies {
+    compile deps.build.wala
+    compile deps.build.guava
+    compile deps.build.commonsIO
+    compileOnly deps.build.errorProneCheckApi
+
+    errorprone deps.build.errorProneCore
+
+    testCompile deps.test.junit4
+    testCompile(deps.build.errorProneTestHelpers) {
+        exclude group: "junit", module: "junit"
+    }
+    epJavac deps.build.errorProneCheckApi
+}
+
+test {
+    maxHeapSize = "1024m"
+    jvmArgs "-Xbootclasspath/p:${configurations.epJavac.asPath}"
+}
+
+apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
