@@ -1,13 +1,13 @@
 [android-paths]
 aosp-out-dir = /Volumes/AOSP8.1/out/target/common/obj/JAVA_LIBRARIES/framework_intermediates
-android-stubs-jar = ~/android-sdk/platforms/android-27/android.jar
+android-stubs-jar = ${HOME}/android-sdk/platforms/android-27/android.jar
 
 [jar-infer-paths]
-jar-infer-path = ~/src/NullAway/jar-infer/jar-infer-cli/build/libs/jar-infer-cli-0.5.2-SNAPSHOT.jar
+jar-infer-path = ${HOME}/src/NullAway/jar-infer/jar-infer-cli/build/libs/jar-infer-cli-0.5.2-SNAPSHOT.jar
 
 [android-model]
-android-model-jar = ~/src/NullAway/jar-infer/scripts/android-model/android-jarinfer-model-0.5.2-SNAPSHOT.jar
-wrk-dir = ~/src/NullAway/jar-infer/scripts/android-model
+wrk-dir = ${HOME}/src/NullAway/jar-infer/scripts/android-model
+android-model-jar = %(wrk-dir)s/android-jarinfer-model-0.5.2-SNAPSHOT.jar
 astubx-path = resources/jarinfer.astubx
 package-name = com.uber.nullaway.jarinfer
 class-name = AndroidJarInferModels
