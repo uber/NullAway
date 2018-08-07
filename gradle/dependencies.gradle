@@ -37,6 +37,7 @@ def build = [
                                "org.checkerframework:javacutil:${versions.checkerFrameworkNAFork}"],
     gradleErrorPronePlugin  : "net.ltgt.gradle:gradle-errorprone-plugin:0.0.8",
     guava                   : "com.google.guava:guava:22.0",
+    javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
     commonsIO               : "commons-io:commons-io:2.4",
     wala                    : ["com.ibm.wala:com.ibm.wala.util:${versions.wala}",

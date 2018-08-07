@@ -137,7 +137,7 @@ public enum Nullness implements AbstractValue<Nullness> {
   private static boolean hasNonNullAnnotation(Stream<? extends AnnotationMirror> annotations) {
     return annotations
         .map(anno -> anno.getAnnotationType().toString())
-        .anyMatch((s) -> s.endsWith(".NonNull"));
+        .anyMatch(Nullness::isNonNullAnnotation);
   }
 
   /**
@@ -147,6 +147,14 @@ public enum Nullness implements AbstractValue<Nullness> {
   public static boolean isNullableAnnotation(String annotName) {
     return annotName.endsWith(".Nullable")
         || annotName.equals("org.checkerframework.checker.nullness.compatqual.NullableDecl");
+  }
+
+  /**
+   * @param annotName annotation name
+   * @return true if we treat annotName as a <code>@NonNull</code> annotation, false otherwise
+   */
+  public static boolean isNonNullAnnotation(String annotName) {
+    return annotName.endsWith(".NonNull") || annotName.endsWith(".NotNull");
   }
 
   /**
