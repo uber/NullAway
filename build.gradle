@@ -21,7 +21,6 @@ plugins {
 repositories {
   // to get the google-java-format jar and dependencies
   jcenter()
-  mavenLocal()
 }
 
 subprojects {
