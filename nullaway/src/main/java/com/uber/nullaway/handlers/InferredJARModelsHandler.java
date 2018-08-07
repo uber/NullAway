@@ -56,6 +56,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
 
   private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
+  private static final String ANDROID_ASTUBX_LOCATION = "resources/jarinfer.astubx";
+  private static final String ANDROID_MODEL_CLASS =
+      "com.uber.nullaway.jarinfer.AndroidJarInferModels";
 
   private static final int RETURN = -1; // '-1' indexes Return type in the Annotation Cache
 
@@ -66,6 +69,19 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     super();
     argAnnotCache = new LinkedHashMap<>();
     loadedJars = new HashSet<>();
+    // Load Android models
+    try {
+      InputStream androidStubxIS =
+          Class.forName(ANDROID_MODEL_CLASS)
+              .getClassLoader()
+              .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
+      if (androidStubxIS != null) {
+        parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
+        LOG(DEBUG, "DEBUG", "Loaded Android RT models.");
+      }
+    } catch (Exception e) {
+      LOG(VERBOSE, "Warn", "Cannot load Android RT models.");
+    }
   }
 
   @Override
