@@ -10,13 +10,17 @@ parser.add_option("-c", "--config", dest="config", default=os.path.dirname(sys.a
 (options, args) = parser.parse_args()
 if not os.path.isfile(options.config):
   sys.exit('Error! No configuration file at: '+options.config)
-configParser = ConfigParser.RawConfigParser()   
+configParser = ConfigParser.SafeConfigParser()
 configParser.read(options.config)
 ajars_dir = configParser.get('android-paths', 'aosp-out-dir')
-stubsjar = configParser.get('android-paths', 'android-jar-path')
-nullaway_dir = configParser.get('jar-infer-paths', 'nullaway-dir')
+stubs_jar = configParser.get('android-paths', 'android-stubs-jar')
 jarinfer = configParser.get('jar-infer-paths', 'jar-infer-path')
-astubx_file = configParser.get('jar-infer-paths', 'astubx-path')
+out_jar = configParser.get('android-model', 'android-model-jar')
+wrk_dir = configParser.get('android-model', 'wrk-dir')
+astubx_file = configParser.get('android-model', 'astubx-path')
+package_name = configParser.get('android-model', 'package-name')
+class_name = configParser.get('android-model', 'class-name')
+dummy_code = configParser.get('android-model', 'dummy-code')
 
 ### Finding android libraries ###
 print "> Finding android libraries..."
@@ -31,7 +35,7 @@ for ajar in ajars:
         print "[Warn] Same class in multiple jars : " + ajar_class + " in " + class2jar[ajar_class] + " , " + ajar
     else:
       class2jar[ajar_class] = ajar
-cmd = "jar tvf " + stubsjar + " | grep \"\.class$\" | awk '{print $8}'"
+cmd = "jar tvf " + stubs_jar + " | grep \"\.class$\" | awk '{print $8}'"
 ajar_classes = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True).stdout.read().splitlines()
 found = 0
 for ajar_class in ajar_classes:
@@ -46,13 +50,16 @@ print "Found " + str(found) + " / " + str(len(ajar_classes)) + " in " + str(len(
 
 ### Running jarinfer ###
 print "> Running jarinfer on android jars..."
-cmd = "java -jar " + jarinfer + " -i " + ",".join(list(jars_to_process)) + " -o " + nullaway_dir + "/" + astubx_file
+cmd = "mkdir -p "+wrk_dir+" && java -jar " + jarinfer + " -i " + ",".join(list(jars_to_process)) + " -o " + wrk_dir + "/" + astubx_file
 if options.verbose:
   cmd += " -dv"
 subprocess.call(cmd, shell=True)
 
 ### Writing models ###
-print "> Writing jarinfer models to android jar..."
-cmd = "cd " + nullaway_dir + " && jar uf " + stubsjar + " " + astubx_file
+print "> Writing jarinfer models for android jar..."
+prefix = package_name.replace(".","/") + "/"
+cmd = "cd "+wrk_dir+" && mkdir -p "+prefix+" && echo \""+dummy_code+"\" > "+prefix+class_name+".java && javac "+prefix+class_name+".java && jar cf "+out_jar+" "+prefix+class_name+".class "+astubx_file+" && jar tvf "+out_jar
 subprocess.call(cmd, shell=True)
-print "> Done. Annotated android jar: " + stubsjar
+print "> Done! Android model jar: " + out_jar
+
+### Uploading models ###
