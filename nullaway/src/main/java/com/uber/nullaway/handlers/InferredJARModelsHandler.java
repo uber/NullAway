@@ -69,7 +69,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     super();
     argAnnotCache = new LinkedHashMap<>();
     loadedJars = new HashSet<>();
-    // Load Android models
+    // Load Android SDK JarInfer models
     try {
       InputStream androidStubxIS =
           Class.forName(ANDROID_MODEL_CLASS)
@@ -79,8 +79,10 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
         LOG(DEBUG, "DEBUG", "Loaded Android RT models.");
       }
+    } catch (ClassNotFoundException e) {
+      LOG(DEBUG, "DEBUG", "Cannot find Android RT models locator class.");
     } catch (Exception e) {
-      LOG(VERBOSE, "Warn", "Cannot load Android RT models.");
+      LOG(DEBUG, "DEBUG", "Cannot load Android RT models.");
     }
   }
 
