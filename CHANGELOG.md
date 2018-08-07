@@ -1,6 +1,19 @@
 Changelog
 =========
 
+Version 0.5.3
+-------------
+* JarInfer: Third-party bytecode analysis (MVP version) (#199)
+* Handle @NotNull in hasNonNullAnnotation. (#204)
+* Handler for separate Android models jar (#206)
+* fix: zip entry size error (#207)
+* Small test for restrictive annotations and generics. (#209)
+* Create android-jarinfer-models-sdk28 and fix release scripts. (#210)
+* JarInfer checks for null tested parameters #211
+
+Note: This is the first release to include jar-infer-cli, jar-infer-lib, and
+android-jarinfer-models-sdk28 artifacts
+
 Version 0.5.2
 -------------
 * Fix NPE in Thrift handler on complex receiver expressions (#195)

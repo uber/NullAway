@@ -8,7 +8,7 @@
  2. (first time) `cp jar-infer/scripts/android-jar.conf.template jar-infer/scripts/android-jar.conf`
  3. Set the correct paths and versions in `android-jar.conf`
  4. `rm jar-infer/android-jarinfer-models-sdk28/src/main/resources/jarinfer.astubx` (for SDK 28)
- 5. `python jar-infer/scripts/android-jar.conf.template jar-infer/scripts/android-jar.py`
+ 5. `python jar-infer/scripts/android-jar.py`
  6. Continue to release instructions below
 
 
