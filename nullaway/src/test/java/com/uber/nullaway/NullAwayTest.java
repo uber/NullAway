@@ -945,6 +945,8 @@ public class NullAwayTest {
             "    RestrictivelyAnnotatedClass.consumesObjectUnannotated(null);",
             "    // BUG: Diagnostic contains: @NonNull is required",
             "    RestrictivelyAnnotatedClass.consumesObjectNonNull(null);",
+            "    // BUG: Diagnostic contains: @NonNull is required",
+            "    RestrictivelyAnnotatedClass.consumesObjectNotNull(null);",
             "    // BUG: Diagnostic contains: returning @Nullable",
             "    return RestrictivelyAnnotatedClass.returnsNull();",
             "  }",

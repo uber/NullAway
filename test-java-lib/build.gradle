@@ -29,6 +29,7 @@ dependencies {
     errorprone deps.build.errorProneCore
 
     compileOnly deps.build.jsr305Annotations
+    compileOnly deps.build.javaxValidation
     compileOnly deps.test.cfQual
 }
 
