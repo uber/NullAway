@@ -329,7 +329,7 @@ public class DefinitelyDerefedParamsDriver {
   private static void writeModelToJarStream(ZipInputStream zis, ZipOutputStream zos)
       throws IOException {
     for (ZipEntry ze; (ze = zis.getNextEntry()) != null; ) {
-      zos.putNextEntry(ze);
+      zos.putNextEntry(new ZipEntry(ze.getName()));
       IOUtils.copy(zis, zos);
       zos.closeEntry();
     }
