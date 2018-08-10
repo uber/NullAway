@@ -54,12 +54,3 @@ cmd = "mkdir -p "+wrk_dir+" && java -jar " + jarinfer + " -i " + ",".join(list(j
 if options.verbose:
   cmd += " -dv"
 subprocess.call(cmd, shell=True)
-
-### Writing models ###
-print "> Writing jarinfer models for android jar..."
-prefix = package_name.replace(".","/") + "/"
-cmd = "cd "+wrk_dir+" && mkdir -p "+prefix+" && echo \""+dummy_code+"\" > "+prefix+class_name+".java && javac "+prefix+class_name+".java && jar cf "+out_jar+" "+prefix+class_name+".class "+astubx_file+" && jar tvf "+out_jar
-subprocess.call(cmd, shell=True)
-print "> Done! Android model jar: " + os.path.expandvars(out_jar)
-
-### Uploading models ###
