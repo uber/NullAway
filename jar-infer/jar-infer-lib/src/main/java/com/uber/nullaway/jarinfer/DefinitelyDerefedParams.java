@@ -15,6 +15,7 @@
  */
 package com.uber.nullaway.jarinfer;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.ibm.wala.cfg.ControlFlowGraph;
 import com.ibm.wala.classLoader.IMethod;
@@ -150,15 +151,19 @@ public class DefinitelyDerefedParams {
           } else if (instr instanceof SSAPutInstruction
               && !((SSAPutInstruction) instr).isStatic()) {
             derefValueNumber = ((SSAPutInstruction) instr).getRef();
-          } else if (instr instanceof SSAAbstractInvokeInstruction
-              && !((SSAAbstractInvokeInstruction) instr).isStatic()) {
-            derefValueNumber = ((SSAAbstractInvokeInstruction) instr).getReceiver();
-          } else if (instr instanceof SSAAbstractInvokeInstruction
-              && ((SSAAbstractInvokeInstruction) instr).isStatic()) {
+          } else if (instr instanceof SSAAbstractInvokeInstruction) {
             SSAAbstractInvokeInstruction callInst = (SSAAbstractInvokeInstruction) instr;
             String sign = callInst.getDeclaredTarget().getSignature();
-            if (NULL_TEST_APIS.containsKey(sign)) {
-              derefValueNumber = callInst.getUse(NULL_TEST_APIS.get(sign));
+            if (((SSAAbstractInvokeInstruction) instr).isStatic()) {
+              // All supported Null testing APIs are static methods
+              if (NULL_TEST_APIS.containsKey(sign)) {
+                derefValueNumber = callInst.getUse(NULL_TEST_APIS.get(sign));
+              }
+            } else {
+              Preconditions.checkArgument(
+                  !NULL_TEST_APIS.containsKey(sign),
+                  "Add support for non-static NULL_TEST_APIS : " + sign);
+              derefValueNumber = ((SSAAbstractInvokeInstruction) instr).getReceiver();
             }
           }
           if (derefValueNumber >= firstParamIndex && derefValueNumber <= numParam) {
