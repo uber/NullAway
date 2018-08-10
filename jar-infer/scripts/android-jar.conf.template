@@ -12,4 +12,4 @@ jar-infer-path = %(nullaway-root)s/jar-infer/jar-infer-cli/build/libs/jar-infer-
 
 [android-model]
 wrk-dir = %(nullaway-root)s/jar-infer/android-jarinfer-models-sdk%(sdk-version)s
-astubx-path = resources/jarinfer.astubx
+astubx-path = src/main/resources/jarinfer.astubx
