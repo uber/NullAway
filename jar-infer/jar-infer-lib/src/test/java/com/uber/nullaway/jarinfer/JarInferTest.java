@@ -238,4 +238,37 @@ public class JarInferTest {
         "com.uber.nullaway.jarinfer.toys.unannotated",
         "./src/test/resources/com/uber/nullaway/jarinfer/testdata/test-java-lib-jarinfer.jar");
   }
+
+  @Test
+  public void toyNullTestAPI() {
+    testTemplate(
+        "toyNullTestAPI",
+        "toys",
+        "Foo",
+        new HashMap<String, Set<Integer>>() {
+          {
+            put("toys.Foo:void test(String, String, String)", Sets.newHashSet(1, 3));
+          }
+        },
+        "import com.google.common.base.Preconditions;",
+        "import java.util.Objects;",
+        "import org.junit.Assert;",
+        "class Foo {",
+        "  private String foo;",
+        "  public Foo(String str) {",
+        "    if (str == null) str = \"foo\";",
+        "    this.foo = str;",
+        "  }",
+        "  public void test(String s, String t, String u) {",
+        "    Preconditions.checkNotNull(s);",
+        "    Assert.assertNotNull(\"Param u is null!\", u);",
+        "    if (s.length() >= 5) {",
+        "      t = s;",
+        "    } else {",
+        "      t = u;",
+        "    }",
+        "    Objects.requireNonNull(t);",
+        "  }",
+        "}");
+  }
 }

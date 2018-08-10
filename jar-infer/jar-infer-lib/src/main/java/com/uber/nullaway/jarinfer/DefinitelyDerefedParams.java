@@ -15,6 +15,7 @@
  */
 package com.uber.nullaway.jarinfer;
 
+import com.google.common.collect.ImmutableMap;
 import com.ibm.wala.cfg.ControlFlowGraph;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.ipa.cfg.ExceptionPrunedCFG;
@@ -58,6 +59,24 @@ public class DefinitelyDerefedParams {
 
   // used to resolve references to fields in putstatic instructions
   private final IClassHierarchy cha;
+
+  /** List of null test APIs and the parameter position. */
+  private static final ImmutableMap<String, Integer> NULL_TEST_APIS =
+      new ImmutableMap.Builder<String, Integer>()
+          .put(
+              "com.google.common.base.Preconditions.checkNotNull(Ljava/lang/Object;)Ljava/lang/Object;",
+              0)
+          .put("java.util.Objects.requireNonNull(Ljava/lang/Object;)Ljava/lang/Object;", 0)
+          .put("org.junit.Assert.assertNotNull(Ljava/lang/Object;)V", 0)
+          .put("org.junit.Assert.assertNotNull(Ljava/lang/String;Ljava/lang/Object;)V", 1)
+          .put("org.junit.jupiter.api.Assertions.assertNotNull(Ljava/lang/Object;)V", 0)
+          .put(
+              "org.junit.jupiter.api.Assertions.assertNotNull(Ljava/lang/Object;Ljava/lang/String;)V",
+              1)
+          .put(
+              "org.junit.jupiter.api.Assertions.assertNotNull(Ljava/lang/Object;Ljava/util/function/Supplier<String>;)V",
+              1)
+          .build();
 
   /**
    * The constructor for the analysis class.
@@ -134,6 +153,13 @@ public class DefinitelyDerefedParams {
           } else if (instr instanceof SSAAbstractInvokeInstruction
               && !((SSAAbstractInvokeInstruction) instr).isStatic()) {
             derefValueNumber = ((SSAAbstractInvokeInstruction) instr).getReceiver();
+          } else if (instr instanceof SSAAbstractInvokeInstruction
+              && ((SSAAbstractInvokeInstruction) instr).isStatic()) {
+            SSAAbstractInvokeInstruction callInst = (SSAAbstractInvokeInstruction) instr;
+            String sign = callInst.getDeclaredTarget().getSignature();
+            if (NULL_TEST_APIS.containsKey(sign)) {
+              derefValueNumber = callInst.getUse(NULL_TEST_APIS.get(sign));
+            }
           }
           if (derefValueNumber >= firstParamIndex && derefValueNumber <= numParam) {
             LOG(DEBUG, "DEBUG", "\t\tderefed param : " + derefValueNumber);
