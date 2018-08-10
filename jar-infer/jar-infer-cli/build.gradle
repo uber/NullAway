@@ -2,7 +2,6 @@ plugins {
     id "net.ltgt.errorprone" version "0.0.13"
     id "com.github.johnrengelman.shadow" version "2.0.2"
     id "java"
-    id "application"
 }
 
 sourceCompatibility = "1.8"
@@ -36,23 +35,12 @@ jar {
 }
 
 shadowJar {
+    mergeServiceFiles()
+    configurations = [project.configurations.compile]
     classifier = null
 }
 shadowJar.dependsOn jar
 assemble.dependsOn shadowJar
-
-if (project.hasProperty('mainClass')) {
-    mainClassName = project.getProperty('mainClass')
-} else {
-    // use a default
-    mainClassName = "com.uber.nullaway.jarinfer.JarInfer"
-}
-
-run {
-    if(project.hasProperty('appArgs')){
-        args Eval.me(appArgs)
-    }
-}
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
 

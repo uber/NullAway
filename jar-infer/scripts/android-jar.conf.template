@@ -1,19 +1,15 @@
+[DEFAULT]
+nullaway-root = ${HOME}/NullAway
+sdk-version = 28
+nullaway-version = 0.5.3
+
 [android-paths]
-aosp-out-dir = /Volumes/AOSP9.0/out/target/common/obj/JAVA_LIBRARIES/framework_intermediates
-android-stubs-jar = ${HOME}/android-sdk/platforms/android-28/android.jar
+aosp-out-dir = /Volumes/AOSP/out/target/common/obj/JAVA_LIBRARIES/framework_intermediates
+android-stubs-jar = ${HOME}/android-sdk/platforms/android-%(sdk-version)s/android.jar
 
 [jar-infer-paths]
-jar-infer-path = ${HOME}/src/NullAway/jar-infer/jar-infer-cli/build/libs/jar-infer-cli-0.5.2-SNAPSHOT.jar
+jar-infer-path = %(nullaway-root)s/jar-infer/jar-infer-cli/build/libs/jar-infer-cli-%(nullaway-version)s.jar
 
 [android-model]
-wrk-dir = ${HOME}/src/NullAway/jar-infer/scripts/android-model
-android-model-jar = %(wrk-dir)s/android-jarinfer-model-0.5.2-SNAPSHOT.jar
-astubx-path = resources/jarinfer.astubx
-package-name = com.uber.nullaway.jarinfer
-class-name = AndroidJarInferModels
-dummy-code: package %(package-name)s;
-    public class %(class-name)s {
-        public %(class-name)s() {
-            System.out.println(\"This dummy class locates the Android RT JarInfer models.\");
-        }
-    }
+wrk-dir = %(nullaway-root)s/jar-infer/android-jarinfer-models-sdk%(sdk-version)s
+astubx-path = src/main/resources/jarinfer.astubx

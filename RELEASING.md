@@ -1,3 +1,17 @@
+(Recommended, but optional) Update JarInfer Android SDK Models
+==============================================================
+
+ 1. Get a copy of the AOSP `framework_intermediates` for the corresponding Android version.
+    1a. At Uber? http://t.uber.com/aosp_framework_intermediate
+    1b. Elsewhere? You can still build the corresponding AOSP version and look for
+        out/target/common/obj/JAVA_LIBRARIES/framework_intermediate/**
+ 2. (first time) `cp jar-infer/scripts/android-jar.conf.template jar-infer/scripts/android-jar.conf`
+ 3. Set the correct paths and versions in `android-jar.conf`
+ 4. `rm jar-infer/android-jarinfer-models-sdk28/src/main/resources/jarinfer.astubx` (for SDK 28)
+ 5. `python jar-infer/scripts/android-jar.conf.template jar-infer/scripts/android-jar.py`
+ 6. Continue to release instructions below
+
+
 Releasing
 =========
 
