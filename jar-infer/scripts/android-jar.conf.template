@@ -1,4 +1,4 @@
-[base-config]
+[DEFAULT]
 nullaway-root = ${HOME}/NullAway
 sdk-version = 28
 nullaway-version = 0.5.3

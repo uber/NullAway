@@ -15,12 +15,8 @@ config_parser.read(options.config)
 ajars_dir = config_parser.get('android-paths', 'aosp-out-dir')
 stubs_jar = config_parser.get('android-paths', 'android-stubs-jar')
 jarinfer = config_parser.get('jar-infer-paths', 'jar-infer-path')
-out_jar = config_parser.get('android-model', 'android-model-jar')
 wrk_dir = config_parser.get('android-model', 'wrk-dir')
 astubx_file = config_parser.get('android-model', 'astubx-path')
-package_name = config_parser.get('android-model', 'package-name')
-class_name = config_parser.get('android-model', 'class-name')
-dummy_code = config_parser.get('android-model', 'dummy-code')
 
 ### Finding android libraries ###
 print "> Finding android libraries..."
@@ -50,7 +46,8 @@ print "Found " + str(found) + " / " + str(len(ajar_classes)) + " in " + str(len(
 
 ### Running jarinfer ###
 print "> Running jarinfer on android jars..."
-cmd = "mkdir -p "+wrk_dir+" && java -jar " + jarinfer + " -i " + ",".join(list(jars_to_process)) + " -o " + wrk_dir + "/" + astubx_file
+cmd = "java -jar " + jarinfer + " -i " + ",".join(list(jars_to_process)) + " -o " + wrk_dir + "/" + astubx_file
 if options.verbose:
   cmd += " -dv"
+print cmd
 subprocess.call(cmd, shell=True)
