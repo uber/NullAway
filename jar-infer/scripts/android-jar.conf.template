@@ -11,5 +11,5 @@ android-stubs-jar = ${HOME}/android-sdk/platforms/android-%(sdk-version)s/androi
 jar-infer-path = %(nullaway-root)s/jar-infer/jar-infer-cli/build/libs/jar-infer-cli-%(nullaway-version)s.jar
 
 [android-model]
-wrk-dir = %(nullaway-root)s/jar-infer/android-jarinfer-models-%(sdk-version)s
+wrk-dir = %(nullaway-root)s/jar-infer/android-jarinfer-models-sdk%(sdk-version)s
 astubx-path = resources/jarinfer.astubx
