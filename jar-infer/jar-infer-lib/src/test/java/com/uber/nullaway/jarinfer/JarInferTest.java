@@ -19,6 +19,19 @@ package com.uber.nullaway.jarinfer;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
+import com.ibm.wala.classLoader.IMethod;
+import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
+import com.ibm.wala.ipa.callgraph.AnalysisScope;
+import com.ibm.wala.ipa.callgraph.IAnalysisCacheView;
+import com.ibm.wala.ipa.callgraph.impl.Everywhere;
+import com.ibm.wala.ipa.cha.ClassHierarchyFactory;
+import com.ibm.wala.ipa.cha.IClassHierarchy;
+import com.ibm.wala.ssa.IR;
+import com.ibm.wala.ssa.SSAOptions;
+import com.ibm.wala.ssa.analysis.ExplodedControlFlowGraph;
+import com.ibm.wala.types.ClassLoaderReference;
+import com.ibm.wala.types.MethodReference;
+import com.ibm.wala.util.config.AnalysisScopeReader;
 import com.sun.tools.javac.main.Main;
 import com.sun.tools.javac.main.Main.Result;
 import java.io.File;
@@ -82,6 +95,40 @@ public class JarInferTest {
             new HashMap<>(expected)));
   }
 
+  private void testDataFlowTemplate(
+      String testName,
+      String pkg, // in dot syntax
+      String cls,
+      String... lines)
+      throws Exception {
+    Result compileResult =
+        compilerUtil
+            .addSourceLines(cls + ".java", ObjectArrays.concat("package " + pkg + ";\n", lines))
+            .run();
+    Assert.assertEquals(
+        testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
+        Main.Result.OK,
+        compileResult);
+    AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
+    AnalysisScopeReader.addClassPathToScope(
+        temporaryFolder.getRoot().getAbsolutePath(), scope, ClassLoaderReference.Application);
+    IClassHierarchy cha = ClassHierarchyFactory.make(scope);
+    MethodReference ref =
+        MethodReference.findOrCreate(
+            ClassLoaderReference.Application,
+            "L" + pkg.replaceAll("\\.", "/") + "/" + cls,
+            "test",
+            "()V");
+    IMethod mtd = cha.resolveMethod(ref);
+    IAnalysisCacheView cache = new AnalysisCacheImpl();
+    IR ir = cache.getIRFactory().makeIR(mtd, Everywhere.EVERYWHERE, SSAOptions.defaultOptions());
+    ExplodedControlFlowGraph ecfg = ExplodedControlFlowGraph.make(ir);
+    IntraProcNullFlow nullFlows = new IntraProcNullFlow(ecfg, cha);
+    //        BitVectorSolver<IExplodedBasicBlock> solver = nullFlows.analyze();
+    nullFlows.analyze();
+    Assert.assertTrue(testName + ": test failed!", true);
+  }
+
   /**
    * Run a unit test with a specified jar file.
    *
@@ -134,7 +181,7 @@ public class JarInferTest {
         "toys",
         "Test",
         ImmutableMap.of(
-            "toys.Test:void test(String, Foo, Bar)", Sets.newHashSet(0, 2),
+            "toys.Test:void test(String, Foo, Bar)", Sets.newHashSet(0, 1, 2),
             "toys.Foo:boolean run(String)", Sets.newHashSet(1)),
         "class Foo {",
         "  private String foo;",
@@ -251,6 +298,69 @@ public class JarInferTest {
         "      t = u;",
         "    }",
         "    Objects.requireNonNull(t);",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void toyNullFlow() throws Exception {
+    testDataFlowTemplate(
+        "toyNullFlow",
+        "toys",
+        "Foo",
+        "class Foo {",
+        "  private static String foo;",
+        "  public Foo(String str) {",
+        "    if (str == null) str = \"foo\";",
+        "    this.foo = str;",
+        "  }",
+        "  public void test() {",
+        "    String str = \"try\";",
+        "    if (foo != null) {",
+        "      foo = null;",
+        "    }",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void toyNullUntestedDeref() throws Exception {
+    testTemplate(
+        "toyNullUntestedDeref",
+        "toys",
+        "Foo",
+        ImmutableMap.of("toys.Foo:String test(String, String)", Sets.newHashSet(2)),
+        "class Foo {",
+        "  private String foo;",
+        "  public String test(String s, String t) {",
+        "    if (s != null) {",
+        "      if (s.length() > 5)",
+        "        return s.substring(t.length());",
+        "      else ",
+        "        return t.substring(s.length());",
+        "    } else",
+        "      return null;",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void toyNullTestedThrow() throws Exception {
+    testTemplate(
+        "toyNullTestedThrow",
+        "toys",
+        "Foo",
+        ImmutableMap.of("toys.Foo:String test(String, String)", Sets.newHashSet(1, 2)),
+        "class Foo {",
+        "  private String foo;",
+        "  public String test(String s, String t) throws Exception{",
+        "    if (s != null) {",
+        "      if (s.length() > 5)",
+        "        return s.substring(t.length());",
+        "      else ",
+        "        return t.substring(s.length());",
+        "    } else",
+        "      throw new Exception(\"cannot handle null parameter 's'!\");",
         "  }",
         "}");
   }

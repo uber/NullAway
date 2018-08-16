@@ -18,13 +18,17 @@ package com.uber.nullaway.jarinfer;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.ibm.wala.cfg.ControlFlowGraph;
+import com.ibm.wala.cfg.Util;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.ipa.cfg.ExceptionPrunedCFG;
 import com.ibm.wala.ipa.cfg.PrunedCFG;
 import com.ibm.wala.ipa.cha.IClassHierarchy;
+import com.ibm.wala.shrikeBT.IConditionalBranchInstruction.Operator;
 import com.ibm.wala.ssa.IR;
 import com.ibm.wala.ssa.ISSABasicBlock;
 import com.ibm.wala.ssa.SSAAbstractInvokeInstruction;
+import com.ibm.wala.ssa.SSAAbstractThrowInstruction;
+import com.ibm.wala.ssa.SSAConditionalBranchInstruction;
 import com.ibm.wala.ssa.SSAGetInstruction;
 import com.ibm.wala.ssa.SSAInstruction;
 import com.ibm.wala.ssa.SSAPutInstruction;
@@ -46,6 +50,10 @@ import java.util.Set;
  */
 public class DefinitelyDerefedParams {
   private static final boolean DEBUG = false;
+
+  // Flags to enable different analysis reasoning
+  private static final boolean ENABLE_B2 = true;
+  private static final boolean ENABLE_B3 = true;
 
   private static void LOG(boolean cond, String tag, String msg) {
     if (cond) System.out.println("[JI " + tag + "] " + msg);
@@ -108,6 +116,8 @@ public class DefinitelyDerefedParams {
     // Get ExceptionPrunedCFG
     LOG(DEBUG, "DEBUG", "@ " + method.getSignature());
     Set<Integer> derefedParamList = new HashSet<Integer>();
+    Set<Integer> nullTestedThrowsList = new HashSet<Integer>();
+    Set<Integer> nullUntestedDerefsList = new HashSet<Integer>();
     prunedCFG = ExceptionPrunedCFG.make(cfg);
     // In case the only control flows are exceptional, simply return.
     if (prunedCFG.getNumberOfNodes() == 2
@@ -118,6 +128,7 @@ public class DefinitelyDerefedParams {
     }
     // Get Dominator Tree
     LOG(DEBUG, "DEBUG", "\tbuilding dominator tree...");
+    Graph<ISSABasicBlock> fullDomTree = Dominators.make(cfg, cfg.entry()).dominatorTree();
     Graph<ISSABasicBlock> domTree = Dominators.make(prunedCFG, prunedCFG.entry()).dominatorTree();
     // Get Post-dominator Tree
     Graph<ISSABasicBlock> pdomTree = GraphInverter.invert(domTree);
@@ -146,6 +157,7 @@ public class DefinitelyDerefedParams {
           if (instr == null) continue; // Some instructions are null (padding NoOps)
           LOG(DEBUG, "DEBUG", "\tinst: " + instr.toString());
           int derefValueNumber = -1;
+          // A1 Analysis: Definitely dereferenced parameters
           if (instr instanceof SSAGetInstruction && !((SSAGetInstruction) instr).isStatic()) {
             derefValueNumber = ((SSAGetInstruction) instr).getRef();
           } else if (instr instanceof SSAPutInstruction
@@ -167,18 +179,180 @@ public class DefinitelyDerefedParams {
             }
           }
           if (derefValueNumber >= firstParamIndex && derefValueNumber <= numParam) {
-            LOG(DEBUG, "DEBUG", "\t\tderefed param : " + derefValueNumber);
+            LOG(DEBUG, "DEBUG", "\t\tdefinitely derefed param : " + derefValueNumber);
             // Translate from WALA 1-indexed params, to 0-indexed
             derefedParamList.add(derefValueNumber - 1);
           }
+          // ==================================================
+          // B2 Analysis: Exception under parameter null test
+          if (ENABLE_B2) {
+            if (instr instanceof SSAConditionalBranchInstruction
+                && ((SSAConditionalBranchInstruction) instr).isObjectComparison()) {
+              SSAConditionalBranchInstruction cond = (SSAConditionalBranchInstruction) instr;
+              int paramValueNumber = -1;
+              if (cond.getNumberOfUses() == 2) {
+                if (ir.getSymbolTable().isNullConstant(cond.getUse(0)))
+                  paramValueNumber = cond.getUse(1);
+                else if (ir.getSymbolTable().isNullConstant(cond.getUse(1)))
+                  paramValueNumber = cond.getUse(0);
+              }
+              if (paramValueNumber >= firstParamIndex && paramValueNumber <= numParam) {
+                // Found parameter null check
+                LOG(
+                    DEBUG,
+                    "DEBUG",
+                    "\t\tnull testing param: " + paramValueNumber + "\t at: " + cond.toString());
+                ISSABasicBlock nullTestBB = cfg.getBlockForInstruction(i);
+                ISSABasicBlock nullTestedBodyEntry = null;
+                ISSABasicBlock nullTestedBodyExit = null;
+                ArrayList<SSAInstruction> throwInsts = new ArrayList<SSAInstruction>();
+                if (cond.getOperator() == Operator.EQ) {
+                  nullTestedBodyEntry = Util.getTakenSuccessor(cfg, nullTestBB);
+                } else if (cond.getOperator() == Operator.NE) {
+                  nullTestedBodyEntry = Util.getNotTakenSuccessor(cfg, nullTestBB);
+                }
+                // Find X s.t, cond dom X, nullTestedBodyEntry dom pre(X)
+                for (ISSABasicBlock idom :
+                    Iterator2Iterable.make(fullDomTree.getSuccNodes(nullTestBB))) {
+                  if (cfg.hasEdge(nullTestBB, idom)) continue;
+                  ArrayList<ISSABasicBlock> domTraverseQueue = new ArrayList<ISSABasicBlock>();
+                  domTraverseQueue.add(nullTestedBodyEntry);
+                  while (!domTraverseQueue.isEmpty()) {
+                    ISSABasicBlock bb = domTraverseQueue.get(0);
+                    domTraverseQueue.remove(bb);
+                    for (int in = bb.getFirstInstructionIndex();
+                        in <= bb.getLastInstructionIndex();
+                        in++) {
+                      SSAInstruction inst = ir.getInstructions()[in];
+                      if (inst == null) continue;
+                      if (inst instanceof SSAAbstractThrowInstruction) throwInsts.add(inst);
+                    }
+                    for (ISSABasicBlock succ : Iterator2Iterable.make(cfg.getSuccNodes(bb))) {
+                      if (succ == idom) nullTestedBodyExit = bb;
+                    }
+                    for (ISSABasicBlock domsucc :
+                        Iterator2Iterable.make(fullDomTree.getSuccNodes(bb))) {
+                      domTraverseQueue.add(domsucc);
+                    }
+                  }
+                  break;
+                }
+                for (SSAInstruction throwInst : throwInsts) {
+                  ISSABasicBlock throwBB = cfg.getBlockForInstruction(throwInst.iindex);
+                  if (hasPath(fullDomTree, throwBB, nullTestedBodyExit)) {
+                    LOG(
+                        DEBUG,
+                        "DEBUG",
+                        "\t\tthrown under null checked param: "
+                            + paramValueNumber
+                            + "\t at: "
+                            + throwInst.toString());
+                    // Translate from WALA 1-indexed params, to 0-indexed
+                    nullTestedThrowsList.add(paramValueNumber - 1);
+                  }
+                }
+              }
+            }
+          }
+          // ==================================================
         }
       }
       for (ISSABasicBlock succ : Iterator2Iterable.make(pdomTree.getSuccNodes(node))) {
         nodeQueue.add(succ);
       }
     }
+    // ==================================================
+    // B3 Analysis: Parameter dereference without null test
+    if (ENABLE_B3) {
+      for (ISSABasicBlock bb : Iterator2Iterable.make(cfg.iterator())) {
+        if (!bb.isEntryBlock() && !bb.isExitBlock()) {
+          for (int i = bb.getFirstInstructionIndex(); i <= bb.getLastInstructionIndex(); i++) {
+            int derefValueNumber = -1;
+            SSAInstruction instr = ir.getInstructions()[i];
+            if (instr == null) continue;
+            if (instr instanceof SSAGetInstruction && !((SSAGetInstruction) instr).isStatic()) {
+              derefValueNumber = ((SSAGetInstruction) instr).getRef();
+            } else if (instr instanceof SSAPutInstruction
+                && !((SSAPutInstruction) instr).isStatic()) {
+              derefValueNumber = ((SSAPutInstruction) instr).getRef();
+            } else if (instr instanceof SSAAbstractInvokeInstruction
+                && !((SSAAbstractInvokeInstruction) instr).isStatic()) {
+              derefValueNumber = ((SSAAbstractInvokeInstruction) instr).getReceiver();
+            }
+            if (derefValueNumber >= firstParamIndex && derefValueNumber <= numParam) {
+              SSAInstruction guardInst = null;
+              ArrayList<ISSABasicBlock> pdomTraverseQueue = new ArrayList<ISSABasicBlock>();
+              pdomTraverseQueue.add(bb);
+              while (!pdomTraverseQueue.isEmpty()) {
+                ISSABasicBlock pbb = pdomTraverseQueue.get(0);
+                pdomTraverseQueue.remove(pbb);
+                for (int in = pbb.getFirstInstructionIndex();
+                    in <= pbb.getLastInstructionIndex();
+                    in++) {
+                  SSAInstruction inst = ir.getInstructions()[in];
+                  if (inst == null) continue;
+                  if (inst instanceof SSAConditionalBranchInstruction
+                      && ((SSAConditionalBranchInstruction) inst).isObjectComparison()) {
+                    SSAConditionalBranchInstruction cond = (SSAConditionalBranchInstruction) inst;
+                    if (cond.getNumberOfUses() == 2) {
+                      int paramValueNumber = -1;
+                      if (ir.getSymbolTable().isNullConstant(cond.getUse(0)))
+                        paramValueNumber = cond.getUse(1);
+                      else if (ir.getSymbolTable().isNullConstant(cond.getUse(1)))
+                        paramValueNumber = cond.getUse(0);
+                      if (paramValueNumber == derefValueNumber) {
+                        guardInst = inst;
+                        break;
+                      }
+                    }
+                  }
+                }
+                for (ISSABasicBlock pdomsucc : Iterator2Iterable.make(pdomTree.getSuccNodes(pbb))) {
+                  pdomTraverseQueue.add(pdomsucc);
+                }
+              }
+              if (guardInst == null) {
+                LOG(
+                    DEBUG,
+                    "DEBUG",
+                    "\t\tderefed w/o null check param: "
+                        + derefValueNumber
+                        + "\t at: "
+                        + instr.toString());
+                // Translate from WALA 1-indexed params, to 0-indexed
+                nullUntestedDerefsList.add(derefValueNumber - 1);
+              }
+            }
+          }
+        }
+      }
+    }
+    // ==================================================
     LOG(DEBUG, "DEBUG", "\tdone...");
-    return derefedParamList;
+    Set<Integer> nonnullParams = new HashSet<Integer>();
+    nonnullParams.addAll(derefedParamList);
+    nonnullParams.addAll(nullTestedThrowsList);
+    nonnullParams.addAll(nullUntestedDerefsList);
+    LOG(
+        DEBUG,
+        "DEBUG",
+        "> method: "
+            + method.getSignature()
+            + "\n @Nonnull Parameters: "
+            + nonnullParams.toString());
+    return nonnullParams;
+  }
+
+  private static boolean hasPath(Graph<ISSABasicBlock> G, ISSABasicBlock S, ISSABasicBlock D) {
+    ArrayList<ISSABasicBlock> queue = new ArrayList<ISSABasicBlock>();
+    queue.add(S);
+    while (!queue.isEmpty()) {
+      ISSABasicBlock bb = queue.get(0);
+      queue.remove(bb);
+      if (bb == D) return true;
+      for (ISSABasicBlock succ : Iterator2Iterable.make(G.getSuccNodes(bb))) queue.add(succ);
+    }
+    return false;
   }
 
   public enum NullnessHint {
@@ -209,6 +383,7 @@ public class DefinitelyDerefedParams {
         && GraphUtil.countEdges(prunedCFG) == 0) {
       return NullnessHint.UNKNOWN;
     }
+    // A2 Analysis: Nullable return
     for (ISSABasicBlock bb : prunedCFG.getNormalPredecessors(prunedCFG.exit())) {
       for (int i = bb.getFirstInstructionIndex(); i <= bb.getLastInstructionIndex(); i++) {
         SSAInstruction instr = ir.getInstructions()[i];
