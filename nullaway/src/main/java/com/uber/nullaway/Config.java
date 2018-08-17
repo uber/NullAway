@@ -114,4 +114,10 @@ public interface Config {
    */
   @Nullable
   String getCastToNonNullMethod();
+
+  /**
+   * @return the comment to add to @SuppressWarnings annotations inserted into fix suggestions
+   *     and/or auto-fix runs.
+   */
+  String getAutofixSuppressionComment();
 }

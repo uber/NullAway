@@ -111,4 +111,9 @@ public class DummyOptionsConfig implements Config {
   public String getCastToNonNullMethod() {
     throw new IllegalStateException(error_msg);
   }
+
+  @Override
+  public String getAutofixSuppressionComment() {
+    throw new IllegalStateException(error_msg);
+  }
 }

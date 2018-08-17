@@ -84,6 +84,8 @@ public abstract class AbstractConfig implements Config {
 
   @Nullable protected String castToNonNullMethod;
 
+  protected String autofixSuppressionComment;
+
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
     // noinspection ConstantConditions
     String choiceRegexp =
@@ -172,6 +174,11 @@ public abstract class AbstractConfig implements Config {
   @Nullable
   public String getCastToNonNullMethod() {
     return castToNonNullMethod;
+  }
+
+  @Override
+  public String getAutofixSuppressionComment() {
+    return autofixSuppressionComment;
   }
 
   @Override

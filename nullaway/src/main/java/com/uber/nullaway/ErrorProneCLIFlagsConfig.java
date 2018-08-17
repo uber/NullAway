@@ -52,6 +52,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_UNANNOTATED_CLASSES = EP_FL_NAMESPACE + ":UnannotatedClasses";
   static final String FL_ACKNOWLEDGE_RESTRICTIVE =
       EP_FL_NAMESPACE + ":AcknowledgeRestrictiveAnnotations";
+  static final String FL_SUPPRESS_COMMENT = EP_FL_NAMESPACE + ":AutoFixSuppressionComment";
   private static final String DELIMITER = ",";
 
   static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS =
@@ -102,6 +103,11 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
         getPackagePattern(
             getFlagStringSet(flags, FL_EXCLUDED_FIELD_ANNOT, DEFAULT_EXCLUDED_FIELD_ANNOT));
     castToNonNullMethod = flags.get(FL_CTNN_METHOD).orElse(null);
+    autofixSuppressionComment = flags.get(FL_SUPPRESS_COMMENT).orElse("");
+    if (autofixSuppressionComment.contains("\n")) {
+      throw new IllegalStateException(
+          "Invalid -XepOpt" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
+    }
   }
 
   private static ImmutableSet<String> getFlagStringSet(ErrorProneFlags flags, String flagName) {
