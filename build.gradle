@@ -15,7 +15,7 @@
  */
 
 plugins {
-  id "com.github.sherter.google-java-format" version "0.6"
+  id "com.github.sherter.google-java-format" version "0.7.1"
 }
 
 repositories {
