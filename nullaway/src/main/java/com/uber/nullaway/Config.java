@@ -120,4 +120,16 @@ public interface Config {
    *     and/or auto-fix runs.
    */
   String getAutofixSuppressionComment();
+
+  /**
+   * --- JarInfer configs ---
+   *
+   * @return true if NullAway should use the @Nullable return value annotations inferred by
+   *     JarInfer.
+   */
+  boolean isJarInferUseReturnAnnotations();
+  /** @return the regex to extract jar name from the JarInfer model jar's path. */
+  String getJarInferRegexStripModelJarName();
+  /** @return the regex to extract jar name from the classfile jar's path. */
+  String getJarInferRegexStripCodeJarName();
 }

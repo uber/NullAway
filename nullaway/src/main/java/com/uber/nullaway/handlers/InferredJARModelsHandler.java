@@ -28,6 +28,7 @@ import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -44,7 +45,6 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeKind;
-import org.apache.commons.io.FilenameUtils;
 
 /** This handler loads inferred nullability model from stubs for methods in unannotated packages. */
 public class InferredJARModelsHandler extends BaseNoOpHandler {
@@ -67,8 +67,11 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   private static Map<String, Set<String>> mapModelJarLocations;
   private static Set<String> loadedJars;
 
-  public InferredJARModelsHandler() {
+  private final Config config;
+
+  public InferredJARModelsHandler(Config config) {
     super();
+    this.config = config;
     argAnnotCache = new LinkedHashMap<>();
     mapModelJarLocations = new LinkedHashMap<>();
     loadedJars = new LinkedHashSet<>();
@@ -99,22 +102,20 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
    */
   private void processClassPath(String[] args) {
     Set<String> paths = new LinkedHashSet<>();
+    String env_cp = System.getenv("CLASSPATH");
+    if (env_cp != null) {
+      paths.addAll(Arrays.asList(env_cp.split(":")));
+    }
     for (int i = 0; i < args.length; ++i)
-      if (args[i].equals("-classpath") || args[i].equals("-processorpath"))
+      if (args[i].equals("-cp") || args[i].equals("-classpath") || args[i].equals("-processorpath"))
         paths.addAll(Arrays.asList(args[++i].split(":")));
     for (String path : paths) {
-      String[] parts = path.split("/");
-      if (parts.length >= 2) {
-        String name = parts[parts.length - 2].replaceFirst("^__", "");
-        if (name.startsWith("jarinfer_model_")) {
-          name = name.replaceAll("(^jarinfer_model_|\\.[ja]ar(__|#class-abi)$)", "");
-          LOG(DEBUG, "DEBUG", "jar name: " + name + "\tmodel jar location: " + path);
-          if (!mapModelJarLocations.containsKey(name))
-            mapModelJarLocations.put(name, new LinkedHashSet<>());
-          mapModelJarLocations.get(name).add(path);
-        }
-      } else {
-        LOG(VERBOSE, "Warn", "Unexpected URL format in ClassPath: " + path);
+      if (path.matches(config.getJarInferRegexStripModelJarName())) {
+        String name = path.replaceAll(config.getJarInferRegexStripModelJarName(), "$1");
+        LOG(DEBUG, "DEBUG", "model jar name: " + name + "\tjar path: " + path);
+        if (!mapModelJarLocations.containsKey(name))
+          mapModelJarLocations.put(name, new LinkedHashSet<>());
+        mapModelJarLocations.get(name).add(path);
       }
     }
   }
@@ -126,8 +127,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
       ImmutableSet<Integer> nonNullPositions) {
-    if (mapModelJarLocations.isEmpty())
+    if (mapModelJarLocations.isEmpty()) {
       processClassPath(state.errorProneOptions().getRemainingArgs());
+    }
     Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
     String className = classSymbol.getQualifiedName().toString();
     if (methodSymbol.getModifiers().contains(Modifier.ABSTRACT)) {
@@ -173,24 +175,19 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         LOG(DEBUG, "DEBUG", "Found source of class: " + className + ", jar: " + jarPath);
         // Avoid reloading for classes w/o any stubs from already loaded jars.
         if (!loadedJars.contains(jarPath)) {
-          String jarName = FilenameUtils.getBaseName(jarPath).replaceFirst("\\.[ja]ar-abi$", "");
+          loadedJars.add(jarPath);
+          String jarName = jarPath.replaceAll(config.getJarInferRegexStripCodeJarName(), "$1");
+          LOG(DEBUG, "DEBUG", "code jar name: " + jarName + "\tjar path: " + jarPath);
           // Lookup model jar locations for jar name
-          Set<String> modelJarPaths = new LinkedHashSet<>();
-          if (jarName.equals("test-java-lib-jarinfer")) {
-            // Hack for NullAwayTest.java:jarinferLoadStubsTest()
-            modelJarPaths.add(jarPath);
-          } else if (mapModelJarLocations.containsKey(jarName)) {
-            modelJarPaths.addAll(mapModelJarLocations.get(jarName));
-          } else {
+          if (!mapModelJarLocations.containsKey(jarName)) {
             LOG(
                 VERBOSE,
                 "Warn",
                 "Cannot find model jar for class: " + className + ", jar: " + jarName);
             return false;
           }
-          loadedJars.add(jarPath);
           // Load model jars
-          for (String modelJarPath : modelJarPaths) {
+          for (String modelJarPath : mapModelJarLocations.get(jarName)) {
             JarFile jar = new JarFile(modelJarPath);
             if (jar == null) {
               throw new Error("Cannot open jar: " + modelJarPath);

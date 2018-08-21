@@ -116,4 +116,20 @@ public class DummyOptionsConfig implements Config {
   public String getAutofixSuppressionComment() {
     throw new IllegalStateException(error_msg);
   }
+
+  /** --- JarInfer configs --- */
+  @Override
+  public boolean isJarInferUseReturnAnnotations() {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
+  public String getJarInferRegexStripModelJarName() {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
+  public String getJarInferRegexStripCodeJarName() {
+    throw new IllegalStateException(error_msg);
+  }
 }

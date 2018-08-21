@@ -86,6 +86,12 @@ public abstract class AbstractConfig implements Config {
 
   protected String autofixSuppressionComment;
 
+  /** --- JarInfer configs --- */
+  protected boolean jarInferUseReturnAnnotations;
+
+  protected String jarInferRegexStripModelJarName;
+  protected String jarInferRegexStripCodeJarName;
+
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
     // noinspection ConstantConditions
     String choiceRegexp =
@@ -207,5 +213,21 @@ public abstract class AbstractConfig implements Config {
     abstract String enclosingClass();
 
     abstract String methodName();
+  }
+
+  /** --- JarInfer configs --- */
+  @Override
+  public boolean isJarInferUseReturnAnnotations() {
+    return jarInferUseReturnAnnotations;
+  }
+
+  @Override
+  public String getJarInferRegexStripModelJarName() {
+    return jarInferRegexStripModelJarName;
+  }
+
+  @Override
+  public String getJarInferRegexStripCodeJarName() {
+    return jarInferRegexStripCodeJarName;
   }
 }
