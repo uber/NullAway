@@ -50,13 +50,11 @@ android {
 }
 
 dependencies {
-    compile deps.support.appcompat
-
-    testCompile deps.test.junit4
-
+    implementation deps.support.appcompat
     annotationProcessor project(path: ":nullaway", configuration: "shadow")
-
     annotationProcessor project(path: ":sample-library-model")
+
+    testImplementation deps.test.junit4
 
     errorprone "com.google.errorprone:error_prone_core:2.1.3"
 }
