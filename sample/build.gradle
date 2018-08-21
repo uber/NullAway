@@ -16,7 +16,6 @@
 
 plugins {
   id "net.ltgt.apt" version "0.13"
-  id "net.ltgt.errorprone" version "0.0.13"
   id "java"
 }
 
@@ -26,8 +25,6 @@ targetCompatibility = "1.8"
 dependencies {
     apt project(path: ":nullaway", configuration: "shadow")
     apt project(path: ":sample-library-model")
-
-    errorprone deps.build.errorProneCore
 
     compileOnly deps.build.jsr305Annotations
     testCompile deps.test.junit4

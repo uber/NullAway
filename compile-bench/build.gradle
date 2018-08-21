@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 plugins {
-  id "net.ltgt.errorprone" version "0.0.13"
   id "java"
   id "application"
 }
@@ -29,8 +28,6 @@ configurations.maybeCreate("epJavac")
 dependencies {
     compile deps.build.errorProneCore
     compile project(path: ":nullaway", configuration: "shadow")
-
-    errorprone deps.build.errorProneCore
 
     epJavac deps.build.errorProneCore
 

@@ -1,5 +1,4 @@
 plugins {
-    id "net.ltgt.errorprone" version "0.0.13"
     id "java"
 }
 // we use this config to get the path of the JDK 9 javac jar, to
@@ -19,8 +18,6 @@ dependencies {
     compile deps.build.guava
     compile deps.build.commonsIO
     compileOnly deps.build.errorProneCheckApi
-
-    errorprone deps.build.errorProneCore
 
     testCompile deps.test.junit4
     testCompile(deps.build.errorProneTestHelpers) {

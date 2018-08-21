@@ -15,7 +15,6 @@
  */
 
 plugins {
-  id "net.ltgt.errorprone" version "0.0.13"
   id "java"
 }
 
@@ -27,7 +26,6 @@ dependencies {
     compileOnly project(path: ":nullaway", configuration: "shadow")
     compileOnly deps.build.guava
 
-    errorprone deps.build.errorProneCore
 }
 
 tasks.withType(JavaCompile) {

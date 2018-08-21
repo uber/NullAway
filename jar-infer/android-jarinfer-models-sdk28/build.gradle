@@ -1,5 +1,4 @@
 plugins {
-    id "net.ltgt.errorprone" version "0.0.13"
     id "java"
 }
 
@@ -10,7 +9,6 @@ repositories {
 }
 
 dependencies {
-    errorprone deps.build.errorProneCore
 }
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")

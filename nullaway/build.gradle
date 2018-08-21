@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 plugins {
-  id "net.ltgt.errorprone" version "0.0.13"
   id "com.github.johnrengelman.shadow" version "2.0.2"
   id "java"
 }
@@ -42,8 +41,6 @@ dependencies {
     compileOnly deps.build.errorProneCheckApi
     compile deps.build.checkerDataflow
     shadow deps.build.guava
-
-    errorprone deps.build.errorProneCore
 
     testCompile deps.test.junit4
     testCompile(deps.build.errorProneTestHelpers) {
