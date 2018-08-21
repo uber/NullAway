@@ -171,49 +171,42 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    if (!config.isJarInferUseReturnAnnotations()) return NullnessHint.UNKNOWN;
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-    Preconditions.checkNotNull(methodSymbol);
-    Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
-    String className = classSymbol.getQualifiedName().toString();
-    if (!lookupAndBuildCache(classSymbol)) return NullnessHint.UNKNOWN;
-    String methodSign = getMethodSignature(methodSymbol);
-    Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
-    if (methodArgAnnotations == null) return NullnessHint.UNKNOWN;
-    Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
-    if (methodAnnotations != null) {
-      if (methodAnnotations.contains("javax.annotation.Nullable")) {
-        LOG(DEBUG, "DEBUG", "Nullable return for method: " + methodSign);
-        return NullnessHint.HINT_NULLABLE;
-      }
+    if (isReturnAnnotatedNullable(ASTHelpers.getSymbol(node.getTree()))) {
+      return NullnessHint.HINT_NULLABLE;
     }
     return NullnessHint.UNKNOWN;
   }
 
-  private static final boolean NULLABLE = true;
-
   @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
-    if (!config.isJarInferUseReturnAnnotations()) return exprMayBeNull;
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
-      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) expr);
+      return exprMayBeNull
+          || isReturnAnnotatedNullable(ASTHelpers.getSymbol((MethodInvocationTree) expr));
+    }
+    return exprMayBeNull;
+  }
+
+  private boolean isReturnAnnotatedNullable(Symbol.MethodSymbol methodSymbol) {
+    if (config.isJarInferUseReturnAnnotations()) {
       Preconditions.checkNotNull(methodSymbol);
       Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
       String className = classSymbol.getQualifiedName().toString();
-      if (!lookupAndBuildCache(classSymbol)) return exprMayBeNull;
-      String methodSign = getMethodSignature(methodSymbol);
-      Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
-      if (methodArgAnnotations == null) return exprMayBeNull;
-      Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
-      if (methodAnnotations != null) {
-        if (methodAnnotations.contains("javax.annotation.Nullable")) {
-          LOG(DEBUG, "DEBUG", "Nullable return for method: " + methodSign);
-          return NULLABLE;
+      if (lookupAndBuildCache(classSymbol)) {
+        String methodSign = getMethodSignature(methodSymbol);
+        Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
+        if (methodArgAnnotations != null) {
+          Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
+          if (methodAnnotations != null) {
+            if (methodAnnotations.contains("javax.annotation.Nullable")) {
+              LOG(DEBUG, "DEBUG", "Nullable return for method: " + methodSign);
+              return true;
+            }
+          }
         }
       }
     }
-    return exprMayBeNull;
+    return false;
   }
 
   private boolean lookupAndBuildCache(Symbol.ClassSymbol klass) {
