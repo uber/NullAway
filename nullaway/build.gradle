@@ -60,6 +60,13 @@ dependencies {
     epJavac deps.build.checkerDataflow
 }
 
+// NullAway ends up enabled by default for tests in this project; disable it
+tasks.withType(JavaCompile) {
+  if (name.toLowerCase().contains("test")) {
+    options.compilerArgs += ["-Xep:NullAway:OFF"]
+  }
+} 
+
 // We include and shade the checker framework jars into the NullAway jar, as we may have custom
 // changes.
 shadowJar {

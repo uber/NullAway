@@ -33,7 +33,14 @@ subprojects { project ->
                 errorprone deps.build.errorProneCore
             }
             project.tasks.withType(JavaCompile) {
-                options.compilerArgs += ["-Xlint:unchecked", "-Xlint:rawtypes", "-Werror", "-Xep:StringSplitter:OFF"]
+                options.compilerArgs += [
+                    "-Xlint:unchecked",
+                    "-Xlint:rawtypes",
+                    "-Werror",
+                    // this check is too noisy
+                    "-Xep:StringSplitter:OFF",
+                    "-Xep:WildcardImport:ERROR"
+                ]
             }
         }
     }

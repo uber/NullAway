@@ -16,14 +16,15 @@
 
 package com.uber.nullaway.jarinfer;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
 import com.sun.tools.javac.main.Main;
 import com.sun.tools.javac.main.Main.Result;
 import java.io.File;
-import java.nio.file.*;
-import java.util.*;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.Set;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -60,8 +61,9 @@ public class JarInferTest {
       String testName,
       String pkg, // in dot syntax
       String cls,
-      HashMap<String, Set<Integer>> expected,
-      String... lines) {
+      Map<String, Set<Integer>> expected,
+      String... lines)
+      throws Exception {
     Result compileResult =
         compilerUtil
             .addSourceLines(cls + ".java", ObjectArrays.concat("package " + pkg + ";\n", lines))
@@ -70,17 +72,13 @@ public class JarInferTest {
         testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
         Main.Result.OK,
         compileResult);
-    try {
-      DefinitelyDerefedParamsDriver.reset();
-      Assert.assertTrue(
-          testName + ": test failed!",
-          verify(
-              DefinitelyDerefedParamsDriver.run(
-                  temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/")),
-              expected));
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+    DefinitelyDerefedParamsDriver.reset();
+    Assert.assertTrue(
+        testName + ": test failed!",
+        verify(
+            DefinitelyDerefedParamsDriver.run(
+                temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/")),
+            expected));
   }
 
   /**
@@ -94,15 +92,11 @@ public class JarInferTest {
       String testName,
       String pkg, // in dot syntax
       String jarPath // in dot syntax
-      ) {
-    try {
-      DefinitelyDerefedParamsDriver.reset();
-      DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
-      String outJARPath = DefinitelyDerefedParamsDriver.lastOutPath;
-      Assert.assertTrue("jar file not found! - " + outJARPath, new File(outJARPath).exists());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
+      ) throws Exception {
+    DefinitelyDerefedParamsDriver.reset();
+    DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
+    String outJARPath = DefinitelyDerefedParamsDriver.lastOutPath;
+    Assert.assertTrue("jar file not found! - " + outJARPath, new File(outJARPath).exists());
   }
 
   /**
@@ -111,8 +105,7 @@ public class JarInferTest {
    * @param result Map of 'method signatures' to their 'inferred list of NonNull parameters'.
    * @param expected Map of 'method signatures' to their 'expected list of NonNull parameters'.
    */
-  private boolean verify(
-      HashMap<String, Set<Integer>> result, HashMap<String, Set<Integer>> expected) {
+  private boolean verify(Map<String, Set<Integer>> result, Map<String, Set<Integer>> expected) {
     for (Map.Entry<String, Set<Integer>> entry : result.entrySet()) {
       String mtd_sign = entry.getKey();
       Set<Integer> ddParams = entry.getValue();
@@ -134,17 +127,14 @@ public class JarInferTest {
   }
 
   @Test
-  public void toyStatic() {
+  public void toyStatic() throws Exception {
     testTemplate(
         "toyStatic",
         "toys",
         "Test",
-        new HashMap<String, Set<Integer>>() {
-          {
-            put("toys.Test:void test(String, Foo, Bar)", Sets.newHashSet(0, 2));
-            put("toys.Foo:boolean run(String)", Sets.newHashSet(1));
-          }
-        },
+        ImmutableMap.of(
+            "toys.Test:void test(String, Foo, Bar)", Sets.newHashSet(0, 2),
+            "toys.Foo:boolean run(String)", Sets.newHashSet(1)),
         "class Foo {",
         "  private String foo;",
         "  public Foo(String str) {",
@@ -199,16 +189,12 @@ public class JarInferTest {
   }
 
   @Test
-  public void toyNonStatic() {
+  public void toyNonStatic() throws Exception {
     testTemplate(
         "toyNonStatic",
         "toys",
         "Foo",
-        new HashMap<String, Set<Integer>>() {
-          {
-            put("toys.Foo:void test(String, String)", Sets.newHashSet(1));
-          }
-        },
+        ImmutableMap.of("toys.Foo:void test(String, String)", Sets.newHashSet(1)),
         "class Foo {",
         "  private String foo;",
         "  public Foo(String str) {",
@@ -232,7 +218,7 @@ public class JarInferTest {
   }
 
   @Test
-  public void toyJAR() {
+  public void toyJAR() throws Exception {
     testJARTemplate(
         "toyJAR",
         "com.uber.nullaway.jarinfer.toys.unannotated",
@@ -240,16 +226,12 @@ public class JarInferTest {
   }
 
   @Test
-  public void toyNullTestAPI() {
+  public void toyNullTestAPI() throws Exception {
     testTemplate(
         "toyNullTestAPI",
         "toys",
         "Foo",
-        new HashMap<String, Set<Integer>>() {
-          {
-            put("toys.Foo:void test(String, String, String)", Sets.newHashSet(1, 3));
-          }
-        },
+        ImmutableMap.of("toys.Foo:void test(String, String, String)", Sets.newHashSet(1, 3)),
         "import com.google.common.base.Preconditions;",
         "import java.util.Objects;",
         "import org.junit.Assert;",
