@@ -18,7 +18,7 @@ def versions = [
     checkerFramework       : "2.5.0",
     checkerFrameworkNAFork : "2.5.0",
     errorProne             : "2.1.1",
-    support                : "27.0.2",
+    support                : "27.1.1",
     wala                   : "1.5.0-uber.1",
     commonscli             : "1.4",
 ]
@@ -35,7 +35,7 @@ def build = [
     errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProne}",
     checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFrameworkNAFork}",
                                "org.checkerframework:javacutil:${versions.checkerFrameworkNAFork}"],
-    gradleErrorPronePlugin  : "net.ltgt.gradle:gradle-errorprone-plugin:0.0.8",
+    gradleErrorPronePlugin  : "net.ltgt.gradle:gradle-errorprone-plugin:0.0.16",
     guava                   : "com.google.guava:guava:22.0",
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
@@ -46,14 +46,14 @@ def build = [
     commonscli              : "commons-cli:commons-cli:${versions.commonscli}",
 
     // android stuff
-    buildToolsVersion: "27.0.2",
-    compileSdkVersion: 27,
+    buildToolsVersion: "28.0.2",
+    compileSdkVersion: 28,
     ci: "true" == System.getenv("CI"),
     minSdkVersion: 16,
-    targetSdkVersion: 27,
+    targetSdkVersion: 28,
 
     gradlePlugins: [
-        android: "com.android.tools.build:gradle:3.0.1",
+        android: "com.android.tools.build:gradle:3.1.3",
     ]
 
 ]

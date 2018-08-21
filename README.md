@@ -27,12 +27,11 @@ buildscript {
 
 plugins {
   // we assume you are already using the Java plugin
-  id "net.ltgt.apt" version "0.13"
-  id "net.ltgt.errorprone" version "0.0.13"
+  id "net.ltgt.errorprone" version "0.0.16"
 }
 
 dependencies {
-  apt "com.uber.nullaway:nullaway:0.5.3"
+  annotationProcessor "com.uber.nullaway:nullaway:0.5.3"
 
   // Optional, some source of nullability annotations.
   // Not required on Android if you use the support 
@@ -50,7 +49,7 @@ tasks.withType(JavaCompile) {
 }
 ```
 
-Let's walk through this script step by step.  The `buildscript` section of the script adds the Maven repository for Gradle plugins.  The `plugins` section pulls in the [Gradle Error Prone plugin](https://github.com/tbroyer/gradle-errorprone-plugin) for Error Prone integration, and the [Gradle APT plugin](https://github.com/tbroyer/gradle-apt-plugin) to ease specification of annotation processor dependencies for a build.  We need the latter since Error Prone loads plugin checkers from the annotation processor path.  If you are using the older `apply plugin` syntax instead of a `plugins` block, the following is equivalent:
+Let's walk through this script step by step.  The `buildscript` section of the script adds the Maven repository for Gradle plugins.  The `plugins` section pulls in the [Gradle Error Prone plugin](https://github.com/tbroyer/gradle-errorprone-plugin) for Error Prone integration. If you are using the older `apply plugin` syntax instead of a `plugins` block, the following is equivalent:
 ```gradle
 buildscript {
   repositories {
@@ -59,16 +58,14 @@ buildscript {
     }
   }
   dependencies {
-    classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.13"
-    classpath "net.ltgt.gradle:gradle-apt-plugin:0.13"
+    classpath "net.ltgt.gradle:gradle-errorprone-plugin:0.0.16"
   }
 }
 
 apply plugin: 'net.ltgt.errorprone'
-apply plugin: 'net.ltgt.apt'
 ```
 
-In `dependencies`, the `apt` line loads NullAway, and the `compileOnly` line loads a [JSR 305](https://jcp.org/en/jsr/detail?id=305) library which provides a suitable `@Nullable` annotation (`javax.annotation.Nullable`).  NullAway allows for any `@Nullable` annotation to be used, so, e.g., `@Nullable` from the Android Support Library or JetBrains annotations is also fine. The `errorprone` line ensures that a compatible version of Error Prone is used.
+In `dependencies`, the `annotationProcessor` line loads NullAway, and the `compileOnly` line loads a [JSR 305](https://jcp.org/en/jsr/detail?id=305) library which provides a suitable `@Nullable` annotation (`javax.annotation.Nullable`).  NullAway allows for any `@Nullable` annotation to be used, so, e.g., `@Nullable` from the Android Support Library or JetBrains annotations is also fine. The `errorprone` line ensures that a compatible version of Error Prone is used.
 
 Finally, in the `tasks.withType(JavaCompile)` section, we pass some configuration options to NullAway as compiler arguments.  The first argument `-Xep:NullAway:ERROR` is a standard Error Prone argument that sets NullAway issues to the error level; by default NullAway emits warnings.  The second argument, `-XepOpt:NullAway:AnnotatedPackages=com.uber`, tells NullAway that source code in packages under the `com.uber` namespace should be checked for null dereferences and proper usage of `@Nullable` annotations, and that class files in these packages should be assumed to have correct usage of `@Nullable` (see [the docs](https://github.com/uber/NullAway/wiki/Configuration) for more detail).  NullAway requires at least the `AnnotatedPackages` configuration argument to run, in order to distinguish between annotated and unannotated code.  See [the configuration docs](https://github.com/uber/NullAway/wiki/Configuration) for other useful configuration options.
 
@@ -78,11 +75,7 @@ Snapshots of the development version are available in [Sonatype's snapshots repo
 
 #### Android
 
-The configuration for an Android project is very similar to the Java case, with two key differences:
-
-1. The `net.ltgt.apt` plugin is not required.
-2. The `com.google.code.findbugs:jsr305:3.0.2` dependence can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library.
-3. Rather than declaring NullAway as an `apt` dependence, use the `annotationProcessor` configuration:
+The configuration for an Android project is very similar to the Java case, with one key difference: The `com.google.code.findbugs:jsr305:3.0.2` dependence can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library.
 
 ```gradle
 dependencies {
