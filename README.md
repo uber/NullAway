@@ -75,7 +75,7 @@ Snapshots of the development version are available in [Sonatype's snapshots repo
 
 #### Android
 
-The configuration for an Android project is very similar to the Java case, with one key difference: The `com.google.code.findbugs:jsr305:3.0.2` dependence can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library.
+The configuration for an Android project is very similar to the Java case, with one key difference: The `com.google.code.findbugs:jsr305:3.0.2` dependency can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library.
 
 ```gradle
 dependencies {
