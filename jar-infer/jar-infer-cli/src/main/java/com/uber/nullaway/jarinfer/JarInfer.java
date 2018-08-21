@@ -33,7 +33,7 @@ public class JarInfer {
    *
    * @param args Command line arguments.
    */
-  public static void main(String[] args) {
+  public static void main(String[] args) throws Exception {
     Options options = new Options();
     HelpFormatter hf = new HelpFormatter();
     hf.setWidth(100);
@@ -94,8 +94,6 @@ public class JarInfer {
       }
     } catch (ParseException pe) {
       hf.printHelp(appName, options, true);
-    } catch (Exception e) {
-      e.printStackTrace();
     }
   }
 }

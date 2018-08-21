@@ -87,9 +87,6 @@ javadoc {
     failOnError = false
 }
 
-compileJava {
-    options.compilerArgs += ["-Xlint:unchecked", "-Xlint:rawtypes", "-Werror"]
-}
 
 test {
   maxHeapSize = "1024m"

@@ -43,8 +43,5 @@ run {
         args(appArgs.split(' '))
     }
 }
-compileJava {
-    options.compilerArgs += ["-Xlint:unchecked", "-Xlint:rawtypes", "-Werror"]
-}
 
 
