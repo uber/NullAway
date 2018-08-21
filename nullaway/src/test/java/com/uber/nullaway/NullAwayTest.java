@@ -66,6 +66,13 @@ public class NullAwayTest {
   @Test
   public void jarinferLoadStubsTest() {
     compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-cp",
+                "../jar-infer/test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",

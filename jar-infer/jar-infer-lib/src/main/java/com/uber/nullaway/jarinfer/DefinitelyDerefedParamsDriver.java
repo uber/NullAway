@@ -53,7 +53,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -61,10 +60,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.IOUtils;
 
 class Result extends HashMap<String, Set<Integer>> {}
 
@@ -83,6 +80,7 @@ public class DefinitelyDerefedParamsDriver {
   private static Set<String> nullableReturns = new HashSet<>();
 
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
+  private static final String MODEL_JAR_SUFFIX = ".astubx.jar";
   // TODO: Exclusions-
   // org.ow2.asm : InvalidBytecodeException on
   // com.ibm.wala.classLoader.ShrikeCTMethod.makeDecoder:110
@@ -102,8 +100,7 @@ public class DefinitelyDerefedParamsDriver {
       outPath =
           FilenameUtils.getFullPath(firstInPath)
               + FilenameUtils.getBaseName(firstInPath)
-              + "-ji."
-              + FilenameUtils.getExtension(firstInPath);
+              + MODEL_JAR_SUFFIX;
     } else if (new File(firstInPath).exists()) {
       outPath = FilenameUtils.getFullPath(firstInPath) + DEFAULT_ASTUBX_LOCATION;
     }
@@ -232,10 +229,8 @@ public class DefinitelyDerefedParamsDriver {
     new File(outPath).getParentFile().mkdirs();
     if (outPath.endsWith(".astubx")) {
       writeModel(new DataOutputStream(new FileOutputStream(outPath)));
-    } else if (firstInPath.endsWith(".jar")) {
-      writeProcessedJAR(firstInPath, outPath);
-    } else if (firstInPath.endsWith(".aar")) {
-      writeProcessedAAR(firstInPath, outPath);
+    } else {
+      writeModelJAR(outPath);
     }
     lastOutPath = outPath;
     return map_result;
@@ -278,68 +273,21 @@ public class DefinitelyDerefedParamsDriver {
   }
 
   /**
-   * Write processed jar with nullability model in jar -> META-INF/nullaway/jarinfer.astubx
+   * Write model jar file with nullability model at DEFAULT_ASTUBX_LOCATION
    *
-   * @param inJarPath Path of input jar file.
-   * @param outJarPath Path of output jar file.
+   * @param outPath Path of output model jar file.
    */
-  private static void writeProcessedJAR(String inJarPath, String outJarPath) throws IOException {
+  private static void writeModelJAR(String outPath) throws IOException {
     Preconditions.checkArgument(
-        inJarPath.endsWith(".jar") && Files.exists(Paths.get(inJarPath)),
-        "invalid jar file! " + inJarPath);
-    writeModelToJarStream(
-        new ZipInputStream(new FileInputStream(inJarPath)),
-        new ZipOutputStream(new FileOutputStream(outJarPath)));
-    LOG(VERBOSE, "Info", "processed jar to: " + outJarPath);
-  }
-
-  /**
-   * Write processed aar with nullability model in aar -> classes.jar ->
-   * META-INF/nullaway/jarinfer.astubx
-   *
-   * @param inAarPath Path of input aar file.
-   * @param outAarPath Path of output aar file.
-   */
-  private static void writeProcessedAAR(String inAarPath, String outAarPath) throws IOException {
-    Preconditions.checkArgument(
-        inAarPath.endsWith(".aar") && Files.exists(Paths.get(inAarPath)),
-        "invalid aar file! " + inAarPath);
-    ZipFile zip = new ZipFile(inAarPath);
-    ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outAarPath));
-    for (Enumeration zes = zip.entries(); zes.hasMoreElements(); ) {
-      ZipEntry ze = (ZipEntry) zes.nextElement();
-      zos.putNextEntry(new ZipEntry(ze.getName()));
-      if (ze.getName().endsWith("classes.jar")) {
-        writeModelToJarStream(new ZipInputStream(zip.getInputStream(ze)), new ZipOutputStream(zos));
-      } else {
-        IOUtils.copy(zip.getInputStream(ze), zos);
-      }
-      zos.closeEntry();
-    }
-    zip.close();
-    zos.close();
-    LOG(VERBOSE, "Info", "processed aar to: " + outAarPath);
-  }
-  /**
-   * Copy Jar Input Stream to Jar Output Stream and add nullability model.
-   *
-   * @param zis Jar Input Stream.
-   * @param zos Jar Output Stream.
-   */
-  private static void writeModelToJarStream(ZipInputStream zis, ZipOutputStream zos)
-      throws IOException {
-    for (ZipEntry ze; (ze = zis.getNextEntry()) != null; ) {
-      zos.putNextEntry(new ZipEntry(ze.getName()));
-      IOUtils.copy(zis, zos);
-      zos.closeEntry();
-    }
-    zis.close();
+        outPath.endsWith(MODEL_JAR_SUFFIX), "invalid model file path! " + outPath);
+    ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outPath));
     if (!map_result.isEmpty()) {
       zos.putNextEntry(new ZipEntry(DEFAULT_ASTUBX_LOCATION));
       writeModel(new DataOutputStream(zos));
       zos.closeEntry();
     }
-    zos.finish();
+    zos.close();
+    LOG(VERBOSE, "Info", "wrote model to: " + outPath);
   }
 
   /**

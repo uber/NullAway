@@ -35,6 +35,8 @@ import java.util.Set;
  */
 final class ErrorProneCLIFlagsConfig extends AbstractConfig {
 
+  private static final String BASENAME_REGEX = ".*/([^/]+)\\.[ja]ar$";
+
   static final String EP_FL_NAMESPACE = "NullAway";
   static final String FL_ANNOTATED_PACKAGES = EP_FL_NAMESPACE + ":AnnotatedPackages";
   static final String FL_UNANNOTATED_SUBPACKAGES = EP_FL_NAMESPACE + ":UnannotatedSubPackages";
@@ -53,6 +55,11 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_ACKNOWLEDGE_RESTRICTIVE =
       EP_FL_NAMESPACE + ":AcknowledgeRestrictiveAnnotations";
   static final String FL_SUPPRESS_COMMENT = EP_FL_NAMESPACE + ":AutoFixSuppressionComment";
+  /** --- JarInfer configs --- */
+  static final String FL_JI_USE_RETURN = EP_FL_NAMESPACE + ":JarInferUseReturnAnnotations";
+
+  static final String FL_JI_REGEX_MODEL_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripModelJar";
+  static final String FL_JI_REGEX_CODE_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripCodeJar";
   private static final String DELIMITER = ",";
 
   static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS =
@@ -108,6 +115,13 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
       throw new IllegalStateException(
           "Invalid -XepOpt" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
     }
+    /** --- JarInfer configs --- */
+    jarInferUseReturnAnnotations = flags.getBoolean(FL_JI_USE_RETURN).orElse(false);
+    // The defaults of these two options translate to: remove .aar/.jar from the file name, and also
+    // implicitly mean that NullAway will search for jarinfer models in the same jar which contains
+    // the analyzed classes.
+    jarInferRegexStripModelJarName = flags.get(FL_JI_REGEX_MODEL_PATH).orElse(BASENAME_REGEX);
+    jarInferRegexStripCodeJarName = flags.get(FL_JI_REGEX_CODE_PATH).orElse(BASENAME_REGEX);
   }
 
   private static ImmutableSet<String> getFlagStringSet(ErrorProneFlags flags, String flagName) {

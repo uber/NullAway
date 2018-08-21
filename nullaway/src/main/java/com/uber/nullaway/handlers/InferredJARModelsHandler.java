@@ -28,13 +28,14 @@ import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.JarURLConnection;
 import java.net.URLConnection;
-import java.util.HashSet;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -63,12 +64,17 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   private static final int RETURN = -1; // '-1' indexes Return type in the Annotation Cache
 
   private static Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
+  private static Map<String, Set<String>> mapModelJarLocations;
   private static Set<String> loadedJars;
 
-  public InferredJARModelsHandler() {
+  private final Config config;
+
+  public InferredJARModelsHandler(Config config) {
     super();
+    this.config = config;
     argAnnotCache = new LinkedHashMap<>();
-    loadedJars = new HashSet<>();
+    mapModelJarLocations = new LinkedHashMap<>();
+    loadedJars = new LinkedHashSet<>();
     // Load Android SDK JarInfer models
     try {
       InputStream androidStubxIS =
@@ -91,6 +97,29 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     }
   }
 
+  /*
+   * Scan Java Classpath for JarInfer model jars and map their names to locations
+   */
+  private void processClassPath(String[] args) {
+    Set<String> paths = new LinkedHashSet<>();
+    String env_cp = System.getenv("CLASSPATH");
+    if (env_cp != null) {
+      paths.addAll(Arrays.asList(env_cp.split(":")));
+    }
+    for (int i = 0; i < args.length; ++i)
+      if (args[i].equals("-cp") || args[i].equals("-classpath") || args[i].equals("-processorpath"))
+        paths.addAll(Arrays.asList(args[++i].split(":")));
+    for (String path : paths) {
+      if (path.matches(config.getJarInferRegexStripModelJarName())) {
+        String name = path.replaceAll(config.getJarInferRegexStripModelJarName(), "$1");
+        LOG(DEBUG, "DEBUG", "model jar name: " + name + "\tjar path: " + path);
+        if (!mapModelJarLocations.containsKey(name))
+          mapModelJarLocations.put(name, new LinkedHashSet<>());
+        mapModelJarLocations.get(name).add(path);
+      }
+    }
+  }
+
   @Override
   public ImmutableSet<Integer> onUnannotatedInvocationGetNonNullPositions(
       NullAway analysis,
@@ -98,6 +127,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
       ImmutableSet<Integer> nonNullPositions) {
+    if (mapModelJarLocations.isEmpty()) {
+      processClassPath(state.errorProneOptions().getRemainingArgs());
+    }
     Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
     String className = classSymbol.getQualifiedName().toString();
     if (methodSymbol.getModifiers().contains(Modifier.ABSTRACT)) {
@@ -143,31 +175,45 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         LOG(DEBUG, "DEBUG", "Found source of class: " + className + ", jar: " + jarPath);
         // Avoid reloading for classes w/o any stubs from already loaded jars.
         if (!loadedJars.contains(jarPath)) {
-          JarFile jar = juc.getJarFile();
-          if (jar == null) {
-            throw new Error("Cannot open jar: " + jarPath);
-          }
           loadedJars.add(jarPath);
-          JarEntry astubxJE = jar.getJarEntry(DEFAULT_ASTUBX_LOCATION);
-          if (astubxJE == null) {
-            LOG(VERBOSE, "Warn", "Cannot find jarinfer.astubx in jar: " + jarPath);
+          String jarName = jarPath.replaceAll(config.getJarInferRegexStripCodeJarName(), "$1");
+          LOG(DEBUG, "DEBUG", "code jar name: " + jarName + "\tjar path: " + jarPath);
+          // Lookup model jar locations for jar name
+          if (!mapModelJarLocations.containsKey(jarName)) {
+            LOG(
+                VERBOSE,
+                "Warn",
+                "Cannot find model jar for class: " + className + ", jar: " + jarName);
             return false;
           }
-          InputStream astubxIS = jar.getInputStream(astubxJE);
-          if (astubxIS == null) {
-            LOG(VERBOSE, "Warn", "Cannot load jarinfer.astubx in jar: " + jarPath);
-            return false;
+          // Load model jars
+          for (String modelJarPath : mapModelJarLocations.get(jarName)) {
+            JarFile jar = new JarFile(modelJarPath);
+            if (jar == null) {
+              throw new Error("Cannot open jar: " + modelJarPath);
+            }
+            LOG(DEBUG, "DEBUG", "Found model jar at: " + modelJarPath);
+            JarEntry astubxJE = jar.getJarEntry(DEFAULT_ASTUBX_LOCATION);
+            if (astubxJE == null) {
+              LOG(VERBOSE, "Warn", "Cannot find jarinfer.astubx in jar: " + modelJarPath);
+              return false;
+            }
+            InputStream astubxIS = jar.getInputStream(astubxJE);
+            if (astubxIS == null) {
+              LOG(VERBOSE, "Warn", "Cannot load jarinfer.astubx in jar: " + modelJarPath);
+              return false;
+            }
+            parseStubStream(astubxIS, modelJarPath + ": " + DEFAULT_ASTUBX_LOCATION);
+            LOG(
+                DEBUG,
+                "DEBUG",
+                "Loaded "
+                    + argAnnotCache.keySet().size()
+                    + " astubx for class: "
+                    + className
+                    + " from jar: "
+                    + modelJarPath);
           }
-          parseStubStream(astubxIS, jarPath + ": " + DEFAULT_ASTUBX_LOCATION);
-          LOG(
-              DEBUG,
-              "DEBUG",
-              "Loaded "
-                  + argAnnotCache.keySet().size()
-                  + " astubx for class: "
-                  + className
-                  + " from jar: "
-                  + jarPath);
         } else {
           LOG(DEBUG, "DEBUG", "Skipping already loaded jar: " + jarPath);
         }
