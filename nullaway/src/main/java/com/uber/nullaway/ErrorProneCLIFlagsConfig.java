@@ -119,8 +119,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     jarInferUseReturnAnnotations = flags.getBoolean(FL_JI_USE_RETURN).orElse(false);
     // The defaults of these two options translate to: remove .aar/.jar from the file name, and also
     // implicitly mean that NullAway will search for jarinfer models in the same jar which contains
-    // the
-    // analyzed classes.
+    // the analyzed classes.
     jarInferRegexStripModelJarName = flags.get(FL_JI_REGEX_MODEL_PATH).orElse(BASENAME_REGEX);
     jarInferRegexStripCodeJarName = flags.get(FL_JI_REGEX_CODE_PATH).orElse(BASENAME_REGEX);
   }
