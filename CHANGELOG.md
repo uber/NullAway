@@ -3,6 +3,14 @@ Changelog
 
 Version 0.5.3
 -------------
+* Add AutoFixSuppressionComment flag. (#213)
+* [JarInfer] Write to/load from separate astubx model jars (#214)
+* Update readme and tooling versions (#217)
+* Update to Error Prone 2.3.1 and centralize Java compiler flags (#218)
+* [JarInfer] Handler for @Nullable return value annotations (#216)
+
+Version 0.5.3
+-------------
 * JarInfer: Third-party bytecode analysis (MVP version) (#199)
 * Handle @NotNull in hasNonNullAnnotation. (#204)
 * Handler for separate Android models jar (#206)
