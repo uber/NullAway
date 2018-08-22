@@ -15,7 +15,8 @@
  */
 
 plugins {
-  id "com.github.sherter.google-java-format" version "0.6"
+  id "com.github.sherter.google-java-format" version "0.7.1"
+  id "net.ltgt.errorprone" version "0.0.16" apply false
 }
 
 repositories {
@@ -23,7 +24,26 @@ repositories {
   jcenter()
 }
 
-subprojects {
+subprojects { project ->
+    afterEvaluate {
+        if (project.plugins.hasPlugin("java")
+            || project.plugins.hasPlugin("com.android.application")) {
+            project.apply plugin: "net.ltgt.errorprone"
+            project.dependencies {
+                errorprone deps.build.errorProneCore
+            }
+            project.tasks.withType(JavaCompile) {
+                options.compilerArgs += [
+                    "-Xlint:unchecked",
+                    "-Xlint:rawtypes",
+                    "-Werror",
+                    // this check is too noisy
+                    "-Xep:StringSplitter:OFF",
+                    "-Xep:WildcardImport:ERROR"
+                ]
+            }
+        }
+    }
     buildscript {
         repositories {
             jcenter()
@@ -46,9 +66,8 @@ subprojects {
 
 }
 
-
 googleJavaFormat {
-  toolVersion = "1.4"
+  toolVersion = "1.6"
 }
 
 apply from: "gradle/dependencies.gradle"

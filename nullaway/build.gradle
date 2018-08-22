@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 plugins {
-  id "net.ltgt.errorprone" version "0.0.13"
   id "com.github.johnrengelman.shadow" version "2.0.2"
   id "java"
 }
@@ -43,8 +42,6 @@ dependencies {
     compile deps.build.checkerDataflow
     shadow deps.build.guava
 
-    errorprone deps.build.errorProneCore
-
     testCompile deps.test.junit4
     testCompile(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
@@ -62,6 +59,13 @@ dependencies {
     epJavac deps.build.errorProneCheckApi
     epJavac deps.build.checkerDataflow
 }
+
+// NullAway ends up enabled by default for tests in this project; disable it
+tasks.withType(JavaCompile) {
+  if (name.toLowerCase().contains("test")) {
+    options.compilerArgs += ["-Xep:NullAway:OFF"]
+  }
+} 
 
 // We include and shade the checker framework jars into the NullAway jar, as we may have custom
 // changes.
@@ -87,9 +91,6 @@ javadoc {
     failOnError = false
 }
 
-compileJava {
-    options.compilerArgs += ["-Xlint:unchecked", "-Xlint:rawtypes", "-Werror"]
-}
 
 test {
   maxHeapSize = "1024m"

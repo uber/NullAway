@@ -139,12 +139,11 @@ import org.checkerframework.javacutil.AnnotationUtils;
  */
 @AutoService(BugChecker.class)
 @BugPattern(
-  name = "NullAway",
-  altNames = {"CheckNullabilityTypes"},
-  summary = "Nullability type error.",
-  category = JDK,
-  severity = WARNING
-)
+    name = "NullAway",
+    altNames = {"CheckNullabilityTypes"},
+    summary = "Nullability type error.",
+    category = JDK,
+    severity = WARNING)
 public class NullAway extends BugChecker
     implements BugChecker.MethodInvocationTreeMatcher,
         BugChecker.AssignmentTreeMatcher,

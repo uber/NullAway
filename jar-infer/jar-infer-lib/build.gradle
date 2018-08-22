@@ -1,5 +1,4 @@
 plugins {
-    id "net.ltgt.errorprone" version "0.0.13"
     id "java"
 }
 // we use this config to get the path of the JDK 9 javac jar, to
@@ -20,12 +19,11 @@ dependencies {
     compile deps.build.commonsIO
     compileOnly deps.build.errorProneCheckApi
 
-    errorprone deps.build.errorProneCore
-
     testCompile deps.test.junit4
     testCompile(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
+    testCompile project(":jar-infer:test-java-lib-jarinfer")
     epJavac deps.build.errorProneCheckApi
 }
 

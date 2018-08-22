@@ -178,7 +178,10 @@ public class DefinitelyDerefedParamsDriver {
                     continue;
                   }
                 } catch (Exception e) {
-                  e.printStackTrace();
+                  LOG(
+                      DEBUG,
+                      "DEBUG",
+                      "Exception while scanning bytecodes for " + mtd + " " + e.getMessage());
                 }
                 // Make CFG
                 IR ir =
@@ -300,12 +303,10 @@ public class DefinitelyDerefedParamsDriver {
   //    StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
   private static void writeModel(DataOutputStream out) throws IOException {
     Map<String, String> importedAnnotations =
-        new HashMap<String, String>() {
-          {
-            put("Nonnull", "javax.annotation.Nonnull");
-            put("Nullable", "javax.annotation.Nullable");
-          }
-        };
+        ImmutableMap.<String, String>builder()
+            .put("Nonnull", "javax.annotation.Nonnull")
+            .put("Nullable", "javax.annotation.Nullable")
+            .build();
     Map<String, Set<String>> packageAnnotations = new HashMap<>();
     Map<String, Set<String>> typeAnnotations = new HashMap<>();
     Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
@@ -369,18 +370,16 @@ public class DefinitelyDerefedParamsDriver {
    */
   private static String getSimpleTypeName(TypeReference typ) {
     final Map<String, String> mapFullTypeName =
-        new HashMap<String, String>() {
-          {
-            put("B", "byte");
-            put("C", "char");
-            put("D", "double");
-            put("F", "float");
-            put("I", "int");
-            put("J", "long");
-            put("S", "short");
-            put("Z", "boolean");
-          }
-        };
+        ImmutableMap.<String, String>builder()
+            .put("B", "byte")
+            .put("C", "char")
+            .put("D", "double")
+            .put("F", "float")
+            .put("I", "int")
+            .put("J", "long")
+            .put("S", "short")
+            .put("Z", "boolean")
+            .build();
     if (typ.isArrayType()) return "Array";
     String typName = typ.getName().toString();
     if (typName.startsWith("L")) {

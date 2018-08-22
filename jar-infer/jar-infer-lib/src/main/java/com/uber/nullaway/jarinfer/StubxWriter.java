@@ -1,5 +1,6 @@
 package com.uber.nullaway.jarinfer;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.DataOutputStream;
 import java.io.IOException;
@@ -43,12 +44,12 @@ public final class StubxWriter {
     int numStringEntires = 0;
     Map<String, Integer> encodingDictionary = new LinkedHashMap<>();
     List<String> strings = new ArrayList<String>();
-    Collection[] keysets = {
-      importedAnnotations.values(),
-      packageAnnotations.keySet(),
-      typeAnnotations.keySet(),
-      methodRecords.keySet()
-    };
+    List<Collection<String>> keysets =
+        ImmutableList.of(
+            importedAnnotations.values(),
+            packageAnnotations.keySet(),
+            typeAnnotations.keySet(),
+            methodRecords.keySet());
     for (Collection<String> keyset : keysets) {
       for (String key : keyset) {
         assert !encodingDictionary.containsKey(key);

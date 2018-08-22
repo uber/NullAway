@@ -63,7 +63,7 @@ public class CompilerUtil {
     try {
       fileManager.setLocation(StandardLocation.SOURCE_PATH, Collections.<File>emptyList());
     } catch (IOException e) {
-      e.printStackTrace();
+      throw new RuntimeException("unexpected IOException", e);
     }
     outputStream = new ByteArrayOutputStream();
     this.compiler =
