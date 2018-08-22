@@ -23,6 +23,7 @@ dependencies {
     testCompile(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
+    testCompile project(":jar-infer:test-java-lib-jarinfer")
     epJavac deps.build.errorProneCheckApi
 }
 

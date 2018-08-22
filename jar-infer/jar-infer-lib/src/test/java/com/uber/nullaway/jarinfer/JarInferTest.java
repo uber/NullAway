@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Set;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -219,13 +218,12 @@ public class JarInferTest {
         "}");
   }
 
-  @Ignore("don't understand the failure")
   @Test
   public void toyJAR() throws Exception {
     testJARTemplate(
         "toyJAR",
         "com.uber.nullaway.jarinfer.toys.unannotated",
-        "./src/test/resources/com/uber/nullaway/jarinfer/testdata/test-java-lib-jarinfer.jar");
+        "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar");
   }
 
   @Test
