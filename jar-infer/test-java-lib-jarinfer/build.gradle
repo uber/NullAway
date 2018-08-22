@@ -15,22 +15,25 @@
  */
 
 plugins {
-  id "net.ltgt.apt" version "0.13"
   id "java"
 }
+
+evaluationDependsOn(":jar-infer:jar-infer-cli")
 
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
-dependencies {
-    apt project(path: ":nullaway", configuration: "shadow")
+def astubxPath = "META-INF/nullaway/jarinfer.astubx"
 
-    compileOnly deps.build.jsr305Annotations
-    compileOnly deps.test.cfQual
+jar.doLast {
+    javaexec {
+        classpath = files("${rootProject.projectDir}/jar-infer/jar-infer-cli/build/libs/jar-infer-cli-${VERSION_NAME}.jar")
+        main = "com.uber.nullaway.jarinfer.JarInfer"
+        args = ["-i", jar.archivePath, "-o", "${jar.destinationDir}/${astubxPath}"]
+    }
+    exec {
+        workingDir "./build/libs"
+        commandLine "jar", "uf", "test-java-lib-jarinfer.jar", astubxPath
+    }
 }
-
-tasks.withType(JavaCompile) {
-  if (!name.toLowerCase().contains("test")) {
-    options.compilerArgs += ["-Xep:NullAway:ERROR", "-XepOpt:NullAway:AnnotatedPackages=com.uber"]
-  }
-}
+jar.dependsOn ":jar-infer:jar-infer-cli:assemble"

@@ -297,6 +297,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private static final ImmutableSet<MethodRef> NONNULL_RETURNS =
         new ImmutableSet.Builder<MethodRef>()
+            .add(methodRef("com.google.gson", "<T>fromJson(String,Class)"))
             .add(methodRef("android.app.Activity", "<T>findViewById(int)"))
             .add(methodRef("android.view.View", "<T>findViewById(int)"))
             .add(methodRef("android.view.View", "getResources()"))
