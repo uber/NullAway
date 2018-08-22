@@ -35,6 +35,14 @@ class Bar {
 }
 
 public class Toys {
+
+  public static String getString(boolean flag, String str) {
+    if (flag) {
+      return null;
+    }
+    return str;
+  }
+
   public static void test(String s, Foo f, Bar b) {
     if (s.length() >= 5) {
       Foo f1 = new Foo(s);

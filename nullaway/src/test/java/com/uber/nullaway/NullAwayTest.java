@@ -64,30 +64,6 @@ public class NullAwayTest {
   }
 
   @Test
-  public void jarinferLoadStubsTest() {
-    compilationHelper
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-cp",
-                "../jar-infer/test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar"))
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
-            "class Test {",
-            "  void test1(@Nullable String s) {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required",
-            "    Toys.test1(s, \"let's\", \"try\");",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
   public void coreNullabilityPositiveCases() {
     compilationHelper.addSourceFile("NullAwayPositiveCases.java").doTest();
   }
@@ -1055,6 +1031,57 @@ public class NullAwayTest {
             "    f = new String(\"hi\");",
             "    o = new Object();",
             "    g = o;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void jarinferLoadStubsTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
+                "-cp",
+                "../jar-infer/test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
+            "class Test {",
+            "  void test1(@Nullable String s) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 's'",
+            "    Toys.test1(s, \"let's\", \"try\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void jarinferNullableReturnsTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
+                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true",
+                "-cp",
+                "../jar-infer/test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
+            "class Test {",
+            "  void test1(@Nullable String s) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'Toys.getString(false, s)'",
+            "    Toys.test1(Toys.getString(false, s), \"let's\", \"try\");",
             "  }",
             "}")
         .doTest();

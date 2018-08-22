@@ -92,6 +92,18 @@ public class DefinitelyDerefedParamsDriver {
     nullableReturns.clear();
   }
 
+  /**
+   * Accounts the bytecode size of analyzed method for statistics.
+   *
+   * @param mtd Analyzed method.
+   */
+  private static void accountCodeBytes(IMethod mtd) {
+    // Get method bytecode size
+    if (mtd instanceof ShrikeCTMethod) {
+      analyzedBytes += ((ShrikeCTMethod) mtd).getBytecodes().length;
+    }
+  }
+
   public static Result run(String inPaths, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String outPath = "";
@@ -159,8 +171,7 @@ public class DefinitelyDerefedParamsDriver {
             for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
               // Skip methods without parameters, abstract methods, native methods
               // some Application classes are Primordial (why?)
-              if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)
-                  && !mtd.isPrivate()
+              if (!mtd.isPrivate()
                   && !mtd.isAbstract()
                   && !mtd.isNative()
                   && !isAllPrimitiveTypes(mtd)
@@ -170,47 +181,66 @@ public class DefinitelyDerefedParamsDriver {
                       .toString()
                       .equals("Primordial")) {
                 Preconditions.checkNotNull(mtd, "method not found");
-                // Skip methods by looking at bytecode
-                try {
-                  if (CodeScanner.getFieldsRead(mtd).isEmpty()
-                      && CodeScanner.getFieldsWritten(mtd).isEmpty()
-                      && CodeScanner.getCallSites(mtd).isEmpty()) {
-                    continue;
+                DefinitelyDerefedParams analysisDriver = null;
+                String sign = "";
+                // Parameter analysis
+                if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)) {
+                  // Skip methods by looking at bytecode
+                  try {
+                    if (!CodeScanner.getFieldsRead(mtd).isEmpty()
+                        || !CodeScanner.getFieldsWritten(mtd).isEmpty()
+                        || !CodeScanner.getCallSites(mtd).isEmpty()) {
+                      // Make CFG
+                      IR ir =
+                          cache
+                              .getIRFactory()
+                              .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
+                      ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg =
+                          ir.getControlFlowGraph();
+                      accountCodeBytes(mtd);
+                      // Analyze parameters
+                      analysisDriver = new DefinitelyDerefedParams(mtd, ir, cfg, cha);
+                      Set<Integer> result = analysisDriver.analyze();
+                      sign = getSignature(mtd);
+                      LOG(DEBUG, "DEBUG", "analyzed method: " + sign);
+                      if (!result.isEmpty() || DEBUG) {
+                        map_result.put(sign, result);
+                        LOG(
+                            DEBUG,
+                            "DEBUG",
+                            "Inferred Nonnull param for method: "
+                                + sign
+                                + " = "
+                                + result.toString());
+                      }
+                    }
+                  } catch (Exception e) {
+                    LOG(
+                        DEBUG,
+                        "DEBUG",
+                        "Exception while scanning bytecodes for " + mtd + " " + e.getMessage());
                   }
-                } catch (Exception e) {
-                  LOG(
-                      DEBUG,
-                      "DEBUG",
-                      "Exception while scanning bytecodes for " + mtd + " " + e.getMessage());
                 }
-                // Make CFG
-                IR ir =
-                    cache
-                        .getIRFactory()
-                        .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
-                ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
-                // Analyze parameters
-                DefinitelyDerefedParams analysisDriver =
-                    new DefinitelyDerefedParams(mtd, ir, cfg, cha);
-                Set<Integer> result = analysisDriver.analyze();
-                String sign = getSignature(mtd);
-                // Get method bytecode size
-                if (mtd instanceof ShrikeCTMethod) {
-                  analyzedBytes += ((ShrikeCTMethod) mtd).getBytecodes().length;
-                }
-                LOG(DEBUG, "DEBUG", "analyzed method: " + sign);
-                if (!result.isEmpty() || DEBUG) {
-                  map_result.put(sign, result);
-                  LOG(
-                      DEBUG,
-                      "DEBUG",
-                      "Inferred Nonnull param for method: " + sign + " = " + result.toString());
-                }
-                // Analyze return value
-                if (analysisDriver.analyzeReturnType()
-                    == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
-                  nullableReturns.add(sign);
-                  LOG(DEBUG, "DEBUG", "Inferred Nullable method return: " + sign);
+                // Return value analysis
+                if (!mtd.getReturnType().isPrimitiveType()) {
+                  if (analysisDriver == null) {
+                    IR ir =
+                        cache
+                            .getIRFactory()
+                            .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
+                    ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
+                    accountCodeBytes(mtd);
+                    analysisDriver = new DefinitelyDerefedParams(mtd, ir, cfg, cha);
+                  }
+                  if (sign.isEmpty()) {
+                    sign = getSignature(mtd);
+                  }
+                  // Analyze return value
+                  if (analysisDriver.analyzeReturnType()
+                      == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
+                    nullableReturns.add(sign);
+                    LOG(DEBUG, "DEBUG", "Inferred Nullable method return: " + sign);
+                  }
                 }
               }
             }
