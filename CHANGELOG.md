@@ -1,7 +1,7 @@
 Changelog
 =========
 
-Version 0.5.3
+Version 0.5.4
 -------------
 * Add AutoFixSuppressionComment flag. (#213)
 * [JarInfer] Write to/load from separate astubx model jars (#214)
