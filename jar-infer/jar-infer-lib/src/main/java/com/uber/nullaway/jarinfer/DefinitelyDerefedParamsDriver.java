@@ -104,6 +104,21 @@ public class DefinitelyDerefedParamsDriver {
     }
   }
 
+  private static DefinitelyDerefedParams getAnalysisDriver(
+      DefinitelyDerefedParams driver,
+      IMethod mtd,
+      AnalysisOptions options,
+      AnalysisCache cache,
+      IClassHierarchy cha) {
+    if (driver == null) {
+      IR ir = cache.getIRFactory().makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
+      ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
+      accountCodeBytes(mtd);
+      driver = new DefinitelyDerefedParams(mtd, ir, cfg, cha);
+    }
+    return driver;
+  }
+
   public static Result run(String inPaths, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String outPath = "";
@@ -190,17 +205,8 @@ public class DefinitelyDerefedParamsDriver {
                     if (!CodeScanner.getFieldsRead(mtd).isEmpty()
                         || !CodeScanner.getFieldsWritten(mtd).isEmpty()
                         || !CodeScanner.getCallSites(mtd).isEmpty()) {
-                      // Make CFG
-                      IR ir =
-                          cache
-                              .getIRFactory()
-                              .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
-                      ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg =
-                          ir.getControlFlowGraph();
-                      accountCodeBytes(mtd);
-                      // Analyze parameters
-                      analysisDriver = new DefinitelyDerefedParams(mtd, ir, cfg, cha);
-                      Set<Integer> result = analysisDriver.analyze();
+                      Set<Integer> result =
+                          getAnalysisDriver(analysisDriver, mtd, options, cache, cha).analyze();
                       sign = getSignature(mtd);
                       LOG(DEBUG, "DEBUG", "analyzed method: " + sign);
                       if (!result.isEmpty() || DEBUG) {
@@ -223,20 +229,11 @@ public class DefinitelyDerefedParamsDriver {
                 }
                 // Return value analysis
                 if (!mtd.getReturnType().isPrimitiveType()) {
-                  if (analysisDriver == null) {
-                    IR ir =
-                        cache
-                            .getIRFactory()
-                            .makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
-                    ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
-                    accountCodeBytes(mtd);
-                    analysisDriver = new DefinitelyDerefedParams(mtd, ir, cfg, cha);
-                  }
                   if (sign.isEmpty()) {
                     sign = getSignature(mtd);
                   }
-                  // Analyze return value
-                  if (analysisDriver.analyzeReturnType()
+                  if (getAnalysisDriver(analysisDriver, mtd, options, cache, cha)
+                          .analyzeReturnType()
                       == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
                     nullableReturns.add(sign);
                     LOG(DEBUG, "DEBUG", "Inferred Nullable method return: " + sign);

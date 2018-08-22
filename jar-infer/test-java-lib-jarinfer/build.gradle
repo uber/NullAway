@@ -18,6 +18,8 @@ plugins {
   id "java"
 }
 
+evaluationDependsOn(":jar-infer:jar-infer-cli")
+
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
