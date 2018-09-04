@@ -132,4 +132,9 @@ public class DummyOptionsConfig implements Config {
   public String getJarInferRegexStripCodeJarName() {
     throw new IllegalStateException(error_msg);
   }
+
+  @Override
+  public String getErrorURL() {
+    throw new IllegalStateException(error_msg);
+  }
 }

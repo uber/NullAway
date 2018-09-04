@@ -242,7 +242,8 @@ public class NullAway extends BugChecker
 
   @Override
   public String linkUrl() {
-    return "http://t.uber.com/nullaway ";
+    // add a space to make it clickable from iTerm
+    return config.getErrorURL() + " ";
   }
 
   /**

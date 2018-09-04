@@ -60,6 +60,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
 
   static final String FL_JI_REGEX_MODEL_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripModelJar";
   static final String FL_JI_REGEX_CODE_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripCodeJar";
+  static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
+
   private static final String DELIMITER = ",";
 
   static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS =
@@ -82,6 +84,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
       ImmutableSet.of(
           "javax.inject.Inject", // no explicit initialization when there is dependency injection
           "com.google.errorprone.annotations.concurrent.LazyInit");
+
+  private static final String DEFAULT_URL = "http://t.uber.com/nullaway";
 
   ErrorProneCLIFlagsConfig(ErrorProneFlags flags) {
     if (!flags.get(FL_ANNOTATED_PACKAGES).isPresent()) {
@@ -122,6 +126,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     // the analyzed classes.
     jarInferRegexStripModelJarName = flags.get(FL_JI_REGEX_MODEL_PATH).orElse(BASENAME_REGEX);
     jarInferRegexStripCodeJarName = flags.get(FL_JI_REGEX_CODE_PATH).orElse(BASENAME_REGEX);
+    errorURL = flags.get(FL_ERROR_URL).orElse(DEFAULT_URL);
   }
 
   private static ImmutableSet<String> getFlagStringSet(ErrorProneFlags flags, String flagName) {
