@@ -92,6 +92,8 @@ public abstract class AbstractConfig implements Config {
   protected String jarInferRegexStripModelJarName;
   protected String jarInferRegexStripCodeJarName;
 
+  protected String errorURL;
+
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
     // noinspection ConstantConditions
     String choiceRegexp =
@@ -229,5 +231,10 @@ public abstract class AbstractConfig implements Config {
   @Override
   public String getJarInferRegexStripCodeJarName() {
     return jarInferRegexStripCodeJarName;
+  }
+
+  @Override
+  public String getErrorURL() {
+    return errorURL;
   }
 }

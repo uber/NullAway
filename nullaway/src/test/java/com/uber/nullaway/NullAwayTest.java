@@ -1086,4 +1086,45 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void customErrorURL() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:ErrorURL=http://mydomain.com/nullaway"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  static void foo() {",
+            "    // BUG: Diagnostic contains: mydomain.com",
+            "    Object x = null; x.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void defaultURL() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  static void foo() {",
+            "    // BUG: Diagnostic contains: t.uber.com/nullaway",
+            "    Object x = null; x.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

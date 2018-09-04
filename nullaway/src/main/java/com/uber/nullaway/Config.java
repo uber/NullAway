@@ -29,7 +29,7 @@ import javax.annotation.Nullable;
 public interface Config {
 
   /**
-   * @param className fully-qualified class name
+   * @param symbol symbol for class
    * @return true if the class is from a package that should be treated as properly annotated
    *     according to our convention (every possibly null parameter / return / field
    *     annotated @Nullable), false otherwise
@@ -44,7 +44,7 @@ public interface Config {
   boolean isExcludedClass(String className);
 
   /**
-   * @param className fully-qualified class name
+   * @param symbol symbol for class
    * @return true if the class should be treated as unannotated (in spite of being in an annotated
    *     package)
    */
@@ -132,4 +132,7 @@ public interface Config {
   String getJarInferRegexStripModelJarName();
   /** @return the regex to extract jar name from the classfile jar's path. */
   String getJarInferRegexStripCodeJarName();
+
+  /** @return the URL to show with NullAway error messages */
+  String getErrorURL();
 }
