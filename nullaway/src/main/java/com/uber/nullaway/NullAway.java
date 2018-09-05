@@ -1505,7 +1505,9 @@ public class NullAway extends BugChecker
           MethodInvocationTree methodInvocationTree = (MethodInvocationTree) expressionTree;
           Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
           Set<Modifier> modifiers = symbol.getModifiers();
-          if ((symbol.isPrivate() || modifiers.contains(Modifier.FINAL)) && !symbol.isStatic()) {
+          if ((symbol.isPrivate() || modifiers.contains(Modifier.FINAL))
+              && !symbol.isStatic()
+              && !modifiers.contains(Modifier.NATIVE)) {
             // check it's the same class (could be an issue with inner classes)
             if (ASTHelpers.enclosingClass(symbol).equals(enclosingClassSymbol)) {
               // make sure the receiver is 'this'

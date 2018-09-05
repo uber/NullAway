@@ -1127,4 +1127,22 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void invokeNativeFromInitializer() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  Object f;",
+            "  private native void foo();",
+            "  // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f",
+            "  Test() {",
+            "    foo();",
+            "  }",
+            "}")
+        .doTest();
+    ;
+  }
 }
