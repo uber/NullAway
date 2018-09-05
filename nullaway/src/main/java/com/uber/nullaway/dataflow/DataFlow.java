@@ -99,7 +99,12 @@ public final class DataFlow {
                   } else if (codePath.getLeaf() instanceof MethodTree) {
                     MethodTree method = (MethodTree) codePath.getLeaf();
                     ast = new UnderlyingAST.CFGMethod(method, /*classTree*/ null);
-                    bodyPath = new TreePath(codePath, method.getBody());
+                    BlockTree body = method.getBody();
+                    if (body == null) {
+                      throw new IllegalStateException(
+                          "trying to compute CFG for method " + method + ", which has no body");
+                    }
+                    bodyPath = new TreePath(codePath, body);
                   } else {
                     // must be an initializer per findEnclosingMethodOrLambdaOrInitializer
                     ast =
