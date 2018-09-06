@@ -1,5 +1,9 @@
 Changelog
 =========
+Version 0.5.5
+-------------
+* Allow for custom Error URLS (#220)
+* Fix crash with native methods invoked from initializer (#222)
 
 Version 0.5.4
 -------------
