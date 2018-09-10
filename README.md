@@ -1,4 +1,4 @@
-## NullAway: Fast Annotation-Based Null Checking for Java [![Build Status](https://travis-ci.org/uber/NullAway.svg?branch=master)](https://travis-ci.org/uber/NullAway)
+## NullAway: Fast Annotation-Based Null Checking for Java [![Build Status](https://travis-ci.org/uber/NullAway.svg?branch=master)](https://travis-ci.org/uber/NullAway) [![Coverage Status](https://coveralls.io/repos/github/uber/NullAway/badge.svg?branch=lazaro_coveralls)](https://coveralls.io/github/uber/NullAway?branch=lazaro_coveralls)
 
 NullAway is a tool to help eliminate `NullPointerException`s (NPEs) in your Java code.  To use NullAway, first add `@Nullable` annotations in your code wherever a field, method parameter, or return value may be `null`.  Given these annotations, NullAway performs a series of type-based, local checks to ensure that any pointer that gets dereferenced in your code cannot be `null`.  NullAway is similar to the type-based nullability checking in the Kotlin and Swift languages, and the [Checker Framework](https://checkerframework.org/) and [Eradicate](http://fbinfer.com/docs/eradicate.html) null checkers for Java.
 

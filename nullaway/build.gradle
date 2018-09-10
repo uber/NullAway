@@ -16,6 +16,9 @@
 plugins {
   id "com.github.johnrengelman.shadow" version "2.0.2"
   id "java"
+  // For code coverage:
+  id 'jacoco'
+  id 'com.github.kt3k.coveralls' version '2.6.3'
 }
 
 // we use this config to get the path of the JDK 9 javac jar, to
@@ -118,3 +121,11 @@ uploadArchives {
   }
 }
 uploadArchives.dependsOn shadowJar
+
+// From https://github.com/kt3k/coveralls-gradle-plugin
+jacocoTestReport {
+    reports {
+        xml.enabled = true // coveralls plugin depends on xml format report
+        html.enabled = true
+    }
+}
