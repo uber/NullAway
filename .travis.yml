@@ -18,6 +18,7 @@ script:
 
 after_success:
   - .buildscript/deploy_snapshot.sh
+  - ./gradlew jacocoTestReport coveralls
 
 env:
   global:
