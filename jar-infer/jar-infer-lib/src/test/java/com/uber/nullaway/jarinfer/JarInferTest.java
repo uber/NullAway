@@ -22,6 +22,9 @@ import com.google.common.collect.Sets;
 import com.sun.tools.javac.main.Main;
 import com.sun.tools.javac.main.Main.Result;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -253,5 +256,35 @@ public class JarInferTest {
         "    Objects.requireNonNull(t);",
         "  }",
         "}");
+  }
+
+  @Test
+  public void jarinferOutputJarIsBytePerByteDeterministic() throws Exception {
+    DefinitelyDerefedParamsDriver.reset();
+    String jarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
+    String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
+    DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
+    byte[] checksumBytes1 = sha1sum(DefinitelyDerefedParamsDriver.lastOutPath);
+    // Wait a second to ensure system time has changed
+    Thread.sleep(1);
+    DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
+    byte[] checksumBytes2 = sha1sum(DefinitelyDerefedParamsDriver.lastOutPath);
+    Assert.assertTrue(Arrays.equals(checksumBytes1, checksumBytes2));
+  }
+
+  public byte[] sha1sum(String path) throws Exception {
+    File file = new File(path);
+    MessageDigest digest = MessageDigest.getInstance("SHA-1");
+    InputStream fis = new FileInputStream(file);
+    int n = 0;
+    byte[] buffer = new byte[8192];
+    while (n != -1) {
+      n = fis.read(buffer);
+      if (n > 0) {
+        digest.update(buffer, 0, n);
+      }
+    }
+    fis.close();
+    return digest.digest();
   }
 }
