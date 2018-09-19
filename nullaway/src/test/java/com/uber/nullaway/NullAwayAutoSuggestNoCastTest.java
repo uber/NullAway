@@ -39,13 +39,21 @@ public class NullAwayAutoSuggestNoCastTest {
 
   private ErrorProneFlags flags;
 
+  private ErrorProneFlags flagsNoAutoFixSuppressionComment;
+
   @Before
   public void setup() {
+    // With AutoFixSuppressionComment
     ErrorProneFlags.Builder b = ErrorProneFlags.builder();
     b.putFlag("NullAway:AnnotatedPackages", "com.uber,com.ubercab,io.reactivex");
     b.putFlag("NullAway:SuggestSuppressions", "true");
     b.putFlag("NullAway:AutoFixSuppressionComment", "PR #000000");
     flags = b.build();
+    // Without AutoFixSuppressionComment
+    b = ErrorProneFlags.builder();
+    b.putFlag("NullAway:AnnotatedPackages", "com.uber,com.ubercab,io.reactivex");
+    b.putFlag("NullAway:SuggestSuppressions", "true");
+    flagsNoAutoFixSuppressionComment = b.build();
   }
 
   @Test
@@ -71,5 +79,31 @@ public class NullAwayAutoSuggestNoCastTest {
             "  }",
             "}");
     bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH); // Yes we can!
+  }
+
+  @Test
+  public void suggestSuppressionWithoutComment() throws IOException {
+    BugCheckerRefactoringTestHelper bcr =
+        BugCheckerRefactoringTestHelper.newInstance(
+            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
+
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
+    bcr.addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  Object test1() {",
+            "    return null;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  @SuppressWarnings(\"NullAway\") Object test1() {",
+            "    return null;",
+            "  }",
+            "}");
+    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
   }
 }
