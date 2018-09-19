@@ -2014,11 +2014,7 @@ public class NullAway extends BugChecker
       fix =
           SuggestedFix.prefixWith(
               suggestTree,
-              "@SuppressWarnings(\""
-                  + checkerName
-                  + "\") /* "
-                  + config.getAutofixSuppressionComment()
-                  + " */ ");
+              "@SuppressWarnings(\"" + checkerName + "\")" + config.getAutofixSuppressionComment());
     } else {
       // need to update the existing list of warnings
       List<String> suppressions = Lists.newArrayList(extantSuppressWarnings.value());
@@ -2040,10 +2036,8 @@ public class NullAway extends BugChecker
       String replacement =
           "@SuppressWarnings({"
               + Joiner.on(',').join(Iterables.transform(suppressions, s -> '"' + s + '"'))
-              + "}) "
-              + "/* "
-              + config.getAutofixSuppressionComment()
-              + " */ ";
+              + "})"
+              + config.getAutofixSuppressionComment();
       fix = SuggestedFix.replace(suppressWarningsAnnot.get(), replacement);
     }
     return builder.addFix(fix);
