@@ -1,5 +1,11 @@
 Changelog
 =========
+Version 0.5.6
+-------------
+* Add coverage measurement through coveralls. (#224) 
+* Fix empty comment added when AutoFixSuppressionComment is not set. (#225)
+* Make JarInfer generated jars fully deterministic by removing timestamps. (#227)
+
 Version 0.5.5
 -------------
 * Allow for custom Error URLS (#220)
