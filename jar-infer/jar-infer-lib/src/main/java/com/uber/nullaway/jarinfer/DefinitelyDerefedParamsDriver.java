@@ -52,6 +52,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.attribute.FileTime;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -309,7 +310,12 @@ public class DefinitelyDerefedParamsDriver {
         outPath.endsWith(MODEL_JAR_SUFFIX), "invalid model file path! " + outPath);
     ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outPath));
     if (!map_result.isEmpty()) {
-      zos.putNextEntry(new ZipEntry(DEFAULT_ASTUBX_LOCATION));
+      ZipEntry entry = new ZipEntry(DEFAULT_ASTUBX_LOCATION);
+      // Set the modification/creation time to 0 to ensure that this jars always have the same
+      // checksum
+      entry.setTime(0);
+      entry.setCreationTime(FileTime.fromMillis(0));
+      zos.putNextEntry(entry);
       writeModel(new DataOutputStream(zos));
       zos.closeEntry();
     }
