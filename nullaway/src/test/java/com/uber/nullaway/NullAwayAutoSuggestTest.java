@@ -124,4 +124,49 @@ public class NullAwayAutoSuggestTest {
             "}");
     bcr.doTest();
   }
+
+  @Test
+  public void suggestSuppressionOnMethodRef() throws IOException {
+    BugCheckerRefactoringTestHelper bcr =
+        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
+
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
+    bcr.addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  public @Nullable Object doReturnNullable() {",
+            "    return null;",
+            "  }",
+            "  public static void takesNonNull(Object o) { ",
+            "    System.out.println(o.toString());",
+            "  }",
+            "  public <R> R execute(io.reactivex.functions.Function<Test,R> f) throws Exception {",
+            "    return f.apply(this);",
+            "  }",
+            "  void test() throws Exception {",
+            "    takesNonNull(execute(Test::doReturnNullable));",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  public @Nullable Object doReturnNullable() {",
+            "    return null;",
+            "  }",
+            "  public static void takesNonNull(Object o) { ",
+            "    System.out.println(o.toString());",
+            "  }",
+            "  public <R> R execute(io.reactivex.functions.Function<Test,R> f) throws Exception {",
+            "    return f.apply(this);",
+            "  }",
+            "  @SuppressWarnings(\"NullAway\") void test() throws Exception {",
+            "    takesNonNull(execute(Test::doReturnNullable));",
+            "  }",
+            "}");
+    bcr.doTest();
+  }
 }

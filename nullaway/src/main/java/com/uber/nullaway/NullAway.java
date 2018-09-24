@@ -659,8 +659,12 @@ public class NullAway extends BugChecker
           memberReferenceTree != null
               ? memberReferenceTree
               : getTreesInstance(state).getTree(overridingMethod);
+      Tree suggestTree =
+          memberReferenceTree != null
+              ? NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath()).getLeaf()
+              : errorTree;
       return createErrorDescription(
-          MessageTypes.WRONG_OVERRIDE_RETURN, errorTree, message, errorTree);
+          MessageTypes.WRONG_OVERRIDE_RETURN, errorTree, message, suggestTree);
     }
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
@@ -2033,7 +2037,10 @@ public class NullAway extends BugChecker
       fix =
           SuggestedFix.prefixWith(
               suggestTree,
-              "@SuppressWarnings(\"" + checkerName + "\")" + config.getAutofixSuppressionComment());
+              "@SuppressWarnings(\""
+                  + checkerName
+                  + "\") "
+                  + config.getAutofixSuppressionComment());
     } else {
       // need to update the existing list of warnings
       List<String> suppressions = Lists.newArrayList(extantSuppressWarnings.value());
@@ -2055,7 +2062,7 @@ public class NullAway extends BugChecker
       String replacement =
           "@SuppressWarnings({"
               + Joiner.on(',').join(Iterables.transform(suppressions, s -> '"' + s + '"'))
-              + "})"
+              + "}) "
               + config.getAutofixSuppressionComment();
       fix = SuggestedFix.replace(suppressWarningsAnnot.get(), replacement);
     }

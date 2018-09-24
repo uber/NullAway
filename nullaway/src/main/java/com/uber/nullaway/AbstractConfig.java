@@ -187,7 +187,7 @@ public abstract class AbstractConfig implements Config {
   @Override
   public String getAutofixSuppressionComment() {
     if (autofixSuppressionComment.trim().length() > 0) {
-      return " /* " + autofixSuppressionComment + " */ ";
+      return "/* " + autofixSuppressionComment + " */ ";
     } else {
       return "";
     }
