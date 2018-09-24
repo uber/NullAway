@@ -42,6 +42,15 @@ public interface LibraryModels {
   ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters();
 
   /**
+   * @return map from the names of methods with @Nullable parameters to the indexes of the arguments
+   *     that are @Nullable.
+   *     <p>This is taken into account for override checks, requiring methods that override the
+   *     methods listed here to take @Nullable parameters on the same indexes. The main use for this
+   *     is to document which API callbacks can be passed null values.
+   */
+  ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters();
+
+  /**
    * @return map from the names of methods with @NonNull parameters to the indexes of the arguments
    *     that are @NonNull.
    *     <p>Note that these methods are different from the {@link #failIfNullParameters()} methods,

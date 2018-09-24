@@ -484,44 +484,57 @@ public class NullAway extends BugChecker
     // for unbound member references, we need to adjust parameter indices by 1 when matching with
     // overridden method
     int startParam = unboundMemberRef ? 1 : 0;
-    for (int i = startParam; i < superParamSymbols.size(); i++) {
-      // we need to call paramHasNullableAnnotation here since overriddenMethod may be defined
-      // in a class file
-      if (Nullness.paramHasNullableAnnotation(overriddenMethod, i)) {
-        int methodParamInd = i - startParam;
-        VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
-        // in the case where we have a parameter of a lambda expression, we do
-        // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
-        // nullability from the corresponding functional interface method.
-        // So, we report an error if the @Nullable annotation is missing *and*
-        // we don't have a lambda with implicitly typed parameters
-        boolean implicitlyTypedLambdaParam =
-            lambdaExpressionTree != null
-                && NullabilityUtil.lambdaParamIsImplicitlyTyped(
-                    lambdaExpressionTree.getParameters().get(methodParamInd));
-        if (!Nullness.hasNullableAnnotation(paramSymbol) && !implicitlyTypedLambdaParam) {
-          String message =
-              "parameter "
-                  + paramSymbol.name.toString()
-                  + (memberReferenceTree != null ? " of referenced method" : "")
-                  + " is @NonNull, but parameter in "
-                  + ((lambdaExpressionTree != null || memberReferenceTree != null)
-                      ? "functional interface "
-                      : "superclass ")
-                  + "method "
-                  + ASTHelpers.enclosingClass(overriddenMethod)
-                  + "."
-                  + overriddenMethod.toString()
-                  + " is @Nullable";
-          Tree errorTree;
-          if (memberReferenceTree != null) {
-            errorTree = memberReferenceTree;
-          } else {
-            errorTree = getTreesInstance(state).getTree(paramSymbol);
-          }
-          return createErrorDescription(
-              MessageTypes.WRONG_OVERRIDE_PARAM, errorTree, message, errorTree);
+    // Collect @Nullable params of overriden method
+    ImmutableSet<Integer> nullableParamsOfOverriden;
+    if (NullabilityUtil.isUnannotated(overriddenMethod, config)) {
+      nullableParamsOfOverriden =
+          handler.onUnannotatedInvocationGetExplicitlyNullablePositions(
+              this, state, overriddenMethod, ImmutableSet.of());
+    } else {
+      ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
+      for (int i = startParam; i < superParamSymbols.size(); i++) {
+        // we need to call paramHasNullableAnnotation here since overriddenMethod may be defined
+        // in a class file
+        if (Nullness.paramHasNullableAnnotation(overriddenMethod, i)) {
+          builder.add(i);
         }
+      }
+      nullableParamsOfOverriden = builder.build();
+    }
+    for (int i : nullableParamsOfOverriden) {
+      int methodParamInd = i - startParam;
+      VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
+      // in the case where we have a parameter of a lambda expression, we do
+      // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
+      // nullability from the corresponding functional interface method.
+      // So, we report an error if the @Nullable annotation is missing *and*
+      // we don't have a lambda with implicitly typed parameters
+      boolean implicitlyTypedLambdaParam =
+          lambdaExpressionTree != null
+              && NullabilityUtil.lambdaParamIsImplicitlyTyped(
+                  lambdaExpressionTree.getParameters().get(methodParamInd));
+      if (!Nullness.hasNullableAnnotation(paramSymbol) && !implicitlyTypedLambdaParam) {
+        String message =
+            "parameter "
+                + paramSymbol.name.toString()
+                + (memberReferenceTree != null ? " of referenced method" : "")
+                + " is @NonNull, but parameter in "
+                + ((lambdaExpressionTree != null || memberReferenceTree != null)
+                    ? "functional interface "
+                    : "superclass ")
+                + "method "
+                + ASTHelpers.enclosingClass(overriddenMethod)
+                + "."
+                + overriddenMethod.toString()
+                + " is @Nullable";
+        Tree errorTree;
+        if (memberReferenceTree != null) {
+          errorTree = memberReferenceTree;
+        } else {
+          errorTree = getTreesInstance(state).getTree(paramSymbol);
+        }
+        return createErrorDescription(
+            MessageTypes.WRONG_OVERRIDE_PARAM, errorTree, message, errorTree);
       }
     }
     return Description.NO_MATCH;
@@ -611,12 +624,18 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol overridingMethod,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
-    if (NullabilityUtil.isUnannotated(overriddenMethod, config)) {
-      return Description.NO_MATCH;
-    }
+    // We ignore unannotated methods for now, since we always assume they return @NonNull, but we
+    // don't actually know,
+    // so it might make sense to override them as @Nullable.
+    // TODO: Add an equivalent to Handler.onUnannotatedInvocationGetExplicitlyNullablePositions for
+    // @NonNull return
+    // values if needed.
+    boolean overriddenMethodReturnsNonNull =
+        !(NullabilityUtil.isUnannotated(overriddenMethod, config)
+            || Nullness.hasNullableAnnotation(overriddenMethod));
     // if the super method returns nonnull,
     // overriding method better not return nullable
-    if (!Nullness.hasNullableAnnotation(overriddenMethod)
+    if (overriddenMethodReturnsNonNull
         && Nullness.hasNullableAnnotation(overridingMethod)
         && getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE)) {
       String message;

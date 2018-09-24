@@ -79,6 +79,20 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
+  public ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
+      NullAway analysis,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      ImmutableSet<Integer> explicitlyNullablePositions) {
+    return Sets.union(
+            explicitlyNullablePositions,
+            libraryModels
+                .explicitlyNullableParameters()
+                .get(LibraryModels.MethodRef.fromSymbol(methodSymbol)))
+        .immutableCopy();
+  }
+
+  @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
@@ -186,17 +200,26 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 1)
             .build();
 
+    private static final ImmutableSetMultimap<MethodRef, Integer> EXPLICITLY_NULLABLE_PARAMETERS =
+        new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+            .put(
+                methodRef(
+                    "android.view.GestureDetector.OnGestureListener",
+                    "onScroll(android.view.MotionEvent,android.view.MotionEvent,float,float)"),
+                0)
+            .build();
+
     private static final ImmutableSetMultimap<MethodRef, Integer> NON_NULL_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
             .put(
                 methodRef(
                     "com.android.sdklib.build.ApkBuilder",
-                    "ApkBuilder(java.io.File,java.io.File,java.io.File,java.lang.String,java.io.PrintStream))"),
+                    "ApkBuilder(java.io.File,java.io.File,java.io.File,java.lang.String,java.io.PrintStream)"),
                 0)
             .put(
                 methodRef(
                     "com.android.sdklib.build.ApkBuilder",
-                    "ApkBuilder(java.io.File,java.io.File,java.io.File,java.lang.String,java.io.PrintStream))"),
+                    "ApkBuilder(java.io.File,java.io.File,java.io.File,java.lang.String,java.io.PrintStream)"),
                 1)
             .put(methodRef("com.google.common.collect.ImmutableList.Builder", "add(E)"), 0)
             .put(
@@ -331,6 +354,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     @Override
+    public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
+      return EXPLICITLY_NULLABLE_PARAMETERS;
+    }
+
+    @Override
     public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
       return NON_NULL_PARAMETERS;
     }
@@ -355,6 +383,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters;
 
+    private final ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters;
+
     private final ImmutableSetMultimap<MethodRef, Integer> nonNullParameters;
 
     private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters;
@@ -366,6 +396,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     public CombinedLibraryModels(Iterable<LibraryModels> models) {
       ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
+      ImmutableSetMultimap.Builder<MethodRef, Integer> explicitlyNullableParametersBuilder =
+          new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nonNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
@@ -375,6 +407,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       for (LibraryModels libraryModels : models) {
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.failIfNullParameters().entries()) {
           failIfNullParametersBuilder.put(entry);
+        }
+        for (Map.Entry<MethodRef, Integer> entry :
+            libraryModels.explicitlyNullableParameters().entries()) {
+          explicitlyNullableParametersBuilder.put(entry);
         }
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.nonNullParameters().entries()) {
           nonNullParametersBuilder.put(entry);
@@ -391,6 +427,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         }
       }
       failIfNullParameters = failIfNullParametersBuilder.build();
+      explicitlyNullableParameters = explicitlyNullableParametersBuilder.build();
       nonNullParameters = nonNullParametersBuilder.build();
       nullImpliesTrueParameters = nullImpliesTrueParametersBuilder.build();
       nullableReturns = nullableReturnsBuilder.build();
@@ -400,6 +437,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
       return failIfNullParameters;
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
+      return explicitlyNullableParameters;
     }
 
     @Override
