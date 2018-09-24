@@ -127,6 +127,30 @@ public interface Handler {
   void onMatchReturn(NullAway analysis, ReturnTree tree, VisitorState state);
 
   /**
+   * Called when NullAway encounters an unannotated method and asks for params explicitly
+   * marked @Nullable
+   *
+   * <p>This is mostly used to force overriding methods to also use @Nullable, e.g. for callbacks
+   * that can get passed null values.
+   *
+   * <p>Note that this should be only used for parameters EXPLICLTY marked as @Nullable (e.g. by
+   * library models) rather than those considered @Nullable by NullAway's default optimistic
+   * assumptions.
+   *
+   * @param analysis A reference to the running NullAway analysis.
+   * @param state The current visitor state.
+   * @param methodSymbol The method symbol for the unannotated method in question.
+   * @param explicitlyNullablePositions Parameter nullability computed by upstream handlers (the
+   *     core analysis supplies the empty set to the first handler in the chain).
+   * @return Updated parameter nullability computed by this handler.
+   */
+  ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
+      NullAway analysis,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      ImmutableSet<Integer> explicitlyNullablePositions);
+
+  /**
    * Called when NullAway encounters an unannotated method and asks for params default nullability
    *
    * @param analysis A reference to the running NullAway analysis.
