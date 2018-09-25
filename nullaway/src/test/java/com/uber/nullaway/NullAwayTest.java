@@ -1187,4 +1187,26 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void localsCanBeNullOnClosure() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  public Runnable outer(@Nullable Object o) {",
+            "    final Object outerVar = o;",
+            "    return (new Runnable() {",
+            "      @Override",
+            "      public void run() {",
+            "        // BUG: Diagnostic contains: dereferenced expression",
+            "        System.out.println(outerVar.toString());",
+            "      }",
+            "    });",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
