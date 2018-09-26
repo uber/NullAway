@@ -1199,6 +1199,8 @@ public class NullAwayTest {
             "  public Runnable outer(@Nullable Object o) {",
             "    final Object outerVar = o;",
             "    return (new Runnable() {",
+            "      // BUG: Diagnostic contains: assigning @Nullable",
+            "      final Object someField = outerVar;",
             "      @Override",
             "      public void run() {",
             "        // BUG: Diagnostic contains: dereferenced expression",
