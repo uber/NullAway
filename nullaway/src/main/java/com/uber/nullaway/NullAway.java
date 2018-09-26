@@ -88,6 +88,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
+import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import java.util.ArrayList;
@@ -105,6 +106,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.NestingKind;
 import javax.lang.model.type.TypeKind;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.javacutil.AnnotationUtils;
@@ -320,6 +322,14 @@ public class NullAway extends BugChecker
       methodSymbol = getSymbolOfSuperConstructor(methodSymbol, state);
     }
     return handleInvocation(tree, state, methodSymbol, actualParams);
+  }
+
+  private void updateEnvironmentMapping(Tree tree, VisitorState state) {
+    // store environment for use when analyzing methods inside the class / lambda
+    AccessPathNullnessAnalysis analysis = getNullnessAnalysis(state);
+    EnclosingEnvironmentNullness.instance(state.context)
+        .addEnvironmentMapping(
+            tree, analysis.getLocalVarInfoBefore(state.getPath(), state.context));
   }
 
   private Symbol.MethodSymbol getSymbolOfSuperConstructor(
@@ -568,8 +578,12 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchLambdaExpression(LambdaExpressionTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
     Symbol.MethodSymbol funcInterfaceMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
+    updateEnvironmentMapping(tree, state);
     handler.onMatchLambdaExpression(this, tree, state, funcInterfaceMethod);
     if (NullabilityUtil.isUnannotated(funcInterfaceMethod, config)) {
       return Description.NO_MATCH;
@@ -600,6 +614,9 @@ public class NullAway extends BugChecker
    */
   @Override
   public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(tree);
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
@@ -1051,7 +1068,8 @@ public class NullAway extends BugChecker
     // we don't want to update the flag for nested classes.
     // ideally we would keep a stack of flags to handle nested types,
     // but this is not easy within the Error Prone APIs
-    if (!classSymbol.getNestingKind().isNested()) {
+    NestingKind nestingKind = classSymbol.getNestingKind();
+    if (!nestingKind.isNested()) {
       matchWithinClass = !isExcludedClass(classSymbol, state);
       // since we are processing a new top-level class, invalidate any cached
       // results for previous classes
@@ -1061,9 +1079,13 @@ public class NullAway extends BugChecker
       class2Entities.clear();
       class2ConstructorUninit.clear();
       computedNullnessMap.clear();
+      EnclosingEnvironmentNullness.instance(state.context).clear();
     }
     if (matchWithinClass) {
       checkFieldInitialization(tree, state);
+      if (nestingKind.equals(NestingKind.LOCAL) || nestingKind.equals(NestingKind.ANONYMOUS)) {
+        updateEnvironmentMapping(tree, state);
+      }
     }
     return Description.NO_MATCH;
   }
@@ -1801,7 +1823,7 @@ public class NullAway extends BugChecker
 
   public AccessPathNullnessAnalysis getNullnessAnalysis(VisitorState state) {
     return AccessPathNullnessAnalysis.instance(
-        state.context, nonAnnotatedMethod, state.getTypes(), config, this.handler);
+        state.context, nonAnnotatedMethod, config, this.handler);
   }
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {

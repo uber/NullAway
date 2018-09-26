@@ -23,6 +23,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
@@ -98,7 +99,8 @@ public final class DataFlow {
                     bodyPath = new TreePath(codePath, lambdaExpressionTree.getBody());
                   } else if (codePath.getLeaf() instanceof MethodTree) {
                     MethodTree method = (MethodTree) codePath.getLeaf();
-                    ast = new UnderlyingAST.CFGMethod(method, /*classTree*/ null);
+                    ClassTree enclClass = ASTHelpers.findEnclosingNode(codePath, ClassTree.class);
+                    ast = new UnderlyingAST.CFGMethod(method, enclClass);
                     BlockTree body = method.getBody();
                     if (body == null) {
                       throw new IllegalStateException(
@@ -195,6 +197,18 @@ public final class DataFlow {
     return analysisResult == null ? null : analysisResult.getStoreBefore(exprPath.getLeaf());
   }
 
+  /**
+   * like {@link #resultBeforeExpr(TreePath, Context, TransferFunction)} but for an arbitrary Tree
+   * in a method. A bit riskier to use since we don't check that there is a corresponding CFG node
+   * to the Tree; use with care.
+   */
+  @Nullable
+  public <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
+      S resultBefore(TreePath exprPath, Context context, T transfer) {
+    AnalysisResult<A, S> analysisResult = resultFor(exprPath, context, transfer);
+    return analysisResult == null ? null : analysisResult.getStoreBefore(exprPath.getLeaf());
+  }
+
   @Nullable
   private <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
       AnalysisResult<A, S> resultForExpr(TreePath exprPath, Context context, T transfer) {
@@ -204,7 +218,11 @@ public final class DataFlow {
         "Leaf of exprPath must be of type ExpressionTree, but was %s",
         leaf.getClass().getName());
 
-    final ExpressionTree expr = (ExpressionTree) leaf;
+    return resultFor(exprPath, context, transfer);
+  }
+
+  private <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
+      AnalysisResult<A, S> resultFor(TreePath exprPath, Context context, T transfer) {
     final TreePath enclosingPath =
         NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(exprPath);
     if (enclosingPath == null) {

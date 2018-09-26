@@ -20,7 +20,6 @@ package com.uber.nullaway.dataflow;
 
 import com.google.common.collect.ImmutableList;
 import com.sun.source.util.TreePath;
-import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
@@ -51,12 +50,12 @@ public final class AccessPathNullnessAnalysis {
   // Use #instance to instantiate
   private AccessPathNullnessAnalysis(
       Predicate<MethodInvocationNode> methodReturnsNonNull,
-      Types types,
+      Context context,
       Config config,
       Handler handler) {
     this.nullnessPropagation =
         new AccessPathNullnessPropagation(
-            Nullness.NONNULL, methodReturnsNonNull, types, config, handler);
+            Nullness.NONNULL, methodReturnsNonNull, context, config, handler);
     this.dataFlow = new DataFlow();
   }
 
@@ -64,19 +63,17 @@ public final class AccessPathNullnessAnalysis {
    * @param context Javac context
    * @param methodReturnsNonNull predicate determining whether a method is assumed to return NonNull
    *     value
-   * @param types javac Types data structure
    * @param config analysis config
    * @return instance of the analysis
    */
   public static AccessPathNullnessAnalysis instance(
       Context context,
       Predicate<MethodInvocationNode> methodReturnsNonNull,
-      Types types,
       Config config,
       Handler handler) {
     AccessPathNullnessAnalysis instance = context.get(FIELD_NULLNESS_ANALYSIS_KEY);
     if (instance == null) {
-      instance = new AccessPathNullnessAnalysis(methodReturnsNonNull, types, config, handler);
+      instance = new AccessPathNullnessAnalysis(methodReturnsNonNull, context, config, handler);
       context.put(FIELD_NULLNESS_ANALYSIS_KEY, instance);
     }
     return instance;
@@ -148,6 +145,25 @@ public final class AccessPathNullnessAnalysis {
       return Collections.emptySet();
     }
     return getNonnullStaticFields(store);
+  }
+
+  public NullnessStore getLocalVarInfoBefore(TreePath path, Context context) {
+    NullnessStore store = dataFlow.resultBefore(path, context, nullnessPropagation);
+    if (store == null) {
+      return NullnessStore.empty();
+    }
+    return store.filterAccessPaths(
+        (ap) -> {
+          if (ap.getElements().size() == 0) {
+            AccessPath.Root root = ap.getRoot();
+            if (!root.isReceiver()) {
+              Element e = root.getVarElement();
+              return e.getKind().equals(ElementKind.PARAMETER)
+                  || e.getKind().equals(ElementKind.LOCAL_VARIABLE);
+            }
+          }
+          return false;
+        });
   }
 
   /**

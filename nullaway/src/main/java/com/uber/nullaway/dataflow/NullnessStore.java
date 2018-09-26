@@ -26,6 +26,8 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
 import org.checkerframework.dataflow.analysis.FlowExpressions;
 import org.checkerframework.dataflow.analysis.Store;
@@ -39,7 +41,6 @@ import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
  */
 public class NullnessStore implements Store<NullnessStore> {
 
-  @SuppressWarnings({"unchecked", "rawtypes"})
   private static final NullnessStore EMPTY = new NullnessStore(ImmutableMap.of());
 
   private final ImmutableMap<AccessPath, Nullness> contents;
@@ -197,6 +198,19 @@ public class NullnessStore implements Store<NullnessStore> {
       }
     }
     return nullnessBuilder.build();
+  }
+
+  /**
+   * @param pred predicate over {@link AccessPath}s
+   * @return NullnessStore containing only AccessPaths that pass the predicate
+   */
+  public NullnessStore filterAccessPaths(Predicate<AccessPath> pred) {
+    return new NullnessStore(
+        contents
+            .entrySet()
+            .stream()
+            .filter(e -> pred.test(e.getKey()))
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
   }
 
   /** class for building up instances of the store. */
