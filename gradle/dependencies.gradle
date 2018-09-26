@@ -15,8 +15,7 @@
  */
 
 def versions = [
-    checkerFramework       : "2.5.0",
-    checkerFrameworkNAFork : "2.5.0",
+    checkerFramework       : "2.5.5",
     errorProne             : "2.3.1",
     support                : "27.1.1",
     wala                   : "1.5.0-uber.1",
@@ -33,8 +32,8 @@ def build = [
     errorProneCheckApi      : "com.google.errorprone:error_prone_check_api:${versions.errorProne}",
     errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProne}",
     errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProne}",
-    checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFrameworkNAFork}",
-                               "org.checkerframework:javacutil:${versions.checkerFrameworkNAFork}"],
+    checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFramework}",
+                               "org.checkerframework:javacutil:${versions.checkerFramework}"],
     gradleErrorPronePlugin  : "net.ltgt.gradle:gradle-errorprone-plugin:0.0.16",
     guava                   : "com.google.guava:guava:22.0",
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
