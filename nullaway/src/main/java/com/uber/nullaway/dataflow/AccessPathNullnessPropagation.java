@@ -126,8 +126,7 @@ import org.checkerframework.dataflow.cfg.node.WideningConversionNode;
  * com.google.errorprone.dataflow.nullnesspropagation.AbstractNullnessPropagationTransfer} and
  * {@link com.google.errorprone.dataflow.nullnesspropagation.NullnessPropagationTransfer})
  */
-public class AccessPathNullnessPropagation
-    implements TransferFunction<Nullness, NullnessStore<Nullness>> {
+public class AccessPathNullnessPropagation implements TransferFunction<Nullness, NullnessStore> {
 
   private static final boolean NO_STORE_CHANGE = false;
 
@@ -154,8 +153,7 @@ public class AccessPathNullnessPropagation
     this.handler = handler;
   }
 
-  private static SubNodeValues values(
-      final TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  private static SubNodeValues values(final TransferInput<Nullness, NullnessStore> input) {
     return input::getValueOfSubNode;
   }
 
@@ -175,7 +173,7 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public NullnessStore<Nullness> initialStore(
+  public NullnessStore initialStore(
       UnderlyingAST underlyingAST, List<LocalVariableNode> parameters) {
     if (parameters == null) {
       // Documentation of this method states, "parameters is only set if the underlying AST is a
@@ -190,9 +188,9 @@ public class AccessPathNullnessPropagation
     }
   }
 
-  private NullnessStore<Nullness> lambdaInitialStore(
+  private NullnessStore lambdaInitialStore(
       UnderlyingAST.CFGLambda underlyingAST, List<LocalVariableNode> parameters) {
-    NullnessStore.Builder<Nullness> result = NullnessStore.<Nullness>empty().toBuilder();
+    NullnessStore.Builder result = NullnessStore.empty().toBuilder();
     LambdaExpressionTree code = underlyingAST.getLambdaTree();
     // need to check annotation for i'th parameter of functional interface declaration
     Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code, types);
@@ -225,9 +223,9 @@ public class AccessPathNullnessPropagation
     return result.build();
   }
 
-  private NullnessStore<Nullness> methodInitialStore(
+  private NullnessStore methodInitialStore(
       UnderlyingAST underlyingAST, List<LocalVariableNode> parameters) {
-    NullnessStore.Builder<Nullness> result = NullnessStore.<Nullness>empty().toBuilder();
+    NullnessStore.Builder result = NullnessStore.empty().toBuilder();
     for (LocalVariableNode param : parameters) {
       Element element = param.getElement();
       Nullness assumed = Nullness.hasNullableAnnotation((Symbol) element) ? NULLABLE : NONNULL;
@@ -238,220 +236,205 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitShortLiteral(
-      ShortLiteralNode shortLiteralNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitShortLiteral(
+      ShortLiteralNode shortLiteralNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitIntegerLiteral(
-      IntegerLiteralNode integerLiteralNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitIntegerLiteral(
+      IntegerLiteralNode integerLiteralNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitLongLiteral(
-      LongLiteralNode longLiteralNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitLongLiteral(
+      LongLiteralNode longLiteralNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitFloatLiteral(
-      FloatLiteralNode floatLiteralNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitFloatLiteral(
+      FloatLiteralNode floatLiteralNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitDoubleLiteral(
-      DoubleLiteralNode doubleLiteralNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitDoubleLiteral(
+      DoubleLiteralNode doubleLiteralNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitBooleanLiteral(
-      BooleanLiteralNode booleanLiteralNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitBooleanLiteral(
+      BooleanLiteralNode booleanLiteralNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitCharacterLiteral(
-      CharacterLiteralNode characterLiteralNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitCharacterLiteral(
+      CharacterLiteralNode characterLiteralNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitStringLiteral(
-      StringLiteralNode stringLiteralNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitStringLiteral(
+      StringLiteralNode stringLiteralNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitNullLiteral(
-      NullLiteralNode nullLiteralNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitNullLiteral(
+      NullLiteralNode nullLiteralNode, TransferInput<Nullness, NullnessStore> input) {
     // let's be sane here and return null
     return new RegularTransferResult<>(Nullness.NULL, input.getRegularStore());
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitNumericalMinus(
-      NumericalMinusNode numericalMinusNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitNumericalMinus(
+      NumericalMinusNode numericalMinusNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitNumericalPlus(
-      NumericalPlusNode numericalPlusNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitNumericalPlus(
+      NumericalPlusNode numericalPlusNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitBitwiseComplement(
-      BitwiseComplementNode bitwiseComplementNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitBitwiseComplement(
+      BitwiseComplementNode bitwiseComplementNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitNullChk(
-      NullChkNode nullChkNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitNullChk(
+      NullChkNode nullChkNode, TransferInput<Nullness, NullnessStore> input) {
     throw new RuntimeException("we should never see this");
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitStringConcatenate(
-      StringConcatenateNode stringConcatenateNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitStringConcatenate(
+      StringConcatenateNode stringConcatenateNode, TransferInput<Nullness, NullnessStore> input) {
     // concatenation always returns non-null
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitNumericalAddition(
-      NumericalAdditionNode numericalAdditionNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitNumericalAddition(
+      NumericalAdditionNode numericalAdditionNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitNumericalSubtraction(
+  public TransferResult<Nullness, NullnessStore> visitNumericalSubtraction(
       NumericalSubtractionNode numericalSubtractionNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+      TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitNumericalMultiplication(
+  public TransferResult<Nullness, NullnessStore> visitNumericalMultiplication(
       NumericalMultiplicationNode numericalMultiplicationNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+      TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitIntegerDivision(
-      IntegerDivisionNode integerDivisionNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitIntegerDivision(
+      IntegerDivisionNode integerDivisionNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitFloatingDivision(
-      FloatingDivisionNode floatingDivisionNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitFloatingDivision(
+      FloatingDivisionNode floatingDivisionNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitIntegerRemainder(
-      IntegerRemainderNode integerRemainderNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitIntegerRemainder(
+      IntegerRemainderNode integerRemainderNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitFloatingRemainder(
-      FloatingRemainderNode floatingRemainderNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitFloatingRemainder(
+      FloatingRemainderNode floatingRemainderNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitLeftShift(
-      LeftShiftNode leftShiftNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitLeftShift(
+      LeftShiftNode leftShiftNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitSignedRightShift(
-      SignedRightShiftNode signedRightShiftNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitSignedRightShift(
+      SignedRightShiftNode signedRightShiftNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitUnsignedRightShift(
-      UnsignedRightShiftNode unsignedRightShiftNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitUnsignedRightShift(
+      UnsignedRightShiftNode unsignedRightShiftNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitBitwiseAnd(
-      BitwiseAndNode bitwiseAndNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitBitwiseAnd(
+      BitwiseAndNode bitwiseAndNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitBitwiseOr(
-      BitwiseOrNode bitwiseOrNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitBitwiseOr(
+      BitwiseOrNode bitwiseOrNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitBitwiseXor(
-      BitwiseXorNode bitwiseXorNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitBitwiseXor(
+      BitwiseXorNode bitwiseXorNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitStringConcatenateAssignment(
+  public TransferResult<Nullness, NullnessStore> visitStringConcatenateAssignment(
       StringConcatenateAssignmentNode stringConcatenateAssignmentNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+      TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitLessThan(
-      LessThanNode lessThanNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitLessThan(
+      LessThanNode lessThanNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitLessThanOrEqual(
-      LessThanOrEqualNode lessThanOrEqualNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitLessThanOrEqual(
+      LessThanOrEqualNode lessThanOrEqualNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitGreaterThan(
-      GreaterThanNode greaterThanNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitGreaterThan(
+      GreaterThanNode greaterThanNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitGreaterThanOrEqual(
-      GreaterThanOrEqualNode greaterThanOrEqualNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitGreaterThanOrEqual(
+      GreaterThanOrEqualNode greaterThanOrEqualNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitEqualTo(
-      EqualToNode equalToNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitEqualTo(
+      EqualToNode equalToNode, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates thenUpdates = new ReadableUpdates();
     ReadableUpdates elseUpdates = new ReadableUpdates();
     handleEqualityComparison(
@@ -468,8 +451,8 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitNotEqual(
-      NotEqualNode notEqualNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitNotEqual(
+      NotEqualNode notEqualNode, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates thenUpdates = new ReadableUpdates();
     ReadableUpdates elseUpdates = new ReadableUpdates();
     handleEqualityComparison(
@@ -517,30 +500,28 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitConditionalAnd(
-      ConditionalAndNode conditionalAndNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitConditionalAnd(
+      ConditionalAndNode conditionalAndNode, TransferInput<Nullness, NullnessStore> input) {
     return conditionalResult(input.getThenStore(), input.getElseStore(), NO_STORE_CHANGE);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitConditionalOr(
-      ConditionalOrNode conditionalOrNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitConditionalOr(
+      ConditionalOrNode conditionalOrNode, TransferInput<Nullness, NullnessStore> input) {
     return conditionalResult(input.getThenStore(), input.getElseStore(), NO_STORE_CHANGE);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitConditionalNot(
-      ConditionalNotNode conditionalNotNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitConditionalNot(
+      ConditionalNotNode conditionalNotNode, TransferInput<Nullness, NullnessStore> input) {
     boolean storeChanged = !input.getThenStore().equals(input.getElseStore());
     return conditionalResult(
         /* thenStore= */ input.getElseStore(), /* elseStore= */ input.getThenStore(), storeChanged);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitTernaryExpression(
-      TernaryExpressionNode node, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitTernaryExpression(
+      TernaryExpressionNode node, TransferInput<Nullness, NullnessStore> input) {
     SubNodeValues inputs = values(input);
     Nullness result =
         inputs
@@ -550,8 +531,8 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitAssignment(
-      AssignmentNode node, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitAssignment(
+      AssignmentNode node, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates updates = new ReadableUpdates();
     Nullness value = values(input).valueOfSubNode(node.getExpression());
     Node target = node.getTarget();
@@ -578,10 +559,8 @@ public class AccessPathNullnessPropagation
     return updateRegularStore(value, input, updates);
   }
 
-  private TransferResult<Nullness, NullnessStore<Nullness>> updateRegularStore(
-      Nullness value,
-      TransferInput<Nullness, NullnessStore<Nullness>> input,
-      ReadableUpdates updates) {
+  private TransferResult<Nullness, NullnessStore> updateRegularStore(
+      Nullness value, TransferInput<Nullness, NullnessStore> input, ReadableUpdates updates) {
     ResultingStore newStore = updateStore(input.getRegularStore(), updates);
     return new RegularTransferResult<>(value, newStore.store, newStore.storeChanged);
   }
@@ -610,9 +589,9 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitLocalVariable(
-      LocalVariableNode node, TransferInput<Nullness, NullnessStore<Nullness>> input) {
-    NullnessStore<Nullness> values = input.getRegularStore();
+  public TransferResult<Nullness, NullnessStore> visitLocalVariable(
+      LocalVariableNode node, TransferInput<Nullness, NullnessStore> input) {
+    NullnessStore values = input.getRegularStore();
     Nullness nullness =
         hasPrimitiveType(node) || hasNonNullConstantValue(node)
             ? NONNULL
@@ -625,8 +604,8 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitVariableDeclaration(
-      VariableDeclarationNode node, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitVariableDeclaration(
+      VariableDeclarationNode node, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates updates = new ReadableUpdates();
     if (isCatchVariable(node)) {
       updates.set(node, NONNULL);
@@ -640,8 +619,8 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitFieldAccess(
-      FieldAccessNode fieldAccessNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitFieldAccess(
+      FieldAccessNode fieldAccessNode, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates updates = new ReadableUpdates();
     Symbol symbol = ASTHelpers.getSymbol(fieldAccessNode.getTree());
     setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
@@ -662,14 +641,14 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitMethodAccess(
-      MethodAccessNode methodAccessNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitMethodAccess(
+      MethodAccessNode methodAccessNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitArrayAccess(
-      ArrayAccessNode node, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitArrayAccess(
+      ArrayAccessNode node, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates updates = new ReadableUpdates();
     setNonnullIfAnalyzeable(updates, node.getArray());
     // this is unsound
@@ -677,41 +656,40 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitImplicitThisLiteral(
+  public TransferResult<Nullness, NullnessStore> visitImplicitThisLiteral(
       ImplicitThisLiteralNode implicitThisLiteralNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+      TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitExplicitThisLiteral(
+  public TransferResult<Nullness, NullnessStore> visitExplicitThisLiteral(
       ExplicitThisLiteralNode explicitThisLiteralNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+      TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
-  private TransferResult<Nullness, NullnessStore<Nullness>> noStoreChanges(
-      Nullness value, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  private TransferResult<Nullness, NullnessStore> noStoreChanges(
+      Nullness value, TransferInput<Nullness, NullnessStore> input) {
     return new RegularTransferResult<>(value, input.getRegularStore());
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitSuper(
-      SuperNode superNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitSuper(
+      SuperNode superNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitReturn(
-      ReturnNode returnNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitReturn(
+      ReturnNode returnNode, TransferInput<Nullness, NullnessStore> input) {
     handler.onDataflowVisitReturn(returnNode.getTree(), input.getThenStore(), input.getElseStore());
     return noStoreChanges(NULLABLE, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitLambdaResultExpression(
-      LambdaResultExpressionNode resultNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitLambdaResultExpression(
+      LambdaResultExpressionNode resultNode, TransferInput<Nullness, NullnessStore> input) {
     handler.onDataflowVisitLambdaResultExpression(
         resultNode.getTree(), input.getThenStore(), input.getElseStore());
     SubNodeValues values = values(input);
@@ -720,29 +698,27 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitStringConversion(
-      StringConversionNode stringConversionNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitStringConversion(
+      StringConversionNode stringConversionNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitNarrowingConversion(
+  public TransferResult<Nullness, NullnessStore> visitNarrowingConversion(
       NarrowingConversionNode narrowingConversionNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+      TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitWideningConversion(
-      WideningConversionNode wideningConversionNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitWideningConversion(
+      WideningConversionNode wideningConversionNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitInstanceOf(
-      InstanceOfNode node, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitInstanceOf(
+      InstanceOfNode node, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates thenUpdates = new ReadableUpdates();
     ReadableUpdates elseUpdates = new ReadableUpdates();
     setNonnullIfAnalyzeable(thenUpdates, node.getOperand());
@@ -756,41 +732,40 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitTypeCast(
-      TypeCastNode node, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitTypeCast(
+      TypeCastNode node, TransferInput<Nullness, NullnessStore> input) {
     SubNodeValues values = values(input);
     Nullness nullness = hasPrimitiveType(node) ? NONNULL : values.valueOfSubNode(node.getOperand());
     return noStoreChanges(nullness, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitSynchronized(
-      SynchronizedNode synchronizedNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitSynchronized(
+      SynchronizedNode synchronizedNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitAssertionError(
-      AssertionErrorNode assertionErrorNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitAssertionError(
+      AssertionErrorNode assertionErrorNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitThrow(
-      ThrowNode throwNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitThrow(
+      ThrowNode throwNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitCase(
-      CaseNode caseNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitCase(
+      CaseNode caseNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitMethodInvocation(
-      MethodInvocationNode node, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitMethodInvocation(
+      MethodInvocationNode node, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates thenUpdates = new ReadableUpdates();
     ReadableUpdates elseUpdates = new ReadableUpdates();
     ReadableUpdates bothUpdates = new ReadableUpdates();
@@ -845,7 +820,7 @@ public class AccessPathNullnessPropagation
 
   Nullness returnValueNullness(
       MethodInvocationNode node,
-      TransferInput<Nullness, NullnessStore<Nullness>> input,
+      TransferInput<Nullness, NullnessStore> input,
       NullnessHint returnValueNullnessHint) {
     // NULLABLE is our default
     Nullness nullness;
@@ -873,78 +848,75 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitObjectCreation(
-      ObjectCreationNode objectCreationNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitObjectCreation(
+      ObjectCreationNode objectCreationNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitMemberReference(
+  public TransferResult<Nullness, NullnessStore> visitMemberReference(
       FunctionalInterfaceNode functionalInterfaceNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+      TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitArrayCreation(
-      ArrayCreationNode arrayCreationNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitArrayCreation(
+      ArrayCreationNode arrayCreationNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitArrayType(
-      ArrayTypeNode arrayTypeNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitArrayType(
+      ArrayTypeNode arrayTypeNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitPrimitiveType(
-      PrimitiveTypeNode primitiveTypeNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitPrimitiveType(
+      PrimitiveTypeNode primitiveTypeNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitClassName(
-      ClassNameNode classNameNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitClassName(
+      ClassNameNode classNameNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitPackageName(
-      PackageNameNode packageNameNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitPackageName(
+      PackageNameNode packageNameNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitParameterizedType(
-      ParameterizedTypeNode parameterizedTypeNode,
-      TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitParameterizedType(
+      ParameterizedTypeNode parameterizedTypeNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore<Nullness>> visitMarker(
-      MarkerNode markerNode, TransferInput<Nullness, NullnessStore<Nullness>> input) {
+  public TransferResult<Nullness, NullnessStore> visitMarker(
+      MarkerNode markerNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
   @CheckReturnValue
-  private static ResultingStore updateStore(
-      NullnessStore<Nullness> oldStore, ReadableUpdates... updates) {
-    NullnessStore.Builder<Nullness> builder = oldStore.toBuilder();
+  private static ResultingStore updateStore(NullnessStore oldStore, ReadableUpdates... updates) {
+    NullnessStore.Builder builder = oldStore.toBuilder();
     for (ReadableUpdates update : updates) {
       for (Map.Entry<AccessPath, Nullness> entry : update.values.entrySet()) {
         AccessPath key = entry.getKey();
         builder.setInformation(key, entry.getValue());
       }
     }
-    NullnessStore<Nullness> newStore = builder.build();
+    NullnessStore newStore = builder.build();
     return new ResultingStore(newStore, !newStore.equals(oldStore));
   }
 
-  private static TransferResult<Nullness, NullnessStore<Nullness>> conditionalResult(
-      NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore, boolean storeChanged) {
+  private static TransferResult<Nullness, NullnessStore> conditionalResult(
+      NullnessStore thenStore, NullnessStore elseStore, boolean storeChanged) {
     return new ConditionalTransferResult<>(NONNULL, thenStore, elseStore, storeChanged);
   }
 
@@ -957,10 +929,10 @@ public class AccessPathNullnessPropagation
   }
 
   private static final class ResultingStore {
-    final NullnessStore<Nullness> store;
+    final NullnessStore store;
     final boolean storeChanged;
 
-    ResultingStore(NullnessStore<Nullness> store, boolean storeChanged) {
+    ResultingStore(NullnessStore store, boolean storeChanged) {
       this.store = store;
       this.storeChanged = storeChanged;
     }

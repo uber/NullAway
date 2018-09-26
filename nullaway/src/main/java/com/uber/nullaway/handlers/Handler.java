@@ -195,10 +195,10 @@ public interface Handler {
    *     take {@code result} and call {@code setInformation(...)} on it to add additional nullness
    *     facts, or replace it with a new builder altogether.
    */
-  NullnessStore.Builder<Nullness> onDataflowInitialStore(
+  NullnessStore.Builder onDataflowInitialStore(
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
-      NullnessStore.Builder<Nullness> result);
+      NullnessStore.Builder result);
 
   /**
    * Called when the Dataflow analysis visits each method invocation.
@@ -233,8 +233,7 @@ public interface Handler {
    * @param elseStore The NullnessStore for the false case of the expression inside the return
    *     statement.
    */
-  void onDataflowVisitReturn(
-      ReturnTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore);
+  void onDataflowVisitReturn(ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore);
 
   /**
    * Called when the Dataflow analysis visits the result expression inside the body of lambda.
@@ -255,7 +254,7 @@ public interface Handler {
    *     statement.
    */
   void onDataflowVisitLambdaResultExpression(
-      ExpressionTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore);
+      ExpressionTree tree, NullnessStore thenStore, NullnessStore elseStore);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
