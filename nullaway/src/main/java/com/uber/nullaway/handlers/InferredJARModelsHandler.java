@@ -63,7 +63,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   }
 
   private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
-  private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
+  private static final String DEFAULT_ASTUBX_LOCATION = ".jarinfer.astubx";
   private static final String ANDROID_ASTUBX_LOCATION = "jarinfer.astubx";
   private static final String ANDROID_MODEL_CLASS =
       "com.uber.nullaway.jarinfer.AndroidJarInferModels";
