@@ -98,8 +98,7 @@ public final class AccessPathNullnessAnalysis {
    * @return fields guaranteed to be nonnull at exit of method (or initializer block)
    */
   public Set<Element> getNonnullFieldsOfReceiverAtExit(TreePath path, Context context) {
-    NullnessStore<Nullness> nullnessResult =
-        dataFlow.finalResult(path, context, nullnessPropagation);
+    NullnessStore nullnessResult = dataFlow.finalResult(path, context, nullnessPropagation);
     if (nullnessResult == null) {
       // this case can occur if the method always throws an exception
       // be conservative and say nothing is initialized
@@ -108,7 +107,7 @@ public final class AccessPathNullnessAnalysis {
     return getNonnullReceiverFields(nullnessResult);
   }
 
-  private Set<Element> getNonnullReceiverFields(NullnessStore<Nullness> nullnessResult) {
+  private Set<Element> getNonnullReceiverFields(NullnessStore nullnessResult) {
     Set<AccessPath> nonnullAccessPaths = nullnessResult.getAccessPathsWithValue(Nullness.NONNULL);
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {
@@ -131,7 +130,7 @@ public final class AccessPathNullnessAnalysis {
    * @return fields of receiver guaranteed to be nonnull before expression is evaluated
    */
   public Set<Element> getNonnullFieldsOfReceiverBefore(TreePath path, Context context) {
-    NullnessStore<Nullness> store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
+    NullnessStore store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
     if (store == null) {
       return Collections.emptySet();
     }
@@ -144,7 +143,7 @@ public final class AccessPathNullnessAnalysis {
    * @return static fields guaranteed to be nonnull before expression is evaluated
    */
   public Set<Element> getNonnullStaticFieldsBefore(TreePath path, Context context) {
-    NullnessStore<Nullness> store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
+    NullnessStore store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
     if (store == null) {
       return Collections.emptySet();
     }
@@ -157,8 +156,7 @@ public final class AccessPathNullnessAnalysis {
    * @return fields guaranteed to be nonnull at exit of static method (or initializer block)
    */
   public Set<Element> getNonnullStaticFieldsAtExit(TreePath path, Context context) {
-    NullnessStore<Nullness> nullnessResult =
-        dataFlow.finalResult(path, context, nullnessPropagation);
+    NullnessStore nullnessResult = dataFlow.finalResult(path, context, nullnessPropagation);
     if (nullnessResult == null) {
       // this case can occur if the method always throws an exception
       // be conservative and say nothing is initialized
@@ -167,7 +165,7 @@ public final class AccessPathNullnessAnalysis {
     return getNonnullStaticFields(nullnessResult);
   }
 
-  private Set<Element> getNonnullStaticFields(NullnessStore<Nullness> nullnessResult) {
+  private Set<Element> getNonnullStaticFields(NullnessStore nullnessResult) {
     Set<AccessPath> nonnullAccessPaths = nullnessResult.getAccessPathsWithValue(Nullness.NONNULL);
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {
@@ -193,7 +191,7 @@ public final class AccessPathNullnessAnalysis {
    * @param context Javac context
    * @return the final NullnessStore on exit from the method.
    */
-  public NullnessStore<Nullness> forceRunOnMethod(TreePath methodPath, Context context) {
+  public NullnessStore forceRunOnMethod(TreePath methodPath, Context context) {
     return dataFlow.finalResult(methodPath, context, nullnessPropagation);
   }
 

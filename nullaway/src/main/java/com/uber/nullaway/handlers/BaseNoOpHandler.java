@@ -34,7 +34,6 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
@@ -129,10 +128,10 @@ abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public NullnessStore.Builder<Nullness> onDataflowInitialStore(
+  public NullnessStore.Builder onDataflowInitialStore(
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
-      NullnessStore.Builder<Nullness> result) {
+      NullnessStore.Builder result) {
     return result;
   }
 
@@ -150,13 +149,13 @@ abstract class BaseNoOpHandler implements Handler {
 
   @Override
   public void onDataflowVisitReturn(
-      ReturnTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore) {
+      ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore) {
     // NoOp
   }
 
   @Override
   public void onDataflowVisitLambdaResultExpression(
-      ExpressionTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore) {
+      ExpressionTree tree, NullnessStore thenStore, NullnessStore elseStore) {
     // NoOp
   }
 }

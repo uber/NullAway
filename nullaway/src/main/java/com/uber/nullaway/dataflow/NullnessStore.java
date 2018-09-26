@@ -21,12 +21,12 @@ import static com.google.common.collect.Sets.intersection;
 
 import com.google.common.collect.ImmutableMap;
 import com.sun.tools.javac.code.Types;
+import com.uber.nullaway.Nullness;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.Element;
-import org.checkerframework.dataflow.analysis.AbstractValue;
 import org.checkerframework.dataflow.analysis.FlowExpressions;
 import org.checkerframework.dataflow.analysis.Store;
 import org.checkerframework.dataflow.cfg.CFGVisualizer;
@@ -36,26 +36,20 @@ import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 
 /**
  * Highly based on {@link com.google.errorprone.dataflow.LocalStore}, but for {@link AccessPath}s.
- *
- * @param <V>
  */
-public class NullnessStore<V extends AbstractValue<V>> implements Store<NullnessStore<V>> {
+public class NullnessStore implements Store<NullnessStore> {
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  private static final NullnessStore<?> EMPTY = new NullnessStore(ImmutableMap.of());
+  private static final NullnessStore EMPTY = new NullnessStore(ImmutableMap.of());
 
-  private final ImmutableMap<AccessPath, V> contents;
+  private final ImmutableMap<AccessPath, Nullness> contents;
 
-  private NullnessStore(Map<AccessPath, V> contents) {
+  private NullnessStore(Map<AccessPath, Nullness> contents) {
     this.contents = ImmutableMap.copyOf(contents);
   }
-  /**
-   * @param <V> type of facts
-   * @return an empty store
-   */
-  @SuppressWarnings("unchecked")
-  public static <V extends AbstractValue<V>> NullnessStore<V> empty() {
-    return (NullnessStore<V>) EMPTY;
+  /** @return an empty store */
+  public static NullnessStore empty() {
+    return EMPTY;
   }
 
   /**
@@ -63,8 +57,8 @@ public class NullnessStore<V extends AbstractValue<V>> implements Store<Nullness
    * @param defaultValue default value if we have no fact
    * @return fact associated with local
    */
-  public V valueOfLocalVariable(LocalVariableNode node, V defaultValue) {
-    V result = contents.get(AccessPath.fromLocal(node));
+  public Nullness valueOfLocalVariable(LocalVariableNode node, Nullness defaultValue) {
+    Nullness result = contents.get(AccessPath.fromLocal(node));
     return result != null ? result : defaultValue;
   }
 
@@ -73,12 +67,12 @@ public class NullnessStore<V extends AbstractValue<V>> implements Store<Nullness
    * @param defaultValue default value if we have no fact
    * @return fact associated with field access
    */
-  public V valueOfField(FieldAccessNode node, V defaultValue) {
+  public Nullness valueOfField(FieldAccessNode node, Nullness defaultValue) {
     AccessPath path = AccessPath.fromFieldAccess(node);
     if (path == null) {
       return defaultValue;
     }
-    V result = contents.get(path);
+    Nullness result = contents.get(path);
     return result != null ? result : defaultValue;
   }
 
@@ -87,12 +81,12 @@ public class NullnessStore<V extends AbstractValue<V>> implements Store<Nullness
    * @param defaultValue default value if we have no fact
    * @return fact associated with method invocation
    */
-  public V valueOfMethodCall(MethodInvocationNode node, Types types, V defaultValue) {
+  public Nullness valueOfMethodCall(MethodInvocationNode node, Types types, Nullness defaultValue) {
     AccessPath accessPath = AccessPath.fromMethodCall(node, types);
     if (accessPath == null) {
       return defaultValue;
     }
-    V result = contents.get(accessPath);
+    Nullness result = contents.get(accessPath);
     return result != null ? result : defaultValue;
   }
 
@@ -100,9 +94,9 @@ public class NullnessStore<V extends AbstractValue<V>> implements Store<Nullness
    * @param value a nullness value
    * @return all access paths in this store that have the given nullness value
    */
-  public Set<AccessPath> getAccessPathsWithValue(V value) {
+  public Set<AccessPath> getAccessPathsWithValue(Nullness value) {
     Set<AccessPath> result = new LinkedHashSet<>();
-    for (Map.Entry<AccessPath, V> entry : contents.entrySet()) {
+    for (Map.Entry<AccessPath, Nullness> entry : contents.entrySet()) {
       if (value.equals(entry.getValue())) {
         result.add(entry.getKey());
       }
@@ -110,24 +104,24 @@ public class NullnessStore<V extends AbstractValue<V>> implements Store<Nullness
     return result;
   }
 
-  Builder<V> toBuilder() {
-    return new Builder<>(this);
+  Builder toBuilder() {
+    return new Builder(this);
   }
 
   @Override
-  public NullnessStore<V> copy() {
+  public NullnessStore copy() {
     return this;
   }
 
   @Override
-  public NullnessStore<V> leastUpperBound(NullnessStore<V> other) {
-    NullnessStore.Builder<V> result = NullnessStore.<V>empty().toBuilder();
+  public NullnessStore leastUpperBound(NullnessStore other) {
+    NullnessStore.Builder result = NullnessStore.empty().toBuilder();
     for (AccessPath ap : intersection(contents.keySet(), other.contents.keySet())) {
-      V apContents = contents.get(ap);
+      Nullness apContents = contents.get(ap);
       if (apContents == null) {
         throw new RuntimeException("null contents for " + ap);
       }
-      V otherAPContents = other.contents.get(ap);
+      Nullness otherAPContents = other.contents.get(ap);
       if (otherAPContents == null) {
         throw new RuntimeException("null other contents for " + ap);
       }
@@ -137,7 +131,7 @@ public class NullnessStore<V extends AbstractValue<V>> implements Store<Nullness
   }
 
   @Override
-  public NullnessStore<V> widenedUpperBound(NullnessStore<V> vNullnessStore) {
+  public NullnessStore widenedUpperBound(NullnessStore vNullnessStore) {
     return leastUpperBound(vNullnessStore);
   }
 
@@ -146,7 +140,7 @@ public class NullnessStore<V extends AbstractValue<V>> implements Store<Nullness
     if (!(o instanceof NullnessStore)) {
       return false;
     }
-    NullnessStore<?> other = (NullnessStore<?>) o;
+    NullnessStore other = (NullnessStore) o;
     return contents.equals(other.contents);
   }
 
@@ -166,7 +160,7 @@ public class NullnessStore<V extends AbstractValue<V>> implements Store<Nullness
   }
 
   @Override
-  public void visualize(CFGVisualizer<?, NullnessStore<V>, ?> cfgVisualizer) {
+  public void visualize(CFGVisualizer<?, NullnessStore, ?> cfgVisualizer) {
     throw new UnsupportedOperationException();
   }
 
@@ -185,9 +179,9 @@ public class NullnessStore<V extends AbstractValue<V>> implements Store<Nullness
    *     variables in the domain of {@code localVarTranslations}, with each access path re-rooted to
    *     be relative to the corresponding local variable in the co-domain of the map.
    */
-  public NullnessStore<V> uprootAccessPaths(
+  public NullnessStore uprootAccessPaths(
       Map<LocalVariableNode, LocalVariableNode> localVarTranslations) {
-    NullnessStore.Builder<V> nullnessBuilder = NullnessStore.<V>empty().toBuilder();
+    NullnessStore.Builder nullnessBuilder = NullnessStore.empty().toBuilder();
     for (AccessPath ap : contents.keySet()) {
       if (ap.getRoot().isReceiver()) {
         continue;
@@ -205,15 +199,11 @@ public class NullnessStore<V extends AbstractValue<V>> implements Store<Nullness
     return nullnessBuilder.build();
   }
 
-  /**
-   * class for building up instances of the store.
-   *
-   * @param <V> the type of fact
-   */
-  public static final class Builder<V extends AbstractValue<V>> {
-    private final Map<AccessPath, V> contents;
+  /** class for building up instances of the store. */
+  public static final class Builder {
+    private final Map<AccessPath, Nullness> contents;
 
-    Builder(NullnessStore<V> prototype) {
+    Builder(NullnessStore prototype) {
 
       contents = new HashMap<>(prototype.contents);
     }
@@ -228,14 +218,14 @@ public class NullnessStore<V extends AbstractValue<V>> implements Store<Nullness
      * @param value fact for access path
      * @return the new builder
      */
-    public NullnessStore.Builder<V> setInformation(AccessPath ap, V value) {
+    public NullnessStore.Builder setInformation(AccessPath ap, Nullness value) {
       contents.put(checkNotNull(ap), checkNotNull(value));
       return this;
     }
 
     /** @return a store constructed from everything added to the builder */
-    public NullnessStore<V> build() {
-      return new NullnessStore<>(contents);
+    public NullnessStore build() {
+      return new NullnessStore(contents);
     }
   }
 }

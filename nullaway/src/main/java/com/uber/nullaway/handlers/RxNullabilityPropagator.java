@@ -191,8 +191,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
   // true.
   // Specifically, this is the least upper bound of the "then" store on the branch of every return
   // statement in which the expression after the return can be true.
-  private final Map<Tree, NullnessStore<Nullness>> filterToNSMap =
-      new LinkedHashMap<Tree, NullnessStore<Nullness>>();
+  private final Map<Tree, NullnessStore> filterToNSMap = new LinkedHashMap<Tree, NullnessStore>();
 
   // Maps the body of a method or lambda to the corresponding enclosing tree, used because the
   // dataflow analysis
@@ -390,7 +389,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
       MaplikeToFilterInstanceRecord callInstanceRecord = mapToFilterMap.get(tree);
       Tree filterTree = callInstanceRecord.getFilter();
       assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
-      NullnessStore<Nullness> filterNullnessStore = filterToNSMap.get(filterTree);
+      NullnessStore filterNullnessStore = filterToNSMap.get(filterTree);
       assert filterNullnessStore != null;
       for (AccessPath ap : filterNullnessStore.getAccessPathsWithValue(Nullness.NONNULL)) {
         // Find the access path corresponding to the current unbound method reference after binding
@@ -462,10 +461,10 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
   }
 
   @Override
-  public NullnessStore.Builder<Nullness> onDataflowInitialStore(
+  public NullnessStore.Builder onDataflowInitialStore(
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
-      NullnessStore.Builder<Nullness> nullnessBuilder) {
+      NullnessStore.Builder nullnessBuilder) {
     Tree tree = bodyToMethodOrLambda.get(underlyingAST.getCode());
     if (tree == null) {
       return nullnessBuilder;
@@ -492,9 +491,9 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
           mapLocalName =
               new LocalVariableNode(((LambdaExpressionTree) tree).getParameters().get(argIdx));
         }
-        NullnessStore<Nullness> filterNullnessStore = filterToNSMap.get(filterTree);
+        NullnessStore filterNullnessStore = filterToNSMap.get(filterTree);
         assert filterNullnessStore != null;
-        NullnessStore<Nullness> renamedRootsNullnessStore =
+        NullnessStore renamedRootsNullnessStore =
             filterNullnessStore.uprootAccessPaths(ImmutableMap.of(filterLocalName, mapLocalName));
         for (AccessPath ap : renamedRootsNullnessStore.getAccessPathsWithValue(Nullness.NONNULL)) {
           nullnessBuilder.setInformation(ap, Nullness.NONNULL);
@@ -506,7 +505,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
 
   @Override
   public void onDataflowVisitReturn(
-      ReturnTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore) {
+      ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore) {
     if (returnToEnclosingMethodOrLambda.containsKey(tree)) {
       Tree filterTree = returnToEnclosingMethodOrLambda.get(tree);
       assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
@@ -523,7 +522,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
 
   @Override
   public void onDataflowVisitLambdaResultExpression(
-      ExpressionTree tree, NullnessStore<Nullness> thenStore, NullnessStore<Nullness> elseStore) {
+      ExpressionTree tree, NullnessStore thenStore, NullnessStore elseStore) {
     if (expressionBodyToFilterLambda.containsKey(tree)) {
       LambdaExpressionTree filterTree = expressionBodyToFilterLambda.get(tree);
       if (canBooleanExpressionEvalToTrue(tree)) {
