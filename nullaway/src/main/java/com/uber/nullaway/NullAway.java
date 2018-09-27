@@ -325,7 +325,7 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Updates the {@link EnclosingEnvironmentNullness} with an entry for lambda or anonymou class,
+   * Updates the {@link EnclosingEnvironmentNullness} with an entry for lambda or anonymous class,
    * capturing nullability info for locals just before the declaration of the entity
    *
    * @param tree either a lambda or a local / anonymous class
