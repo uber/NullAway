@@ -187,9 +187,9 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
   public NullnessStore initialStore(
       UnderlyingAST underlyingAST, List<LocalVariableNode> parameters) {
     if (parameters == null) {
-      // Documentation of this method states, "parameters is only set if the underlying AST is a
-      // method"
-      return NullnessStore.empty();
+      // not a method
+      UnderlyingAST.CFGStatement ast = (UnderlyingAST.CFGStatement) underlyingAST;
+      return getEnvNullnessStoreForClass(ast.getClassTree());
     }
     boolean isLambda = underlyingAST.getKind().equals(UnderlyingAST.Kind.LAMBDA);
     if (isLambda) {
@@ -242,16 +242,8 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
 
   private NullnessStore methodInitialStore(
       UnderlyingAST.CFGMethod underlyingAST, List<LocalVariableNode> parameters) {
-    NullnessStore envStore = NullnessStore.empty();
-    ClassTree enclosingLocalOrAnonymous =
-        findEnclosingLocalOrAnonymousClass(underlyingAST.getClassTree());
-    if (enclosingLocalOrAnonymous != null) {
-      EnclosingEnvironmentNullness environmentNullness =
-          EnclosingEnvironmentNullness.instance(context);
-      envStore =
-          Objects.requireNonNull(
-              environmentNullness.getEnvironmentMapping(enclosingLocalOrAnonymous));
-    }
+    ClassTree classTree = underlyingAST.getClassTree();
+    NullnessStore envStore = getEnvNullnessStoreForClass(classTree);
     NullnessStore.Builder result = envStore.toBuilder();
     for (LocalVariableNode param : parameters) {
       Element element = param.getElement();
@@ -260,6 +252,19 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
     return result.build();
+  }
+
+  private NullnessStore getEnvNullnessStoreForClass(ClassTree classTree) {
+    NullnessStore envStore = NullnessStore.empty();
+    ClassTree enclosingLocalOrAnonymous = findEnclosingLocalOrAnonymousClass(classTree);
+    if (enclosingLocalOrAnonymous != null) {
+      EnclosingEnvironmentNullness environmentNullness =
+          EnclosingEnvironmentNullness.instance(context);
+      envStore =
+          Objects.requireNonNull(
+              environmentNullness.getEnvironmentMapping(enclosingLocalOrAnonymous));
+    }
+    return envStore;
   }
 
   @Nullable
