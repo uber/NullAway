@@ -1189,31 +1189,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void localsCanBeNullOnClosure() {
-    compilationHelper
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  public Runnable outer(@Nullable Object o, int p) {",
-            "    final Object outerVar = o;",
-            "    if (p > 0) {",
-            "      return (new Runnable() {",
-            "        // BUG: Diagnostic contains: assigning @Nullable",
-            "        final Object someField = outerVar;",
-            "        @Override",
-            "        public void run() {",
-            "          // BUG: Diagnostic contains: dereferenced expression outerVar",
-            "          System.out.println(outerVar.toString());",
-            "        }",
-            "      });",
-            "    } else {",
-            "      // BUG: Diagnostic contains: dereferenced expression outerVar",
-            "      return () -> { outerVar.hashCode(); };",
-            "    }",
-            "  }",
-            "}")
-        .doTest();
+  public void testCapturingScopes() {
+    compilationHelper.addSourceFile("CapturingScopes.java").doTest();
   }
 }
