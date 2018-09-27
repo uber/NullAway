@@ -589,6 +589,8 @@ public class NullAway extends BugChecker
     }
     Symbol.MethodSymbol funcInterfaceMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
+    // we need to update environment mapping before running the handler, as some handlers
+    // (like Rx nullability) run dataflow analysis
     updateEnvironmentMapping(tree, state);
     handler.onMatchLambdaExpression(this, tree, state, funcInterfaceMethod);
     if (NullabilityUtil.isUnannotated(funcInterfaceMethod, config)) {
@@ -1088,10 +1090,12 @@ public class NullAway extends BugChecker
       EnclosingEnvironmentNullness.instance(state.context).clear();
     }
     if (matchWithinClass) {
-      checkFieldInitialization(tree, state);
+      // we need to update the environment before checking field initialization, as the latter
+      // may run dataflow analysis
       if (nestingKind.equals(NestingKind.LOCAL) || nestingKind.equals(NestingKind.ANONYMOUS)) {
         updateEnvironmentMapping(tree, state);
       }
+      checkFieldInitialization(tree, state);
     }
     return Description.NO_MATCH;
   }

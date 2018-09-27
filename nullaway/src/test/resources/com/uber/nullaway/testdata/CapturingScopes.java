@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.testdata;
 
+import java.util.HashMap;
 import javax.annotation.Nullable;
 
 public class CapturingScopes {
@@ -88,6 +89,19 @@ public class CapturingScopes {
           }
         }
       }
+    }
+  }
+
+  static class TestDoubleBraceInit {
+
+    public void outer(@Nullable Object o) {
+      HashMap<String, String> map =
+          new HashMap<String, String>() {
+            {
+              // BUG: Diagnostic contains: dereferenced expression o is @Nullable
+              put("hi", o.toString());
+            }
+          };
     }
   }
 }
