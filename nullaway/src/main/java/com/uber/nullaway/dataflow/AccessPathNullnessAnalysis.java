@@ -147,6 +147,11 @@ public final class AccessPathNullnessAnalysis {
     return getNonnullStaticFields(store);
   }
 
+  /**
+   * @param path tree path to some AST node within a method / lambda / initializer
+   * @param context Javac context
+   * @return nullness info for local variables just before the node
+   */
   public NullnessStore getLocalVarInfoBefore(TreePath path, Context context) {
     NullnessStore store = dataFlow.resultBefore(path, context, nullnessPropagation);
     if (store == null) {

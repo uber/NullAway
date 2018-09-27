@@ -324,8 +324,14 @@ public class NullAway extends BugChecker
     return handleInvocation(tree, state, methodSymbol, actualParams);
   }
 
+  /**
+   * Updates the {@link EnclosingEnvironmentNullness} with an entry for lambda or anonymou class,
+   * capturing nullability info for locals just before the declaration of the entity
+   *
+   * @param tree either a lambda or a local / anonymous class
+   * @param state visitor state
+   */
   private void updateEnvironmentMapping(Tree tree, VisitorState state) {
-    // store environment for use when analyzing methods inside the class / lambda
     AccessPathNullnessAnalysis analysis = getNullnessAnalysis(state);
     EnclosingEnvironmentNullness.instance(state.context)
         .addEnvironmentMapping(

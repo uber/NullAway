@@ -201,7 +201,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
 
   private NullnessStore lambdaInitialStore(
       UnderlyingAST.CFGLambda underlyingAST, List<LocalVariableNode> parameters) {
-    // start from environment
+    // include nullness info for locals from enclosing environment
     EnclosingEnvironmentNullness environmentNullness =
         EnclosingEnvironmentNullness.instance(context);
     NullnessStore environmentMapping =
@@ -254,6 +254,11 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
     return result.build();
   }
 
+  /**
+   * @param classTree a class
+   * @return the nullness info of locals in the enclosing environment for the closest enclosing
+   *     local or anonymous class. if no such class, returns an empty {@link NullnessStore}
+   */
   private NullnessStore getEnvNullnessStoreForClass(ClassTree classTree) {
     NullnessStore envStore = NullnessStore.empty();
     ClassTree enclosingLocalOrAnonymous = findEnclosingLocalOrAnonymousClass(classTree);
