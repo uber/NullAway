@@ -80,7 +80,7 @@ public class DefinitelyDerefedParamsDriver {
   private static Result map_result = new Result();
   private static Set<String> nullableReturns = new HashSet<>();
 
-  private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
+  private static final String DEFAULT_ASTUBX_LOCATION = ".jarinfer.astubx";
   private static final String MODEL_JAR_SUFFIX = ".astubx.jar";
   // TODO: Exclusions-
   // org.ow2.asm : InvalidBytecodeException on
