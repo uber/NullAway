@@ -74,7 +74,7 @@ public final class DataFlow {
                   final TransferFunction<?, ?> transfer = key.transferFunction();
 
                   @SuppressWarnings({"unchecked", "rawtypes"})
-                  final Analysis<?, ?, ?> analysis = new Analysis(env, transfer);
+                  final Analysis<?, ?, ?> analysis = new Analysis(transfer, env);
                   analysis.performAnalysis(cfg);
                   return analysis;
                 }
@@ -112,7 +112,7 @@ public final class DataFlow {
                             codePath.getLeaf(), (ClassTree) codePath.getParentPath().getLeaf());
                     bodyPath = codePath;
                   }
-                  return CFGBuilder.build(bodyPath, env, ast, false, false);
+                  return CFGBuilder.build(bodyPath, ast, false, false, env);
                 }
               });
 

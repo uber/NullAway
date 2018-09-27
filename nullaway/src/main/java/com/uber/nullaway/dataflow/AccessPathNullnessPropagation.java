@@ -60,6 +60,7 @@ import org.checkerframework.dataflow.cfg.node.BitwiseXorNode;
 import org.checkerframework.dataflow.cfg.node.BooleanLiteralNode;
 import org.checkerframework.dataflow.cfg.node.CaseNode;
 import org.checkerframework.dataflow.cfg.node.CharacterLiteralNode;
+import org.checkerframework.dataflow.cfg.node.ClassDeclarationNode;
 import org.checkerframework.dataflow.cfg.node.ClassNameNode;
 import org.checkerframework.dataflow.cfg.node.ConditionalAndNode;
 import org.checkerframework.dataflow.cfg.node.ConditionalNotNode;
@@ -881,6 +882,12 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
   @Override
   public TransferResult<Nullness, NullnessStore> visitClassName(
       ClassNameNode classNameNode, TransferInput<Nullness, NullnessStore> input) {
+    return noStoreChanges(NULLABLE, input);
+  }
+
+  @Override
+  public TransferResult<Nullness, NullnessStore> visitClassDeclaration(
+      ClassDeclarationNode classDeclarationNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
