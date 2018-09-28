@@ -1,5 +1,13 @@
 Changelog
 =========
+Version 0.6.0
+-------------
+* Add support for marking library parameters as explicitly @Nullable (#228)
+* De-genericize NullnessStore (#231)
+* Bump Checker Framework to 2.5.5 (#233)
+* Pass nullability info on enclosing locals into dataflow analysis for 
+  lambdas and anonymous / local classes (#235)
+
 Version 0.5.6
 -------------
 * Add coverage measurement through coveralls. (#224) 
