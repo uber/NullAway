@@ -132,4 +132,26 @@ public class CapturingScopes {
       Function<String, String> f = (x) -> x.toString() + o.toString();
     }
   }
+
+  static class NestedClassInAnonymous {
+
+    public void outer(@Nullable Object o) {
+      Runnable r =
+          new Runnable() {
+
+            class Inner {
+              void foo() {
+                // BUG: Diagnostic contains: dereferenced expression o is @Nullable
+                o.toString();
+              }
+            }
+
+            @Override
+            public void run() {
+              (new Inner()).foo();
+            }
+          };
+      r.run();
+    }
+  }
 }

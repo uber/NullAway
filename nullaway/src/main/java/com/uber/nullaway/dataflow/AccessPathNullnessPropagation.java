@@ -276,6 +276,9 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
   @Nullable
   private ClassTree findEnclosingLocalOrAnonymousClass(ClassTree classTree) {
     Symbol.ClassSymbol symbol = ASTHelpers.getSymbol(classTree);
+    // we need this while loop since we can have a NestingKind.NESTED class (i.e., a nested
+    // class declared at the top-level within its enclosing class) nested (possibly deeply)
+    // within a NestingKind.ANONYMOUS or NestingKind.LOCAL class
     while (symbol.getNestingKind().isNested()) {
       if (symbol.getNestingKind().equals(NestingKind.ANONYMOUS)
           || symbol.getNestingKind().equals(NestingKind.LOCAL)) {
