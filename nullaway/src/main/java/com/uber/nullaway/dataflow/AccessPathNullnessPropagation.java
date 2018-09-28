@@ -24,11 +24,15 @@ import static org.checkerframework.javacutil.TreeUtils.elementFromDeclaration;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.processing.JavacProcessingEnvironment;
+import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -37,10 +41,13 @@ import com.uber.nullaway.handlers.Handler.NullnessHint;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
 import javax.annotation.CheckReturnValue;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.NestingKind;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.dataflow.analysis.ConditionalTransferResult;
 import org.checkerframework.dataflow.analysis.RegularTransferResult;
@@ -135,6 +142,8 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
 
   private final Predicate<MethodInvocationNode> methodReturnsNonNull;
 
+  private final Context context;
+
   private final Types types;
 
   private final Config config;
@@ -144,12 +153,13 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
   AccessPathNullnessPropagation(
       Nullness defaultAssumption,
       Predicate<MethodInvocationNode> methodReturnsNonNull,
-      Types types,
+      Context context,
       Config config,
       Handler handler) {
     this.defaultAssumption = defaultAssumption;
     this.methodReturnsNonNull = methodReturnsNonNull;
-    this.types = types;
+    this.context = context;
+    this.types = Types.instance(context);
     this.config = config;
     this.handler = handler;
   }
@@ -177,21 +187,28 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
   public NullnessStore initialStore(
       UnderlyingAST underlyingAST, List<LocalVariableNode> parameters) {
     if (parameters == null) {
-      // Documentation of this method states, "parameters is only set if the underlying AST is a
-      // method"
-      return NullnessStore.empty();
+      // not a method or a lambda; an initializer expression or block
+      UnderlyingAST.CFGStatement ast = (UnderlyingAST.CFGStatement) underlyingAST;
+      return getEnvNullnessStoreForClass(ast.getClassTree());
     }
     boolean isLambda = underlyingAST.getKind().equals(UnderlyingAST.Kind.LAMBDA);
     if (isLambda) {
       return lambdaInitialStore((UnderlyingAST.CFGLambda) underlyingAST, parameters);
     } else {
-      return methodInitialStore(underlyingAST, parameters);
+      return methodInitialStore((UnderlyingAST.CFGMethod) underlyingAST, parameters);
     }
   }
 
   private NullnessStore lambdaInitialStore(
       UnderlyingAST.CFGLambda underlyingAST, List<LocalVariableNode> parameters) {
-    NullnessStore.Builder result = NullnessStore.empty().toBuilder();
+    // include nullness info for locals from enclosing environment
+    EnclosingEnvironmentNullness environmentNullness =
+        EnclosingEnvironmentNullness.instance(context);
+    NullnessStore environmentMapping =
+        Objects.requireNonNull(
+            environmentNullness.getEnvironmentMapping(underlyingAST.getLambdaTree()),
+            "no environment stored for lambda " + underlyingAST.getLambdaTree());
+    NullnessStore.Builder result = environmentMapping.toBuilder();
     LambdaExpressionTree code = underlyingAST.getLambdaTree();
     // need to check annotation for i'th parameter of functional interface declaration
     Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code, types);
@@ -225,8 +242,10 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
   }
 
   private NullnessStore methodInitialStore(
-      UnderlyingAST underlyingAST, List<LocalVariableNode> parameters) {
-    NullnessStore.Builder result = NullnessStore.empty().toBuilder();
+      UnderlyingAST.CFGMethod underlyingAST, List<LocalVariableNode> parameters) {
+    ClassTree classTree = underlyingAST.getClassTree();
+    NullnessStore envStore = getEnvNullnessStoreForClass(classTree);
+    NullnessStore.Builder result = envStore.toBuilder();
     for (LocalVariableNode param : parameters) {
       Element element = param.getElement();
       Nullness assumed = Nullness.hasNullableAnnotation((Symbol) element) ? NULLABLE : NONNULL;
@@ -234,6 +253,44 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
     return result.build();
+  }
+
+  /**
+   * @param classTree a class
+   * @return the nullness info of locals in the enclosing environment for the closest enclosing
+   *     local or anonymous class. if no such class, returns an empty {@link NullnessStore}
+   */
+  private NullnessStore getEnvNullnessStoreForClass(ClassTree classTree) {
+    NullnessStore envStore = NullnessStore.empty();
+    ClassTree enclosingLocalOrAnonymous = findEnclosingLocalOrAnonymousClass(classTree);
+    if (enclosingLocalOrAnonymous != null) {
+      EnclosingEnvironmentNullness environmentNullness =
+          EnclosingEnvironmentNullness.instance(context);
+      envStore =
+          Objects.requireNonNull(
+              environmentNullness.getEnvironmentMapping(enclosingLocalOrAnonymous));
+    }
+    return envStore;
+  }
+
+  @Nullable
+  private ClassTree findEnclosingLocalOrAnonymousClass(ClassTree classTree) {
+    Symbol.ClassSymbol symbol = ASTHelpers.getSymbol(classTree);
+    // we need this while loop since we can have a NestingKind.NESTED class (i.e., a nested
+    // class declared at the top-level within its enclosing class) nested (possibly deeply)
+    // within a NestingKind.ANONYMOUS or NestingKind.LOCAL class
+    while (symbol.getNestingKind().isNested()) {
+      if (symbol.getNestingKind().equals(NestingKind.ANONYMOUS)
+          || symbol.getNestingKind().equals(NestingKind.LOCAL)) {
+        return Trees.instance(JavacProcessingEnvironment.instance(context)).getTree(symbol);
+      } else {
+        // symbol.owner is the enclosing element, which could be a class or a method.
+        // if it's a class, the enclClass() method will (surprisingly) return the class itself,
+        // so this works
+        symbol = symbol.owner.enclClass();
+      }
+    }
+    return null;
   }
 
   @Override

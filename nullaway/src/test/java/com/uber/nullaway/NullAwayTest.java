@@ -1187,4 +1187,9 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testCapturingScopes() {
+    compilationHelper.addSourceFile("CapturingScopes.java").doTest();
+  }
 }
