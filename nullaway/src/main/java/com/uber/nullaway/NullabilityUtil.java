@@ -107,23 +107,25 @@ public class NullabilityUtil {
    */
   @Nullable
   public static TreePath findEnclosingMethodOrLambdaOrInitializer(TreePath path) {
-    while (path != null) {
-      if (path.getLeaf() instanceof MethodTree || path.getLeaf() instanceof LambdaExpressionTree) {
-        return path;
+    TreePath curPath = path.getParentPath();
+    while (curPath != null) {
+      if (curPath.getLeaf() instanceof MethodTree
+          || curPath.getLeaf() instanceof LambdaExpressionTree) {
+        return curPath;
       }
-      TreePath parent = path.getParentPath();
+      TreePath parent = curPath.getParentPath();
       if (parent != null && parent.getLeaf() instanceof ClassTree) {
-        if (path.getLeaf() instanceof BlockTree) {
+        if (curPath.getLeaf() instanceof BlockTree) {
           // found initializer block
-          return path;
+          return curPath;
         }
-        if (path.getLeaf() instanceof VariableTree
-            && ((VariableTree) path.getLeaf()).getInitializer() != null) {
+        if (curPath.getLeaf() instanceof VariableTree
+            && ((VariableTree) curPath.getLeaf()).getInitializer() != null) {
           // found field with an inline initializer
-          return path;
+          return curPath;
         }
       }
-      path = parent;
+      curPath = parent;
     }
     return null;
   }
