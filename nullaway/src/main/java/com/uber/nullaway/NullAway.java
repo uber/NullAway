@@ -333,6 +333,11 @@ public class NullAway extends BugChecker
    */
   private void updateEnvironmentMapping(Tree tree, VisitorState state) {
     AccessPathNullnessAnalysis analysis = getNullnessAnalysis(state);
+    // two notes:
+    // 1. we are free to take local variable information from the program point before
+    // the lambda / class declaration as only effectively final variables can be accessed
+    // from the nested scope, so the program point doesn't matter
+    // 2. we keep info on all locals rather than just effectively final ones for simplicity
     EnclosingEnvironmentNullness.instance(state.context)
         .addEnvironmentMapping(
             tree, analysis.getLocalVarInfoBefore(state.getPath(), state.context));
