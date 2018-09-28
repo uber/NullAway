@@ -1104,6 +1104,9 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchBinary(BinaryTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
     ExpressionTree leftOperand = tree.getLeftOperand();
     ExpressionTree rightOperand = tree.getRightOperand();
     Type leftType = ASTHelpers.getType(leftOperand);
@@ -1122,27 +1125,42 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchUnary(UnaryTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
     return doUnboxingCheck(state, tree.getExpression());
   }
 
   @Override
   public Description matchConditionalExpression(
       ConditionalExpressionTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
     return doUnboxingCheck(state, tree.getCondition());
   }
 
   @Override
   public Description matchIf(IfTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
     return doUnboxingCheck(state, tree.getCondition());
   }
 
   @Override
   public Description matchWhileLoop(WhileLoopTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
     return doUnboxingCheck(state, tree.getCondition());
   }
 
   @Override
   public Description matchForLoop(ForLoopTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
     if (tree.getCondition() != null) {
       return doUnboxingCheck(state, tree.getCondition());
     }

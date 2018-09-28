@@ -206,7 +206,8 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
         EnclosingEnvironmentNullness.instance(context);
     NullnessStore environmentMapping =
         Objects.requireNonNull(
-            environmentNullness.getEnvironmentMapping(underlyingAST.getLambdaTree()));
+            environmentNullness.getEnvironmentMapping(underlyingAST.getLambdaTree()),
+            "no environment stored for lambda " + underlyingAST.getLambdaTree());
     NullnessStore.Builder result = environmentMapping.toBuilder();
     LambdaExpressionTree code = underlyingAST.getLambdaTree();
     // need to check annotation for i'th parameter of functional interface declaration
