@@ -187,7 +187,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
   public NullnessStore initialStore(
       UnderlyingAST underlyingAST, List<LocalVariableNode> parameters) {
     if (parameters == null) {
-      // not a method
+      // not a method or a lambda; an initializer expression or block
       UnderlyingAST.CFGStatement ast = (UnderlyingAST.CFGStatement) underlyingAST;
       return getEnvNullnessStoreForClass(ast.getClassTree());
     }
@@ -281,6 +281,9 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
           || symbol.getNestingKind().equals(NestingKind.LOCAL)) {
         return Trees.instance(JavacProcessingEnvironment.instance(context)).getTree(symbol);
       } else {
+        // symbol.owner is the enclosing element, which could be a class or a method.
+        // if it's a class, the enclClass() method will (surprisingly) return the class itself,
+        // so this works
         symbol = symbol.owner.enclClass();
       }
     }

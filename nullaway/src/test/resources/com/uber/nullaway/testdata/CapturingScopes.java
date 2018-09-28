@@ -119,4 +119,17 @@ public class CapturingScopes {
           };
     }
   }
+
+  static class TestNegative {
+
+    public void outer(Object o) {
+      class Local {
+
+        String foo() {
+          return o.toString();
+        }
+      }
+      Function<String, String> f = (x) -> x.toString() + o.toString();
+    }
+  }
 }

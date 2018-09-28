@@ -148,6 +148,8 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
+   * Get nullness info for local variables before some node
+   *
    * @param path tree path to some AST node within a method / lambda / initializer
    * @param context Javac context
    * @return nullness info for local variables just before the node
