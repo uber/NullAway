@@ -23,6 +23,7 @@
 package com.uber.nullaway.testdata;
 
 import java.util.HashMap;
+import java.util.function.Function;
 import javax.annotation.Nullable;
 
 public class CapturingScopes {
@@ -89,6 +90,20 @@ public class CapturingScopes {
           }
         }
       }
+    }
+  }
+
+  static class TestDoubleNestingLambda {
+
+    public void outer() {
+      Function<String, String> f =
+          (x) -> {
+            Object o = null;
+            // BUG: Diagnostic contains: dereferenced expression o
+            Function<String, String> g = (y) -> x.toString() + o.toString() + y.toString();
+            return g.apply("hello");
+          };
+      f.apply("bye");
     }
   }
 
