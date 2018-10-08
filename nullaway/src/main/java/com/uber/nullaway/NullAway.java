@@ -245,9 +245,7 @@ public class NullAway extends BugChecker
     builder.addAll(super.customSuppressionAnnotations());
     for (String annotName : config.getExcludedClassAnnotations()) {
       try {
-        @SuppressWarnings("unchecked")
-        Class<Annotation> klass = (Class<Annotation>) Class.forName(annotName);
-        builder.add(klass);
+        builder.add(Class.forName(annotName).asSubclass(Annotation.class));
       } catch (ClassNotFoundException e) {
         // in this case, the annotation may be a source file currently being compiled,
         // in which case we won't be able to resolve the class
