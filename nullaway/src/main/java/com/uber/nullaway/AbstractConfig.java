@@ -139,8 +139,8 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public boolean isExcludedClassAnnotation(String annotationName) {
-    return excludedClassAnnotations.contains(annotationName);
+  public ImmutableSet<String> getExcludedClassAnnotations() {
+    return ImmutableSet.copyOf(excludedClassAnnotations);
   }
 
   @Override
