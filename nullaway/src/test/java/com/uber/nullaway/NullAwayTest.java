@@ -91,6 +91,36 @@ public class NullAwayTest {
   }
 
   @Test
+  public void skipNestedClass() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.lib.MyExcluded"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  @com.uber.lib.MyExcluded",
+            "  static class Inner {",
+            "    @Nullable",
+            "    static Object foo() {",
+            "      Object x = null; x.toString();",
+            "      return x;",
+            "    }",
+            "  }",
+            "  static void bar() {",
+            "    // BUG: Diagnostic contains: dereferenced expression Inner.foo()",
+            "    Inner.foo().toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void coreNullabilitySkipPackage() {
     compilationHelper.addSourceFile("unannotated/UnannotatedClass.java").doTest();
   }

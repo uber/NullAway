@@ -25,6 +25,7 @@ package com.uber.nullaway;
 import static com.uber.nullaway.ErrorProneCLIFlagsConfig.EP_FL_NAMESPACE;
 import static com.uber.nullaway.ErrorProneCLIFlagsConfig.FL_ANNOTATED_PACKAGES;
 
+import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
 import javax.annotation.Nullable;
 
@@ -67,7 +68,7 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public boolean isExcludedClassAnnotation(String annotationName) {
+  public ImmutableSet<String> getExcludedClassAnnotations() {
     throw new IllegalStateException(error_msg);
   }
 

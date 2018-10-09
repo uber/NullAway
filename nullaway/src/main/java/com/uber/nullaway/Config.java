@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
 import javax.annotation.Nullable;
 
@@ -50,12 +51,8 @@ public interface Config {
    */
   boolean isUnannotatedClass(Symbol.ClassSymbol symbol);
 
-  /**
-   * @param annotationName fully-qualified annotation name
-   * @return true if a top-level class with this annotation should be excluded from nullability
-   *     analysis, false otherwise
-   */
-  boolean isExcludedClassAnnotation(String annotationName);
+  /** @return class annotations that should exclude a class from nullability analysis */
+  ImmutableSet<String> getExcludedClassAnnotations();
 
   /**
    * @param annotationName fully-qualified annotation name
