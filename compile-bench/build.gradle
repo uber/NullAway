@@ -23,17 +23,12 @@ targetCompatibility = "1.8"
 
 mainClassName = "com.uber.nullaway.benchmark.NullAwayBenchmarkHarness"
 
-configurations.maybeCreate("epJavac")
-
 dependencies {
     compile deps.build.errorProneCore
     compile project(path: ":nullaway", configuration: "shadow")
-
-    epJavac deps.build.errorProneCore
-
 }
 
-applicationDefaultJvmArgs = ["-Xbootclasspath/p:${configurations.epJavac.asPath}"]
+applicationDefaultJvmArgs = ["-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"]
 
 run {
     if (project.hasProperty("appArgs")) {

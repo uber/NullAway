@@ -14,9 +14,11 @@
  * limitations under the License.
  */
 
+import net.ltgt.gradle.errorprone.CheckSeverity
+
 plugins {
   id "com.github.sherter.google-java-format" version "0.7.1"
-  id "net.ltgt.errorprone" version "0.0.16" apply false
+  id "net.ltgt.errorprone" version "0.6" apply false
   id "com.github.johnrengelman.shadow" version "2.0.4" apply false
   id 'com.github.kt3k.coveralls' version '2.6.3' apply false
   id 'com.android.application' version '3.1.4' apply false
@@ -27,26 +29,26 @@ repositories {
   jcenter()
 }
 
+apply from: "gradle/dependencies.gradle"
+
 subprojects { project ->
-    afterEvaluate {
-        if (project.plugins.hasPlugin("java")
-            || project.plugins.hasPlugin("com.android.application")) {
-            project.apply plugin: "net.ltgt.errorprone"
-            project.dependencies {
-                errorprone deps.build.errorProneCore
-            }
-            project.tasks.withType(JavaCompile) {
-                options.compilerArgs += [
-                    "-Xlint:unchecked",
-                    "-Xlint:rawtypes",
-                    "-Werror",
-                    // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
-                    "-XepDisableWarningsInGeneratedCode",
-                    // this check is too noisy
-                    "-Xep:StringSplitter:OFF",
-                    "-Xep:WildcardImport:ERROR"
-                ]
-            }
+    project.apply plugin: "net.ltgt.errorprone"
+    project.dependencies {
+        errorprone deps.build.errorProneCore
+        errorproneJavac deps.build.errorProneJavac
+    }
+    project.tasks.withType(JavaCompile) {
+        options.compilerArgs += [
+            "-Xlint:unchecked",
+            "-Xlint:rawtypes",
+            "-Werror"
+        ]
+        options.errorprone {
+            // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
+            disableWarningsInGeneratedCode = true
+            // this check is too noisy
+            check("StringSplitter", CheckSeverity.OFF)
+            check("WildcardImport", CheckSeverity.ERROR)
         }
     }
 
@@ -63,5 +65,3 @@ subprojects { project ->
 googleJavaFormat {
   toolVersion = "1.6"
 }
-
-apply from: "gradle/dependencies.gradle"

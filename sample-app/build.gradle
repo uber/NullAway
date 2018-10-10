@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+import net.ltgt.gradle.errorprone.CheckSeverity
+
 plugins {
     id('com.android.application')
 }
@@ -51,7 +53,10 @@ dependencies {
 tasks.withType(JavaCompile) {
   // remove the if condition if you want to run NullAway on test code
   if (!name.toLowerCase().contains("test")) {
-    options.compilerArgs += ["-Xep:NullAway:ERROR", "-XepOpt:NullAway:AnnotatedPackages=com.uber"]
+    options.errorprone {
+      check("NullAway", CheckSeverity.ERROR)
+      option("NullAway:AnnotatedPackages", "com.uber")
+    }
   }
 }
 
