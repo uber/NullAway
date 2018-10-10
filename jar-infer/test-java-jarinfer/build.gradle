@@ -1,0 +1,70 @@
+/*
+ * Copyright (C) 2017. Uber Technologies
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+  id "net.ltgt.apt" version "0.13"
+  id "java"
+}
+
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
+
+dependencies {
+    apt project(path: ":nullaway", configuration: "shadow")
+
+    compileOnly deps.build.jsr305Annotations
+    compile "commons-io:commons-io:2.4"
+    compile "com.uber.nullaway:jar-infer-cli:0.6.0"
+}
+
+tasks.withType(JavaCompile) {
+  if (!name.toLowerCase().contains("test")) {
+    options.compilerArgs += ["-Xep:NullAway:ERROR", "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JarInferUseReturnAnnotations=true", "-XepOpt:NullAway:JarInferRegexStripModelJar=.*/([^/]+)\\.astubx\\.[ja]ar\$" ]
+  }
+}
+
+def jiPath = "com.uber.nullaway/jar-infer-cli"
+def libPath = ""
+def modelPath = ""
+compileJava.dependsOn configurations.compileClasspath
+compileJava.doFirst {
+  configurations.compile.files.each {
+    if (it.path.contains(jiPath)) {
+      jiPath = it.path
+    }
+  }
+
+  configurations.compile.files.each {
+    if (!it.path.equals(jiPath)) {
+      libPath = it.getPath()
+      modelPath = ""
+      if (libPath.endsWith(".jar")) {
+        modelPath = libPath.replace(".jar",".astubx.jar")
+      } else if (libPath.endsWith(".aar")) {
+        modelPath = libPath.replace(".aar",".astubx.jar")
+      }
+      if (!modelPath.isEmpty()) {
+        javaexec {
+          classpath = files(jiPath)
+          main = "com.uber.nullaway.jarinfer.JarInfer"
+          args = ["-i", libPath, "-o", modelPath]
+        }
+        sourceSets.main.compileClasspath += files(modelPath)
+      }
+    }
+  }
+}
+
