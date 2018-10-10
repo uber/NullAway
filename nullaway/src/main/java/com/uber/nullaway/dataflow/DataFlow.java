@@ -114,7 +114,7 @@ public final class DataFlow {
                             codePath.getLeaf(), (ClassTree) codePath.getParentPath().getLeaf());
                     bodyPath = codePath;
                   }
-                  return CFGBuilder.build(bodyPath, ast, false, false, env);
+                  return CFGBuilder.build(bodyPath, ast, true, false, env);
                 }
               });
 

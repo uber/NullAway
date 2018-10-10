@@ -806,7 +806,22 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
   @Override
   public TransferResult<Nullness, NullnessStore> visitAssertionError(
       AssertionErrorNode assertionErrorNode, TransferInput<Nullness, NullnessStore> input) {
-    return noStoreChanges(NULLABLE, input);
+
+    Node condition = assertionErrorNode.getCondition();
+
+    if (condition == null
+        || !(condition instanceof NotEqualNode)
+        || !(((NotEqualNode) condition).getRightOperand() instanceof NullLiteralNode)
+        || !(((NotEqualNode) condition).getLeftOperand() instanceof FieldAccessNode)) {
+      return noStoreChanges(NULLABLE, input);
+    }
+
+    AccessPath accessPath =
+        AccessPath.fromFieldAccess((FieldAccessNode) ((NotEqualNode) condition).getLeftOperand());
+    ReadableUpdates updates = new ReadableUpdates();
+    updates.set(accessPath, NONNULL);
+
+    return updateRegularStore(NULLABLE, input, updates);
   }
 
   @Override

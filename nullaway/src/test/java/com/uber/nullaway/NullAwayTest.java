@@ -145,6 +145,16 @@ public class NullAwayTest {
   }
 
   @Test
+  public void assertSupportPositiveCases() {
+    compilationHelper.addSourceFile("CheckAssertSupportPositiveCases.java").doTest();
+  }
+
+  @Test
+  public void assertSupportNegativeCases() {
+    compilationHelper.addSourceFile("CheckAssertSupportNegativeCases.java").doTest();
+  }
+
+  @Test
   public void java8PositiveCases() {
     compilationHelper.addSourceFile("NullAwayJava8PositiveCases.java").doTest();
   }
