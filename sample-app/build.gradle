@@ -14,17 +14,9 @@
  * limitations under the License.
  */
 
-buildscript {
-    repositories {
-      // for android gradle plugin 3
-      google()
-    }
-    dependencies {
-        classpath deps.build.gradlePlugins.android
-    }
+plugins {
+    id('com.android.application')
 }
-
-apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion deps.build.compileSdkVersion

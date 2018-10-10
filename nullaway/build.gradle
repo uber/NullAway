@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 plugins {
-  id "com.github.johnrengelman.shadow" version "2.0.2"
+  id "com.github.johnrengelman.shadow"
   id "java"
   // For code coverage:
   id 'jacoco'
-  id 'com.github.kt3k.coveralls' version '2.6.3'
+  id 'com.github.kt3k.coveralls'
 }
 
 // we use this config to get the path of the JDK 9 javac jar, to
