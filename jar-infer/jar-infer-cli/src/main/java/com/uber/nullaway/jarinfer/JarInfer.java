@@ -75,7 +75,7 @@ public class JarInfer {
     options.addOption(
         Option.builder("v").argName("verbose").longOpt("verbose").desc("set verbosity").build());
     try {
-      CommandLine line = (new DefaultParser()).parse(options, args);
+      CommandLine line = new DefaultParser().parse(options, args);
       if (line.hasOption('h')) {
         hf.printHelp(appName, options, true);
         return;
