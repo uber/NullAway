@@ -32,6 +32,7 @@ def apt = [
 def build = [
     errorProneCheckApi      : "com.google.errorprone:error_prone_check_api:${versions.errorProne}",
     errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProne}",
+    errorProneJavac         : "com.google.errorprone:javac:9+181-r4173-1",
     errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProne}",
     checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFramework}",
                                "org.checkerframework:javacutil:${versions.checkerFramework}"],
