@@ -63,7 +63,11 @@ public final class DataFlow {
    */
   private static final int MAX_CACHE_SIZE = 50;
 
-  private boolean assertsEnabled;
+  private final boolean assertsEnabled;
+
+  DataFlow(boolean assertsEnabled) {
+    this.assertsEnabled = assertsEnabled;
+  }
 
   private final LoadingCache<AnalysisParams, Analysis<?, ?, ?>> analysisCache =
       CacheBuilder.newBuilder()
@@ -251,10 +255,6 @@ public final class DataFlow {
   public void invalidateCaches() {
     cfgCache.invalidateAll();
     analysisCache.invalidateAll();
-  }
-
-  void setAssertsEnabled() {
-    assertsEnabled = true;
   }
 
   @AutoValue
