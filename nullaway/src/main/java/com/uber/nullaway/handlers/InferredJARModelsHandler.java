@@ -40,8 +40,9 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.JarURLConnection;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.net.URLConnection;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -107,16 +108,11 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   /*
    * Scan Java Classpath for JarInfer model jars and map their names to locations
    */
-  private void processClassPath(String[] args) {
-    Set<String> paths = new LinkedHashSet<>();
-    String env_cp = System.getenv("CLASSPATH");
-    if (env_cp != null) {
-      paths.addAll(Arrays.asList(env_cp.split(":")));
-    }
-    for (int i = 0; i < args.length; ++i)
-      if (args[i].equals("-cp") || args[i].equals("-classpath") || args[i].equals("-processorpath"))
-        paths.addAll(Arrays.asList(args[++i].split(":")));
-    for (String path : paths) {
+  private void processClassPath() {
+    URL[] classLoaderUrls =
+        ((URLClassLoader) (Thread.currentThread().getContextClassLoader())).getURLs();
+    for (URL url : classLoaderUrls) {
+      String path = url.getFile();
       if (path.matches(config.getJarInferRegexStripModelJarName())) {
         String name = path.replaceAll(config.getJarInferRegexStripModelJarName(), "$1");
         LOG(DEBUG, "DEBUG", "model jar name: " + name + "\tjar path: " + path);
@@ -135,7 +131,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       List<? extends ExpressionTree> actualParams,
       ImmutableSet<Integer> nonNullPositions) {
     if (mapModelJarLocations.isEmpty()) {
-      processClassPath(state.errorProneOptions().getRemainingArgs());
+      processClassPath();
     }
     Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
     String className = classSymbol.getQualifiedName().toString();
