@@ -57,6 +57,10 @@ public final class AccessPathNullnessAnalysis {
         new AccessPathNullnessPropagation(
             Nullness.NONNULL, methodReturnsNonNull, context, config, handler);
     this.dataFlow = new DataFlow();
+
+    if (config.assertsEnabled()) {
+      this.dataFlow.setAssertsEnabled();
+    }
   }
 
   /**

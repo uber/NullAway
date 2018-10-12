@@ -151,7 +151,15 @@ public class NullAwayTest {
 
   @Test
   public void assertSupportNegativeCases() {
-    compilationHelper.addSourceFile("CheckAssertSupportNegativeCases.java").doTest();
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AssertsEnabled=true"))
+        .addSourceFile("CheckAssertSupportNegativeCases.java")
+        .doTest();
   }
 
   @Test

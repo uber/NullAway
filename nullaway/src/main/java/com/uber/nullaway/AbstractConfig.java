@@ -68,6 +68,8 @@ public abstract class AbstractConfig implements Config {
 
   protected boolean isAcknowledgeRestrictive;
 
+  protected boolean assertsEnabled;
+
   /**
    * if true, {@link #fromAnnotatedPackage(Symbol.ClassSymbol)} will return false for any class
    * annotated with {@link javax.annotation.Generated}
@@ -176,6 +178,11 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean acknowledgeRestrictiveAnnotations() {
     return isAcknowledgeRestrictive;
+  }
+
+  @Override
+  public boolean assertsEnabled() {
+    return assertsEnabled;
   }
 
   @Override

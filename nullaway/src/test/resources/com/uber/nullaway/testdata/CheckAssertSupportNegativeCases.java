@@ -31,8 +31,33 @@ public class CheckAssertSupportNegativeCases {
   }
 
   void someMethod() {
+
+    @Nullable Object x = null;
+
     T1 t1 = new T1();
     assert t1.obj != null;
     t1.obj.toString();
+
+    T2 t2 = new T2();
+    assert t2.f() != null;
+    assert t2.f().g() != null;
+    t2.f().g().toString();
+
+    assert x != null;
+    x.toString();
+  }
+
+  class T2 {
+    @Nullable
+    T3 f() {
+      return new T3();
+    }
+  }
+
+  class T3 {
+    @Nullable
+    Object g() {
+      return null;
+    }
   }
 }

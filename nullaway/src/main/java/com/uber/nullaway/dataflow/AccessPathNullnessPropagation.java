@@ -682,7 +682,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
     ReadableUpdates updates = new ReadableUpdates();
     Symbol symbol = ASTHelpers.getSymbol(fieldAccessNode.getTree());
     setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
-    Nullness nullness = Nullness.NULLABLE;
+    Nullness nullness = NULLABLE;
     if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config)) {
       nullness = NONNULL;
     } else {
@@ -811,13 +811,17 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
 
     if (condition == null
         || !(condition instanceof NotEqualNode)
-        || !(((NotEqualNode) condition).getRightOperand() instanceof NullLiteralNode)
-        || !(((NotEqualNode) condition).getLeftOperand() instanceof FieldAccessNode)) {
+        || !(((NotEqualNode) condition).getRightOperand() instanceof NullLiteralNode)) {
       return noStoreChanges(NULLABLE, input);
     }
 
     AccessPath accessPath =
-        AccessPath.fromFieldAccess((FieldAccessNode) ((NotEqualNode) condition).getLeftOperand());
+        AccessPath.getAccessPathForNodeNoMapGet(((NotEqualNode) condition).getLeftOperand());
+
+    if (accessPath == null) {
+      return noStoreChanges(NULLABLE, input);
+    }
+
     ReadableUpdates updates = new ReadableUpdates();
     updates.set(accessPath, NONNULL);
 
