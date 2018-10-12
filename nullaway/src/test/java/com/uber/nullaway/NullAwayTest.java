@@ -145,6 +145,24 @@ public class NullAwayTest {
   }
 
   @Test
+  public void assertSupportPositiveCases() {
+    compilationHelper.addSourceFile("CheckAssertSupportPositiveCases.java").doTest();
+  }
+
+  @Test
+  public void assertSupportNegativeCases() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AssertsEnabled=true"))
+        .addSourceFile("CheckAssertSupportNegativeCases.java")
+        .doTest();
+  }
+
+  @Test
   public void java8PositiveCases() {
     compilationHelper.addSourceFile("NullAwayJava8PositiveCases.java").doTest();
   }

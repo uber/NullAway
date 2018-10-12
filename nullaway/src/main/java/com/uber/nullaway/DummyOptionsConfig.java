@@ -103,6 +103,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public boolean assertsEnabled() {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
   public boolean acknowledgeRestrictiveAnnotations() {
     throw new IllegalStateException(error_msg);
   }

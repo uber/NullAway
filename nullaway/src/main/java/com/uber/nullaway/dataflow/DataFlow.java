@@ -63,6 +63,12 @@ public final class DataFlow {
    */
   private static final int MAX_CACHE_SIZE = 50;
 
+  private final boolean assertsEnabled;
+
+  DataFlow(boolean assertsEnabled) {
+    this.assertsEnabled = assertsEnabled;
+  }
+
   private final LoadingCache<AnalysisParams, Analysis<?, ?, ?>> analysisCache =
       CacheBuilder.newBuilder()
           .maximumSize(MAX_CACHE_SIZE)
@@ -114,7 +120,8 @@ public final class DataFlow {
                             codePath.getLeaf(), (ClassTree) codePath.getParentPath().getLeaf());
                     bodyPath = codePath;
                   }
-                  return CFGBuilder.build(bodyPath, ast, false, false, env);
+
+                  return CFGBuilder.build(bodyPath, ast, assertsEnabled, !assertsEnabled, env);
                 }
               });
 

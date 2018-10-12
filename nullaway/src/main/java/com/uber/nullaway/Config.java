@@ -95,6 +95,9 @@ public interface Config {
    */
   boolean suggestSuppressions();
 
+  /** @return true if the assert support is enabled. */
+  boolean assertsEnabled();
+
   /**
    * @return true if the null checker should acknowledge stricter nullability annotations whenever
    *     they are available in unannotated code, defaulting to optimistic defaults only when
