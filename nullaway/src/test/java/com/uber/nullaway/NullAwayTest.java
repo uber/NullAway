@@ -1092,9 +1092,7 @@ public class NullAwayTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
-                "-cp",
-                "../jar-infer/test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar"))
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -1118,9 +1116,7 @@ public class NullAwayTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
-                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true",
-                "-cp",
-                "../jar-infer/test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar"))
+                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
