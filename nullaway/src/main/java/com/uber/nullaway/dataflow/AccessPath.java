@@ -50,7 +50,7 @@ import org.checkerframework.javacutil.TreeUtils;
  *
  * <p>We do not allow array accesses in access paths for the moment.
  */
-public class AccessPath {
+public final class AccessPath {
 
   private final Root root;
 
@@ -240,7 +240,7 @@ public class AccessPath {
     if (this == o) {
       return true;
     }
-    if (o == null || getClass() != o.getClass()) {
+    if (!(o instanceof AccessPath)) {
       return false;
     }
 

@@ -132,7 +132,7 @@ public class DefinitelyDerefedParams {
     // Get number of params and value number of first param
     int numParam = ir.getSymbolTable().getNumberOfParameters();
     int firstParamIndex =
-        (method.isStatic()) ? 1 : 2; // 1-indexed; v1 is 'this' for non-static methods
+        method.isStatic() ? 1 : 2; // 1-indexed; v1 is 'this' for non-static methods
     LOG(DEBUG, "DEBUG", "param value numbers : " + firstParamIndex + " ... " + numParam);
     while (!nodeQueue.isEmpty()) {
       ISSABasicBlock node = nodeQueue.get(0);

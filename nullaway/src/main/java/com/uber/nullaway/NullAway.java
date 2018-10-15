@@ -2160,7 +2160,7 @@ public class NullAway extends BugChecker
       case IDENTIFIER:
         IdentifierTree varTree = (IdentifierTree) expression;
         Symbol symbol = ASTHelpers.getSymbol(varTree);
-        return (symbol.getKind().equals(ElementKind.FIELD)) ? 2 : 1;
+        return symbol.getKind().equals(ElementKind.FIELD) ? 2 : 1;
       default:
         return 0;
     }

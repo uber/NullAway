@@ -59,8 +59,7 @@ dependencies {
     testCompile deps.apt.javaxInject
     testCompile deps.test.rxjava2
 
-    epJavac deps.build.errorProneCheckApi
-    epJavac deps.build.checkerDataflow
+    epJavac deps.build.errorProneJavac
 }
 
 // NullAway ends up enabled by default for tests in this project; disable it

@@ -110,7 +110,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
    */
   private void processClassPath() {
     URL[] classLoaderUrls =
-        ((URLClassLoader) (Thread.currentThread().getContextClassLoader())).getURLs();
+        ((URLClassLoader) Thread.currentThread().getContextClassLoader()).getURLs();
     for (URL url : classLoaderUrls) {
       String path = url.getFile();
       if (path.matches(config.getJarInferRegexStripModelJarName())) {
