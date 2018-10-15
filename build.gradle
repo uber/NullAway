@@ -37,8 +37,8 @@ subprojects { project ->
                     "-Xlint:unchecked",
                     "-Xlint:rawtypes",
                     "-Werror",
-                    // don't analyze generated code; AutoValue code fails UnnecessaryParentheses check
-                    "-XepExcludedPaths:.*/build/classes/.*",
+                    // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
+                    "-XepDisableWarningsInGeneratedCode",
                     // this check is too noisy
                     "-Xep:StringSplitter:OFF",
                     "-Xep:WildcardImport:ERROR"
