@@ -14,17 +14,11 @@
  * limitations under the License.
  */
 
-buildscript {
-    repositories {
-      // for android gradle plugin 3
-      google()
-    }
-    dependencies {
-        classpath deps.build.gradlePlugins.android
-    }
-}
+import net.ltgt.gradle.errorprone.CheckSeverity
 
-apply plugin: 'com.android.application'
+plugins {
+    id('com.android.application')
+}
 
 android {
     compileSdkVersion deps.build.compileSdkVersion
@@ -59,7 +53,10 @@ dependencies {
 tasks.withType(JavaCompile) {
   // remove the if condition if you want to run NullAway on test code
   if (!name.toLowerCase().contains("test")) {
-    options.compilerArgs += ["-Xep:NullAway:ERROR", "-XepOpt:NullAway:AnnotatedPackages=com.uber"]
+    options.errorprone {
+      check("NullAway", CheckSeverity.ERROR)
+      option("NullAway:AnnotatedPackages", "com.uber")
+    }
   }
 }
 

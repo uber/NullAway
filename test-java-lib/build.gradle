@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
+import net.ltgt.gradle.errorprone.CheckSeverity
+
 plugins {
-  id "net.ltgt.apt" version "0.13"
   id "java"
 }
 
@@ -23,7 +24,7 @@ sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
 dependencies {
-    apt project(path: ":nullaway", configuration: "shadow")
+    annotationProcessor project(path: ":nullaway", configuration: "shadow")
 
     compileOnly deps.build.jsr305Annotations
     compileOnly deps.build.javaxValidation
@@ -32,6 +33,9 @@ dependencies {
 
 tasks.withType(JavaCompile) {
   if (!name.toLowerCase().contains("test")) {
-    options.compilerArgs += ["-Xep:NullAway:ERROR", "-XepOpt:NullAway:AnnotatedPackages=com.uber"]
+    options.errorprone {
+      check("NullAway", CheckSeverity.ERROR)
+      option("NullAway:AnnotatedPackages", "com.uber")
+    }
   }
 }

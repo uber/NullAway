@@ -53,10 +53,6 @@ def build = [
     minSdkVersion: 16,
     targetSdkVersion: 28,
 
-    gradlePlugins: [
-        android: "com.android.tools.build:gradle:3.1.4",
-    ]
-
 ]
 
 def support = [

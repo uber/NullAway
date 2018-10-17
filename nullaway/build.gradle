@@ -13,17 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import net.ltgt.gradle.errorprone.CheckSeverity
+
 plugins {
-  id "com.github.johnrengelman.shadow" version "2.0.2"
+  id "com.github.johnrengelman.shadow"
   id "java"
   // For code coverage:
   id 'jacoco'
-  id 'com.github.kt3k.coveralls' version '2.6.3'
+  id 'com.github.kt3k.coveralls'
 }
-
-// we use this config to get the path of the JDK 9 javac jar, to
-// stick it in the bootclasspath when running tests
-configurations.maybeCreate("epJavac")
 
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
@@ -39,7 +37,9 @@ configurations.all {
 
 dependencies {
     compileOnly deps.apt.autoValue
+    annotationProcessor deps.apt.autoValue
     compileOnly deps.apt.autoService
+    annotationProcessor deps.apt.autoService
 
     compileOnly deps.build.errorProneCheckApi
     compile deps.build.checkerDataflow
@@ -58,16 +58,7 @@ dependencies {
     testCompile deps.test.inferAnnotations
     testCompile deps.apt.javaxInject
     testCompile deps.test.rxjava2
-
-    epJavac deps.build.errorProneJavac
 }
-
-// NullAway ends up enabled by default for tests in this project; disable it
-tasks.withType(JavaCompile) {
-  if (name.toLowerCase().contains("test")) {
-    options.compilerArgs += ["-Xep:NullAway:OFF"]
-  }
-} 
 
 // We include and shade the checker framework jars into the NullAway jar, as we may have custom
 // changes.
@@ -96,7 +87,7 @@ javadoc {
 
 test {
   maxHeapSize = "1024m"
-  jvmArgs "-Xbootclasspath/p:${configurations.epJavac.asPath}"
+  jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
 }
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")

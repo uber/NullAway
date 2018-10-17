@@ -1,9 +1,6 @@
 plugins {
     id "java"
 }
-// we use this config to get the path of the JDK 9 javac jar, to
-// stick it in the bootclasspath when running tests
-configurations.maybeCreate("epJavac")
 
 sourceCompatibility = 1.8
 
@@ -24,12 +21,12 @@ dependencies {
         exclude group: "junit", module: "junit"
     }
     testCompile project(":jar-infer:test-java-lib-jarinfer")
-    epJavac deps.build.errorProneCheckApi
+    testRuntime deps.build.errorProneCheckApi
 }
 
 test {
     maxHeapSize = "1024m"
-    jvmArgs "-Xbootclasspath/p:${configurations.epJavac.asPath}"
+    jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
 }
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
