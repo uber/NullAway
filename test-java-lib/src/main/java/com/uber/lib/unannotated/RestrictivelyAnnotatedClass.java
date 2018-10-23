@@ -25,4 +25,28 @@ public class RestrictivelyAnnotatedClass {
   public static void consumesObjectNotNull(@NotNull Object o) {}
 
   public static void consumesObjectUnannotated(Object o) {}
+
+  public void acceptsNonNull(@NonNull Object o) {}
+
+  public void acceptsNonNull2(@NonNull Object o) {}
+
+  public void acceptsNullable(@Nullable Object o) {}
+
+  public void acceptsNullable2(@Nullable Object o) {}
+
+  public @NonNull Object returnsNonNull() {
+    return new Object();
+  }
+
+  public @NonNull Object returnsNonNull2() {
+    return new Object();
+  }
+
+  public @Nullable Object returnsNullable() {
+    return null;
+  }
+
+  public @Nullable Object returnsNullable2() {
+    return null;
+  }
 }
