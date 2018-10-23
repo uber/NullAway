@@ -79,6 +79,28 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
   }
 
   @Override
+  public ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
+      NullAway analysis,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      ImmutableSet<Integer> explicitlyNullablePositions) {
+    HashSet<Integer> positions = new HashSet<Integer>();
+    positions.addAll(explicitlyNullablePositions);
+    for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {
+      if (Nullness.paramHasNullableAnnotation(methodSymbol, i)) {
+        positions.add(i);
+      }
+    }
+    return ImmutableSet.copyOf(positions);
+  }
+
+  @Override
+  public boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
+      Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
+    return Nullness.hasNonNullAnnotation(methodSymbol) || explicitlyNonNullReturn;
+  }
+
+  @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
       Types types,

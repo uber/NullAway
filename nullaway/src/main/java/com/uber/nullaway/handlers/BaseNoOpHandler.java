@@ -110,6 +110,13 @@ abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
+  public boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
+      Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
+    // NoOp
+    return explicitlyNonNullReturn;
+  }
+
+  @Override
   public ImmutableSet<Integer> onUnannotatedInvocationGetNonNullPositions(
       NullAway analysis,
       VisitorState state,

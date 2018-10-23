@@ -158,6 +158,16 @@ public enum Nullness implements AbstractValue<Nullness> {
   }
 
   /**
+   * Does the symbol have a {@code @NonNull} declaration or type-use annotation?
+   *
+   * <p>NOTE: this method does not work for checking all annotations of parameters of methods from
+   * class files. For that case, use {@link #paramHasNullableAnnotation(Symbol.MethodSymbol, int)}
+   */
+  public static boolean hasNonNullAnnotation(Symbol symbol) {
+    return hasNonNullAnnotation(NullabilityUtil.getAllAnnotations(symbol));
+  }
+
+  /**
    * Does the symbol have a {@code @Nullable} declaration or type-use annotation?
    *
    * <p>NOTE: this method does not work for checking all annotations of parameters of methods from
