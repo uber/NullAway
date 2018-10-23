@@ -1054,13 +1054,13 @@ public class NullAwayTest {
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
                 "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
         .addSourceLines(
-            "Test.java",
+            "TestNegativeCases.java",
             "package com.uber;",
             "import com.uber.lib.unannotated.RestrictivelyAnnotatedClass;",
             "import org.checkerframework.checker.nullness.qual.NonNull;",
             "import javax.annotation.Nullable;",
-            "public class Test extends RestrictivelyAnnotatedClass {",
-            "   Test(){ super(new Object()); }",
+            "public class TestNegativeCases extends RestrictivelyAnnotatedClass {",
+            "   TestNegativeCases(){ super(new Object()); }",
             "   @Override public void acceptsNonNull(@Nullable Object o) { }",
             "   @Override public void acceptsNonNull2(Object o) { }",
             "   @Override public void acceptsNullable2(@Nullable Object o) { }",
@@ -1069,13 +1069,13 @@ public class NullAwayTest {
             "   @Override public @Nullable Object returnsNullable2() { return new Object();}",
             "}")
         .addSourceLines(
-            "Test2.java",
+            "TestPositiveCases.java",
             "package com.uber;",
             "import com.uber.lib.unannotated.RestrictivelyAnnotatedClass;",
             "import org.checkerframework.checker.nullness.qual.NonNull;",
             "import javax.annotation.Nullable;",
-            "public class Test2 extends RestrictivelyAnnotatedClass {",
-            "   Test2(){ super(new Object()); }",
+            "public class TestPositiveCases extends RestrictivelyAnnotatedClass {",
+            "   TestPositiveCases(){ super(new Object()); }",
             "   // BUG: Diagnostic contains: parameter o is @NonNull",
             "   public void acceptsNullable(Object o) { }",
             "   // BUG: Diagnostic contains: method returns @Nullable",

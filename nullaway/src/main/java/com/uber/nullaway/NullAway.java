@@ -680,7 +680,7 @@ public class NullAway extends BugChecker
       VisitorState state) {
     final boolean isOverridenMethodUnannotated =
         NullabilityUtil.isUnannotated(overriddenMethod, config);
-    boolean overriddenMethodReturnsNonNull =
+    final boolean overriddenMethodReturnsNonNull =
         ((isOverridenMethodUnannotated
                 && handler.onUnannotatedInvocationGetExplicitlyNonNullReturn(
                     overriddenMethod, false))
