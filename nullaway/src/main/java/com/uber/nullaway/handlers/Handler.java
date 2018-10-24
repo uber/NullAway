@@ -151,6 +151,21 @@ public interface Handler {
       ImmutableSet<Integer> explicitlyNullablePositions);
 
   /**
+   * Called when NullAway encounters an unannotated method and asks if return value is explicitly
+   * marked @Nullable
+   *
+   * <p>Note that this should be only used for return values EXPLICLTY marked as @NonNull (e.g. by
+   * library models) rather than those considered @Nullable by NullAway's default optimistic
+   * assumptions.
+   *
+   * @param methodSymbol The method symbol for the unannotated method in question.
+   * @param explicitlyNonNullReturn return nullability computed by upstream handlers.
+   * @return Updated return nullability computed by this handler.
+   */
+  boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
+      Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn);
+
+  /**
    * Called when NullAway encounters an unannotated method and asks for params default nullability
    *
    * @param analysis A reference to the running NullAway analysis.

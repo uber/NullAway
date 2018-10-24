@@ -128,6 +128,17 @@ class CompositeHandler implements Handler {
   }
 
   @Override
+  public boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
+      Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
+    for (Handler h : handlers) {
+      explicitlyNonNullReturn =
+          h.onUnannotatedInvocationGetExplicitlyNonNullReturn(
+              methodSymbol, explicitlyNonNullReturn);
+    }
+    return explicitlyNonNullReturn;
+  }
+
+  @Override
   public ImmutableSet<Integer> onUnannotatedInvocationGetNonNullPositions(
       NullAway analysis,
       VisitorState state,
