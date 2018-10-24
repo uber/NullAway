@@ -96,7 +96,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
 
   @Override
   public boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
-      Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
+      VisitorState state, Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
     return Nullness.hasNonNullAnnotation(methodSymbol) || explicitlyNonNullReturn;
   }
 

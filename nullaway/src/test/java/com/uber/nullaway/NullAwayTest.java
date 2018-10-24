@@ -1274,6 +1274,43 @@ public class NullAwayTest {
   }
 
   @Test
+  public void overrideOnExplicitlyNonNullLibraryModelReturn() {
+    compilationHelper
+        .addSourceLines( // Dummy android.support.v4.app.Fragment class
+            "Fragment.java",
+            "package android.support.v4.app;",
+            "public interface Fragment {",
+            // Ignore other methods for this test, to make code shorter on both files:
+            "    boolean getActivity();",
+            "}")
+        .addSourceLines(
+            "TestNegative.java",
+            "package com.uber;",
+            "import android.support.v4.app.Fragment;",
+            "class TestNegative implements Fragment {",
+            "  TestNegative() {  }",
+            "  @Override",
+            "  public boolean getActivity() {",
+            "    return false; // NoOp",
+            "  }",
+            "}")
+        .addSourceLines(
+            "TestPositive.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import android.support.v4.app.Fragment;",
+            "class TestPositive implements Fragment {",
+            "  TestPositive() {  }",
+            "  @Override",
+            "  // BUG: Diagnostic contains: method returns @Nullable",
+            "  @Nullable public boolean getActivity() {",
+            "    return false; // NoOp",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testCapturingScopes() {
     compilationHelper.addSourceFile("CapturingScopes.java").doTest();
   }

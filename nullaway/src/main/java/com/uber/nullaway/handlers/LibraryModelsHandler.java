@@ -93,6 +93,14 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
+  public boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
+      VisitorState state, Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
+    return LibraryModels.LibraryModelUtil.hasNonNullReturn(
+            libraryModels, methodSymbol, state.getTypes())
+        || explicitlyNonNullReturn;
+  }
+
+  @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION

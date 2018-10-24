@@ -683,7 +683,7 @@ public class NullAway extends BugChecker
     final boolean overriddenMethodReturnsNonNull =
         ((isOverridenMethodUnannotated
                 && handler.onUnannotatedInvocationGetExplicitlyNonNullReturn(
-                    overriddenMethod, false))
+                    state, overriddenMethod, false))
             || (!isOverridenMethodUnannotated
                 && !Nullness.hasNullableAnnotation(overriddenMethod)));
     // if the super method returns nonnull,

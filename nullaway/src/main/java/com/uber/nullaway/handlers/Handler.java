@@ -163,7 +163,7 @@ public interface Handler {
    * @return Updated return nullability computed by this handler.
    */
   boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
-      Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn);
+      VisitorState state, Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn);
 
   /**
    * Called when NullAway encounters an unannotated method and asks for params default nullability
