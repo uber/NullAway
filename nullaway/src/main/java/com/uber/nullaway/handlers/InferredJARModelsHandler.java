@@ -238,9 +238,6 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
           // Load model jars
           for (String modelJarPath : mapModelJarLocations.get(jarName)) {
             JarFile jar = new JarFile(modelJarPath);
-            if (jar == null) {
-              throw new Error("Cannot open jar: " + modelJarPath);
-            }
             LOG(DEBUG, "DEBUG", "Found model jar at: " + modelJarPath);
             JarEntry astubxJE = jar.getJarEntry(DEFAULT_ASTUBX_LOCATION);
             if (astubxJE == null) {

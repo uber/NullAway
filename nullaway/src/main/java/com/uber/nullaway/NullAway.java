@@ -942,7 +942,8 @@ public class NullAway extends BugChecker
       Symbol fieldSymbol, TreePath initTreePath, VisitorState state) {
     TreePath enclosingClassPath = initTreePath.getParentPath();
     ClassTree enclosingClass = (ClassTree) enclosingClassPath.getLeaf();
-    Multimap<Tree, Element> tree2Init = initTree2PrevFieldInit.get(enclosingClass);
+    Multimap<Tree, Element> tree2Init =
+        initTree2PrevFieldInit.get(ASTHelpers.getSymbol(enclosingClass));
     if (tree2Init == null) {
       tree2Init = computeTree2Init(enclosingClassPath, state);
       initTree2PrevFieldInit.put(ASTHelpers.getSymbol(enclosingClass), tree2Init);
