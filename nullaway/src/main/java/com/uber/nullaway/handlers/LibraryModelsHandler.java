@@ -330,20 +330,36 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                     "android.content.res.Resources",
                     "getDrawable(int,android.content.res.Resources.Theme)"))
             .add(methodRef("android.support.v4.app.Fragment", "getActivity()"))
+            .add(methodRef("androidx.fragment.app.Fragment", "getActivity()"))
             .add(methodRef("android.support.v4.app.Fragment", "getArguments()"))
+            .add(methodRef("androidx.fragment.app.Fragment", "getArguments()"))
             .add(methodRef("android.support.v4.app.Fragment", "getContext()"))
+            .add(methodRef("androidx.fragment.app.Fragment", "getContext()"))
             .add(
                 methodRef(
                     "android.support.v4.app.Fragment",
                     "onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)"))
             .add(
                 methodRef(
+                    "androidx.fragment.app.Fragment",
+                    "onCreateView(android.view.LayoutInflater,android.view.ViewGroup,android.os.Bundle)"))
+            .add(
+                methodRef(
                     "android.support.v4.content.ContextCompat",
                     "getDrawable(android.content.Context,int)"))
+            .add(
+                methodRef(
+                    "androidx.core.content.ContextCompat",
+                    "getDrawable(android.content.Context,int)"))
             .add(methodRef("android.support.v7.app.AppCompatDialog", "<T>findViewById(int)"))
+            .add(methodRef("androidx.appcompat.app.AppCompatDialog", "<T>findViewById(int)"))
             .add(
                 methodRef(
                     "android.support.v7.content.res.AppCompatResources",
+                    "getDrawable(android.content.Context,int)"))
+            .add(
+                methodRef(
+                    "androidx.appcompat.content.res.AppCompatResources",
                     "getDrawable(android.content.Context,int)"))
             .add(methodRef("android.support.design.widget.TextInputLayout", "getEditText()"))
             .build();
