@@ -1,5 +1,20 @@
 Changelog
 =========
+Version 0.6.1
+-------------
+* Enable excluded class annotations to (mostly) work on inner classes (#239)
+* Assertion of not equal to null updates the access path (#240) 
+* Update Gradle examples in README (#244)
+* Change how jarinfer finds astubx model jars. (#243)
+* Update to Error Prone 2.3.2 (#242)
+* Update net.ltgt.errorprone to 0.6, and build updates ((#248)
+* Restrictive annotated method overriding (#249) 
+   Note: This can require significant annotation changes if 
+   `-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true` is set.
+   Not a new minor version, since that option is false by default.
+* Fix error on checking the initTree2PrevFieldInit cache. (#252) 
+* Add support for renamed android.support packages in models. (#253)
+
 Version 0.6.0
 -------------
 * Add support for marking library parameters as explicitly @Nullable (#228)
