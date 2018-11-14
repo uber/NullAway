@@ -1369,7 +1369,7 @@ public class NullAwayTest {
             "import javax.annotation.Nullable;",
             "import java.util.List;",
             "public class Test {",
-            "  public void testForIn(@Nullable List<String> l) {",
+            "  public void testEnhancedFor(@Nullable List<String> l) {",
             "    // BUG: Diagnostic contains: enhanced-for expression l is @Nullable",
             "    for (String x: l) {}",
             "  }",
