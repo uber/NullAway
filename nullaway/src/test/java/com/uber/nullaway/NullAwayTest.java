@@ -1361,7 +1361,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void testForIn() {
+  public void testEnhancedFor() {
     compilationHelper
         .addSourceLines(
             "Test.java",
