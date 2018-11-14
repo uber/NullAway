@@ -1359,4 +1359,21 @@ public class NullAwayTest {
   public void testCapturingScopes() {
     compilationHelper.addSourceFile("CapturingScopes.java").doTest();
   }
+
+  @Test
+  public void testForIn() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import java.util.List;",
+            "public class Test {",
+            "  public void testForIn(@Nullable List<String> l) {",
+            "    // BUG: Diagnostic contains: for-in expression l is @Nullable",
+            "    for (String x: l) {}",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
