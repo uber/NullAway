@@ -248,4 +248,9 @@ public abstract class AbstractConfig implements Config {
   public String getErrorURL() {
     return errorURL;
   }
+
+  @Override
+  public boolean treatGeneratedAsUnannotated() {
+    return treatGeneratedAsUnannotated;
+  }
 }
