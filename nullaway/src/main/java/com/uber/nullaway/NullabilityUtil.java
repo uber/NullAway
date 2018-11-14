@@ -199,4 +199,14 @@ public class NullabilityUtil {
     return !config.fromAnnotatedPackage(outermostClassSymbol)
         || config.isUnannotatedClass(outermostClassSymbol);
   }
+
+  /**
+   * @param symbol symbol for entity
+   * @return true if symbol represents an entity from a class annotated with {@code @Generated};
+   *     false otherwise
+   */
+  public static boolean isGenerated(Symbol symbol) {
+    Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
+    return ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated");
+  }
 }

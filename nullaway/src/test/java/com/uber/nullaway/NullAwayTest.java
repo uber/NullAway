@@ -316,6 +316,35 @@ public class NullAwayTest {
   }
 
   @Test
+  public void generatedAsUnannotatedPlusRestrictive() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Generated.java",
+            "package com.uber;",
+            "@javax.annotation.Generated(\"foo\")",
+            "public class Generated {",
+            "  @javax.annotation.Nullable",
+            "  public Object retNull() {",
+            "    return null;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  void foo() { (new Generated()).retNull().toString(); }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void basicContractAnnotation() {
     compilationHelper
         .setArgs(

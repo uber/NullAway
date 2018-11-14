@@ -135,4 +135,7 @@ public interface Config {
 
   /** @return the URL to show with NullAway error messages */
   String getErrorURL();
+
+  /** @return true if generated code should be treated as unannotated */
+  boolean treatGeneratedAsUnannotated();
 }

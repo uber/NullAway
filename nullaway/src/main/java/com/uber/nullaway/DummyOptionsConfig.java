@@ -143,4 +143,9 @@ public class DummyOptionsConfig implements Config {
   public String getErrorURL() {
     throw new IllegalStateException(error_msg);
   }
+
+  @Override
+  public boolean treatGeneratedAsUnannotated() {
+    throw new IllegalStateException(error_msg);
+  }
 }

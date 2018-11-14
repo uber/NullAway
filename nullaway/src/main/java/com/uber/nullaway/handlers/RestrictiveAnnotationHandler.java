@@ -70,7 +70,13 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) expr);
       if (NullabilityUtil.isUnannotated(methodSymbol, config)) {
-        return Nullness.hasNullableAnnotation(methodSymbol) || exprMayBeNull;
+        // with the generated-as-unannotated option enabled, we want to ignore
+        // annotations in generated code
+        if (config.treatGeneratedAsUnannotated() && NullabilityUtil.isGenerated(methodSymbol)) {
+          return exprMayBeNull;
+        } else {
+          return Nullness.hasNullableAnnotation(methodSymbol) || exprMayBeNull;
+        }
       } else {
         return exprMayBeNull;
       }
