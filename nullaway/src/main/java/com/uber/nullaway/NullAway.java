@@ -58,6 +58,7 @@ import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
+import com.sun.source.tree.EnhancedForLoopTree;
 import com.sun.source.tree.ExpressionStatementTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.ForLoopTree;
@@ -163,6 +164,7 @@ public class NullAway extends BugChecker
         BugChecker.IfTreeMatcher,
         BugChecker.WhileLoopTreeMatcher,
         BugChecker.ForLoopTreeMatcher,
+        BugChecker.EnhancedForLoopTreeMatcher,
         BugChecker.LambdaExpressionTreeMatcher,
         BugChecker.IdentifierTreeMatcher,
         BugChecker.MemberReferenceTreeMatcher,
@@ -1192,6 +1194,22 @@ public class NullAway extends BugChecker
     }
     if (tree.getCondition() != null) {
       return doUnboxingCheck(state, tree.getCondition());
+    }
+    return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchEnhancedForLoop(EnhancedForLoopTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
+    ExpressionTree expr = tree.getExpression();
+    if (mayBeNullExpr(state, expr)) {
+      return createErrorDescription(
+          MessageTypes.DEREFERENCE_NULLABLE,
+          expr,
+          "enhanced-for expression " + expr + " is @Nullable",
+          state.getPath());
     }
     return Description.NO_MATCH;
   }
