@@ -137,18 +137,13 @@ public interface Handler {
    * library models) rather than those considered @Nullable by NullAway's default optimistic
    * assumptions.
    *
-   * @param analysis A reference to the running NullAway analysis.
-   * @param state The current visitor state.
    * @param methodSymbol The method symbol for the unannotated method in question.
    * @param explicitlyNullablePositions Parameter nullability computed by upstream handlers (the
    *     core analysis supplies the empty set to the first handler in the chain).
    * @return Updated parameter nullability computed by this handler.
    */
   ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
-      ImmutableSet<Integer> explicitlyNullablePositions);
+      Symbol.MethodSymbol methodSymbol, ImmutableSet<Integer> explicitlyNullablePositions);
 
   /**
    * Called when NullAway encounters an unannotated method and asks if return value is explicitly

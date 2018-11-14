@@ -115,14 +115,11 @@ class CompositeHandler implements Handler {
 
   @Override
   public ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
-      ImmutableSet<Integer> explicitlyNullablePositions) {
+      Symbol.MethodSymbol methodSymbol, ImmutableSet<Integer> explicitlyNullablePositions) {
     for (Handler h : handlers) {
       explicitlyNullablePositions =
           h.onUnannotatedInvocationGetExplicitlyNullablePositions(
-              analysis, state, methodSymbol, explicitlyNullablePositions);
+              methodSymbol, explicitlyNullablePositions);
     }
     return explicitlyNullablePositions;
   }
