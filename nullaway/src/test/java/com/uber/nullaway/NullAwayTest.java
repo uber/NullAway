@@ -1370,7 +1370,7 @@ public class NullAwayTest {
             "import java.util.List;",
             "public class Test {",
             "  public void testForIn(@Nullable List<String> l) {",
-            "    // BUG: Diagnostic contains: for-in expression l is @Nullable",
+            "    // BUG: Diagnostic contains: enhanced-for expression l is @Nullable",
             "    for (String x: l) {}",
             "  }",
             "}")

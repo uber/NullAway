@@ -1208,7 +1208,7 @@ public class NullAway extends BugChecker
       return createErrorDescription(
           MessageTypes.DEREFERENCE_NULLABLE,
           expr,
-          "for-in expression " + expr + " is @Nullable",
+          "enhanced-for expression " + expr + " is @Nullable",
           state.getPath());
     }
     return Description.NO_MATCH;
