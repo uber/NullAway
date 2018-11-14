@@ -1,5 +1,11 @@
 Changelog
 =========
+
+Version 0.6.2
+-------------
+* Handle lambda override with AcknowledgeRestrictiveAnnotations (#255)
+* Handle interaction between AcknowledgeRestrictiveAnnotations and TreatGeneratedAsUnannotated (#254)
+
 Version 0.6.1
 -------------
 * Enable excluded class annotations to (mostly) work on inner classes (#239)
