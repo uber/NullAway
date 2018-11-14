@@ -86,10 +86,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
 
   @Override
   public ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
-      ImmutableSet<Integer> explicitlyNullablePositions) {
+      Symbol.MethodSymbol methodSymbol, ImmutableSet<Integer> explicitlyNullablePositions) {
     HashSet<Integer> positions = new HashSet<Integer>();
     positions.addAll(explicitlyNullablePositions);
     for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {

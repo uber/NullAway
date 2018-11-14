@@ -1114,6 +1114,59 @@ public class NullAwayTest {
   }
 
   @Test
+  public void lambdaPlusRestrictivePositive() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.unannotated.RestrictivelyAnnotatedFI;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  void foo() {",
+            "    RestrictivelyAnnotatedFI func = (x) -> {",
+            "      // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
+            "      x.toString();",
+            "      return new Object();",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void lambdaPlusRestrictiveNegative() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.unannotated.RestrictivelyAnnotatedFI;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  void foo() {",
+            "    RestrictivelyAnnotatedFI func = (x) -> {",
+            "      // no error since AcknowledgeRestrictiveAnnotations disabled",
+            "      x.toString();",
+            "      return new Object();",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testCastToNonNull() {
     compilationHelper
         .addSourceFile("Util.java")

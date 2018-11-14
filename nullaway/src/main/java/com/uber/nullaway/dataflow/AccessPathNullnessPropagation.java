@@ -23,6 +23,7 @@ import static javax.lang.model.element.ElementKind.EXCEPTION_PARAMETER;
 import static org.checkerframework.javacutil.TreeUtils.elementFromDeclaration;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
@@ -214,6 +215,10 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
     Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code, types);
     com.sun.tools.javac.util.List<Symbol.VarSymbol> fiMethodParameters =
         fiMethodSymbol.getParameters();
+    ImmutableSet<Integer> nullableParamsFromHandler =
+        handler.onUnannotatedInvocationGetExplicitlyNullablePositions(
+            fiMethodSymbol, ImmutableSet.of());
+
     for (int i = 0; i < parameters.size(); i++) {
       LocalVariableNode param = parameters.get(i);
       VariableTree variableTree = code.getParameters().get(i);
@@ -229,8 +234,8 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
         assumed = NONNULL;
       } else {
         if (NullabilityUtil.isUnannotated(fiMethodSymbol, config)) {
-          // optimistically assume parameter is non-null
-          assumed = NONNULL;
+          // assume parameter is non-null unless handler tells us otherwise
+          assumed = nullableParamsFromHandler.contains(i) ? NULLABLE : NONNULL;
         } else {
           assumed = Nullness.hasNullableAnnotation(fiMethodParameters.get(i)) ? NULLABLE : NONNULL;
         }

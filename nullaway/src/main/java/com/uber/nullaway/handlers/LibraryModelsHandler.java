@@ -80,10 +80,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
   @Override
   public ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
-      ImmutableSet<Integer> explicitlyNullablePositions) {
+      Symbol.MethodSymbol methodSymbol, ImmutableSet<Integer> explicitlyNullablePositions) {
     return Sets.union(
             explicitlyNullablePositions,
             libraryModels
