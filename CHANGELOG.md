@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.6.3
+-------------
+* Fix handling of enhanced for loops (#256)
+
 Version 0.6.2
 -------------
 * Handle lambda override with AcknowledgeRestrictiveAnnotations (#255)
