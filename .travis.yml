@@ -28,8 +28,6 @@ env:
 notifications:
   email: false
 
-sudo: false
-
 cache:
   directories:
     - $HOME/.gradle
