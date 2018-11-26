@@ -43,8 +43,8 @@ android {
 
 dependencies {
     implementation deps.support.appcompat
-    annotationProcessor project(path: ":nullaway", configuration: "shadow")
-    annotationProcessor project(path: ":sample-library-model")
+    annotationProcessor project(":nullaway")
+    annotationProcessor project(":sample-library-model")
 
     testImplementation deps.test.junit4
 

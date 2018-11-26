@@ -25,7 +25,7 @@ mainClassName = "com.uber.nullaway.benchmark.NullAwayBenchmarkHarness"
 
 dependencies {
     compile deps.build.errorProneCore
-    compile project(path: ":nullaway", configuration: "shadow")
+    compile project(":nullaway")
 }
 
 applicationDefaultJvmArgs = ["-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"]
