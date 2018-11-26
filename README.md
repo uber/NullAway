@@ -8,7 +8,7 @@ NullAway is *fast*.  It is built as a plugin to [Error Prone](http://errorprone.
 
 ### Overview
 
-NullAway requires that you build your code with [Error Prone](http://errorprone.info), version 2.1.1 or higher.  See the [Error Prone documentation](http://errorprone.info/docs/installation) for instructions on getting started with Error Prone and integration with your build system.  The instructions below assume you are using Gradle; see [the docs](https://github.com/uber/NullAway/wiki/Configuration#other-build-systems) for discussion of other build systems.
+NullAway requires that you build your code with [Error Prone](http://errorprone.info), version 2.3.0 or higher.  See the [Error Prone documentation](http://errorprone.info/docs/installation) for instructions on getting started with Error Prone and integration with your build system.  The instructions below assume you are using Gradle; see [the docs](https://github.com/uber/NullAway/wiki/Configuration#other-build-systems) for discussion of other build systems.
 
 ### Gradle
 
