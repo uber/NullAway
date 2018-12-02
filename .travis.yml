@@ -12,11 +12,11 @@ android:
     - android-28
 
 before_install:
-  - if [[ "$TRAVIS_JDK_VERSION" == "openjdk11" ]]; then export JAVA_OPTS='-XX:+IgnoreUnrecognizedVMOptions --add-modules java.se.ee'; fi
-  - yes | sdkmanager "platforms;android-28"
+  - if [[ "$TRAVIS_JDK_VERSION" == "oraclejdk8" ]]; then yes | sdkmanager "platforms;android-28"; fi
 
 script:
-  - ./gradlew verGJF build
+  - if [[ "$TRAVIS_JDK_VERSION" == "oraclejdk8" ]]; then ./gradlew verGJF build; fi
+  - if [[ "$TRAVIS_JDK_VERSION" == "openjdk11" ]]; then ./gradlew :nullaway:test; fi
 
 after_success:
   - .buildscript/deploy_snapshot.sh
