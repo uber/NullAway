@@ -62,7 +62,9 @@ javadoc {
 
 test {
   maxHeapSize = "1024m"
-  jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
+  if (!JavaVersion.current().java9Compatible) {
+    jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
+  }
 }
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
