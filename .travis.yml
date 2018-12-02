@@ -12,6 +12,7 @@ android:
     - android-28
 
 before_install:
+  - if [[ "$TRAVIS_JDK_VERSION" == "openjdk11" ]]; then export JAVA_OPTS='-XX:+IgnoreUnrecognizedVMOptions --add-modules java.se.ee'; fi
   - yes | sdkmanager "platforms;android-28"
 
 script:
