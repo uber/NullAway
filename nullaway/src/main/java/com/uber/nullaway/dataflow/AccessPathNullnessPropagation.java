@@ -208,7 +208,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
     NullnessStore environmentMapping =
         Objects.requireNonNull(
             environmentNullness.getEnvironmentMapping(underlyingAST.getLambdaTree()),
-            "no environment stored for lambda " + underlyingAST.getLambdaTree());
+            "no environment stored for lambda");
     NullnessStore.Builder result = environmentMapping.toBuilder();
     LambdaExpressionTree code = underlyingAST.getLambdaTree();
     // need to check annotation for i'th parameter of functional interface declaration
@@ -217,7 +217,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
         fiMethodSymbol.getParameters();
     ImmutableSet<Integer> nullableParamsFromHandler =
         handler.onUnannotatedInvocationGetExplicitlyNullablePositions(
-            fiMethodSymbol, ImmutableSet.of());
+            context, fiMethodSymbol, ImmutableSet.of());
 
     for (int i = 0; i < parameters.size(); i++) {
       LocalVariableNode param = parameters.get(i);
@@ -858,7 +858,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
         node, callee, node.getArguments(), types, values(input), thenUpdates, bothUpdates);
     NullnessHint nullnessHint =
         handler.onDataflowVisitMethodInvocation(
-            node, types, values(input), thenUpdates, elseUpdates, bothUpdates);
+            node, types, context, values(input), thenUpdates, elseUpdates, bothUpdates);
     Nullness nullness = returnValueNullness(node, input, nullnessHint);
     if (booleanReturnType(node)) {
       ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates, bothUpdates);
