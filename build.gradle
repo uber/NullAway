@@ -52,6 +52,12 @@ subprojects { project ->
         }
     }
 
+    if (JavaVersion.current().java9Compatible) {
+        tasks.withType(JavaCompile) {
+            options.compilerArgs += [ "--release", "8" ]
+        }
+    }
+
     repositories {
         maven {
             url "https://raw.githubusercontent.com/lazaroclapp/WALA/repository/"
