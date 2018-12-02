@@ -4,15 +4,21 @@ jdk:
   - oraclejdk8
   - openjdk11
 
+matrix:
+  include:
+    - jdk: openjdk11
+      before_install:
+        - export JAVA_OPTS='-XX:+IgnoreUnrecognizedVMOptions --add-modules java.se.ee'
+        - yes | sdkmanager "platforms;android-28"
+    - jdk: oraclejdk8
+      before_install:
+        - yes | sdkmanager "platforms;android-28"
 android:
   components:
     - tools
     - platform-tools
     - build-tools-28.0.2
     - android-28
-
-before_install:
-  - yes | sdkmanager "platforms;android-28"
 
 script:
   - ./gradlew verGJF build
