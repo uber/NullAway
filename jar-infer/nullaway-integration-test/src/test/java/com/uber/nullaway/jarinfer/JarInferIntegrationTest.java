@@ -27,6 +27,7 @@ public class JarInferIntegrationTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"))
         .addSourceLines(
             "Test.java",
@@ -51,6 +52,7 @@ public class JarInferIntegrationTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
+                "-XepOpt:NullAway:JarInferEnabled=true",
                 "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
         .addSourceLines(
             "Test.java",
