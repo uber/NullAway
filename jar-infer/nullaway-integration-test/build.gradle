@@ -23,49 +23,21 @@ plugins {
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
-configurations.all {
-    resolutionStrategy {
-        // Force needed, since:
-        // a) There are newer versions of CF than the one we forked
-        // b) It seems x.y.z-name < x.y.z for gradle dependency resolution purposes.
-        force deps.build.checkerDataflow
-    }
-}
-
 dependencies {
-    compileOnly deps.apt.autoValue
-    annotationProcessor deps.apt.autoValue
-    compileOnly deps.apt.autoService
-    annotationProcessor deps.apt.autoService
-
-    compileOnly deps.build.errorProneCheckApi
-    compile deps.build.checkerDataflow
-    compile deps.build.guava
-
     testCompile deps.test.junit4
     testCompile(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
-    testCompile deps.test.jetbrainsAnnotations
-    testCompile deps.test.junit5Jupiter
-    testCompile deps.test.cfQual
-    testCompile deps.test.cfCompatQual
-    testCompile project(":test-java-lib")
-    testCompile deps.test.inferAnnotations
-    testCompile deps.apt.javaxInject
-    testCompile deps.test.rxjava2
+    testCompile project(":nullaway")
+    testCompile project(":jar-infer:test-java-lib-jarinfer")
+    
 }
 
-javadoc {
-    failOnError = false
-}
 
 test {
   maxHeapSize = "1024m"
   jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
 }
-
-apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
 
 // From https://github.com/kt3k/coveralls-gradle-plugin
 jacocoTestReport {

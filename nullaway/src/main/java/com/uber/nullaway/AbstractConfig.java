@@ -89,6 +89,8 @@ public abstract class AbstractConfig implements Config {
   protected String autofixSuppressionComment;
 
   /** --- JarInfer configs --- */
+  protected boolean jarInferEnabled;
+
   protected boolean jarInferUseReturnAnnotations;
 
   protected String jarInferRegexStripModelJarName;
@@ -229,6 +231,11 @@ public abstract class AbstractConfig implements Config {
   }
 
   /** --- JarInfer configs --- */
+  @Override
+  public boolean isJarInferEnabled() {
+    return jarInferEnabled;
+  }
+
   @Override
   public boolean isJarInferUseReturnAnnotations() {
     return jarInferUseReturnAnnotations;

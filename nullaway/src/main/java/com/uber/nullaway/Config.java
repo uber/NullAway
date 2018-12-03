@@ -121,9 +121,12 @@ public interface Config {
    */
   String getAutofixSuppressionComment();
 
+  // --- JarInfer configs ---
+
+  /** @return true if JarInfer should be enabled */
+  boolean isJarInferEnabled();
+
   /**
-   * --- JarInfer configs ---
-   *
    * @return true if NullAway should use the @Nullable return value annotations inferred by
    *     JarInfer.
    */

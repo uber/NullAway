@@ -123,6 +123,11 @@ public class DummyOptionsConfig implements Config {
     throw new IllegalStateException(error_msg);
   }
 
+  @Override
+  public boolean isJarInferEnabled() {
+    throw new IllegalStateException(error_msg);
+  }
+
   /** --- JarInfer configs --- */
   @Override
   public boolean isJarInferUseReturnAnnotations() {
