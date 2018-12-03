@@ -294,6 +294,11 @@ public class NullAwayTest {
 
   @Test
   public void generatedAsUnannotated() {
+    String generatedAnnot =
+        (Double.parseDouble(System.getProperty("java.specification.version")) >= 11)
+            ? "@javax.annotation.processing.Generated"
+            : "@javax.annotation.Generated";
+    System.err.println();
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -304,7 +309,7 @@ public class NullAwayTest {
         .addSourceLines(
             "Generated.java",
             "package com.uber;",
-            "@javax.annotation.Generated(\"foo\")",
+            generatedAnnot + "(\"foo\")",
             "public class Generated { public void takeObj(Object o) {} }")
         .addSourceLines(
             "Test.java",
@@ -317,6 +322,10 @@ public class NullAwayTest {
 
   @Test
   public void generatedAsUnannotatedPlusRestrictive() {
+    String generatedAnnot =
+        (Double.parseDouble(System.getProperty("java.specification.version")) >= 11)
+            ? "@javax.annotation.processing.Generated"
+            : "@javax.annotation.Generated";
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -328,7 +337,7 @@ public class NullAwayTest {
         .addSourceLines(
             "Generated.java",
             "package com.uber;",
-            "@javax.annotation.Generated(\"foo\")",
+            generatedAnnot + "(\"foo\")",
             "public class Generated {",
             "  @javax.annotation.Nullable",
             "  public Object retNull() {",

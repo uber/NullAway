@@ -253,8 +253,9 @@ public class NullAwayNativeModels {
     d.offer(null);
     // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
     d.push(null);
-    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
-    d.toArray(null);
+    Object[] o = null;
+    // BUG: Diagnostic contains: passing @Nullable parameter 'o' where @NonNull is required
+    d.toArray(o);
     // this should be fine
     d.toArray();
   }
@@ -275,8 +276,9 @@ public class NullAwayNativeModels {
     d.offer(null);
     // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
     d.push(null);
-    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
-    d.toArray(null);
+    Object[] o = null;
+    // BUG: Diagnostic contains: passing @Nullable parameter 'o' where @NonNull is required
+    d.toArray(o);
   }
 
   static void guavaStuff() {
