@@ -57,6 +57,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
       EP_FL_NAMESPACE + ":AcknowledgeRestrictiveAnnotations";
   static final String FL_SUPPRESS_COMMENT = EP_FL_NAMESPACE + ":AutoFixSuppressionComment";
   /** --- JarInfer configs --- */
+  static final String FL_JI_ENABLED = EP_FL_NAMESPACE + ":JarInferEnabled";
+
   static final String FL_JI_USE_RETURN = EP_FL_NAMESPACE + ":JarInferUseReturnAnnotations";
 
   static final String FL_JI_REGEX_MODEL_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripModelJar";
@@ -122,6 +124,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "Invalid -XepOpt" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
     }
     /** --- JarInfer configs --- */
+    jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
     jarInferUseReturnAnnotations = flags.getBoolean(FL_JI_USE_RETURN).orElse(false);
     // The defaults of these two options translate to: remove .aar/.jar from the file name, and also
     // implicitly mean that NullAway will search for jarinfer models in the same jar which contains
