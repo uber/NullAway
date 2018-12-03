@@ -69,6 +69,10 @@ test {
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
 
+jacoco {
+  toolVersion = "0.8.2"
+}
+
 // From https://github.com/kt3k/coveralls-gradle-plugin
 jacocoTestReport {
     reports {
