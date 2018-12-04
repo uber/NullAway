@@ -28,6 +28,8 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.sun.tools.javac.code.Symbol;
 import java.util.Objects;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** Provides models for library routines for the null checker. */
@@ -105,19 +107,39 @@ public interface LibraryModels {
       this.genericArgs = genericArgs;
     }
 
+    private static final Pattern METHOD_SIG_PATTERN = Pattern.compile("^(<.*>)?(\\w+)(\\(.*\\))$");
+
     /**
      * @param enclosingClass containing class
      * @param methodArgs method signature in the appropriate format (see class docs)
      * @return corresponding {@link MethodRef}
      */
-    public static MethodRef methodRef(String enclosingClass, String methodName, String methodArgs) {
-      return new MethodRef(enclosingClass, methodName, methodArgs, null);
+    public static MethodRef methodRef(String enclosingClass, String methodSignature) {
+      Matcher matcher = METHOD_SIG_PATTERN.matcher(methodSignature);
+      if (matcher.find()) {
+        String genericArgs = matcher.group(1);
+        String methodName = matcher.group(2);
+        String methodArgs = matcher.group(3);
+        if (methodName.equals(enclosingClass.substring(enclosingClass.lastIndexOf('.') + 1))) {
+          // constructor
+          methodName = "<init>";
+        }
+        return new MethodRef(enclosingClass, methodName, methodArgs, genericArgs);
+      } else {
+        throw new IllegalArgumentException("malformed method signature " + methodSignature);
+      }
     }
 
-    public static MethodRef methodRef(
-        String enclosingClass, String methodName, String methodArgs, @Nullable String genericArgs) {
-      return new MethodRef(enclosingClass, methodName, methodArgs, genericArgs);
-    }
+    //    public static MethodRef methodRef(String enclosingClass, String methodName, String
+    // methodArgs) {
+    //      return new MethodRef(enclosingClass, methodName, methodArgs, null);
+    //    }
+    //
+    //    public static MethodRef methodRef(
+    //        String enclosingClass, String methodName, String methodArgs, @Nullable String
+    // genericArgs) {
+    //      return new MethodRef(enclosingClass, methodName, methodArgs, genericArgs);
+    //    }
 
     public static MethodRef fromSymbol(Symbol.MethodSymbol symbol) {
       String methodStr = symbol.toString();
@@ -127,7 +149,7 @@ public interface LibraryModels {
         if (symbol.type.hasTag(FORALL)) genericArgs = "<" + symbol.type.getTypeArguments() + ">";
       }
 
-      return methodRef(
+      return new MethodRef(
           symbol.owner.getQualifiedName().toString(),
           symbol.name.toString(),
           methodStr.substring(openParenInd),
