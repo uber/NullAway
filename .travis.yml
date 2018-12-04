@@ -2,6 +2,7 @@ language: android
 
 jdk:
   - oraclejdk8
+  - openjdk11
 
 android:
   components:
@@ -11,10 +12,11 @@ android:
     - android-28
 
 before_install:
-  - yes | sdkmanager "platforms;android-28"
+  - if [[ "$TRAVIS_JDK_VERSION" == "oraclejdk8" ]]; then yes | sdkmanager "platforms;android-28"; fi
 
 script:
-  - ./gradlew verGJF build
+  - if [[ "$TRAVIS_JDK_VERSION" == "oraclejdk8" ]]; then ./gradlew verGJF build; fi
+  - if [[ "$TRAVIS_JDK_VERSION" == "openjdk11" ]]; then ./gradlew :nullaway:test; fi
 
 after_success:
   - .buildscript/deploy_snapshot.sh
