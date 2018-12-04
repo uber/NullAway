@@ -54,6 +54,8 @@ dependencies {
     testCompile deps.test.inferAnnotations
     testCompile deps.apt.javaxInject
     testCompile deps.test.rxjava2
+    testCompile deps.test.commonsLang
+    testCompile deps.test.commonsLang3
 }
 
 javadoc {

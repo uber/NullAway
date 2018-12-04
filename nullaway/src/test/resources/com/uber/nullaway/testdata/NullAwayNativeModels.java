@@ -310,4 +310,17 @@ public class NullAwayNativeModels {
       s.hashCode();
     }
   }
+
+  static void apacheCommonsStuff() {
+    String s = null;
+    if (!org.apache.commons.lang.StringUtils.isEmpty(s)) {
+      // no warning due to isEmpty check
+      s.hashCode();
+    }
+    String t = null;
+    if (!org.apache.commons.lang3.StringUtils.isEmpty(t)) {
+      // no warning due to isEmpty check
+      t.hashCode();
+    }
+  }
 }
