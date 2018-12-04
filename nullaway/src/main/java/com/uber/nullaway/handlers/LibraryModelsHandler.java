@@ -630,18 +630,18 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     private <T> NameIndexedMap<T> makeOptimizedLookup(
-        Names names, Set<MethodRef> refs, Function<MethodRef, T> fun) {
-      Map<Name, Map<MethodRef, T>> finalThing = new LinkedHashMap<>();
+        Names names, Set<MethodRef> refs, Function<MethodRef, T> getValForRef) {
+      Map<Name, Map<MethodRef, T>> nameMapping = new LinkedHashMap<>();
       for (MethodRef ref : refs) {
         Name methodName = names.fromString(ref.methodName);
-        Map<MethodRef, T> forName = finalThing.get(methodName);
-        if (forName == null) {
-          forName = new LinkedHashMap<>();
-          finalThing.put(methodName, forName);
+        Map<MethodRef, T> mapForName = nameMapping.get(methodName);
+        if (mapForName == null) {
+          mapForName = new LinkedHashMap<>();
+          nameMapping.put(methodName, mapForName);
         }
-        forName.put(ref, fun.apply(ref));
+        mapForName.put(ref, getValForRef.apply(ref));
       }
-      return new NameIndexedMap<>(finalThing);
+      return new NameIndexedMap<>(nameMapping);
     }
 
     /**
