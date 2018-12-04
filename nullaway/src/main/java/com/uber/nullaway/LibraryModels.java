@@ -22,15 +22,12 @@
 
 package com.uber.nullaway;
 
-import static com.sun.tools.javac.code.TypeTag.FORALL;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.sun.tools.javac.code.Symbol;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
 
 /** Provides models for library routines for the null checker. */
 public interface LibraryModels {
@@ -95,65 +92,46 @@ public interface LibraryModels {
   final class MethodRef {
 
     public final String enclosingClass;
+    /**
+     * we store the method name separately to enable fast comparison with MethodSymbols. See {@link
+     * com.uber.nullaway.handlers.LibraryModelsHandler.OptimizedLibraryModels}
+     */
     public final String methodName;
-    public final String methodArgs;
-    @Nullable public final String genericArgs;
 
-    private MethodRef(
-        String enclosingClass, String methodName, String methodArgs, @Nullable String genericArgs) {
+    public final String fullMethodSig;
+
+    private MethodRef(String enclosingClass, String methodName, String fullMethodSig) {
       this.enclosingClass = enclosingClass;
       this.methodName = methodName;
-      this.methodArgs = methodArgs;
-      this.genericArgs = genericArgs;
+      this.fullMethodSig = fullMethodSig;
     }
 
     private static final Pattern METHOD_SIG_PATTERN = Pattern.compile("^(<.*>)?(\\w+)(\\(.*\\))$");
 
     /**
      * @param enclosingClass containing class
-     * @param methodArgs method signature in the appropriate format (see class docs)
+     * @param methodSignature method signature in the appropriate format (see class docs)
      * @return corresponding {@link MethodRef}
      */
     public static MethodRef methodRef(String enclosingClass, String methodSignature) {
       Matcher matcher = METHOD_SIG_PATTERN.matcher(methodSignature);
       if (matcher.find()) {
-        String genericArgs = matcher.group(1);
         String methodName = matcher.group(2);
-        String methodArgs = matcher.group(3);
         if (methodName.equals(enclosingClass.substring(enclosingClass.lastIndexOf('.') + 1))) {
           // constructor
           methodName = "<init>";
         }
-        return new MethodRef(enclosingClass, methodName, methodArgs, genericArgs);
+        return new MethodRef(enclosingClass, methodName, methodSignature);
       } else {
         throw new IllegalArgumentException("malformed method signature " + methodSignature);
       }
     }
 
-    //    public static MethodRef methodRef(String enclosingClass, String methodName, String
-    // methodArgs) {
-    //      return new MethodRef(enclosingClass, methodName, methodArgs, null);
-    //    }
-    //
-    //    public static MethodRef methodRef(
-    //        String enclosingClass, String methodName, String methodArgs, @Nullable String
-    // genericArgs) {
-    //      return new MethodRef(enclosingClass, methodName, methodArgs, genericArgs);
-    //    }
-
     public static MethodRef fromSymbol(Symbol.MethodSymbol symbol) {
       String methodStr = symbol.toString();
-      int openParenInd = methodStr.indexOf('(');
-      String genericArgs = null;
-      if (symbol.type != null) {
-        if (symbol.type.hasTag(FORALL)) genericArgs = "<" + symbol.type.getTypeArguments() + ">";
-      }
 
       return new MethodRef(
-          symbol.owner.getQualifiedName().toString(),
-          symbol.name.toString(),
-          methodStr.substring(openParenInd),
-          genericArgs);
+          symbol.owner.getQualifiedName().toString(), symbol.name.toString(), methodStr);
     }
 
     @Override
@@ -166,13 +144,12 @@ public interface LibraryModels {
       }
       MethodRef methodRef = (MethodRef) o;
       return Objects.equals(enclosingClass, methodRef.enclosingClass)
-          && Objects.equals(methodName, methodRef.methodName)
-          && Objects.equals(methodArgs, methodRef.methodArgs);
+          && Objects.equals(fullMethodSig, methodRef.fullMethodSig);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(enclosingClass, methodName, methodArgs);
+      return Objects.hash(enclosingClass, fullMethodSig);
     }
 
     @Override
@@ -181,11 +158,8 @@ public interface LibraryModels {
           + "enclosingClass='"
           + enclosingClass
           + '\''
-          + ", methodName='"
-          + methodName
-          + '\''
-          + ", methodArgs='"
-          + methodArgs
+          + ", fullMethodSig='"
+          + fullMethodSig
           + '\''
           + '}';
     }
