@@ -34,6 +34,7 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
@@ -115,11 +116,13 @@ class CompositeHandler implements Handler {
 
   @Override
   public ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
-      Symbol.MethodSymbol methodSymbol, ImmutableSet<Integer> explicitlyNullablePositions) {
+      Context context,
+      Symbol.MethodSymbol methodSymbol,
+      ImmutableSet<Integer> explicitlyNullablePositions) {
     for (Handler h : handlers) {
       explicitlyNullablePositions =
           h.onUnannotatedInvocationGetExplicitlyNullablePositions(
-              methodSymbol, explicitlyNullablePositions);
+              context, methodSymbol, explicitlyNullablePositions);
     }
     return explicitlyNullablePositions;
   }
@@ -174,6 +177,7 @@ class CompositeHandler implements Handler {
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
       Types types,
+      Context context,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -182,7 +186,7 @@ class CompositeHandler implements Handler {
     for (Handler h : handlers) {
       NullnessHint n =
           h.onDataflowVisitMethodInvocation(
-              node, types, inputs, thenUpdates, elseUpdates, bothUpdates);
+              node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
       nullnessHint = nullnessHint.merge(n);
     }
     return nullnessHint;

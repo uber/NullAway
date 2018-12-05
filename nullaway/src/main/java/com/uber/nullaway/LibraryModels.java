@@ -22,15 +22,12 @@
 
 package com.uber.nullaway;
 
-import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Types;
 import java.util.Objects;
-import javax.annotation.Nullable;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Provides models for library routines for the null checker. */
 public interface LibraryModels {
@@ -94,92 +91,77 @@ public interface LibraryModels {
    */
   final class MethodRef {
 
-    public final String clazz;
-    public final String methodSig;
+    public final String enclosingClass;
+    /**
+     * we store the method name separately to enable fast comparison with MethodSymbols. See {@link
+     * com.uber.nullaway.handlers.LibraryModelsHandler.OptimizedLibraryModels}
+     */
+    public final String methodName;
 
-    private MethodRef(String clazz, String methodSig) {
-      this.clazz = clazz;
-      this.methodSig = methodSig;
+    public final String fullMethodSig;
+
+    private MethodRef(String enclosingClass, String methodName, String fullMethodSig) {
+      this.enclosingClass = enclosingClass;
+      this.methodName = methodName;
+      this.fullMethodSig = fullMethodSig;
     }
+
+    private static final Pattern METHOD_SIG_PATTERN = Pattern.compile("^(<.*>)?(\\w+)(\\(.*\\))$");
 
     /**
-     * @param clazz containing class
-     * @param methodSig method signature in the appropriate format (see class docs)
+     * @param enclosingClass containing class
+     * @param methodSignature method signature in the appropriate format (see class docs)
      * @return corresponding {@link MethodRef}
      */
-    public static MethodRef methodRef(Class<?> clazz, String methodSig) {
-      return methodRef(clazz.getName(), methodSig);
-    }
-
-    /**
-     * @param clazz containing class
-     * @param methodSig method signature in the appropriate format (see class docs)
-     * @return corresponding {@link MethodRef}
-     */
-    public static MethodRef methodRef(String clazz, String methodSig) {
-      Preconditions.checkArgument(
-          isValidMethodSig(methodSig), methodSig + " is not a valid method signature");
-      return new MethodRef(clazz, methodSig);
-    }
-
-    private static boolean isValidMethodSig(String methodSig) {
-      // some basic checking to make sure it's not just a method name
-      return methodSig.contains("(") && methodSig.contains(")");
+    public static MethodRef methodRef(String enclosingClass, String methodSignature) {
+      Matcher matcher = METHOD_SIG_PATTERN.matcher(methodSignature);
+      if (matcher.find()) {
+        String methodName = matcher.group(2);
+        if (methodName.equals(enclosingClass.substring(enclosingClass.lastIndexOf('.') + 1))) {
+          // constructor
+          methodName = "<init>";
+        }
+        return new MethodRef(enclosingClass, methodName, methodSignature);
+      } else {
+        throw new IllegalArgumentException("malformed method signature " + methodSignature);
+      }
     }
 
     public static MethodRef fromSymbol(Symbol.MethodSymbol symbol) {
-      return methodRef(symbol.owner.getQualifiedName().toString(), symbol.toString());
+      String methodStr = symbol.toString();
+
+      return new MethodRef(
+          symbol.owner.getQualifiedName().toString(), symbol.name.toString(), methodStr);
     }
 
     @Override
-    public boolean equals(Object obj) {
-      if (obj instanceof MethodRef) {
-        MethodRef other = (MethodRef) obj;
-        return clazz.equals(other.clazz) && methodSig.equals(other.methodSig);
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
       }
-      return false;
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      MethodRef methodRef = (MethodRef) o;
+      return Objects.equals(enclosingClass, methodRef.enclosingClass)
+          && Objects.equals(fullMethodSig, methodRef.fullMethodSig);
     }
 
     @Override
     public int hashCode() {
-      return Objects.hash(clazz, methodSig);
+      return Objects.hash(enclosingClass, fullMethodSig);
     }
 
     @Override
     public String toString() {
-      return "MethodRef{" + "clazz='" + clazz + '\'' + ", methodSig='" + methodSig + '\'' + '}';
-    }
-  }
-
-  /** utility methods for dealing with library models */
-  final class LibraryModelUtil {
-
-    private LibraryModelUtil() {}
-
-    public static boolean hasNullableReturn(
-        LibraryModels models, Symbol.MethodSymbol symbol, Types types) {
-      // need to check if symbol is in the model or if it overrides a method in the model
-      return methodInSet(symbol, types, models.nullableReturns()) != null;
-    }
-
-    public static boolean hasNonNullReturn(
-        LibraryModels models, Symbol.MethodSymbol symbol, Types types) {
-      // need to check if symbol is in the model or if it overrides a method in the model
-      return methodInSet(symbol, types, models.nonNullReturns()) != null;
-    }
-
-    @Nullable
-    private static Symbol.MethodSymbol methodInSet(
-        Symbol.MethodSymbol symbol, Types types, ImmutableCollection<MethodRef> memberNames) {
-      if (memberNames.contains(MethodRef.fromSymbol(symbol))) {
-        return symbol;
-      }
-      for (Symbol.MethodSymbol superSymbol : ASTHelpers.findSuperMethods(symbol, types)) {
-        if (memberNames.contains(MethodRef.fromSymbol(superSymbol))) {
-          return superSymbol;
-        }
-      }
-      return null;
+      return "MethodRef{"
+          + "enclosingClass='"
+          + enclosingClass
+          + '\''
+          + ", fullMethodSig='"
+          + fullMethodSig
+          + '\''
+          + '}';
     }
   }
 }

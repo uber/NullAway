@@ -536,7 +536,7 @@ public class NullAway extends BugChecker
     if (NullabilityUtil.isUnannotated(overriddenMethod, config)) {
       nullableParamsOfOverriden =
           handler.onUnannotatedInvocationGetExplicitlyNullablePositions(
-              overriddenMethod, ImmutableSet.of());
+              state.context, overriddenMethod, ImmutableSet.of());
     } else {
       ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
       for (int i = startParam; i < superParamSymbols.size(); i++) {

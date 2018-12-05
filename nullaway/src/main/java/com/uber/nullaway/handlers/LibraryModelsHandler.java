@@ -26,7 +26,6 @@ import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 import static com.uber.nullaway.Nullness.NONNULL;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Sets;
@@ -36,16 +35,22 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.LibraryModels;
+import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
+import java.util.function.Function;
+import javax.annotation.Nullable;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 
@@ -60,6 +65,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
   private final LibraryModels libraryModels;
 
+  @Nullable private OptimizedLibraryModels optLibraryModels;
+
   public LibraryModelsHandler() {
     super();
     libraryModels = loadLibraryModels();
@@ -73,19 +80,18 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       List<? extends ExpressionTree> actualParams,
       ImmutableSet<Integer> nonNullPositions) {
     return Sets.union(
-            nonNullPositions,
-            libraryModels.nonNullParameters().get(LibraryModels.MethodRef.fromSymbol(methodSymbol)))
+            nonNullPositions, getOptLibraryModels(state.context).nonNullParameters(methodSymbol))
         .immutableCopy();
   }
 
   @Override
   public ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
-      Symbol.MethodSymbol methodSymbol, ImmutableSet<Integer> explicitlyNullablePositions) {
+      Context context,
+      Symbol.MethodSymbol methodSymbol,
+      ImmutableSet<Integer> explicitlyNullablePositions) {
     return Sets.union(
             explicitlyNullablePositions,
-            libraryModels
-                .explicitlyNullableParameters()
-                .get(LibraryModels.MethodRef.fromSymbol(methodSymbol)))
+            getOptLibraryModels(context).explicitlyNullableParameters(methodSymbol))
         .immutableCopy();
   }
 
@@ -93,13 +99,14 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
-        && LibraryModels.LibraryModelUtil.hasNullableReturn(
-            libraryModels, (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
+        && getOptLibraryModels(state.context)
+            .hasNullableReturn(
+                (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
       return analysis.nullnessFromDataflow(state, expr) || exprMayBeNull;
     }
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
-        && LibraryModels.LibraryModelUtil.hasNonNullReturn(
-            libraryModels, (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
+        && getOptLibraryModels(state.context)
+            .hasNonNullReturn((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
       return false;
     }
     return exprMayBeNull;
@@ -109,17 +116,18 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
       Types types,
+      Context context,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
-    setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee);
-    setConditionalArgumentNullness(thenUpdates, elseUpdates, node.getArguments(), callee);
-    if (LibraryModels.LibraryModelUtil.hasNonNullReturn(libraryModels, callee, types)) {
+    setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, context);
+    setConditionalArgumentNullness(thenUpdates, elseUpdates, node.getArguments(), callee, context);
+    if (getOptLibraryModels(context).hasNonNullReturn(callee, types)) {
       return NullnessHint.FORCE_NONNULL;
-    } else if (LibraryModels.LibraryModelUtil.hasNullableReturn(libraryModels, callee, types)) {
+    } else if (getOptLibraryModels(context).hasNullableReturn(callee, types)) {
       return NullnessHint.HINT_NULLABLE;
     } else {
       return NullnessHint.UNKNOWN;
@@ -130,9 +138,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       List<Node> arguments,
-      Symbol.MethodSymbol callee) {
+      Symbol.MethodSymbol callee,
+      Context context) {
     Set<Integer> nullImpliesTrueParameters =
-        libraryModels.nullImpliesTrueParameters().get(LibraryModels.MethodRef.fromSymbol(callee));
+        getOptLibraryModels(context).nullImpliesTrueParameters(callee);
     for (AccessPath accessPath : accessPathsAtIndexes(nullImpliesTrueParameters, arguments)) {
       elseUpdates.set(accessPath, NONNULL);
     }
@@ -154,12 +163,20 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     return result;
   }
 
+  private OptimizedLibraryModels getOptLibraryModels(Context context) {
+    if (optLibraryModels == null) {
+      optLibraryModels = new OptimizedLibraryModels(libraryModels, context);
+    }
+    return optLibraryModels;
+  }
+
   private void setUnconditionalArgumentNullness(
       AccessPathNullnessPropagation.Updates bothUpdates,
       List<Node> arguments,
-      Symbol.MethodSymbol callee) {
+      Symbol.MethodSymbol callee,
+      Context context) {
     Set<Integer> requiredNonNullParameters =
-        libraryModels.failIfNullParameters().get(LibraryModels.MethodRef.fromSymbol(callee));
+        getOptLibraryModels(context).failIfNullParameters(callee);
     for (AccessPath accessPath : accessPathsAtIndexes(requiredNonNullParameters, arguments)) {
       bothUpdates.set(accessPath, NONNULL);
     }
@@ -177,7 +194,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private static final ImmutableSetMultimap<MethodRef, Integer> FAIL_IF_NULL_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
-            .put(methodRef(Preconditions.class, "<T>checkNotNull(T)"), 0)
+            .put(methodRef("com.google.common.base.Preconditions", "<T>checkNotNull(T)"), 0)
             .put(methodRef("java.util.Objects", "<T>requireNonNull(T)"), 0)
             .put(methodRef("org.junit.Assert", "assertNotNull(java.lang.Object)"), 0)
             .put(
@@ -291,8 +308,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_TRUE_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
-            .put(methodRef(Strings.class, "isNullOrEmpty(java.lang.String)"), 0)
-            .put(methodRef(Objects.class, "isNull(java.lang.Object)"), 0)
+            .put(methodRef("com.google.common.base.Strings", "isNullOrEmpty(java.lang.String)"), 0)
+            .put(methodRef("java.util.Objects", "isNull(java.lang.Object)"), 0)
             .put(methodRef("android.text.TextUtils", "isEmpty(java.lang.CharSequence)"), 0)
             .put(methodRef("org.apache.commons.lang.StringUtils", "isEmpty(java.lang.String)"), 0)
             .put(
@@ -480,6 +497,138 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSet<MethodRef> nonNullReturns() {
       return nonNullReturns;
+    }
+  }
+
+  /**
+   * A view of library models optimized to make lookup of {@link
+   * com.sun.tools.javac.code.Symbol.MethodSymbol}s fast
+   */
+  private static class OptimizedLibraryModels {
+
+    /**
+     * Mapping from {@link MethodRef} to some state, where lookups first check for a matching method
+     * name as an optimization. The {@link Name} data structure is used to avoid unnecessary String
+     * conversions when looking up {@link com.sun.tools.javac.code.Symbol.MethodSymbol}s.
+     *
+     * @param <T>
+     */
+    private static class NameIndexedMap<T> {
+
+      private final Map<Name, Map<MethodRef, T>> state;
+
+      NameIndexedMap(Map<Name, Map<MethodRef, T>> state) {
+        this.state = state;
+      }
+
+      @Nullable
+      public T get(Symbol.MethodSymbol symbol) {
+        Map<MethodRef, T> methodRefTMap = state.get(symbol.name);
+        if (methodRefTMap == null) {
+          return null;
+        }
+        MethodRef ref = MethodRef.fromSymbol(symbol);
+        return methodRefTMap.get(ref);
+      }
+
+      public boolean nameNotPresent(Symbol.MethodSymbol symbol) {
+        return state.get(symbol.name) == null;
+      }
+    }
+
+    private final NameIndexedMap<ImmutableSet<Integer>> failIfNullParams;
+    private final NameIndexedMap<ImmutableSet<Integer>> explicitlyNullableParams;
+    private final NameIndexedMap<ImmutableSet<Integer>> nonNullParams;
+    private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesTrueParams;
+    private final NameIndexedMap<Boolean> nullableRet;
+    private final NameIndexedMap<Boolean> nonNullRet;
+
+    public OptimizedLibraryModels(LibraryModels models, Context context) {
+      Names names = Names.instance(context);
+      failIfNullParams = makeOptimizedIntSetLookup(names, models.failIfNullParameters());
+      explicitlyNullableParams =
+          makeOptimizedIntSetLookup(names, models.explicitlyNullableParameters());
+      nonNullParams = makeOptimizedIntSetLookup(names, models.nonNullParameters());
+      nullImpliesTrueParams = makeOptimizedIntSetLookup(names, models.nullImpliesTrueParameters());
+      nullableRet = makeOptimizedBoolLookup(names, models.nullableReturns());
+      nonNullRet = makeOptimizedBoolLookup(names, models.nonNullReturns());
+    }
+
+    public boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types) {
+      return lookupHandlingOverrides(symbol, types, nonNullRet) != null;
+    }
+
+    public boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types) {
+      return lookupHandlingOverrides(symbol, types, nullableRet) != null;
+    }
+
+    ImmutableSet<Integer> failIfNullParameters(Symbol.MethodSymbol symbol) {
+      return lookupImmutableSet(symbol, failIfNullParams);
+    }
+
+    ImmutableSet<Integer> explicitlyNullableParameters(Symbol.MethodSymbol symbol) {
+      return lookupImmutableSet(symbol, explicitlyNullableParams);
+    }
+
+    ImmutableSet<Integer> nonNullParameters(Symbol.MethodSymbol symbol) {
+      return lookupImmutableSet(symbol, nonNullParams);
+    }
+
+    ImmutableSet<Integer> nullImpliesTrueParameters(Symbol.MethodSymbol symbol) {
+      return lookupImmutableSet(symbol, nullImpliesTrueParams);
+    }
+
+    private ImmutableSet<Integer> lookupImmutableSet(
+        Symbol.MethodSymbol symbol, NameIndexedMap<ImmutableSet<Integer>> lookup) {
+      ImmutableSet<Integer> result = lookup.get(symbol);
+      return (result == null) ? ImmutableSet.of() : result;
+    }
+
+    private NameIndexedMap<ImmutableSet<Integer>> makeOptimizedIntSetLookup(
+        Names names, ImmutableSetMultimap<MethodRef, Integer> ref2Ints) {
+      return makeOptimizedLookup(names, ref2Ints.keySet(), ref2Ints::get);
+    }
+
+    private NameIndexedMap<Boolean> makeOptimizedBoolLookup(
+        Names names, ImmutableSet<MethodRef> refs) {
+      return makeOptimizedLookup(names, refs, (ref) -> true);
+    }
+
+    private <T> NameIndexedMap<T> makeOptimizedLookup(
+        Names names, Set<MethodRef> refs, Function<MethodRef, T> getValForRef) {
+      Map<Name, Map<MethodRef, T>> nameMapping = new LinkedHashMap<>();
+      for (MethodRef ref : refs) {
+        Name methodName = names.fromString(ref.methodName);
+        Map<MethodRef, T> mapForName = nameMapping.get(methodName);
+        if (mapForName == null) {
+          mapForName = new LinkedHashMap<>();
+          nameMapping.put(methodName, mapForName);
+        }
+        mapForName.put(ref, getValForRef.apply(ref));
+      }
+      return new NameIndexedMap<>(nameMapping);
+    }
+
+    /**
+     * checks if symbol is present in the NameIndexedMap or if it overrides some method in the
+     * NameIndexedMap
+     */
+    @Nullable
+    private static Symbol.MethodSymbol lookupHandlingOverrides(
+        Symbol.MethodSymbol symbol, Types types, NameIndexedMap<Boolean> optLookup) {
+      if (optLookup.nameNotPresent(symbol)) {
+        // no model matching the method name, so we don't need to check for overridden methods
+        return null;
+      }
+      if (optLookup.get(symbol) != null) {
+        return symbol;
+      }
+      for (Symbol.MethodSymbol superSymbol : ASTHelpers.findSuperMethods(symbol, types)) {
+        if (optLookup.get(superSymbol) != null) {
+          return superSymbol;
+        }
+      }
+      return null;
     }
   }
 }

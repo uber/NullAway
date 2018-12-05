@@ -33,6 +33,7 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
@@ -143,7 +144,9 @@ public interface Handler {
    * @return Updated parameter nullability computed by this handler.
    */
   ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
-      Symbol.MethodSymbol methodSymbol, ImmutableSet<Integer> explicitlyNullablePositions);
+      Context context,
+      Symbol.MethodSymbol methodSymbol,
+      ImmutableSet<Integer> explicitlyNullablePositions);
 
   /**
    * Called when NullAway encounters an unannotated method and asks if return value is explicitly
@@ -229,6 +232,7 @@ public interface Handler {
   NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
       Types types,
+      Context context,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
