@@ -17,6 +17,35 @@ public class NullAwayBenchmarkHarness {
    *     are passed directly to javac.
    */
   public static void main(String[] args) {
+    justRun(args);
+  }
+
+  private static void justRun(String[] args) {
+    // inject our own NullAway into the processorpath arg (assumes it's not there already and
+    // may require shadowing)
+    List<String> javacArgs = new ArrayList<>(Arrays.asList(args));
+    String nullawayJar = getJarFileForClass(NullAway.class).getFile();
+    for (int i = 0; i < javacArgs.size(); i++) {
+      if (javacArgs.get(i).equals("-processorpath")) {
+        String procPath = javacArgs.get(i + 1);
+        procPath = procPath + System.getProperties().getProperty("path.separator") + nullawayJar;
+        //        System.out.println("processor path: " + procPath);
+        javacArgs.set(i + 1, procPath);
+        break;
+      }
+    }
+    // disable all other checks
+    //    javacArgs.addAll(Arrays.asList(
+    //        "-Xmaxwarns",
+    //        "1",
+    //        "-XepDisableAllChecks",
+    //        "-Xep:NullAway:WARN"
+    //    ));
+    System.out.println("With Nullaway");
+    runCompile(javacArgs, 3, 8);
+  }
+
+  private static void addNullAwayArgsAndRun(String[] args) {
     String nullawayJar = getJarFileForClass(NullAway.class).getFile();
     String annotPackages = args[0];
     String[] javacArgs = Arrays.copyOfRange(args, 1, args.length);
@@ -62,7 +91,8 @@ public class NullAwayBenchmarkHarness {
       System.out.println("Running time " + (((double) runTime) / 1000000000.0));
       totalRunningTime += runTime;
     }
-    System.out.println("Average running time " + ((double) totalRunningTime) / realRuns);
+    System.out.println(
+        "Average running time " + String.format("%.2f", ((double) totalRunningTime) / realRuns));
   }
 
   private static URL getJarFileForClass(Class<?> klass) {

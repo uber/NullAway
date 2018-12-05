@@ -21,19 +21,14 @@ plugins {
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
-mainClassName = "com.uber.nullaway.benchmark.NullAwayBenchmarkHarness"
+application {
+    mainClassName = "com.uber.nullaway.benchmark.NullAwayBenchmarkHarness"
+    applicationDefaultJvmArgs = ["-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"]
+}
 
 dependencies {
     compile deps.build.errorProneCore
     compile project(":nullaway")
-}
-
-applicationDefaultJvmArgs = ["-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"]
-
-run {
-    if (project.hasProperty("appArgs")) {
-        args(appArgs.split(' '))
-    }
 }
 
 
