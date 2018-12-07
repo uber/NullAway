@@ -15,7 +15,7 @@
  */
 
 def versions = [
-    checkerFramework       : "2.5.7",
+    checkerFramework       : "2.5.5",
     errorProne             : "2.3.2",
     support                : "27.1.1",
     wala                   : "1.5.0-uber.1",
@@ -34,7 +34,8 @@ def build = [
     errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProne}",
     errorProneJavac         : "com.google.errorprone:javac:9+181-r4173-1",
     errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProne}",
-    checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFramework}"],
+    checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFramework}",
+                               "org.checkerframework:javacutil:${versions.checkerFramework}"],
     gradleErrorPronePlugin  : "net.ltgt.gradle:gradle-errorprone-plugin:0.0.16",
     guava                   : "com.google.guava:guava:22.0",
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
@@ -64,8 +65,7 @@ def test = [
     jetbrainsAnnotations    : "org.jetbrains:annotations:13.0",
     inferAnnotations        : "com.facebook.infer.annotation:infer-annotation:0.11.0",
     cfQual                  : "org.checkerframework:checker-qual:${versions.checkerFramework}",
-    // freeze at 2.5.5 since it's not supported afterward
-    cfCompatQual            : "org.checkerframework:checker-compat-qual:2.5.5",
+    cfCompatQual            : "org.checkerframework:checker-compat-qual:${versions.checkerFramework}",
     rxjava2                 : "io.reactivex.rxjava2:rxjava:2.1.2",
     commonsLang3             : "org.apache.commons:commons-lang3:3.8.1",
     commonsLang             : "commons-lang:commons-lang:2.6",

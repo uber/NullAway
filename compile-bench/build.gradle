@@ -28,7 +28,7 @@ application {
 
 dependencies {
     compile deps.build.errorProneCore
-    compile project(":nullaway")
+    compile project(path: ":nullaway", configuration: "shadow")
 }
 
 
