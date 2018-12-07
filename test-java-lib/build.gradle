@@ -24,7 +24,7 @@ sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
 dependencies {
-    annotationProcessor project(":nullaway")
+    annotationProcessor project(path: ":nullaway", configuration: "shadow")
 
     compileOnly deps.build.jsr305Annotations
     compileOnly deps.build.javaxValidation
