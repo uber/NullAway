@@ -1,6 +1,13 @@
 Changelog
 =========
 
+Version 0.6.4
+---------------
+* Initial support for JDK 11 (#263).  Core NullAway should be working, but JarInfer does not yet work.
+* Disable JarInfer handler by default (#261).  `-XepOpt:NullAway:JarInferEnabled=true` is now required to enable the JarInfer handler.
+* Add models for Apache StringUtils isEmpty methods (#264)
+* Optimize library model lookups to reduce overhead (#265)
+
 Version 0.6.3
 -------------
 * Fix handling of enhanced for loops (#256)
