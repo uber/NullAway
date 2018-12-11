@@ -304,6 +304,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put(methodRef("java.util.ArrayDeque", "offer(E)"), 0)
             .put(methodRef("java.util.ArrayDeque", "push(E)"), 0)
             .put(methodRef("java.util.ArrayDeque", "<T>toArray(T[])"), 0)
+            .put(methodRef("java.lang.Integer", "parseInt(java.lang.String)"), 0)
+            .put(methodRef("java.lang.Long", "parseLong(java.lang.String)"), 0)
+            .put(methodRef("java.lang.Boolean", "parseBoolean(java.lang.String)"), 0)
+            .put(methodRef("java.lang.Float", "parseFloat(java.lang.String)"), 0)
+            .put(methodRef("java.lang.Double", "parseDouble(java.lang.String)"), 0)
+            .put(methodRef("java.lang.Short", "parseShort(java.lang.String)"), 0)
+            .put(methodRef("java.lang.Byte", "parseByte(java.lang.String)"), 0)
             .build();
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_TRUE_PARAMETERS =

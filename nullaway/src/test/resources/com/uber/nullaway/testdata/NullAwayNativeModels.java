@@ -311,6 +311,27 @@ public class NullAwayNativeModels {
     }
   }
 
+  static void parseStringToPrimitiveTypesStuff() {
+    String s = null;
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    int a = Integer.parseInt(s);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    double b = Double.parseDouble(s);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    long c = Long.parseLong(s);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    float d = Float.parseFloat(s);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    short e = Short.parseShort(s);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    byte f = Byte.parseByte(s);
+
+    s = "100";
+    // no warning expected
+    int g = Integer.parseInt(s);
+    long h = Long.parseLong(s);
+  }
+
   static void apacheCommonsStuff() {
     String s = null;
     if (!org.apache.commons.lang.StringUtils.isEmpty(s)) {
