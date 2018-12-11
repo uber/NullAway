@@ -311,6 +311,38 @@ public class NullAwayNativeModels {
     }
   }
 
+  static void parseStringToPrimitiveTypesStuff() {
+    String s = null;
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    int a = Integer.parseInt(s);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    double b = Double.parseDouble(s);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    long c = Long.parseLong(s);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    float d = Float.parseFloat(s);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    short e = Short.parseShort(s);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    byte f = Byte.parseByte(s);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    boolean g = Boolean.parseBoolean(s);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    byte h = Byte.parseByte(s, 1);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    long i = Long.parseLong(s, 1);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    int j = Integer.parseInt(s, 1);
+    // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+    short k = Short.parseShort(s, 1);
+
+    s = "100";
+    // no warning expected
+    int l = Integer.parseInt(s);
+    long m = Long.parseLong(s);
+    short n = Short.parseShort(s, 1);
+  }
+
   static void apacheCommonsStuff() {
     String s = null;
     if (!org.apache.commons.lang.StringUtils.isEmpty(s)) {
