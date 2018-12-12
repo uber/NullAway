@@ -24,7 +24,6 @@ package com.uber.nullaway;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.ErrorProneFlags;
-import java.io.IOException;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -57,7 +56,7 @@ public class NullAwayAutoSuggestNoCastTest {
   }
 
   @Test
-  public void suggestSuppressionWithComment() throws IOException {
+  public void suggestSuppressionWithComment() {
     BugCheckerRefactoringTestHelper bcr =
         BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
 
@@ -82,7 +81,7 @@ public class NullAwayAutoSuggestNoCastTest {
   }
 
   @Test
-  public void suggestSuppressionWithoutComment() throws IOException {
+  public void suggestSuppressionWithoutComment() {
     BugCheckerRefactoringTestHelper bcr =
         BugCheckerRefactoringTestHelper.newInstance(
             new NullAway(flagsNoAutoFixSuppressionComment), getClass());
@@ -103,6 +102,39 @@ public class NullAwayAutoSuggestNoCastTest {
             "  @SuppressWarnings(\"NullAway\") Object test1() {",
             "    return null;",
             "  }",
+            "}");
+    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+  }
+
+  @Test
+  public void suggestSuppressionFieldLambda() {
+    BugCheckerRefactoringTestHelper bcr =
+        BugCheckerRefactoringTestHelper.newInstance(
+            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
+
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
+    bcr.addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable private Object foo;",
+            "  private final Runnable runnable =",
+            "    () -> {",
+            "      foo.toString();",
+            "    };",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable private Object foo;",
+            "  @SuppressWarnings(\"NullAway\")",
+            "  private final Runnable runnable =",
+            "    () -> {",
+            "      foo.toString();",
+            "    };",
             "}");
     bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
   }

@@ -2033,10 +2033,16 @@ public class NullAway extends BugChecker
       String message,
       @Nullable Tree suggestTreeIfCastToNonNull,
       @Nullable TreePath suggestTreePathIfSuppression) {
-    MethodTree enclosingMethod =
+    Tree enclosingSuppressNode =
         ASTHelpers.findEnclosingNode(suggestTreePathIfSuppression, MethodTree.class);
+    if (enclosingSuppressNode == null) {
+      // this can happen, e.g., if the deref is on the RHS of a field initialization expression.
+      // in this case, look for the field declaration
+      enclosingSuppressNode =
+          ASTHelpers.findEnclosingNode(suggestTreePathIfSuppression, VariableTree.class);
+    }
     return createErrorDescriptionForNullAssignment(
-        errorType, errorLocTree, message, suggestTreeIfCastToNonNull, enclosingMethod);
+        errorType, errorLocTree, message, suggestTreeIfCastToNonNull, enclosingSuppressNode);
   }
 
   /**
