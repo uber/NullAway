@@ -173,4 +173,119 @@ public class NullAwayAutoSuggestNoCastTest {
             "}");
     bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
   }
+
+  @Test
+  public void suggestSuppressionFieldLambdaAssignment() {
+    BugCheckerRefactoringTestHelper bcr =
+        BugCheckerRefactoringTestHelper.newInstance(
+            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
+
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
+    bcr.addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable private Integer foo;",
+            "  static int id(int x) { return x; }",
+            "  private final Runnable runnable =",
+            "    () -> {",
+            "      int x = foo + 1;",
+            "    };",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable private Integer foo;",
+            "  static int id(int x) { return x; }",
+            "  private final Runnable runnable =",
+            "    () -> {",
+            "      @SuppressWarnings(\"NullAway\")",
+            "      int x = foo + 1;",
+            "    };",
+            "}");
+    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+  }
+
+  @Test
+  public void suppressMethodRefOverrideParam() {
+    BugCheckerRefactoringTestHelper bcr =
+        BugCheckerRefactoringTestHelper.newInstance(
+            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
+
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
+    bcr.addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  static interface I {",
+            "    public void foo(@Nullable Object o);",
+            "  }",
+            "  static void biz(Object p) {}",
+            "  static void callFoo(I i) { i.foo(null); }",
+            "  static void bar() {",
+            "    callFoo(Test::biz);",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  static interface I {",
+            "    public void foo(@Nullable Object o);",
+            "  }",
+            "  static void biz(Object p) {}",
+            "  static void callFoo(I i) { i.foo(null); }",
+            "  @SuppressWarnings(\"NullAway\")",
+            "  static void bar() {",
+            "    callFoo(Test::biz);",
+            "  }",
+            "}");
+    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+  }
+
+  @Test
+  public void suppressMethodRefOverrideReturn() {
+    BugCheckerRefactoringTestHelper bcr =
+        BugCheckerRefactoringTestHelper.newInstance(
+            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
+
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
+    bcr.addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  static interface I {",
+            "    public Object foo();",
+            "  }",
+            "  @Nullable",
+            "  static Object biz() { return null; }",
+            "  static void callFoo(I i) { i.foo(); }",
+            "  static void bar() {",
+            "    callFoo(Test::biz);",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  static interface I {",
+            "    public Object foo();",
+            "  }",
+            "  @Nullable",
+            "  static Object biz() { return null; }",
+            "  static void callFoo(I i) { i.foo(); }",
+            "  @SuppressWarnings(\"NullAway\")",
+            "  static void bar() {",
+            "    callFoo(Test::biz);",
+            "  }",
+            "}");
+    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+  }
 }
