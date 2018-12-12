@@ -107,7 +107,7 @@ public class NullAwayAutoSuggestNoCastTest {
   }
 
   @Test
-  public void suggestSuppressionFieldLambda() {
+  public void suggestSuppressionFieldLambdaDeref() {
     BugCheckerRefactoringTestHelper bcr =
         BugCheckerRefactoringTestHelper.newInstance(
             new NullAway(flagsNoAutoFixSuppressionComment), getClass());
@@ -134,6 +134,41 @@ public class NullAwayAutoSuggestNoCastTest {
             "  private final Runnable runnable =",
             "    () -> {",
             "      foo.toString();",
+            "    };",
+            "}");
+    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+  }
+
+  @Test
+  public void suggestSuppressionFieldLambdaUnbox() {
+    BugCheckerRefactoringTestHelper bcr =
+        BugCheckerRefactoringTestHelper.newInstance(
+            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
+
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
+    bcr.addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable private Integer foo;",
+            "  static int id(int x) { return x; }",
+            "  private final Runnable runnable =",
+            "    () -> {",
+            "      id(foo);",
+            "    };",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable private Integer foo;",
+            "  static int id(int x) { return x; }",
+            "  @SuppressWarnings(\"NullAway\")",
+            "  private final Runnable runnable =",
+            "    () -> {",
+            "      id(foo);",
             "    };",
             "}");
     bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);

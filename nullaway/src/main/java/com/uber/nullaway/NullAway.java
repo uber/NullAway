@@ -1328,7 +1328,6 @@ public class NullAway extends BugChecker
         // Initializer block
         isInitializer = true;
       }
-      MethodTree enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
       if (!isInitializer && !mayBeNullExpr(state, actual)) {
         String message =
             "passing known @NonNull parameter '"
@@ -1961,8 +1960,8 @@ public class NullAway extends BugChecker
    */
   private Description createErrorDescription(
       MessageTypes errorType, Tree errorLocTree, String message, TreePath path) {
-    MethodTree enclosingMethod = ASTHelpers.findEnclosingNode(path, MethodTree.class);
-    return createErrorDescription(errorType, errorLocTree, message, enclosingMethod);
+    Tree enclosingSuppressTree = findEnclosingSuppressTree(path);
+    return createErrorDescription(errorType, errorLocTree, message, enclosingSuppressTree);
   }
 
   /**
@@ -2033,6 +2032,12 @@ public class NullAway extends BugChecker
       String message,
       @Nullable Tree suggestTreeIfCastToNonNull,
       @Nullable TreePath suggestTreePathIfSuppression) {
+    Tree enclosingSuppressTree = findEnclosingSuppressTree(suggestTreePathIfSuppression);
+    return createErrorDescriptionForNullAssignment(
+        errorType, errorLocTree, message, suggestTreeIfCastToNonNull, enclosingSuppressTree);
+  }
+
+  private Tree findEnclosingSuppressTree(@Nullable TreePath suggestTreePathIfSuppression) {
     Tree enclosingSuppressNode =
         ASTHelpers.findEnclosingNode(suggestTreePathIfSuppression, MethodTree.class);
     if (enclosingSuppressNode == null) {
@@ -2041,8 +2046,7 @@ public class NullAway extends BugChecker
       enclosingSuppressNode =
           ASTHelpers.findEnclosingNode(suggestTreePathIfSuppression, VariableTree.class);
     }
-    return createErrorDescriptionForNullAssignment(
-        errorType, errorLocTree, message, suggestTreeIfCastToNonNull, enclosingSuppressNode);
+    return enclosingSuppressNode;
   }
 
   /**
