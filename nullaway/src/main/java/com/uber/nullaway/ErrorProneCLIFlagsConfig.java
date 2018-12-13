@@ -93,10 +93,13 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   ErrorProneCLIFlagsConfig(ErrorProneFlags flags) {
     if (!flags.get(FL_ANNOTATED_PACKAGES).isPresent()) {
       throw new IllegalStateException(
-          "Must specify annotated packages, using the "
+          "DO NOT report an issue to Error Prone for this crash!  NullAway configuration is "
+              + "incorrect.  "
+              + "Must specify annotated packages, using the "
               + "-XepOpt:"
               + FL_ANNOTATED_PACKAGES
-              + "=[...] flag.");
+              + "=[...] flag.  If you feel you have gotten this message in error report an issue"
+              + " at https://github.com/uber/NullAway/issues.");
     }
     annotatedPackages = getPackagePattern(getFlagStringSet(flags, FL_ANNOTATED_PACKAGES));
     unannotatedSubPackages = getPackagePattern(getFlagStringSet(flags, FL_UNANNOTATED_SUBPACKAGES));
