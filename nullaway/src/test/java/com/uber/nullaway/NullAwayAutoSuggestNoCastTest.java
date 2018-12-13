@@ -210,6 +210,46 @@ public class NullAwayAutoSuggestNoCastTest {
   }
 
   @Test
+  public void suggestLambdaAssignInMethod() {
+    BugCheckerRefactoringTestHelper bcr =
+        BugCheckerRefactoringTestHelper.newInstance(
+            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
+
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
+    bcr.addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable private Integer foo;",
+            "  @Nullable private java.util.function.Function<Object, Integer> f;",
+            "  void m1() {",
+            "    f = (x) -> { return foo + 1; };",
+            "  }",
+            "  void m2() {",
+            "    java.util.function.Function<Object,Integer> g = (x) -> { return foo + 1; };",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable private Integer foo;",
+            "  @Nullable private java.util.function.Function<Object, Integer> f;",
+            "  @SuppressWarnings(\"NullAway\")",
+            "  void m1() {",
+            "    f = (x) -> { return foo + 1; };",
+            "  }",
+            "  void m2() {",
+            "    @SuppressWarnings(\"NullAway\")",
+            "    java.util.function.Function<Object,Integer> g = (x) -> { return foo + 1; };",
+            "  }",
+            "}");
+    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+  }
+
+  @Test
   public void suppressMethodRefOverrideParam() {
     BugCheckerRefactoringTestHelper bcr =
         BugCheckerRefactoringTestHelper.newInstance(
