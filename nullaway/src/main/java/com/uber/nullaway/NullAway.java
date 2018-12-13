@@ -525,7 +525,7 @@ public class NullAway extends BugChecker
                 + overriddenMethod.toString()
                 + " is @Nullable";
         return createErrorDescription(
-            MessageTypes.WRONG_OVERRIDE_PARAM, memberReferenceTree, message, memberReferenceTree);
+            MessageTypes.WRONG_OVERRIDE_PARAM, memberReferenceTree, message, state.getPath());
       }
     }
     // for unbound member references, we need to adjust parameter indices by 1 when matching with
@@ -581,7 +581,7 @@ public class NullAway extends BugChecker
           errorTree = getTreesInstance(state).getTree(paramSymbol);
         }
         return createErrorDescription(
-            MessageTypes.WRONG_OVERRIDE_PARAM, errorTree, message, errorTree);
+            MessageTypes.WRONG_OVERRIDE_PARAM, errorTree, message, state.getPath());
       }
     }
     return Description.NO_MATCH;
@@ -714,12 +714,8 @@ public class NullAway extends BugChecker
           memberReferenceTree != null
               ? memberReferenceTree
               : getTreesInstance(state).getTree(overridingMethod);
-      Tree suggestTree =
-          memberReferenceTree != null
-              ? NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath()).getLeaf()
-              : errorTree;
       return createErrorDescription(
-          MessageTypes.WRONG_OVERRIDE_RETURN, errorTree, message, suggestTree);
+          MessageTypes.WRONG_OVERRIDE_RETURN, errorTree, message, state.getPath());
     }
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
@@ -1088,7 +1084,7 @@ public class NullAway extends BugChecker
               tree,
               "assigning @Nullable expression to @NonNull field",
               initializer,
-              tree);
+              state.getPath());
         }
       }
     }
@@ -1328,7 +1324,6 @@ public class NullAway extends BugChecker
         // Initializer block
         isInitializer = true;
       }
-      MethodTree enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
       if (!isInitializer && !mayBeNullExpr(state, actual)) {
         String message =
             "passing known @NonNull parameter '"
@@ -1961,8 +1956,8 @@ public class NullAway extends BugChecker
    */
   private Description createErrorDescription(
       MessageTypes errorType, Tree errorLocTree, String message, TreePath path) {
-    MethodTree enclosingMethod = ASTHelpers.findEnclosingNode(path, MethodTree.class);
-    return createErrorDescription(errorType, errorLocTree, message, enclosingMethod);
+    Tree enclosingSuppressTree = suppressibleNode(path);
+    return createErrorDescription(errorType, errorLocTree, message, enclosingSuppressTree);
   }
 
   /**
@@ -2033,38 +2028,34 @@ public class NullAway extends BugChecker
       String message,
       @Nullable Tree suggestTreeIfCastToNonNull,
       @Nullable TreePath suggestTreePathIfSuppression) {
-    MethodTree enclosingMethod =
-        ASTHelpers.findEnclosingNode(suggestTreePathIfSuppression, MethodTree.class);
-    return createErrorDescriptionForNullAssignment(
-        errorType, errorLocTree, message, suggestTreeIfCastToNonNull, enclosingMethod);
-  }
-
-  /**
-   * create an error description for a generalized @Nullable value to @NonNull location assignment.
-   *
-   * <p>This includes: field assignments, method arguments and method returns
-   *
-   * @param errorType the type of error encountered.
-   * @param errorLocTree the location of the error
-   * @param message the error message
-   * @param suggestTreeIfCastToNonNull the location at which a fix suggestion should be made if a
-   *     castToNonNull method is available (usually the expression to cast)
-   * @param suggestTreeIfSuppression the location at which a fix suggestion should be made if a
-   *     castToNonNull method is not available (usually the enclosing method, or any place
-   *     where @SuppressWarnings can be added).
-   * @return the error description.
-   */
-  private Description createErrorDescriptionForNullAssignment(
-      MessageTypes errorType,
-      Tree errorLocTree,
-      String message,
-      @Nullable Tree suggestTreeIfCastToNonNull,
-      @Nullable Tree suggestTreeIfSuppression) {
+    Tree enclosingSuppressTree = suppressibleNode(suggestTreePathIfSuppression);
     if (config.getCastToNonNullMethod() != null) {
       return createErrorDescription(errorType, errorLocTree, message, suggestTreeIfCastToNonNull);
     } else {
-      return createErrorDescription(errorType, errorLocTree, message, suggestTreeIfSuppression);
+      return createErrorDescription(errorType, errorLocTree, message, enclosingSuppressTree);
     }
+  }
+
+  /**
+   * Adapted from {@link com.google.errorprone.fixes.SuggestedFixes}.
+   *
+   * <p>TODO: actually use {@link
+   * com.google.errorprone.fixes.SuggestedFixes#addSuppressWarnings(VisitorState, String)} instead
+   */
+  @Nullable
+  private static Tree suppressibleNode(@Nullable TreePath path) {
+    if (path == null) {
+      return null;
+    }
+    return StreamSupport.stream(path.spliterator(), false)
+        .filter(
+            tree ->
+                tree instanceof MethodTree
+                    || (tree instanceof ClassTree
+                        && ((ClassTree) tree).getSimpleName().length() != 0)
+                    || tree instanceof VariableTree)
+        .findFirst()
+        .orElse(null);
   }
 
   private Description.Builder addCastToNonNullFix(Tree suggestTree, Description.Builder builder) {
