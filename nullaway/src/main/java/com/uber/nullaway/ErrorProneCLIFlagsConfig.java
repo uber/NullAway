@@ -73,8 +73,22 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "android.app.Service.onCreate",
           "android.app.Activity.onCreate",
           "android.app.Fragment.onCreate",
+          "android.app.Fragment.onAttach",
+          "android.app.Fragment.onCreateView",
           "android.app.Application.onCreate",
-          "javax.annotation.processing.Processor.init");
+          "javax.annotation.processing.Processor.init",
+          // Support Library v4 - can be removed once AndroidX becomes more popular
+          "android.support.v4.app.ActivityCompat.onCreate",
+          "android.support.v4.app.Fragment.onCreate",
+          "android.support.v4.app.Fragment.onAttach",
+          "android.support.v4.app.Fragment.onCreateView",
+          // Support Library v4 - can be removed once AndroidX becomes more popular
+          "androidx.core.app.ActivityCompat.onCreate",
+          "androidx.fragment.app.Fragment.onCreate",
+          "androidx.fragment.app.Fragment.onAttach",
+          "androidx.fragment.app.Fragment.onCreateView",
+          // Multidex app
+          "android.support.multidex.Application.onCreate");
 
   static final ImmutableSet<String> DEFAULT_INITIALIZER_ANNOT =
       ImmutableSet.of(
