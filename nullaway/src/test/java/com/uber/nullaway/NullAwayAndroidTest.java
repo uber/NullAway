@@ -1,7 +1,6 @@
 package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
-import com.sun.tools.javac.main.Main;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
@@ -25,20 +24,7 @@ public class NullAwayAndroidTest {
         Arrays.asList(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),
-            "-XepOpt:NullAway:KnownInitializers="
-                + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases.Super.doInit,"
-                + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases"
-                + ".SuperInterface.doInit2",
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
-            // We give the following in Regexp format to test that support
-            "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
-            "-XepOpt:NullAway:ExcludedClasses="
-                + "com.uber.nullaway.testdata.Shape_Stuff,"
-                + "com.uber.nullaway.testdata.excluded",
-            "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.nullaway.testdata.TestAnnot",
-            "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
-            "-XepOpt:NullAway:ExternalInitAnnotations=com.uber.ExternalInit",
-            "-XepOpt:NullAway:ExcludedFieldAnnotations=com.uber.ExternalFieldInit"));
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex"));
   }
 
   // Core Fragment tests
@@ -52,33 +38,30 @@ public class NullAwayAndroidTest {
         .doTest();
   }
 
-  @Test(expected = AssertionError.class)
+  @Test
   public void coreFragmentMissingOnAttachError() {
     initialiseAndroidCoreClasses();
     compilationHelper
         .addSourceFile("androidstubs/core/Fragment.java")
         .addSourceFile("android-error/CoreFragmentWithoutOnAttach.java")
-        .expectResult(Main.Result.ERROR)
         .doTest();
   }
 
-  @Test(expected = AssertionError.class)
+  @Test
   public void coreFragmentMissingOnCreateError() {
     initialiseAndroidCoreClasses();
     compilationHelper
         .addSourceFile("androidstubs/core/Fragment.java")
         .addSourceFile("android-error/CoreFragmentWithoutOnCreate.java")
-        .expectResult(Main.Result.ERROR)
         .doTest();
   }
 
-  @Test(expected = AssertionError.class)
+  @Test
   public void coreFragmentMissingOnCreateViewError() {
     initialiseAndroidCoreClasses();
     compilationHelper
         .addSourceFile("androidstubs/core/Fragment.java")
         .addSourceFile("android-error/CoreFragmentWithoutOnCreateView.java")
-        .expectResult(Main.Result.ERROR)
         .doTest();
   }
 
@@ -92,33 +75,30 @@ public class NullAwayAndroidTest {
         .doTest();
   }
 
-  @Test(expected = AssertionError.class)
+  @Test
   public void androidxFragmentMissingOnAttachError() {
     initialiseAndroidCoreClasses();
     compilationHelper
-        .addSourceFile("androidstubs/core/Fragment.java")
+        .addSourceFile("androidstubs/androidx/Fragment.java")
         .addSourceFile("android-error/AndroidxFragmentWithoutOnAttach.java")
-        .expectResult(Main.Result.ERROR)
         .doTest();
   }
 
-  @Test(expected = AssertionError.class)
+  @Test
   public void androidxFragmentMissingOnCreateError() {
     initialiseAndroidCoreClasses();
     compilationHelper
-        .addSourceFile("androidstubs/core/Fragment.java")
+        .addSourceFile("androidstubs/androidx/Fragment.java")
         .addSourceFile("android-error/AndroidxFragmentWithoutOnCreate.java")
-        .expectResult(Main.Result.ERROR)
         .doTest();
   }
 
-  @Test(expected = AssertionError.class)
+  @Test
   public void androidxFragmentMissingOnCreateViewError() {
     initialiseAndroidCoreClasses();
     compilationHelper
-        .addSourceFile("androidstubs/core/Fragment.java")
+        .addSourceFile("androidstubs/androidx/Fragment.java")
         .addSourceFile("android-error/AndroidxFragmentWithoutOnCreateView.java")
-        .expectResult(Main.Result.ERROR)
         .doTest();
   }
 
@@ -133,33 +113,30 @@ public class NullAwayAndroidTest {
         .doTest();
   }
 
-  @Test(expected = AssertionError.class)
+  @Test
   public void supportLibFragmentMissingOnAttachError() {
     initialiseAndroidCoreClasses();
     compilationHelper
-        .addSourceFile("androidstubs/core/Fragment.java")
+        .addSourceFile("androidstubs/supportlib/Fragment.java")
         .addSourceFile("android-error/SupportLibraryFragmentWithoutOnAttach.java")
-        .expectResult(Main.Result.ERROR)
         .doTest();
   }
 
-  @Test(expected = AssertionError.class)
+  @Test
   public void supportLibFragmentMissingOnCreateError() {
     initialiseAndroidCoreClasses();
     compilationHelper
-        .addSourceFile("androidstubs/core/Fragment.java")
+        .addSourceFile("androidstubs/supportlib/Fragment.java")
         .addSourceFile("android-error/SupportLibraryFragmentWithoutOnCreate.java")
-        .expectResult(Main.Result.ERROR)
         .doTest();
   }
 
-  @Test(expected = AssertionError.class)
+  @Test
   public void supportLibFragmentMissingOnCreateViewError() {
     initialiseAndroidCoreClasses();
     compilationHelper
-        .addSourceFile("androidstubs/core/Fragment.java")
+        .addSourceFile("androidstubs/supportlib/Fragment.java")
         .addSourceFile("android-error/SupportLibraryFragmentWithoutOnCreateView.java")
-        .expectResult(Main.Result.ERROR)
         .doTest();
   }
 
@@ -199,8 +176,6 @@ public class NullAwayAndroidTest {
   /** Initialises the default android classes that are commonly used. */
   private void initialiseAndroidCoreClasses() {
     compilationHelper
-        .addSourceFile("androidstubs/annotations/Nullable.java")
-        .addSourceFile("androidstubs/annotations/NonNull.java")
         .addSourceFile("androidstubs/core/Context.java")
         .addSourceFile("androidstubs/core/Bundle.java")
         .addSourceFile("androidstubs/core/LayoutInflater.java")

@@ -3,16 +3,14 @@ package com.uber.myapplication;
 import android.app.Activity;
 import android.os.Bundle;
 import android.os.PersistableBundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
 
 public class CoreActivity extends Activity {
 
-  @NonNull private Object mOnCreateInitialisedField1;
-  @NonNull private Object mOnCreateInitialisedField2;
+  private Object mOnCreateInitialisedField1;
+  private Object mOnCreateInitialisedField2;
 
   @Override
-  public void onCreate(@Nullable Bundle savedInstanceState) {
+  public void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
     mOnCreateInitialisedField1 = new Object();
   }
