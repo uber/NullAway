@@ -201,17 +201,22 @@ public class NullAwayNativeModels {
     }
   }
 
-  static void failIfNull(@Nullable Object o1, @Nullable Object o2) {
+  static void failIfNull(
+      @Nullable Object o1,
+      @Nullable Object o2,
+      @Nullable Object o3,
+      @Nullable Object o4,
+      @Nullable Object o5) {
     org.junit.Assert.assertNotNull(o1);
     o1.toString();
     org.junit.Assert.assertNotNull("Null!", o2);
     o2.toString();
-    org.junit.jupiter.api.Assertions.assertNotNull(o1);
-    o1.toString();
-    org.junit.jupiter.api.Assertions.assertNotNull(o2, "Null!");
-    o2.toString();
-    org.junit.jupiter.api.Assertions.assertNotNull(o2, () -> "Null!");
-    o2.toString();
+    org.junit.jupiter.api.Assertions.assertNotNull(o3);
+    o3.toString();
+    org.junit.jupiter.api.Assertions.assertNotNull(o4, "Null!");
+    o4.toString();
+    org.junit.jupiter.api.Assertions.assertNotNull(o5, () -> "Null!");
+    o5.toString();
   }
 
   static void nonNullParameters() {

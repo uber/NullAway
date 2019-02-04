@@ -196,6 +196,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
             .put(methodRef("com.google.common.base.Preconditions", "<T>checkNotNull(T)"), 0)
             .put(methodRef("java.util.Objects", "<T>requireNonNull(T)"), 0)
+            .put(methodRef("java.util.Objects", "<T>requireNonNull(T,java.lang.String)"), 0)
             .put(methodRef("org.junit.Assert", "assertNotNull(java.lang.Object)"), 0)
             .put(
                 methodRef("org.junit.Assert", "assertNotNull(java.lang.String,java.lang.Object)"),
@@ -206,12 +207,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 methodRef(
                     "org.junit.jupiter.api.Assertions",
                     "assertNotNull(java.lang.Object,java.lang.String)"),
-                1)
+                0)
             .put(
                 methodRef(
                     "org.junit.jupiter.api.Assertions",
-                    "assertNotNull(java.lang.Object,java.util.function.Supplier<String>)"),
-                1)
+                    "assertNotNull(java.lang.Object,java.util.function.Supplier<java.lang.String>)"),
+                0)
             .build();
 
     private static final ImmutableSetMultimap<MethodRef, Integer> EXPLICITLY_NULLABLE_PARAMETERS =
