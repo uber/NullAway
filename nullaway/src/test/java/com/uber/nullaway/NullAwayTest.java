@@ -1176,6 +1176,44 @@ public class NullAwayTest {
   }
 
   @Test
+  public void OptionalEmptinessHandlerTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated"))
+        .addSourceLines(
+            "TestNegative.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "public class TestNegative {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.of(null);",
+            "      // no error since a.isPresent() is called",
+            "      if(a.isPresent()){",
+            "         a.get().toString();",
+            "       }",
+            "  }",
+            "}")
+        .addSourceLines(
+            "TestPositive.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "public class TestPositive {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.of(null);",
+            "    // BUG: Diagnostic contains: dereferenced expression a.get() is @Nullable",
+            "    a.get().toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testCastToNonNull() {
     compilationHelper
         .addSourceFile("Util.java")
