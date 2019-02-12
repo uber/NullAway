@@ -75,6 +75,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "android.app.Fragment.onCreate",
           "android.app.Fragment.onAttach",
           "android.app.Fragment.onCreateView",
+          "android.app.Fragment.onViewCreated",
           "android.app.Application.onCreate",
           "javax.annotation.processing.Processor.init",
           // Support Library v4 - can be removed once AndroidX becomes more popular
@@ -82,11 +83,13 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "android.support.v4.app.Fragment.onCreate",
           "android.support.v4.app.Fragment.onAttach",
           "android.support.v4.app.Fragment.onCreateView",
+          "android.support.v4.app.Fragment.onViewCreated",
           // Support Library v4 - can be removed once AndroidX becomes more popular
           "androidx.core.app.ActivityCompat.onCreate",
           "androidx.fragment.app.Fragment.onCreate",
           "androidx.fragment.app.Fragment.onAttach",
           "androidx.fragment.app.Fragment.onCreateView",
+          "androidx.fragment.app.Fragment.onViewCreated",
           // Multidex app
           "android.support.multidex.Application.onCreate");
 
