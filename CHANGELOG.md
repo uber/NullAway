@@ -1,6 +1,14 @@
 Changelog
 =========
 
+Version 0.6.5
+---------------
+* Various fixes for generating @SuppressWarnings (#271)
+* Improved error message now doesn't tell users to report NullAway config errors to Error Prone  (#273)
+* Adding support for Activity and Fragment coming from the support libraries (#275)
+* Library models fixes (#277)
+* Add Fragment.onViewCreated as a known initializer. (#279)
+
 Version 0.6.4
 ---------------
 * Initial support for JDK 11 (#263).  Core NullAway should be working, but JarInfer does not yet work.
