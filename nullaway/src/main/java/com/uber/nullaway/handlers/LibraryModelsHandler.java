@@ -289,6 +289,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                     "javax.lang.model.util.Elements",
                     "getDocComment(javax.lang.model.element.Element)"),
                 0)
+            .put(methodRef("java.util.Optional", "<T>of(T)"), 0)
             .put(methodRef("java.util.Deque", "addFirst(E)"), 0)
             .put(methodRef("java.util.Deque", "addLast(E)"), 0)
             .put(methodRef("java.util.Deque", "offerFirst(E)"), 0)

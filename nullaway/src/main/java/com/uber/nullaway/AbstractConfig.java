@@ -68,6 +68,8 @@ public abstract class AbstractConfig implements Config {
 
   protected boolean isAcknowledgeRestrictive;
 
+  protected boolean checkOptionalEmptiness;
+
   protected boolean assertsEnabled;
 
   /**
@@ -180,6 +182,11 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean acknowledgeRestrictiveAnnotations() {
     return isAcknowledgeRestrictive;
+  }
+
+  @Override
+  public boolean checkOptionalEmptiness() {
+    return checkOptionalEmptiness;
   }
 
   @Override

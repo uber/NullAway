@@ -1933,7 +1933,17 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, baseExpression)) {
-      String message = "dereferenced expression " + baseExpression.toString() + " is @Nullable";
+      String message;
+      if (handler.checkIfOptionalGetCall(baseExpression, state)) {
+        final int exprStringSize = baseExpression.toString().length();
+        // Name of the optional is extracted from the expression
+        message =
+            "Optional "
+                + baseExpression.toString().substring(0, exprStringSize - 6)
+                + " can be empty, dereferenced get() call on it";
+      } else {
+        message = "dereferenced expression " + baseExpression.toString() + " is @Nullable";
+      }
       return createErrorDescriptionForNullAssignment(
           MessageTypes.DEREFERENCE_NULLABLE,
           derefExpression,

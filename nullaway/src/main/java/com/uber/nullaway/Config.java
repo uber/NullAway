@@ -107,6 +107,9 @@ public interface Config {
    */
   boolean acknowledgeRestrictiveAnnotations();
 
+  /** @return true if Optional Emptiness Handler is to be used. */
+  boolean checkOptionalEmptiness();
+
   /**
    * @return the fully qualified name of a method which will take a @Nullable version of a value and
    *     return an @NonNull copy (likely through an unsafe downcast, but performing runtime checking

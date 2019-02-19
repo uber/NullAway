@@ -37,6 +37,7 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
@@ -229,6 +230,8 @@ public class NullAwayNativeModels {
     File f = new File(s);
     // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
     URLClassLoader.newInstance(null, NullAwayNativeModels.class.getClassLoader());
+    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+    Optional<Object> op = Optional.of(null);
   }
 
   static void elementStuff(Element e, Elements elems) {

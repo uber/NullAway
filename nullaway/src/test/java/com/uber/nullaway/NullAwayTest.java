@@ -1183,7 +1183,8 @@ public class NullAwayTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated"))
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
         .addSourceLines(
             "TestNegative.java",
             "package com.uber;",
@@ -1191,7 +1192,7 @@ public class NullAwayTest {
             "import javax.annotation.Nullable;",
             "public class TestNegative {",
             "  void foo() {",
-            "    Optional<Object> a = Optional.of(null);",
+            "    Optional<Object> a = Optional.empty();",
             "      // no error since a.isPresent() is called",
             "      if(a.isPresent()){",
             "         a.get().toString();",
@@ -1205,8 +1206,32 @@ public class NullAwayTest {
             "import javax.annotation.Nullable;",
             "public class TestPositive {",
             "  void foo() {",
-            "    Optional<Object> a = Optional.of(null);",
-            "    // BUG: Diagnostic contains: dereferenced expression a.get() is @Nullable",
+            "    Optional<Object> a = Optional.empty();",
+            "    // BUG: Diagnostic contains: Optional a can be empty",
+            "    a.get().toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void OptionalEmptinessUncheckedTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated"))
+        .addSourceLines(
+            "TestPositive.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "public class TestPositive {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    // no error since the handler is not attached",
             "    a.get().toString();",
             "  }",
             "}")

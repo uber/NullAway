@@ -271,6 +271,15 @@ public interface Handler {
       ExpressionTree tree, NullnessStore thenStore, NullnessStore elseStore);
 
   /**
+   * Called while creating the error message on a possible null/empty optional deference.
+   *
+   * @param expr The AST node for the expression being matched.
+   * @param state The current visitor state.
+   * @return If the method call in the expression is to Optional.get().
+   */
+  boolean checkIfOptionalGetCall(ExpressionTree expr, VisitorState state);
+
+  /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
    * their knowledge of the method return nullability to the the rest of NullAway.
    */

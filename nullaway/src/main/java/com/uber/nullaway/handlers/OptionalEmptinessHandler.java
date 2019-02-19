@@ -99,6 +99,15 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     return NullnessHint.UNKNOWN;
   }
 
+  @Override
+  public boolean checkIfOptionalGetCall(ExpressionTree expr, VisitorState state) {
+    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
+        && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
+      return true;
+    }
+    return false;
+  }
+
   private void updateNonNullAPsForElement(
       AccessPathNullnessPropagation.Updates updates, @Nullable Element elem, Node base) {
     if (elem != null) {

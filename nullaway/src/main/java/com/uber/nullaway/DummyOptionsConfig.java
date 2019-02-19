@@ -113,6 +113,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public boolean checkOptionalEmptiness() {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
   @Nullable
   public String getCastToNonNullMethod() {
     throw new IllegalStateException(error_msg);

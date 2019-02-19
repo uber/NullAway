@@ -207,4 +207,13 @@ class CompositeHandler implements Handler {
       h.onDataflowVisitLambdaResultExpression(tree, thenStore, elseStore);
     }
   }
+
+  @Override
+  public boolean checkIfOptionalGetCall(ExpressionTree expr, VisitorState state) {
+    boolean ifOptionalGetCall = false;
+    for (Handler h : handlers) {
+      ifOptionalGetCall |= h.checkIfOptionalGetCall(expr, state);
+    }
+    return ifOptionalGetCall;
+  }
 }

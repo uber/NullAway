@@ -166,4 +166,9 @@ abstract class BaseNoOpHandler implements Handler {
       ExpressionTree tree, NullnessStore thenStore, NullnessStore elseStore) {
     // NoOp
   }
+
+  @Override
+  public boolean checkIfOptionalGetCall(ExpressionTree expr, VisitorState state) {
+    return false;
+  }
 }
