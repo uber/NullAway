@@ -19,13 +19,17 @@
 package com.uber.nullaway.dataflow;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.VisitorState;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -46,6 +50,8 @@ public final class AccessPathNullnessAnalysis {
   private final AccessPathNullnessPropagation nullnessPropagation;
 
   private final DataFlow dataFlow;
+
+  private static String OPTIONAL_PATH = "java.util.Optional";
 
   // Use #instance to instantiate
   private AccessPathNullnessAnalysis(
@@ -151,11 +157,11 @@ public final class AccessPathNullnessAnalysis {
    * Get nullness info for local variables before some node
    *
    * @param path tree path to some AST node within a method / lambda / initializer
-   * @param context Javac context
+   * @param state visitor state
    * @return nullness info for local variables just before the node
    */
-  public NullnessStore getLocalVarInfoBefore(TreePath path, Context context) {
-    NullnessStore store = dataFlow.resultBefore(path, context, nullnessPropagation);
+  public NullnessStore getLocalVarInfoBefore(TreePath path, VisitorState state) {
+    NullnessStore store = dataFlow.resultBefore(path, state.context, nullnessPropagation);
     if (store == null) {
       return NullnessStore.empty();
     }
@@ -167,6 +173,23 @@ public final class AccessPathNullnessAnalysis {
               Element e = root.getVarElement();
               return e.getKind().equals(ElementKind.PARAMETER)
                   || e.getKind().equals(ElementKind.LOCAL_VARIABLE);
+            }
+          }
+
+          // a filter for Optional get() call
+          if (ap.getElements().size() == 1) {
+            AccessPath.Root root = ap.getRoot();
+            if (!root.isReceiver() && (ap.getElements().get(0) instanceof Symbol.MethodSymbol)) {
+              final Element e = root.getVarElement();
+              final Symbol.MethodSymbol g = (Symbol.MethodSymbol) ap.getElements().get(0);
+              final Optional<Type> tbaseType =
+                  Optional.ofNullable(state.getTypeFromString(OPTIONAL_PATH))
+                      .map(state.getTypes()::erasure);
+              return e.getKind().equals(ElementKind.LOCAL_VARIABLE)
+                  && g.getSimpleName().toString().equals("get")
+                  && g.getParameters().length() == 0
+                  && tbaseType.isPresent()
+                  && state.getTypes().isSubtype(g.owner.type, tbaseType.get());
             }
           }
           return false;

@@ -365,8 +365,7 @@ public class NullAway extends BugChecker
     // from the nested scope, so the program point doesn't matter
     // 2. we keep info on all locals rather than just effectively final ones for simplicity
     EnclosingEnvironmentNullness.instance(state.context)
-        .addEnvironmentMapping(
-            tree, analysis.getLocalVarInfoBefore(state.getPath(), state.context));
+        .addEnvironmentMapping(tree, analysis.getLocalVarInfoBefore(state.getPath(), state));
   }
 
   private Symbol.MethodSymbol getSymbolOfSuperConstructor(
