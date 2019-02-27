@@ -524,6 +524,11 @@ public class NullAwayNegativeCases {
     o.toString();
   }
 
+  static void checkNotNullWithMessage(@Nullable Object o) {
+    Preconditions.checkNotNull(o, "should not be null");
+    o.toString();
+  }
+
   static void requireNonNull(@Nullable Object o, @Nullable Object p) {
     Objects.requireNonNull(o);
     o.toString();
