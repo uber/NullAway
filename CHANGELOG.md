@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 0.6.6
+---------------
+This only adds a minor library fix supporting Guava's Preconditions.checkNotNull with an error message 
+argument (#283)
+
 Version 0.6.5
 ---------------
 * Various fixes for generating @SuppressWarnings (#271)
