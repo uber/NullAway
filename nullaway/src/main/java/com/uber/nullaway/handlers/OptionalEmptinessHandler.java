@@ -100,10 +100,31 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public boolean checkIfOptionalGetCall(ExpressionTree expr, VisitorState state) {
+  public void getErrorMessage(
+      ExpressionTree expr, VisitorState state, NullAway.ErrorMessage errorMessage) {
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
         && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
-      return true;
+      final int exprStringSize = expr.toString().length();
+      // Name of the optional is extracted from the expression
+      final String message =
+          "Optional "
+              + expr.toString().substring(0, exprStringSize - 6)
+              + " can be empty, dereferenced get() call on it";
+      errorMessage.updateErrorMessage(NullAway.MessageTypes.GET_ON_EMPTY_OPTIONAL, message);
+    }
+  }
+
+  @Override
+  public boolean filterApForLocalVarInfoBefore(AccessPath accessPath, VisitorState state) {
+
+    if (accessPath.getElements().size() == 1) {
+      AccessPath.Root root = accessPath.getRoot();
+      if (!root.isReceiver() && (accessPath.getElements().get(0) instanceof Symbol.MethodSymbol)) {
+        final Element e = root.getVarElement();
+        final Symbol.MethodSymbol g = (Symbol.MethodSymbol) accessPath.getElements().get(0);
+        return e.getKind().equals(ElementKind.LOCAL_VARIABLE)
+            && optionalIsGetCall(g, state.getTypes());
+      }
     }
     return false;
   }

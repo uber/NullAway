@@ -36,6 +36,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
@@ -275,9 +276,21 @@ public interface Handler {
    *
    * @param expr The AST node for the expression being matched.
    * @param state The current visitor state.
-   * @return If the method call in the expression is to Optional.get().
+   * @param errorMessage error message string and type of the error wrapped in {@link
+   *     com.uber.nullaway.NullAway.ErrorMessage}.
    */
-  boolean checkIfOptionalGetCall(ExpressionTree expr, VisitorState state);
+  void getErrorMessage(ExpressionTree expr, VisitorState state, NullAway.ErrorMessage errorMessage);
+
+  /**
+   * Called when the store access paths are filtered for local variable information before an
+   * expression.
+   *
+   * @param accessPath The access path that needs to be checked if filtered.
+   * @param state The current visitor state.
+   * @return true if the accesspath should be filtered to be included in the local variable
+   *     information.
+   */
+  boolean filterApForLocalVarInfoBefore(AccessPath accessPath, VisitorState state);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate

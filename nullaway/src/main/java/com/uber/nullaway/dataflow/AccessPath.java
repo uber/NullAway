@@ -311,7 +311,7 @@ public final class AccessPath {
    * root of an access path; either a variable {@link javax.lang.model.element.Element} or <code>
    * this</code> (enclosing method receiver)
    */
-  static final class Root {
+  public static final class Root {
 
     /** does this represent the receiver? */
     private final boolean isMethodReceiver;

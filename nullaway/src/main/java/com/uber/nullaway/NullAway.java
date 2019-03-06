@@ -365,7 +365,8 @@ public class NullAway extends BugChecker
     // from the nested scope, so the program point doesn't matter
     // 2. we keep info on all locals rather than just effectively final ones for simplicity
     EnclosingEnvironmentNullness.instance(state.context)
-        .addEnvironmentMapping(tree, analysis.getLocalVarInfoBefore(state.getPath(), state));
+        .addEnvironmentMapping(
+            tree, analysis.getLocalVarInfoBefore(state.getPath(), state, handler));
   }
 
   private Symbol.MethodSymbol getSymbolOfSuperConstructor(
@@ -1932,21 +1933,16 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, baseExpression)) {
-      String message;
-      if (handler.checkIfOptionalGetCall(baseExpression, state)) {
-        final int exprStringSize = baseExpression.toString().length();
-        // Name of the optional is extracted from the expression
-        message =
-            "Optional "
-                + baseExpression.toString().substring(0, exprStringSize - 6)
-                + " can be empty, dereferenced get() call on it";
-      } else {
-        message = "dereferenced expression " + baseExpression.toString() + " is @Nullable";
-      }
+      final String message =
+          "dereferenced expression " + baseExpression.toString() + " is @Nullable";
+      ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
+
+      handler.getErrorMessage(baseExpression, state, errorMessage);
+
       return createErrorDescriptionForNullAssignment(
-          MessageTypes.DEREFERENCE_NULLABLE,
+          errorMessage.messageType,
           derefExpression,
-          message,
+          errorMessage.message,
           baseExpression,
           state.getPath());
     }
@@ -2346,7 +2342,23 @@ public class NullAway extends BugChecker
     UNBOX_NULLABLE,
     NONNULL_FIELD_READ_BEFORE_INIT,
     ANNOTATION_VALUE_INVALID,
-    CAST_TO_NONNULL_ARG_NONNULL;
+    CAST_TO_NONNULL_ARG_NONNULL,
+    GET_ON_EMPTY_OPTIONAL;
+  }
+
+  public static class ErrorMessage {
+    MessageTypes messageType;
+    String message;
+
+    ErrorMessage(MessageTypes messageType, String message) {
+      this.messageType = messageType;
+      this.message = message;
+    }
+
+    public void updateErrorMessage(MessageTypes messageType, String message) {
+      this.messageType = messageType;
+      this.message = message;
+    }
   }
 
   @AutoValue

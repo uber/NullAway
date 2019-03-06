@@ -36,6 +36,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
@@ -209,11 +210,19 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public boolean checkIfOptionalGetCall(ExpressionTree expr, VisitorState state) {
-    boolean ifOptionalGetCall = false;
+  public void getErrorMessage(
+      ExpressionTree expr, VisitorState state, NullAway.ErrorMessage errorMessage) {
     for (Handler h : handlers) {
-      ifOptionalGetCall |= h.checkIfOptionalGetCall(expr, state);
+      h.getErrorMessage(expr, state, errorMessage);
     }
-    return ifOptionalGetCall;
+  }
+
+  @Override
+  public boolean filterApForLocalVarInfoBefore(AccessPath accessPath, VisitorState state) {
+    boolean shouldFilter = false;
+    for (Handler h : handlers) {
+      shouldFilter |= h.filterApForLocalVarInfoBefore(accessPath, state);
+    }
+    return shouldFilter;
   }
 }
