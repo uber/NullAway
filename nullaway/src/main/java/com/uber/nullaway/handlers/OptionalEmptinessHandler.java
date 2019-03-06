@@ -31,6 +31,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -100,8 +101,8 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public void getErrorMessage(
-      ExpressionTree expr, VisitorState state, NullAway.ErrorMessage errorMessage) {
+  public void onPrepareErrorMessage(
+      ExpressionTree expr, VisitorState state, ErrorMessage errorMessage) {
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
         && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
       final int exprStringSize = expr.toString().length();
@@ -110,12 +111,12 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
           "Optional "
               + expr.toString().substring(0, exprStringSize - 6)
               + " can be empty, dereferenced get() call on it";
-      errorMessage.updateErrorMessage(NullAway.MessageTypes.GET_ON_EMPTY_OPTIONAL, message);
+      errorMessage.updateErrorMessage(ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL, message);
     }
   }
 
   @Override
-  public boolean filterApForLocalVarInfoBefore(AccessPath accessPath, VisitorState state) {
+  public boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state) {
 
     if (accessPath.getElements().size() == 1) {
       AccessPath.Root root = accessPath.getRoot();

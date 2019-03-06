@@ -157,7 +157,8 @@ public final class AccessPathNullnessAnalysis {
    * @param state visitor state
    * @return nullness info for local variables just before the node
    */
-  public NullnessStore getLocalVarInfoBefore(TreePath path, VisitorState state, Handler handler) {
+  public NullnessStore getNullnessInfoBeforeNewContext(
+      TreePath path, VisitorState state, Handler handler) {
     NullnessStore store = dataFlow.resultBefore(path, state.context, nullnessPropagation);
     if (store == null) {
       return NullnessStore.empty();
@@ -173,14 +174,14 @@ public final class AccessPathNullnessAnalysis {
             }
           }
 
-          return handler.filterApForLocalVarInfoBefore(ap, state);
+          return handler.includeApInfoInSavedContext(ap, state);
         });
   }
 
   /**
    * @param path tree path of static method, or initializer block
    * @param context Javac context
-   * @return fields guaranteed to be nonnull at exit of static method (or initialize r block)
+   * @return fields guaranteed to be nonnull at exit of static method (or initializer block)
    */
   public Set<Element> getNonnullStaticFieldsAtExit(TreePath path, Context context) {
     NullnessStore nullnessResult = dataFlow.finalResult(path, context, nullnessPropagation);

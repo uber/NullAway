@@ -30,6 +30,7 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -221,7 +222,10 @@ public class ContractHandler extends BaseNoOpHandler {
     if (this.analysis != null && this.state != null) {
       this.state.reportMatch(
           this.analysis.createErrorDescription(
-              NullAway.MessageTypes.ANNOTATION_VALUE_INVALID, errorLocTree, message, errorLocTree));
+              ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
+              errorLocTree,
+              message,
+              errorLocTree));
     }
   }
 
