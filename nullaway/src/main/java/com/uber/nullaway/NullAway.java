@@ -88,6 +88,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
+import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.handlers.Handler;
@@ -366,7 +367,7 @@ public class NullAway extends BugChecker
     // 2. we keep info on all locals rather than just effectively final ones for simplicity
     EnclosingEnvironmentNullness.instance(state.context)
         .addEnvironmentMapping(
-            tree, analysis.getLocalVarInfoBefore(state.getPath(), state.context));
+            tree, analysis.getNullnessInfoBeforeNewContext(state.getPath(), state, handler));
   }
 
   private Symbol.MethodSymbol getSymbolOfSuperConstructor(
@@ -1933,11 +1934,16 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, baseExpression)) {
-      String message = "dereferenced expression " + baseExpression.toString() + " is @Nullable";
+      final String message =
+          "dereferenced expression " + baseExpression.toString() + " is @Nullable";
+      ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
+
+      handler.onPrepareErrorMessage(baseExpression, state, errorMessage);
+
       return createErrorDescriptionForNullAssignment(
-          MessageTypes.DEREFERENCE_NULLABLE,
+          errorMessage.messageType,
           derefExpression,
-          message,
+          errorMessage.message,
           baseExpression,
           state.getPath());
     }
@@ -2323,21 +2329,6 @@ public class NullAway extends BugChecker
    */
   public void setComputedNullness(ExpressionTree e, Nullness nullness) {
     computedNullnessMap.put(e, nullness);
-  }
-
-  public enum MessageTypes {
-    DEREFERENCE_NULLABLE,
-    RETURN_NULLABLE,
-    PASS_NULLABLE,
-    ASSIGN_FIELD_NULLABLE,
-    WRONG_OVERRIDE_RETURN,
-    WRONG_OVERRIDE_PARAM,
-    METHOD_NO_INIT,
-    FIELD_NO_INIT,
-    UNBOX_NULLABLE,
-    NONNULL_FIELD_READ_BEFORE_INIT,
-    ANNOTATION_VALUE_INVALID,
-    CAST_TO_NONNULL_ARG_NONNULL;
   }
 
   @AutoValue

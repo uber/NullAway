@@ -34,7 +34,9 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
@@ -165,5 +167,16 @@ abstract class BaseNoOpHandler implements Handler {
   public void onDataflowVisitLambdaResultExpression(
       ExpressionTree tree, NullnessStore thenStore, NullnessStore elseStore) {
     // NoOp
+  }
+
+  @Override
+  public void onPrepareErrorMessage(
+      ExpressionTree expr, VisitorState state, ErrorMessage errorMessage) {
+    // NoOp
+  }
+
+  @Override
+  public boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state) {
+    return false;
   }
 }

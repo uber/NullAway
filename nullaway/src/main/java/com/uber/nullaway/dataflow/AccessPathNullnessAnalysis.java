@@ -19,6 +19,7 @@
 package com.uber.nullaway.dataflow;
 
 import com.google.common.collect.ImmutableList;
+import com.google.errorprone.VisitorState;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
@@ -46,6 +47,8 @@ public final class AccessPathNullnessAnalysis {
   private final AccessPathNullnessPropagation nullnessPropagation;
 
   private final DataFlow dataFlow;
+
+  private static String OPTIONAL_PATH = "java.util.Optional";
 
   // Use #instance to instantiate
   private AccessPathNullnessAnalysis(
@@ -151,11 +154,12 @@ public final class AccessPathNullnessAnalysis {
    * Get nullness info for local variables before some node
    *
    * @param path tree path to some AST node within a method / lambda / initializer
-   * @param context Javac context
+   * @param state visitor state
    * @return nullness info for local variables just before the node
    */
-  public NullnessStore getLocalVarInfoBefore(TreePath path, Context context) {
-    NullnessStore store = dataFlow.resultBefore(path, context, nullnessPropagation);
+  public NullnessStore getNullnessInfoBeforeNewContext(
+      TreePath path, VisitorState state, Handler handler) {
+    NullnessStore store = dataFlow.resultBefore(path, state.context, nullnessPropagation);
     if (store == null) {
       return NullnessStore.empty();
     }
@@ -169,7 +173,8 @@ public final class AccessPathNullnessAnalysis {
                   || e.getKind().equals(ElementKind.LOCAL_VARIABLE);
             }
           }
-          return false;
+
+          return handler.includeApInfoInSavedContext(ap, state);
         });
   }
 

@@ -55,6 +55,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_UNANNOTATED_CLASSES = EP_FL_NAMESPACE + ":UnannotatedClasses";
   static final String FL_ACKNOWLEDGE_RESTRICTIVE =
       EP_FL_NAMESPACE + ":AcknowledgeRestrictiveAnnotations";
+  static final String FL_CHECK_OPTIONAL_EMPTINESS = EP_FL_NAMESPACE + ":CheckOptionalEmptiness";
   static final String FL_SUPPRESS_COMMENT = EP_FL_NAMESPACE + ":AutoFixSuppressionComment";
   /** --- JarInfer configs --- */
   static final String FL_JI_ENABLED = EP_FL_NAMESPACE + ":JarInferEnabled";
@@ -132,6 +133,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     isExhaustiveOverride = flags.getBoolean(FL_EXHAUSTIVE_OVERRIDE).orElse(false);
     isSuggestSuppressions = flags.getBoolean(FL_SUGGEST_SUPPRESSIONS).orElse(false);
     isAcknowledgeRestrictive = flags.getBoolean(FL_ACKNOWLEDGE_RESTRICTIVE).orElse(false);
+    checkOptionalEmptiness = flags.getBoolean(FL_CHECK_OPTIONAL_EMPTINESS).orElse(false);
     treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
     assertsEnabled = flags.getBoolean(FL_ASSERTS_ENABLED).orElse(false);
     fieldAnnotPattern =

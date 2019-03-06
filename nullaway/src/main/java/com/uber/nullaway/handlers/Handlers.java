@@ -50,6 +50,9 @@ public class Handlers {
     handlerListBuilder.add(new RxNullabilityPropagator());
     handlerListBuilder.add(new ContractHandler());
     handlerListBuilder.add(new ApacheThriftIsSetHandler());
+    if (config.checkOptionalEmptiness()) {
+      handlerListBuilder.add(new OptionalEmptinessHandler());
+    }
     return new CompositeHandler(handlerListBuilder.build());
   }
 

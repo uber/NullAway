@@ -34,8 +34,10 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
@@ -269,6 +271,27 @@ public interface Handler {
    */
   void onDataflowVisitLambdaResultExpression(
       ExpressionTree tree, NullnessStore thenStore, NullnessStore elseStore);
+
+  /**
+   * Called while creating the error message on a possible null/empty optional deference.
+   *
+   * @param expr The AST node for the expression being matched.
+   * @param state The current visitor state.
+   * @param errorMessage error message string and type of the error wrapped in {@link
+   *     com.uber.nullaway.NullAway.ErrorMessage}.
+   */
+  void onPrepareErrorMessage(ExpressionTree expr, VisitorState state, ErrorMessage errorMessage);
+
+  /**
+   * Called when the store access paths are filtered for local variable information before an
+   * expression.
+   *
+   * @param accessPath The access path that needs to be checked if filtered.
+   * @param state The current visitor state.
+   * @return true if the nullability information for this accesspath should be treated as part of
+   *     the surrounding context when processing a lambda expression or anonymous class declaration.
+   */
+  boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate

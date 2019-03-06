@@ -1176,6 +1176,99 @@ public class NullAwayTest {
   }
 
   @Test
+  public void OptionalEmptinessHandlerTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "TestNegative.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "public class TestNegative {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "      // no error since a.isPresent() is called",
+            "      if(a.isPresent()){",
+            "         a.get().toString();",
+            "       }",
+            "    }",
+            "   public void lambdaConsumer(Function a){",
+            "        return;",
+            "   }",
+            "  void bar() {",
+            "     Optional<Object> b = Optional.empty();",
+            "      if(b.isPresent()){",
+            "          lambdaConsumer(v -> b.get().toString());",
+            "       }",
+            "    }",
+            "}")
+        .addSourceLines(
+            "TestPositive.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "public class TestPositive {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    // BUG: Diagnostic contains: Optional a can be empty",
+            "    a.get().toString();",
+            "  }",
+            "   public void lambdaConsumer(Function a){",
+            "        return;",
+            "   }",
+            "  void bar() {",
+            "     Optional<Object> b = Optional.empty();",
+            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "           lambdaConsumer(v -> b.get().toString());",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void OptionalEmptinessUncheckedTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated"))
+        .addSourceLines(
+            "TestNegative.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "public class TestNegative {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    // no error since the handler is not attached",
+            "    a.get().toString();",
+            "  }",
+            "   public void lambdaConsumer(Function a){",
+            "        return;",
+            "   }",
+            "  void bar() {",
+            "     Optional<Object> b = Optional.empty();",
+            "      if(b.isPresent()){",
+            "    // no error since the handler is not attached",
+            "          lambdaConsumer(v -> b.get().toString());",
+            "       }",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testCastToNonNull() {
     compilationHelper
         .addSourceFile("Util.java")
