@@ -1961,10 +1961,7 @@ public class NullAway extends BugChecker
    * @return the error description
    */
   private Description createErrorDescription(
-      com.uber.nullaway.ErrorMessage.MessageTypes errorType,
-      Tree errorLocTree,
-      String message,
-      TreePath path) {
+      MessageTypes errorType, Tree errorLocTree, String message, TreePath path) {
     Tree enclosingSuppressTree = suppressibleNode(path);
     return createErrorDescription(errorType, errorLocTree, message, enclosingSuppressTree);
   }
