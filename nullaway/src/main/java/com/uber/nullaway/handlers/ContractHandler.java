@@ -221,10 +221,9 @@ public class ContractHandler extends BaseNoOpHandler {
     assert this.analysis != null && this.state != null;
     if (this.analysis != null && this.state != null) {
       this.state.reportMatch(
-          this.analysis.createErrorDescription(
-              ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
+          ErrorMessage.createErrorDescription(
+              new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
               errorLocTree,
-              message,
               errorLocTree));
     }
   }
