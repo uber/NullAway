@@ -49,6 +49,7 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
+import com.uber.nullaway.dataflow.AccessPathElement;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.ArrayList;
@@ -393,10 +394,10 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
       assert filterNullnessStore != null;
       for (AccessPath ap : filterNullnessStore.getAccessPathsWithValue(Nullness.NONNULL)) {
         // Find the access path corresponding to the current unbound method reference after binding
-        ImmutableList<Element> elements = ap.getElements();
+        ImmutableList<AccessPathElement> elements = ap.getElements();
         if (elements.size() == 1) {
           // We only care for single method call chains (e.g. this.foo(), not this.f.bar())
-          Element element = elements.get(0);
+          Element element = elements.get(0).getJavaElement();
           if (!element.getKind().equals(ElementKind.METHOD)) {
             // We are only looking for method APs
             continue;

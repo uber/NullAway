@@ -25,6 +25,9 @@ package com.uber.nullaway.dataflow;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
@@ -45,8 +48,9 @@ import org.checkerframework.javacutil.TreeUtils;
  * Represents an extended notion of an access path, which we track for nullness.
  *
  * <p>Typically, access paths are of the form x.f.g.h, where x is a variable and f, g, and h are
- * field names. Here, we also allow no-argument methods to appear in the access path, so it can be
- * of the form x.f().g.h() in general.
+ * field names. Here, we also allow no-argument methods to appear in the access path, as well as
+ * method calls passed only statically constant parameters, so an AP can be of the form
+ * x.f().g.h([int_expr|string_expr]) in general.
  *
  * <p>We do not allow array accesses in access paths for the moment.
  */
@@ -54,20 +58,20 @@ public final class AccessPath {
 
   private final Root root;
 
-  private final ImmutableList<Element> elements;
+  private final ImmutableList<AccessPathElement> elements;
 
   /**
    * if present, the argument to the map get() method call that is the final element of this path
    */
   @Nullable private final AccessPath mapGetArgAccessPath;
 
-  AccessPath(Root root, List<Element> elements) {
+  AccessPath(Root root, List<AccessPathElement> elements) {
     this.root = root;
     this.elements = ImmutableList.copyOf(elements);
     this.mapGetArgAccessPath = null;
   }
 
-  private AccessPath(Root root, List<Element> elements, AccessPath mapGetArgAccessPath) {
+  private AccessPath(Root root, List<AccessPathElement> elements, AccessPath mapGetArgAccessPath) {
     this.root = root;
     this.elements = ImmutableList.copyOf(elements);
     this.mapGetArgAccessPath = mapGetArgAccessPath;
@@ -96,7 +100,7 @@ public final class AccessPath {
    */
   @Nullable
   static AccessPath fromFieldAccess(FieldAccessNode node) {
-    List<Element> elements = new ArrayList<>();
+    List<AccessPathElement> elements = new ArrayList<>();
     Root root = populateElementsRec(node, elements);
     return (root != null) ? new AccessPath(root, elements) : null;
   }
@@ -115,7 +119,7 @@ public final class AccessPath {
 
   @Nullable
   private static AccessPath fromVanillaMethodCall(MethodInvocationNode node) {
-    List<Element> elements = new ArrayList<>();
+    List<AccessPathElement> elements = new ArrayList<>();
     Root root = populateElementsRec(node, elements);
     return (root != null) ? new AccessPath(root, elements) : null;
   }
@@ -127,12 +131,12 @@ public final class AccessPath {
    */
   @Nullable
   public static AccessPath fromBaseAndElement(Node base, Element element) {
-    List<Element> elements = new ArrayList<>();
+    List<AccessPathElement> elements = new ArrayList<>();
     Root root = populateElementsRec(base, elements);
     if (root == null) {
       return null;
     }
-    elements.add(element);
+    elements.add(new AccessPathElement(element));
     return new AccessPath(root, elements);
   }
 
@@ -161,7 +165,7 @@ public final class AccessPath {
     }
     MethodAccessNode target = node.getTarget();
     Node receiver = target.getReceiver();
-    List<Element> elements = new ArrayList<>();
+    List<AccessPathElement> elements = new ArrayList<>();
     Root root = populateElementsRec(receiver, elements);
     if (root == null) {
       return null;
@@ -202,8 +206,14 @@ public final class AccessPath {
     }
   }
 
+  private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
+    return methodSymbol.isStatic()
+        && methodSymbol.getSimpleName().contentEquals("valueOf")
+        && methodSymbol.enclClass().packge().fullname.contentEquals("java.lang");
+  }
+
   @Nullable
-  private static Root populateElementsRec(Node node, List<Element> elements) {
+  private static Root populateElementsRec(Node node, List<AccessPathElement> elements) {
     Root result;
     if (node instanceof FieldAccessNode) {
       FieldAccessNode fieldAccess = (FieldAccessNode) node;
@@ -213,17 +223,48 @@ public final class AccessPath {
       } else {
         // instance field access
         result = populateElementsRec(fieldAccess.getReceiver(), elements);
-        elements.add(fieldAccess.getElement());
+        elements.add(new AccessPathElement(fieldAccess.getElement()));
       }
     } else if (node instanceof MethodInvocationNode) {
       MethodInvocationNode invocation = (MethodInvocationNode) node;
-      // only support zero-argument methods
-      if (invocation.getArguments().size() > 0) {
-        return null;
-      }
+      AccessPathElement accessPathElement;
       MethodAccessNode accessNode = invocation.getTarget();
+      if (invocation.getArguments().size() == 0) {
+        accessPathElement = new AccessPathElement(accessNode.getMethod());
+      } else {
+        List<String> constantArgumentValues = new ArrayList<>();
+        for (Node argumentNode : invocation.getArguments()) {
+          Tree tree = argumentNode.getTree();
+          if (tree == null) {
+            return null; // Not an AP
+          } else if (tree.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
+            // Check for boxing call
+            MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
+            if (methodInvocationTree.getArguments().size() == 1
+                && isBoxingMethod(ASTHelpers.getSymbol(methodInvocationTree))) {
+              tree = methodInvocationTree.getArguments().get(0);
+            }
+          }
+          switch (tree.getKind()) {
+            case BOOLEAN_LITERAL:
+            case CHAR_LITERAL:
+            case DOUBLE_LITERAL:
+            case FLOAT_LITERAL:
+            case INT_LITERAL:
+            case LONG_LITERAL:
+            case STRING_LITERAL:
+              constantArgumentValues.add(((LiteralTree) tree).getValue().toString());
+              break;
+            case NULL_LITERAL:
+              // Um, probably not? Cascade to default for now.
+            default:
+              return null; // Not an AP
+          }
+        }
+        accessPathElement = new AccessPathElement(accessNode.getMethod(), constantArgumentValues);
+      }
       result = populateElementsRec(accessNode.getReceiver(), elements);
-      elements.add(accessNode.getMethod());
+      elements.add(accessPathElement);
     } else if (node instanceof LocalVariableNode) {
       result = new Root(((LocalVariableNode) node).getElement());
     } else if (node instanceof ThisLiteralNode) {
@@ -269,7 +310,7 @@ public final class AccessPath {
     return root;
   }
 
-  public ImmutableList<Element> getElements() {
+  public ImmutableList<AccessPathElement> getElements() {
     return elements;
   }
 

@@ -112,9 +112,9 @@ public final class AccessPathNullnessAnalysis {
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {
       if (ap.getRoot().isReceiver()) {
-        ImmutableList<Element> elements = ap.getElements();
+        ImmutableList<AccessPathElement> elements = ap.getElements();
         if (elements.size() == 1) {
-          Element elem = elements.get(0);
+          Element elem = elements.get(0).getJavaElement();
           if (elem.getKind().equals(ElementKind.FIELD)) {
             result.add(elem);
           }
