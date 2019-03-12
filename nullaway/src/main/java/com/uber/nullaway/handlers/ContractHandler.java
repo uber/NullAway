@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -221,10 +223,12 @@ public class ContractHandler extends BaseNoOpHandler {
     assert this.analysis != null && this.state != null;
     if (this.analysis != null && this.state != null) {
       this.state.reportMatch(
-          ErrorMessage.createErrorDescription(
-              new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-              errorLocTree,
-              errorLocTree));
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                  errorLocTree,
+                  buildDescriptionFromChecker(errorLocTree, analysis)));
     }
   }
 
