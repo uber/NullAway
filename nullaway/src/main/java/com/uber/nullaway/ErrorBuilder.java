@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2019 Uber Technologies, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 package com.uber.nullaway;
 
 import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
@@ -27,15 +49,20 @@ import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 
+/** A class to construct error message to be displayed after the analysis finds error. */
 public class ErrorBuilder {
 
   private final Config config;
-  private final String checkerName;
+
+  /** Checker name that can be used to suppress the warnings. */
+  private final String suppressionName;
+
+  /** Additional identifiers for this check, to be checked for in @SuppressWarnings annotations. */
   private final Set<String> allNames;
 
-  ErrorBuilder(Config config, String checkerName, Set<String> allNames) {
+  ErrorBuilder(Config config, String suppressionName, Set<String> allNames) {
     this.config = config;
-    this.checkerName = checkerName;
+    this.suppressionName = suppressionName;
     this.allNames = allNames;
   }
 
@@ -76,17 +103,17 @@ public class ErrorBuilder {
           if (config.getCastToNonNullMethod() != null) {
             builder = addCastToNonNullFix(suggestTree, builder);
           } else {
-            builder = addSuppressWarningsFix(suggestTree, builder, checkerName);
+            builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
           }
           break;
         case CAST_TO_NONNULL_ARG_NONNULL:
           builder = removeCastToNonNullFix(suggestTree, builder);
           break;
         case WRONG_OVERRIDE_RETURN:
-          builder = addSuppressWarningsFix(suggestTree, builder, checkerName);
+          builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
           break;
         case WRONG_OVERRIDE_PARAM:
-          builder = addSuppressWarningsFix(suggestTree, builder, checkerName);
+          builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
           break;
         case METHOD_NO_INIT:
         case FIELD_NO_INIT:
@@ -95,7 +122,7 @@ public class ErrorBuilder {
         case ANNOTATION_VALUE_INVALID:
           break;
         default:
-          builder = addSuppressWarningsFix(suggestTree, builder, checkerName);
+          builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
       }
     }
     // #letbuildersbuild
@@ -130,7 +157,7 @@ public class ErrorBuilder {
   }
 
   Description.Builder addSuppressWarningsFix(
-      Tree suggestTree, Description.Builder builder, String checkerName) {
+      Tree suggestTree, Description.Builder builder, String suppressionName) {
     SuppressWarnings extantSuppressWarnings =
         ASTHelpers.getAnnotation(suggestTree, SuppressWarnings.class);
     SuggestedFix fix;
@@ -139,13 +166,13 @@ public class ErrorBuilder {
           SuggestedFix.prefixWith(
               suggestTree,
               "@SuppressWarnings(\""
-                  + checkerName
+                  + suppressionName
                   + "\") "
                   + config.getAutofixSuppressionComment());
     } else {
       // need to update the existing list of warnings
       final List<String> suppressions = Lists.newArrayList(extantSuppressWarnings.value());
-      suppressions.add(checkerName);
+      suppressions.add(suppressionName);
       // find the existing annotation, so we can replace it
       final ModifiersTree modifiers =
           (suggestTree instanceof MethodTree)
@@ -243,7 +270,7 @@ public class ErrorBuilder {
     SuppressWarnings annotation = symbol.getAnnotation(SuppressWarnings.class);
     if (annotation != null) {
       for (String s : annotation.value()) {
-        // we need to check for standard suppressions here also since we may report initialization
+        // we need to check for standard suppression here also since we may report initialization
         // errors outside the normal ErrorProne match* methods
         if (s.equals(INITIALIZATION_CHECK_NAME) || allNames.stream().anyMatch(s::equals)) {
           return true;
