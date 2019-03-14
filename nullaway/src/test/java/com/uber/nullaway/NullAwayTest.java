@@ -584,7 +584,6 @@ public class NullAwayTest {
             "    }",
             "    java.util.List<Generated> l = new java.util.ArrayList<>();",
             "    if (l.get(0).isSetId()) {",
-            "      // BUG: Diagnostic contains: dereferenced expression l.get(0).getId()",
             "      l.get(0).getId().hashCode();",
             "    }",
             "  }",
@@ -1427,6 +1426,91 @@ public class NullAwayTest {
             "  public void testEnhancedFor(@Nullable List<String> l) {",
             "    // BUG: Diagnostic contains: enhanced-for expression l is @Nullable",
             "    for (String x: l) {}",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testConstantsInAccessPathsNegative() {
+    compilationHelper
+        .addSourceLines(
+            "NullableContainer.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public interface NullableContainer<K, V> {",
+            " @Nullable public V get(K k);",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  public void testSingleStringCheck(NullableContainer<String, Object> c) {",
+            "    if (c.get(\"KEY_STR\") != null) {",
+            "      c.get(\"KEY_STR\").toString(); // is safe",
+            "    }",
+            "  }",
+            "  public void testSingleIntCheck(NullableContainer<Integer, Object> c) {",
+            "    if (c.get(42) != null) {",
+            "      c.get(42).toString(); // is safe",
+            "    }",
+            "  }",
+            "  public void testMultipleChecks(NullableContainer<String, NullableContainer<Integer, Object>> c) {",
+            "    if (c.get(\"KEY_STR\") != null && c.get(\"KEY_STR\").get(42) != null) {",
+            "      c.get(\"KEY_STR\").get(42).toString(); // is safe",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testConstantsInAccessPathsPositive() {
+    compilationHelper
+        .addSourceLines(
+            "NullableContainer.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public interface NullableContainer<K, V> {",
+            " @Nullable public V get(K k);",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {",
+            "    if (c.get(\"KEY_STR\") != null && c.get(\"KEY_STR\").get(0) != null) {",
+            "      // BUG: Diagnostic contains: dereferenced expression c.get(\"KEY_STR\").get(42)",
+            "      c.get(\"KEY_STR\").get(42).toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testVariablesInAccessPathsPositive() {
+    compilationHelper
+        .addSourceLines(
+            "NullableContainer.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public interface NullableContainer<K, V> {",
+            " @Nullable public V get(K k);",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  private Integer intKey = 42;", // No guarantee it's a constant
+            "  public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {",
+            "    if (c.get(\"KEY_STR\") != null && c.get(\"KEY_STR\").get(this.intKey) != null) {",
+            "      // BUG: Diagnostic contains: dereferenced expression c.get(\"KEY_STR\").get",
+            "      c.get(\"KEY_STR\").get(this.intKey).toString();",
+            "    }",
             "  }",
             "}")
         .doTest();

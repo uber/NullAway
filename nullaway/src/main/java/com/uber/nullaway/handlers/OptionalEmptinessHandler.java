@@ -120,9 +120,11 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
     if (accessPath.getElements().size() == 1) {
       AccessPath.Root root = accessPath.getRoot();
-      if (!root.isReceiver() && (accessPath.getElements().get(0) instanceof Symbol.MethodSymbol)) {
+      if (!root.isReceiver()
+          && (accessPath.getElements().get(0).getJavaElement() instanceof Symbol.MethodSymbol)) {
         final Element e = root.getVarElement();
-        final Symbol.MethodSymbol g = (Symbol.MethodSymbol) accessPath.getElements().get(0);
+        final Symbol.MethodSymbol g =
+            (Symbol.MethodSymbol) accessPath.getElements().get(0).getJavaElement();
         return e.getKind().equals(ElementKind.LOCAL_VARIABLE)
             && optionalIsGetCall(g, state.getTypes());
       }
