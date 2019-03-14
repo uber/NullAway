@@ -30,6 +30,7 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -83,7 +84,11 @@ public class ContractHandler extends BaseNoOpHandler {
 
   @Override
   public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+      NullAway analysis,
+      ClassTree tree,
+      VisitorState state,
+      Symbol.ClassSymbol classSymbol,
+      Config config) {
     this.analysis = analysis;
     this.state = state;
   }

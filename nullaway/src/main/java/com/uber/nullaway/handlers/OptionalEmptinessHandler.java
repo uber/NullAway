@@ -31,6 +31,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -49,8 +50,6 @@ import org.checkerframework.dataflow.cfg.node.Node;
  */
 public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
-  private static String OPTIONAL_PATH = "java.util.Optional";
-
   @Nullable private Optional<Type> optionalType;
 
   @Override
@@ -65,10 +64,14 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
   @Override
   public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+      NullAway analysis,
+      ClassTree tree,
+      VisitorState state,
+      Symbol.ClassSymbol classSymbol,
+      Config config) {
     if (optionalType == null) {
       optionalType =
-          Optional.ofNullable(state.getTypeFromString(OPTIONAL_PATH))
+          Optional.ofNullable(state.getTypeFromString(config.getOptionalClassPath()))
               .map(state.getTypes()::erasure);
     }
   }

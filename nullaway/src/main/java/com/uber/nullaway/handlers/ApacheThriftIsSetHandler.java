@@ -29,6 +29,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -54,7 +55,11 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
 
   @Override
   public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+      NullAway analysis,
+      ClassTree tree,
+      VisitorState state,
+      Symbol.ClassSymbol classSymbol,
+      Config config) {
     if (tbaseType == null) {
       tbaseType =
           Optional.ofNullable(state.getTypeFromString(TBASE_NAME)).map(state.getTypes()::erasure);

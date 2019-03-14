@@ -34,6 +34,7 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -63,9 +64,14 @@ public interface Handler {
    * @param tree The AST node for the class being matched.
    * @param state The current visitor state.
    * @param classSymbol The class symbol for the class being matched.
+   * @param config The nullaway config.
    */
   void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol);
+      NullAway analysis,
+      ClassTree tree,
+      VisitorState state,
+      Symbol.ClassSymbol classSymbol,
+      Config config);
 
   /**
    * Called when NullAway first matches a particular method node.

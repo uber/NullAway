@@ -45,6 +45,7 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -203,7 +204,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
   private final Map<ReturnTree, Tree> returnToEnclosingMethodOrLambda =
       new LinkedHashMap<ReturnTree, Tree>();
 
-  // Similar to above, but mapping espression-bodies to their enclosing lambdas
+  // Similar to above, but mapping expression-bodies to their enclosing lambdas
   private final Map<ExpressionTree, LambdaExpressionTree> expressionBodyToFilterLambda =
       new LinkedHashMap<ExpressionTree, LambdaExpressionTree>();
 
@@ -213,7 +214,11 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
 
   @Override
   public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+      NullAway analysis,
+      ClassTree tree,
+      VisitorState state,
+      Symbol.ClassSymbol classSymbol,
+      Config config) {
     // Clear compilation unit specific state
     this.filterMethodOrLambdaSet.clear();
     this.observableOuterCallInChain.clear();

@@ -118,6 +118,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public String getOptionalClassPath() {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
   @Nullable
   public String getCastToNonNullMethod() {
     throw new IllegalStateException(error_msg);
