@@ -1234,7 +1234,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessHandlerWithCustomPathTest() {
+  public void OptionalEmptinessHandlerWithSingleCustomPathTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1243,7 +1243,7 @@ public class NullAwayTest {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
                 "-XepOpt:NullAway:CheckOptionalEmptiness=true",
-                "-XepOpt:NullAway:OptionalClassPath=com.google.common.base.Optional"))
+                "-XepOpt:NullAway:OptionalClassPaths=com.google.common.base.Optional,does.not.matter.Optional"))
         .addSourceLines(
             "TestNegative.java",
             "package com.uber;",
@@ -1271,10 +1271,31 @@ public class NullAwayTest {
         .addSourceLines(
             "TestPositive.java",
             "package com.uber;",
-            "import com.google.common.base.Optional;",
+            "import java.util.Optional;",
             "import javax.annotation.Nullable;",
             "import com.google.common.base.Function;",
             "public class TestPositive {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    // BUG: Diagnostic contains: Optional a can be empty",
+            "    a.get().toString();",
+            "  }",
+            "   public void lambdaConsumer(Function a){",
+            "        return;",
+            "   }",
+            "  void bar() {",
+            "     Optional<Object> b = Optional.empty();",
+            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "           lambdaConsumer(v -> b.get().toString());",
+            "    }",
+            "}")
+        .addSourceLines(
+            "TestPositive2.java",
+            "package com.uber;",
+            "import com.google.common.base.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "public class TestPositive2 {",
             "  void foo() {",
             "    Optional<Object> a = Optional.absent();",
             "    // BUG: Diagnostic contains: Optional a can be empty",

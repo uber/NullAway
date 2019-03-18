@@ -21,7 +21,6 @@
  */
 package com.uber.nullaway.handlers;
 
-import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -38,6 +37,8 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -50,7 +51,7 @@ import org.checkerframework.dataflow.cfg.node.Node;
  */
 public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
-  @Nullable private Optional<Type> optionalType;
+  @Nullable private Set<Optional<Type>> optionalTypes;
 
   @Override
   public boolean onOverrideMayBeNullExpr(
@@ -69,11 +70,15 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
       VisitorState state,
       Symbol.ClassSymbol classSymbol,
       Config config) {
-    if (optionalType == null) {
-      optionalType =
-          Optional.ofNullable(state.getTypeFromString(config.getOptionalClassPath()))
-              .map(state.getTypes()::erasure);
-    }
+    optionalTypes =
+        config
+            .getOptionalClassPaths()
+            .stream()
+            .map(
+                type ->
+                    Optional.ofNullable(state.getTypeFromString(type))
+                        .map(state.getTypes()::erasure))
+            .collect(Collectors.toSet());
   }
 
   @Override
@@ -144,20 +149,22 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   private boolean optionalIsPresentCall(Symbol.MethodSymbol symbol, Types types) {
-    Preconditions.checkNotNull(optionalType);
-    // noinspection ConstantConditions
-    return optionalType.isPresent()
-        && symbol.getSimpleName().toString().equals("isPresent")
-        && symbol.getParameters().length() == 0
-        && types.isSubtype(symbol.owner.type, optionalType.get());
+    for (Optional<Type> optionalType : optionalTypes) {
+      if (optionalType.isPresent()
+          && symbol.getSimpleName().toString().equals("isPresent")
+          && symbol.getParameters().length() == 0
+          && types.isSubtype(symbol.owner.type, optionalType.get())) return true;
+    }
+    return false;
   }
 
   private boolean optionalIsGetCall(Symbol.MethodSymbol symbol, Types types) {
-    Preconditions.checkNotNull(optionalType);
-    // noinspection ConstantConditions
-    return optionalType.isPresent()
-        && symbol.getSimpleName().toString().equals("get")
-        && symbol.getParameters().length() == 0
-        && types.isSubtype(symbol.owner.type, optionalType.get());
+    for (Optional<Type> optionalType : optionalTypes) {
+      if (optionalType.isPresent()
+          && symbol.getSimpleName().toString().equals("get")
+          && symbol.getParameters().length() == 0
+          && types.isSubtype(symbol.owner.type, optionalType.get())) return true;
+    }
+    return false;
   }
 }

@@ -70,7 +70,7 @@ public abstract class AbstractConfig implements Config {
 
   protected boolean checkOptionalEmptiness;
 
-  protected String optionalClassPath;
+  protected Set<String> optionalClassPaths;
 
   protected boolean assertsEnabled;
 
@@ -192,8 +192,8 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public String getOptionalClassPath() {
-    return optionalClassPath;
+  public Set<String> getOptionalClassPaths() {
+    return optionalClassPaths;
   }
 
   @Override
