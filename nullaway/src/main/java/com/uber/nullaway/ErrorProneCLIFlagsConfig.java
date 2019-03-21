@@ -56,7 +56,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_ACKNOWLEDGE_RESTRICTIVE =
       EP_FL_NAMESPACE + ":AcknowledgeRestrictiveAnnotations";
   static final String FL_CHECK_OPTIONAL_EMPTINESS = EP_FL_NAMESPACE + ":CheckOptionalEmptiness";
-  static final String FL_OPTIONAL_CLASS_PATHS = EP_FL_NAMESPACE + ":OptionalClassPaths";
+  static final String FL_OPTIONAL_CLASS_PATHS =
+      EP_FL_NAMESPACE + ":CheckOptionalEmptinessCustomClasses";
   static final String FL_SUPPRESS_COMMENT = EP_FL_NAMESPACE + ":AutoFixSuppressionComment";
   /** --- JarInfer configs --- */
   static final String FL_JI_ENABLED = EP_FL_NAMESPACE + ":JarInferEnabled";

@@ -45,7 +45,6 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
-import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -214,11 +213,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
 
   @Override
   public void onMatchTopLevelClass(
-      NullAway analysis,
-      ClassTree tree,
-      VisitorState state,
-      Symbol.ClassSymbol classSymbol,
-      Config config) {
+      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     // Clear compilation unit specific state
     this.filterMethodOrLambdaSet.clear();
     this.observableOuterCallInChain.clear();

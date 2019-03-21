@@ -34,7 +34,6 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
-import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -61,11 +60,7 @@ abstract class BaseNoOpHandler implements Handler {
 
   @Override
   public void onMatchTopLevelClass(
-      NullAway analysis,
-      ClassTree tree,
-      VisitorState state,
-      Symbol.ClassSymbol classSymbol,
-      Config config) {
+      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     // NoOp
   }
 

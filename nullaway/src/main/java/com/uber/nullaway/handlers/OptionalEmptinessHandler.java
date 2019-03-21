@@ -52,6 +52,11 @@ import org.checkerframework.dataflow.cfg.node.Node;
 public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
   @Nullable private Set<Optional<Type>> optionalTypes;
+  private final Config config;
+
+  OptionalEmptinessHandler(Config config) {
+    this.config = config;
+  }
 
   @Override
   public boolean onOverrideMayBeNullExpr(
@@ -65,11 +70,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
   @Override
   public void onMatchTopLevelClass(
-      NullAway analysis,
-      ClassTree tree,
-      VisitorState state,
-      Symbol.ClassSymbol classSymbol,
-      Config config) {
+      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     optionalTypes =
         config
             .getOptionalClassPaths()

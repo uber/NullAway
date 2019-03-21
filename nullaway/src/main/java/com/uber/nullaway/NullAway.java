@@ -1109,7 +1109,7 @@ public class NullAway extends BugChecker
       matchWithinClass = !isExcludedClass(classSymbol, state);
       // since we are processing a new top-level class, invalidate any cached
       // results for previous classes
-      handler.onMatchTopLevelClass(this, tree, state, classSymbol, config);
+      handler.onMatchTopLevelClass(this, tree, state, classSymbol);
       getNullnessAnalysis(state).invalidateCaches();
       initTree2PrevFieldInit.clear();
       class2Entities.clear();

@@ -51,7 +51,7 @@ public class Handlers {
     handlerListBuilder.add(new ContractHandler());
     handlerListBuilder.add(new ApacheThriftIsSetHandler());
     if (config.checkOptionalEmptiness()) {
-      handlerListBuilder.add(new OptionalEmptinessHandler());
+      handlerListBuilder.add(new OptionalEmptinessHandler(config));
     }
     return new CompositeHandler(handlerListBuilder.build());
   }
