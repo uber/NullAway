@@ -27,6 +27,7 @@ import static com.uber.nullaway.ErrorProneCLIFlagsConfig.FL_ANNOTATED_PACKAGES;
 
 import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /**
@@ -114,6 +115,11 @@ public class DummyOptionsConfig implements Config {
 
   @Override
   public boolean checkOptionalEmptiness() {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
+  public Set<String> getOptionalClassPaths() {
     throw new IllegalStateException(error_msg);
   }
 

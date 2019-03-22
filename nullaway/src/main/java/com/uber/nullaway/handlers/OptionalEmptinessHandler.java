@@ -21,7 +21,7 @@
  */
 package com.uber.nullaway.handlers;
 
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -31,12 +31,13 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
-import java.util.Optional;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -49,9 +50,12 @@ import org.checkerframework.dataflow.cfg.node.Node;
  */
 public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
-  private static String OPTIONAL_PATH = "java.util.Optional";
+  @Nullable private ImmutableSet<Type> optionalTypes;
+  private final Config config;
 
-  @Nullable private Optional<Type> optionalType;
+  OptionalEmptinessHandler(Config config) {
+    this.config = config;
+  }
 
   @Override
   public boolean onOverrideMayBeNullExpr(
@@ -66,11 +70,14 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
-    if (optionalType == null) {
-      optionalType =
-          Optional.ofNullable(state.getTypeFromString(OPTIONAL_PATH))
-              .map(state.getTypes()::erasure);
-    }
+    optionalTypes =
+        config
+            .getOptionalClassPaths()
+            .stream()
+            .map(state::getTypeFromString)
+            .filter(Objects::nonNull)
+            .map(state.getTypes()::erasure)
+            .collect(ImmutableSet.toImmutableSet());
   }
 
   @Override
@@ -143,20 +150,20 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   private boolean optionalIsPresentCall(Symbol.MethodSymbol symbol, Types types) {
-    Preconditions.checkNotNull(optionalType);
-    // noinspection ConstantConditions
-    return optionalType.isPresent()
-        && symbol.getSimpleName().toString().equals("isPresent")
-        && symbol.getParameters().length() == 0
-        && types.isSubtype(symbol.owner.type, optionalType.get());
+    for (Type optionalType : optionalTypes) {
+      if (symbol.getSimpleName().toString().equals("isPresent")
+          && symbol.getParameters().length() == 0
+          && types.isSubtype(symbol.owner.type, optionalType)) return true;
+    }
+    return false;
   }
 
   private boolean optionalIsGetCall(Symbol.MethodSymbol symbol, Types types) {
-    Preconditions.checkNotNull(optionalType);
-    // noinspection ConstantConditions
-    return optionalType.isPresent()
-        && symbol.getSimpleName().toString().equals("get")
-        && symbol.getParameters().length() == 0
-        && types.isSubtype(symbol.owner.type, optionalType.get());
+    for (Type optionalType : optionalTypes) {
+      if (symbol.getSimpleName().toString().equals("get")
+          && symbol.getParameters().length() == 0
+          && types.isSubtype(symbol.owner.type, optionalType)) return true;
+    }
+    return false;
   }
 }

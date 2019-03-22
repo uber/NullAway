@@ -24,6 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
+import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Provides configuration parameters for the nullability checker. */
@@ -114,6 +115,12 @@ public interface Config {
    *     optional is non-empty based on Optional.isPresent() call.
    */
   boolean checkOptionalEmptiness();
+
+  /**
+   * @return the paths for Optional class. The list always contains the path of {@link
+   *     java.util.Optional}.
+   */
+  Set<String> getOptionalClassPaths();
 
   /**
    * @return the fully qualified name of a method which will take a @Nullable version of a value and

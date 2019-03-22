@@ -204,7 +204,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
   private final Map<ReturnTree, Tree> returnToEnclosingMethodOrLambda =
       new LinkedHashMap<ReturnTree, Tree>();
 
-  // Similar to above, but mapping espression-bodies to their enclosing lambdas
+  // Similar to above, but mapping expression-bodies to their enclosing lambdas
   private final Map<ExpressionTree, LambdaExpressionTree> expressionBodyToFilterLambda =
       new LinkedHashMap<ExpressionTree, LambdaExpressionTree>();
 

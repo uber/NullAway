@@ -56,6 +56,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_ACKNOWLEDGE_RESTRICTIVE =
       EP_FL_NAMESPACE + ":AcknowledgeRestrictiveAnnotations";
   static final String FL_CHECK_OPTIONAL_EMPTINESS = EP_FL_NAMESPACE + ":CheckOptionalEmptiness";
+  static final String FL_OPTIONAL_CLASS_PATHS =
+      EP_FL_NAMESPACE + ":CheckOptionalEmptinessCustomClasses";
   static final String FL_SUPPRESS_COMMENT = EP_FL_NAMESPACE + ":AutoFixSuppressionComment";
   /** --- JarInfer configs --- */
   static final String FL_JI_ENABLED = EP_FL_NAMESPACE + ":JarInferEnabled";
@@ -141,6 +143,11 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
             getFlagStringSet(flags, FL_EXCLUDED_FIELD_ANNOT, DEFAULT_EXCLUDED_FIELD_ANNOT));
     castToNonNullMethod = flags.get(FL_CTNN_METHOD).orElse(null);
     autofixSuppressionComment = flags.get(FL_SUPPRESS_COMMENT).orElse("");
+    optionalClassPaths =
+        new ImmutableSet.Builder<String>()
+            .addAll(getFlagStringSet(flags, FL_OPTIONAL_CLASS_PATHS))
+            .add("java.util.Optional")
+            .build();
     if (autofixSuppressionComment.contains("\n")) {
       throw new IllegalStateException(
           "Invalid -XepOpt" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
