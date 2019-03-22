@@ -38,7 +38,6 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.Objects;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -72,14 +71,13 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     optionalTypes =
-        ImmutableSet.copyOf(
-            config
-                .getOptionalClassPaths()
-                .stream()
-                .map(state::getTypeFromString)
-                .filter(Objects::nonNull)
-                .map(state.getTypes()::erasure)
-                .collect(Collectors.toSet()));
+        config
+            .getOptionalClassPaths()
+            .stream()
+            .map(state::getTypeFromString)
+            .filter(Objects::nonNull)
+            .map(state.getTypes()::erasure)
+            .collect(ImmutableSet.toImmutableSet());
   }
 
   @Override
