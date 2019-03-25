@@ -154,7 +154,9 @@ public enum Nullness implements AbstractValue<Nullness> {
    * @return true if we treat annotName as a <code>@NonNull</code> annotation, false otherwise
    */
   public static boolean isNonNullAnnotation(String annotName) {
-    return annotName.endsWith(".NonNull") || annotName.endsWith(".NotNull");
+    return annotName.endsWith(".NonNull")
+        || annotName.endsWith(".NotNull")
+        || annotName.endsWith(".Nonnull");
   }
 
   /**

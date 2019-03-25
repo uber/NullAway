@@ -1255,16 +1255,11 @@ public class NullAway extends BugChecker
           handler.onUnannotatedInvocationGetNonNullPositions(
               this, state, methodSymbol, actualParams, ImmutableSet.of());
     }
+    List<VarSymbol> formalParams = methodSymbol.getParameters();
     if (nonNullPositions == null) {
       ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
       // compute which arguments are @NonNull
-      List<VarSymbol> formalParams = methodSymbol.getParameters();
       for (int i = 0; i < formalParams.size(); i++) {
-        if (i == formalParams.size() - 1 && methodSymbol.isVarArgs()) {
-          // eventually, handle this case properly.  I *think* a null
-          // array could be passed in incorrectly.  For now, punt
-          continue;
-        }
         VarSymbol param = formalParams.get(i);
         if (param.type.isPrimitive()) {
           Description unboxingCheck = doUnboxingCheck(state, actualParams.get(i));
@@ -1286,9 +1281,28 @@ public class NullAway extends BugChecker
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
     for (int argPos : nonNullPositions) {
+      ExpressionTree actual = null;
+      boolean mayActualBeNull = false;
+      if (argPos == formalParams.size() - 1 && methodSymbol.isVarArgs()) {
+        // Check all vararg actual arguments for nullability
+        if (actualParams.size() <= argPos) {
+          continue;
+        }
+        for (ExpressionTree arg : actualParams.subList(argPos, actualParams.size())) {
+          actual = arg;
+          mayActualBeNull = mayBeNullExpr(state, actual);
+          if (mayActualBeNull) {
+            break;
+          }
+        }
+      } else {
+        actual = actualParams.get(argPos);
+        mayActualBeNull = mayBeNullExpr(state, actual);
+      }
+      Preconditions.checkNotNull(
+          actual); // This statement should be unreachable without assigning actual beforehand
       // make sure we are passing a non-null value
-      ExpressionTree actual = actualParams.get(argPos);
-      if (mayBeNullExpr(state, actual)) {
+      if (mayActualBeNull) {
         String message =
             "passing @Nullable parameter '" + actual.toString() + "' where @NonNull is required";
         return errorBuilder.createErrorDescriptionForNullAssignment(
