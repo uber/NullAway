@@ -32,6 +32,7 @@ import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -487,10 +488,27 @@ public class NullAway extends BugChecker
     if (isOverriding || !exhaustiveOverride) {
       Symbol.MethodSymbol closestOverriddenMethod =
           getClosestOverriddenMethod(methodSymbol, state.getTypes());
-      if (closestOverriddenMethod == null) {
-        return Description.NO_MATCH;
+      if (closestOverriddenMethod != null) {
+        return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
       }
-      return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
+    }
+    // Check that var args (if any) is @Nullable, as NullAway doesn't currently support this case
+    if (methodSymbol.isVarArgs()) {
+      VarSymbol varArgsSymbol =
+          methodSymbol.getParameters().get(methodSymbol.getParameters().size() - 1);
+      if (Nullness.hasNullableAnnotation(varArgsSymbol)) {
+        String message =
+            "NullAway doesn't currently support @Nullable VarArgs. "
+                + "Consider removing the @Nullable annotation from "
+                + varArgsSymbol.toString()
+                + " in "
+                + methodSymbol.toString()
+                + " (this issue can cause other errors below, wherever the var args array is dereferenced)";
+        return errorBuilder.createErrorDescription(
+            new ErrorMessage(MessageTypes.NULLABLE_VARARGS_UNSUPPORTED, message),
+            state.getPath(),
+            buildDescription(tree));
+      }
     }
     return Description.NO_MATCH;
   }
@@ -1255,16 +1273,11 @@ public class NullAway extends BugChecker
           handler.onUnannotatedInvocationGetNonNullPositions(
               this, state, methodSymbol, actualParams, ImmutableSet.of());
     }
+    List<VarSymbol> formalParams = methodSymbol.getParameters();
     if (nonNullPositions == null) {
       ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
       // compute which arguments are @NonNull
-      List<VarSymbol> formalParams = methodSymbol.getParameters();
       for (int i = 0; i < formalParams.size(); i++) {
-        if (i == formalParams.size() - 1 && methodSymbol.isVarArgs()) {
-          // eventually, handle this case properly.  I *think* a null
-          // array could be passed in incorrectly.  For now, punt
-          continue;
-        }
         VarSymbol param = formalParams.get(i);
         if (param.type.isPrimitive()) {
           Description unboxingCheck = doUnboxingCheck(state, actualParams.get(i));
@@ -1286,9 +1299,28 @@ public class NullAway extends BugChecker
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
     for (int argPos : nonNullPositions) {
+      ExpressionTree actual = null;
+      boolean mayActualBeNull = false;
+      if (argPos == formalParams.size() - 1 && methodSymbol.isVarArgs()) {
+        // Check all vararg actual arguments for nullability
+        if (actualParams.size() <= argPos) {
+          continue;
+        }
+        for (ExpressionTree arg : actualParams.subList(argPos, actualParams.size())) {
+          actual = arg;
+          mayActualBeNull = mayBeNullExpr(state, actual);
+          if (mayActualBeNull) {
+            break;
+          }
+        }
+      } else {
+        actual = actualParams.get(argPos);
+        mayActualBeNull = mayBeNullExpr(state, actual);
+      }
+      // This statement should be unreachable without assigning actual beforehand:
+      Preconditions.checkNotNull(actual);
       // make sure we are passing a non-null value
-      ExpressionTree actual = actualParams.get(argPos);
-      if (mayBeNullExpr(state, actual)) {
+      if (mayActualBeNull) {
         String message =
             "passing @Nullable parameter '" + actual.toString() + "' where @NonNull is required";
         return errorBuilder.createErrorDescriptionForNullAssignment(
