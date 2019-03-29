@@ -1708,6 +1708,27 @@ public class NullAwayTest {
   }
 
   @Test
+  public void testNullableVarargs() {
+    compilationHelper
+        .addSourceLines(
+            "Utilities.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Utilities {",
+            " // BUG: Diagnostic contains: NullAway doesn't currently support @Nullable VarArgs",
+            " public static String takesNullableVarargs(Object o, @Nullable Object... others) {",
+            "  String s = o.toString() + \" \";",
+            "  // BUG: Diagnostic contains: enhanced-for expression others is @Nullable",
+            "  for (Object other : others) {",
+            "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
+            "  }",
+            "  return s;",
+            " }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testNonNullVarargsFromHandler() {
     String generatedAnnot =
         (Double.parseDouble(System.getProperty("java.specification.version")) >= 11)
