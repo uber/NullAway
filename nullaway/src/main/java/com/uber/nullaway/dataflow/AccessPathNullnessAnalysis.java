@@ -48,8 +48,6 @@ public final class AccessPathNullnessAnalysis {
 
   private final DataFlow dataFlow;
 
-  private static String OPTIONAL_PATH = "java.util.Optional";
-
   // Use #instance to instantiate
   private AccessPathNullnessAnalysis(
       Predicate<MethodInvocationNode> methodReturnsNonNull,
