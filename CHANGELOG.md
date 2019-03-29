@@ -1,6 +1,15 @@
 Changelog
 =========
 
+Version 0.7.0
+--------------
+* Improved (partial but sound-er) varargs support (#291).
+* Refactor for ErrorMessage class use (#284).
+* Custom path to Optional class for Optional emptiness handler (#288).
+* Add support for methods taking literal constant args in Access Paths. (#285).
+* Added Optional emptiness handler (#278).
+  `-XepOpt:NullAway:CheckOptionalEmptiness=true` to enable (experimental) support for `Optional` emptiness.
+
 Version 0.6.6
 ---------------
 This only adds a minor library fix supporting Guava's Preconditions.checkNotNull with an error message 
