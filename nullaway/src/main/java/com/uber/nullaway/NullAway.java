@@ -32,6 +32,7 @@ import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -503,8 +504,10 @@ public class NullAway extends BugChecker
                 + " in "
                 + methodSymbol.toString()
                 + " (this issue can cause other errors below, wherever the var args array is dereferenced)";
-        return createErrorDescription(
-            MessageTypes.NULLABLE_VARARGS_UNSUPPORTED, tree, message, state.getPath());
+        return errorBuilder.createErrorDescription(
+            new ErrorMessage(MessageTypes.NULLABLE_VARARGS_UNSUPPORTED, message),
+            state.getPath(),
+            buildDescription(tree));
       }
     }
     return Description.NO_MATCH;
@@ -1314,8 +1317,8 @@ public class NullAway extends BugChecker
         actual = actualParams.get(argPos);
         mayActualBeNull = mayBeNullExpr(state, actual);
       }
-      Preconditions.checkNotNull(
-          actual); // This statement should be unreachable without assigning actual beforehand
+      // This statement should be unreachable without assigning actual beforehand:
+      Preconditions.checkNotNull(actual);
       // make sure we are passing a non-null value
       if (mayActualBeNull) {
         String message =
