@@ -492,24 +492,6 @@ public class NullAway extends BugChecker
         return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
       }
     }
-    // Check that var args (if any) is @Nullable, as NullAway doesn't currently support this case
-    if (methodSymbol.isVarArgs()) {
-      VarSymbol varArgsSymbol =
-          methodSymbol.getParameters().get(methodSymbol.getParameters().size() - 1);
-      if (Nullness.hasNullableAnnotation(varArgsSymbol)) {
-        String message =
-            "NullAway doesn't currently support @Nullable VarArgs. "
-                + "Consider removing the @Nullable annotation from "
-                + varArgsSymbol.toString()
-                + " in "
-                + methodSymbol.toString()
-                + " (this issue can cause other errors below, wherever the var args array is dereferenced)";
-        return errorBuilder.createErrorDescription(
-            new ErrorMessage(MessageTypes.NULLABLE_VARARGS_UNSUPPORTED, message),
-            state.getPath(),
-            buildDescription(tree));
-      }
-    }
     return Description.NO_MATCH;
   }
 
