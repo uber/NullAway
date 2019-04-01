@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+import com.android.build.gradle.api.BaseVariant
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
@@ -39,6 +40,29 @@ android {
     lintOptions {
         abortOnError false
     }
+    
+    DomainObjectSet<BaseVariant> variants = getApplicationVariants() // or getLibraryVariants() in libraries
+    variants.addAll(getTestVariants())
+    variants.addAll(getUnitTestVariants())
+    variants.configureEach { variant ->
+        variant.getJavaCompileProvider().configure {
+            options.errorprone {
+                check("NullAway", CheckSeverity.ERROR)
+                option("NullAway:AnnotatedPackages", "com.uber")
+            }
+        }
+    }
+    
+    // If you want to disable NullAway in justs tests, you can do the below
+//    DomainObjectSet<BaseVariant> testVariants = getTestVariants()
+//    testVariants.addAll(getUnitTestVariants())
+//    testVariants.configureEach { variant ->
+//        variant.getJavaCompileProvider().configure {
+//            options.errorprone {
+//                check("NullAway", CheckSeverity.OFF)
+//            }
+//        }
+//    }
 }
 
 dependencies {
@@ -49,14 +73,3 @@ dependencies {
     testImplementation deps.test.junit4
 
 }
-
-tasks.withType(JavaCompile) {
-  // remove the if condition if you want to run NullAway on test code
-  if (!name.toLowerCase().contains("test")) {
-    options.errorprone {
-      check("NullAway", CheckSeverity.ERROR)
-      option("NullAway:AnnotatedPackages", "com.uber")
-    }
-  }
-}
-
