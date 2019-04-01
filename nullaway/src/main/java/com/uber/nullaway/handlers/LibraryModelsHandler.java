@@ -124,7 +124,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, context);
-    setConditionalArgumentNullness(thenUpdates, elseUpdates, node.getArguments(), callee, context);
+    setConditionalArgumentNullness(elseUpdates, node.getArguments(), callee, context);
     if (getOptLibraryModels(context).hasNonNullReturn(callee, types)) {
       return NullnessHint.FORCE_NONNULL;
     } else if (getOptLibraryModels(context).hasNullableReturn(callee, types)) {
@@ -135,7 +135,6 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   private void setConditionalArgumentNullness(
-      AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       List<Node> arguments,
       Symbol.MethodSymbol callee,

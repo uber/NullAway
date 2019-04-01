@@ -22,6 +22,7 @@ import android.support.v7.app.AppCompatActivity;
 import org.utilities.StringUtils;
 
 /** Sample activity. */
+@SuppressWarnings("UnusedVariable") // This is sample code
 public class MainActivity extends AppCompatActivity {
   @NonNull private Object mOnCreateInitialiedField;
 

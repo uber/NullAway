@@ -17,6 +17,7 @@ public class NullAwayAndroidTest {
 
   private CompilationTestHelper compilationHelper;
 
+  @SuppressWarnings("CheckReturnValue")
   @Before
   public void setup() {
     compilationHelper = CompilationTestHelper.newInstance(NullAway.class, getClass());
@@ -174,6 +175,7 @@ public class NullAwayAndroidTest {
   }
 
   /** Initialises the default android classes that are commonly used. */
+  @SuppressWarnings("CheckReturnValue")
   private void initialiseAndroidCoreClasses() {
     compilationHelper
         .addSourceFile("androidstubs/core/Context.java")

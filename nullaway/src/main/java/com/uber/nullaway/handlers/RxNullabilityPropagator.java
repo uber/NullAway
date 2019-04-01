@@ -234,7 +234,6 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
     Type receiverType = ASTHelpers.getReceiverType(tree);
     for (StreamTypeRecord streamType : RX_MODELS) {
       if (streamType.matchesType(receiverType, state)) {
-        String methodName = methodSymbol.toString();
         // Build observable call chain
         buildObservableCallChain(tree);
 
@@ -262,7 +261,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
             // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
             if (annonClassBody != null) {
               MaplikeMethodRecord methodRecord = streamType.getMaplikeMethodRecord(methodSymbol);
-              handleMapAnonClass(methodRecord, tree, annonClassBody, state);
+              handleMapAnonClass(methodRecord, tree, annonClassBody);
             }
           } else if (argTree instanceof LambdaExpressionTree) {
             observableCallToInnerMethodOrLambda.put(tree, (LambdaExpressionTree) argTree);
@@ -298,7 +297,6 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
       outerCallInChain = observableOuterCallInChain.get(outerCallInChain);
       // Check for a map method (which might be a pass-through method or the first method after a
       // pass-through chain)
-      MethodInvocationTree mapCallsite = observableOuterCallInChain.get(observableDotFilter);
       if (observableCallToInnerMethodOrLambda.containsKey(outerCallInChain)) {
         // Update mapToFilterMap
         Symbol.MethodSymbol mapMethod = ASTHelpers.getSymbol(outerCallInChain);
@@ -341,8 +339,7 @@ class RxNullabilityPropagator extends BaseNoOpHandler {
   private void handleMapAnonClass(
       MaplikeMethodRecord methodRecord,
       MethodInvocationTree observableDotMap,
-      ClassTree annonClassBody,
-      VisitorState state) {
+      ClassTree annonClassBody) {
     for (Tree t : annonClassBody.getMembers()) {
       if (t instanceof MethodTree
           && ((MethodTree) t).getName().toString().equals(methodRecord.getInnerMethodName())) {

@@ -16,7 +16,7 @@
 
 def versions = [
     checkerFramework       : "2.5.5",
-    errorProne             : "2.3.2",
+    errorProne             : "2.3.3",
     support                : "27.1.1",
     wala                   : "1.5.0-uber.1",
     commonscli             : "1.4",
