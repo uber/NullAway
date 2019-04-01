@@ -1715,7 +1715,6 @@ public class NullAwayTest {
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "public class Utilities {",
-            " // BUG: Diagnostic contains: NullAway doesn't currently support @Nullable VarArgs",
             " public static String takesNullableVarargs(Object o, @Nullable Object... others) {",
             "  String s = o.toString() + \" \";",
             "  // BUG: Diagnostic contains: enhanced-for expression others is @Nullable",
