@@ -16,7 +16,8 @@
 
 def versions = [
     checkerFramework       : "2.5.5",
-    errorProne             : "2.3.3",
+    errorProne             : "2.3.3", // The version of error prone running on this project
+    errorProneApi          : "2.3.1", // The version of error prone built against and shipped
     support                : "27.1.1",
     wala                   : "1.5.0-uber.1",
     commonscli             : "1.4",
@@ -30,7 +31,7 @@ def apt = [
 ]
 
 def build = [
-    errorProneCheckApi      : "com.google.errorprone:error_prone_check_api:${versions.errorProne}",
+    errorProneCheckApi      : "com.google.errorprone:error_prone_check_api:${versions.errorProneApi}",
     errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProne}",
     errorProneJavac         : "com.google.errorprone:javac:9+181-r4173-1",
     errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProne}",
