@@ -38,6 +38,7 @@ subprojects { project ->
         errorproneJavac deps.build.errorProneJavac
     }
     project.tasks.withType(JavaCompile) {
+        dependsOn(installGitHooks)
         options.compilerArgs += [
             "-Xlint:unchecked",
             "-Xlint:rawtypes",
