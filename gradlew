@@ -1,8 +1,5 @@
 #!/usr/bin/env sh
 
-# added manually
-./config/hooks/install-pre-commit
-
 ##############################################################################
 ##
 ##  Gradle start up script for UN*X
