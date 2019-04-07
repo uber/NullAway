@@ -72,6 +72,7 @@ import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.StatementTree;
+import com.sun.source.tree.SwitchTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.TryTree;
 import com.sun.source.tree.TypeCastTree;
@@ -167,7 +168,8 @@ public class NullAway extends BugChecker
         BugChecker.LambdaExpressionTreeMatcher,
         BugChecker.IdentifierTreeMatcher,
         BugChecker.MemberReferenceTreeMatcher,
-        BugChecker.CompoundAssignmentTreeMatcher {
+        BugChecker.CompoundAssignmentTreeMatcher,
+        BugChecker.SwitchTreeMatcher {
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
 
@@ -492,6 +494,29 @@ public class NullAway extends BugChecker
         return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
       }
     }
+    return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchSwitch(SwitchTree tree, VisitorState state) {
+    if (!matchWithinClass) {
+      return Description.NO_MATCH;
+    }
+
+    ExpressionTree switchExpression = tree.getExpression();
+    if (switchExpression instanceof ParenthesizedTree) {
+      switchExpression = ((ParenthesizedTree) switchExpression).getExpression();
+    }
+
+    if (mayBeNullExpr(state, switchExpression)) {
+      final String message = "switch expression " + switchExpression.toString() + " is @Nullable";
+      ErrorMessage errorMessage =
+          new ErrorMessage(MessageTypes.SWITCH_EXPRESSION_NULLABLE, message);
+
+      return errorBuilder.createErrorDescription(
+          errorMessage, switchExpression, buildDescription(switchExpression));
+    }
+
     return Description.NO_MATCH;
   }
 

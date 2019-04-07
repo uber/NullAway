@@ -100,6 +100,7 @@ public class ErrorBuilder {
         case RETURN_NULLABLE:
         case PASS_NULLABLE:
         case ASSIGN_FIELD_NULLABLE:
+        case SWITCH_EXPRESSION_NULLABLE:
           if (config.getCastToNonNullMethod() != null) {
             builder = addCastToNonNullFix(suggestTree, builder);
           } else {
