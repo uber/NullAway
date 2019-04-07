@@ -967,6 +967,57 @@ public class NullAwayTest {
   }
 
   @Test
+  public void supportSwitchExpression() {
+    compilationHelper
+        .addSourceLines(
+            "TestPositive.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "enum Level {",
+            " HIGH, MEDIUM, LOW }",
+            "class TestPositive {",
+            "   void foo(@Nullable Integer s) {",
+            "    // BUG: Diagnostic contains: switch expression s is @Nullable",
+            "    switch(s) {",
+            "      case 5: break;",
+            "    }",
+            "    String x = null;",
+            "    // BUG: Diagnostic contains: switch expression x is @Nullable",
+            "    switch(x) {",
+            "      default: break;",
+            "    }",
+            "    Level level = null;",
+            "    // BUG: Diagnostic contains: switch expression level is @Nullable",
+            "    switch (level) {",
+            "      default: break; }",
+            "    }",
+            "}")
+        .addSourceLines(
+            "TestNegative.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class TestNegative {",
+            "   void foo(Integer s, short y) {",
+            "    switch(s) {",
+            "      case 5: break;",
+            "    }",
+            "    String x = \"irrelevant\";",
+            "    switch(x) {",
+            "      default: break;",
+            "    }",
+            "    switch(y) {",
+            "      default: break;",
+            "    }",
+            "    Level level = Level.HIGH;",
+            "    switch (level) {",
+            "      default: break;",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void defaultPermissiveOnUnannotated() {
     compilationHelper
         .setArgs(
