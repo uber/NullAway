@@ -58,9 +58,6 @@ public class DefinitelyDerefedParams {
   private final ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg;
   private PrunedCFG<SSAInstruction, ISSABasicBlock> prunedCFG;
 
-  // used to resolve references to fields in putstatic instructions
-  private final IClassHierarchy cha;
-
   /** List of null test APIs and the parameter position. */
   private static final ImmutableMap<String, Integer> NULL_TEST_APIS =
       new ImmutableMap.Builder<String, Integer>()
@@ -95,7 +92,6 @@ public class DefinitelyDerefedParams {
     this.method = method;
     this.ir = ir;
     this.cfg = cfg;
-    this.cha = cha;
     prunedCFG = null;
   }
 

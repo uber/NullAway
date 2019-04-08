@@ -1,6 +1,10 @@
 Changelog
 =========
 
+Version 0.7.1
+--------------
+* Remove warning about @nullable var args (#296).
+
 Version 0.7.0
 --------------
 * Improved (partial but sound-er) varargs support (#291).

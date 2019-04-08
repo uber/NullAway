@@ -88,12 +88,10 @@ public class JarInferTest {
   /**
    * Run a unit test with a specified jar file.
    *
-   * @param testName An useful name for the unit test.
    * @param pkg Qualified package name.
    * @param jarPath Path to the target jar file.
    */
   private void testJARTemplate(
-      String testName,
       String pkg, // in dot syntax
       String jarPath // in dot syntax
       ) throws Exception {
@@ -224,7 +222,6 @@ public class JarInferTest {
   @Test
   public void toyJAR() throws Exception {
     testJARTemplate(
-        "toyJAR",
         "com.uber.nullaway.jarinfer.toys.unannotated",
         "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar");
   }

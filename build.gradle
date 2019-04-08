@@ -38,6 +38,7 @@ subprojects { project ->
         errorproneJavac deps.build.errorProneJavac
     }
     project.tasks.withType(JavaCompile) {
+        dependsOn(installGitHooks)
         options.compilerArgs += [
             "-Xlint:unchecked",
             "-Xlint:rawtypes",
@@ -70,4 +71,17 @@ subprojects { project ->
 
 googleJavaFormat {
   toolVersion = "1.6"
+}
+
+////////////////////////////////////////////////////////////////////////
+//
+//  Google Java Format pre-commit hook installation
+//
+
+tasks.register('installGitHooks', Copy) {
+	from(file('config/hooks/pre-commit-stub')) {
+		rename 'pre-commit-stub', 'pre-commit'
+	}
+	into file('.git/hooks')
+	fileMode 0777
 }
