@@ -507,7 +507,8 @@ public class NullAway extends BugChecker
     }
 
     if (mayBeNullExpr(state, switchExpression)) {
-      final String message = "switch expression " + switchExpression.toString() + " is @Nullable";
+      final String message =
+          "switch expression " + state.getSourceForNode(switchExpression) + " is @Nullable";
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.SWITCH_EXPRESSION_NULLABLE, message);
 
