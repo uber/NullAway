@@ -60,8 +60,8 @@ public class NullAwayAutoSuggestNoCastTest {
     BugCheckerRefactoringTestHelper bcr =
         BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
 
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
-    bcr.addInputLines(
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+        .addInputLines(
             "Test.java",
             "package com.uber;",
             "class Test {",
@@ -76,8 +76,8 @@ public class NullAwayAutoSuggestNoCastTest {
             "  @SuppressWarnings(\"NullAway\") /* PR #000000 */ Object test1() {",
             "    return null;",
             "  }",
-            "}");
-    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH); // Yes we can!
+            "}")
+        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH); // Yes we can!
   }
 
   @Test
@@ -86,8 +86,8 @@ public class NullAwayAutoSuggestNoCastTest {
         BugCheckerRefactoringTestHelper.newInstance(
             new NullAway(flagsNoAutoFixSuppressionComment), getClass());
 
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
-    bcr.addInputLines(
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+        .addInputLines(
             "Test.java",
             "package com.uber;",
             "class Test {",
@@ -102,8 +102,8 @@ public class NullAwayAutoSuggestNoCastTest {
             "  @SuppressWarnings(\"NullAway\") Object test1() {",
             "    return null;",
             "  }",
-            "}");
-    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+            "}")
+        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
   }
 
   @Test
@@ -112,8 +112,8 @@ public class NullAwayAutoSuggestNoCastTest {
         BugCheckerRefactoringTestHelper.newInstance(
             new NullAway(flagsNoAutoFixSuppressionComment), getClass());
 
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
-    bcr.addInputLines(
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+        .addInputLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
@@ -135,8 +135,8 @@ public class NullAwayAutoSuggestNoCastTest {
             "    () -> {",
             "      foo.toString();",
             "    };",
-            "}");
-    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+            "}")
+        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
   }
 
   @Test
@@ -145,8 +145,8 @@ public class NullAwayAutoSuggestNoCastTest {
         BugCheckerRefactoringTestHelper.newInstance(
             new NullAway(flagsNoAutoFixSuppressionComment), getClass());
 
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
-    bcr.addInputLines(
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+        .addInputLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
@@ -170,8 +170,8 @@ public class NullAwayAutoSuggestNoCastTest {
             "    () -> {",
             "      id(foo);",
             "    };",
-            "}");
-    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+            "}")
+        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
   }
 
   @Test
@@ -180,8 +180,8 @@ public class NullAwayAutoSuggestNoCastTest {
         BugCheckerRefactoringTestHelper.newInstance(
             new NullAway(flagsNoAutoFixSuppressionComment), getClass());
 
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
-    bcr.addInputLines(
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+        .addInputLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
@@ -205,8 +205,8 @@ public class NullAwayAutoSuggestNoCastTest {
             "      @SuppressWarnings(\"NullAway\")",
             "      int x = foo + 1;",
             "    };",
-            "}");
-    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+            "}")
+        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
   }
 
   @Test
@@ -215,8 +215,8 @@ public class NullAwayAutoSuggestNoCastTest {
         BugCheckerRefactoringTestHelper.newInstance(
             new NullAway(flagsNoAutoFixSuppressionComment), getClass());
 
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
-    bcr.addInputLines(
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+        .addInputLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
@@ -245,8 +245,8 @@ public class NullAwayAutoSuggestNoCastTest {
             "    @SuppressWarnings(\"NullAway\")",
             "    java.util.function.Function<Object,Integer> g = (x) -> { return foo + 1; };",
             "  }",
-            "}");
-    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+            "}")
+        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
   }
 
   @Test
@@ -255,8 +255,8 @@ public class NullAwayAutoSuggestNoCastTest {
         BugCheckerRefactoringTestHelper.newInstance(
             new NullAway(flagsNoAutoFixSuppressionComment), getClass());
 
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
-    bcr.addInputLines(
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+        .addInputLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
@@ -284,8 +284,8 @@ public class NullAwayAutoSuggestNoCastTest {
             "  static void bar() {",
             "    callFoo(Test::biz);",
             "  }",
-            "}");
-    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+            "}")
+        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
   }
 
   @Test
@@ -294,8 +294,8 @@ public class NullAwayAutoSuggestNoCastTest {
         BugCheckerRefactoringTestHelper.newInstance(
             new NullAway(flagsNoAutoFixSuppressionComment), getClass());
 
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
-    bcr.addInputLines(
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+        .addInputLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
@@ -325,7 +325,7 @@ public class NullAwayAutoSuggestNoCastTest {
             "  static void bar() {",
             "    callFoo(Test::biz);",
             "  }",
-            "}");
-    bcr.doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+            "}")
+        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
   }
 }

@@ -53,8 +53,8 @@ public class NullAwayAutoSuggestTest {
     BugCheckerRefactoringTestHelper bcr =
         BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
 
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
-    bcr.addInputLines(
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+        .addInputLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
@@ -64,8 +64,8 @@ public class NullAwayAutoSuggestTest {
             "    return castToNonNull(o);",
             "  }",
             "}")
-        .expectUnchanged();
-    bcr.doTest();
+        .expectUnchanged()
+        .doTest();
   }
 
   @Test
@@ -73,8 +73,8 @@ public class NullAwayAutoSuggestTest {
     BugCheckerRefactoringTestHelper bcr =
         BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
 
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
-    bcr.addInputLines(
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+        .addInputLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
@@ -92,8 +92,8 @@ public class NullAwayAutoSuggestTest {
             "  Object test1(@Nullable Object o) {",
             "    return castToNonNull(o);",
             "  }",
-            "}");
-    bcr.doTest();
+            "}")
+        .doTest();
   }
 
   @Test
@@ -101,8 +101,8 @@ public class NullAwayAutoSuggestTest {
     BugCheckerRefactoringTestHelper bcr =
         BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
 
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
-    bcr.addInputLines(
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+        .addInputLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
@@ -121,8 +121,8 @@ public class NullAwayAutoSuggestTest {
             "  Object test1(Object o) {",
             "    return o;",
             "  }",
-            "}");
-    bcr.doTest();
+            "}")
+        .doTest();
   }
 
   @Test
@@ -130,8 +130,8 @@ public class NullAwayAutoSuggestTest {
     BugCheckerRefactoringTestHelper bcr =
         BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
 
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath());
-    bcr.addInputLines(
+    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+        .addInputLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
@@ -166,7 +166,7 @@ public class NullAwayAutoSuggestTest {
             "  @SuppressWarnings(\"NullAway\") void test() throws Exception {",
             "    takesNonNull(execute(Test::doReturnNullable));",
             "  }",
-            "}");
-    bcr.doTest();
+            "}")
+        .doTest();
   }
 }

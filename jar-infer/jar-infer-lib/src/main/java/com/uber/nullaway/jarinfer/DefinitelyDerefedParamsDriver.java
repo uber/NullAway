@@ -145,7 +145,6 @@ public class DefinitelyDerefedParamsDriver {
     DEBUG = dbg;
     VERBOSE = vbs;
     long start = System.currentTimeMillis();
-    String firstInPath = inPaths.split(",")[0];
     Set<String> setInPaths = new HashSet<>(Arrays.asList(inPaths.split(",")));
     for (String inPath : setInPaths) {
       InputStream jarIS = null;

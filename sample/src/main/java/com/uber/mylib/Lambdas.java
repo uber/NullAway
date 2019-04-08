@@ -8,6 +8,7 @@ import java.util.function.Function;
 import javax.annotation.Nullable;
 
 /** Code that uses Java 8 lambdas */
+@SuppressWarnings("UnusedVariable") // This is sample code
 public class Lambdas {
 
   @FunctionalInterface

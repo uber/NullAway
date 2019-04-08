@@ -40,6 +40,7 @@ public class NullAwayTest {
 
   private CompilationTestHelper compilationHelper;
 
+  @SuppressWarnings("CheckReturnValue")
   @Before
   public void setup() {
     compilationHelper = CompilationTestHelper.newInstance(NullAway.class, getClass());

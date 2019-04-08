@@ -9,6 +9,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 
+@SuppressWarnings("UnusedVariable") // This is sample code
 public class MainFragment extends Fragment {
 
   @NonNull private Object mOnCreateInitialisedField;
