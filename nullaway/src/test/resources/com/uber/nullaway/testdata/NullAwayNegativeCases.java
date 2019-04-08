@@ -809,4 +809,12 @@ public class NullAwayNegativeCases {
       s.hashCode();
     }
   }
+
+  static int testNoCrashOnShifts(int n) {
+    int m = n << 2;
+    m <<= 2;
+    n >>= 1;
+    m >>>= 4;
+    return (n >>> 3) + m;
+  }
 }
