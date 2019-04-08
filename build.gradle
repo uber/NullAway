@@ -18,10 +18,10 @@ import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
   id "com.github.sherter.google-java-format" version "0.8"
-  id "net.ltgt.errorprone" version "0.6" apply false
+  id "net.ltgt.errorprone" version "0.7" apply false
   id "com.github.johnrengelman.shadow" version "2.0.4" apply false
   id 'com.github.kt3k.coveralls' version '2.6.3' apply false
-  id 'com.android.application' version '3.1.4' apply false
+  id 'com.android.application' version '3.3.1' apply false
 }
 
 repositories {

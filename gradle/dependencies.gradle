@@ -37,7 +37,6 @@ def build = [
     errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProne}",
     checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFramework}",
                                "org.checkerframework:javacutil:${versions.checkerFramework}"],
-    gradleErrorPronePlugin  : "net.ltgt.gradle:gradle-errorprone-plugin:0.0.16",
     guava                   : "com.google.guava:guava:22.0",
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
@@ -48,7 +47,7 @@ def build = [
     commonscli              : "commons-cli:commons-cli:${versions.commonscli}",
 
     // android stuff
-    buildToolsVersion: "28.0.2",
+    buildToolsVersion: "28.0.3",
     compileSdkVersion: 28,
     ci: "true" == System.getenv("CI"),
     minSdkVersion: 16,
