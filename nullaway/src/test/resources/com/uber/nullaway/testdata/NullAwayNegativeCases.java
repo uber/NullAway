@@ -809,4 +809,19 @@ public class NullAwayNegativeCases {
       s.hashCode();
     }
   }
+
+  static String boxAndDeref(Integer boxed) {
+    return boxed.toString();
+  }
+
+  static String testNoCrashOnUnboxedShifts(int n) {
+    Integer m = n << 2;
+    String s = "";
+    s += boxAndDeref(m);
+    s += boxAndDeref(m <<= 2);
+    s += boxAndDeref(n >>= 1);
+    s += boxAndDeref(m >>>= 4);
+    s += boxAndDeref(n >>> 3);
+    return s;
+  }
 }
