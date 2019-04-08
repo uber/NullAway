@@ -814,7 +814,7 @@ public class NullAwayNegativeCases {
     return boxed.toString();
   }
 
-  static String testNoCrashOnShifts(int n) {
+  static String testNoCrashOnUnboxedShifts(int n) {
     Integer m = n << 2;
     String s = "";
     s += boxAndDeref(m);
