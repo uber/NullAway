@@ -810,11 +810,18 @@ public class NullAwayNegativeCases {
     }
   }
 
-  static int testNoCrashOnShifts(int n) {
-    int m = n << 2;
-    m <<= 2;
-    n >>= 1;
-    m >>>= 4;
-    return (n >>> 3) + m;
+  static String boxAndDeref(Integer boxed) {
+    return boxed.toString();
+  }
+
+  static String testNoCrashOnShifts(int n) {
+    Integer m = n << 2;
+    String s = "";
+    s += boxAndDeref(m);
+    s += boxAndDeref(m <<= 2);
+    s += boxAndDeref(n >>= 1);
+    s += boxAndDeref(m >>>= 4);
+    s += boxAndDeref(n >>> 3);
+    return s;
   }
 }
