@@ -1,18 +1,26 @@
 Changelog
 =========
 
+Version 0.7.2
+-------------
+* Install GJF hook using a gradle task, rather than a gradlew hack (#298). 
+* Nullable switch expression support (#300).
+* Upgrade to Error Prone 2.3.3 (#295).
+Update Gradle, Error Prone plugin, and Android Gradle Plugin (#294).
+Add support for UNSIGNED_RIGHT_SHIFT (#303).
+
 Version 0.7.1
 --------------
 * Remove warning about @nullable var args (#296).
 
 Version 0.7.0
 --------------
+* Added Optional emptiness handler (#278).
+  `-XepOpt:NullAway:CheckOptionalEmptiness=true` to enable (experimental) support for `Optional` emptiness.
 * Improved (partial but sound-er) varargs support (#291).
 * Refactor for ErrorMessage class use (#284).
 * Custom path to Optional class for Optional emptiness handler (#288).
 * Add support for methods taking literal constant args in Access Paths. (#285).
-* Added Optional emptiness handler (#278).
-  `-XepOpt:NullAway:CheckOptionalEmptiness=true` to enable (experimental) support for `Optional` emptiness.
 
 Version 0.6.6
 ---------------
