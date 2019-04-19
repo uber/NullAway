@@ -22,72 +22,79 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.Nullness.NONNULL;
+
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Name;
-import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 
-import static com.uber.nullaway.Nullness.NONNULL;
-
 public class AssertionHandler extends BaseNoOpHandler {
-    public AssertionHandler() {
-        super();
+  public AssertionHandler() {
+    super();
+  }
+
+  @Override
+  public NullnessHint onDataflowVisitMethodInvocation(
+      MethodInvocationNode node,
+      Types types,
+      Context context,
+      AccessPathNullnessPropagation.SubNodeValues inputs,
+      AccessPathNullnessPropagation.Updates thenUpdates,
+      AccessPathNullnessPropagation.Updates elseUpdates,
+      AccessPathNullnessPropagation.Updates bothUpdates) {
+    Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
+    if (callee == null) {
+      return NullnessHint.UNKNOWN;
     }
 
-    @Override
-    public NullnessHint onDataflowVisitMethodInvocation(
-            MethodInvocationNode node,
-            Types types,
-            Context context,
-            AccessPathNullnessPropagation.SubNodeValues inputs,
-            AccessPathNullnessPropagation.Updates thenUpdates,
-            AccessPathNullnessPropagation.Updates elseUpdates,
-            AccessPathNullnessPropagation.Updates bothUpdates
-    ) {
-        Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
-        if (callee == null) {
-            return NullnessHint.UNKNOWN;
-        }
-
-        // TODO(ragr@): Do we need a lock here?
-        // If the NullAway analysis could call this method in parallel, then we need to lock this.
-        if (isNotNull == null) {
-            isNotNull = callee.name.table.fromString(IS_NOT_NULL_METHOD);
-            isNotNullOwner = callee.name.table.fromString(IS_NOT_NULL_OWNER);
-            assertThat = callee.name.table.fromString(ASSERT_THAT_METHOD);
-            assertThatOwner = callee.name.table.fromString(ASSERT_THAT_OWNER);
-        }
-
-        if (callee.name.equals(isNotNull) && callee.owner.getQualifiedName().equals(isNotNullOwner)) {
-            Node receiver = node.getTarget().getReceiver();
-            if (receiver instanceof MethodInvocationNode) {
-                MethodInvocationNode receiver_method = (MethodInvocationNode) receiver;
-                Symbol.MethodSymbol receiver_symbol = ASTHelpers.getSymbol(receiver_method.getTree());
-                if (receiver_symbol.name.equals(assertThat) && receiver_symbol.owner.getQualifiedName().equals(assertThatOwner)) {
-                    Node arg = receiver_method.getArgument(0);
-                    AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(arg);
-                    if (ap != null) {
-                        bothUpdates.set(ap, NONNULL);
-                    }
-                }
-            }
-        }
-        return NullnessHint.UNKNOWN;
+    if (!areMethodNamesInitialized()) {
+      initializeMethodNames(callee);
     }
 
-    private static final String IS_NOT_NULL_METHOD = "isNotNull";
-    private static final String IS_NOT_NULL_OWNER = "com.google.common.truth.Subject";
-    private static final String ASSERT_THAT_METHOD = "assertThat";
-    private static final String ASSERT_THAT_OWNER = "com.google.common.truth.Truth";
+    if (callee.name.equals(isNotNull) && callee.owner.getQualifiedName().equals(isNotNullOwner)) {
+      Node receiver = node.getTarget().getReceiver();
+      if (receiver instanceof MethodInvocationNode) {
+        MethodInvocationNode receiver_method = (MethodInvocationNode) receiver;
+        Symbol.MethodSymbol receiver_symbol = ASTHelpers.getSymbol(receiver_method.getTree());
+        if (receiver_symbol.name.equals(assertThat)
+            && receiver_symbol.owner.getQualifiedName().equals(assertThatOwner)) {
+          Node arg = receiver_method.getArgument(0);
+          AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(arg);
+          if (ap != null) {
+            bothUpdates.set(ap, NONNULL);
+          }
+        }
+      }
+    }
+    return NullnessHint.UNKNOWN;
+  }
 
-    private Name isNotNull;
-    private Name isNotNullOwner;
-    private Name assertThat;
-    private Name assertThatOwner;
+  private boolean areMethodNamesInitialized() {
+    return isNotNull != null;
+  }
+
+  private void initializeMethodNames(Symbol.MethodSymbol methodSymbol) {
+    // TODO(ragr@): Do we need a lock here?
+    // If the NullAway analysis could call this method in parallel, then we need to lock this.
+    isNotNull = methodSymbol.name.table.fromString(IS_NOT_NULL_METHOD);
+    isNotNullOwner = methodSymbol.name.table.fromString(IS_NOT_NULL_OWNER);
+    assertThat = methodSymbol.name.table.fromString(ASSERT_THAT_METHOD);
+    assertThatOwner = methodSymbol.name.table.fromString(ASSERT_THAT_OWNER);
+  }
+
+  private static final String IS_NOT_NULL_METHOD = "isNotNull";
+  private static final String IS_NOT_NULL_OWNER = "com.google.common.truth.Subject";
+  private static final String ASSERT_THAT_METHOD = "assertThat";
+  private static final String ASSERT_THAT_OWNER = "com.google.common.truth.Truth";
+
+  private Name isNotNull;
+  private Name isNotNullOwner;
+  private Name assertThat;
+  private Name assertThatOwner;
 }
