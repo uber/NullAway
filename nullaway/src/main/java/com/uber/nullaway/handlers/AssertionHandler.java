@@ -34,6 +34,7 @@ import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 
+/** This Handler deals with assertions which ensure that their arguments cannot be null. */
 public class AssertionHandler extends BaseNoOpHandler {
   public AssertionHandler() {
     super();
@@ -57,13 +58,17 @@ public class AssertionHandler extends BaseNoOpHandler {
       initializeMethodNames(callee);
     }
 
-    if (callee.name.equals(isNotNull) && callee.owner.getQualifiedName().equals(isNotNullOwner)) {
+    /**
+     * Look for statements of the form: assertThat(A).isNotNull()
+     *
+     * <p>A will not be NULL after this statement.
+     */
+    if (isMethodIsNotNull(callee)) {
       Node receiver = node.getTarget().getReceiver();
       if (receiver instanceof MethodInvocationNode) {
         MethodInvocationNode receiver_method = (MethodInvocationNode) receiver;
         Symbol.MethodSymbol receiver_symbol = ASTHelpers.getSymbol(receiver_method.getTree());
-        if (receiver_symbol.name.equals(assertThat)
-            && receiver_symbol.owner.getQualifiedName().equals(assertThatOwner)) {
+        if (isMethodAssertThat(receiver_symbol)) {
           Node arg = receiver_method.getArgument(0);
           AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(arg);
           if (ap != null) {
@@ -73,6 +78,20 @@ public class AssertionHandler extends BaseNoOpHandler {
       }
     }
     return NullnessHint.UNKNOWN;
+  }
+
+  private boolean isMethodIsNotNull(Symbol.MethodSymbol methodSymbol) {
+    return matchesMethod(methodSymbol, isNotNull, isNotNullOwner);
+  }
+
+  private boolean isMethodAssertThat(Symbol.MethodSymbol methodSymbol) {
+    return matchesMethod(methodSymbol, assertThat, assertThatOwner);
+  }
+
+  private boolean matchesMethod(
+      Symbol.MethodSymbol methodSymbol, Name toMatchMethodName, Name toMatchOwnerName) {
+    return methodSymbol.name.equals(toMatchMethodName)
+        && methodSymbol.owner.getQualifiedName().equals(toMatchOwnerName);
   }
 
   private boolean areMethodNamesInitialized() {
@@ -86,12 +105,23 @@ public class AssertionHandler extends BaseNoOpHandler {
     assertThatOwner = methodSymbol.name.table.fromString(ASSERT_THAT_OWNER);
   }
 
+  /**
+   * Strings corresponding to the names of the methods (and their owners) used to identify
+   * assertions in this handler.
+   */
   private static final String IS_NOT_NULL_METHOD = "isNotNull";
+
   private static final String IS_NOT_NULL_OWNER = "com.google.common.truth.Subject";
   private static final String ASSERT_THAT_METHOD = "assertThat";
   private static final String ASSERT_THAT_OWNER = "com.google.common.truth.Truth";
 
+  /**
+   * Names of the methods (and their owners) used to identify assertions in this handler. Name used
+   * here refers to com.sun.tools.javac.util.Name. Comparing methods using Names is faster than
+   * comparing using strings.
+   */
   private Name isNotNull;
+
   private Name isNotNullOwner;
   private Name assertThat;
   private Name assertThatOwner;
