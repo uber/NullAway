@@ -79,9 +79,7 @@ public class AssertionHandler extends BaseNoOpHandler {
     return isNotNull != null;
   }
 
-  private void initializeMethodNames(Symbol.MethodSymbol methodSymbol) {
-    // TODO(ragr@): Do we need a lock here?
-    // If the NullAway analysis could call this method in parallel, then we need to lock this.
+  private synchronized void initializeMethodNames(Symbol.MethodSymbol methodSymbol) {
     isNotNull = methodSymbol.name.table.fromString(IS_NOT_NULL_METHOD);
     isNotNullOwner = methodSymbol.name.table.fromString(IS_NOT_NULL_OWNER);
     assertThat = methodSymbol.name.table.fromString(ASSERT_THAT_METHOD);
