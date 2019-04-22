@@ -968,23 +968,6 @@ public class NullAwayTest {
   }
 
   @Test
-  public void supportAssertThatIsNotNull_String() {
-    compilationHelper
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  private void foo(@Nullable String s) {",
-            "    com.google.common.truth.Truth.assertThat(s).isNotNull();",
-            "    s.toString();",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
   public void supportAssertThatIsNotNull_Object() {
     compilationHelper
         .addSourceLines(
@@ -1003,7 +986,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void supportAssertThatIsNotNull_Array() {
+  public void supportAssertThatIsNotNull_String() {
     compilationHelper
         .addSourceLines(
             "Test.java",
@@ -1011,9 +994,9 @@ public class NullAwayTest {
             "import java.util.Objects;",
             "import javax.annotation.Nullable;",
             "class Test {",
-            "  private void foo(@Nullable int[] i) {",
-            "    com.google.common.truth.Truth.assertThat(i).isNotNull();",
-            "    i.toString();",
+            "  private void foo(@Nullable String s) {",
+            "    com.google.common.truth.Truth.assertThat(s).isNotNull();",
+            "    s.toString();",
             "  }",
             "}")
         .doTest();

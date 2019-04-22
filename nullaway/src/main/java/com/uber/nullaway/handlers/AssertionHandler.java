@@ -36,6 +36,22 @@ import org.checkerframework.dataflow.cfg.node.Node;
 
 /** This Handler deals with assertions which ensure that their arguments cannot be null. */
 public class AssertionHandler extends BaseNoOpHandler {
+
+  // Strings corresponding to the names of the methods (and their owners) used to identify
+  // assertions in this handler.
+  private static final String IS_NOT_NULL_METHOD = "isNotNull";
+  private static final String IS_NOT_NULL_OWNER = "com.google.common.truth.Subject";
+  private static final String ASSERT_THAT_METHOD = "assertThat";
+  private static final String ASSERT_THAT_OWNER = "com.google.common.truth.Truth";
+
+  // Names of the methods (and their owners) used to identify assertions in this handler. Name used
+  // here refers to com.sun.tools.javac.util.Name. Comparing methods using Names is faster than
+  // comparing using strings.
+  private Name isNotNull;
+  private Name isNotNullOwner;
+  private Name assertThat;
+  private Name assertThatOwner;
+
   public AssertionHandler() {
     super();
   }
@@ -58,11 +74,8 @@ public class AssertionHandler extends BaseNoOpHandler {
       initializeMethodNames(callee);
     }
 
-    /**
-     * Look for statements of the form: assertThat(A).isNotNull()
-     *
-     * <p>A will not be NULL after this statement.
-     */
+    // Look for statements of the form: assertThat(A).isNotNull()
+    // A will not be NULL after this statement.
     if (isMethodIsNotNull(callee)) {
       Node receiver = node.getTarget().getReceiver();
       if (receiver instanceof MethodInvocationNode) {
@@ -98,31 +111,10 @@ public class AssertionHandler extends BaseNoOpHandler {
     return isNotNull != null;
   }
 
-  private synchronized void initializeMethodNames(Symbol.MethodSymbol methodSymbol) {
+  private void initializeMethodNames(Symbol.MethodSymbol methodSymbol) {
     isNotNull = methodSymbol.name.table.fromString(IS_NOT_NULL_METHOD);
     isNotNullOwner = methodSymbol.name.table.fromString(IS_NOT_NULL_OWNER);
     assertThat = methodSymbol.name.table.fromString(ASSERT_THAT_METHOD);
     assertThatOwner = methodSymbol.name.table.fromString(ASSERT_THAT_OWNER);
   }
-
-  /**
-   * Strings corresponding to the names of the methods (and their owners) used to identify
-   * assertions in this handler.
-   */
-  private static final String IS_NOT_NULL_METHOD = "isNotNull";
-
-  private static final String IS_NOT_NULL_OWNER = "com.google.common.truth.Subject";
-  private static final String ASSERT_THAT_METHOD = "assertThat";
-  private static final String ASSERT_THAT_OWNER = "com.google.common.truth.Truth";
-
-  /**
-   * Names of the methods (and their owners) used to identify assertions in this handler. Name used
-   * here refers to com.sun.tools.javac.util.Name. Comparing methods using Names is faster than
-   * comparing using strings.
-   */
-  private Name isNotNull;
-
-  private Name isNotNullOwner;
-  private Name assertThat;
-  private Name assertThatOwner;
 }
