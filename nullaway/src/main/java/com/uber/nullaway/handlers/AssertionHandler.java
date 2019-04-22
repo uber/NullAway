@@ -52,10 +52,6 @@ public class AssertionHandler extends BaseNoOpHandler {
   private Name assertThat;
   private Name assertThatOwner;
 
-  public AssertionHandler() {
-    super();
-  }
-
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
@@ -71,7 +67,7 @@ public class AssertionHandler extends BaseNoOpHandler {
     }
 
     if (!areMethodNamesInitialized()) {
-      initializeMethodNames(callee);
+      initializeMethodNames(callee.name.table);
     }
 
     // Look for statements of the form: assertThat(A).isNotNull()
@@ -111,10 +107,10 @@ public class AssertionHandler extends BaseNoOpHandler {
     return isNotNull != null;
   }
 
-  private void initializeMethodNames(Symbol.MethodSymbol methodSymbol) {
-    isNotNull = methodSymbol.name.table.fromString(IS_NOT_NULL_METHOD);
-    isNotNullOwner = methodSymbol.name.table.fromString(IS_NOT_NULL_OWNER);
-    assertThat = methodSymbol.name.table.fromString(ASSERT_THAT_METHOD);
-    assertThatOwner = methodSymbol.name.table.fromString(ASSERT_THAT_OWNER);
+  private void initializeMethodNames(Name.Table table) {
+    isNotNull = table.fromString(IS_NOT_NULL_METHOD);
+    isNotNullOwner = table.fromString(IS_NOT_NULL_OWNER);
+    assertThat = table.fromString(ASSERT_THAT_METHOD);
+    assertThatOwner = table.fromString(ASSERT_THAT_OWNER);
   }
 }
