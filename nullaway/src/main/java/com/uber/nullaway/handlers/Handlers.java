@@ -46,7 +46,9 @@ public class Handlers {
     if (config.isJarInferEnabled()) {
       handlerListBuilder.add(new InferredJARModelsHandler(config));
     }
-    handlerListBuilder.add(new AssertionHandler());
+    if (config.handleTestAssertionLibraries()) {
+      handlerListBuilder.add(new AssertionHandler());
+    }
     handlerListBuilder.add(new LibraryModelsHandler());
     handlerListBuilder.add(new RxNullabilityPropagator());
     handlerListBuilder.add(new ContractHandler());

@@ -970,6 +970,12 @@ public class NullAwayTest {
   @Test
   public void supportAssertThatIsNotNull_Object() {
     compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -988,6 +994,12 @@ public class NullAwayTest {
   @Test
   public void supportAssertThatIsNotNull_String() {
     compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -997,6 +1009,31 @@ public class NullAwayTest {
             "  private void foo(@Nullable String s) {",
             "    com.google.common.truth.Truth.assertThat(s).isNotNull();",
             "    s.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void doNotSupportAssertThatWhenDisabled() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=false"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  private void foo(@Nullable Object o) {",
+            "    com.google.common.truth.Truth.assertThat(o).isNotNull();",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    o.toString();",
             "  }",
             "}")
         .doTest();

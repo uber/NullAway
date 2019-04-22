@@ -117,6 +117,15 @@ public interface Config {
   boolean checkOptionalEmptiness();
 
   /**
+   * @return true if AssertionHandler should be enabled. In the absence of this handler, checks in
+   *     tests using assertion libraries are ignored. So, any deference of an object that follows
+   *     such checks are still considered a potential dereference of null. When this handler is
+   *     enabled, it understands checks using assertion libraries and reasons about the following
+   *     code such that any deference of objects that have been checked will never be null.
+   */
+  boolean handleTestAssertionLibraries();
+
+  /**
    * @return the paths for Optional class. The list always contains the path of {@link
    *     java.util.Optional}.
    */
