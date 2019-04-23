@@ -300,6 +300,12 @@ public class NullAwayRxSupportNegativeCases {
     return observable.filter(s -> s != null && perhaps()).map(s -> s.length());
   }
 
+  @Nullable public NullableContainer xd;
+
+  private Observable<String> filterThenMapTwoGets(Observable<Void> observable) {
+    return observable.filter(s -> xd != null && xd.get() != null).map(s -> xd.get().toString());
+  }
+
   private Observable<Integer> filterThenDoOnNextThenMapLambdas(Observable<String> observable) {
     return observable
         .filter(s -> s != null && perhaps())

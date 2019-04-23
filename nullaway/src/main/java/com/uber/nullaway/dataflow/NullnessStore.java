@@ -185,6 +185,8 @@ public class NullnessStore implements Store<NullnessStore> {
     NullnessStore.Builder nullnessBuilder = NullnessStore.empty().toBuilder();
     for (AccessPath ap : contents.keySet()) {
       if (ap.getRoot().isReceiver()) {
+        AccessPath newAP = new AccessPath(new AccessPath.Root(), ap.getElements());
+        nullnessBuilder.setInformation(newAP, contents.get(ap));
         continue;
       }
       Element varElement = ap.getRoot().getVarElement();
