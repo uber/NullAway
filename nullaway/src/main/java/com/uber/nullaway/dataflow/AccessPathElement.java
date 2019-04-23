@@ -61,7 +61,7 @@ public final class AccessPathElement {
         + "javaElement="
         + javaElement.toString()
         + ", constantArguments="
-        + Arrays.deepToString(constantArguments.toArray())
+        + Arrays.deepToString(constantArguments != null ? constantArguments.toArray() : null)
         + '}';
   }
 }
