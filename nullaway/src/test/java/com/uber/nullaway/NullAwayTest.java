@@ -1552,6 +1552,67 @@ public class NullAwayTest {
   }
 
   @Test
+  public void OptionalEmptinessRxPositiveTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber,io.reactivex",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "TestPositive.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import io.reactivex.Observable;",
+            "public class TestPositive {",
+            "  private static boolean perhaps() { return Math.random() > 0.5; }",
+            "  void foo(Observable<Optional<String>> observable) {",
+            "     observable",
+            "           .filter(optional -> optional.isPresent() || perhaps())",
+            "           // BUG: Diagnostic contains: Optional optional can be empty",
+            "           .map(optional -> optional.get().toString());",
+            "     observable",
+            "           .filter(optional -> optional.isPresent() || perhaps())",
+            "           // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull",
+            "           .map(optional -> optional.get())",
+            "           .map(irr -> irr.toString());",
+            "     }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void OptionalEmptinessRxNegativeTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "TestNegative.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import io.reactivex.Observable;",
+            "public class TestNegative {",
+            "  private static boolean perhaps() { return Math.random() > 0.5; }",
+            "  void foo(Observable<Optional<String>> observable) {",
+            "     observable",
+            "           .filter(optional -> optional.isPresent() && perhaps())",
+            "           .map(optional -> optional.get().toString());",
+            "     observable",
+            "           .filter(optional -> optional.isPresent() && perhaps())",
+            "           .map(optional -> optional.get());",
+            "     }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testCastToNonNull() {
     compilationHelper
         .addSourceFile("Util.java")
