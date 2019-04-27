@@ -639,12 +639,14 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, retExpr)) {
-      String message = "returning @Nullable expression from method with @NonNull return type";
+      final ErrorMessage errorMessage =
+          new ErrorMessage(
+              MessageTypes.RETURN_NULLABLE,
+              "returning @Nullable expression from method with @NonNull return type");
+      handler.onPrepareErrorMessage(retExpr, state, errorMessage);
+
       return errorBuilder.createErrorDescriptionForNullAssignment(
-          new ErrorMessage(MessageTypes.RETURN_NULLABLE, message),
-          retExpr,
-          state.getPath(),
-          buildDescription(tree));
+          errorMessage, retExpr, state.getPath(), buildDescription(tree));
     }
     return Description.NO_MATCH;
   }
