@@ -1030,10 +1030,74 @@ public class NullAwayTest {
             "import java.util.Objects;",
             "import javax.annotation.Nullable;",
             "class Test {",
-            "  private void foo(@Nullable Object o) {",
-            "    com.google.common.truth.Truth.assertThat(o).isNotNull();",
+            "  private void foo(@Nullable Object a, @Nullable Object b, @Nullable Object c) {",
+            "    com.google.common.truth.Truth.assertThat(a).isNotNull();",
             "    // BUG: Diagnostic contains: dereferenced expression",
-            "    o.toString();",
+            "    a.toString();",
+            "    org.hamcrest.MatcherAssert.assertThat(b, org.hamcrest.Matchers.is("
+                + "org.hamcrest.Matchers.notNullValue()));",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    b.toString();",
+            "    org.junit.Assert.assertThat(c, org.hamcrest.Matchers.is("
+                + "org.hamcrest.Matchers.notNullValue()));",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    c.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportHamcrestAssertThatIsNotNull_Object() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  private void foo(@Nullable Object a, @Nullable Object b) {",
+            "    org.hamcrest.MatcherAssert.assertThat(a, org.hamcrest.Matchers.is("
+                + "org.hamcrest.Matchers.notNullValue()));",
+            "    a.toString();",
+            "    org.hamcrest.MatcherAssert.assertThat(b, org.hamcrest.Matchers.is("
+                + "org.hamcrest.Matchers.not(org.hamcrest.Matchers.nullValue())));",
+            "    b.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportJunitAssertThatIsNotNull_Object() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  private void foo(@Nullable Object a, @Nullable Object b) {",
+            "    org.junit.Assert.assertThat(a, org.hamcrest.Matchers.is("
+                + "org.hamcrest.Matchers.notNullValue()));",
+            "    a.toString();",
+            "    org.junit.Assert.assertThat(b, org.hamcrest.Matchers.is("
+                + "org.hamcrest.Matchers.not(org.hamcrest.Matchers.nullValue())));",
+            "    b.toString();",
             "  }",
             "}")
         .doTest();
