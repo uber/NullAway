@@ -66,7 +66,7 @@ public class AssertionHandler extends BaseNoOpHandler {
   private Name hamcrestAssertClass;
   private Name junitAssertClass;
 
-  // Names for matchers.
+  // Names for hamcrest matchers.
   private Name matchersClass;
   private Name isMatcher;
   private Name notMatcher;
