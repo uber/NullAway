@@ -968,7 +968,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void supportAssertThatIsNotNull_Object() {
+  public void supportTruthAssertThatIsNotNull_Object() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -982,9 +982,10 @@ public class NullAwayTest {
             "import java.lang.Object;",
             "import java.util.Objects;",
             "import javax.annotation.Nullable;",
+            "import static com.google.common.truth.Truth.assertThat;",
             "class Test {",
             "  private void foo(@Nullable Object o) {",
-            "    com.google.common.truth.Truth.assertThat(o).isNotNull();",
+            "    assertThat(o).isNotNull();",
             "    o.toString();",
             "  }",
             "}")
@@ -992,7 +993,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void supportAssertThatIsNotNull_String() {
+  public void supportTruthAssertThatIsNotNull_String() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1005,9 +1006,10 @@ public class NullAwayTest {
             "package com.uber;",
             "import java.util.Objects;",
             "import javax.annotation.Nullable;",
+            "import static com.google.common.truth.Truth.assertThat;",
             "class Test {",
             "  private void foo(@Nullable String s) {",
-            "    com.google.common.truth.Truth.assertThat(s).isNotNull();",
+            "    assertThat(s).isNotNull();",
             "    s.toString();",
             "  }",
             "}")
@@ -1015,7 +1017,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void doNotSupportAssertThatWhenDisabled() {
+  public void doNotSupportTruthAssertThatWhenDisabled() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1029,11 +1031,122 @@ public class NullAwayTest {
             "import java.lang.Object;",
             "import java.util.Objects;",
             "import javax.annotation.Nullable;",
+            "import static com.google.common.truth.Truth.assertThat;",
             "class Test {",
-            "  private void foo(@Nullable Object o) {",
-            "    com.google.common.truth.Truth.assertThat(o).isNotNull();",
+            "  private void foo(@Nullable Object a) {",
+            "    assertThat(a).isNotNull();",
             "    // BUG: Diagnostic contains: dereferenced expression",
-            "    o.toString();",
+            "    a.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportHamcrestAssertThatIsNotNull_Object() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.hamcrest.MatcherAssert.assertThat;",
+            "import static org.hamcrest.Matchers.*;",
+            "class Test {",
+            "  private void foo(@Nullable Object a, @Nullable Object b) {",
+            "    assertThat(a, is(notNullValue()));",
+            "    a.toString();",
+            "    assertThat(b, is(not(nullValue())));",
+            "    b.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void doNotSupportHamcrestAssertThatWhenDisabled() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=false"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.hamcrest.MatcherAssert.assertThat;",
+            "import static org.hamcrest.Matchers.*;",
+            "class Test {",
+            "  private void foo(@Nullable Object a) {",
+            "    assertThat(a, is(notNullValue()));",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    a.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportJunitAssertThatIsNotNull_Object() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.junit.Assert.assertThat;",
+            "import static org.hamcrest.Matchers.*;",
+            "class Test {",
+            "  private void foo(@Nullable Object a, @Nullable Object b) {",
+            "    assertThat(a, is(notNullValue()));",
+            "    a.toString();",
+            "    assertThat(b, is(not(nullValue())));",
+            "    b.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void doNotSupportJunitAssertThatWhenDisabled() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=false"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.junit.Assert.assertThat;",
+            "import static org.hamcrest.Matchers.*;",
+            "class Test {",
+            "  private void foo(@Nullable Object a) {",
+            "    assertThat(a, is(notNullValue()));",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    a.toString();",
             "  }",
             "}")
         .doTest();
