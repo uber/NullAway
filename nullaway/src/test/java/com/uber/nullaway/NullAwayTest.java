@@ -1043,7 +1043,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void supportHamcrestAssertThatIsNotNull_Object() {
+  public void supportHamcrestAssertThatMatchersIsNotNull() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1092,6 +1092,63 @@ public class NullAwayTest {
             "    assertThat(a, is(notNullValue()));",
             "    // BUG: Diagnostic contains: dereferenced expression",
             "    a.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportHamcrestAssertThatCoreMatchersIsNotNull() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.hamcrest.MatcherAssert.assertThat;",
+            "import static org.hamcrest.CoreMatchers.*;",
+            "class Test {",
+            "  private void foo(@Nullable Object a, @Nullable Object b) {",
+            "    assertThat(a, is(notNullValue()));",
+            "    a.toString();",
+            "    assertThat(b, is(not(nullValue())));",
+            "    b.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportHamcrestAssertThatCoreIsNotNull() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.hamcrest.MatcherAssert.assertThat;",
+            "import static org.hamcrest.CoreMatchers.*;",
+            "import org.hamcrest.core.IsNull;",
+            "class Test {",
+            "  private void foo(@Nullable Object a, @Nullable Object b) {",
+            "    assertThat(a, is(IsNull.notNullValue()));",
+            "    a.toString();",
+            "    assertThat(b, is(not(IsNull.nullValue())));",
+            "    b.toString();",
             "  }",
             "}")
         .doTest();
