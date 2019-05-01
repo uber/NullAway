@@ -49,6 +49,8 @@ public class AssertionHandler extends BaseNoOpHandler {
   private static final String JUNIT_ASSERT_CLASS = "org.junit.Assert";
 
   private static final String MATCHERS_CLASS = "org.hamcrest.Matchers";
+  private static final String CORE_MATCHERS_CLASS = "org.hamcrest.CoreMatchers";
+  private static final String CORE_IS_NULL_CLASS = "org.hamcrest.core.IsNull";
   private static final String IS_MATCHER = "is";
   private static final String NOT_MATCHER = "not";
   private static final String NOT_NULL_VALUE_MATCHER = "notNullValue";
@@ -68,6 +70,8 @@ public class AssertionHandler extends BaseNoOpHandler {
 
   // Names for hamcrest matchers.
   private Name matchersClass;
+  private Name coreMatchersClass;
+  private Name coreIsNullClass;
   private Name isMatcher;
   private Name notMatcher;
   private Name notNullValueMatcher;
@@ -144,7 +148,8 @@ public class AssertionHandler extends BaseNoOpHandler {
     // Matches with
     //   * is(not(nullValue()))
     //   * is(notNullValue())
-    if (matchesMatcherMethod(node, isMatcher)) {
+    if (matchesMatcherMethod(node, isMatcher, matchersClass)
+        || matchesMatcherMethod(node, isMatcher, coreMatchersClass)) {
       // All overloads of `is` method have exactly one argument.
       return isMatcherNotNull(((MethodInvocationNode) node).getArgument(0));
     }
@@ -155,23 +160,28 @@ public class AssertionHandler extends BaseNoOpHandler {
     // Matches with
     //   * not(nullValue())
     //   * notNullValue()
-    if (matchesMatcherMethod(node, notMatcher)) {
+    if (matchesMatcherMethod(node, notMatcher, matchersClass)
+        || matchesMatcherMethod(node, notMatcher, coreMatchersClass)) {
       // All overloads of `not` method have exactly one argument.
       return isMatcherNull(((MethodInvocationNode) node).getArgument(0));
     }
-    return matchesMatcherMethod(node, notNullValueMatcher);
+    return matchesMatcherMethod(node, notNullValueMatcher, matchersClass)
+        || matchesMatcherMethod(node, notNullValueMatcher, coreMatchersClass)
+        || matchesMatcherMethod(node, notNullValueMatcher, coreIsNullClass);
   }
 
   private boolean isMatcherNull(Node node) {
     // Matches with nullValue()
-    return matchesMatcherMethod(node, nullValueMatcher);
+    return matchesMatcherMethod(node, nullValueMatcher, matchersClass)
+        || matchesMatcherMethod(node, nullValueMatcher, coreMatchersClass)
+        || matchesMatcherMethod(node, nullValueMatcher, coreIsNullClass);
   }
 
-  private boolean matchesMatcherMethod(Node node, Name matcherName) {
+  private boolean matchesMatcherMethod(Node node, Name matcherName, Name matcherClass) {
     if (node instanceof MethodInvocationNode) {
       MethodInvocationNode methodInvocationNode = (MethodInvocationNode) node;
       Symbol.MethodSymbol callee = ASTHelpers.getSymbol(methodInvocationNode.getTree());
-      return matchesMethod(callee, matcherName, matchersClass);
+      return matchesMethod(callee, matcherName, matcherClass);
     }
     return false;
   }
@@ -196,6 +206,8 @@ public class AssertionHandler extends BaseNoOpHandler {
     junitAssertClass = table.fromString(JUNIT_ASSERT_CLASS);
 
     matchersClass = table.fromString(MATCHERS_CLASS);
+    coreMatchersClass = table.fromString(CORE_MATCHERS_CLASS);
+    coreIsNullClass = table.fromString(CORE_IS_NULL_CLASS);
     isMatcher = table.fromString(IS_MATCHER);
     notMatcher = table.fromString(NOT_MATCHER);
     notNullValueMatcher = table.fromString(NOT_NULL_VALUE_MATCHER);
