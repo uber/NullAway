@@ -119,6 +119,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public boolean checkContract() {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
   public boolean handleTestAssertionLibraries() {
     throw new IllegalStateException(error_msg);
   }

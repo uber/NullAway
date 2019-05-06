@@ -20,31 +20,24 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway.handlers;
+package com.uber.nullaway.handlers.contract;
 
-import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+import static com.uber.nullaway.handlers.contract.ContractUtils.getContractFromAnnotation;
+import static com.uber.nullaway.handlers.contract.ContractUtils.reportMatch;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
-import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
-import java.util.Map;
+import com.uber.nullaway.handlers.BaseNoOpHandler;
 import javax.annotation.Nullable;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 
 /**
@@ -115,17 +108,13 @@ public class ContractHandler extends BaseNoOpHandler {
                   + callee
                   + ". It contains the following uparseable clause: "
                   + clause
-                  + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).");
+                  + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).",
+              analysis,
+              state);
         }
         String[] antecedent = parts[0].split(",");
         String consequent = parts[1].trim();
-        // Find a single value constraint that is not already known. If more than one arguments with
-        // unknown
-        // nullness affect the method's result, then ignore this clause.
-        int argIdx = -1;
-        Nullness argAntecedentNullness = null;
-        boolean supported =
-            true; // Set to false if the rule is detected to be one we don't yet support
+
         if (antecedent.length != node.getArguments().size()) {
           reportMatch(
               node.getTree(),
@@ -138,8 +127,19 @@ public class ContractHandler extends BaseNoOpHandler {
                   + "], should be the same as the number of "
                   + "arguments in for the method ["
                   + node.getArguments().size()
-                  + "]).");
+                  + "]).",
+              analysis,
+              state);
         }
+
+        // Find a single value constraint that is not already known. If more than one arguments with
+        // unknown
+        // nullness affect the method's result, then ignore this clause.
+        int argIdx = -1;
+        Nullness argAntecedentNullness = null;
+        boolean supported =
+            true; // Set to false if the rule is detected to be one we don't yet support
+
         for (int i = 0; i < antecedent.length; ++i) {
           String valueConstraint = antecedent[i].trim();
           if (valueConstraint.equals("_")) {
@@ -171,7 +171,9 @@ public class ContractHandler extends BaseNoOpHandler {
                     + clause
                     + " (unknown value constraint: "
                     + valueConstraint
-                    + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).");
+                    + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).",
+                analysis,
+                state);
             supported = false;
             break;
           }
@@ -217,47 +219,5 @@ public class ContractHandler extends BaseNoOpHandler {
       }
     }
     return NullnessHint.UNKNOWN;
-  }
-
-  private void reportMatch(Tree errorLocTree, String message) {
-    assert this.analysis != null && this.state != null;
-    if (this.analysis != null && this.state != null) {
-      this.state.reportMatch(
-          analysis
-              .getErrorBuilder()
-              .createErrorDescription(
-                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                  errorLocTree,
-                  buildDescriptionFromChecker(errorLocTree, analysis)));
-    }
-  }
-
-  /**
-   * Retrieve the string value inside an @Contract annotation without statically depending on the
-   * type.
-   *
-   * @param sym A method which has an @Contract annotation.
-   * @return The string value spec inside the annotation.
-   */
-  private static @Nullable String getContractFromAnnotation(Symbol.MethodSymbol sym) {
-    for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
-      Element element = annotation.getAnnotationType().asElement();
-      assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
-      if (((TypeElement) element)
-          .getQualifiedName()
-          .contentEquals("org.jetbrains.annotations.Contract")) {
-        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
-            annotation.getElementValues().entrySet()) {
-          if (e.getKey().getSimpleName().contentEquals("value")) {
-            String value = e.getValue().toString();
-            if (value.startsWith("\"") && value.endsWith("\"")) {
-              value = value.substring(1, value.length() - 1);
-            }
-            return value;
-          }
-        }
-      }
-    }
-    return null;
   }
 }

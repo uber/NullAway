@@ -25,6 +25,7 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
+import com.uber.nullaway.handlers.contract.ContractNullnessStoreInitializer;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
@@ -48,6 +49,8 @@ public final class AccessPathNullnessAnalysis {
 
   private final DataFlow dataFlow;
 
+  @Nullable private AccessPathNullnessPropagation contractNullnessPropagation;
+
   // Use #instance to instantiate
   private AccessPathNullnessAnalysis(
       Predicate<MethodInvocationNode> methodReturnsNonNull,
@@ -56,8 +59,24 @@ public final class AccessPathNullnessAnalysis {
       Handler handler) {
     this.nullnessPropagation =
         new AccessPathNullnessPropagation(
-            Nullness.NONNULL, methodReturnsNonNull, context, config, handler);
+            Nullness.NONNULL,
+            methodReturnsNonNull,
+            context,
+            config,
+            handler,
+            new CoreNullnessStoreInitializer());
     this.dataFlow = new DataFlow(config.assertsEnabled());
+
+    if (config.checkContract()) {
+      this.contractNullnessPropagation =
+          new AccessPathNullnessPropagation(
+              Nullness.NONNULL,
+              methodReturnsNonNull,
+              context,
+              config,
+              handler,
+              new ContractNullnessStoreInitializer());
+    }
   }
 
   /**
@@ -88,6 +107,16 @@ public final class AccessPathNullnessAnalysis {
   @Nullable
   public Nullness getNullness(TreePath exprPath, Context context) {
     return dataFlow.expressionDataflow(exprPath, context, nullnessPropagation);
+  }
+
+  /**
+   * @param exprPath tree path of expression
+   * @param context Javac context
+   * @return nullness info for expression, from dataflow in case contract check
+   */
+  @Nullable
+  public Nullness getNullnessForContractDataflow(TreePath exprPath, Context context) {
+    return dataFlow.expressionDataflow(exprPath, context, contractNullnessPropagation);
   }
 
   /**

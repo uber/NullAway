@@ -116,6 +116,8 @@ public interface Config {
    */
   boolean checkOptionalEmptiness();
 
+  boolean checkContract();
+
   /**
    * @return true if AssertionHandler should be enabled. In the absence of this handler, checks in
    *     tests using assertion libraries are ignored. So, any deference of an object that follows
