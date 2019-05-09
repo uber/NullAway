@@ -61,6 +61,12 @@ public class JarInfer {
             .desc("path to processed jar/aar file")
             .build());
     options.addOption(
+        Option.builder("b")
+            .argName("annotate_bytecode")
+            .longOpt("annotate_bytecode")
+            .desc("annotate bytecode")
+            .build());
+    options.addOption(
         Option.builder("h")
             .argName("help")
             .longOpt("help")
@@ -83,12 +89,14 @@ public class JarInfer {
       String jarPath = line.getOptionValue('i');
       String pkgName = line.getOptionValue('p', "");
       String outPath = line.getOptionValue('o');
+      boolean annotateBytecode = line.hasOption('b');
       boolean debug = line.hasOption('d');
       boolean verbose = line.hasOption('v');
       if (!pkgName.isEmpty()) {
         pkgName = "L" + pkgName.replaceAll("\\.", "/");
       }
-      DefinitelyDerefedParamsDriver.run(jarPath, pkgName, outPath, debug, verbose);
+      DefinitelyDerefedParamsDriver.run(
+          jarPath, pkgName, outPath, annotateBytecode, debug, verbose);
       if (!new File(outPath).exists()) {
         System.out.println("Could not write jar file: " + outPath);
       }

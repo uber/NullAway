@@ -15,6 +15,7 @@
  */
 
 def versions = [
+    asm                    : "7.1",
     checkerFramework       : "2.5.5",
     errorProne             : "2.3.3", // The version of error prone running on this project
     errorProneApi          : "2.3.1", // The version of error prone built against and shipped
@@ -31,6 +32,7 @@ def apt = [
 ]
 
 def build = [
+    asm                     : "org.ow2.asm:asm:${versions.asm}",
     errorProneCheckApi      : "com.google.errorprone:error_prone_check_api:${versions.errorProneApi}",
     errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProne}",
     errorProneJavac         : "com.google.errorprone:javac:9+181-r4173-1",
