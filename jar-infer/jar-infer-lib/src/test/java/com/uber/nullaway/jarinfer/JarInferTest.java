@@ -17,6 +17,7 @@
 package com.uber.nullaway.jarinfer;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
 import com.sun.tools.javac.main.Main;
@@ -24,6 +25,10 @@ import com.sun.tools.javac.main.Main.Result;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -43,6 +48,7 @@ import org.junit.runners.JUnit4;
 public class JarInferTest {
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @Rule public TemporaryFolder outputFolder = new TemporaryFolder();
 
   private CompilerUtil compilerUtil;
 
@@ -99,6 +105,56 @@ public class JarInferTest {
     DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
     String outJARPath = DefinitelyDerefedParamsDriver.lastOutPath;
     Assert.assertTrue("jar file not found! - " + outJARPath, new File(outJARPath).exists());
+  }
+
+  private void testBytecodeAnnotationTemplate(
+      String testName,
+      String pkg,
+      String cls,
+      String inputPath,
+      Map<String, Set<Integer>> expectedNonnullParams,
+      Set<String> expectedNullableReturns)
+      throws Exception {
+    System.out.println("reading from file: " + inputPath);
+    Path path = Paths.get(inputPath);
+    String inputSrc = new String(Files.readAllBytes(path), Charset.defaultCharset());
+    System.out.println(inputSrc);
+
+    Result compileResult = compilerUtil.addSourceLines(cls + ".java", inputSrc).run();
+    Assert.assertEquals(
+        testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
+        Main.Result.OK,
+        compileResult);
+
+    File f = temporaryFolder.getRoot();
+    while (f.isDirectory()) {
+      System.out.println("  " + f.getAbsolutePath());
+      System.out.println("  -- " + Arrays.toString(f.list()));
+      f = f.listFiles()[0];
+    }
+
+    DefinitelyDerefedParamsDriver.reset();
+    // TODO(ragr@): Package name has to be "" for the analysis to happen because in other cases, the
+    // class name
+    // does not have package as the prefix and hence it is ignored. Figure this out.
+    DefinitelyDerefedParamsDriver.run(
+        temporaryFolder.getRoot().listFiles()[0].getAbsolutePath() + "/" + cls + ".class",
+        "",
+        outputFolder.newFolder(pkg).getAbsolutePath() + "/" + cls + ".class",
+        true);
+
+    f = outputFolder.getRoot();
+    while (f.isDirectory()) {
+      System.out.println("  " + f.getAbsolutePath());
+      System.out.println("  -- " + Arrays.toString(f.list()));
+      f = f.listFiles()[0];
+    }
+    System.out.println("output file: " + f.getAbsolutePath());
+
+    Assert.assertTrue(
+        testName + ": expected annotations not found!",
+        BytecodeVerifier.VerifyClass(
+            f.getAbsolutePath(), expectedNonnullParams, expectedNullableReturns));
   }
 
   /**
@@ -253,6 +309,18 @@ public class JarInferTest {
         "    Objects.requireNonNull(t);",
         "  }",
         "}");
+  }
+
+  @Test
+  public void toyBytecodeAnnotation() throws Exception {
+    testBytecodeAnnotationTemplate(
+        "toyBytecodeAnnotation",
+        "toys",
+        "Test",
+        "../test-java-lib-jarinfer/src/main/java/toys/Test.java",
+        ImmutableMap.of(
+            "toys.Test.test(Ljava/lang/String;Ljava/lang/String;)V", Sets.newHashSet(1)),
+        ImmutableSet.of("toys.Test.getString(Z)Ljava/lang/String;"));
   }
 
   @Test

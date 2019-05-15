@@ -12,8 +12,8 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
-  public static String javaxNullableDesc = "Ljavax/annotation/Nullable;";
-  //    public static String androidxNullableDesc = "Landroidx/annotation/Nullable;";
+  public static final String javaxNullableDesc = "Ljavax/annotation/Nullable;";
+  public static final String javaxNonnullDesc = "Ljavax/annotation/Nonnull;";
 
   private final Map<String, Set<Integer>> nullableParams;
   private final Set<String> nullableReturns;
@@ -55,15 +55,17 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
     String methodSignature = className + "." + name + desc;
     if (mv != null) {
       if (nullableReturns.contains(methodSignature)) {
-        // Add a @Nullable annotation on this method.
+        // Add a @Nullable annotation on this method to indicate that the method can return null.
         mv.visitAnnotation(javaxNullableDesc, true);
         System.out.println(
             "[JI-MethodVisitor]: Added nullable return annotation for " + methodSignature);
       }
       Set<Integer> params = nullableParams.get(methodSignature);
       if (params != null) {
+        boolean isStatic = (access & Opcodes.ACC_STATIC) != 0;
         for (Integer param : params) {
-          mv.visitParameterAnnotation(param, javaxNullableDesc, true);
+          // Add a @Nonnull annotation on this parameter.
+          mv.visitParameterAnnotation(isStatic ? param : param - 1, javaxNonnullDesc, true);
           System.out.println(
               "[JI-MethodVisitor]: Added nullable parameter annotation for #"
                   + param
