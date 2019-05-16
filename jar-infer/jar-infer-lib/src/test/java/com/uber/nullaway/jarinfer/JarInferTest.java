@@ -119,7 +119,6 @@ public class JarInferTest {
     Path path = Paths.get(inputPath);
     String inputSrc = new String(Files.readAllBytes(path), Charset.defaultCharset());
     System.out.println(inputSrc);
-
     Result compileResult = compilerUtil.addSourceLines(cls + ".java", inputSrc).run();
     Assert.assertEquals(
         testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
@@ -155,6 +154,66 @@ public class JarInferTest {
         testName + ": expected annotations not found!",
         BytecodeVerifier.VerifyClass(
             f.getAbsolutePath(), expectedNonnullParams, expectedNullableReturns));
+  }
+
+  private void testAnnotationInClassTemplate(
+      String testName, String pkg, String cls, String inputPath, String expectedPath)
+      throws Exception {
+    System.out.println("reading from file: " + inputPath);
+    Path path = Paths.get(inputPath);
+    String inputSrc = new String(Files.readAllBytes(path), Charset.defaultCharset());
+    System.out.println(inputSrc);
+    Result compileResult = compilerUtil.addSourceLines(cls + ".java", inputSrc).run();
+    Assert.assertEquals(
+        testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
+        Main.Result.OK,
+        compileResult);
+
+    File f = temporaryFolder.getRoot();
+    while (f.isDirectory()) {
+      System.out.println("  " + f.getAbsolutePath());
+      System.out.println("  -- " + Arrays.toString(f.list()));
+      f = f.listFiles()[0];
+    }
+
+    DefinitelyDerefedParamsDriver.reset();
+    // TODO(ragr@): Package name has to be "" for the analysis to happen because in other cases, the
+    // class name
+    // does not have package as the prefix and hence it is ignored. Figure this out.
+    DefinitelyDerefedParamsDriver.run(
+        temporaryFolder.getRoot().listFiles()[0].getAbsolutePath() + "/" + cls + ".class",
+        "",
+        outputFolder.newFolder(pkg).getAbsolutePath() + "/" + cls + ".class",
+        true);
+
+    f = outputFolder.getRoot();
+    while (f.isDirectory()) {
+      System.out.println("  " + f.getAbsolutePath());
+      System.out.println("  -- " + Arrays.toString(f.list()));
+      f = f.listFiles()[0];
+    }
+    System.out.println("output file: " + f.getAbsolutePath());
+
+    System.out.println("Expected code in file: " + expectedPath);
+    String expectedSrc =
+        new String(Files.readAllBytes(Paths.get(expectedPath)), Charset.defaultCharset());
+    System.out.println(expectedSrc);
+    compileResult = compilerUtil.addSourceLines(cls + ".java", expectedSrc).run();
+    Assert.assertEquals(
+        testName + ": expected source compilation failed!\n" + compilerUtil.getOutput(),
+        Main.Result.OK,
+        compileResult);
+    File expectedClass = temporaryFolder.getRoot();
+    while (expectedClass.isDirectory()) {
+      System.out.println("  " + expectedClass.getAbsolutePath());
+      System.out.println("  -- " + Arrays.toString(expectedClass.list()));
+      expectedClass = expectedClass.listFiles()[0];
+    }
+
+    Assert.assertTrue(
+        testName + ": generated class does not match the expected class!",
+        AnnotationComparator.CompareMethodAnnotationsInClass(
+            f.getAbsolutePath(), expectedClass.getAbsolutePath()));
   }
 
   /**
@@ -312,7 +371,7 @@ public class JarInferTest {
   }
 
   @Test
-  public void toyBytecodeAnnotation() throws Exception {
+  public void toyBytecodeAnnotationCheckingExpected() throws Exception {
     testBytecodeAnnotationTemplate(
         "toyBytecodeAnnotation",
         "toys",
@@ -321,6 +380,16 @@ public class JarInferTest {
         ImmutableMap.of(
             "toys.Test.test(Ljava/lang/String;Ljava/lang/String;)V", Sets.newHashSet(1)),
         ImmutableSet.of("toys.Test.getString(Z)Ljava/lang/String;"));
+  }
+
+  @Test
+  public void toyBytecodeAnnotationComparingClasses() throws Exception {
+    testAnnotationInClassTemplate(
+        "toyBytecodeAnnotationComparingClasses",
+        "toys",
+        "Test",
+        "../test-java-lib-jarinfer/src/main/java/toys/Test.java",
+        "../test-java-lib-jarinfer/src/main/java-annotated/toys/Test.java");
   }
 
   @Test
