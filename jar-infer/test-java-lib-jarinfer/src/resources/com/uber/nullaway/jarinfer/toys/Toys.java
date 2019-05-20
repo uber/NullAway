@@ -1,5 +1,8 @@
 package com.uber.nullaway.jarinfer.toys;
 
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+
 class Foo {
   private String foo;
 
@@ -8,7 +11,7 @@ class Foo {
     this.foo = str;
   }
 
-  public boolean run(String str) {
+  public boolean run(@Nonnull String str) {
     if (str.length() > 0) {
       return str.equals(foo);
     }
@@ -36,6 +39,7 @@ class Bar {
 
 public class Toys {
 
+  @Nullable
   public static String getString(boolean flag, String str) {
     if (flag) {
       return null;
@@ -43,7 +47,7 @@ public class Toys {
     return str;
   }
 
-  public static void test(String s, Foo f, Bar b) {
+  public static void test(@Nonnull String s, Foo f, @Nonnull Bar b) {
     if (s.length() >= 5) {
       Foo f1 = new Foo(s);
       f1.run(s);
@@ -53,7 +57,7 @@ public class Toys {
     b.run(s);
   }
 
-  public static void test1(String s, String t, String u) {
+  public static void test1(@Nonnull String s, String t, String u) {
     if (s.length() >= 5) {
       Foo fs = new Foo(s);
       fs.run(u);

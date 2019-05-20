@@ -28,12 +28,12 @@ public class JarInferIntegrationTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:JarInferEnabled=true",
-                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"))
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
+            "import com.uber.nullaway.jarinfer.toys.Toys;",
             "class Test {",
             "  void test1(@Nullable String s) {",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 's'",
@@ -51,14 +51,14 @@ public class JarInferIntegrationTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+",
                 "-XepOpt:NullAway:JarInferEnabled=true",
                 "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
+            "import com.uber.nullaway.jarinfer.toys.Toys;",
             "class Test {",
             "  void test1(@Nullable String s) {",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'Toys.getString(false, s)'",

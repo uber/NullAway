@@ -25,10 +25,6 @@ import com.sun.tools.javac.main.Main.Result;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -111,14 +107,11 @@ public class JarInferTest {
       String testName,
       String pkg,
       String cls,
-      String inputPath,
+      String inputSrc,
       Map<String, Set<Integer>> expectedNonnullParams,
       Set<String> expectedNullableReturns)
       throws Exception {
-    System.out.println("reading from file: " + inputPath);
-    Path path = Paths.get(inputPath);
-    String inputSrc = new String(Files.readAllBytes(path), Charset.defaultCharset());
-    System.out.println(inputSrc);
+    System.out.println("Input Src: " + inputSrc);
     Result compileResult = compilerUtil.addSourceLines(cls + ".java", inputSrc).run();
     Assert.assertEquals(
         testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
@@ -156,12 +149,9 @@ public class JarInferTest {
   }
 
   private void testAnnotationInClassTemplate(
-      String testName, String pkg, String cls, String inputPath, String expectedPath)
+      String testName, String pkg, String cls, String inputSrc, String expectedSrc)
       throws Exception {
-    System.out.println("reading from file: " + inputPath);
-    Path path = Paths.get(inputPath);
-    String inputSrc = new String(Files.readAllBytes(path), Charset.defaultCharset());
-    System.out.println(inputSrc);
+    System.out.println("Input src: " + inputSrc);
     Result compileResult = compilerUtil.addSourceLines(cls + ".java", inputSrc).run();
     Assert.assertEquals(
         testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
@@ -192,10 +182,7 @@ public class JarInferTest {
     }
     System.out.println("output file: " + f.getAbsolutePath());
 
-    System.out.println("Expected code in file: " + expectedPath);
-    String expectedSrc =
-        new String(Files.readAllBytes(Paths.get(expectedPath)), Charset.defaultCharset());
-    System.out.println(expectedSrc);
+    System.out.println("Expected src: " + expectedSrc);
     compileResult = compilerUtil.addSourceLines(cls + ".java", expectedSrc).run();
     Assert.assertEquals(
         testName + ": expected source compilation failed!\n" + compilerUtil.getOutput(),
@@ -335,7 +322,7 @@ public class JarInferTest {
   @Test
   public void toyJAR() throws Exception {
     testJARTemplate(
-        "com.uber.nullaway.jarinfer.toys.unannotated",
+        "com.uber.nullaway.jarinfer.toys",
         "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar");
   }
 
@@ -368,13 +355,76 @@ public class JarInferTest {
         "}");
   }
 
+  private String getToyTestSrcWithoutAnnotations() {
+    return "package toys;"
+        + "public class Test {"
+        + "  private String foo;"
+        + "  public Test(String str) {"
+        + "    if (str == null) str = \"foo\";"
+        + "    this.foo = str;"
+        + "  }"
+        + "  public boolean run(String str) {"
+        + "    if (str != null) {"
+        + "      return str.equals(foo);"
+        + "    }"
+        + "    return false;"
+        + "  }"
+        + "  public String getString(boolean a) {"
+        + "    if (a == true) {"
+        + "      return foo;"
+        + "    }"
+        + "    return null;"
+        + "  }"
+        + "  public void test(String s, String t) {"
+        + "    if (s.length() >= 5) {"
+        + "      this.run(s);"
+        + "    } else {"
+        + "      this.run(t);"
+        + "    }"
+        + "  }"
+        + "}";
+  }
+
+  private String getToyTestSrcWithAnnotations() {
+    return "package toys;"
+        + "import javax.annotation.Nullable;"
+        + "import javax.annotation.Nonnull;"
+        + "public class Test {"
+        + "    private String foo;"
+        + "    public Test(String str) {"
+        + "        if (str == null) str = \"foo\";"
+        + "        this.foo = str;"
+        + "    }"
+        + "    public boolean run(String str) {"
+        + "        if (str != null) {"
+        + "            return str.equals(foo);"
+        + "        }"
+        + "        return false;"
+        + "    }"
+        + "    @Nullable"
+        + "    public String getString(boolean a) {"
+        + "        if (a == true) {"
+        + "            return foo;"
+        + "        }"
+        + "        return null;"
+        + "    }"
+        + "    public void test(@Nonnull String s, String t) {"
+        + "        if (s.length() >= 5) {"
+        + "            this.run(s);"
+        + "        } else {"
+        + "            this.run(t);"
+        + "        }"
+        + "    }"
+        + "}";
+  }
+
   @Test
   public void toyBytecodeAnnotationCheckingExpected() throws Exception {
     testBytecodeAnnotationTemplate(
         "toyBytecodeAnnotation",
         "toys",
         "Test",
-        "../test-java-lib-jarinfer/src/main/java/toys/Test.java",
+        getToyTestSrcWithoutAnnotations(),
         ImmutableMap.of(
             "toys.Test.test(Ljava/lang/String;Ljava/lang/String;)V", Sets.newHashSet(1)),
         ImmutableSet.of("toys.Test.getString(Z)Ljava/lang/String;"));
@@ -386,15 +436,15 @@ public class JarInferTest {
         "toyBytecodeAnnotationComparingClasses",
         "toys",
         "Test",
-        "../test-java-lib-jarinfer/src/main/java/toys/Test.java",
-        "../test-java-lib-jarinfer/src/main/java-annotated/toys/Test.java");
+        getToyTestSrcWithoutAnnotations(),
+        getToyTestSrcWithAnnotations());
   }
 
   @Test
   public void jarinferOutputJarIsBytePerByteDeterministic() throws Exception {
     DefinitelyDerefedParamsDriver.reset();
     String jarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
-    String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
+    String pkg = "com.uber.nullaway.jarinfer.toys";
     DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
     byte[] checksumBytes1 = sha1sum(DefinitelyDerefedParamsDriver.lastOutPath);
     // Wait a second to ensure system time has changed
