@@ -72,9 +72,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
 
   private static final int RETURN = -1; // '-1' indexes Return type in the Annotation Cache
 
-  private static Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
-  private static Map<String, Set<String>> mapModelJarLocations;
-  private static Set<String> loadedJars;
+  private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
+  private final Map<String, Set<String>> mapModelJarLocations;
+  private final Set<String> loadedJars;
 
   private final Config config;
 
