@@ -1,6 +1,15 @@
 Changelog
 =========
 
+Version 0.7.3
+-------------
+* Optional support for assertThat(...).isNotNull() statements (#304)
+* Fix NPE in AccessPathElement.toString() (#306)
+* Add tests for optional emptiness support with Rx (#308)
+* Support for assertThat in JUnit and Hamcrest. (#310)
+* Add support for CoreMatchers and core.IsNull in hamcrest. (#311)
+* Make class-level caches for InferredJARModelsHandler instance fields. (#315)
+
 Version 0.7.2
 -------------
 * Install GJF hook using a gradle task, rather than a gradlew hack (#298). 
