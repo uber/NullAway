@@ -60,6 +60,8 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarFile;
+import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -78,13 +80,11 @@ public class DefinitelyDerefedParamsDriver {
 
   public static String lastOutPath = "";
   public static long analyzedBytes = 0;
+  public static long analysisStartTime = 0;
   private static Result map_result = new Result();
   private static Set<String> nullableReturns = new HashSet<>();
 
   private static boolean annotateBytecode = false;
-  //  private static final String DEFAULT_ANNOTATED_BYTECODE_LOCATION =
-  // "META-INF/nullaway/jarinfer.annotated";
-  //  private static final String ANNOTATED_JAR_SUFFIX = ".annotated.jar";
 
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
   private static final String ASTUBX_JAR_SUFFIX = ".astubx.jar";
@@ -95,6 +95,7 @@ public class DefinitelyDerefedParamsDriver {
 
   public static void reset() {
     analyzedBytes = 0;
+    analysisStartTime = 0;
     map_result.clear();
     nullableReturns.clear();
     annotateBytecode = false;
@@ -132,12 +133,12 @@ public class DefinitelyDerefedParamsDriver {
     } else if (new File(firstInPath).exists()) {
       outPath = FilenameUtils.getFullPath(firstInPath) + DEFAULT_ASTUBX_LOCATION;
     }
-    return run(inPaths, pkgName, outPath, annotateBytecode, DEBUG, VERBOSE);
+    return run(inPaths, pkgName, outPath, false, DEBUG, VERBOSE);
   }
 
-  public static Result run(String inPaths, String pkgName, String outPath, boolean annotateBytecode)
+  public static Result runAndAnnotate(String inPaths, String pkgName, String outPath)
       throws IOException, ClassHierarchyException {
-    return run(inPaths, pkgName, outPath, annotateBytecode, DEBUG, VERBOSE);
+    return run(inPaths, pkgName, outPath, true, DEBUG, VERBOSE);
   }
 
   /**
@@ -164,46 +165,19 @@ public class DefinitelyDerefedParamsDriver {
     DEBUG = dbg;
     VERBOSE = vbs;
     DefinitelyDerefedParamsDriver.annotateBytecode = annotateBytecode;
-    long start = System.currentTimeMillis();
     Set<String> setInPaths = new HashSet<>(Arrays.asList(inPaths.split(",")));
     System.out.println("Inpaths: " + inPaths);
     System.out.println("pkgName: " + pkgName);
-    System.out.println("outPaths: " + outPath);
+    System.out.println("outPath: " + outPath);
+    analysisStartTime = System.currentTimeMillis();
     for (String inPath : setInPaths) {
-      InputStream jarIS = null;
-      if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
-        jarIS = getInputStream(inPath);
-        if (jarIS == null) {
-          continue;
-        }
-      } else if (!new File(inPath).exists()) {
-        continue;
-      }
-      System.out.println("Analyzing file");
-      analyzeFile(pkgName, inPath, jarIS);
-      long end = System.currentTimeMillis();
-      LOG(
-          VERBOSE,
-          "Stats",
-          inPath
-              + " >> time(ms): "
-              + (end - start)
-              + ", bytecode size: "
-              + analyzedBytes
-              + ", rate (ms/KB): "
-              + (analyzedBytes > 0 ? (((end - start) * 1000) / analyzedBytes) : 0));
+      analyzeFile(pkgName, inPath);
       if (DefinitelyDerefedParamsDriver.annotateBytecode) {
-        InputStream jarInputStream;
-        if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
-          jarInputStream = getInputStream(inPath);
-        } else {
-          jarInputStream = new FileInputStream(inPath);
-        }
-        OutputStream jarOS = getOutputStream(outPath);
-        BytecodeAnnotator.annotateBytecode(jarInputStream, jarOS, map_result, nullableReturns);
+        WriteAnnotations(inPath, outPath);
       }
     }
     if (!DefinitelyDerefedParamsDriver.annotateBytecode) {
+      new File(outPath).getParentFile().mkdirs();
       if (outPath.endsWith(".astubx")) {
         writeModel(new DataOutputStream(new FileOutputStream(outPath)));
       } else {
@@ -214,8 +188,17 @@ public class DefinitelyDerefedParamsDriver {
     return map_result;
   }
 
-  private static void analyzeFile(String pkgName, String inPath, InputStream jarIS)
+  private static void analyzeFile(String pkgName, String inPath)
       throws IOException, ClassHierarchyException {
+    InputStream jarIS = null;
+    if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
+      jarIS = getInputStream(inPath);
+      if (jarIS == null) {
+        return;
+      }
+    } else if (!new File(inPath).exists()) {
+      return;
+    }
     AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
     scope.setExclusions(
         new FileOfClasses(
@@ -303,6 +286,17 @@ public class DefinitelyDerefedParamsDriver {
         }
       }
     }
+    long endTime = System.currentTimeMillis();
+    LOG(
+        VERBOSE,
+        "Stats",
+        inPath
+            + " >> time(ms): "
+            + (endTime - analysisStartTime)
+            + ", bytecode size: "
+            + analyzedBytes
+            + ", rate (ms/KB): "
+            + (analyzedBytes > 0 ? (((endTime - analysisStartTime) * 1000) / analyzedBytes) : 0));
   }
 
   /**
@@ -339,22 +333,6 @@ public class DefinitelyDerefedParamsDriver {
       jarIS = (jarEntry == null ? null : aar.getInputStream(jarEntry));
     }
     return jarIS;
-  }
-
-  private static OutputStream getOutputStream(String libPath) throws IOException {
-    LOG(VERBOSE, "Info", "opening output file: " + libPath + "...");
-    OutputStream jarOS = null;
-    if (libPath.endsWith(".jar")) {
-      // TODO(ragr@) Handle this case
-      // jarOS = new FileOutputStream(libPath);
-    } else if (libPath.endsWith(".aar")) {
-      // TODO(ragr@) Handle this case.
-      // ZipFile (used in getInputStream method above) is only meant for reading.
-      // Figure out a way to write to a .aar file.
-    } else {
-      jarOS = new FileOutputStream(libPath);
-    }
-    return jarOS;
   }
 
   /**
@@ -420,6 +398,37 @@ public class DefinitelyDerefedParamsDriver {
           new MethodAnnotationsRecord(ImmutableSet.of("Nullable"), ImmutableMap.of()));
     }
     StubxWriter.write(out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
+  }
+
+  private static void WriteAnnotations(String inPath, String outPath) throws IOException {
+    Preconditions.checkArgument(
+        inPath.endsWith(".jar") || inPath.endsWith(".aar") || inPath.endsWith(".class"),
+        "invalid input path - " + inPath);
+
+    System.out.println("Write Annotations:");
+    System.out.println("  Inpath: " + inPath);
+    System.out.println("  outPath: " + outPath);
+
+    String outFile;
+    if (inPath.endsWith(".jar")) {
+      outFile =
+          outPath
+              + "/"
+              + FilenameUtils.getBaseName(inPath)
+              + "-annotated."
+              + FilenameUtils.getExtension(inPath);
+      JarFile jar = new JarFile(inPath);
+      JarOutputStream jarOS = new JarOutputStream(new FileOutputStream(outFile));
+      BytecodeAnnotator.annotateBytecodeInJars(jar, jarOS, map_result, nullableReturns);
+      jarOS.close();
+    } else if (inPath.endsWith(".aar")) {
+      // TODO(ragr@): Handle this case.
+    } else {
+      InputStream is = new FileInputStream(inPath);
+      OutputStream os = new FileOutputStream(outPath);
+      BytecodeAnnotator.annotateBytecode(is, os, map_result, nullableReturns);
+      os.close();
+    }
   }
 
   private static String getSignature(IMethod mtd) {

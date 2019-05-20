@@ -3,8 +3,14 @@ package com.uber.nullaway.jarinfer;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Enumeration;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.jar.JarOutputStream;
+import java.util.zip.ZipEntry;
+import org.apache.commons.io.IOUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
@@ -78,19 +84,38 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
   }
 
   public static void annotateBytecode(
-      InputStream jarIS,
-      OutputStream jarOS,
+      InputStream is,
+      OutputStream os,
       Map<String, Set<Integer>> map_result,
       Set<String> nullableReturns)
       throws IOException {
     System.out.println("nullableReturns: " + nullableReturns);
     System.out.println("map_result: " + map_result);
-    ClassReader cr = new ClassReader(jarIS);
+    ClassReader cr = new ClassReader(is);
     ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
     BytecodeAnnotator bytecodeAnnotator = new BytecodeAnnotator(cw, map_result, nullableReturns);
     cr.accept(bytecodeAnnotator, 0);
+    os.write(cw.toByteArray());
+  }
 
-    jarOS.write(cw.toByteArray());
-    jarOS.close();
+  public static void annotateBytecodeInJars(
+      JarFile inputJar,
+      JarOutputStream jarOS,
+      Map<String, Set<Integer>> map_result,
+      Set<String> nullableReturns)
+      throws IOException {
+    System.out.println("nullableReturns: " + nullableReturns);
+    System.out.println("map_result: " + map_result);
+    for (Enumeration<JarEntry> entries = inputJar.entries(); entries.hasMoreElements(); ) {
+      JarEntry jarEntry = entries.nextElement();
+      InputStream is = inputJar.getInputStream(jarEntry);
+      jarOS.putNextEntry(new ZipEntry(jarEntry.getName()));
+      if (jarEntry.getName().endsWith(".class")) {
+        annotateBytecode(is, jarOS, map_result, nullableReturns);
+      } else {
+        jarOS.write(IOUtils.toByteArray(is));
+      }
+      jarOS.closeEntry();
+    }
   }
 }

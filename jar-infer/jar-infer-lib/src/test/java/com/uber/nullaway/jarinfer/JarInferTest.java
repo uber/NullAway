@@ -136,11 +136,10 @@ public class JarInferTest {
     // TODO(ragr@): Package name has to be "" for the analysis to happen because in other cases, the
     // class name
     // does not have package as the prefix and hence it is ignored. Figure this out.
-    DefinitelyDerefedParamsDriver.run(
+    DefinitelyDerefedParamsDriver.runAndAnnotate(
         temporaryFolder.getRoot().listFiles()[0].getAbsolutePath() + "/" + cls + ".class",
         "",
-        outputFolder.newFolder(pkg).getAbsolutePath() + "/" + cls + ".class",
-        true);
+        outputFolder.newFolder(pkg).getAbsolutePath() + "/" + cls + ".class");
 
     f = outputFolder.getRoot();
     while (f.isDirectory()) {
@@ -180,11 +179,10 @@ public class JarInferTest {
     // TODO(ragr@): Package name has to be "" for the analysis to happen because in other cases, the
     // class name
     // does not have package as the prefix and hence it is ignored. Figure this out.
-    DefinitelyDerefedParamsDriver.run(
+    DefinitelyDerefedParamsDriver.runAndAnnotate(
         temporaryFolder.getRoot().listFiles()[0].getAbsolutePath() + "/" + cls + ".class",
         "",
-        outputFolder.newFolder(pkg).getAbsolutePath() + "/" + cls + ".class",
-        true);
+        outputFolder.newFolder(pkg).getAbsolutePath() + "/" + cls + ".class");
 
     f = outputFolder.getRoot();
     while (f.isDirectory()) {
