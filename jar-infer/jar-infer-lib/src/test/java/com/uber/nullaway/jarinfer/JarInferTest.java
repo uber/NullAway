@@ -149,7 +149,11 @@ public class JarInferTest {
   }
 
   private void testAnnotationInClassTemplate(
-      String testName, String pkg, String cls, String inputSrc, String expectedSrc)
+      String testName,
+      String pkg,
+      String cls,
+      String inputSrc,
+      Map<String, String> expectedToActualAnnotationsMap)
       throws Exception {
     System.out.println("Input src: " + inputSrc);
     Result compileResult = compilerUtil.addSourceLines(cls + ".java", inputSrc).run();
@@ -182,23 +186,38 @@ public class JarInferTest {
     }
     System.out.println("output file: " + f.getAbsolutePath());
 
-    System.out.println("Expected src: " + expectedSrc);
-    compileResult = compilerUtil.addSourceLines(cls + ".java", expectedSrc).run();
-    Assert.assertEquals(
-        testName + ": expected source compilation failed!\n" + compilerUtil.getOutput(),
-        Main.Result.OK,
-        compileResult);
-    File expectedClass = temporaryFolder.getRoot();
-    while (expectedClass.isDirectory()) {
-      System.out.println("  " + expectedClass.getAbsolutePath());
-      System.out.println("  -- " + Arrays.toString(expectedClass.list()));
-      expectedClass = expectedClass.listFiles()[0];
-    }
-
     Assert.assertTrue(
         testName + ": generated class does not match the expected class!",
-        AnnotationComparator.CompareMethodAnnotationsInClass(
-            f.getAbsolutePath(), expectedClass.getAbsolutePath()));
+        AnnotationChecker.CheckMethodAnnotationsInClass(
+            f.getAbsolutePath(), expectedToActualAnnotationsMap));
+  }
+
+  private void testAnnotationInJarTemplate(
+      String testName,
+      String pkg,
+      String inputJarPath,
+      Map<String, String> expectedToActualAnnotationsMap)
+      throws Exception {
+    System.out.println("Testname: " + testName);
+    System.out.println("Pkg: " + pkg);
+    System.out.println("Input jar path: " + inputJarPath);
+
+    DefinitelyDerefedParamsDriver.reset();
+    DefinitelyDerefedParamsDriver.runAndAnnotate(
+        inputJarPath, "", outputFolder.newFolder(pkg).getAbsolutePath());
+
+    File f = outputFolder.getRoot();
+    while (f.isDirectory()) {
+      System.out.println("  " + f.getAbsolutePath());
+      System.out.println("  -- " + Arrays.toString(f.list()));
+      f = f.listFiles()[0];
+    }
+    System.out.println("output file: " + f.getAbsolutePath());
+
+    Assert.assertTrue(
+        testName + ": generated jar does not match the expected jar!",
+        AnnotationChecker.CheckMethodAnnotationsInJar(
+            f.getAbsolutePath(), expectedToActualAnnotationsMap));
   }
 
   /**
@@ -355,8 +374,16 @@ public class JarInferTest {
         "}");
   }
 
-  private String getToyTestSrcWithoutAnnotations() {
+  private String getToyTestSrcWithExpectAnnotations() {
     return "package toys;"
+        + "import java.lang.annotation.Retention;"
+        + "import java.lang.annotation.RetentionPolicy;"
+        + "@Retention(RetentionPolicy.RUNTIME)"
+        + "@interface ExpectNullable {"
+        + "}"
+        + "@Retention(RetentionPolicy.RUNTIME)"
+        + "@interface ExpectNonnull {"
+        + "}"
         + "public class Test {"
         + "  private String foo;"
         + "  public Test(String str) {"
@@ -369,13 +396,14 @@ public class JarInferTest {
         + "    }"
         + "    return false;"
         + "  }"
+        + "  @ExpectNullable"
         + "  public String getString(boolean a) {"
         + "    if (a == true) {"
         + "      return foo;"
         + "    }"
         + "    return null;"
         + "  }"
-        + "  public void test(String s, String t) {"
+        + "  public void test(@ExpectNonnull String s, String t) {"
         + "    if (s.length() >= 5) {"
         + "      this.run(s);"
         + "    } else {"
@@ -385,46 +413,13 @@ public class JarInferTest {
         + "}";
   }
 
-  private String getToyTestSrcWithAnnotations() {
-    return "package toys;"
-        + "import javax.annotation.Nullable;"
-        + "import javax.annotation.Nonnull;"
-        + "public class Test {"
-        + "    private String foo;"
-        + "    public Test(String str) {"
-        + "        if (str == null) str = \"foo\";"
-        + "        this.foo = str;"
-        + "    }"
-        + "    public boolean run(String str) {"
-        + "        if (str != null) {"
-        + "            return str.equals(foo);"
-        + "        }"
-        + "        return false;"
-        + "    }"
-        + "    @Nullable"
-        + "    public String getString(boolean a) {"
-        + "        if (a == true) {"
-        + "            return foo;"
-        + "        }"
-        + "        return null;"
-        + "    }"
-        + "    public void test(@Nonnull String s, String t) {"
-        + "        if (s.length() >= 5) {"
-        + "            this.run(s);"
-        + "        } else {"
-        + "            this.run(t);"
-        + "        }"
-        + "    }"
-        + "}";
-  }
-
   @Test
   public void toyBytecodeAnnotationCheckingExpected() throws Exception {
     testBytecodeAnnotationTemplate(
         "toyBytecodeAnnotation",
         "toys",
         "Test",
-        getToyTestSrcWithoutAnnotations(),
+        getToyTestSrcWithExpectAnnotations(),
         ImmutableMap.of(
             "toys.Test.test(Ljava/lang/String;Ljava/lang/String;)V", Sets.newHashSet(1)),
         ImmutableSet.of("toys.Test.getString(Z)Ljava/lang/String;"));
@@ -436,8 +431,25 @@ public class JarInferTest {
         "toyBytecodeAnnotationComparingClasses",
         "toys",
         "Test",
-        getToyTestSrcWithoutAnnotations(),
-        getToyTestSrcWithAnnotations());
+        getToyTestSrcWithExpectAnnotations(),
+        ImmutableMap.of(
+            "Ltoys/ExpectNullable;",
+            BytecodeAnnotator.javaxNullableDesc,
+            "Ltoys/ExpectNonnull;",
+            BytecodeAnnotator.javaxNonnullDesc));
+  }
+
+  @Test
+  public void toyJARAnnotatingClasses() throws Exception {
+    testAnnotationInJarTemplate(
+        "toyJARAnnotatingClasses",
+        "com.uber.nullaway.jarinfer.toys",
+        "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar",
+        ImmutableMap.of(
+            "Lcom/uber/nullaway/jarinfer/toys/ExpectNullable;",
+            BytecodeAnnotator.javaxNullableDesc,
+            "Lcom/uber/nullaway/jarinfer/toys/ExpectNonnull;",
+            BytecodeAnnotator.javaxNonnullDesc));
   }
 
   @Test

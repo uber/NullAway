@@ -1,5 +1,14 @@
 package com.uber.nullaway.jarinfer.toys;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
+@Retention(RetentionPolicy.RUNTIME)
+@interface ExpectNullable {}
+
+@Retention(RetentionPolicy.RUNTIME)
+@interface ExpectNonnull {}
+
 class Foo {
   private String foo;
 
@@ -8,7 +17,7 @@ class Foo {
     this.foo = str;
   }
 
-  public boolean run(String str) {
+  public boolean run(@ExpectNonnull String str) {
     if (str.length() > 0) {
       return str.equals(foo);
     }
@@ -36,6 +45,7 @@ class Bar {
 
 public class Toys {
 
+  @ExpectNullable
   public static String getString(boolean flag, String str) {
     if (flag) {
       return null;
@@ -43,7 +53,7 @@ public class Toys {
     return str;
   }
 
-  public static void test(String s, Foo f, Bar b) {
+  public static void test(@ExpectNonnull String s, Foo f, @ExpectNonnull Bar b) {
     if (s.length() >= 5) {
       Foo f1 = new Foo(s);
       f1.run(s);
@@ -53,7 +63,7 @@ public class Toys {
     b.run(s);
   }
 
-  public static void test1(String s, String t, String u) {
+  public static void test1(@ExpectNonnull String s, String t, String u) {
     if (s.length() >= 5) {
       Foo fs = new Foo(s);
       fs.run(u);
