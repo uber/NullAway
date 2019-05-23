@@ -17,7 +17,6 @@
 package com.uber.nullaway.jarinfer;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
 import com.sun.tools.javac.main.Main;
@@ -102,37 +101,6 @@ public class JarInferTest {
     DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
     String outJARPath = DefinitelyDerefedParamsDriver.lastOutPath;
     Assert.assertTrue("jar file not found! - " + outJARPath, new File(outJARPath).exists());
-  }
-
-  private void testBytecodeAnnotationTemplate(
-      String testName,
-      String pkg,
-      String cls,
-      String inputSrc,
-      Map<String, Set<Integer>> expectedNonnullParams,
-      Set<String> expectedNullableReturns)
-      throws Exception {
-    Result compileResult = compilerUtil.addSourceLines(cls + ".java", inputSrc).run();
-    Assert.assertEquals(
-        testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
-        Main.Result.OK,
-        compileResult);
-
-    String classFilePathInTempFolder =
-        temporaryFolder.getRoot().getAbsolutePath() + "/" + pkg + "/" + cls + ".class";
-    String classFilePathInOutputFolder =
-        outputFolder.newFolder(pkg).getAbsolutePath() + "/" + cls + ".class";
-    DefinitelyDerefedParamsDriver.reset();
-    // TODO(ragr@): Package name has to be "" for the analysis to happen because in other cases, the
-    // class name
-    // does not have package as the prefix and hence it is ignored. Figure this out.
-    DefinitelyDerefedParamsDriver.runAndAnnotate(
-        classFilePathInTempFolder, "", classFilePathInOutputFolder);
-
-    Assert.assertTrue(
-        testName + ": expected annotations not found!",
-        BytecodeVerifier.VerifyClass(
-            classFilePathInOutputFolder, expectedNonnullParams, expectedNullableReturns));
   }
 
   private void testAnnotationInClassTemplate(
@@ -377,19 +345,7 @@ public class JarInferTest {
   }
 
   @Test
-  public void toyBytecodeAnnotationCheckingExpected() throws Exception {
-    testBytecodeAnnotationTemplate(
-        "toyBytecodeAnnotation",
-        "toys",
-        "Test",
-        getToyTestSrcWithExpectAnnotations(),
-        ImmutableMap.of(
-            "toys.Test.test(Ljava/lang/String;Ljava/lang/String;)V", Sets.newHashSet(1)),
-        ImmutableSet.of("toys.Test.getString(Z)Ljava/lang/String;"));
-  }
-
-  @Test
-  public void toyBytecodeAnnotationComparingClasses() throws Exception {
+  public void toyAnnotatingClasses() throws Exception {
     testAnnotationInClassTemplate(
         "toyBytecodeAnnotationComparingClasses",
         "toys",
