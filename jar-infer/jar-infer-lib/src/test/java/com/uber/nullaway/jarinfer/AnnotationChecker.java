@@ -25,7 +25,6 @@ public class AnnotationChecker {
       if (entry.getName().endsWith(".class")
           && !CheckMethodAnnotationsInClass(
               jar.getInputStream(entry), expectedToActualAnnotations)) {
-        System.out.println("  Method annotations are not as expected in " + entry.getName());
         return false;
       }
     }
@@ -35,7 +34,6 @@ public class AnnotationChecker {
   public static boolean CheckMethodAnnotationsInClass(
       String classFile, Map<String, String> expectedToActualAnnotations) throws IOException {
     Preconditions.checkArgument(classFile.endsWith(".class"), "invalid class file: " + classFile);
-    System.out.println("Checking class file: " + classFile);
     return CheckMethodAnnotationsInClass(
         new FileInputStream(classFile), expectedToActualAnnotations);
   }
@@ -45,13 +43,10 @@ public class AnnotationChecker {
     ClassReader cr = new ClassReader(is);
     ClassNode cn = new ClassNode();
     cr.accept(cn, 0);
-    System.out.println("  Class1: " + cn.name);
 
     for (MethodNode method : cn.methods) {
       if (!CheckExpectedAnnotations(method.visibleAnnotations, expectedToActualAnnotations)) {
-        System.out.println("    Annotations are not as expected on method " + method.name);
-        System.out.println("       -- Annotations list: ");
-        PrintAnnotations(method.visibleAnnotations);
+        System.out.println("Error: Expected annotations not found on method " + method.name);
         return false;
       }
       List<AnnotationNode>[] paramAnnotations = method.visibleParameterAnnotations;
@@ -59,20 +54,12 @@ public class AnnotationChecker {
       for (List<AnnotationNode> annotations : paramAnnotations) {
         if (!CheckExpectedAnnotations(annotations, expectedToActualAnnotations)) {
           System.out.println(
-              "    Annotations are not as expected in a parameter of " + method.name);
-          System.out.println("       -- Annotations list: ");
-          PrintAnnotations(annotations);
+              "Error: Expected annotations not found in a parameter of " + method.name);
           return false;
         }
       }
     }
     return true;
-  }
-
-  private static void PrintAnnotations(List<AnnotationNode> annotations) {
-    for (AnnotationNode annotationNode : annotations) {
-      System.out.println("         " + annotationNode.desc);
-    }
   }
 
   private static boolean CheckExpectedAnnotations(

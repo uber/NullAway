@@ -18,6 +18,12 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
+  private static boolean DEBUG = false;
+
+  private static void LOG(boolean cond, String tag, String msg) {
+    if (cond) System.out.println("[" + tag + "] " + msg);
+  }
+
   public static final String javaxNullableDesc = "Ljavax/annotation/Nullable;";
   public static final String javaxNonnullDesc = "Ljavax/annotation/Nonnull;";
 
@@ -55,16 +61,14 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
       final String signature,
       final String[] exceptions) {
     MethodVisitor mv = cv.visitMethod(access, name, desc, signature, exceptions);
-    System.out.println("ClassName: " + className);
-    System.out.println(
-        "[JI-MethodVisitor]: visited method - " + name + " desc: " + desc + " sign: " + signature);
+    LOG(DEBUG, "DEBUG", "ClassName: " + className);
+    LOG(DEBUG, "DEBUG", "visited method - " + name + " desc: " + desc + " sign: " + signature);
     String methodSignature = className + "." + name + desc;
     if (mv != null) {
       if (nullableReturns.contains(methodSignature)) {
         // Add a @Nullable annotation on this method to indicate that the method can return null.
         mv.visitAnnotation(javaxNullableDesc, true);
-        System.out.println(
-            "[JI-MethodVisitor]: Added nullable return annotation for " + methodSignature);
+        LOG(DEBUG, "DEBUG", "Added nullable return annotation for " + methodSignature);
       }
       Set<Integer> params = nullableParams.get(methodSignature);
       if (params != null) {
@@ -72,25 +76,22 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
         for (Integer param : params) {
           // Add a @Nonnull annotation on this parameter.
           mv.visitParameterAnnotation(isStatic ? param : param - 1, javaxNonnullDesc, true);
-          System.out.println(
-              "[JI-MethodVisitor]: Added nullable parameter annotation for #"
-                  + param
-                  + " in "
-                  + methodSignature);
+          LOG(
+              DEBUG,
+              "DEBUG",
+              "Added nullable parameter annotation for #" + param + " in " + methodSignature);
         }
       }
     }
     return mv;
   }
 
-  public static void annotateBytecode(
+  private static void annotateBytecode(
       InputStream is,
       OutputStream os,
       Map<String, Set<Integer>> map_result,
       Set<String> nullableReturns)
       throws IOException {
-    System.out.println("nullableReturns: " + nullableReturns);
-    System.out.println("map_result: " + map_result);
     ClassReader cr = new ClassReader(is);
     ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
     BytecodeAnnotator bytecodeAnnotator = new BytecodeAnnotator(cw, map_result, nullableReturns);
@@ -98,14 +99,29 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
     os.write(cw.toByteArray());
   }
 
-  public static void annotateBytecodeInJars(
+  public static void annotateBytecodeInClass(
+      InputStream is,
+      OutputStream os,
+      Map<String, Set<Integer>> map_result,
+      Set<String> nullableReturns,
+      boolean DEBUG)
+      throws IOException {
+    BytecodeAnnotator.DEBUG = DEBUG;
+    LOG(DEBUG, "DEBUG", "nullableReturns: " + nullableReturns);
+    LOG(DEBUG, "DEBUG", "nonnullParams: " + map_result);
+    annotateBytecode(is, os, map_result, nullableReturns);
+  }
+
+  public static void annotateBytecodeInJar(
       JarFile inputJar,
       JarOutputStream jarOS,
       Map<String, Set<Integer>> map_result,
-      Set<String> nullableReturns)
+      Set<String> nullableReturns,
+      boolean DEBUG)
       throws IOException {
-    System.out.println("nullableReturns: " + nullableReturns);
-    System.out.println("map_result: " + map_result);
+    BytecodeAnnotator.DEBUG = DEBUG;
+    LOG(DEBUG, "DEBUG", "nullableReturns: " + nullableReturns);
+    LOG(DEBUG, "DEBUG", "nonnullParams: " + map_result);
     for (Enumeration<JarEntry> entries = inputJar.entries(); entries.hasMoreElements(); ) {
       JarEntry jarEntry = entries.nextElement();
       InputStream is = inputJar.getInputStream(jarEntry);

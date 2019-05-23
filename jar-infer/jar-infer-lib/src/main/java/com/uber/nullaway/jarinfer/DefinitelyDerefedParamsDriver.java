@@ -166,9 +166,6 @@ public class DefinitelyDerefedParamsDriver {
     VERBOSE = vbs;
     DefinitelyDerefedParamsDriver.annotateBytecode = annotateBytecode;
     Set<String> setInPaths = new HashSet<>(Arrays.asList(inPaths.split(",")));
-    System.out.println("Inpaths: " + inPaths);
-    System.out.println("pkgName: " + pkgName);
-    System.out.println("outPath: " + outPath);
     analysisStartTime = System.currentTimeMillis();
     for (String inPath : setInPaths) {
       analyzeFile(pkgName, inPath);
@@ -214,7 +211,6 @@ public class DefinitelyDerefedParamsDriver {
     for (IClassLoader cldr : cha.getLoaders()) {
       if (!cldr.getName().toString().equals("Primordial")) {
         for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
-          System.out.println("Loaded class: " + cls.getName());
           if (cls instanceof PhantomClass) continue;
           // Only process classes in specified classpath and not its dependencies.
           // TODO: figure the right way to do this
@@ -223,8 +219,6 @@ public class DefinitelyDerefedParamsDriver {
           for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
             // Skip methods without parameters, abstract methods, native methods
             // some Application classes are Primordial (why?)
-            System.out.println(
-                " Analyzing method: " + mtd.getName() + " desc: " + mtd.getSignature());
             if (!mtd.isPrivate()
                 && !mtd.isAbstract()
                 && !mtd.isNative()
@@ -249,7 +243,6 @@ public class DefinitelyDerefedParamsDriver {
                     }
                     Set<Integer> result = analysisDriver.analyze();
                     sign = getSignature(mtd);
-                    System.out.println("Analyzed method: " + sign);
                     LOG(DEBUG, "DEBUG", "analyzed method: " + sign);
                     if (!result.isEmpty() || DEBUG) {
                       map_result.put(sign, result);
@@ -277,7 +270,6 @@ public class DefinitelyDerefedParamsDriver {
                     sign = getSignature(mtd);
                   }
                   nullableReturns.add(sign);
-                  System.out.println("Inferred Nullable method return: " + sign);
                   LOG(DEBUG, "DEBUG", "Inferred Nullable method return: " + sign);
                 }
               }
@@ -404,10 +396,7 @@ public class DefinitelyDerefedParamsDriver {
     Preconditions.checkArgument(
         inPath.endsWith(".jar") || inPath.endsWith(".aar") || inPath.endsWith(".class"),
         "invalid input path - " + inPath);
-
-    System.out.println("Write Annotations:");
-    System.out.println("  Inpath: " + inPath);
-    System.out.println("  outPath: " + outPath);
+    LOG(DEBUG, "DEBUG", "Writing Annotations to " + outPath);
 
     String outFile;
     if (inPath.endsWith(".jar")) {
@@ -419,14 +408,14 @@ public class DefinitelyDerefedParamsDriver {
               + FilenameUtils.getExtension(inPath);
       JarFile jar = new JarFile(inPath);
       JarOutputStream jarOS = new JarOutputStream(new FileOutputStream(outFile));
-      BytecodeAnnotator.annotateBytecodeInJars(jar, jarOS, map_result, nullableReturns);
+      BytecodeAnnotator.annotateBytecodeInJar(jar, jarOS, map_result, nullableReturns, DEBUG);
       jarOS.close();
     } else if (inPath.endsWith(".aar")) {
       // TODO(ragr@): Handle this case.
     } else {
       InputStream is = new FileInputStream(inPath);
       OutputStream os = new FileOutputStream(outPath);
-      BytecodeAnnotator.annotateBytecode(is, os, map_result, nullableReturns);
+      BytecodeAnnotator.annotateBytecodeInClass(is, os, map_result, nullableReturns, DEBUG);
       os.close();
     }
   }

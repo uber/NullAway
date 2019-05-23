@@ -30,6 +30,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.apache.commons.io.FilenameUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -111,41 +112,27 @@ public class JarInferTest {
       Map<String, Set<Integer>> expectedNonnullParams,
       Set<String> expectedNullableReturns)
       throws Exception {
-    System.out.println("Input Src: " + inputSrc);
     Result compileResult = compilerUtil.addSourceLines(cls + ".java", inputSrc).run();
     Assert.assertEquals(
         testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
         Main.Result.OK,
         compileResult);
 
-    File f = temporaryFolder.getRoot();
-    while (f.isDirectory()) {
-      System.out.println("  " + f.getAbsolutePath());
-      System.out.println("  -- " + Arrays.toString(f.list()));
-      f = f.listFiles()[0];
-    }
-
+    String classFilePathInTempFolder =
+        temporaryFolder.getRoot().getAbsolutePath() + "/" + pkg + "/" + cls + ".class";
+    String classFilePathInOutputFolder =
+        outputFolder.newFolder(pkg).getAbsolutePath() + "/" + cls + ".class";
     DefinitelyDerefedParamsDriver.reset();
     // TODO(ragr@): Package name has to be "" for the analysis to happen because in other cases, the
     // class name
     // does not have package as the prefix and hence it is ignored. Figure this out.
     DefinitelyDerefedParamsDriver.runAndAnnotate(
-        temporaryFolder.getRoot().listFiles()[0].getAbsolutePath() + "/" + cls + ".class",
-        "",
-        outputFolder.newFolder(pkg).getAbsolutePath() + "/" + cls + ".class");
-
-    f = outputFolder.getRoot();
-    while (f.isDirectory()) {
-      System.out.println("  " + f.getAbsolutePath());
-      System.out.println("  -- " + Arrays.toString(f.list()));
-      f = f.listFiles()[0];
-    }
-    System.out.println("output file: " + f.getAbsolutePath());
+        classFilePathInTempFolder, "", classFilePathInOutputFolder);
 
     Assert.assertTrue(
         testName + ": expected annotations not found!",
         BytecodeVerifier.VerifyClass(
-            f.getAbsolutePath(), expectedNonnullParams, expectedNullableReturns));
+            classFilePathInOutputFolder, expectedNonnullParams, expectedNullableReturns));
   }
 
   private void testAnnotationInClassTemplate(
@@ -155,41 +142,27 @@ public class JarInferTest {
       String inputSrc,
       Map<String, String> expectedToActualAnnotationsMap)
       throws Exception {
-    System.out.println("Input src: " + inputSrc);
     Result compileResult = compilerUtil.addSourceLines(cls + ".java", inputSrc).run();
     Assert.assertEquals(
         testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
         Main.Result.OK,
         compileResult);
 
-    File f = temporaryFolder.getRoot();
-    while (f.isDirectory()) {
-      System.out.println("  " + f.getAbsolutePath());
-      System.out.println("  -- " + Arrays.toString(f.list()));
-      f = f.listFiles()[0];
-    }
-
+    String classFilePathInTempFolder =
+        temporaryFolder.getRoot().getAbsolutePath() + "/" + pkg + "/" + cls + ".class";
+    String classFilePathInOutputFolder =
+        outputFolder.newFolder(pkg).getAbsolutePath() + "/" + cls + ".class";
     DefinitelyDerefedParamsDriver.reset();
     // TODO(ragr@): Package name has to be "" for the analysis to happen because in other cases, the
     // class name
     // does not have package as the prefix and hence it is ignored. Figure this out.
     DefinitelyDerefedParamsDriver.runAndAnnotate(
-        temporaryFolder.getRoot().listFiles()[0].getAbsolutePath() + "/" + cls + ".class",
-        "",
-        outputFolder.newFolder(pkg).getAbsolutePath() + "/" + cls + ".class");
-
-    f = outputFolder.getRoot();
-    while (f.isDirectory()) {
-      System.out.println("  " + f.getAbsolutePath());
-      System.out.println("  -- " + Arrays.toString(f.list()));
-      f = f.listFiles()[0];
-    }
-    System.out.println("output file: " + f.getAbsolutePath());
+        classFilePathInTempFolder, "", classFilePathInOutputFolder);
 
     Assert.assertTrue(
         testName + ": generated class does not match the expected class!",
         AnnotationChecker.CheckMethodAnnotationsInClass(
-            f.getAbsolutePath(), expectedToActualAnnotationsMap));
+            classFilePathInOutputFolder, expectedToActualAnnotationsMap));
   }
 
   private void testAnnotationInJarTemplate(
@@ -198,26 +171,16 @@ public class JarInferTest {
       String inputJarPath,
       Map<String, String> expectedToActualAnnotationsMap)
       throws Exception {
-    System.out.println("Testname: " + testName);
-    System.out.println("Pkg: " + pkg);
-    System.out.println("Input jar path: " + inputJarPath);
-
+    String outputFolderPath = outputFolder.newFolder(pkg).getAbsolutePath();
     DefinitelyDerefedParamsDriver.reset();
-    DefinitelyDerefedParamsDriver.runAndAnnotate(
-        inputJarPath, "", outputFolder.newFolder(pkg).getAbsolutePath());
+    DefinitelyDerefedParamsDriver.runAndAnnotate(inputJarPath, "", outputFolderPath);
 
-    File f = outputFolder.getRoot();
-    while (f.isDirectory()) {
-      System.out.println("  " + f.getAbsolutePath());
-      System.out.println("  -- " + Arrays.toString(f.list()));
-      f = f.listFiles()[0];
-    }
-    System.out.println("output file: " + f.getAbsolutePath());
-
+    String inputJarName = FilenameUtils.getBaseName(inputJarPath);
+    String outputJarPath = outputFolderPath + "/" + inputJarName + "-annotated.jar";
     Assert.assertTrue(
         testName + ": generated jar does not match the expected jar!",
         AnnotationChecker.CheckMethodAnnotationsInJar(
-            f.getAbsolutePath(), expectedToActualAnnotationsMap));
+            outputJarPath, expectedToActualAnnotationsMap));
   }
 
   /**
