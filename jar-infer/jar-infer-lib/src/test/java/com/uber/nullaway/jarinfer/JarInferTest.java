@@ -103,36 +103,6 @@ public class JarInferTest {
     Assert.assertTrue("jar file not found! - " + outJARPath, new File(outJARPath).exists());
   }
 
-  private void testAnnotationInClassTemplate(
-      String testName,
-      String pkg,
-      String cls,
-      String inputSrc,
-      Map<String, String> expectedToActualAnnotationsMap)
-      throws Exception {
-    Result compileResult = compilerUtil.addSourceLines(cls + ".java", inputSrc).run();
-    Assert.assertEquals(
-        testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
-        Main.Result.OK,
-        compileResult);
-
-    String classFilePathInTempFolder =
-        temporaryFolder.getRoot().getAbsolutePath() + "/" + pkg + "/" + cls + ".class";
-    String classFilePathInOutputFolder =
-        outputFolder.newFolder(pkg).getAbsolutePath() + "/" + cls + ".class";
-    DefinitelyDerefedParamsDriver.reset();
-    // TODO(ragr@): Package name has to be "" for the analysis to happen because in other cases, the
-    // class name
-    // does not have package as the prefix and hence it is ignored. Figure this out.
-    DefinitelyDerefedParamsDriver.runAndAnnotate(
-        classFilePathInTempFolder, "", classFilePathInOutputFolder);
-
-    Assert.assertTrue(
-        testName + ": generated class does not match the expected class!",
-        AnnotationChecker.CheckMethodAnnotationsInClass(
-            classFilePathInOutputFolder, expectedToActualAnnotationsMap));
-  }
-
   private void testAnnotationInJarTemplate(
       String testName,
       String pkg,
@@ -303,59 +273,6 @@ public class JarInferTest {
         "    Objects.requireNonNull(t);",
         "  }",
         "}");
-  }
-
-  private String getToyTestSrcWithExpectAnnotations() {
-    return "package toys;"
-        + "import java.lang.annotation.Retention;"
-        + "import java.lang.annotation.RetentionPolicy;"
-        + "@Retention(RetentionPolicy.RUNTIME)"
-        + "@interface ExpectNullable {"
-        + "}"
-        + "@Retention(RetentionPolicy.RUNTIME)"
-        + "@interface ExpectNonnull {"
-        + "}"
-        + "public class Test {"
-        + "  private String foo;"
-        + "  public Test(String str) {"
-        + "    if (str == null) str = \"foo\";"
-        + "    this.foo = str;"
-        + "  }"
-        + "  public boolean run(String str) {"
-        + "    if (str != null) {"
-        + "      return str.equals(foo);"
-        + "    }"
-        + "    return false;"
-        + "  }"
-        + "  @ExpectNullable"
-        + "  public String getString(boolean a) {"
-        + "    if (a == true) {"
-        + "      return foo;"
-        + "    }"
-        + "    return null;"
-        + "  }"
-        + "  public void test(@ExpectNonnull String s, String t) {"
-        + "    if (s.length() >= 5) {"
-        + "      this.run(s);"
-        + "    } else {"
-        + "      this.run(t);"
-        + "    }"
-        + "  }"
-        + "}";
-  }
-
-  @Test
-  public void toyAnnotatingClasses() throws Exception {
-    testAnnotationInClassTemplate(
-        "toyBytecodeAnnotationComparingClasses",
-        "toys",
-        "Test",
-        getToyTestSrcWithExpectAnnotations(),
-        ImmutableMap.of(
-            "Ltoys/ExpectNullable;",
-            BytecodeAnnotator.javaxNullableDesc,
-            "Ltoys/ExpectNonnull;",
-            BytecodeAnnotator.javaxNonnullDesc));
   }
 
   @Test
