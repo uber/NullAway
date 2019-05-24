@@ -14,6 +14,8 @@ import jdk.internal.org.objectweb.asm.tree.AnnotationNode;
 import jdk.internal.org.objectweb.asm.tree.ClassNode;
 import jdk.internal.org.objectweb.asm.tree.MethodNode;
 
+// This class includes methods to check if the methods in the given class / jar files have
+// the expected annotations.
 public class AnnotationChecker {
   public static boolean CheckMethodAnnotationsInJar(
       String jarFile, Map<String, String> expectedToActualAnnotations) throws IOException {

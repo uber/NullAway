@@ -13,6 +13,7 @@ import jdk.internal.org.objectweb.asm.tree.AnnotationNode;
 import jdk.internal.org.objectweb.asm.tree.ClassNode;
 import jdk.internal.org.objectweb.asm.tree.MethodNode;
 
+// This class is used to compare the method annotations on the given class / jar files.
 public class AnnotationComparator {
   public static boolean CompareMethodAnnotationsInJars(String jarFile1, String jarFile2)
       throws IOException {
