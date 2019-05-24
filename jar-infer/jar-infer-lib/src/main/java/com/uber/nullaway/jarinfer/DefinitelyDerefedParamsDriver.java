@@ -394,8 +394,7 @@ public class DefinitelyDerefedParamsDriver {
 
   private static void WriteAnnotations(String inPath, String outPath) throws IOException {
     Preconditions.checkArgument(
-        inPath.endsWith(".jar") || inPath.endsWith(".aar") || inPath.endsWith(".class"),
-        "invalid input path - " + inPath);
+        inPath.endsWith(".jar") || inPath.endsWith(".class"), "invalid input path - " + inPath);
     LOG(DEBUG, "DEBUG", "Writing Annotations to " + outPath);
 
     String outFile;
