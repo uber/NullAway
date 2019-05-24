@@ -148,7 +148,8 @@ public class DefinitelyDerefedParamsDriver {
    * @param inPaths Comma separated paths to input jar/aar file to be analyzed.
    * @param pkgName Qualified package name.
    * @param outPath Path to output processed jar/aar file. Default outPath for 'a/b/c/x.jar' is
-   *     'a/b/c/x-ji.jar'.
+   *     'a/b/c/x-ji.jar'. When 'annotatedBytecode' is enabled, this should refer to the directory
+   *     that should contain all the output jars.
    * @return Result Map of 'method signatures' to their 'list of NonNull parameters'.
    * @throws IOException on IO error.
    * @throws ClassHierarchyException on Class Hierarchy factory error.
