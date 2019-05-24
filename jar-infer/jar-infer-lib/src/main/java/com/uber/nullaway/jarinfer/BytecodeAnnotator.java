@@ -17,9 +17,9 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
-// This class uses ASM to add the given annotations to methods in the given class / jar.
+/** Annotates the given methods and method parameters with the specified annotations using ASM. */
 public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
-  private static boolean DEBUG = false;
+  private static boolean debug = false;
 
   private static void LOG(boolean cond, String tag, String msg) {
     if (cond) System.out.println("[" + tag + "] " + msg);
@@ -62,14 +62,14 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
       final String signature,
       final String[] exceptions) {
     MethodVisitor mv = cv.visitMethod(access, name, desc, signature, exceptions);
-    LOG(DEBUG, "DEBUG", "ClassName: " + className);
-    LOG(DEBUG, "DEBUG", "visited method - " + name + " desc: " + desc + " sign: " + signature);
+    LOG(debug, "DEBUG", "ClassName: " + className);
+    LOG(debug, "DEBUG", "visited method - " + name + " desc: " + desc + " sign: " + signature);
     String methodSignature = className + "." + name + desc;
     if (mv != null) {
       if (nullableReturns.contains(methodSignature)) {
         // Add a @Nullable annotation on this method to indicate that the method can return null.
         mv.visitAnnotation(javaxNullableDesc, true);
-        LOG(DEBUG, "DEBUG", "Added nullable return annotation for " + methodSignature);
+        LOG(debug, "DEBUG", "Added nullable return annotation for " + methodSignature);
       }
       Set<Integer> params = nullableParams.get(methodSignature);
       if (params != null) {
@@ -78,7 +78,7 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
           // Add a @Nonnull annotation on this parameter.
           mv.visitParameterAnnotation(isStatic ? param : param - 1, javaxNonnullDesc, true);
           LOG(
-              DEBUG,
+              debug,
               "DEBUG",
               "Added nullable parameter annotation for #" + param + " in " + methodSignature);
         }
@@ -100,29 +100,50 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
     os.write(cw.toByteArray());
   }
 
+  /**
+   * Annotates the methods and method parameters in the given class with the specified annotations.
+   *
+   * @param is InputStream for the input class.
+   * @param os OutputStream for the output class.
+   * @param map_result Map from methods to their nonnull params.
+   * @param nullableReturns List of methods that return nullable.
+   * @param debug flag to output debug logs.
+   * @throws IOException
+   */
   public static void annotateBytecodeInClass(
       InputStream is,
       OutputStream os,
       Map<String, Set<Integer>> map_result,
       Set<String> nullableReturns,
-      boolean DEBUG)
+      boolean debug)
       throws IOException {
-    BytecodeAnnotator.DEBUG = DEBUG;
-    LOG(DEBUG, "DEBUG", "nullableReturns: " + nullableReturns);
-    LOG(DEBUG, "DEBUG", "nonnullParams: " + map_result);
+    BytecodeAnnotator.debug = debug;
+    LOG(debug, "DEBUG", "nullableReturns: " + nullableReturns);
+    LOG(debug, "DEBUG", "nonnullParams: " + map_result);
     annotateBytecode(is, os, map_result, nullableReturns);
   }
 
+  /**
+   * Annotates the methods and method parameters in the classes in the given jar with the specified
+   * annotations.
+   *
+   * @param inputJar JarFile to annotate.
+   * @param jarOS OutputStream of the output jar file.
+   * @param map_result Map from methods to their nonnull params.
+   * @param nullableReturns List of methods that return nullable.
+   * @param debug flag to output debug logs.
+   * @throws IOException
+   */
   public static void annotateBytecodeInJar(
       JarFile inputJar,
       JarOutputStream jarOS,
       Map<String, Set<Integer>> map_result,
       Set<String> nullableReturns,
-      boolean DEBUG)
+      boolean debug)
       throws IOException {
-    BytecodeAnnotator.DEBUG = DEBUG;
-    LOG(DEBUG, "DEBUG", "nullableReturns: " + nullableReturns);
-    LOG(DEBUG, "DEBUG", "nonnullParams: " + map_result);
+    BytecodeAnnotator.debug = debug;
+    LOG(debug, "DEBUG", "nullableReturns: " + nullableReturns);
+    LOG(debug, "DEBUG", "nonnullParams: " + map_result);
     for (Enumeration<JarEntry> entries = inputJar.entries(); entries.hasMoreElements(); ) {
       JarEntry jarEntry = entries.nextElement();
       InputStream is = inputJar.getInputStream(jarEntry);

@@ -117,7 +117,7 @@ public class JarInferTest {
     String outputJarPath = outputFolderPath + "/" + inputJarName + "-annotated.jar";
     Assert.assertTrue(
         testName + ": generated jar does not match the expected jar!",
-        AnnotationChecker.CheckMethodAnnotationsInJar(
+        AnnotationChecker.checkMethodAnnotationsInJar(
             outputJarPath, expectedToActualAnnotationsMap));
   }
 
