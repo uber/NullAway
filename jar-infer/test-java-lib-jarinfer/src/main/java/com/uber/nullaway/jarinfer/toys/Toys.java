@@ -1,4 +1,4 @@
-package com.uber.nullaway.jarinfer.toys;
+package com.uber.nullaway.jarinfer.toys.unannotated;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;

@@ -242,7 +242,7 @@ public class JarInferTest {
   @Test
   public void toyJAR() throws Exception {
     testJARTemplate(
-        "com.uber.nullaway.jarinfer.toys",
+        "com.uber.nullaway.jarinfer.toys.unannotated",
         "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar");
   }
 
@@ -279,12 +279,12 @@ public class JarInferTest {
   public void toyJARAnnotatingClasses() throws Exception {
     testAnnotationInJarTemplate(
         "toyJARAnnotatingClasses",
-        "com.uber.nullaway.jarinfer.toys",
+        "com.uber.nullaway.jarinfer.toys.unannotated",
         "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar",
         ImmutableMap.of(
-            "Lcom/uber/nullaway/jarinfer/toys/ExpectNullable;",
+            "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNullable;",
             BytecodeAnnotator.javaxNullableDesc,
-            "Lcom/uber/nullaway/jarinfer/toys/ExpectNonnull;",
+            "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNonnull;",
             BytecodeAnnotator.javaxNonnullDesc));
   }
 
@@ -292,7 +292,7 @@ public class JarInferTest {
   public void jarinferOutputJarIsBytePerByteDeterministic() throws Exception {
     DefinitelyDerefedParamsDriver.reset();
     String jarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
-    String pkg = "com.uber.nullaway.jarinfer.toys";
+    String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
     DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
     byte[] checksumBytes1 = sha1sum(DefinitelyDerefedParamsDriver.lastOutPath);
     // Wait a second to ensure system time has changed
