@@ -17,6 +17,7 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+// This class uses ASM to add the given annotations to methods in the given class / jar.
 public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
   private static boolean DEBUG = false;
 
