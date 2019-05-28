@@ -35,6 +35,13 @@ public class AnnotationChecker {
    * expected are specified in the form of a map. For example: map = {"ExpectNullable;",
    * "Ljavax/annotation/Nullable;"} will check if all methods and params contain
    * "Ljavax/annotation/Nullable;" iff "ExpectNullable;" is present.
+   *
+   * @param jarFile Path to the input jar file.
+   * @param expectedToActualAnnotations Map from 'Expect*' annotations to the actual annotations
+   *     that are expected to be present.
+   * @return True when the actual annotations that are expected to be present are present iff the
+   *     'Expect*' annotations are present.
+   * @throws IOException
    */
   public static boolean checkMethodAnnotationsInJar(
       String jarFile, Map<String, String> expectedToActualAnnotations) throws IOException {
