@@ -49,6 +49,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -59,6 +60,8 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.jar.JarFile;
+import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
@@ -77,11 +80,14 @@ public class DefinitelyDerefedParamsDriver {
 
   public static String lastOutPath = "";
   public static long analyzedBytes = 0;
+  public static long analysisStartTime = 0;
   private static Result map_result = new Result();
   private static Set<String> nullableReturns = new HashSet<>();
 
+  private static boolean annotateBytecode = false;
+
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
-  private static final String MODEL_JAR_SUFFIX = ".astubx.jar";
+  private static final String ASTUBX_JAR_SUFFIX = ".astubx.jar";
   // TODO: Exclusions-
   // org.ow2.asm : InvalidBytecodeException on
   // com.ibm.wala.classLoader.ShrikeCTMethod.makeDecoder:110
@@ -89,8 +95,10 @@ public class DefinitelyDerefedParamsDriver {
 
   public static void reset() {
     analyzedBytes = 0;
+    analysisStartTime = 0;
     map_result.clear();
     nullableReturns.clear();
+    annotateBytecode = false;
   }
 
   /**
@@ -121,12 +129,18 @@ public class DefinitelyDerefedParamsDriver {
       outPath =
           FilenameUtils.getFullPath(firstInPath)
               + FilenameUtils.getBaseName(firstInPath)
-              + MODEL_JAR_SUFFIX;
+              + ASTUBX_JAR_SUFFIX;
     } else if (new File(firstInPath).exists()) {
       outPath = FilenameUtils.getFullPath(firstInPath) + DEFAULT_ASTUBX_LOCATION;
     }
-    return run(inPaths, pkgName, outPath, DEBUG, VERBOSE);
+    return run(inPaths, pkgName, outPath, false, DEBUG, VERBOSE);
   }
+
+  public static Result runAndAnnotate(String inPaths, String pkgName, String outPath)
+      throws IOException, ClassHierarchyException {
+    return run(inPaths, pkgName, outPath, true, DEBUG, VERBOSE);
+  }
+
   /**
    * Driver for the analysis. {@link DefinitelyDerefedParams} Usage: DefinitelyDerefedParamsDriver (
    * jar/aar_path, package_name, [output_path])
@@ -134,133 +148,148 @@ public class DefinitelyDerefedParamsDriver {
    * @param inPaths Comma separated paths to input jar/aar file to be analyzed.
    * @param pkgName Qualified package name.
    * @param outPath Path to output processed jar/aar file. Default outPath for 'a/b/c/x.jar' is
-   *     'a/b/c/x-ji.jar'.
+   *     'a/b/c/x-ji.jar'. When 'annotatedBytecode' is enabled, this should refer to the directory
+   *     that should contain all the output jars.
    * @return Result Map of 'method signatures' to their 'list of NonNull parameters'.
    * @throws IOException on IO error.
    * @throws ClassHierarchyException on Class Hierarchy factory error.
    * @throws IllegalArgumentException on illegal argument to WALA API.
    */
-  public static Result run(String inPaths, String pkgName, String outPath, boolean dbg, boolean vbs)
+  public static Result run(
+      String inPaths,
+      String pkgName,
+      String outPath,
+      boolean annotateBytecode,
+      boolean dbg,
+      boolean vbs)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     DEBUG = dbg;
     VERBOSE = vbs;
-    long start = System.currentTimeMillis();
+    DefinitelyDerefedParamsDriver.annotateBytecode = annotateBytecode;
     Set<String> setInPaths = new HashSet<>(Arrays.asList(inPaths.split(",")));
+    analysisStartTime = System.currentTimeMillis();
     for (String inPath : setInPaths) {
-      InputStream jarIS = null;
-      if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
-        jarIS = getInputStream(inPath);
-        if (jarIS == null) {
-          continue;
-        }
-      } else if (!new File(inPath).exists()) {
-        continue;
+      analyzeFile(pkgName, inPath);
+      if (DefinitelyDerefedParamsDriver.annotateBytecode) {
+        WriteAnnotations(inPath, outPath);
       }
-      AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
-      scope.setExclusions(
-          new FileOfClasses(
-              new ByteArrayInputStream(DEFAULT_EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
-      if (jarIS != null) scope.addInputStreamForJarToScope(ClassLoaderReference.Application, jarIS);
-      else AnalysisScopeReader.addClassPathToScope(inPath, scope, ClassLoaderReference.Application);
-      AnalysisOptions options = new AnalysisOptions(scope, null);
-      AnalysisCache cache = new AnalysisCacheImpl();
-      IClassHierarchy cha = ClassHierarchyFactory.makeWithPhantom(scope);
-      Warnings.clear();
+    }
+    if (!DefinitelyDerefedParamsDriver.annotateBytecode) {
+      new File(outPath).getParentFile().mkdirs();
+      if (outPath.endsWith(".astubx")) {
+        writeModel(new DataOutputStream(new FileOutputStream(outPath)));
+      } else {
+        writeModelJAR(outPath);
+      }
+    }
+    lastOutPath = outPath;
+    return map_result;
+  }
 
-      // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
-      for (IClassLoader cldr : cha.getLoaders()) {
-        if (!cldr.getName().toString().equals("Primordial")) {
-          for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
-            if (cls instanceof PhantomClass) continue;
-            // Only process classes in specified classpath and not its dependencies.
-            // TODO: figure the right way to do this
-            if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
-            LOG(DEBUG, "DEBUG", "analyzing class: " + cls.getName().toString());
-            for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
-              // Skip methods without parameters, abstract methods, native methods
-              // some Application classes are Primordial (why?)
-              if (!mtd.isPrivate()
-                  && !mtd.isAbstract()
-                  && !mtd.isNative()
-                  && !isAllPrimitiveTypes(mtd)
-                  && !mtd.getDeclaringClass()
-                      .getClassLoader()
-                      .getName()
-                      .toString()
-                      .equals("Primordial")) {
-                Preconditions.checkNotNull(mtd, "method not found");
-                DefinitelyDerefedParams analysisDriver = null;
-                String sign = "";
-                // Parameter analysis
-                if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)) {
-                  // Skip methods by looking at bytecode
-                  try {
-                    if (!CodeScanner.getFieldsRead(mtd).isEmpty()
-                        || !CodeScanner.getFieldsWritten(mtd).isEmpty()
-                        || !CodeScanner.getCallSites(mtd).isEmpty()) {
-                      if (analysisDriver == null) {
-                        analysisDriver = getAnalysisDriver(mtd, options, cache, cha);
-                      }
-                      Set<Integer> result = analysisDriver.analyze();
-                      sign = getSignature(mtd);
-                      LOG(DEBUG, "DEBUG", "analyzed method: " + sign);
-                      if (!result.isEmpty() || DEBUG) {
-                        map_result.put(sign, result);
-                        LOG(
-                            DEBUG,
-                            "DEBUG",
-                            "Inferred Nonnull param for method: "
-                                + sign
-                                + " = "
-                                + result.toString());
-                      }
+  private static void analyzeFile(String pkgName, String inPath)
+      throws IOException, ClassHierarchyException {
+    InputStream jarIS = null;
+    if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
+      jarIS = getInputStream(inPath);
+      if (jarIS == null) {
+        return;
+      }
+    } else if (!new File(inPath).exists()) {
+      return;
+    }
+    AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
+    scope.setExclusions(
+        new FileOfClasses(
+            new ByteArrayInputStream(DEFAULT_EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
+    if (jarIS != null) scope.addInputStreamForJarToScope(ClassLoaderReference.Application, jarIS);
+    else AnalysisScopeReader.addClassPathToScope(inPath, scope, ClassLoaderReference.Application);
+    AnalysisOptions options = new AnalysisOptions(scope, null);
+    AnalysisCache cache = new AnalysisCacheImpl();
+    IClassHierarchy cha = ClassHierarchyFactory.makeWithPhantom(scope);
+    Warnings.clear();
+
+    // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
+    for (IClassLoader cldr : cha.getLoaders()) {
+      if (!cldr.getName().toString().equals("Primordial")) {
+        for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
+          if (cls instanceof PhantomClass) continue;
+          // Only process classes in specified classpath and not its dependencies.
+          // TODO: figure the right way to do this
+          if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
+          LOG(DEBUG, "DEBUG", "analyzing class: " + cls.getName().toString());
+          for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
+            // Skip methods without parameters, abstract methods, native methods
+            // some Application classes are Primordial (why?)
+            if (!mtd.isPrivate()
+                && !mtd.isAbstract()
+                && !mtd.isNative()
+                && !isAllPrimitiveTypes(mtd)
+                && !mtd.getDeclaringClass()
+                    .getClassLoader()
+                    .getName()
+                    .toString()
+                    .equals("Primordial")) {
+              Preconditions.checkNotNull(mtd, "method not found");
+              DefinitelyDerefedParams analysisDriver = null;
+              String sign = "";
+              // Parameter analysis
+              if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)) {
+                // Skip methods by looking at bytecode
+                try {
+                  if (!CodeScanner.getFieldsRead(mtd).isEmpty()
+                      || !CodeScanner.getFieldsWritten(mtd).isEmpty()
+                      || !CodeScanner.getCallSites(mtd).isEmpty()) {
+                    if (analysisDriver == null) {
+                      analysisDriver = getAnalysisDriver(mtd, options, cache, cha);
                     }
-                  } catch (Exception e) {
-                    LOG(
-                        DEBUG,
-                        "DEBUG",
-                        "Exception while scanning bytecodes for " + mtd + " " + e.getMessage());
+                    Set<Integer> result = analysisDriver.analyze();
+                    sign = getSignature(mtd);
+                    LOG(DEBUG, "DEBUG", "analyzed method: " + sign);
+                    if (!result.isEmpty() || DEBUG) {
+                      map_result.put(sign, result);
+                      LOG(
+                          DEBUG,
+                          "DEBUG",
+                          "Inferred Nonnull param for method: " + sign + " = " + result.toString());
+                    }
                   }
+                } catch (Exception e) {
+                  LOG(
+                      DEBUG,
+                      "DEBUG",
+                      "Exception while scanning bytecodes for " + mtd + " " + e.getMessage());
                 }
-                // Return value analysis
-                if (!mtd.getReturnType().isPrimitiveType()) {
-                  if (analysisDriver == null) {
-                    analysisDriver = getAnalysisDriver(mtd, options, cache, cha);
+              }
+              // Return value analysis
+              if (!mtd.getReturnType().isPrimitiveType()) {
+                if (analysisDriver == null) {
+                  analysisDriver = getAnalysisDriver(mtd, options, cache, cha);
+                }
+                if (analysisDriver.analyzeReturnType()
+                    == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
+                  if (sign.isEmpty()) {
+                    sign = getSignature(mtd);
                   }
-                  if (analysisDriver.analyzeReturnType()
-                      == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
-                    if (sign.isEmpty()) {
-                      sign = getSignature(mtd);
-                    }
-                    nullableReturns.add(sign);
-                    LOG(DEBUG, "DEBUG", "Inferred Nullable method return: " + sign);
-                  }
+                  nullableReturns.add(sign);
+                  LOG(DEBUG, "DEBUG", "Inferred Nullable method return: " + sign);
                 }
               }
             }
           }
         }
       }
-      long end = System.currentTimeMillis();
-      LOG(
-          VERBOSE,
-          "Stats",
-          inPath
-              + " >> time(ms): "
-              + (end - start)
-              + ", bytecode size: "
-              + analyzedBytes
-              + ", rate (ms/KB): "
-              + (analyzedBytes > 0 ? (((end - start) * 1000) / analyzedBytes) : 0));
     }
-    new File(outPath).getParentFile().mkdirs();
-    if (outPath.endsWith(".astubx")) {
-      writeModel(new DataOutputStream(new FileOutputStream(outPath)));
-    } else {
-      writeModelJAR(outPath);
-    }
-    lastOutPath = outPath;
-    return map_result;
+    long endTime = System.currentTimeMillis();
+    LOG(
+        VERBOSE,
+        "Stats",
+        inPath
+            + " >> time(ms): "
+            + (endTime - analysisStartTime)
+            + ", bytecode size: "
+            + analyzedBytes
+            + ", rate (ms/KB): "
+            + (analyzedBytes > 0 ? (((endTime - analysisStartTime) * 1000) / analyzedBytes) : 0));
   }
 
   /**
@@ -306,7 +335,7 @@ public class DefinitelyDerefedParamsDriver {
    */
   private static void writeModelJAR(String outPath) throws IOException {
     Preconditions.checkArgument(
-        outPath.endsWith(MODEL_JAR_SUFFIX), "invalid model file path! " + outPath);
+        outPath.endsWith(ASTUBX_JAR_SUFFIX), "invalid model file path! " + outPath);
     ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outPath));
     if (!map_result.isEmpty()) {
       ZipEntry entry = new ZipEntry(DEFAULT_ASTUBX_LOCATION);
@@ -364,6 +393,37 @@ public class DefinitelyDerefedParamsDriver {
     StubxWriter.write(out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
   }
 
+  private static void WriteAnnotations(String inPath, String outPath) throws IOException {
+    Preconditions.checkArgument(
+        inPath.endsWith(".jar") || inPath.endsWith(".class"), "invalid input path - " + inPath);
+    LOG(DEBUG, "DEBUG", "Writing Annotations to " + outPath);
+
+    String outFile;
+    if (inPath.endsWith(".jar")) {
+      outFile =
+          outPath
+              + "/"
+              + FilenameUtils.getBaseName(inPath)
+              + "-annotated."
+              + FilenameUtils.getExtension(inPath);
+      JarFile jar = new JarFile(inPath);
+      JarOutputStream jarOS = new JarOutputStream(new FileOutputStream(outFile));
+      BytecodeAnnotator.annotateBytecodeInJar(jar, jarOS, map_result, nullableReturns, DEBUG);
+      jarOS.close();
+    } else if (inPath.endsWith(".aar")) {
+      // TODO(ragr@): Handle this case.
+    } else {
+      InputStream is = new FileInputStream(inPath);
+      OutputStream os = new FileOutputStream(outPath);
+      BytecodeAnnotator.annotateBytecodeInClass(is, os, map_result, nullableReturns, DEBUG);
+      os.close();
+    }
+  }
+
+  private static String getSignature(IMethod mtd) {
+    return annotateBytecode ? mtd.getSignature() : getAstubxSignature(mtd);
+  }
+
   /**
    * Get astubx style method signature. {FullyQualifiedEnclosingType}: {UnqualifiedMethodReturnType}
    * {methodName} ([{UnqualifiedArgumentType}*])
@@ -372,7 +432,7 @@ public class DefinitelyDerefedParamsDriver {
    * @return String Method signature.
    */
   // TODO: handle generics and inner classes
-  private static String getSignature(IMethod mtd) {
+  private static String getAstubxSignature(IMethod mtd) {
     String classType =
         mtd.getDeclaringClass().getName().toString().replaceAll("/", "\\.").substring(1);
     classType = classType.replaceAll("\\$", "\\."); // handle inner class

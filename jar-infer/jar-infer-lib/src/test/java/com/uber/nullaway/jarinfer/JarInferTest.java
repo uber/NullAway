@@ -29,6 +29,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import org.apache.commons.io.FilenameUtils;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
@@ -43,6 +44,7 @@ import org.junit.runners.JUnit4;
 public class JarInferTest {
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @Rule public TemporaryFolder outputFolder = new TemporaryFolder();
 
   private CompilerUtil compilerUtil;
 
@@ -99,6 +101,24 @@ public class JarInferTest {
     DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
     String outJARPath = DefinitelyDerefedParamsDriver.lastOutPath;
     Assert.assertTrue("jar file not found! - " + outJARPath, new File(outJARPath).exists());
+  }
+
+  private void testAnnotationInJarTemplate(
+      String testName,
+      String pkg,
+      String inputJarPath,
+      Map<String, String> expectedToActualAnnotationsMap)
+      throws Exception {
+    String outputFolderPath = outputFolder.newFolder(pkg).getAbsolutePath();
+    DefinitelyDerefedParamsDriver.reset();
+    DefinitelyDerefedParamsDriver.runAndAnnotate(inputJarPath, "", outputFolderPath);
+
+    String inputJarName = FilenameUtils.getBaseName(inputJarPath);
+    String outputJarPath = outputFolderPath + "/" + inputJarName + "-annotated.jar";
+    Assert.assertTrue(
+        testName + ": generated jar does not match the expected jar!",
+        AnnotationChecker.checkMethodAnnotationsInJar(
+            outputJarPath, expectedToActualAnnotationsMap));
   }
 
   /**
@@ -253,6 +273,19 @@ public class JarInferTest {
         "    Objects.requireNonNull(t);",
         "  }",
         "}");
+  }
+
+  @Test
+  public void toyJARAnnotatingClasses() throws Exception {
+    testAnnotationInJarTemplate(
+        "toyJARAnnotatingClasses",
+        "com.uber.nullaway.jarinfer.toys.unannotated",
+        "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar",
+        ImmutableMap.of(
+            "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNullable;",
+            BytecodeAnnotator.javaxNullableDesc,
+            "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNonnull;",
+            BytecodeAnnotator.javaxNonnullDesc));
   }
 
   @Test
