@@ -95,8 +95,8 @@ public class JarInfer {
       if (!pkgName.isEmpty()) {
         pkgName = "L" + pkgName.replaceAll("\\.", "/");
       }
-      DefinitelyDerefedParamsDriver.run(
-          jarPath, pkgName, outPath, annotateBytecode, debug, verbose);
+      DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+      driver.run(jarPath, pkgName, outPath, annotateBytecode, debug, verbose);
       if (!new File(outPath).exists()) {
         System.out.println("Could not write jar file: " + outPath);
       }
