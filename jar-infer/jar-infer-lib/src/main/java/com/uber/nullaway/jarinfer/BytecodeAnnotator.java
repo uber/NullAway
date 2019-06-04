@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Enumeration;
-import java.util.Map;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -43,13 +42,15 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
   public static final String javaxNullableDesc = "Ljavax/annotation/Nullable;";
   public static final String javaxNonnullDesc = "Ljavax/annotation/Nonnull;";
 
-  private final Map<String, Set<Integer>> nullableParams;
-  private final Set<String> nullableReturns;
+  private final MethodParamAnnotations nullableParams;
+  private final MethodReturnAnnotations nullableReturns;
 
   private String className = "";
 
   public BytecodeAnnotator(
-      ClassVisitor cv, Map<String, Set<Integer>> nullableParams, Set<String> nullableReturns) {
+      ClassVisitor cv,
+      MethodParamAnnotations nullableParams,
+      MethodReturnAnnotations nullableReturns) {
     super(ASM7, cv);
     this.nullableParams = nullableParams;
     this.nullableReturns = nullableReturns;
@@ -105,12 +106,12 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
   private static void annotateBytecode(
       InputStream is,
       OutputStream os,
-      Map<String, Set<Integer>> map_result,
-      Set<String> nullableReturns)
+      MethodParamAnnotations nonnullParams,
+      MethodReturnAnnotations nullableReturns)
       throws IOException {
     ClassReader cr = new ClassReader(is);
     ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-    BytecodeAnnotator bytecodeAnnotator = new BytecodeAnnotator(cw, map_result, nullableReturns);
+    BytecodeAnnotator bytecodeAnnotator = new BytecodeAnnotator(cw, nonnullParams, nullableReturns);
     cr.accept(bytecodeAnnotator, 0);
     os.write(cw.toByteArray());
   }
@@ -120,7 +121,7 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
    *
    * @param is InputStream for the input class.
    * @param os OutputStream for the output class.
-   * @param map_result Map from methods to their nonnull params.
+   * @param nonnullParams Map from methods to their nonnull params.
    * @param nullableReturns List of methods that return nullable.
    * @param debug flag to output debug logs.
    * @throws IOException
@@ -128,14 +129,14 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
   public static void annotateBytecodeInClass(
       InputStream is,
       OutputStream os,
-      Map<String, Set<Integer>> map_result,
-      Set<String> nullableReturns,
+      MethodParamAnnotations nonnullParams,
+      MethodReturnAnnotations nullableReturns,
       boolean debug)
       throws IOException {
     BytecodeAnnotator.debug = debug;
     LOG(debug, "DEBUG", "nullableReturns: " + nullableReturns);
-    LOG(debug, "DEBUG", "nonnullParams: " + map_result);
-    annotateBytecode(is, os, map_result, nullableReturns);
+    LOG(debug, "DEBUG", "nonnullParams: " + nonnullParams);
+    annotateBytecode(is, os, nonnullParams, nullableReturns);
   }
 
   /**
@@ -144,7 +145,7 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
    *
    * @param inputJar JarFile to annotate.
    * @param jarOS OutputStream of the output jar file.
-   * @param map_result Map from methods to their nonnull params.
+   * @param nonnullParams Map from methods to their nonnull params.
    * @param nullableReturns List of methods that return nullable.
    * @param debug flag to output debug logs.
    * @throws IOException
@@ -152,19 +153,19 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
   public static void annotateBytecodeInJar(
       JarFile inputJar,
       JarOutputStream jarOS,
-      Map<String, Set<Integer>> map_result,
-      Set<String> nullableReturns,
+      MethodParamAnnotations nonnullParams,
+      MethodReturnAnnotations nullableReturns,
       boolean debug)
       throws IOException {
     BytecodeAnnotator.debug = debug;
     LOG(debug, "DEBUG", "nullableReturns: " + nullableReturns);
-    LOG(debug, "DEBUG", "nonnullParams: " + map_result);
+    LOG(debug, "DEBUG", "nonnullParams: " + nonnullParams);
     for (Enumeration<JarEntry> entries = inputJar.entries(); entries.hasMoreElements(); ) {
       JarEntry jarEntry = entries.nextElement();
       InputStream is = inputJar.getInputStream(jarEntry);
       jarOS.putNextEntry(new ZipEntry(jarEntry.getName()));
       if (jarEntry.getName().endsWith(".class")) {
-        annotateBytecode(is, jarOS, map_result, nullableReturns);
+        annotateBytecode(is, jarOS, nonnullParams, nullableReturns);
       } else {
         jarOS.write(IOUtils.toByteArray(is));
       }
