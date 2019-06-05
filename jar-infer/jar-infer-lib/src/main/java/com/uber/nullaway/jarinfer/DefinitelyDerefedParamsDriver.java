@@ -162,7 +162,7 @@ public class DefinitelyDerefedParamsDriver {
     for (String inPath : setInPaths) {
       analyzeFile(pkgName, inPath);
       if (this.annotateBytecode) {
-        WriteAnnotations(inPath, outPath);
+        writeAnnotations(inPath, outPath);
       }
     }
     if (!this.annotateBytecode) {
@@ -384,7 +384,7 @@ public class DefinitelyDerefedParamsDriver {
     StubxWriter.write(out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
   }
 
-  private void WriteAnnotations(String inPath, String outPath) throws IOException {
+  private void writeAnnotations(String inPath, String outPath) throws IOException {
     Preconditions.checkArgument(
         inPath.endsWith(".jar") || inPath.endsWith(".class"), "invalid input path - " + inPath);
     LOG(DEBUG, "DEBUG", "Writing Annotations to " + outPath);
