@@ -67,8 +67,6 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.FilenameUtils;
 
-class Result extends HashMap<String, Set<Integer>> {}
-
 /** Driver for running {@link DefinitelyDerefedParams} */
 public class DefinitelyDerefedParamsDriver {
   private static boolean DEBUG = false;
@@ -78,13 +76,13 @@ public class DefinitelyDerefedParamsDriver {
     if (cond) System.out.println("[JI " + tag + "] " + msg);
   }
 
-  public static String lastOutPath = "";
-  public static long analyzedBytes = 0;
-  public static long analysisStartTime = 0;
-  private static Result map_result = new Result();
-  private static Set<String> nullableReturns = new HashSet<>();
+  public String lastOutPath = "";
+  public long analyzedBytes = 0;
+  public long analysisStartTime = 0;
+  private MethodParamAnnotations nonnullParams = new MethodParamAnnotations();
+  private MethodReturnAnnotations nullableReturns = new MethodReturnAnnotations();
 
-  private static boolean annotateBytecode = false;
+  private boolean annotateBytecode = false;
 
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
   private static final String ASTUBX_JAR_SUFFIX = ".astubx.jar";
@@ -93,27 +91,19 @@ public class DefinitelyDerefedParamsDriver {
   // com.ibm.wala.classLoader.ShrikeCTMethod.makeDecoder:110
   private static final String DEFAULT_EXCLUSIONS = "org\\/objectweb\\/asm\\/.*";
 
-  public static void reset() {
-    analyzedBytes = 0;
-    analysisStartTime = 0;
-    map_result.clear();
-    nullableReturns.clear();
-    annotateBytecode = false;
-  }
-
   /**
    * Accounts the bytecode size of analyzed method for statistics.
    *
    * @param mtd Analyzed method.
    */
-  private static void accountCodeBytes(IMethod mtd) {
+  private void accountCodeBytes(IMethod mtd) {
     // Get method bytecode size
     if (mtd instanceof ShrikeCTMethod) {
       analyzedBytes += ((ShrikeCTMethod) mtd).getBytecodes().length;
     }
   }
 
-  private static DefinitelyDerefedParams getAnalysisDriver(
+  private DefinitelyDerefedParams getAnalysisDriver(
       IMethod mtd, AnalysisOptions options, AnalysisCache cache, IClassHierarchy cha) {
     IR ir = cache.getIRFactory().makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
     ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
@@ -121,7 +111,7 @@ public class DefinitelyDerefedParamsDriver {
     return new DefinitelyDerefedParams(mtd, ir, cfg, cha);
   }
 
-  public static Result run(String inPaths, String pkgName)
+  public MethodParamAnnotations run(String inPaths, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String outPath = "";
     String firstInPath = inPaths.split(",")[0];
@@ -136,7 +126,7 @@ public class DefinitelyDerefedParamsDriver {
     return run(inPaths, pkgName, outPath, false, DEBUG, VERBOSE);
   }
 
-  public static Result runAndAnnotate(String inPaths, String pkgName, String outPath)
+  public MethodParamAnnotations runAndAnnotate(String inPaths, String pkgName, String outPath)
       throws IOException, ClassHierarchyException {
     return run(inPaths, pkgName, outPath, true, DEBUG, VERBOSE);
   }
@@ -150,12 +140,13 @@ public class DefinitelyDerefedParamsDriver {
    * @param outPath Path to output processed jar/aar file. Default outPath for 'a/b/c/x.jar' is
    *     'a/b/c/x-ji.jar'. When 'annotatedBytecode' is enabled, this should refer to the directory
    *     that should contain all the output jars.
-   * @return Result Map of 'method signatures' to their 'list of NonNull parameters'.
+   * @return MethodParamAnnotations Map of 'method signatures' to their 'list of NonNull
+   *     parameters'.
    * @throws IOException on IO error.
    * @throws ClassHierarchyException on Class Hierarchy factory error.
    * @throws IllegalArgumentException on illegal argument to WALA API.
    */
-  public static Result run(
+  public MethodParamAnnotations run(
       String inPaths,
       String pkgName,
       String outPath,
@@ -165,16 +156,16 @@ public class DefinitelyDerefedParamsDriver {
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     DEBUG = dbg;
     VERBOSE = vbs;
-    DefinitelyDerefedParamsDriver.annotateBytecode = annotateBytecode;
+    this.annotateBytecode = annotateBytecode;
     Set<String> setInPaths = new HashSet<>(Arrays.asList(inPaths.split(",")));
     analysisStartTime = System.currentTimeMillis();
     for (String inPath : setInPaths) {
       analyzeFile(pkgName, inPath);
-      if (DefinitelyDerefedParamsDriver.annotateBytecode) {
-        WriteAnnotations(inPath, outPath);
+      if (this.annotateBytecode) {
+        writeAnnotations(inPath, outPath);
       }
     }
-    if (!DefinitelyDerefedParamsDriver.annotateBytecode) {
+    if (!this.annotateBytecode) {
       new File(outPath).getParentFile().mkdirs();
       if (outPath.endsWith(".astubx")) {
         writeModel(new DataOutputStream(new FileOutputStream(outPath)));
@@ -183,10 +174,10 @@ public class DefinitelyDerefedParamsDriver {
       }
     }
     lastOutPath = outPath;
-    return map_result;
+    return nonnullParams;
   }
 
-  private static void analyzeFile(String pkgName, String inPath)
+  private void analyzeFile(String pkgName, String inPath)
       throws IOException, ClassHierarchyException {
     InputStream jarIS = null;
     if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
@@ -246,7 +237,7 @@ public class DefinitelyDerefedParamsDriver {
                     sign = getSignature(mtd);
                     LOG(DEBUG, "DEBUG", "analyzed method: " + sign);
                     if (!result.isEmpty() || DEBUG) {
-                      map_result.put(sign, result);
+                      nonnullParams.put(sign, result);
                       LOG(
                           DEBUG,
                           "DEBUG",
@@ -333,11 +324,11 @@ public class DefinitelyDerefedParamsDriver {
    *
    * @param outPath Path of output model jar file.
    */
-  private static void writeModelJAR(String outPath) throws IOException {
+  private void writeModelJAR(String outPath) throws IOException {
     Preconditions.checkArgument(
         outPath.endsWith(ASTUBX_JAR_SUFFIX), "invalid model file path! " + outPath);
     ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outPath));
-    if (!map_result.isEmpty()) {
+    if (!nonnullParams.isEmpty()) {
       ZipEntry entry = new ZipEntry(DEFAULT_ASTUBX_LOCATION);
       // Set the modification/creation time to 0 to ensure that this jars always have the same
       // checksum
@@ -359,7 +350,7 @@ public class DefinitelyDerefedParamsDriver {
    */
   //  Note: Need version compatibility check between generated stub files and when reading models
   //    StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
-  private static void writeModel(DataOutputStream out) throws IOException {
+  private void writeModel(DataOutputStream out) throws IOException {
     Map<String, String> importedAnnotations =
         ImmutableMap.<String, String>builder()
             .put("Nonnull", "javax.annotation.Nonnull")
@@ -369,7 +360,7 @@ public class DefinitelyDerefedParamsDriver {
     Map<String, Set<String>> typeAnnotations = new HashMap<>();
     Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
 
-    for (Map.Entry<String, Set<Integer>> entry : map_result.entrySet()) {
+    for (Map.Entry<String, Set<Integer>> entry : nonnullParams.entrySet()) {
       String sign = entry.getKey();
       Set<Integer> ddParams = entry.getValue();
       if (ddParams.isEmpty()) continue;
@@ -393,7 +384,7 @@ public class DefinitelyDerefedParamsDriver {
     StubxWriter.write(out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
   }
 
-  private static void WriteAnnotations(String inPath, String outPath) throws IOException {
+  private void writeAnnotations(String inPath, String outPath) throws IOException {
     Preconditions.checkArgument(
         inPath.endsWith(".jar") || inPath.endsWith(".class"), "invalid input path - " + inPath);
     LOG(DEBUG, "DEBUG", "Writing Annotations to " + outPath);
@@ -408,19 +399,19 @@ public class DefinitelyDerefedParamsDriver {
               + FilenameUtils.getExtension(inPath);
       JarFile jar = new JarFile(inPath);
       JarOutputStream jarOS = new JarOutputStream(new FileOutputStream(outFile));
-      BytecodeAnnotator.annotateBytecodeInJar(jar, jarOS, map_result, nullableReturns, DEBUG);
+      BytecodeAnnotator.annotateBytecodeInJar(jar, jarOS, nonnullParams, nullableReturns, DEBUG);
       jarOS.close();
     } else if (inPath.endsWith(".aar")) {
       // TODO(ragr@): Handle this case.
     } else {
       InputStream is = new FileInputStream(inPath);
       OutputStream os = new FileOutputStream(outPath);
-      BytecodeAnnotator.annotateBytecodeInClass(is, os, map_result, nullableReturns, DEBUG);
+      BytecodeAnnotator.annotateBytecodeInClass(is, os, nonnullParams, nullableReturns, DEBUG);
       os.close();
     }
   }
 
-  private static String getSignature(IMethod mtd) {
+  private String getSignature(IMethod mtd) {
     return annotateBytecode ? mtd.getSignature() : getAstubxSignature(mtd);
   }
 

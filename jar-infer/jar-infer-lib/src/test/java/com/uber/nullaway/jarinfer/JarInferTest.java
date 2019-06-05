@@ -78,11 +78,11 @@ public class JarInferTest {
         testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
         Main.Result.OK,
         compileResult);
-    DefinitelyDerefedParamsDriver.reset();
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
     Assert.assertTrue(
         testName + ": test failed!",
         verify(
-            DefinitelyDerefedParamsDriver.run(
+            driver.run(
                 temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/")),
             new HashMap<>(expected)));
   }
@@ -97,9 +97,9 @@ public class JarInferTest {
       String pkg, // in dot syntax
       String jarPath // in dot syntax
       ) throws Exception {
-    DefinitelyDerefedParamsDriver.reset();
-    DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
-    String outJARPath = DefinitelyDerefedParamsDriver.lastOutPath;
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
+    String outJARPath = driver.lastOutPath;
     Assert.assertTrue("jar file not found! - " + outJARPath, new File(outJARPath).exists());
   }
 
@@ -110,8 +110,8 @@ public class JarInferTest {
       Map<String, String> expectedToActualAnnotationsMap)
       throws Exception {
     String outputFolderPath = outputFolder.newFolder(pkg).getAbsolutePath();
-    DefinitelyDerefedParamsDriver.reset();
-    DefinitelyDerefedParamsDriver.runAndAnnotate(inputJarPath, "", outputFolderPath);
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.runAndAnnotate(inputJarPath, "", outputFolderPath);
 
     String inputJarName = FilenameUtils.getBaseName(inputJarPath);
     String outputJarPath = outputFolderPath + "/" + inputJarName + "-annotated.jar";
@@ -290,15 +290,15 @@ public class JarInferTest {
 
   @Test
   public void jarinferOutputJarIsBytePerByteDeterministic() throws Exception {
-    DefinitelyDerefedParamsDriver.reset();
     String jarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
     String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
-    DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
-    byte[] checksumBytes1 = sha1sum(DefinitelyDerefedParamsDriver.lastOutPath);
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
+    byte[] checksumBytes1 = sha1sum(driver.lastOutPath);
     // Wait a second to ensure system time has changed
     Thread.sleep(1);
-    DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
-    byte[] checksumBytes2 = sha1sum(DefinitelyDerefedParamsDriver.lastOutPath);
+    driver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
+    byte[] checksumBytes2 = sha1sum(driver.lastOutPath);
     Assert.assertTrue(Arrays.equals(checksumBytes1, checksumBytes2));
   }
 
