@@ -38,7 +38,7 @@ public class CheckContractNegativeCases {
 
   @Contract("_, !null -> !null")
   @Nullable
-  Object foo(Object a, @Nullable Object b) {
+  Object fooTwo(Object a, @Nullable Object b) {
     if (b != null) {
       return b;
     }
