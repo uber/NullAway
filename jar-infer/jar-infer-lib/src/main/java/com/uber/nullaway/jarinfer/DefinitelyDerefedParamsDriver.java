@@ -241,7 +241,7 @@ public class DefinitelyDerefedParamsDriver {
                       "Exception while scanning bytecodes for " + mtd + " " + e.getMessage());
                 }
               }
-              returnValueAnalysis(options, cache, mtd, analysisDriver, sign);
+              analyzeReturnValue(options, cache, mtd, analysisDriver, sign);
             }
           }
         }
@@ -260,7 +260,7 @@ public class DefinitelyDerefedParamsDriver {
             + (analyzedBytes > 0 ? (((endTime - analysisStartTime) * 1000) / analyzedBytes) : 0));
   }
 
-  private void returnValueAnalysis(
+  private void analyzeReturnValue(
       AnalysisOptions options,
       AnalysisCache cache,
       IMethod mtd,
