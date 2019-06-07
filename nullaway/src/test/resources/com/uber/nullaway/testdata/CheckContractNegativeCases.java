@@ -35,4 +35,13 @@ public class CheckContractNegativeCases {
     }
     return new Object();
   }
+
+  @Contract("_, !null -> !null")
+  @Nullable
+  Object foo(Object a, @Nullable Object b) {
+    if (b != null) {
+      return b;
+    }
+    return new Object();
+  }
 }

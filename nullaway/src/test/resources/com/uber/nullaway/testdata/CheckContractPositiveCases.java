@@ -35,4 +35,14 @@ public class CheckContractPositiveCases {
     }
     return new Object();
   }
+
+  @Contract("_, !null -> !null")
+  @Nullable
+  Object fooTwo(Object a, @Nullable Object b) {
+    if (b != null) {
+      // BUG: Diagnostic contains: @Contract might not be followed
+      return null;
+    }
+    return new Object();
+  }
 }

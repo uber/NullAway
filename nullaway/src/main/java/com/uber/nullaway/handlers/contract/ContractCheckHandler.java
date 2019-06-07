@@ -28,6 +28,7 @@ import static com.uber.nullaway.handlers.contract.ContractUtils.reportMatch;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.util.TreePath;
@@ -146,5 +147,12 @@ public class ContractCheckHandler extends BaseNoOpHandler {
           analysis,
           state);
     }
+  }
+
+  @Override
+  public void onMatchTopLevelClass(
+      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+    // Clear compilation unit specific state
+    this.supportedMethods.clear();
   }
 }
