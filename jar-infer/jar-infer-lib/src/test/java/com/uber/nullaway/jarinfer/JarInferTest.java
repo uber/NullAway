@@ -299,10 +299,10 @@ public class JarInferTest {
     Thread.sleep(1);
     driver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
     byte[] checksumBytes2 = sha1sum(driver.lastOutPath);
-    Assert.assertTrue(Arrays.equals(checksumBytes1, checksumBytes2));
+    Assert.assertArrayEquals(checksumBytes1, checksumBytes2);
   }
 
-  public byte[] sha1sum(String path) throws Exception {
+  private byte[] sha1sum(String path) throws Exception {
     File file = new File(path);
     MessageDigest digest = MessageDigest.getInstance("SHA-1");
     InputStream fis = new FileInputStream(file);

@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 /** Simple writer for the astubx format. */
-public final class StubxWriter {
+final class StubxWriter {
   /**
    * The file magic number for version 0 .astubx files. It should be the first four bytes of any
    * compatible .astubx file.
@@ -31,7 +31,7 @@ public final class StubxWriter {
    *     MethodAnnotationsRecord}
    * @exception IOException On output error.
    */
-  public static void write(
+  static void write(
       DataOutputStream out,
       Map<String, String> importedAnnotations,
       Map<String, Set<String>> packageAnnotations,
@@ -41,7 +41,7 @@ public final class StubxWriter {
     // File format version/magic number
     out.writeInt(VERSION_0_FILE_MAGIC_NUMBER);
     // Followed by the number of string dictionary entries
-    int numStringEntires = 0;
+    int numStringEntries = 0;
     Map<String, Integer> encodingDictionary = new LinkedHashMap<>();
     List<String> strings = new ArrayList<String>();
     List<Collection<String>> keysets =
@@ -54,11 +54,11 @@ public final class StubxWriter {
       for (String key : keyset) {
         assert !encodingDictionary.containsKey(key);
         strings.add(key);
-        encodingDictionary.put(key, numStringEntires);
-        ++numStringEntires;
+        encodingDictionary.put(key, numStringEntries);
+        ++numStringEntries;
       }
     }
-    out.writeInt(numStringEntires);
+    out.writeInt(numStringEntries);
     // Followed by the entries themselves
     for (String s : strings) {
       out.writeUTF(s);
