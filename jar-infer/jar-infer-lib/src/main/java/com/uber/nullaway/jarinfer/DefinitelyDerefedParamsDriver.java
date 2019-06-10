@@ -76,9 +76,9 @@ public class DefinitelyDerefedParamsDriver {
     if (cond) System.out.println("[JI " + tag + "] " + msg);
   }
 
-  public String lastOutPath = "";
-  public long analyzedBytes = 0;
-  public long analysisStartTime = 0;
+  String lastOutPath = "";
+  private long analyzedBytes = 0;
+  private long analysisStartTime = 0;
   private MethodParamAnnotations nonnullParams = new MethodParamAnnotations();
   private MethodReturnAnnotations nullableReturns = new MethodReturnAnnotations();
 
@@ -104,14 +104,14 @@ public class DefinitelyDerefedParamsDriver {
   }
 
   private DefinitelyDerefedParams getAnalysisDriver(
-      IMethod mtd, AnalysisOptions options, AnalysisCache cache, IClassHierarchy cha) {
+      IMethod mtd, AnalysisOptions options, AnalysisCache cache) {
     IR ir = cache.getIRFactory().makeIR(mtd, Everywhere.EVERYWHERE, options.getSSAOptions());
     ControlFlowGraph<SSAInstruction, ISSABasicBlock> cfg = ir.getControlFlowGraph();
     accountCodeBytes(mtd);
-    return new DefinitelyDerefedParams(mtd, ir, cfg, cha);
+    return new DefinitelyDerefedParams(mtd, ir, cfg);
   }
 
-  public MethodParamAnnotations run(String inPaths, String pkgName)
+  MethodParamAnnotations run(String inPaths, String pkgName)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String outPath = "";
     String firstInPath = inPaths.split(",")[0];
@@ -126,7 +126,7 @@ public class DefinitelyDerefedParamsDriver {
     return run(inPaths, pkgName, outPath, false, DEBUG, VERBOSE);
   }
 
-  public MethodParamAnnotations runAndAnnotate(String inPaths, String pkgName, String outPath)
+  MethodParamAnnotations runAndAnnotate(String inPaths, String pkgName, String outPath)
       throws IOException, ClassHierarchyException {
     return run(inPaths, pkgName, outPath, true, DEBUG, VERBOSE);
   }
@@ -211,15 +211,7 @@ public class DefinitelyDerefedParamsDriver {
           for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
             // Skip methods without parameters, abstract methods, native methods
             // some Application classes are Primordial (why?)
-            if (!mtd.isPrivate()
-                && !mtd.isAbstract()
-                && !mtd.isNative()
-                && !isAllPrimitiveTypes(mtd)
-                && !mtd.getDeclaringClass()
-                    .getClassLoader()
-                    .getName()
-                    .toString()
-                    .equals("Primordial")) {
+            if (shouldCheckMethod(mtd)) {
               Preconditions.checkNotNull(mtd, "method not found");
               DefinitelyDerefedParams analysisDriver = null;
               String sign = "";
@@ -230,9 +222,7 @@ public class DefinitelyDerefedParamsDriver {
                   if (!CodeScanner.getFieldsRead(mtd).isEmpty()
                       || !CodeScanner.getFieldsWritten(mtd).isEmpty()
                       || !CodeScanner.getCallSites(mtd).isEmpty()) {
-                    if (analysisDriver == null) {
-                      analysisDriver = getAnalysisDriver(mtd, options, cache, cha);
-                    }
+                    analysisDriver = getAnalysisDriver(mtd, options, cache);
                     Set<Integer> result = analysisDriver.analyze();
                     sign = getSignature(mtd);
                     LOG(DEBUG, "DEBUG", "analyzed method: " + sign);
@@ -251,20 +241,7 @@ public class DefinitelyDerefedParamsDriver {
                       "Exception while scanning bytecodes for " + mtd + " " + e.getMessage());
                 }
               }
-              // Return value analysis
-              if (!mtd.getReturnType().isPrimitiveType()) {
-                if (analysisDriver == null) {
-                  analysisDriver = getAnalysisDriver(mtd, options, cache, cha);
-                }
-                if (analysisDriver.analyzeReturnType()
-                    == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
-                  if (sign.isEmpty()) {
-                    sign = getSignature(mtd);
-                  }
-                  nullableReturns.add(sign);
-                  LOG(DEBUG, "DEBUG", "Inferred Nullable method return: " + sign);
-                }
-              }
+              analyzeReturnValue(options, cache, mtd, analysisDriver, sign);
             }
           }
         }
@@ -281,6 +258,34 @@ public class DefinitelyDerefedParamsDriver {
             + analyzedBytes
             + ", rate (ms/KB): "
             + (analyzedBytes > 0 ? (((endTime - analysisStartTime) * 1000) / analyzedBytes) : 0));
+  }
+
+  private void analyzeReturnValue(
+      AnalysisOptions options,
+      AnalysisCache cache,
+      IMethod mtd,
+      DefinitelyDerefedParams analysisDriver,
+      String sign) {
+    if (!mtd.getReturnType().isPrimitiveType()) {
+      if (analysisDriver == null) {
+        analysisDriver = getAnalysisDriver(mtd, options, cache);
+      }
+      if (analysisDriver.analyzeReturnType() == DefinitelyDerefedParams.NullnessHint.NULLABLE) {
+        if (sign.isEmpty()) {
+          sign = getSignature(mtd);
+        }
+        nullableReturns.add(sign);
+        LOG(DEBUG, "DEBUG", "Inferred Nullable method return: " + sign);
+      }
+    }
+  }
+
+  private boolean shouldCheckMethod(IMethod mtd) {
+    return !mtd.isPrivate()
+        && !mtd.isAbstract()
+        && !mtd.isNative()
+        && !isAllPrimitiveTypes(mtd)
+        && !mtd.getDeclaringClass().getClassLoader().getName().toString().equals("Primordial");
   }
 
   /**
@@ -364,8 +369,7 @@ public class DefinitelyDerefedParamsDriver {
       String sign = entry.getKey();
       Set<Integer> ddParams = entry.getValue();
       if (ddParams.isEmpty()) continue;
-      Map<Integer, ImmutableSet<String>> argAnnotation =
-          new HashMap<Integer, ImmutableSet<String>>();
+      Map<Integer, ImmutableSet<String>> argAnnotation = new HashMap<>();
       for (Integer param : ddParams) {
         argAnnotation.put(param, ImmutableSet.of("Nonnull"));
       }

@@ -4,12 +4,12 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 /** A record describing the annotations associated with a java method and its arguments. */
-public final class MethodAnnotationsRecord {
+final class MethodAnnotationsRecord {
   private final ImmutableSet<String> methodAnnotations;
   // 0 means receiver
   private final ImmutableMap<Integer, ImmutableSet<String>> argumentAnnotations;
 
-  public MethodAnnotationsRecord(
+  MethodAnnotationsRecord(
       ImmutableSet<String> methodAnnotations,
       ImmutableMap<Integer, ImmutableSet<String>> argumentAnnotations) {
     this.methodAnnotations = methodAnnotations;
