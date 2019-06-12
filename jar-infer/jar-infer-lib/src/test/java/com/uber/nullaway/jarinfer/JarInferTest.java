@@ -344,6 +344,32 @@ public class JarInferTest {
   }
 
   @Test
+  public void toyReassigningTest() throws Exception {
+    testTemplate(
+        "toyNullTestAPI",
+        "toys",
+        "Foo",
+        ImmutableMap.of("toys.Foo:void test(String, String)", Sets.newHashSet(1)),
+        "import com.google.common.base.Preconditions;",
+        "import java.util.Objects;",
+        "import org.junit.Assert;",
+        "class Foo {",
+        "  private String foo;",
+        "  public Foo(String str) {",
+        "    if (str == null) str = \"foo\";",
+        "    this.foo = str;",
+        "  }",
+        "  public void test(String s, String t) {",
+        "    Preconditions.checkNotNull(s);",
+        "    if (t == null) {",
+        "      t = s;",
+        "    }",
+        "    Objects.requireNonNull(t);",
+        "  }",
+        "}");
+  }
+
+  @Test
   public void toyJARAnnotatingClasses() throws Exception {
     testAnnotationInJarTemplate(
         "toyJARAnnotatingClasses",

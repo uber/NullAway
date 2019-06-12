@@ -132,7 +132,7 @@ public class DefinitelyDerefedParams {
     Set<Integer> derefedParamList = new HashSet<>();
     Map<ISSABasicBlock, Set<Integer>> blockToDerefSetMap = new HashMap<>();
 
-    // find which params are definitely non-null in each block
+    // find which params are treated as being non-null inside each basic block
     prunedCFG.forEach(
         basicBlock -> {
           Set<Integer> derefParamSet = new HashSet<>();
@@ -140,8 +140,9 @@ public class DefinitelyDerefedParams {
           checkForUseOfParams(derefParamSet, numParam, firstParamIndex, basicBlock);
         });
 
-    // for each param check if there is a path from entry to exit going through basic blocks
-    // which do not guarantee that the param is non-null
+    // For each param p, if no path exists from the entry block to the exit block which traverses
+    // only basic blocks which do not require p being non-null (e.g. by dereferencing it), then
+    // mark p as @NonNull
     for (int i = firstParamIndex; i <= numParam; i++) {
       final Integer param = i - 1;
       if (!DFS.getReachableNodes(
