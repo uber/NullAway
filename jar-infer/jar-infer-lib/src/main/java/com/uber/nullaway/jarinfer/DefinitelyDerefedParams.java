@@ -46,9 +46,6 @@ import java.util.Set;
 public class DefinitelyDerefedParams {
   private static final boolean DEBUG = false;
 
-  @SuppressWarnings("UnusedVariable")
-  private static final String rebuildMe = "rebuild me!";
-
   private static void LOG(boolean cond, String tag, String msg) {
     if (cond) System.out.println("[JI " + tag + "] " + msg);
   }
