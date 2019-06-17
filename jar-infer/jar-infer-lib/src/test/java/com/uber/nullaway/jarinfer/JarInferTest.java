@@ -79,12 +79,11 @@ public class JarInferTest {
         Main.Result.OK,
         compileResult);
     DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    Map<String, Set<Integer>> result =
+        driver.run(temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/"));
     Assert.assertTrue(
-        testName + ": test failed!",
-        verify(
-            driver.run(
-                temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/")),
-            new HashMap<>(expected)));
+        testName + ": test failed! \n" + result + " does not match " + expected,
+        verify(result, new HashMap<>(expected)));
   }
 
   /**
@@ -269,6 +268,101 @@ public class JarInferTest {
         "      t = s;",
         "    } else {",
         "      t = u;",
+        "    }",
+        "    Objects.requireNonNull(t);",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void toyConditionalFlow() throws Exception {
+    testTemplate(
+        "toyNullTestAPI",
+        "toys",
+        "Foo",
+        ImmutableMap.of("toys.Foo:void test(String, String, String)", Sets.newHashSet(1, 2)),
+        "import com.google.common.base.Preconditions;",
+        "import java.util.Objects;",
+        "import org.junit.Assert;",
+        "class Foo {",
+        "  private String foo;",
+        "  public Foo(String str) {",
+        "    if (str == null) str = \"foo\";",
+        "    this.foo = str;",
+        "  }",
+        "  public void test(String s, String t, String u) {",
+        "    if (s.length() >= 5) {",
+        "      t.toString();",
+        "      t = s;",
+        "    } else {",
+        "      Preconditions.checkNotNull(t);",
+        "      u = t;",
+        "    }",
+        "    Objects.requireNonNull(u);",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void toyConditionalFlow2() throws Exception {
+    testTemplate(
+        "toyNullTestAPI",
+        "toys",
+        "Foo",
+        ImmutableMap.of(
+            "toys.Foo:void test(Object, Object, Object, Object)", Sets.newHashSet(1, 4)),
+        "import com.google.common.base.Preconditions;",
+        "import java.util.Objects;",
+        "import org.junit.Assert;",
+        "class Foo {",
+        "  private String foo;",
+        "  public Foo(String str) {",
+        "    if (str == null) str = \"foo\";",
+        "    this.foo = str;",
+        "  }",
+        "  public void test(Object a, Object b, Object c, Object d) {",
+        "    if (a != null) {",
+        "      b.toString();",
+        "      d.toString();",
+        "    } else {",
+        "      Preconditions.checkNotNull(c);",
+        "    }",
+        "    Objects.requireNonNull(a);",
+        "    if (b != null) {",
+        "      c.toString();",
+        "      d.toString();",
+        "    } else {",
+        "      Preconditions.checkNotNull(b);",
+        "       if (c != null) {",
+        "          d.toString();",
+        "       } else {",
+        "          Preconditions.checkNotNull(d);",
+        "       }",
+        "    }",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void toyReassigningTest() throws Exception {
+    testTemplate(
+        "toyNullTestAPI",
+        "toys",
+        "Foo",
+        ImmutableMap.of("toys.Foo:void test(String, String)", Sets.newHashSet(1)),
+        "import com.google.common.base.Preconditions;",
+        "import java.util.Objects;",
+        "import org.junit.Assert;",
+        "class Foo {",
+        "  private String foo;",
+        "  public Foo(String str) {",
+        "    if (str == null) str = \"foo\";",
+        "    this.foo = str;",
+        "  }",
+        "  public void test(String s, String t) {",
+        "    Preconditions.checkNotNull(s);",
+        "    if (t == null) {",
+        "      t = s;",
         "    }",
         "    Objects.requireNonNull(t);",
         "  }",
