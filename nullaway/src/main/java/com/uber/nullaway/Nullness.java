@@ -147,10 +147,8 @@ public enum Nullness implements AbstractValue<Nullness> {
   public static boolean isNullableAnnotation(String annotName) {
     return annotName.endsWith(".Nullable")
         // endsWith and not equals and no `org.`, because gradle's shadow plug in rewrites strings
-        // and will
-        // replace `org.checkerframework` with `shadow.checkerframework`. Yes, really... I assume
-        // it's something
-        // to handle reflection.
+        // and will replace `org.checkerframework` with `shadow.checkerframework`. Yes, really...
+        // I assume it's something to handle reflection.
         || annotName.endsWith(".checkerframework.checker.nullness.compatqual.NullableDecl");
   }
 
