@@ -1,6 +1,15 @@
 Changelog
 =========
 
+Version 0.7.4
+-------------
+* Add support for Jar to Jar transformation to JarInfer (#316)
+* Refactor the driver and annotation summary type in JarInfer (#317)
+* Minor refactor and cleanup in JarInfer-lib (#319)
+* Different approach for param analysis (#320)
+* Fix @NullableDecl support (#324) 
+* Treat methods of final classes as final for initialization. (#325)
+
 Version 0.7.3
 -------------
 * Optional support for assertThat(...).isNotNull() statements (#304)
