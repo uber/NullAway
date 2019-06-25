@@ -90,7 +90,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       Symbol.MethodSymbol methodSymbol,
       ImmutableSet<Integer> explicitlyNullablePositions) {
     return Sets.union(
-            explicitlyNullablePositions,
+            Sets.difference(
+                explicitlyNullablePositions,
+                getOptLibraryModels(context).nonNullParameters(methodSymbol)),
             getOptLibraryModels(context).explicitlyNullableParameters(methodSymbol))
         .immutableCopy();
   }
@@ -267,6 +269,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                     "com.google.common.util.concurrent.SettableFuture",
                     "setException(java.lang.Throwable)"),
                 0)
+            .put(methodRef("com.google.common.base.Function", "apply(F)"), 0)
+            .put(methodRef("com.google.common.base.Predicate", "apply(T)"), 0)
             .put(methodRef("java.io.File", "File(java.lang.String)"), 0)
             .put(methodRef("java.lang.Class", "getResource(java.lang.String)"), 0)
             .put(methodRef("java.lang.Class", "isAssignableFrom(java.lang.Class<?>)"), 0)
@@ -345,6 +349,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private static final ImmutableSet<MethodRef> NONNULL_RETURNS =
         new ImmutableSet.Builder<MethodRef>()
             .add(methodRef("com.google.gson", "<T>fromJson(String,Class)"))
+            .add(methodRef("com.google.common.base.Function", "apply(F)"))
+            .add(methodRef("com.google.common.base.Predicate", "apply(T)"))
             .add(methodRef("android.app.Activity", "<T>findViewById(int)"))
             .add(methodRef("android.view.View", "<T>findViewById(int)"))
             .add(methodRef("android.view.View", "getResources()"))
