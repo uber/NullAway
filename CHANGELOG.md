@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Version 0.7.5
+------------
+* Allow models to override @nullable on third-party functional interfaces (#326)
+  - Defines Guava's Function and Predicate as @NonNull->@NonNull
+    by default.
+
 Version 0.7.4
 -------------
 * Add support for Jar to Jar transformation to JarInfer (#316)
