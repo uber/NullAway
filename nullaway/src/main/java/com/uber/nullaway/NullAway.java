@@ -544,8 +544,21 @@ public class NullAway extends BugChecker
     // if we have an unbound method reference, the first parameter of the overridden method must be
     // @NonNull, as this parameter will be used as a method receiver inside the generated lambda
     if (unboundMemberRef) {
-      // there must be at least one parameter; otherwise code wouldn't compile
-      if (Nullness.hasNullableAnnotation(superParamSymbols.get(0))) {
+      boolean isFirstParamNull = false;
+      // Two cases: for annotated code, look first at the annotation
+      if (NullabilityUtil.isUnannotated(overriddenMethod, config)) {
+        isFirstParamNull = Nullness.hasNullableAnnotation(superParamSymbols.get(0));
+      }
+      // For both annotated and unannotated code, look then at handler overrides (e.g. Library
+      // Models)
+      isFirstParamNull =
+          handler
+              .onUnannotatedInvocationGetExplicitlyNullablePositions(
+                  state.context,
+                  overriddenMethod,
+                  isFirstParamNull ? ImmutableSet.of(0) : ImmutableSet.of())
+              .contains(0);
+      if (isFirstParamNull) {
         String message =
             "unbound instance method reference cannot be used, as first parameter of "
                 + "functional interface method "
