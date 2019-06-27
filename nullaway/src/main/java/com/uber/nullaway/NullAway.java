@@ -546,7 +546,7 @@ public class NullAway extends BugChecker
     if (unboundMemberRef) {
       boolean isFirstParamNull = false;
       // Two cases: for annotated code, look first at the annotation
-      if (NullabilityUtil.isUnannotated(overriddenMethod, config)) {
+      if (!NullabilityUtil.isUnannotated(overriddenMethod, config)) {
         isFirstParamNull = Nullness.hasNullableAnnotation(superParamSymbols.get(0));
       }
       // For both annotated and unannotated code, look then at handler overrides (e.g. Library
