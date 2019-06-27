@@ -69,7 +69,7 @@ def test = [
     cfQual                  : "org.checkerframework:checker-qual:${versions.checkerFramework}",
     cfCompatQual            : "org.checkerframework:checker-compat-qual:${versions.checkerFramework}",
     rxjava2                 : "io.reactivex.rxjava2:rxjava:2.1.2",
-    commonsLang3             : "org.apache.commons:commons-lang3:3.8.1",
+    commonsLang3            : "org.apache.commons:commons-lang3:3.8.1",
     commonsLang             : "commons-lang:commons-lang:2.6",
 ]
 
