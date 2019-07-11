@@ -326,6 +326,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 methodRef(
                     "org.apache.commons.lang3.StringUtils", "isEmpty(java.lang.CharSequence)"),
                 0)
+            .put(methodRef("org.apache.commons.lang.StringUtils", "isBlank(java.lang.String)"), 0)
+            .put(
+                methodRef(
+                    "org.apache.commons.lang3.StringUtils", "isBlank(java.lang.CharSequence)"),
+                0)
             .build();
 
     private static final ImmutableSet<MethodRef> NULLABLE_RETURNS =
