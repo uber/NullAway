@@ -170,5 +170,5 @@ public interface Config {
    * @return true if Android's {@code @RecentlyNullable} should be treated as {@code @Nullable}, and
    *     similarly for {@code @RecentlyNonNull}
    */
-  boolean handleAndroidRecent();
+  boolean acknowledgeAndroidRecent();
 }

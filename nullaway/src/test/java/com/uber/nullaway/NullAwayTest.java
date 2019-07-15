@@ -1317,6 +1317,62 @@ public class NullAwayTest {
   }
 
   @Test
+  public void defaultPermissiveOnRecently() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                // should be permissive even when AcknowledgeRestrictiveAnnotations is set
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.AndroidRecentlyAnnotatedClass;",
+            "class Test {",
+            "  Object test() {",
+            "    // Assume methods take @Nullable, even if annotated otherwise",
+            "    AndroidRecentlyAnnotatedClass.consumesObjectUnannotated(null);",
+            "    AndroidRecentlyAnnotatedClass.consumesObjectNonNull(null);",
+            "    // Ignore explict @Nullable return",
+            "    return AndroidRecentlyAnnotatedClass.returnsNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void acknowledgeRecentlyAnnotationsWhenFlagSet() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+                "-XepOpt:NullAway:AcknowledgeAndroidRecent=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.AndroidRecentlyAnnotatedClass;",
+            "class Test {",
+            "  Object test() {",
+            "    AndroidRecentlyAnnotatedClass.consumesObjectUnannotated(null);",
+            "    // BUG: Diagnostic contains: @NonNull is required",
+            "    AndroidRecentlyAnnotatedClass.consumesObjectNonNull(null);",
+            "    // BUG: Diagnostic contains: returning @Nullable",
+            "    return AndroidRecentlyAnnotatedClass.returnsNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void restrictivelyAnnotatedMethodsWorkWithNullnessFromDataflow() {
     compilationHelper
         .setArgs(

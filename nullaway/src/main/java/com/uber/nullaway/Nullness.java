@@ -152,7 +152,7 @@ public enum Nullness implements AbstractValue<Nullness> {
         // and will replace `org.checkerframework` with `shadow.checkerframework`. Yes, really...
         // I assume it's something to handle reflection.
         || annotName.endsWith(".checkerframework.checker.nullness.compatqual.NullableDecl")
-        || (config.handleAndroidRecent()
+        || (config.acknowledgeAndroidRecent()
             && annotName.equals("androidx.annotation.RecentlyNullable"));
   }
 
@@ -164,7 +164,7 @@ public enum Nullness implements AbstractValue<Nullness> {
     return annotName.endsWith(".NonNull")
         || annotName.endsWith(".NotNull")
         || annotName.endsWith(".Nonnull")
-        || (config.handleAndroidRecent()
+        || (config.acknowledgeAndroidRecent()
             && annotName.equals("androidx.annotation.RecentlyNonNull"));
   }
 

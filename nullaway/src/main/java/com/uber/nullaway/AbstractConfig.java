@@ -82,7 +82,7 @@ public abstract class AbstractConfig implements Config {
    */
   protected boolean treatGeneratedAsUnannotated;
 
-  protected boolean handleAndroidRecent;
+  protected boolean acknowledgeAndroidRecent;
 
   protected Set<MethodClassAndName> knownInitializers;
 
@@ -285,7 +285,7 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public boolean handleAndroidRecent() {
-    return handleAndroidRecent;
+  public boolean acknowledgeAndroidRecent() {
+    return acknowledgeAndroidRecent;
   }
 }

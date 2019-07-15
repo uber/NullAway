@@ -171,7 +171,7 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public boolean handleAndroidRecent() {
+  public boolean acknowledgeAndroidRecent() {
     throw new IllegalStateException(error_msg);
   }
 }
