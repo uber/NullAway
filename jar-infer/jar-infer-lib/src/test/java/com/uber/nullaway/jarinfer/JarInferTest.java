@@ -119,6 +119,30 @@ public class JarInferTest {
         testName + ": generated jar does not match the expected jar!",
         AnnotationChecker.checkMethodAnnotationsInJar(
             outputJarPath, expectedToActualAnnotationsMap));
+    Assert.assertTrue(
+        testName + ": generated jar does not have all the entries present in the input jar!",
+        EntriesComparator.compareEntriesInJars(outputJarPath, inputJarPath));
+  }
+
+  private void testAnnotationInAarTemplate(
+      String testName,
+      String pkg,
+      String inputAarPath,
+      Map<String, String> expectedToActualAnnotationMap)
+      throws Exception {
+    String outputFolderPath = outputFolder.newFolder(pkg).getAbsolutePath();
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.runAndAnnotate(inputAarPath, "", outputFolderPath);
+
+    String inputAarName = FilenameUtils.getBaseName(inputAarPath);
+    String outputAarPath = outputFolderPath + "/" + inputAarName + "-annotated.aar";
+    Assert.assertTrue(
+        testName + ": generated aar does not match the expected aar!",
+        AnnotationChecker.checkMethodAnnotationsInAar(
+            outputAarPath, expectedToActualAnnotationMap));
+    Assert.assertTrue(
+        testName + ": generated aar does not have all the entries present in the input aar!",
+        EntriesComparator.compareEntriesInAars(outputAarPath, inputAarPath));
   }
 
   /**
@@ -281,6 +305,19 @@ public class JarInferTest {
         "toyJARAnnotatingClasses",
         "com.uber.nullaway.jarinfer.toys.unannotated",
         "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar",
+        ImmutableMap.of(
+            "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNullable;",
+            BytecodeAnnotator.javaxNullableDesc,
+            "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNonnull;",
+            BytecodeAnnotator.javaxNonnullDesc));
+  }
+
+  @Test
+  public void toyAARAnnotatingClasses() throws Exception {
+    testAnnotationInAarTemplate(
+        "toyAARAnnotatingClasses",
+        "com.uber.nullaway.jarinfer.toys.unannotated",
+        "../test-android-lib-jarinfer/build/outputs/aar/test-android-lib-jarinfer.aar",
         ImmutableMap.of(
             "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNullable;",
             BytecodeAnnotator.javaxNullableDesc,

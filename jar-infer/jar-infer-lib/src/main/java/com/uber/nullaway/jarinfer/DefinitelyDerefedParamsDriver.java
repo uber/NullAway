@@ -390,23 +390,22 @@ public class DefinitelyDerefedParamsDriver {
 
   private void writeAnnotations(String inPath, String outPath) throws IOException {
     Preconditions.checkArgument(
-        inPath.endsWith(".jar") || inPath.endsWith(".class"), "invalid input path - " + inPath);
+        inPath.endsWith(".jar") || inPath.endsWith(".aar") || inPath.endsWith(".class"),
+        "invalid input path - " + inPath);
     LOG(DEBUG, "DEBUG", "Writing Annotations to " + outPath);
 
-    String outFile;
     if (inPath.endsWith(".jar")) {
-      outFile =
-          outPath
-              + "/"
-              + FilenameUtils.getBaseName(inPath)
-              + "-annotated."
-              + FilenameUtils.getExtension(inPath);
+      String outFile = outPath + "/" + FilenameUtils.getBaseName(inPath) + "-annotated.jar";
       JarFile jar = new JarFile(inPath);
       JarOutputStream jarOS = new JarOutputStream(new FileOutputStream(outFile));
       BytecodeAnnotator.annotateBytecodeInJar(jar, jarOS, nonnullParams, nullableReturns, DEBUG);
       jarOS.close();
     } else if (inPath.endsWith(".aar")) {
-      // TODO(ragr@): Handle this case.
+      String outFile = outPath + "/" + FilenameUtils.getBaseName(inPath) + "-annotated.aar";
+      ZipFile zip = new ZipFile(inPath);
+      ZipOutputStream zipOS = new ZipOutputStream(new FileOutputStream(outFile));
+      BytecodeAnnotator.annotateBytecodeInAar(zip, zipOS, nonnullParams, nullableReturns, DEBUG);
+      zipOS.close();
     } else {
       InputStream is = new FileInputStream(inPath);
       OutputStream os = new FileOutputStream(outPath);

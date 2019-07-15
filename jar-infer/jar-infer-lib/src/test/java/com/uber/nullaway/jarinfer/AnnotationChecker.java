@@ -23,6 +23,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.JarInputStream;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import jdk.internal.org.objectweb.asm.ClassReader;
 import jdk.internal.org.objectweb.asm.tree.AnnotationNode;
 import jdk.internal.org.objectweb.asm.tree.ClassNode;
@@ -30,6 +33,41 @@ import jdk.internal.org.objectweb.asm.tree.MethodNode;
 
 /** Class to check if the methods in the given class / jar files have the expected annotations. */
 public class AnnotationChecker {
+  /**
+   * Checks if the given aar file contains the expected annotations. The annotations that are
+   * expected are specified in the form of a map. For example: map = {"ExpectNullable;",
+   * "Ljavax/annotation/Nullable;"} will check if all methods and params contain
+   * "Ljavax/annotation/Nullable;" iff "ExpectNullable;" is present.
+   *
+   * @param aarFile Path to the input aar file.
+   * @param expectedToActualAnnotations Map from 'Expect*' annotations to the actual annotations
+   *     that are expected to be present.
+   * @return True when the actual annotations that are expected to be present are present iff the
+   *     'Expect*' annotations are present.
+   * @throws IOException
+   */
+  public static boolean checkMethodAnnotationsInAar(
+      String aarFile, Map<String, String> expectedToActualAnnotations) throws IOException {
+    Preconditions.checkArgument(aarFile.endsWith(".aar"), "invalid aar file: " + aarFile);
+    ZipFile zip = new ZipFile(aarFile);
+    Enumeration<? extends ZipEntry> zipEntries = zip.entries();
+    while (zipEntries.hasMoreElements()) {
+      ZipEntry zipEntry = zipEntries.nextElement();
+      if (zipEntry.getName().equals("classes.jar")) {
+        JarInputStream jarIS = new JarInputStream(zip.getInputStream(zipEntry));
+        JarEntry jarEntry = jarIS.getNextJarEntry();
+        while (jarEntry != null) {
+          if (jarEntry.getName().endsWith(".class")
+              && !checkMethodAnnotationsInClass(jarIS, expectedToActualAnnotations)) {
+            return false;
+          }
+          jarEntry = jarIS.getNextJarEntry();
+        }
+      }
+    }
+    return true;
+  }
+
   /**
    * Checks if the given jar file contains the expected annotations. The annotations that are
    * expected are specified in the form of a map. For example: map = {"ExpectNullable;",
