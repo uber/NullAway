@@ -186,7 +186,7 @@ public class NullabilityUtil {
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
             || isUnannotated(symbol, config))
-        && Nullness.hasNullableAnnotation(symbol);
+        && Nullness.hasNullableAnnotation(symbol, config);
   }
 
   /**

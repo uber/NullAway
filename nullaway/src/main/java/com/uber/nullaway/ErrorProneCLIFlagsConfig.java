@@ -48,6 +48,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
       EP_FL_NAMESPACE + ":ExcludedClassAnnotations";
   static final String FL_SUGGEST_SUPPRESSIONS = EP_FL_NAMESPACE + ":SuggestSuppressions";
   static final String FL_GENERATED_UNANNOTATED = EP_FL_NAMESPACE + ":TreatGeneratedAsUnannotated";
+  static final String FL_HANDLE_ANDROID_RECENT = EP_FL_NAMESPACE + ":HandleAndroidRecent";
   static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
@@ -141,6 +142,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     handleTestAssertionLibraries =
         flags.getBoolean(FL_HANDLE_TEST_ASSERTION_LIBRARIES).orElse(false);
     treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
+    handleAndroidRecent = flags.getBoolean(FL_HANDLE_ANDROID_RECENT).orElse(false);
     assertsEnabled = flags.getBoolean(FL_ASSERTS_ENABLED).orElse(false);
     fieldAnnotPattern =
         getPackagePattern(

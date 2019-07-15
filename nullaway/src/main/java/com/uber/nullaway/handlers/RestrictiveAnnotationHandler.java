@@ -58,7 +58,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
     HashSet<Integer> positions = new HashSet<Integer>();
     positions.addAll(nonNullPositions);
     for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {
-      if (Nullness.paramHasNonNullAnnotation(methodSymbol, i)) {
+      if (Nullness.paramHasNonNullAnnotation(methodSymbol, i, config)) {
         positions.add(i);
       }
     }
@@ -76,7 +76,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
         if (config.treatGeneratedAsUnannotated() && NullabilityUtil.isGenerated(methodSymbol)) {
           return exprMayBeNull;
         } else {
-          return Nullness.hasNullableAnnotation(methodSymbol) || exprMayBeNull;
+          return Nullness.hasNullableAnnotation(methodSymbol, config) || exprMayBeNull;
         }
       } else {
         return exprMayBeNull;
@@ -93,7 +93,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
     HashSet<Integer> positions = new HashSet<Integer>();
     positions.addAll(explicitlyNullablePositions);
     for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {
-      if (Nullness.paramHasNullableAnnotation(methodSymbol, i)) {
+      if (Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
         positions.add(i);
       }
     }
@@ -103,7 +103,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
   @Override
   public boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
       Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
-    return Nullness.hasNonNullAnnotation(methodSymbol) || explicitlyNonNullReturn;
+    return Nullness.hasNonNullAnnotation(methodSymbol, config) || explicitlyNonNullReturn;
   }
 
   @Override
@@ -117,7 +117,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
     if (NullabilityUtil.isUnannotated(methodSymbol, config)
-        && Nullness.hasNullableAnnotation(methodSymbol)) {
+        && Nullness.hasNullableAnnotation(methodSymbol, config)) {
       return NullnessHint.HINT_NULLABLE;
     }
     return NullnessHint.UNKNOWN;
