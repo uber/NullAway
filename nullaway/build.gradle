@@ -59,6 +59,7 @@ dependencies {
     testCompile deps.test.rxjava2
     testCompile deps.test.commonsLang
     testCompile deps.test.commonsLang3
+    testCompile project(":test-library-models")
 }
 
 // We include and shade the checker framework jars into the NullAway jar, as we may have custom

@@ -16,6 +16,7 @@
 package com.uber.nullaway.jarinfer;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.ibm.wala.cfg.ControlFlowGraph;
 import com.ibm.wala.classLoader.IMethod;
@@ -33,8 +34,12 @@ import com.ibm.wala.util.graph.Graph;
 import com.ibm.wala.util.graph.GraphUtil;
 import com.ibm.wala.util.graph.dominators.Dominators;
 import com.ibm.wala.util.graph.impl.GraphInverter;
+import com.ibm.wala.util.graph.traverse.DFS;
+import com.sun.istack.internal.NotNull;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -45,6 +50,7 @@ import java.util.Set;
  */
 public class DefinitelyDerefedParams {
   private static final boolean DEBUG = false;
+  private boolean USE_EXTENDED_APPROACH = true;
 
   private static void LOG(boolean cond, String tag, String msg) {
     if (cond) System.out.println("[JI " + tag + "] " + msg);
@@ -98,15 +104,61 @@ public class DefinitelyDerefedParams {
   Set<Integer> analyze() {
     // Get ExceptionPrunedCFG
     LOG(DEBUG, "DEBUG", "@ " + method.getSignature());
-    Set<Integer> derefedParamList = new HashSet<Integer>();
     prunedCFG = ExceptionPrunedCFG.make(cfg);
     // In case the only control flows are exceptional, simply return.
     if (prunedCFG.getNumberOfNodes() == 2
         && prunedCFG.containsNode(cfg.entry())
         && prunedCFG.containsNode(cfg.exit())
         && GraphUtil.countEdges(prunedCFG) == 0) {
-      return derefedParamList;
+      return new HashSet<>();
     }
+
+    // Get number of params and value number of first param
+    int numParam = ir.getSymbolTable().getNumberOfParameters();
+    int firstParamIndex =
+        method.isStatic() ? 1 : 2; // 1-indexed; v1 is 'this' for non-static methods
+
+    Set<Integer> derefedParamList;
+    if (USE_EXTENDED_APPROACH) {
+      derefedParamList = computeDerefParamList(numParam, firstParamIndex);
+    } else {
+      derefedParamList = computeDerefParamListUsingPDom(numParam, firstParamIndex);
+    }
+    return derefedParamList;
+  }
+
+  @NotNull
+  private Set<Integer> computeDerefParamList(int numParam, int firstParamIndex) {
+    Set<Integer> derefedParamList = new HashSet<>();
+    Map<ISSABasicBlock, Set<Integer>> blockToDerefSetMap = new HashMap<>();
+
+    // find which params are treated as being non-null inside each basic block
+    prunedCFG.forEach(
+        basicBlock -> {
+          Set<Integer> derefParamSet = new HashSet<>();
+          blockToDerefSetMap.put(basicBlock, derefParamSet);
+          checkForUseOfParams(derefParamSet, numParam, firstParamIndex, basicBlock);
+        });
+
+    // For each param p, if no path exists from the entry block to the exit block which traverses
+    // only basic blocks which do not require p being non-null (e.g. by dereferencing it), then
+    // mark p as @NonNull
+    for (int i = firstParamIndex; i <= numParam; i++) {
+      final Integer param = i - 1;
+      if (!DFS.getReachableNodes(
+              prunedCFG,
+              ImmutableList.of(prunedCFG.entry()),
+              basicBlock -> !blockToDerefSetMap.get(basicBlock).contains(param))
+          .contains(prunedCFG.exit())) {
+        derefedParamList.add(param);
+      }
+    }
+    return derefedParamList;
+  }
+
+  @NotNull
+  private Set<Integer> computeDerefParamListUsingPDom(int numParam, int firstParamIndex) {
+    Set<Integer> derefedParamList = new HashSet<>();
     // Get Dominator Tree
     LOG(DEBUG, "DEBUG", "\tbuilding dominator tree...");
     Graph<ISSABasicBlock> domTree = Dominators.make(prunedCFG, prunedCFG.entry()).dominatorTree();
@@ -120,10 +172,6 @@ public class DefinitelyDerefedParams {
     LOG(DEBUG, "DEBUG", "\tfinding dereferenced params...");
     ArrayList<ISSABasicBlock> nodeQueue = new ArrayList<ISSABasicBlock>();
     nodeQueue.add(prunedCFG.exit());
-    // Get number of params and value number of first param
-    int numParam = ir.getSymbolTable().getNumberOfParameters();
-    int firstParamIndex =
-        method.isStatic() ? 1 : 2; // 1-indexed; v1 is 'this' for non-static methods
     LOG(DEBUG, "DEBUG", "param value numbers : " + firstParamIndex + " ... " + numParam);
     while (!nodeQueue.isEmpty()) {
       ISSABasicBlock node = nodeQueue.get(0);
