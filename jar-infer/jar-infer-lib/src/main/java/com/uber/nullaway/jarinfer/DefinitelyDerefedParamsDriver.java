@@ -153,7 +153,7 @@ public class DefinitelyDerefedParamsDriver {
       boolean annotateBytecode,
       boolean dbg,
       boolean vbs)
-      throws IOException, ClassHierarchyException, IllegalArgumentException {
+      throws IOException, ClassHierarchyException {
     DEBUG = dbg;
     VERBOSE = vbs;
     this.annotateBytecode = annotateBytecode;
