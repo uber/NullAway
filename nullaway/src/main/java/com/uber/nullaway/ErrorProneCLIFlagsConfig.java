@@ -156,7 +156,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
             .build();
     if (autofixSuppressionComment.contains("\n")) {
       throw new IllegalStateException(
-          "Invalid -XepOpt" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
+          "Invalid -XepOpt:" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
     }
     /** --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
@@ -169,9 +169,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     errorURL = flags.get(FL_ERROR_URL).orElse(DEFAULT_URL);
     if (acknowledgeAndroidRecent && !isAcknowledgeRestrictive) {
       throw new IllegalStateException(
-          "-XepOpt"
+          "-XepOpt:"
               + FL_ACKNOWLEDGE_ANDROID_RECENT
-              + " should only be set when -XepOpt"
+              + " should only be set when -XepOpt:"
               + FL_ACKNOWLEDGE_RESTRICTIVE
               + " is also set");
     }
