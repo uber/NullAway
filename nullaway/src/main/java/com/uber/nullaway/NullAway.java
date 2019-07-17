@@ -405,7 +405,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    if (Nullness.hasNullableAnnotation(assigned)) {
+    if (Nullness.hasNullableAnnotation(assigned, config)) {
       // field already annotated
       return Description.NO_MATCH;
     }
@@ -547,7 +547,7 @@ public class NullAway extends BugChecker
       boolean isFirstParamNull = false;
       // Two cases: for annotated code, look first at the annotation
       if (!NullabilityUtil.isUnannotated(overriddenMethod, config)) {
-        isFirstParamNull = Nullness.hasNullableAnnotation(superParamSymbols.get(0));
+        isFirstParamNull = Nullness.hasNullableAnnotation(superParamSymbols.get(0), config);
       }
       // For both annotated and unannotated code, look then at handler overrides (e.g. Library
       // Models)
@@ -586,7 +586,7 @@ public class NullAway extends BugChecker
       for (int i = startParam; i < superParamSymbols.size(); i++) {
         // we need to call paramHasNullableAnnotation here since overriddenMethod may be defined
         // in a class file
-        if (Nullness.paramHasNullableAnnotation(overriddenMethod, i)) {
+        if (Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)) {
           builder.add(i);
         }
       }
@@ -604,7 +604,7 @@ public class NullAway extends BugChecker
           lambdaExpressionTree != null
               && NullabilityUtil.lambdaParamIsImplicitlyTyped(
                   lambdaExpressionTree.getParameters().get(methodParamInd));
-      if (!Nullness.hasNullableAnnotation(paramSymbol) && !implicitlyTypedLambdaParam) {
+      if (!Nullness.hasNullableAnnotation(paramSymbol, config) && !implicitlyTypedLambdaParam) {
         final String message =
             "parameter "
                 + paramSymbol.name.toString()
@@ -648,7 +648,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     if (NullabilityUtil.isUnannotated(methodSymbol, config)
-        || Nullness.hasNullableAnnotation(methodSymbol)) {
+        || Nullness.hasNullableAnnotation(methodSymbol, config)) {
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, retExpr)) {
@@ -738,11 +738,11 @@ public class NullAway extends BugChecker
                 && handler.onUnannotatedInvocationGetExplicitlyNonNullReturn(
                     overriddenMethod, false))
             || (!isOverridenMethodUnannotated
-                && !Nullness.hasNullableAnnotation(overriddenMethod)));
+                && !Nullness.hasNullableAnnotation(overriddenMethod, config)));
     // if the super method returns nonnull,
     // overriding method better not return nullable
     if (overriddenMethodReturnsNonNull
-        && Nullness.hasNullableAnnotation(overridingMethod)
+        && Nullness.hasNullableAnnotation(overridingMethod, config)
         && getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE)) {
       String message;
       if (memberReferenceTree != null) {
@@ -1311,7 +1311,7 @@ public class NullAway extends BugChecker
         }
         // we need to call paramHasNullableAnnotation here since the invoked method may be defined
         // in a class file
-        if (!Nullness.paramHasNullableAnnotation(methodSymbol, i)) {
+        if (!Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
           builder.add(i);
         }
       }
@@ -1945,7 +1945,7 @@ public class NullAway extends BugChecker
     if (NullabilityUtil.isUnannotated(exprSymbol, config)) {
       exprMayBeNull = false;
     }
-    if (!Nullness.hasNullableAnnotation(exprSymbol)) {
+    if (!Nullness.hasNullableAnnotation(exprSymbol, config)) {
       exprMayBeNull = false;
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);

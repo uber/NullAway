@@ -128,73 +128,85 @@ public enum Nullness implements AbstractValue<Nullness> {
     return displayName;
   }
 
-  private static boolean hasNullableAnnotation(Stream<? extends AnnotationMirror> annotations) {
+  private static boolean hasNullableAnnotation(
+      Stream<? extends AnnotationMirror> annotations, Config config) {
     return annotations
         .map(anno -> anno.getAnnotationType().toString())
-        .anyMatch(Nullness::isNullableAnnotation);
+        .anyMatch(anno -> isNullableAnnotation(anno, config));
   }
 
-  private static boolean hasNonNullAnnotation(Stream<? extends AnnotationMirror> annotations) {
+  private static boolean hasNonNullAnnotation(
+      Stream<? extends AnnotationMirror> annotations, Config config) {
     return annotations
         .map(anno -> anno.getAnnotationType().toString())
-        .anyMatch(Nullness::isNonNullAnnotation);
+        .anyMatch(anno -> isNonNullAnnotation(anno, config));
   }
 
   /**
    * @param annotName annotation name
    * @return true if we treat annotName as a <code>@Nullable</code> annotation, false otherwise
    */
-  public static boolean isNullableAnnotation(String annotName) {
+  public static boolean isNullableAnnotation(String annotName, Config config) {
     return annotName.endsWith(".Nullable")
         // endsWith and not equals and no `org.`, because gradle's shadow plug in rewrites strings
         // and will replace `org.checkerframework` with `shadow.checkerframework`. Yes, really...
         // I assume it's something to handle reflection.
-        || annotName.endsWith(".checkerframework.checker.nullness.compatqual.NullableDecl");
+        || annotName.endsWith(".checkerframework.checker.nullness.compatqual.NullableDecl")
+        || (config.acknowledgeAndroidRecent()
+            && annotName.equals("androidx.annotation.RecentlyNullable"));
   }
 
   /**
    * @param annotName annotation name
    * @return true if we treat annotName as a <code>@NonNull</code> annotation, false otherwise
    */
-  public static boolean isNonNullAnnotation(String annotName) {
+  private static boolean isNonNullAnnotation(String annotName, Config config) {
     return annotName.endsWith(".NonNull")
         || annotName.endsWith(".NotNull")
-        || annotName.endsWith(".Nonnull");
+        || annotName.endsWith(".Nonnull")
+        || (config.acknowledgeAndroidRecent()
+            && annotName.equals("androidx.annotation.RecentlyNonNull"));
   }
 
   /**
    * Does the symbol have a {@code @NonNull} declaration or type-use annotation?
    *
    * <p>NOTE: this method does not work for checking all annotations of parameters of methods from
-   * class files. For that case, use {@link #paramHasNullableAnnotation(Symbol.MethodSymbol, int)}
+   * class files. For that case, use {@link #paramHasNullableAnnotation(Symbol.MethodSymbol, int,
+   * Config)}
    */
-  public static boolean hasNonNullAnnotation(Symbol symbol) {
-    return hasNonNullAnnotation(NullabilityUtil.getAllAnnotations(symbol));
+  public static boolean hasNonNullAnnotation(Symbol symbol, Config config) {
+    return hasNonNullAnnotation(NullabilityUtil.getAllAnnotations(symbol), config);
   }
 
   /**
    * Does the symbol have a {@code @Nullable} declaration or type-use annotation?
    *
    * <p>NOTE: this method does not work for checking all annotations of parameters of methods from
-   * class files. For that case, use {@link #paramHasNullableAnnotation(Symbol.MethodSymbol, int)}
+   * class files. For that case, use {@link #paramHasNullableAnnotation(Symbol.MethodSymbol, int,
+   * Config)}
    */
-  public static boolean hasNullableAnnotation(Symbol symbol) {
-    return hasNullableAnnotation(NullabilityUtil.getAllAnnotations(symbol));
+  public static boolean hasNullableAnnotation(Symbol symbol, Config config) {
+    return hasNullableAnnotation(NullabilityUtil.getAllAnnotations(symbol), config);
   }
 
   /**
    * Does the parameter of {@code symbol} at {@code paramInd} have a {@code @Nullable} declaration
    * or type-use annotation? This method works for methods defined in either source or class files.
    */
-  public static boolean paramHasNullableAnnotation(Symbol.MethodSymbol symbol, int paramInd) {
-    return hasNullableAnnotation(NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd));
+  public static boolean paramHasNullableAnnotation(
+      Symbol.MethodSymbol symbol, int paramInd, Config config) {
+    return hasNullableAnnotation(
+        NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd), config);
   }
 
   /**
    * Does the parameter of {@code symbol} at {@code paramInd} have a {@code @NonNull} declaration or
    * type-use annotation? This method works for methods defined in either source or class files.
    */
-  public static boolean paramHasNonNullAnnotation(Symbol.MethodSymbol symbol, int paramInd) {
-    return hasNonNullAnnotation(NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd));
+  public static boolean paramHasNonNullAnnotation(
+      Symbol.MethodSymbol symbol, int paramInd, Config config) {
+    return hasNonNullAnnotation(
+        NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd), config);
   }
 }
