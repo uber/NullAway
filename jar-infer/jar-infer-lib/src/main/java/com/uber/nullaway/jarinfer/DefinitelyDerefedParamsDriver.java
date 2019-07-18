@@ -162,7 +162,16 @@ public class DefinitelyDerefedParamsDriver {
     for (String inPath : setInPaths) {
       analyzeFile(pkgName, inPath);
       if (this.annotateBytecode) {
-        writeAnnotations(inPath, outPath);
+        String outFile = outPath;
+        if (setInPaths.size() > 1) {
+          outFile =
+              outPath
+                  + "/"
+                  + FilenameUtils.getBaseName(inPath)
+                  + "-annotated."
+                  + FilenameUtils.getExtension(inPath);
+        }
+        writeAnnotations(inPath, outFile);
       }
     }
     if (!this.annotateBytecode) {
@@ -393,16 +402,10 @@ public class DefinitelyDerefedParamsDriver {
         inPath.endsWith(".jar") || inPath.endsWith(".class"), "invalid input path - " + inPath);
     LOG(DEBUG, "DEBUG", "Writing Annotations to " + outPath);
 
-    String outFile;
+    new File(outPath).getParentFile().mkdirs();
     if (inPath.endsWith(".jar")) {
-      outFile =
-          outPath
-              + "/"
-              + FilenameUtils.getBaseName(inPath)
-              + "-annotated."
-              + FilenameUtils.getExtension(inPath);
       JarFile jar = new JarFile(inPath);
-      JarOutputStream jarOS = new JarOutputStream(new FileOutputStream(outFile));
+      JarOutputStream jarOS = new JarOutputStream(new FileOutputStream(outPath));
       BytecodeAnnotator.annotateBytecodeInJar(jar, jarOS, nonnullParams, nullableReturns, DEBUG);
       jarOS.close();
     } else if (inPath.endsWith(".aar")) {
