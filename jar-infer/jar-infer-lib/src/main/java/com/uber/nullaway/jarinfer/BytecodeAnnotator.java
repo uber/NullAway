@@ -110,7 +110,7 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
       MethodReturnAnnotations nullableReturns)
       throws IOException {
     ClassReader cr = new ClassReader(is);
-    ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
+    ClassWriter cw = new ClassWriter(0);
     BytecodeAnnotator bytecodeAnnotator = new BytecodeAnnotator(cw, nonnullParams, nullableReturns);
     cr.accept(bytecodeAnnotator, 0);
     os.write(cw.toByteArray());
