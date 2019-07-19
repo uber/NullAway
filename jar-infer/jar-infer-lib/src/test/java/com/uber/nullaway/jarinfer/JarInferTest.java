@@ -109,11 +109,11 @@ public class JarInferTest {
       Map<String, String> expectedToActualAnnotationsMap)
       throws Exception {
     String outputFolderPath = outputFolder.newFolder(pkg).getAbsolutePath();
-    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
-    driver.runAndAnnotate(inputJarPath, "", outputFolderPath);
-
     String inputJarName = FilenameUtils.getBaseName(inputJarPath);
     String outputJarPath = outputFolderPath + "/" + inputJarName + "-annotated.jar";
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.runAndAnnotate(inputJarPath, "", outputJarPath);
+
     Assert.assertTrue(
         testName + ": generated jar does not match the expected jar!",
         AnnotationChecker.checkMethodAnnotationsInJar(
