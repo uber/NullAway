@@ -109,11 +109,11 @@ public class JarInferTest {
       Map<String, String> expectedToActualAnnotationsMap)
       throws Exception {
     String outputFolderPath = outputFolder.newFolder(pkg).getAbsolutePath();
-    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
-    driver.runAndAnnotate(inputJarPath, "", outputFolderPath);
-
     String inputJarName = FilenameUtils.getBaseName(inputJarPath);
     String outputJarPath = outputFolderPath + "/" + inputJarName + "-annotated.jar";
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.runAndAnnotate(inputJarPath, "", outputJarPath);
+
     Assert.assertTrue(
         testName + ": generated jar does not match the expected jar!",
         AnnotationChecker.checkMethodAnnotationsInJar(
@@ -130,11 +130,11 @@ public class JarInferTest {
       Map<String, String> expectedToActualAnnotationMap)
       throws Exception {
     String outputFolderPath = outputFolder.newFolder(pkg).getAbsolutePath();
-    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
-    driver.runAndAnnotate(inputAarPath, "", outputFolderPath);
-
     String inputAarName = FilenameUtils.getBaseName(inputAarPath);
     String outputAarPath = outputFolderPath + "/" + inputAarName + "-annotated.aar";
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.runAndAnnotate(inputAarPath, "", outputAarPath);
+
     Assert.assertTrue(
         testName + ": generated aar does not match the expected aar!",
         AnnotationChecker.checkMethodAnnotationsInAar(

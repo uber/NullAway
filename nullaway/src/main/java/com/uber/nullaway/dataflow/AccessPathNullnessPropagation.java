@@ -226,7 +226,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
       Nullness assumed;
       // we treat lambda parameters differently; they "inherit" the nullability of the
       // corresponding functional interface parameter, unless they are explicitly annotated
-      if (Nullness.hasNullableAnnotation((Symbol) element)) {
+      if (Nullness.hasNullableAnnotation((Symbol) element, config)) {
         assumed = NULLABLE;
       } else if (!NullabilityUtil.lambdaParamIsImplicitlyTyped(variableTree)) {
         // the parameter has a declared type with no @Nullable annotation
@@ -237,7 +237,10 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
           // assume parameter is non-null unless handler tells us otherwise
           assumed = nullableParamsFromHandler.contains(i) ? NULLABLE : NONNULL;
         } else {
-          assumed = Nullness.hasNullableAnnotation(fiMethodParameters.get(i)) ? NULLABLE : NONNULL;
+          assumed =
+              Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config)
+                  ? NULLABLE
+                  : NONNULL;
         }
       }
       result.setInformation(AccessPath.fromLocal(param), assumed);
@@ -253,7 +256,8 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
     NullnessStore.Builder result = envStore.toBuilder();
     for (LocalVariableNode param : parameters) {
       Element element = param.getElement();
-      Nullness assumed = Nullness.hasNullableAnnotation((Symbol) element) ? NULLABLE : NONNULL;
+      Nullness assumed =
+          Nullness.hasNullableAnnotation((Symbol) element, config) ? NULLABLE : NONNULL;
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
@@ -919,7 +923,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
       nullness = input.getRegularStore().valueOfMethodCall(node, types, NULLABLE);
     } else if (node == null
         || methodReturnsNonNull.test(node)
-        || !Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod())) {
+        || !Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod(), config)) {
       // definite non-null return
       nullness = NONNULL;
     } else {

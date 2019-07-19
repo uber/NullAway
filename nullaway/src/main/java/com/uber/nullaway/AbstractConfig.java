@@ -82,6 +82,8 @@ public abstract class AbstractConfig implements Config {
    */
   protected boolean treatGeneratedAsUnannotated;
 
+  protected boolean acknowledgeAndroidRecent;
+
   protected Set<MethodClassAndName> knownInitializers;
 
   protected Set<String> excludedClassAnnotations;
@@ -174,7 +176,7 @@ public abstract class AbstractConfig implements Config {
 
   @Override
   public boolean isExcludedFieldAnnotation(String annotationName) {
-    return Nullness.isNullableAnnotation(annotationName)
+    return Nullness.isNullableAnnotation(annotationName, this)
         || (fieldAnnotPattern != null && fieldAnnotPattern.matcher(annotationName).matches());
   }
 
@@ -280,5 +282,10 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean treatGeneratedAsUnannotated() {
     return treatGeneratedAsUnannotated;
+  }
+
+  @Override
+  public boolean acknowledgeAndroidRecent() {
+    return acknowledgeAndroidRecent;
   }
 }
