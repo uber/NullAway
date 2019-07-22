@@ -164,6 +164,9 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
     BytecodeAnnotator.debug = debug;
     LOG(debug, "DEBUG", "nullableReturns: " + nullableReturns);
     LOG(debug, "DEBUG", "nonnullParams: " + nonnullParams);
+    // DO NOT USE JarInputStream in place of JarFile/JarEntry. JarInputStream misses MANIFEST.MF
+    // while
+    // iterating over the entries in the stream. https://bugs.openjdk.java.net/browse/JDK-8215788
     for (Enumeration<JarEntry> entries = inputJar.entries(); entries.hasMoreElements(); ) {
       JarEntry jarEntry = entries.nextElement();
       InputStream is = inputJar.getInputStream(jarEntry);
