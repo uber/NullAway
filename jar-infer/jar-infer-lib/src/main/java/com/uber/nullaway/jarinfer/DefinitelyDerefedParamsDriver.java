@@ -403,7 +403,6 @@ public class DefinitelyDerefedParamsDriver {
         "invalid input path - " + inPath);
     LOG(DEBUG, "DEBUG", "Writing Annotations to " + outFile);
 
-    new File(outFile).getParentFile().mkdirs();
     if (inPath.endsWith(".jar")) {
       JarFile jar = new JarFile(inPath);
       JarOutputStream jarOS = new JarOutputStream(new FileOutputStream(outFile));
