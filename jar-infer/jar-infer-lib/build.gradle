@@ -22,6 +22,7 @@ dependencies {
         exclude group: "junit", module: "junit"
     }
     testCompile project(":jar-infer:test-java-lib-jarinfer")
+    testCompile project(path: ":jar-infer:test-android-lib-jarinfer", configuration: "default")
     testRuntime deps.build.errorProneCheckApi
 }
 

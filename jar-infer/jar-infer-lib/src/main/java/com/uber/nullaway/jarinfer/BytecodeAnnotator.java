@@ -15,6 +15,7 @@
  */
 package com.uber.nullaway.jarinfer;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -22,8 +23,11 @@ import java.util.Enumeration;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
+import java.util.jar.JarInputStream;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.IOUtils;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
@@ -160,6 +164,9 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
     BytecodeAnnotator.debug = debug;
     LOG(debug, "DEBUG", "nullableReturns: " + nullableReturns);
     LOG(debug, "DEBUG", "nonnullParams: " + nonnullParams);
+    // Do not use JarInputStream in place of JarFile/JarEntry. JarInputStream misses MANIFEST.MF
+    // while iterating over the entries in the stream.
+    // Reference: https://bugs.openjdk.java.net/browse/JDK-8215788
     for (Enumeration<JarEntry> entries = inputJar.entries(); entries.hasMoreElements(); ) {
       JarEntry jarEntry = entries.nextElement();
       InputStream is = inputJar.getInputStream(jarEntry);
@@ -170,6 +177,57 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
         jarOS.write(IOUtils.toByteArray(is));
       }
       jarOS.closeEntry();
+    }
+  }
+
+  /**
+   * Annotates the methods and method parameters in the classes in "classes.jar" in the given aar
+   * file with the specified annotations.
+   *
+   * @param inputZip AarFile to annotate.
+   * @param zipOS OutputStream of the output aar file.
+   * @param nonnullParams Map from methods to their nonnull params.
+   * @param nullableReturns List of methods that return nullable.
+   * @param debug flag to output debug logs.
+   * @throws IOException
+   */
+  public static void annotateBytecodeInAar(
+      ZipFile inputZip,
+      ZipOutputStream zipOS,
+      MethodParamAnnotations nonnullParams,
+      MethodReturnAnnotations nullableReturns,
+      boolean debug)
+      throws IOException {
+    BytecodeAnnotator.debug = debug;
+    LOG(debug, "DEBUG", "nullableReturns: " + nullableReturns);
+    LOG(debug, "DEBUG", "nonnullParams: " + nonnullParams);
+    for (Enumeration<? extends ZipEntry> entries = inputZip.entries();
+        entries.hasMoreElements(); ) {
+      ZipEntry zipEntry = entries.nextElement();
+      InputStream is = inputZip.getInputStream(zipEntry);
+      zipOS.putNextEntry(new ZipEntry(zipEntry.getName()));
+      if (zipEntry.getName().equals("classes.jar")) {
+        JarInputStream jarIS = new JarInputStream(is);
+        JarEntry inputJarEntry = jarIS.getNextJarEntry();
+
+        ByteArrayOutputStream byteArrayOS = new ByteArrayOutputStream();
+        JarOutputStream jarOS = new JarOutputStream(byteArrayOS);
+        while (inputJarEntry != null) {
+
+          jarOS.putNextEntry(new ZipEntry(inputJarEntry.getName()));
+          if (inputJarEntry.getName().endsWith(".class")) {
+            annotateBytecode(jarIS, jarOS, nonnullParams, nullableReturns);
+          } else {
+            jarOS.write(IOUtils.toByteArray(jarIS));
+          }
+          jarOS.closeEntry();
+          inputJarEntry = jarIS.getNextJarEntry();
+        }
+        zipOS.write(byteArrayOS.toByteArray());
+      } else {
+        zipOS.write(IOUtils.toByteArray(is));
+      }
+      zipOS.closeEntry();
     }
   }
 }
