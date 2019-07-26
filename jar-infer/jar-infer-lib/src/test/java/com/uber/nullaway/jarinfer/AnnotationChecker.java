@@ -105,7 +105,8 @@ public class AnnotationChecker {
 
     for (MethodNode method : cn.methods) {
       if (!checkExpectedAnnotations(method.visibleAnnotations, expectedToActualAnnotations)) {
-        System.out.println("Error: Expected annotations not found on method " + method.name);
+        System.out.println(
+            "Error: Invalid / Unexpected annotations found on method '" + method.name + "'");
         return false;
       }
       List<AnnotationNode>[] paramAnnotations = method.visibleParameterAnnotations;
@@ -113,7 +114,9 @@ public class AnnotationChecker {
       for (List<AnnotationNode> annotations : paramAnnotations) {
         if (!checkExpectedAnnotations(annotations, expectedToActualAnnotations)) {
           System.out.println(
-              "Error: Expected annotations not found in a parameter of " + method.name);
+              "Error: Invalid / Unexpected annotations found in a parameter of method '"
+                  + method.name
+                  + "'.");
           return false;
         }
       }
@@ -138,19 +141,35 @@ public class AnnotationChecker {
   private static boolean checkExpectedAnnotation(
       List<AnnotationNode> annotations, String expectAnnotation, String actualAnnotation) {
     if (containsAnnotation(annotations, expectAnnotation)) {
-      return containsAnnotation(annotations, actualAnnotation);
+      int numAnnotationsFound = countAnnotations(annotations, actualAnnotation);
+      if (numAnnotationsFound != 1) {
+        System.out.println(
+            "Error: Annotation '"
+                + actualAnnotation
+                + "' was found "
+                + numAnnotationsFound
+                + " times.");
+        return false;
+      }
+      return true;
     }
     return !containsAnnotation(annotations, actualAnnotation);
   }
 
   // Returns true iff `annotation` is found in the list `annotations`, false otherwise.
   private static boolean containsAnnotation(List<AnnotationNode> annotations, String annotation) {
-    if (annotations == null) return false;
+    return countAnnotations(annotations, annotation) > 0;
+  }
+
+  // Returns the number of times 'annotation' is present in the list 'annotations'.
+  private static int countAnnotations(List<AnnotationNode> annotations, String annotation) {
+    if (annotations == null) return 0;
+    int count = 0;
     for (AnnotationNode annotationNode : annotations) {
       if (annotationNode.desc.equals(annotation)) {
-        return true;
+        count++;
       }
     }
-    return false;
+    return count;
   }
 }
