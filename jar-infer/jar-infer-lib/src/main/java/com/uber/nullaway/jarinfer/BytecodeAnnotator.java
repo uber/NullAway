@@ -88,7 +88,7 @@ public final class BytecodeAnnotator {
           LOG(
               debug,
               "DEBUG",
-              "Added nullable parameter annotation for #" + param + " in " + methodSignature);
+              "Added nonnull parameter annotation for #" + param + " in " + methodSignature);
         }
       }
     }
