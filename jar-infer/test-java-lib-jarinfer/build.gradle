@@ -36,4 +36,9 @@ jar.doLast {
         commandLine "jar", "uf", "test-java-lib-jarinfer.jar", astubxPath
     }
 }
+
+dependencies {
+    implementation deps.build.jsr305Annotations
+}
+
 jar.dependsOn ":jar-infer:jar-infer-cli:assemble"

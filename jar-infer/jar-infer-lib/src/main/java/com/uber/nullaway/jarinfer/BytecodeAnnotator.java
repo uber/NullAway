@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -30,13 +31,14 @@ import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 import org.apache.commons.io.IOUtils;
 import org.objectweb.asm.ClassReader;
-import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
-import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.AnnotationNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 
 /** Annotates the given methods and method parameters with the specified annotations using ASM. */
-public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
+public final class BytecodeAnnotator {
   private static boolean debug = false;
 
   private static void LOG(boolean cond, String tag, String msg) {
@@ -46,65 +48,14 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
   public static final String javaxNullableDesc = "Ljavax/annotation/Nullable;";
   public static final String javaxNonnullDesc = "Ljavax/annotation/Nonnull;";
 
-  private final MethodParamAnnotations nullableParams;
-  private final MethodReturnAnnotations nullableReturns;
-
-  private String className = "";
-
-  public BytecodeAnnotator(
-      ClassVisitor cv,
-      MethodParamAnnotations nullableParams,
-      MethodReturnAnnotations nullableReturns) {
-    super(ASM7, cv);
-    this.nullableParams = nullableParams;
-    this.nullableReturns = nullableReturns;
-  }
-
-  @Override
-  public void visit(
-      final int version,
-      final int access,
-      final String name,
-      final String signature,
-      final String superName,
-      final String[] interfaces) {
-    className = name.replace('/', '.');
-    if (cv != null) {
-      cv.visit(version, access, name, signature, superName, interfaces);
-    }
-  }
-
-  @Override
-  public MethodVisitor visitMethod(
-      final int access,
-      final String name,
-      final String desc,
-      final String signature,
-      final String[] exceptions) {
-    MethodVisitor mv = cv.visitMethod(access, name, desc, signature, exceptions);
-    LOG(debug, "DEBUG", "ClassName: " + className);
-    LOG(debug, "DEBUG", "visited method - " + name + " desc: " + desc + " sign: " + signature);
-    String methodSignature = className + "." + name + desc;
-    if (mv != null) {
-      if (nullableReturns.contains(methodSignature)) {
-        // Add a @Nullable annotation on this method to indicate that the method can return null.
-        mv.visitAnnotation(javaxNullableDesc, true);
-        LOG(debug, "DEBUG", "Added nullable return annotation for " + methodSignature);
-      }
-      Set<Integer> params = nullableParams.get(methodSignature);
-      if (params != null) {
-        boolean isStatic = (access & Opcodes.ACC_STATIC) != 0;
-        for (Integer param : params) {
-          // Add a @Nonnull annotation on this parameter.
-          mv.visitParameterAnnotation(isStatic ? param : param - 1, javaxNonnullDesc, true);
-          LOG(
-              debug,
-              "DEBUG",
-              "Added nullable parameter annotation for #" + param + " in " + methodSignature);
-        }
+  private static void addAnnotationIfNotPresent(
+      List<AnnotationNode> annotationList, String annotation) {
+    for (AnnotationNode node : annotationList) {
+      if (node.desc.equals(annotation)) {
+        return;
       }
     }
-    return mv;
+    annotationList.add(new AnnotationNode(Opcodes.ASM7, annotation));
   }
 
   private static void annotateBytecode(
@@ -115,8 +66,34 @@ public final class BytecodeAnnotator extends ClassVisitor implements Opcodes {
       throws IOException {
     ClassReader cr = new ClassReader(is);
     ClassWriter cw = new ClassWriter(0);
-    BytecodeAnnotator bytecodeAnnotator = new BytecodeAnnotator(cw, nonnullParams, nullableReturns);
-    cr.accept(bytecodeAnnotator, 0);
+    ClassNode cn = new ClassNode(Opcodes.ASM7);
+    cr.accept(cn, 0);
+
+    String className = cn.name.replace('/', '.');
+    List<MethodNode> methods = cn.methods;
+    for (MethodNode method : methods) {
+      String methodSignature = className + "." + method.name + method.desc;
+      if (nullableReturns.contains(methodSignature)) {
+        // Add a @Nullable annotation on this method to indicate that the method can return null.
+        addAnnotationIfNotPresent(method.visibleAnnotations, javaxNullableDesc);
+        LOG(debug, "DEBUG", "Added nullable return annotation for " + methodSignature);
+      }
+      Set<Integer> params = nonnullParams.get(methodSignature);
+      if (params != null) {
+        boolean isStatic = (method.access & Opcodes.ACC_STATIC) != 0;
+        for (Integer param : params) {
+          int paramNum = isStatic ? param : param - 1;
+          // Add a @Nonnull annotation on this parameter.
+          addAnnotationIfNotPresent(method.visibleParameterAnnotations[paramNum], javaxNonnullDesc);
+          LOG(
+              debug,
+              "DEBUG",
+              "Added nonnull parameter annotation for #" + param + " in " + methodSignature);
+        }
+      }
+    }
+
+    cn.accept(cw);
     os.write(cw.toByteArray());
   }
 

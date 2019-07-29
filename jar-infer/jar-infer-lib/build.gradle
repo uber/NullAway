@@ -12,6 +12,7 @@ repositories {
 
 dependencies {
     compile deps.build.asm
+    compile deps.build.asmTree
     compile deps.build.wala
     compile deps.build.guava
     compile deps.build.commonsIO

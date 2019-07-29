@@ -2,6 +2,7 @@ package com.uber.nullaway.jarinfer.toys.unannotated;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
+import javax.annotation.Nonnull;
 
 @Retention(RetentionPolicy.RUNTIME)
 @interface ExpectNullable {}
@@ -53,7 +54,7 @@ public class Toys {
     return str;
   }
 
-  public static void test(@ExpectNonnull String s, Foo f, @ExpectNonnull Bar b) {
+  public static void test(@ExpectNonnull @Nonnull String s, Foo f, @ExpectNonnull Bar b) {
     if (s.length() >= 5) {
       Foo f1 = new Foo(s);
       f1.run(s);
