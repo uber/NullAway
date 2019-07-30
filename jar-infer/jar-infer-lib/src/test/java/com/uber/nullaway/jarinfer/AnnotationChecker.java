@@ -109,7 +109,7 @@ public class AnnotationChecker {
 
     for (MethodNode method : cn.methods) {
       if (!checkExpectedAnnotations(method.visibleAnnotations, expectedToActualAnnotations)
-          && !checkTestMethodAnnotation(method)) {
+          && !checkTestMethodAnnotationByName(method)) {
         System.out.println(
             "Error: Invalid / Unexpected annotations found on method '" + method.name + "'");
         return false;
@@ -118,7 +118,7 @@ public class AnnotationChecker {
       if (paramAnnotations == null) continue;
       for (List<AnnotationNode> annotations : paramAnnotations) {
         if (!checkExpectedAnnotations(annotations, expectedToActualAnnotations)
-            && !checkTestMethodParamAnnotation(method)) {
+            && !checkTestMethodParamAnnotationByName(method)) {
           System.out.println(
               "Error: Invalid / Unexpected annotations found in a parameter of method '"
                   + method.name
@@ -130,19 +130,30 @@ public class AnnotationChecker {
     return true;
   }
 
-  // If the given method matches the expected test method name 'expectNullable', check if the method
-  // has the 'javax.annotation.Nullable' annotation on it exactly once.
-  private static boolean checkTestMethodAnnotation(MethodNode method) {
+  /**
+   * If the given method matches the expected test method name 'expectNullable', check if the method
+   * has the 'javax.annotation.Nullable' annotation on it exactly once.
+   *
+   * @param method method to be checked.
+   * @return True if 'javax.annotation.Nullable' is present exactly once on all matching methods.
+   */
+  private static boolean checkTestMethodAnnotationByName(MethodNode method) {
     if (method.name.equals(expectNullableMethod)) {
       return countAnnotations(method.visibleAnnotations, BytecodeAnnotator.javaxNullableDesc) == 1;
     }
     return true;
   }
 
-  // If the given method matches the expected test method name 'expectNonnull', check if all the
-  // parameters of the method has the 'javax.annotation.Nonnull' annotation on it exactly once.
-  // All such methods are also  expected to have at least one parameter with this annotation.
-  private static boolean checkTestMethodParamAnnotation(MethodNode method) {
+  /**
+   * If the given method matches the expected test method name 'expectNonnull', check if all the
+   * parameters of the method has the 'javax.annotation.Nonnull' annotation on it exactly once. All
+   * such methods are also expected to have at least one parameter with this annotation.
+   *
+   * @param method method to be checked.
+   * @return True if 'javax.annotation.Nonnull' is present exactly once on all the parameters of
+   *     matching methods.
+   */
+  private static boolean checkTestMethodParamAnnotationByName(MethodNode method) {
     if (method.name.equals(expectNonnullParamsMethod)) {
       int numParameters = Type.getArgumentTypes(method.desc).length;
       if (numParameters == 0
