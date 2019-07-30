@@ -131,7 +131,7 @@ public class AnnotationChecker {
   }
 
   // If the given method matches the expected test method name 'expectNullable', check if the method
-  // has the 'javaxNullableDesc' annotation on it exactly once.
+  // has the 'javax.annotation.Nullable' annotation on it exactly once.
   private static boolean checkTestMethodAnnotation(MethodNode method) {
     if (method.name.equals(expectNullableMethod)) {
       return countAnnotations(method.visibleAnnotations, BytecodeAnnotator.javaxNullableDesc) == 1;
@@ -140,10 +140,8 @@ public class AnnotationChecker {
   }
 
   // If the given method matches the expected test method name 'expectNonnull', check if all the
-  // parameters
-  // of the method has the 'javaxNonnullDesc' annotation on it exactly once. All such methods are
-  // also
-  // expected to have at least one parameter with this annotation.
+  // parameters of the method has the 'javax.annotation.Nonnull' annotation on it exactly once.
+  // All such methods are also  expected to have at least one parameter with this annotation.
   private static boolean checkTestMethodParamAnnotation(MethodNode method) {
     if (method.name.equals(expectNonnullParamsMethod)) {
       int numParameters = Type.getArgumentTypes(method.desc).length;
