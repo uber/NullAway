@@ -24,6 +24,21 @@ class Foo {
     }
     return false;
   }
+
+  // This method is expected to have a 'Nullable' annotation
+  // on the result.
+  public static String expectNullable(int x, String str) {
+    if (x < 10) {
+      return null;
+    }
+    return str;
+  }
+
+  // This method is expected to have a 'Nonnull' annotation on
+  // its parameter.
+  public static int expectNonnull(String str) {
+    return str.length();
+  }
 }
 
 class Bar {

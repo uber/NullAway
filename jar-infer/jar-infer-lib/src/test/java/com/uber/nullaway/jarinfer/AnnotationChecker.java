@@ -30,9 +30,13 @@ import jdk.internal.org.objectweb.asm.ClassReader;
 import jdk.internal.org.objectweb.asm.tree.AnnotationNode;
 import jdk.internal.org.objectweb.asm.tree.ClassNode;
 import jdk.internal.org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.Type;
 
 /** Class to check if the methods in the given class / jar files have the expected annotations. */
 public class AnnotationChecker {
+  private static final String expectNullableMethod = "expectNullable";
+  private static final String expectNonnullParamsMethod = "expectNonnull";
+
   /**
    * Checks if the given aar file contains the expected annotations. The annotations that are
    * expected are specified in the form of a map. For example: map = {"ExpectNullable;",
@@ -104,7 +108,8 @@ public class AnnotationChecker {
     cr.accept(cn, 0);
 
     for (MethodNode method : cn.methods) {
-      if (!checkExpectedAnnotations(method.visibleAnnotations, expectedToActualAnnotations)) {
+      if (!checkExpectedAnnotations(method.visibleAnnotations, expectedToActualAnnotations)
+          && !checkTestMethodAnnotationByName(method)) {
         System.out.println(
             "Error: Invalid / Unexpected annotations found on method '" + method.name + "'");
         return false;
@@ -112,11 +117,52 @@ public class AnnotationChecker {
       List<AnnotationNode>[] paramAnnotations = method.visibleParameterAnnotations;
       if (paramAnnotations == null) continue;
       for (List<AnnotationNode> annotations : paramAnnotations) {
-        if (!checkExpectedAnnotations(annotations, expectedToActualAnnotations)) {
+        if (!checkExpectedAnnotations(annotations, expectedToActualAnnotations)
+            && !checkTestMethodParamAnnotationByName(method)) {
           System.out.println(
               "Error: Invalid / Unexpected annotations found in a parameter of method '"
                   + method.name
                   + "'.");
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  /**
+   * If the given method matches the expected test method name 'expectNullable', check if the method
+   * has the 'javax.annotation.Nullable' annotation on it exactly once.
+   *
+   * @param method method to be checked.
+   * @return True if 'javax.annotation.Nullable' is present exactly once on all matching methods.
+   */
+  private static boolean checkTestMethodAnnotationByName(MethodNode method) {
+    if (method.name.equals(expectNullableMethod)) {
+      return countAnnotations(method.visibleAnnotations, BytecodeAnnotator.javaxNullableDesc) == 1;
+    }
+    return true;
+  }
+
+  /**
+   * If the given method matches the expected test method name 'expectNonnull', check if all the
+   * parameters of the method has the 'javax.annotation.Nonnull' annotation on it exactly once. All
+   * such methods are also expected to have at least one parameter with this annotation.
+   *
+   * @param method method to be checked.
+   * @return True if 'javax.annotation.Nonnull' is present exactly once on all the parameters of
+   *     matching methods.
+   */
+  private static boolean checkTestMethodParamAnnotationByName(MethodNode method) {
+    if (method.name.equals(expectNonnullParamsMethod)) {
+      int numParameters = Type.getArgumentTypes(method.desc).length;
+      if (numParameters == 0
+          || method.visibleParameterAnnotations == null
+          || method.visibleParameterAnnotations.length < numParameters) {
+        return false;
+      }
+      for (List<AnnotationNode> annotations : method.visibleParameterAnnotations) {
+        if (countAnnotations(annotations, BytecodeAnnotator.javaxNonnullDesc) != 1) {
           return false;
         }
       }

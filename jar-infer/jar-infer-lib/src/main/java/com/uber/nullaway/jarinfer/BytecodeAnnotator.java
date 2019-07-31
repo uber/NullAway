@@ -75,7 +75,11 @@ public final class BytecodeAnnotator {
       String methodSignature = className + "." + method.name + method.desc;
       if (nullableReturns.contains(methodSignature)) {
         // Add a @Nullable annotation on this method to indicate that the method can return null.
-        addAnnotationIfNotPresent(method.visibleAnnotations, javaxNullableDesc);
+        if (method.visibleAnnotations == null) {
+          method.visitAnnotation(javaxNullableDesc, true);
+        } else {
+          addAnnotationIfNotPresent(method.visibleAnnotations, javaxNullableDesc);
+        }
         LOG(debug, "DEBUG", "Added nullable return annotation for " + methodSignature);
       }
       Set<Integer> params = nonnullParams.get(methodSignature);
@@ -84,7 +88,14 @@ public final class BytecodeAnnotator {
         for (Integer param : params) {
           int paramNum = isStatic ? param : param - 1;
           // Add a @Nonnull annotation on this parameter.
-          addAnnotationIfNotPresent(method.visibleParameterAnnotations[paramNum], javaxNonnullDesc);
+          if (method.visibleParameterAnnotations == null
+              || method.visibleParameterAnnotations.length < paramNum
+              || method.visibleParameterAnnotations[paramNum] == null) {
+            method.visitParameterAnnotation(paramNum, javaxNonnullDesc, true);
+          } else {
+            addAnnotationIfNotPresent(
+                method.visibleParameterAnnotations[paramNum], javaxNonnullDesc);
+          }
           LOG(
               debug,
               "DEBUG",
