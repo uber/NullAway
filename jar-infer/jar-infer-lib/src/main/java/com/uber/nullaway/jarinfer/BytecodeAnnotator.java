@@ -15,9 +15,11 @@
  */
 package com.uber.nullaway.jarinfer;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.util.Enumeration;
 import java.util.List;
@@ -47,6 +49,19 @@ public final class BytecodeAnnotator {
 
   public static final String javaxNullableDesc = "Ljavax/annotation/Nullable;";
   public static final String javaxNonnullDesc = "Ljavax/annotation/Nonnull;";
+
+  // Constants used for signed jar processing
+  private static final String SIGNED_JAR_ERROR_MESSAGE =
+      "JarInfer will not process signed jars by default. "
+          + "Please take one of the following actions:\n"
+          + "\t1) Remove the signature from the original jar before passing it to jarinfer,\n"
+          + "\t2) Pass the --strip-jar-signatures flag to JarInfer and the tool will remove signature "
+          + "metadata for you, or\n"
+          + "\t3) Exclude this jar from those being processed by JarInfer.";
+  private static final String BASE64_PATTERN =
+      "(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?";
+  private static final String DIGEST_ENTRY_PATTERN =
+      "Name: [A-Za-z0-9/\\$\\n\\s]+\\.class\\nSHA-256-Digest: " + BASE64_PATTERN;
 
   private static void addAnnotationIfNotPresent(
       List<AnnotationNode> annotationList, String annotation) {
@@ -131,6 +146,46 @@ public final class BytecodeAnnotator {
     annotateBytecode(is, os, nonnullParams, nullableReturns);
   }
 
+  private static void copyAndAnnotateJarEntry(
+      JarEntry jarEntry,
+      InputStream is,
+      JarOutputStream jarOS,
+      MethodParamAnnotations nonnullParams,
+      MethodReturnAnnotations nullableReturns,
+      boolean stripJarSignatures)
+      throws IOException {
+    jarOS.putNextEntry(new ZipEntry(jarEntry.getName()));
+    String entryName = jarEntry.getName();
+    if (entryName.endsWith(".class")) {
+      annotateBytecode(is, jarOS, nonnullParams, nullableReturns);
+    } else if (entryName.equals("META-INF/MANIFEST.SF")) {
+      // Read full file
+      StringBuilder stringBuilder = new StringBuilder();
+      BufferedReader br = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+      String currentLine;
+      while ((currentLine = br.readLine()) != null) {
+        stringBuilder.append(currentLine);
+      }
+      String manifestText = stringBuilder.toString();
+      // Check for evidence of jar signing, note that lines can be split if too long so regex
+      // matching
+      // line by line will have false negatives.
+      String manifestMinusDigests = manifestText.replaceAll(DIGEST_ENTRY_PATTERN, "");
+      if (!manifestText.equals(manifestMinusDigests) && !stripJarSignatures) {
+        throw new SignedJarException(SIGNED_JAR_ERROR_MESSAGE);
+      }
+      jarOS.write(manifestMinusDigests.getBytes("UTF-8"));
+    } else if (entryName.startsWith("META-INF/")
+        && (entryName.endsWith(".DSA") || entryName.endsWith(".RSA"))) {
+      if (!stripJarSignatures) {
+        throw new SignedJarException(SIGNED_JAR_ERROR_MESSAGE);
+      } // the case where stripJarSignatures==true is handled by default by skipping these files
+    } else {
+      jarOS.write(IOUtils.toByteArray(is));
+    }
+    jarOS.closeEntry();
+  }
+
   /**
    * Annotates the methods and method parameters in the classes in the given jar with the specified
    * annotations.
@@ -147,6 +202,7 @@ public final class BytecodeAnnotator {
       JarOutputStream jarOS,
       MethodParamAnnotations nonnullParams,
       MethodReturnAnnotations nullableReturns,
+      boolean stripJarSignatures,
       boolean debug)
       throws IOException {
     BytecodeAnnotator.debug = debug;
@@ -158,13 +214,8 @@ public final class BytecodeAnnotator {
     for (Enumeration<JarEntry> entries = inputJar.entries(); entries.hasMoreElements(); ) {
       JarEntry jarEntry = entries.nextElement();
       InputStream is = inputJar.getInputStream(jarEntry);
-      jarOS.putNextEntry(new ZipEntry(jarEntry.getName()));
-      if (jarEntry.getName().endsWith(".class")) {
-        annotateBytecode(is, jarOS, nonnullParams, nullableReturns);
-      } else {
-        jarOS.write(IOUtils.toByteArray(is));
-      }
-      jarOS.closeEntry();
+      copyAndAnnotateJarEntry(
+          jarEntry, is, jarOS, nonnullParams, nullableReturns, stripJarSignatures);
     }
   }
 
@@ -184,6 +235,7 @@ public final class BytecodeAnnotator {
       ZipOutputStream zipOS,
       MethodParamAnnotations nonnullParams,
       MethodReturnAnnotations nullableReturns,
+      boolean stripJarSignatures,
       boolean debug)
       throws IOException {
     BytecodeAnnotator.debug = debug;
@@ -201,14 +253,8 @@ public final class BytecodeAnnotator {
         ByteArrayOutputStream byteArrayOS = new ByteArrayOutputStream();
         JarOutputStream jarOS = new JarOutputStream(byteArrayOS);
         while (inputJarEntry != null) {
-
-          jarOS.putNextEntry(new ZipEntry(inputJarEntry.getName()));
-          if (inputJarEntry.getName().endsWith(".class")) {
-            annotateBytecode(jarIS, jarOS, nonnullParams, nullableReturns);
-          } else {
-            jarOS.write(IOUtils.toByteArray(jarIS));
-          }
-          jarOS.closeEntry();
+          copyAndAnnotateJarEntry(
+              inputJarEntry, jarIS, jarOS, nonnullParams, nullableReturns, stripJarSignatures);
           inputJarEntry = jarIS.getNextJarEntry();
         }
         zipOS.write(byteArrayOS.toByteArray());

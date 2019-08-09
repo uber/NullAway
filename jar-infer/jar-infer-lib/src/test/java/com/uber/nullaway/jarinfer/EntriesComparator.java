@@ -16,7 +16,9 @@
 package com.uber.nullaway.jarinfer;
 
 import com.google.common.base.Preconditions;
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Set;
@@ -103,5 +105,41 @@ public class EntriesComparator {
       jar2Entry = jarIS2.getNextJarEntry();
     }
     return jar1Entries.equals(jar2Entries);
+  }
+
+  private static String readManifestFromJar(String jarfile) throws IOException {
+    JarFile jar = new JarFile(jarfile);
+    ZipEntry manifestEntry = jar.getEntry("META-INF/MANIFEST.SF");
+    if (manifestEntry == null) {
+      return "";
+    }
+    StringBuilder stringBuilder = new StringBuilder();
+    BufferedReader bufferedReader =
+        new BufferedReader(new InputStreamReader(jar.getInputStream(manifestEntry), "UTF-8"));
+    String currentLine;
+    while ((currentLine = bufferedReader.readLine()) != null) {
+      // Ignore empty new lines
+      if (currentLine.trim().length() > 0) {
+        stringBuilder.append(currentLine);
+      }
+    }
+    return stringBuilder.toString();
+  }
+
+  /**
+   * Compares the META-INF/MANIFEST.SF file in the given 2 jar files. We ignore empty newlines.
+   *
+   * @param jarFile1 Path to the first jar file.
+   * @param jarFile2 Path to the second jar file.
+   * @return True iff the MANIFEST.SF files in the two jar files exist and are the same.
+   * @throws IOException
+   */
+  public static boolean compareManifestContents(String jarFile1, String jarFile2)
+      throws IOException {
+    Preconditions.checkArgument(jarFile1.endsWith(".jar"), "invalid jar file: " + jarFile1);
+    Preconditions.checkArgument(jarFile2.endsWith(".jar"), "invalid jar file: " + jarFile2);
+    String manifest1 = readManifestFromJar(jarFile1);
+    String manifest2 = readManifestFromJar(jarFile2);
+    return manifest1.equals(manifest2);
   }
 }
