@@ -1433,6 +1433,9 @@ public class NullAway extends BugChecker
           ASTHelpers.getSymbol(entities.instanceInitializerMethods().iterator().next());
     }
     for (Symbol uninitField : notInitializedAtAll) {
+      if (errorBuilder.symbolHasSuppressInitializationWarningsAnnotation(uninitField)) {
+        continue;
+      }
       if (singleInitializerMethod != null) {
         // report it on the initializer
         errorFieldsForInitializer.put(singleInitializerMethod, uninitField);
