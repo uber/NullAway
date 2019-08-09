@@ -165,4 +165,10 @@ public interface Config {
 
   /** @return true if generated code should be treated as unannotated */
   boolean treatGeneratedAsUnannotated();
+
+  /**
+   * @return true if Android's {@code @RecentlyNullable} should be treated as {@code @Nullable}, and
+   *     similarly for {@code @RecentlyNonNull}
+   */
+  boolean acknowledgeAndroidRecent();
 }

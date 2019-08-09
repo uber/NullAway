@@ -169,4 +169,9 @@ public class DummyOptionsConfig implements Config {
   public boolean treatGeneratedAsUnannotated() {
     throw new IllegalStateException(error_msg);
   }
+
+  @Override
+  public boolean acknowledgeAndroidRecent() {
+    throw new IllegalStateException(error_msg);
+  }
 }

@@ -2,7 +2,6 @@ package com.uber.nullaway.jarinfer.toys.unannotated;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
-import javax.annotation.Nonnull;
 
 @Retention(RetentionPolicy.RUNTIME)
 @interface ExpectNullable {}
@@ -23,21 +22,6 @@ class Foo {
       return str.equals(foo);
     }
     return false;
-  }
-
-  // This method is expected to have a 'Nullable' annotation
-  // on the result.
-  public static String expectNullable(int x, String str) {
-    if (x < 10) {
-      return null;
-    }
-    return str;
-  }
-
-  // This method is expected to have a 'Nonnull' annotation on
-  // its parameter.
-  public static int expectNonnull(String str) {
-    return str.length();
   }
 }
 
@@ -69,7 +53,7 @@ public class Toys {
     return str;
   }
 
-  public static void test(@ExpectNonnull @Nonnull String s, Foo f, @ExpectNonnull Bar b) {
+  public static void test(@ExpectNonnull String s, Foo f, @ExpectNonnull Bar b) {
     if (s.length() >= 5) {
       Foo f1 = new Foo(s);
       f1.run(s);

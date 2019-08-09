@@ -79,12 +79,11 @@ public class JarInferTest {
         Main.Result.OK,
         compileResult);
     DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    Map<String, Set<Integer>> result =
+        driver.run(temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/"));
     Assert.assertTrue(
-        testName + ": test failed!",
-        verify(
-            driver.run(
-                temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/")),
-            new HashMap<>(expected)));
+        testName + ": test failed! \n" + result + " does not match " + expected,
+        verify(result, new HashMap<>(expected)));
   }
 
   /**
@@ -110,15 +109,39 @@ public class JarInferTest {
       Map<String, String> expectedToActualAnnotationsMap)
       throws Exception {
     String outputFolderPath = outputFolder.newFolder(pkg).getAbsolutePath();
-    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
-    driver.runAndAnnotate(inputJarPath, "", outputFolderPath);
-
     String inputJarName = FilenameUtils.getBaseName(inputJarPath);
     String outputJarPath = outputFolderPath + "/" + inputJarName + "-annotated.jar";
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.runAndAnnotate(inputJarPath, "", outputJarPath);
+
     Assert.assertTrue(
         testName + ": generated jar does not match the expected jar!",
         AnnotationChecker.checkMethodAnnotationsInJar(
             outputJarPath, expectedToActualAnnotationsMap));
+    Assert.assertTrue(
+        testName + ": generated jar does not have all the entries present in the input jar!",
+        EntriesComparator.compareEntriesInJars(outputJarPath, inputJarPath));
+  }
+
+  private void testAnnotationInAarTemplate(
+      String testName,
+      String pkg,
+      String inputAarPath,
+      Map<String, String> expectedToActualAnnotationMap)
+      throws Exception {
+    String outputFolderPath = outputFolder.newFolder(pkg).getAbsolutePath();
+    String inputAarName = FilenameUtils.getBaseName(inputAarPath);
+    String outputAarPath = outputFolderPath + "/" + inputAarName + "-annotated.aar";
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.runAndAnnotate(inputAarPath, "", outputAarPath);
+
+    Assert.assertTrue(
+        testName + ": generated aar does not match the expected aar!",
+        AnnotationChecker.checkMethodAnnotationsInAar(
+            outputAarPath, expectedToActualAnnotationMap));
+    Assert.assertTrue(
+        testName + ": generated aar does not have all the entries present in the input aar!",
+        EntriesComparator.compareEntriesInAars(outputAarPath, inputAarPath));
   }
 
   /**
@@ -276,11 +299,119 @@ public class JarInferTest {
   }
 
   @Test
+  public void toyConditionalFlow() throws Exception {
+    testTemplate(
+        "toyNullTestAPI",
+        "toys",
+        "Foo",
+        ImmutableMap.of("toys.Foo:void test(String, String, String)", Sets.newHashSet(1, 2)),
+        "import com.google.common.base.Preconditions;",
+        "import java.util.Objects;",
+        "import org.junit.Assert;",
+        "class Foo {",
+        "  private String foo;",
+        "  public Foo(String str) {",
+        "    if (str == null) str = \"foo\";",
+        "    this.foo = str;",
+        "  }",
+        "  public void test(String s, String t, String u) {",
+        "    if (s.length() >= 5) {",
+        "      t.toString();",
+        "      t = s;",
+        "    } else {",
+        "      Preconditions.checkNotNull(t);",
+        "      u = t;",
+        "    }",
+        "    Objects.requireNonNull(u);",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void toyConditionalFlow2() throws Exception {
+    testTemplate(
+        "toyNullTestAPI",
+        "toys",
+        "Foo",
+        ImmutableMap.of(
+            "toys.Foo:void test(Object, Object, Object, Object)", Sets.newHashSet(1, 4)),
+        "import com.google.common.base.Preconditions;",
+        "import java.util.Objects;",
+        "import org.junit.Assert;",
+        "class Foo {",
+        "  private String foo;",
+        "  public Foo(String str) {",
+        "    if (str == null) str = \"foo\";",
+        "    this.foo = str;",
+        "  }",
+        "  public void test(Object a, Object b, Object c, Object d) {",
+        "    if (a != null) {",
+        "      b.toString();",
+        "      d.toString();",
+        "    } else {",
+        "      Preconditions.checkNotNull(c);",
+        "    }",
+        "    Objects.requireNonNull(a);",
+        "    if (b != null) {",
+        "      c.toString();",
+        "      d.toString();",
+        "    } else {",
+        "      Preconditions.checkNotNull(b);",
+        "       if (c != null) {",
+        "          d.toString();",
+        "       } else {",
+        "          Preconditions.checkNotNull(d);",
+        "       }",
+        "    }",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void toyReassigningTest() throws Exception {
+    testTemplate(
+        "toyNullTestAPI",
+        "toys",
+        "Foo",
+        ImmutableMap.of("toys.Foo:void test(String, String)", Sets.newHashSet(1)),
+        "import com.google.common.base.Preconditions;",
+        "import java.util.Objects;",
+        "import org.junit.Assert;",
+        "class Foo {",
+        "  private String foo;",
+        "  public Foo(String str) {",
+        "    if (str == null) str = \"foo\";",
+        "    this.foo = str;",
+        "  }",
+        "  public void test(String s, String t) {",
+        "    Preconditions.checkNotNull(s);",
+        "    if (t == null) {",
+        "      t = s;",
+        "    }",
+        "    Objects.requireNonNull(t);",
+        "  }",
+        "}");
+  }
+
+  @Test
   public void toyJARAnnotatingClasses() throws Exception {
     testAnnotationInJarTemplate(
         "toyJARAnnotatingClasses",
         "com.uber.nullaway.jarinfer.toys.unannotated",
         "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar",
+        ImmutableMap.of(
+            "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNullable;",
+            BytecodeAnnotator.javaxNullableDesc,
+            "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNonnull;",
+            BytecodeAnnotator.javaxNonnullDesc));
+  }
+
+  @Test
+  public void toyAARAnnotatingClasses() throws Exception {
+    testAnnotationInAarTemplate(
+        "toyAARAnnotatingClasses",
+        "com.uber.nullaway.jarinfer.toys.unannotated",
+        "../test-android-lib-jarinfer/build/outputs/aar/test-android-lib-jarinfer.aar",
         ImmutableMap.of(
             "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNullable;",
             BytecodeAnnotator.javaxNullableDesc,

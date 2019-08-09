@@ -23,6 +23,7 @@
 package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
+import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
@@ -299,7 +300,6 @@ public class NullAwayTest {
         (Double.parseDouble(System.getProperty("java.specification.version")) >= 11)
             ? "@javax.annotation.processing.Generated"
             : "@javax.annotation.Generated";
-    System.err.println();
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1317,6 +1317,62 @@ public class NullAwayTest {
   }
 
   @Test
+  public void defaultPermissiveOnRecently() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                // should be permissive even when AcknowledgeRestrictiveAnnotations is set
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.AndroidRecentlyAnnotatedClass;",
+            "class Test {",
+            "  Object test() {",
+            "    // Assume methods take @Nullable, even if annotated otherwise",
+            "    AndroidRecentlyAnnotatedClass.consumesObjectUnannotated(null);",
+            "    AndroidRecentlyAnnotatedClass.consumesObjectNonNull(null);",
+            "    // Ignore explict @Nullable return",
+            "    return AndroidRecentlyAnnotatedClass.returnsNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void acknowledgeRecentlyAnnotationsWhenFlagSet() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+                "-XepOpt:NullAway:AcknowledgeAndroidRecent=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.AndroidRecentlyAnnotatedClass;",
+            "class Test {",
+            "  Object test() {",
+            "    AndroidRecentlyAnnotatedClass.consumesObjectUnannotated(null);",
+            "    // BUG: Diagnostic contains: @NonNull is required",
+            "    AndroidRecentlyAnnotatedClass.consumesObjectNonNull(null);",
+            "    // BUG: Diagnostic contains: returning @Nullable",
+            "    return AndroidRecentlyAnnotatedClass.returnsNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void restrictivelyAnnotatedMethodsWorkWithNullnessFromDataflow() {
     compilationHelper
         .setArgs(
@@ -2123,6 +2179,47 @@ public class NullAwayTest {
             "    Generated.takesNonNullVarargs(o1);", // Empty var args passed
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
             "    Generated.takesNonNullVarargs(o1, o4);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void libraryModelsOverrideRestrictiveAnnotations() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-processorpath",
+                TestLibraryModels.class
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation()
+                    .getPath(),
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.unannotated.RestrictivelyAnnotatedFIWithModelOverride;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  void bar(RestrictivelyAnnotatedFIWithModelOverride f) {",
+            "     // Param is @NullableDecl in bytecode, overridden by library model",
+            "     // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull",
+            "     f.apply(null);",
+            "  }",
+            "  void foo() {",
+            "    RestrictivelyAnnotatedFIWithModelOverride func = (x) -> {",
+            "     // Param is @NullableDecl in bytecode, overridden by library model, thus safe",
+            "     return x.toString();",
+            "    };",
+            "  }",
+            "  void baz() {",
+            "     // Safe to pass, since Function can't have a null instance parameter",
+            "     bar(Object::toString);",
             "  }",
             "}")
         .doTest();

@@ -48,6 +48,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
       EP_FL_NAMESPACE + ":ExcludedClassAnnotations";
   static final String FL_SUGGEST_SUPPRESSIONS = EP_FL_NAMESPACE + ":SuggestSuppressions";
   static final String FL_GENERATED_UNANNOTATED = EP_FL_NAMESPACE + ":TreatGeneratedAsUnannotated";
+  static final String FL_ACKNOWLEDGE_ANDROID_RECENT = EP_FL_NAMESPACE + ":AcknowledgeAndroidRecent";
   static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
@@ -141,6 +142,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     handleTestAssertionLibraries =
         flags.getBoolean(FL_HANDLE_TEST_ASSERTION_LIBRARIES).orElse(false);
     treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
+    acknowledgeAndroidRecent = flags.getBoolean(FL_ACKNOWLEDGE_ANDROID_RECENT).orElse(false);
     assertsEnabled = flags.getBoolean(FL_ASSERTS_ENABLED).orElse(false);
     fieldAnnotPattern =
         getPackagePattern(
@@ -154,7 +156,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
             .build();
     if (autofixSuppressionComment.contains("\n")) {
       throw new IllegalStateException(
-          "Invalid -XepOpt" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
+          "Invalid -XepOpt:" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
     }
     /** --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
@@ -165,6 +167,14 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     jarInferRegexStripModelJarName = flags.get(FL_JI_REGEX_MODEL_PATH).orElse(BASENAME_REGEX);
     jarInferRegexStripCodeJarName = flags.get(FL_JI_REGEX_CODE_PATH).orElse(BASENAME_REGEX);
     errorURL = flags.get(FL_ERROR_URL).orElse(DEFAULT_URL);
+    if (acknowledgeAndroidRecent && !isAcknowledgeRestrictive) {
+      throw new IllegalStateException(
+          "-XepOpt:"
+              + FL_ACKNOWLEDGE_ANDROID_RECENT
+              + " should only be set when -XepOpt:"
+              + FL_ACKNOWLEDGE_RESTRICTIVE
+              + " is also set");
+    }
   }
 
   private static ImmutableSet<String> getFlagStringSet(ErrorProneFlags flags, String flagName) {

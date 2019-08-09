@@ -1,4 +1,9 @@
 language: android
+# Currently android projects are only supported in trusty, as per:
+# https://docs.travis-ci.com/user/languages/android/#overview
+# If this language is not there, try uncommenting: 
+# "Android builds are only supported on our Trusty image at this time ..."
+dist: trusty
 
 jdk:
   - oraclejdk8

@@ -153,7 +153,7 @@ public class DefinitelyDerefedParamsDriver {
       boolean annotateBytecode,
       boolean dbg,
       boolean vbs)
-      throws IOException, ClassHierarchyException, IllegalArgumentException {
+      throws IOException, ClassHierarchyException {
     DEBUG = dbg;
     VERBOSE = vbs;
     this.annotateBytecode = annotateBytecode;
@@ -162,7 +162,16 @@ public class DefinitelyDerefedParamsDriver {
     for (String inPath : setInPaths) {
       analyzeFile(pkgName, inPath);
       if (this.annotateBytecode) {
-        writeAnnotations(inPath, outPath);
+        String outFile = outPath;
+        if (setInPaths.size() > 1) {
+          outFile =
+              outPath
+                  + "/"
+                  + FilenameUtils.getBaseName(inPath)
+                  + "-annotated."
+                  + FilenameUtils.getExtension(inPath);
+        }
+        writeAnnotations(inPath, outFile);
       }
     }
     if (!this.annotateBytecode) {
@@ -388,28 +397,26 @@ public class DefinitelyDerefedParamsDriver {
     StubxWriter.write(out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
   }
 
-  private void writeAnnotations(String inPath, String outPath) throws IOException {
+  private void writeAnnotations(String inPath, String outFile) throws IOException {
     Preconditions.checkArgument(
-        inPath.endsWith(".jar") || inPath.endsWith(".class"), "invalid input path - " + inPath);
-    LOG(DEBUG, "DEBUG", "Writing Annotations to " + outPath);
+        inPath.endsWith(".jar") || inPath.endsWith(".aar") || inPath.endsWith(".class"),
+        "invalid input path - " + inPath);
+    LOG(DEBUG, "DEBUG", "Writing Annotations to " + outFile);
 
-    String outFile;
+    new File(outFile).getParentFile().mkdirs();
     if (inPath.endsWith(".jar")) {
-      outFile =
-          outPath
-              + "/"
-              + FilenameUtils.getBaseName(inPath)
-              + "-annotated."
-              + FilenameUtils.getExtension(inPath);
       JarFile jar = new JarFile(inPath);
       JarOutputStream jarOS = new JarOutputStream(new FileOutputStream(outFile));
       BytecodeAnnotator.annotateBytecodeInJar(jar, jarOS, nonnullParams, nullableReturns, DEBUG);
       jarOS.close();
     } else if (inPath.endsWith(".aar")) {
-      // TODO(ragr@): Handle this case.
+      ZipFile zip = new ZipFile(inPath);
+      ZipOutputStream zipOS = new ZipOutputStream(new FileOutputStream(outFile));
+      BytecodeAnnotator.annotateBytecodeInAar(zip, zipOS, nonnullParams, nullableReturns, DEBUG);
+      zipOS.close();
     } else {
       InputStream is = new FileInputStream(inPath);
-      OutputStream os = new FileOutputStream(outPath);
+      OutputStream os = new FileOutputStream(outFile);
       BytecodeAnnotator.annotateBytecodeInClass(is, os, nonnullParams, nullableReturns, DEBUG);
       os.close();
     }
