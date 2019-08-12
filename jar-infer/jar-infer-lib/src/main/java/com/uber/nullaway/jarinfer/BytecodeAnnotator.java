@@ -168,8 +168,7 @@ public final class BytecodeAnnotator {
       }
       String manifestText = stringBuilder.toString();
       // Check for evidence of jar signing, note that lines can be split if too long so regex
-      // matching
-      // line by line will have false negatives.
+      // matching line by line will have false negatives.
       String manifestMinusDigests = manifestText.replaceAll(DIGEST_ENTRY_PATTERN, "");
       if (!manifestText.equals(manifestMinusDigests) && !stripJarSignatures) {
         throw new SignedJarException(SIGNED_JAR_ERROR_MESSAGE);
