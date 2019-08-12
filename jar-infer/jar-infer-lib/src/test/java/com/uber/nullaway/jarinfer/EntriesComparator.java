@@ -109,9 +109,9 @@ public class EntriesComparator {
 
   private static String readManifestFromJar(String jarfile) throws IOException {
     JarFile jar = new JarFile(jarfile);
-    ZipEntry manifestEntry = jar.getEntry("META-INF/MANIFEST.SF");
+    ZipEntry manifestEntry = jar.getEntry("META-INF/MANIFEST.MF");
     if (manifestEntry == null) {
-      return "";
+      throw new IllegalArgumentException("Jar does not contain a manifest at META-INF/MANIFEST.MF");
     }
     StringBuilder stringBuilder = new StringBuilder();
     BufferedReader bufferedReader =
@@ -120,19 +120,20 @@ public class EntriesComparator {
     while ((currentLine = bufferedReader.readLine()) != null) {
       // Ignore empty new lines
       if (currentLine.trim().length() > 0) {
-        stringBuilder.append(currentLine);
+        stringBuilder.append(currentLine + "\n");
       }
     }
     return stringBuilder.toString();
   }
 
   /**
-   * Compares the META-INF/MANIFEST.SF file in the given 2 jar files. We ignore empty newlines.
+   * Compares the META-INF/MANIFEST.MF file in the given 2 jar files. We ignore empty newlines.
    *
    * @param jarFile1 Path to the first jar file.
    * @param jarFile2 Path to the second jar file.
-   * @return True iff the MANIFEST.SF files in the two jar files exist and are the same.
+   * @return True iff the MANIFEST.MF files in the two jar files exist and are the same.
    * @throws IOException
+   * @throws IllegalArgumentException
    */
   public static boolean compareManifestContents(String jarFile1, String jarFile2)
       throws IOException {

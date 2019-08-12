@@ -486,11 +486,11 @@ public class JarInferTest {
     Assert.assertTrue(
         "Annotated jar after signature stripping does not have all the entries present in the input "
             + "jar (before signing), or contains extra (e.g. META-INF) entries!",
-        EntriesComparator.compareEntriesInJars(outputJarPath, inputJarPath));
+        EntriesComparator.compareEntriesInJars(outputJarPath, baseJarPath));
     // Check that META-INF/Manifest.MF is content-identical to the original unsigned jar
     Assert.assertTrue(
-        "Annotated jar after signature stripping does not preserve the info inside META-INF/MANIFEST.SF",
-        EntriesComparator.compareManifestContents(outputJarPath, inputJarPath));
+        "Annotated jar after signature stripping does not preserve the info inside META-INF/MANIFEST.MF",
+        EntriesComparator.compareManifestContents(outputJarPath, baseJarPath));
   }
 
   private byte[] sha1sum(String path) throws Exception {

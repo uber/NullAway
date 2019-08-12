@@ -61,7 +61,7 @@ public final class BytecodeAnnotator {
   private static final String BASE64_PATTERN =
       "(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?";
   private static final String DIGEST_ENTRY_PATTERN =
-      "Name: [A-Za-z0-9/\\$\\n\\s]+\\.class\\nSHA-256-Digest: " + BASE64_PATTERN;
+      "Name: [A-Za-z0-9/\\$\\n\\s\\-\\.]+[A-Za-z0-9]\\nSHA-256-Digest: " + BASE64_PATTERN;
 
   private static void addAnnotationIfNotPresent(
       List<AnnotationNode> annotationList, String annotation) {
@@ -154,17 +154,17 @@ public final class BytecodeAnnotator {
       MethodReturnAnnotations nullableReturns,
       boolean stripJarSignatures)
       throws IOException {
-    jarOS.putNextEntry(new ZipEntry(jarEntry.getName()));
     String entryName = jarEntry.getName();
     if (entryName.endsWith(".class")) {
+      jarOS.putNextEntry(new ZipEntry(jarEntry.getName()));
       annotateBytecode(is, jarOS, nonnullParams, nullableReturns);
-    } else if (entryName.equals("META-INF/MANIFEST.SF")) {
+    } else if (entryName.equals("META-INF/MANIFEST.MF")) {
       // Read full file
       StringBuilder stringBuilder = new StringBuilder();
       BufferedReader br = new BufferedReader(new InputStreamReader(is, "UTF-8"));
       String currentLine;
       while ((currentLine = br.readLine()) != null) {
-        stringBuilder.append(currentLine);
+        stringBuilder.append(currentLine + "\n");
       }
       String manifestText = stringBuilder.toString();
       // Check for evidence of jar signing, note that lines can be split if too long so regex
@@ -174,13 +174,17 @@ public final class BytecodeAnnotator {
       if (!manifestText.equals(manifestMinusDigests) && !stripJarSignatures) {
         throw new SignedJarException(SIGNED_JAR_ERROR_MESSAGE);
       }
+      jarOS.putNextEntry(new ZipEntry(jarEntry.getName()));
       jarOS.write(manifestMinusDigests.getBytes("UTF-8"));
     } else if (entryName.startsWith("META-INF/")
-        && (entryName.endsWith(".DSA") || entryName.endsWith(".RSA"))) {
+        && (entryName.endsWith(".DSA")
+            || entryName.endsWith(".RSA")
+            || entryName.endsWith(".SF"))) {
       if (!stripJarSignatures) {
         throw new SignedJarException(SIGNED_JAR_ERROR_MESSAGE);
       } // the case where stripJarSignatures==true is handled by default by skipping these files
     } else {
+      jarOS.putNextEntry(new ZipEntry(jarEntry.getName()));
       jarOS.write(IOUtils.toByteArray(is));
     }
     jarOS.closeEntry();
