@@ -83,6 +83,7 @@ public class DefinitelyDerefedParamsDriver {
   private MethodReturnAnnotations nullableReturns = new MethodReturnAnnotations();
 
   private boolean annotateBytecode = false;
+  private boolean stripJarSignatures = false;
 
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
   private static final String ASTUBX_JAR_SUFFIX = ".astubx.jar";
@@ -123,12 +124,18 @@ public class DefinitelyDerefedParamsDriver {
     } else if (new File(firstInPath).exists()) {
       outPath = FilenameUtils.getFullPath(firstInPath) + DEFAULT_ASTUBX_LOCATION;
     }
-    return run(inPaths, pkgName, outPath, false, DEBUG, VERBOSE);
+    return run(inPaths, pkgName, outPath, false, false, DEBUG, VERBOSE);
+  }
+
+  MethodParamAnnotations runAndAnnotate(
+      String inPaths, String pkgName, String outPath, boolean stripJarSignatures)
+      throws IOException, ClassHierarchyException {
+    return run(inPaths, pkgName, outPath, true, stripJarSignatures, DEBUG, VERBOSE);
   }
 
   MethodParamAnnotations runAndAnnotate(String inPaths, String pkgName, String outPath)
       throws IOException, ClassHierarchyException {
-    return run(inPaths, pkgName, outPath, true, DEBUG, VERBOSE);
+    return runAndAnnotate(inPaths, pkgName, outPath, false);
   }
 
   /**
@@ -151,12 +158,14 @@ public class DefinitelyDerefedParamsDriver {
       String pkgName,
       String outPath,
       boolean annotateBytecode,
+      boolean stripJarSignatures,
       boolean dbg,
       boolean vbs)
       throws IOException, ClassHierarchyException {
     DEBUG = dbg;
     VERBOSE = vbs;
     this.annotateBytecode = annotateBytecode;
+    this.stripJarSignatures = stripJarSignatures;
     Set<String> setInPaths = new HashSet<>(Arrays.asList(inPaths.split(",")));
     analysisStartTime = System.currentTimeMillis();
     for (String inPath : setInPaths) {
@@ -407,12 +416,14 @@ public class DefinitelyDerefedParamsDriver {
     if (inPath.endsWith(".jar")) {
       JarFile jar = new JarFile(inPath);
       JarOutputStream jarOS = new JarOutputStream(new FileOutputStream(outFile));
-      BytecodeAnnotator.annotateBytecodeInJar(jar, jarOS, nonnullParams, nullableReturns, DEBUG);
+      BytecodeAnnotator.annotateBytecodeInJar(
+          jar, jarOS, nonnullParams, nullableReturns, stripJarSignatures, DEBUG);
       jarOS.close();
     } else if (inPath.endsWith(".aar")) {
       ZipFile zip = new ZipFile(inPath);
       ZipOutputStream zipOS = new ZipOutputStream(new FileOutputStream(outFile));
-      BytecodeAnnotator.annotateBytecodeInAar(zip, zipOS, nonnullParams, nullableReturns, DEBUG);
+      BytecodeAnnotator.annotateBytecodeInAar(
+          zip, zipOS, nonnullParams, nullableReturns, stripJarSignatures, DEBUG);
       zipOS.close();
     } else {
       InputStream is = new FileInputStream(inPath);
