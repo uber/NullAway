@@ -260,6 +260,7 @@ public final class BytecodeAnnotator {
               inputJarEntry, jarIS, jarOS, nonnullParams, nullableReturns, stripJarSignatures);
           inputJarEntry = jarIS.getNextJarEntry();
         }
+        jarOS.close();
         zipOS.write(byteArrayOS.toByteArray());
       } else {
         zipOS.write(IOUtils.toByteArray(is));
