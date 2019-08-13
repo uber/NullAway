@@ -95,6 +95,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "androidx.fragment.app.Fragment.onCreate",
           "androidx.fragment.app.Fragment.onAttach",
           "androidx.fragment.app.Fragment.onCreateView",
+          "androidx.fragment.app.Fragment.onActivityCreated",
           "androidx.fragment.app.Fragment.onViewCreated",
           // Multidex app
           "android.support.multidex.Application.onCreate");
