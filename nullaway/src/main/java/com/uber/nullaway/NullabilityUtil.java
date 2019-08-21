@@ -24,6 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.AssertTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
@@ -111,6 +112,39 @@ public class NullabilityUtil {
     while (curPath != null) {
       if (curPath.getLeaf() instanceof MethodTree
           || curPath.getLeaf() instanceof LambdaExpressionTree) {
+        return curPath;
+      }
+      TreePath parent = curPath.getParentPath();
+      if (parent != null && parent.getLeaf() instanceof ClassTree) {
+        if (curPath.getLeaf() instanceof BlockTree) {
+          // found initializer block
+          return curPath;
+        }
+        if (curPath.getLeaf() instanceof VariableTree
+            && ((VariableTree) curPath.getLeaf()).getInitializer() != null) {
+          // found field with an inline initializer
+          return curPath;
+        }
+      }
+      curPath = parent;
+    }
+    return null;
+  }
+
+  /**
+   * find the enclosing method, lambda expression, initializer block or assert statement for the
+   * leaf of some tree path
+   *
+   * @param path the tree path
+   * @return the closest enclosing method / lambda / block / or assert statement
+   */
+  @Nullable
+  public static TreePath findEnclosingMethodOrLambdaOrInitializerOrAssert(TreePath path) {
+    TreePath curPath = path.getParentPath();
+    while (curPath != null) {
+      if (curPath.getLeaf() instanceof MethodTree
+          || curPath.getLeaf() instanceof LambdaExpressionTree
+          || curPath.getLeaf() instanceof AssertTree) {
         return curPath;
       }
       TreePath parent = curPath.getParentPath();
