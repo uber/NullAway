@@ -791,7 +791,9 @@ public class NullAway extends BugChecker
     if (config.assertsEnabled()) {
       enclosingBlockPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(path);
     } else {
-      enclosingBlockPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializerOrAssert(path);
+      enclosingBlockPath =
+          NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(
+              path, ImmutableSet.of(Tree.Kind.ASSERT));
     }
     if (enclosingBlockPath == null) {
       // is this possible?

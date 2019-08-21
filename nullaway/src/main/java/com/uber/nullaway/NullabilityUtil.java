@@ -23,14 +23,15 @@
 package com.uber.nullaway;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.AssertTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
@@ -104,14 +105,17 @@ public class NullabilityUtil {
    * path
    *
    * @param path the tree path
+   * @param others also stop and return in case of any of these tree kinds
    * @return the closest enclosing method / lambda
    */
   @Nullable
-  public static TreePath findEnclosingMethodOrLambdaOrInitializer(TreePath path) {
+  public static TreePath findEnclosingMethodOrLambdaOrInitializer(
+      TreePath path, ImmutableSet<Tree.Kind> others) {
     TreePath curPath = path.getParentPath();
     while (curPath != null) {
       if (curPath.getLeaf() instanceof MethodTree
-          || curPath.getLeaf() instanceof LambdaExpressionTree) {
+          || curPath.getLeaf() instanceof LambdaExpressionTree
+          || others.contains(curPath.getLeaf().getKind())) {
         return curPath;
       }
       TreePath parent = curPath.getParentPath();
@@ -132,36 +136,15 @@ public class NullabilityUtil {
   }
 
   /**
-   * find the enclosing method, lambda expression, initializer block or assert statement for the
-   * leaf of some tree path
+   * find the enclosing method, lambda expression or initializer block for the leaf of some tree
+   * path
    *
    * @param path the tree path
-   * @return the closest enclosing method / lambda / block / or assert statement
+   * @return the closest enclosing method / lambda
    */
   @Nullable
-  public static TreePath findEnclosingMethodOrLambdaOrInitializerOrAssert(TreePath path) {
-    TreePath curPath = path.getParentPath();
-    while (curPath != null) {
-      if (curPath.getLeaf() instanceof MethodTree
-          || curPath.getLeaf() instanceof LambdaExpressionTree
-          || curPath.getLeaf() instanceof AssertTree) {
-        return curPath;
-      }
-      TreePath parent = curPath.getParentPath();
-      if (parent != null && parent.getLeaf() instanceof ClassTree) {
-        if (curPath.getLeaf() instanceof BlockTree) {
-          // found initializer block
-          return curPath;
-        }
-        if (curPath.getLeaf() instanceof VariableTree
-            && ((VariableTree) curPath.getLeaf()).getInitializer() != null) {
-          // found field with an inline initializer
-          return curPath;
-        }
-      }
-      curPath = parent;
-    }
-    return null;
+  public static TreePath findEnclosingMethodOrLambdaOrInitializer(TreePath path) {
+    return findEnclosingMethodOrLambdaOrInitializer(path, ImmutableSet.of());
   }
 
   /**
