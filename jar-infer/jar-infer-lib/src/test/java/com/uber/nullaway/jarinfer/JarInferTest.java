@@ -417,9 +417,9 @@ public class JarInferTest {
         "../test-android-lib-jarinfer/build/outputs/aar/test-android-lib-jarinfer.aar",
         ImmutableMap.of(
             "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNullable;",
-            BytecodeAnnotator.javaxNullableDesc,
+            BytecodeAnnotator.androidNullableDesc,
             "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNonnull;",
-            BytecodeAnnotator.javaxNonnullDesc));
+            BytecodeAnnotator.androidNonnullDesc));
   }
 
   @Test
