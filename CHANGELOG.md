@@ -1,6 +1,22 @@
 Changelog
 =========
 
+Version 0.7.6
+-------------
+* Library models for guava's AsyncFunction (#328)
+* Annotate StringUtils.isBlank() of org.apache.commons (lang & lang3) (#330)
+* Adding support for Aar-to-aar transformation (#334)
+* Add support for @RecentlyNullable and @RecentlyNonNull (#335)
+* Update to Gradle 5.5.1 (#336)
+* Don't compute frames on bytecode writting in JarInfer (#338)
+* Use exact jar output path when possible in JarInfer (#339)
+* Avoid adding redundant annotations during bytecode rewriting in JarInfer (#341)
+* Handle cases when there are no annotations on methods or parameters in JarInfer (#342)
+* Fix #333 Nullaway init suppression issue (#343)
+* Add option to JarInfer to deal with signed jars (#345)
+* Fix #344 onActivityCreated known initializer (#346)
+* Skip read-before-init analysis for assert statements (#348)
+
 Version 0.7.5
 ------------
 * Allow models to override @nullable on third-party functional interfaces (#326)
