@@ -1842,6 +1842,42 @@ public class NullAwayTest {
   }
 
   @Test
+  public void OptionalEmptinessHandleAssertionLibraryTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber,io.reactivex",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "TestPositive.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "import static com.google.common.truth.Truth.assertThat;",
+            "public class TestPositive {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    assertThat(a.isPresent()).isTrue(); ",
+            "    a.get().toString();",
+            "  }",
+            "   public void lambdaConsumer(Function a){",
+            "        return;",
+            "   }",
+            "  void bar() {",
+            "     Optional<Object> b = Optional.empty();",
+            "     assertThat(b.isPresent()).isTrue(); ",
+            "     lambdaConsumer(v -> b.get().toString());",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testCastToNonNull() {
     compilationHelper
         .addSourceFile("Util.java")

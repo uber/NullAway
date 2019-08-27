@@ -52,9 +52,11 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
   @Nullable private ImmutableSet<Type> optionalTypes;
   private final Config config;
+  private final Util util;
 
-  OptionalEmptinessHandler(Config config) {
+  OptionalEmptinessHandler(Config config, Util util) {
     this.config = config;
+    this.util = util;
   }
 
   @Override
@@ -94,15 +96,11 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     if (optionalIsGetCall(symbol, types)) {
       return NullnessHint.HINT_NULLABLE;
     } else if (optionalIsPresentCall(symbol, types)) {
-      Element getter = null;
-      Node base = node.getTarget().getReceiver();
-      for (Symbol elem : symbol.owner.getEnclosedElements()) {
-        if (elem.getKind().equals(ElementKind.METHOD)
-            && elem.getSimpleName().toString().equals("get")) {
-          getter = elem;
-        }
-      }
-      updateNonNullAPsForElement(thenUpdates, getter, base);
+      updateNonNullAPsForElement(
+          thenUpdates, getOptionalGetter(symbol), node.getTarget().getReceiver());
+    } else if (config.handleTestAssertionLibraries() && util.isMethodIsTrue(symbol)) {
+      // we check for instance of AssertThat(optionalFoo.isPresent()).isTrue()
+      updateIfAssertIsPresentTrueOnOptional(node, types, bothUpdates);
     }
     return NullnessHint.UNKNOWN;
   }
@@ -139,6 +137,29 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     return false;
   }
 
+  private void updateIfAssertIsPresentTrueOnOptional(
+      MethodInvocationNode node, Types types, AccessPathNullnessPropagation.Updates bothUpdates) {
+    Node receiver = node.getTarget().getReceiver();
+    if (receiver instanceof MethodInvocationNode) {
+      MethodInvocationNode receiverMethod = (MethodInvocationNode) receiver;
+      Symbol.MethodSymbol receiverSymbol = ASTHelpers.getSymbol(receiverMethod.getTree());
+      if (util.isMethodAssertThat(receiverSymbol)) {
+        Node arg = receiverMethod.getArgument(0);
+        if (arg instanceof MethodInvocationNode) {
+          Node unwrappedArg = ((MethodInvocationNode) arg).getArgument(0);
+          if (unwrappedArg instanceof MethodInvocationNode) {
+            MethodInvocationNode argMethod = (MethodInvocationNode) unwrappedArg;
+            Symbol.MethodSymbol argSymbol = ASTHelpers.getSymbol(argMethod.getTree());
+            if (optionalIsPresentCall(argSymbol, types)) {
+              updateNonNullAPsForElement(
+                  bothUpdates, getOptionalGetter(argSymbol), argMethod.getTarget().getReceiver());
+            }
+          }
+        }
+      }
+    }
+  }
+
   private void updateNonNullAPsForElement(
       AccessPathNullnessPropagation.Updates updates, @Nullable Element elem, Node base) {
     if (elem != null) {
@@ -147,6 +168,16 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
         updates.set(ap, Nullness.NONNULL);
       }
     }
+  }
+
+  private Element getOptionalGetter(Symbol.MethodSymbol symbol) {
+    for (Symbol elem : symbol.owner.getEnclosedElements()) {
+      if (elem.getKind().equals(ElementKind.METHOD)
+          && elem.getSimpleName().toString().equals("get")) {
+        return elem;
+      }
+    }
+    return null;
   }
 
   private boolean optionalIsPresentCall(Symbol.MethodSymbol symbol, Types types) {
