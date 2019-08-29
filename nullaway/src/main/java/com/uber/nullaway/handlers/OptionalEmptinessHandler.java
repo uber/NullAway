@@ -144,6 +144,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
       MethodInvocationNode receiverMethod = (MethodInvocationNode) receiver;
       Symbol.MethodSymbol receiverSymbol = ASTHelpers.getSymbol(receiverMethod.getTree());
       if (methodNameUtil.isMethodAssertThat(receiverSymbol)) {
+        // assertThat will always have at least one argument, So safe to extract from the arguments
         Node arg = receiverMethod.getArgument(0);
         if (arg instanceof MethodInvocationNode) {
           // Since assertThat(a.isPresent()) changes to
