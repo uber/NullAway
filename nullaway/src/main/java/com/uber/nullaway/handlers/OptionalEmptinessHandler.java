@@ -52,11 +52,11 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
   @Nullable private ImmutableSet<Type> optionalTypes;
   private final Config config;
-  private final Util util;
+  private final MethodNameUtil methodNameUtil;
 
-  OptionalEmptinessHandler(Config config, Util util) {
+  OptionalEmptinessHandler(Config config, MethodNameUtil methodNameUtil) {
     this.config = config;
-    this.util = util;
+    this.methodNameUtil = methodNameUtil;
   }
 
   @Override
@@ -98,7 +98,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     } else if (optionalIsPresentCall(symbol, types)) {
       updateNonNullAPsForElement(
           thenUpdates, getOptionalGetter(symbol), node.getTarget().getReceiver());
-    } else if (config.handleTestAssertionLibraries() && util.isMethodIsTrue(symbol)) {
+    } else if (config.handleTestAssertionLibraries() && methodNameUtil.isMethodIsTrue(symbol)) {
       // we check for instance of AssertThat(optionalFoo.isPresent()).isTrue()
       updateIfAssertIsPresentTrueOnOptional(node, types, bothUpdates);
     }
@@ -143,9 +143,12 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     if (receiver instanceof MethodInvocationNode) {
       MethodInvocationNode receiverMethod = (MethodInvocationNode) receiver;
       Symbol.MethodSymbol receiverSymbol = ASTHelpers.getSymbol(receiverMethod.getTree());
-      if (util.isMethodAssertThat(receiverSymbol)) {
+      if (methodNameUtil.isMethodAssertThat(receiverSymbol)) {
         Node arg = receiverMethod.getArgument(0);
         if (arg instanceof MethodInvocationNode) {
+          // Since assertThat(a.isPresent()) changes to
+          // Truth.assertThat(Boolean.valueOf(a.isPresent()))
+          // need to be unwrapped from Boolean.valueOf
           Node unwrappedArg = ((MethodInvocationNode) arg).getArgument(0);
           if (unwrappedArg instanceof MethodInvocationNode) {
             MethodInvocationNode argMethod = (MethodInvocationNode) unwrappedArg;

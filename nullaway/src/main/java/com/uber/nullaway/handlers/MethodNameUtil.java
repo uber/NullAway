@@ -34,7 +34,7 @@ import org.checkerframework.dataflow.cfg.node.Node;
  * com.uber.nullaway.handlers.OptionalEmptinessHandler} uses it only when AssertionHandler is
  * enabled.
  */
-class Util {
+class MethodNameUtil {
 
   // Strings corresponding to the names of the methods (and their owners) used to identify
   // assertions in this handler.

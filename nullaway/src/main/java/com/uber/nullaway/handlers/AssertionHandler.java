@@ -37,10 +37,10 @@ import org.checkerframework.dataflow.cfg.node.Node;
 /** This Handler deals with assertions which ensure that their arguments cannot be null. */
 public class AssertionHandler extends BaseNoOpHandler {
 
-  private final Util util;
+  private final MethodNameUtil methodNameUtil;
 
-  AssertionHandler(Util util) {
-    this.util = util;
+  AssertionHandler(MethodNameUtil methodNameUtil) {
+    this.methodNameUtil = methodNameUtil;
   }
 
   @Override
@@ -57,18 +57,18 @@ public class AssertionHandler extends BaseNoOpHandler {
       return NullnessHint.UNKNOWN;
     }
 
-    if (!util.isUtilInitialized()) {
-      util.initializeMethodNames(callee.name.table);
+    if (!methodNameUtil.isUtilInitialized()) {
+      methodNameUtil.initializeMethodNames(callee.name.table);
     }
 
     // Look for statements of the form: assertThat(A).isNotNull()
     // A will not be NULL after this statement.
-    if (util.isMethodIsNotNull(callee)) {
+    if (methodNameUtil.isMethodIsNotNull(callee)) {
       Node receiver = node.getTarget().getReceiver();
       if (receiver instanceof MethodInvocationNode) {
         MethodInvocationNode receiver_method = (MethodInvocationNode) receiver;
         Symbol.MethodSymbol receiver_symbol = ASTHelpers.getSymbol(receiver_method.getTree());
-        if (util.isMethodAssertThat(receiver_symbol)) {
+        if (methodNameUtil.isMethodAssertThat(receiver_symbol)) {
           Node arg = receiver_method.getArgument(0);
           AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(arg);
           if (ap != null) {
@@ -81,9 +81,10 @@ public class AssertionHandler extends BaseNoOpHandler {
     // Look for statements of the form:
     //    * assertThat(A, is(not(nullValue())))
     //    * assertThat(A, is(notNullValue()))
-    if (util.isMethodHamcrestAssertThat(callee) || util.isMethodJunitAssertThat(callee)) {
+    if (methodNameUtil.isMethodHamcrestAssertThat(callee)
+        || methodNameUtil.isMethodJunitAssertThat(callee)) {
       List<Node> args = node.getArguments();
-      if (args.size() == 2 && util.isMatcherIsNotNull(args.get(1))) {
+      if (args.size() == 2 && methodNameUtil.isMatcherIsNotNull(args.get(1))) {
         AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(args.get(0));
         if (ap != null) {
           bothUpdates.set(ap, NONNULL);
