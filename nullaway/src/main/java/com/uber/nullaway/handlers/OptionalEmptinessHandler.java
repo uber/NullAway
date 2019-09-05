@@ -62,8 +62,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
-    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
-        && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
+    if (isMethodInvocationForOptionalGet(expr, state)) {
       return true;
     }
     return exprMayBeNull;
@@ -108,8 +107,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   @Override
   public void onPrepareErrorMessage(
       ExpressionTree expr, VisitorState state, ErrorMessage errorMessage) {
-    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
-        && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
+    if (isMethodInvocationForOptionalGet(expr, state)) {
       final int exprStringSize = expr.toString().length();
       // Name of the optional is extracted from the expression
       final String message =
@@ -118,6 +116,13 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
               + " can be empty, dereferenced get() call on it";
       errorMessage.updateErrorMessage(ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL, message);
     }
+  }
+
+  @Override
+  public boolean isMethodInvocationForOptionalGet(ExpressionTree expr, VisitorState state) {
+    return expr != null
+        && expr.getKind() == Tree.Kind.METHOD_INVOCATION
+        && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes());
   }
 
   @Override

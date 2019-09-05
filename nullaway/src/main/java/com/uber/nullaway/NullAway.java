@@ -1119,12 +1119,15 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
+
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
       return doUnboxingCheck(state, tree.getInitializer());
     }
-    if (!symbol.getKind().equals(ElementKind.FIELD)) {
+    if (!symbol.getKind().equals(ElementKind.FIELD)
+        && !handler.isMethodInvocationForOptionalGet(tree.getInitializer(), state)) {
       return Description.NO_MATCH;
     }
+
     ExpressionTree initializer = tree.getInitializer();
     if (initializer != null) {
       if (!symbol.type.isPrimitive() && !skipDueToFieldAnnotation(symbol)) {
@@ -1133,6 +1136,7 @@ public class NullAway extends BugChecker
               new ErrorMessage(
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
                   "assigning @Nullable expression to @NonNull field");
+          handler.onPrepareErrorMessage(initializer, state, errorMessage);
           return errorBuilder.createErrorDescriptionForNullAssignment(
               errorMessage, initializer, state.getPath(), buildDescription(tree));
         }

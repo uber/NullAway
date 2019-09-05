@@ -176,6 +176,11 @@ abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
+  public boolean isMethodInvocationForOptionalGet(ExpressionTree expr, VisitorState state) {
+    return false;
+  }
+
+  @Override
   public boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state) {
     return false;
   }

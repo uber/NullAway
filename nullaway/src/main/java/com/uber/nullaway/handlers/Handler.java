@@ -283,6 +283,15 @@ public interface Handler {
   void onPrepareErrorMessage(ExpressionTree expr, VisitorState state, ErrorMessage errorMessage);
 
   /**
+   * Called to check if the expression is a get call on {@link java.util.Optional}.
+   *
+   * @param expr The AST node for the expression being matched.
+   * @param state The current visitor state.
+   * @return true if the expression is a method call to Optional get.
+   */
+  boolean isMethodInvocationForOptionalGet(ExpressionTree expr, VisitorState state);
+
+  /**
    * Called when the store access paths are filtered for local variable information before an
    * expression.
    *
