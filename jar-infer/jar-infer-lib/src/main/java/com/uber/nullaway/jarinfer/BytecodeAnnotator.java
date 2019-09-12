@@ -60,9 +60,8 @@ public final class BytecodeAnnotator {
           javaxNullableDesc,
           androidNullableDesc,
           // We don't support adding the annotations below, but they would still be redundant,
-          // specially when
-          // converted by tools which rewrite these sort of annotation (often to their androidx.*
-          // variant)
+          // specially when converted by tools which rewrite these sort of annotation (often
+          // to their androidx.* variant)
           "Landroid/support/annotation/Nullable;",
           "Lorg/jetbrains/annotations/Nullable;");
 
