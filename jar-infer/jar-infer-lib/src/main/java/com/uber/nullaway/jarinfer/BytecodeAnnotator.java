@@ -99,7 +99,7 @@ public final class BytecodeAnnotator {
     }
   }
 
-  private static boolean listHasNullnaessAnnotations(List<AnnotationNode> annotationList) {
+  private static boolean listHasNullnessAnnotations(List<AnnotationNode> annotationList) {
     if (annotationList != null) {
       for (AnnotationNode node : annotationList) {
         if (NULLABILITY_ANNOTATIONS.contains(node.desc)) {
@@ -118,20 +118,20 @@ public final class BytecodeAnnotator {
    * @return true iff either the return or any parameter formal has a nullness annotation.
    */
   private static boolean hasNullnessAnnotations(MethodNode method) {
-    if (listHasNullnaessAnnotations(method.visibleAnnotations)
-        || listHasNullnaessAnnotations(method.invisibleAnnotations)) {
+    if (listHasNullnessAnnotations(method.visibleAnnotations)
+        || listHasNullnessAnnotations(method.invisibleAnnotations)) {
       return true;
     }
     if (method.visibleParameterAnnotations != null) {
       for (List<AnnotationNode> annotationList : method.visibleParameterAnnotations) {
-        if (listHasNullnaessAnnotations(annotationList)) {
+        if (listHasNullnessAnnotations(annotationList)) {
           return true;
         }
       }
     }
     if (method.invisibleParameterAnnotations != null) {
       for (List<AnnotationNode> annotationList : method.invisibleParameterAnnotations) {
-        if (listHasNullnaessAnnotations(annotationList)) {
+        if (listHasNullnessAnnotations(annotationList)) {
           return true;
         }
       }
