@@ -15,6 +15,8 @@
  */
 package com.uber.nullaway.jarinfer;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -49,6 +51,30 @@ public final class BytecodeAnnotator {
 
   public static final String javaxNullableDesc = "Ljavax/annotation/Nullable;";
   public static final String javaxNonnullDesc = "Ljavax/annotation/Nonnull;";
+  // Consider android.support.annotation.* as a configuration option for older code?
+  public static final String androidNullableDesc = "Landroidx/annotation/Nullable;";
+  public static final String androidNonnullDesc = "Landroidx/annotation/NonNull;";
+
+  public static final ImmutableSet<String> NULLABLE_ANNOTATIONS =
+      ImmutableSet.of(
+          javaxNullableDesc,
+          androidNullableDesc,
+          // We don't support adding the annotations below, but they would still be redundant,
+          // specially when converted by tools which rewrite these sort of annotation (often
+          // to their androidx.* variant)
+          "Landroid/support/annotation/Nullable;",
+          "Lorg/jetbrains/annotations/Nullable;");
+
+  public static final ImmutableSet<String> NONNULL_ANNOTATIONS =
+      ImmutableSet.of(
+          javaxNonnullDesc,
+          androidNonnullDesc,
+          // See above
+          "Landroid/support/annotation/NonNull;",
+          "Lorg/jetbrains/annotations/NotNull;");
+
+  public static final Sets.SetView<String> NULLABILITY_ANNOTATIONS =
+      Sets.union(NULLABLE_ANNOTATIONS, NONNULL_ANNOTATIONS);
 
   // Constants used for signed jar processing
   private static final String SIGNED_JAR_ERROR_MESSAGE =
@@ -63,21 +89,63 @@ public final class BytecodeAnnotator {
   private static final String DIGEST_ENTRY_PATTERN =
       "Name: [A-Za-z0-9/\\$\\n\\s\\-\\.]+[A-Za-z0-9]\\nSHA-256-Digest: " + BASE64_PATTERN;
 
-  private static void addAnnotationIfNotPresent(
-      List<AnnotationNode> annotationList, String annotation) {
-    for (AnnotationNode node : annotationList) {
-      if (node.desc.equals(annotation)) {
-        return;
+  private static boolean annotationsShouldBeVisible(String nullableDesc) {
+    if (nullableDesc.equals(javaxNullableDesc)) {
+      return true;
+    } else if (nullableDesc.equals(androidNullableDesc)) {
+      return false;
+    } else {
+      throw new Error("Unknown nullness annotation visibility");
+    }
+  }
+
+  private static boolean listHasNullnessAnnotations(List<AnnotationNode> annotationList) {
+    if (annotationList != null) {
+      for (AnnotationNode node : annotationList) {
+        if (NULLABILITY_ANNOTATIONS.contains(node.desc)) {
+          return true;
+        }
       }
     }
-    annotationList.add(new AnnotationNode(Opcodes.ASM7, annotation));
+    return false;
+  }
+
+  /**
+   * Returns true if any part of this method already has @Nullable/@NonNull annotations, in which
+   * case we skip it, assuming that the developer already captured the desired spec.
+   *
+   * @param method The method node.
+   * @return true iff either the return or any parameter formal has a nullness annotation.
+   */
+  private static boolean hasNullnessAnnotations(MethodNode method) {
+    if (listHasNullnessAnnotations(method.visibleAnnotations)
+        || listHasNullnessAnnotations(method.invisibleAnnotations)) {
+      return true;
+    }
+    if (method.visibleParameterAnnotations != null) {
+      for (List<AnnotationNode> annotationList : method.visibleParameterAnnotations) {
+        if (listHasNullnessAnnotations(annotationList)) {
+          return true;
+        }
+      }
+    }
+    if (method.invisibleParameterAnnotations != null) {
+      for (List<AnnotationNode> annotationList : method.invisibleParameterAnnotations) {
+        if (listHasNullnessAnnotations(annotationList)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private static void annotateBytecode(
       InputStream is,
       OutputStream os,
       MethodParamAnnotations nonnullParams,
-      MethodReturnAnnotations nullableReturns)
+      MethodReturnAnnotations nullableReturns,
+      String nullableDesc,
+      String nonnullDesc)
       throws IOException {
     ClassReader cr = new ClassReader(is);
     ClassWriter cw = new ClassWriter(0);
@@ -87,14 +155,15 @@ public final class BytecodeAnnotator {
     String className = cn.name.replace('/', '.');
     List<MethodNode> methods = cn.methods;
     for (MethodNode method : methods) {
+      // Skip methods that already have nullability annotations anywhere in their signature
+      if (hasNullnessAnnotations(method)) {
+        continue;
+      }
+      boolean visible = annotationsShouldBeVisible(nullableDesc);
       String methodSignature = className + "." + method.name + method.desc;
       if (nullableReturns.contains(methodSignature)) {
         // Add a @Nullable annotation on this method to indicate that the method can return null.
-        if (method.visibleAnnotations == null) {
-          method.visitAnnotation(javaxNullableDesc, true);
-        } else {
-          addAnnotationIfNotPresent(method.visibleAnnotations, javaxNullableDesc);
-        }
+        method.visitAnnotation(nullableDesc, visible);
         LOG(debug, "DEBUG", "Added nullable return annotation for " + methodSignature);
       }
       Set<Integer> params = nonnullParams.get(methodSignature);
@@ -103,14 +172,7 @@ public final class BytecodeAnnotator {
         for (Integer param : params) {
           int paramNum = isStatic ? param : param - 1;
           // Add a @Nonnull annotation on this parameter.
-          if (method.visibleParameterAnnotations == null
-              || method.visibleParameterAnnotations.length < paramNum
-              || method.visibleParameterAnnotations[paramNum] == null) {
-            method.visitParameterAnnotation(paramNum, javaxNonnullDesc, true);
-          } else {
-            addAnnotationIfNotPresent(
-                method.visibleParameterAnnotations[paramNum], javaxNonnullDesc);
-          }
+          method.visitParameterAnnotation(paramNum, nonnullDesc, visible);
           LOG(
               debug,
               "DEBUG",
@@ -143,7 +205,7 @@ public final class BytecodeAnnotator {
     BytecodeAnnotator.debug = debug;
     LOG(debug, "DEBUG", "nullableReturns: " + nullableReturns);
     LOG(debug, "DEBUG", "nonnullParams: " + nonnullParams);
-    annotateBytecode(is, os, nonnullParams, nullableReturns);
+    annotateBytecode(is, os, nonnullParams, nullableReturns, javaxNullableDesc, javaxNonnullDesc);
   }
 
   private static void copyAndAnnotateJarEntry(
@@ -152,12 +214,14 @@ public final class BytecodeAnnotator {
       JarOutputStream jarOS,
       MethodParamAnnotations nonnullParams,
       MethodReturnAnnotations nullableReturns,
+      String nullableDesc,
+      String nonnullDesc,
       boolean stripJarSignatures)
       throws IOException {
     String entryName = jarEntry.getName();
     if (entryName.endsWith(".class")) {
       jarOS.putNextEntry(new ZipEntry(jarEntry.getName()));
-      annotateBytecode(is, jarOS, nonnullParams, nullableReturns);
+      annotateBytecode(is, jarOS, nonnullParams, nullableReturns, nullableDesc, nonnullDesc);
     } else if (entryName.equals("META-INF/MANIFEST.MF")) {
       // Read full file
       StringBuilder stringBuilder = new StringBuilder();
@@ -218,7 +282,14 @@ public final class BytecodeAnnotator {
       JarEntry jarEntry = entries.nextElement();
       InputStream is = inputJar.getInputStream(jarEntry);
       copyAndAnnotateJarEntry(
-          jarEntry, is, jarOS, nonnullParams, nullableReturns, stripJarSignatures);
+          jarEntry,
+          is,
+          jarOS,
+          nonnullParams,
+          nullableReturns,
+          javaxNullableDesc,
+          javaxNonnullDesc,
+          stripJarSignatures);
     }
   }
 
@@ -257,9 +328,17 @@ public final class BytecodeAnnotator {
         JarOutputStream jarOS = new JarOutputStream(byteArrayOS);
         while (inputJarEntry != null) {
           copyAndAnnotateJarEntry(
-              inputJarEntry, jarIS, jarOS, nonnullParams, nullableReturns, stripJarSignatures);
+              inputJarEntry,
+              jarIS,
+              jarOS,
+              nonnullParams,
+              nullableReturns,
+              androidNullableDesc,
+              androidNonnullDesc,
+              stripJarSignatures);
           inputJarEntry = jarIS.getNextJarEntry();
         }
+        jarOS.flush();
         jarOS.close();
         zipOS.write(byteArrayOS.toByteArray());
       } else {
