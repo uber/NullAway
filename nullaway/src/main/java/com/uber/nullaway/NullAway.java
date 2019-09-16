@@ -838,7 +838,7 @@ public class NullAway extends BugChecker
       // field is either nullable or initialized at declaration
       return Description.NO_MATCH;
     }
-    if (errorBuilder.symbolHasWarningsAnnotation(symbol, INITIALIZATION_CHECK_NAME)) {
+    if (errorBuilder.symbolHasSuppressWarningsAnnotation(symbol, INITIALIZATION_CHECK_NAME)) {
       // also suppress checking read before init, as we may not find explicit initialization
       return Description.NO_MATCH;
     }
@@ -1445,7 +1445,8 @@ public class NullAway extends BugChecker
           ASTHelpers.getSymbol(entities.instanceInitializerMethods().iterator().next());
     }
     for (Symbol uninitField : notInitializedAtAll) {
-      if (errorBuilder.symbolHasWarningsAnnotation(uninitField, INITIALIZATION_CHECK_NAME)) {
+      if (errorBuilder.symbolHasSuppressWarningsAnnotation(
+          uninitField, INITIALIZATION_CHECK_NAME)) {
         continue;
       }
       if (singleInitializerMethod != null) {

@@ -112,7 +112,8 @@ public class ErrorBuilder {
     return errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)
         && suggestTree != null
         && ASTHelpers.getSymbol(suggestTree) != null
-        && symbolHasWarningsAnnotation(ASTHelpers.getSymbol(suggestTree), OPTIONAL_CHECK_NAME);
+        && symbolHasSuppressWarningsAnnotation(
+            ASTHelpers.getSymbol(suggestTree), OPTIONAL_CHECK_NAME);
   }
 
   private Description.Builder addSuggestedSuppression(
@@ -278,7 +279,7 @@ public class ErrorBuilder {
       String message,
       VisitorState state,
       Description.Builder descriptionBuilder) {
-    if (symbolHasWarningsAnnotation(methodSymbol, INITIALIZATION_CHECK_NAME)) {
+    if (symbolHasSuppressWarningsAnnotation(methodSymbol, INITIALIZATION_CHECK_NAME)) {
       return;
     }
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
@@ -287,7 +288,7 @@ public class ErrorBuilder {
             new ErrorMessage(METHOD_NO_INIT, message), methodTree, descriptionBuilder));
   }
 
-  boolean symbolHasWarningsAnnotation(Symbol symbol, String suppression) {
+  boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
     SuppressWarnings annotation = symbol.getAnnotation(SuppressWarnings.class);
     if (annotation != null) {
       for (String s : annotation.value()) {
@@ -313,7 +314,7 @@ public class ErrorBuilder {
   }
 
   void reportInitErrorOnField(Symbol symbol, VisitorState state, Description.Builder builder) {
-    if (symbolHasWarningsAnnotation(symbol, INITIALIZATION_CHECK_NAME)) {
+    if (symbolHasSuppressWarningsAnnotation(symbol, INITIALIZATION_CHECK_NAME)) {
       return;
     }
     Tree tree = getTreesInstance(state).getTree(symbol);
