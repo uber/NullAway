@@ -211,10 +211,10 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public boolean isMethodInvocationForOptionalGet(ExpressionTree expr, VisitorState state) {
+  public boolean isMethodInvocationForOptionalGet(ExpressionTree expr, Types types) {
     boolean isOptionalGetInvocation = false;
     for (Handler h : handlers) {
-      isOptionalGetInvocation |= h.isMethodInvocationForOptionalGet(expr, state);
+      isOptionalGetInvocation |= h.isMethodInvocationForOptionalGet(expr, types);
     }
     return isOptionalGetInvocation;
   }

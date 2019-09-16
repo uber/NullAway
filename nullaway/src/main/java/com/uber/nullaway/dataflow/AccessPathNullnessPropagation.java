@@ -26,6 +26,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.Trees;
@@ -604,6 +605,12 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
     Nullness value = values(input).valueOfSubNode(node.getExpression());
     Node target = node.getTarget();
 
+    // We store optional.get() as nullable in the access path to indicate optional is absent
+    // this does not mean the actual value inside the optional is nullable
+    if (isRhsOptionalGet(node)) {
+      return noStoreChanges(value, input);
+    }
+
     if (target instanceof LocalVariableNode) {
       updates.set((LocalVariableNode) target, value);
     }
@@ -624,6 +631,12 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
     }
 
     return updateRegularStore(value, input, updates);
+  }
+
+  private boolean isRhsOptionalGet(AssignmentNode node) {
+    return node.getExpression().getTree() instanceof ExpressionTree
+        && handler.isMethodInvocationForOptionalGet(
+            (ExpressionTree) node.getExpression().getTree(), types);
   }
 
   private TransferResult<Nullness, NullnessStore> updateRegularStore(

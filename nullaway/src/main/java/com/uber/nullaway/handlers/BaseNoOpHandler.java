@@ -176,7 +176,7 @@ abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public boolean isMethodInvocationForOptionalGet(ExpressionTree expr, VisitorState state) {
+  public boolean isMethodInvocationForOptionalGet(ExpressionTree expr, Types types) {
     return false;
   }
 

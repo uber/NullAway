@@ -1124,7 +1124,7 @@ public class NullAway extends BugChecker
       return doUnboxingCheck(state, tree.getInitializer());
     }
     if (!symbol.getKind().equals(ElementKind.FIELD)
-        && !handler.isMethodInvocationForOptionalGet(tree.getInitializer(), state)) {
+        && !handler.isMethodInvocationForOptionalGet(tree.getInitializer(), state.getTypes())) {
       return Description.NO_MATCH;
     }
 

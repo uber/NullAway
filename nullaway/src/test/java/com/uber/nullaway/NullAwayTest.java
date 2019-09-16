@@ -1798,6 +1798,7 @@ public class NullAwayTest {
             "    Optional<Object> a = Optional.empty();",
             "    // BUG: Diagnostic contains: Optional a can be empty",
             "    Object x = a.get();",
+            "    x.toString();",
             "  }",
             "   public void lambdaConsumer(Function a){",
             "        return;",

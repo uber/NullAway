@@ -286,10 +286,10 @@ public interface Handler {
    * Called to check if the expression is a get call on {@link java.util.Optional}.
    *
    * @param expr The AST node for the expression being matched.
-   * @param state The current visitor state.
+   * @param types The current types.
    * @return true if the expression is a method call to Optional get.
    */
-  boolean isMethodInvocationForOptionalGet(ExpressionTree expr, VisitorState state);
+  boolean isMethodInvocationForOptionalGet(ExpressionTree expr, Types types);
 
   /**
    * Called when the store access paths are filtered for local variable information before an

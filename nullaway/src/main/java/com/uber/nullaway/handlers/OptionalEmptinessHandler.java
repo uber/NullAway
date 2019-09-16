@@ -62,7 +62,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
-    if (isMethodInvocationForOptionalGet(expr, state)) {
+    if (isMethodInvocationForOptionalGet(expr, state.getTypes())) {
       return true;
     }
     return exprMayBeNull;
@@ -107,7 +107,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   @Override
   public void onPrepareErrorMessage(
       ExpressionTree expr, VisitorState state, ErrorMessage errorMessage) {
-    if (isMethodInvocationForOptionalGet(expr, state)) {
+    if (isMethodInvocationForOptionalGet(expr, state.getTypes())) {
       final int exprStringSize = expr.toString().length();
       // Name of the optional is extracted from the expression
       final String message =
@@ -119,10 +119,10 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public boolean isMethodInvocationForOptionalGet(ExpressionTree expr, VisitorState state) {
+  public boolean isMethodInvocationForOptionalGet(ExpressionTree expr, Types types) {
     return expr != null
         && expr.getKind() == Tree.Kind.METHOD_INVOCATION
-        && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes());
+        && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), types);
   }
 
   @Override
