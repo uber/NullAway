@@ -23,8 +23,10 @@
 package com.uber.nullaway;
 
 import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
+import static com.uber.nullaway.ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.METHOD_NO_INIT;
 import static com.uber.nullaway.NullAway.INITIALIZATION_CHECK_NAME;
+import static com.uber.nullaway.NullAway.OPTIONAL_CHECK_NAME;
 import static com.uber.nullaway.NullAway.getTreesInstance;
 
 import com.google.common.base.Joiner;
@@ -94,40 +96,58 @@ public class ErrorBuilder {
       @Nullable Tree suggestTree,
       Description.Builder descriptionBuilder) {
     Description.Builder builder = descriptionBuilder.setMessage(errorMessage.message);
+    if (isOptionalTypeErrorAndSuppressed(errorMessage, suggestTree)) {
+      return Description.NO_MATCH;
+    }
+
     if (config.suggestSuppressions() && suggestTree != null) {
-      switch (errorMessage.messageType) {
-        case DEREFERENCE_NULLABLE:
-        case RETURN_NULLABLE:
-        case PASS_NULLABLE:
-        case ASSIGN_FIELD_NULLABLE:
-        case SWITCH_EXPRESSION_NULLABLE:
-          if (config.getCastToNonNullMethod() != null) {
-            builder = addCastToNonNullFix(suggestTree, builder);
-          } else {
-            builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
-          }
-          break;
-        case CAST_TO_NONNULL_ARG_NONNULL:
-          builder = removeCastToNonNullFix(suggestTree, builder);
-          break;
-        case WRONG_OVERRIDE_RETURN:
-          builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
-          break;
-        case WRONG_OVERRIDE_PARAM:
-          builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
-          break;
-        case METHOD_NO_INIT:
-        case FIELD_NO_INIT:
-          builder = addSuppressWarningsFix(suggestTree, builder, INITIALIZATION_CHECK_NAME);
-          break;
-        case ANNOTATION_VALUE_INVALID:
-          break;
-        default:
-          builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
-      }
+      builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
     }
     // #letbuildersbuild
     return builder.build();
+  }
+
+  private boolean isOptionalTypeErrorAndSuppressed(
+      ErrorMessage errorMessage, @Nullable Tree suggestTree) {
+    return errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)
+        && suggestTree != null
+        && ASTHelpers.getSymbol(suggestTree) != null
+        && symbolHasWarningsAnnotation(ASTHelpers.getSymbol(suggestTree), OPTIONAL_CHECK_NAME);
+  }
+
+  private Description.Builder addSuggestedSuppression(
+      ErrorMessage errorMessage, Tree suggestTree, Description.Builder builder) {
+    switch (errorMessage.messageType) {
+      case DEREFERENCE_NULLABLE:
+      case RETURN_NULLABLE:
+      case PASS_NULLABLE:
+      case ASSIGN_FIELD_NULLABLE:
+      case SWITCH_EXPRESSION_NULLABLE:
+        if (config.getCastToNonNullMethod() != null) {
+          builder = addCastToNonNullFix(suggestTree, builder);
+        } else {
+          builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
+        }
+        break;
+      case CAST_TO_NONNULL_ARG_NONNULL:
+        builder = removeCastToNonNullFix(suggestTree, builder);
+        break;
+      case WRONG_OVERRIDE_RETURN:
+        builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
+        break;
+      case WRONG_OVERRIDE_PARAM:
+        builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
+        break;
+      case METHOD_NO_INIT:
+      case FIELD_NO_INIT:
+        builder = addSuppressWarningsFix(suggestTree, builder, INITIALIZATION_CHECK_NAME);
+        break;
+      case ANNOTATION_VALUE_INVALID:
+        break;
+      default:
+        builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
+    }
+    return builder;
   }
 
   /**
@@ -258,7 +278,7 @@ public class ErrorBuilder {
       String message,
       VisitorState state,
       Description.Builder descriptionBuilder) {
-    if (symbolHasSuppressInitializationWarningsAnnotation(methodSymbol)) {
+    if (symbolHasWarningsAnnotation(methodSymbol, INITIALIZATION_CHECK_NAME)) {
       return;
     }
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
@@ -267,13 +287,13 @@ public class ErrorBuilder {
             new ErrorMessage(METHOD_NO_INIT, message), methodTree, descriptionBuilder));
   }
 
-  boolean symbolHasSuppressInitializationWarningsAnnotation(Symbol symbol) {
+  boolean symbolHasWarningsAnnotation(Symbol symbol, String suppression) {
     SuppressWarnings annotation = symbol.getAnnotation(SuppressWarnings.class);
     if (annotation != null) {
       for (String s : annotation.value()) {
         // we need to check for standard suppression here also since we may report initialization
         // errors outside the normal ErrorProne match* methods
-        if (s.equals(INITIALIZATION_CHECK_NAME) || allNames.stream().anyMatch(s::equals)) {
+        if (s.equals(suppression) || allNames.stream().anyMatch(s::equals)) {
           return true;
         }
       }
@@ -293,7 +313,7 @@ public class ErrorBuilder {
   }
 
   void reportInitErrorOnField(Symbol symbol, VisitorState state, Description.Builder builder) {
-    if (symbolHasSuppressInitializationWarningsAnnotation(symbol)) {
+    if (symbolHasWarningsAnnotation(symbol, INITIALIZATION_CHECK_NAME)) {
       return;
     }
     Tree tree = getTreesInstance(state).getTree(symbol);

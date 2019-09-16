@@ -170,6 +170,7 @@ public class NullAway extends BugChecker
         BugChecker.SwitchTreeMatcher {
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
+  static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
 
   private static final Matcher<ExpressionTree> THIS_MATCHER =
       (expressionTree, state) -> isThisIdentifier(expressionTree);
@@ -837,7 +838,7 @@ public class NullAway extends BugChecker
       // field is either nullable or initialized at declaration
       return Description.NO_MATCH;
     }
-    if (errorBuilder.symbolHasSuppressInitializationWarningsAnnotation(symbol)) {
+    if (errorBuilder.symbolHasWarningsAnnotation(symbol, INITIALIZATION_CHECK_NAME)) {
       // also suppress checking read before init, as we may not find explicit initialization
       return Description.NO_MATCH;
     }
@@ -1444,7 +1445,7 @@ public class NullAway extends BugChecker
           ASTHelpers.getSymbol(entities.instanceInitializerMethods().iterator().next());
     }
     for (Symbol uninitField : notInitializedAtAll) {
-      if (errorBuilder.symbolHasSuppressInitializationWarningsAnnotation(uninitField)) {
+      if (errorBuilder.symbolHasWarningsAnnotation(uninitField, INITIALIZATION_CHECK_NAME)) {
         continue;
       }
       if (singleInitializerMethod != null) {
