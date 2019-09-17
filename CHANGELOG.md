@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Version 0.7.7
+-------------
+* [Optionals] Support Optional isPresent call in assertThat (#349)
+* Preconditions checkNotNull support, added missing cases. (#355)
+* [JarInfer] Use Android Nullable/NonNull annotations for AARs (not javax) (#357)
+
 Version 0.7.6
 -------------
 * Library models for guava's AsyncFunction (#328)
