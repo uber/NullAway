@@ -1,48 +1,5 @@
 package com.uber.nullaway.jarinfer.toys.unannotated;
 
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-
-@Retention(RetentionPolicy.RUNTIME)
-@interface ExpectNullable {}
-
-@Retention(RetentionPolicy.RUNTIME)
-@interface ExpectNonnull {}
-
-class Foo {
-  private String foo;
-
-  public Foo(String str) {
-    if (str == null) str = "foo";
-    this.foo = str;
-  }
-
-  public boolean run(@ExpectNonnull String str) {
-    if (str.length() > 0) {
-      return str.equals(foo);
-    }
-    return false;
-  }
-}
-
-class Bar {
-  private String bar;
-  public int b;
-
-  public Bar(String str) {
-    if (str == null) str = "bar";
-    this.bar = str;
-    this.b = bar.length();
-  }
-
-  public int run(String str) {
-    if (str != null) {
-      return str.length();
-    }
-    return bar.length();
-  }
-}
-
 public class Toys {
 
   @ExpectNullable

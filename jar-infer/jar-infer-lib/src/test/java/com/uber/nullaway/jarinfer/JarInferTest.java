@@ -83,7 +83,8 @@ public class JarInferTest {
         compileResult);
     DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
     Map<String, Set<Integer>> result =
-        driver.run(temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/"));
+        driver.run(
+            temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/"), true);
     Assert.assertTrue(
         testName + ": test failed! \n" + result + " does not match " + expected,
         verify(result, new HashMap<>(expected)));
@@ -115,7 +116,7 @@ public class JarInferTest {
     String inputJarName = FilenameUtils.getBaseName(inputJarPath);
     String outputJarPath = outputFolderPath + "/" + inputJarName + "-annotated.jar";
     DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
-    driver.runAndAnnotate(inputJarPath, "", outputJarPath);
+    driver.runAndAnnotateIncludeNonPublic(inputJarPath, "", outputJarPath);
 
     Assert.assertTrue(
         testName + ": generated jar does not match the expected jar!",
@@ -470,7 +471,7 @@ public class JarInferTest {
 
     // And that it succeeds if run in --strip-jar-signatures mode
     DefinitelyDerefedParamsDriver driver2 = new DefinitelyDerefedParamsDriver();
-    driver2.runAndAnnotate(inputJarPath, "", outputJarPath, true);
+    driver2.runAndAnnotate(inputJarPath, "", outputJarPath, true, false);
 
     Assert.assertTrue(
         "Annotated jar after signature stripping does not match the expected jar!",
