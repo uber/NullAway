@@ -133,31 +133,14 @@ public class DefinitelyDerefedParamsDriver {
   }
 
   MethodParamAnnotations runAndAnnotate(
-      String inPaths,
-      String pkgName,
-      String outPath,
-      boolean stripJarSignatures,
-      boolean includeNonPublicClasses)
+      String inPaths, String pkgName, String outPath, boolean stripJarSignatures)
       throws IOException, ClassHierarchyException {
-    return run(
-        inPaths,
-        pkgName,
-        outPath,
-        true,
-        stripJarSignatures,
-        includeNonPublicClasses,
-        DEBUG,
-        VERBOSE);
+    return run(inPaths, pkgName, outPath, true, stripJarSignatures, false, DEBUG, VERBOSE);
   }
 
   MethodParamAnnotations runAndAnnotate(String inPaths, String pkgName, String outPath)
       throws IOException, ClassHierarchyException {
-    return runAndAnnotate(inPaths, pkgName, outPath, false, false);
-  }
-
-  MethodParamAnnotations runAndAnnotateIncludeNonPublic(
-      String inPaths, String pkgName, String outPath) throws IOException, ClassHierarchyException {
-    return runAndAnnotate(inPaths, pkgName, outPath, false, true);
+    return runAndAnnotate(inPaths, pkgName, outPath, false);
   }
 
   /**
