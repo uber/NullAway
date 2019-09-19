@@ -112,7 +112,7 @@ public class DefinitelyDerefedParamsDriver {
     return new DefinitelyDerefedParams(mtd, ir, cfg);
   }
 
-  MethodParamAnnotations run(String inPaths, String pkgName)
+  MethodParamAnnotations run(String inPaths, String pkgName, boolean includeNonPublicClasses)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String outPath = "";
     String firstInPath = inPaths.split(",")[0];
@@ -124,13 +124,18 @@ public class DefinitelyDerefedParamsDriver {
     } else if (new File(firstInPath).exists()) {
       outPath = FilenameUtils.getFullPath(firstInPath) + DEFAULT_ASTUBX_LOCATION;
     }
-    return run(inPaths, pkgName, outPath, false, false, DEBUG, VERBOSE);
+    return run(inPaths, pkgName, outPath, false, false, includeNonPublicClasses, DEBUG, VERBOSE);
+  }
+
+  MethodParamAnnotations run(String inPaths, String pkgName)
+      throws IOException, ClassHierarchyException, IllegalArgumentException {
+    return run(inPaths, pkgName, false);
   }
 
   MethodParamAnnotations runAndAnnotate(
       String inPaths, String pkgName, String outPath, boolean stripJarSignatures)
       throws IOException, ClassHierarchyException {
-    return run(inPaths, pkgName, outPath, true, stripJarSignatures, DEBUG, VERBOSE);
+    return run(inPaths, pkgName, outPath, true, stripJarSignatures, false, DEBUG, VERBOSE);
   }
 
   MethodParamAnnotations runAndAnnotate(String inPaths, String pkgName, String outPath)
@@ -147,6 +152,11 @@ public class DefinitelyDerefedParamsDriver {
    * @param outPath Path to output processed jar/aar file. Default outPath for 'a/b/c/x.jar' is
    *     'a/b/c/x-ji.jar'. When 'annotatedBytecode' is enabled, this should refer to the directory
    *     that should contain all the output jars.
+   * @param annotateBytecode Perform bytecode transformation
+   * @param stripJarSignatures Remove jar cryptographic signatures
+   * @param includeNonPublicClasses Include non-public/ABI classes (e.g. for testing)
+   * @param dbg Output debug level logs
+   * @param vbs Output verbose level logs
    * @return MethodParamAnnotations Map of 'method signatures' to their 'list of NonNull
    *     parameters'.
    * @throws IOException on IO error.
@@ -159,6 +169,7 @@ public class DefinitelyDerefedParamsDriver {
       String outPath,
       boolean annotateBytecode,
       boolean stripJarSignatures,
+      boolean includeNonPublicClasses,
       boolean dbg,
       boolean vbs)
       throws IOException, ClassHierarchyException {
@@ -169,7 +180,7 @@ public class DefinitelyDerefedParamsDriver {
     Set<String> setInPaths = new HashSet<>(Arrays.asList(inPaths.split(",")));
     analysisStartTime = System.currentTimeMillis();
     for (String inPath : setInPaths) {
-      analyzeFile(pkgName, inPath);
+      analyzeFile(pkgName, inPath, includeNonPublicClasses);
       if (this.annotateBytecode) {
         String outFile = outPath;
         if (setInPaths.size() > 1) {
@@ -195,7 +206,7 @@ public class DefinitelyDerefedParamsDriver {
     return nonnullParams;
   }
 
-  private void analyzeFile(String pkgName, String inPath)
+  private void analyzeFile(String pkgName, String inPath, boolean includeNonPublicClasses)
       throws IOException, ClassHierarchyException {
     InputStream jarIS = null;
     if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
@@ -225,6 +236,8 @@ public class DefinitelyDerefedParamsDriver {
           // Only process classes in specified classpath and not its dependencies.
           // TODO: figure the right way to do this
           if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
+          // Skip non-public / ABI classes
+          if (!cls.isPublic() && !includeNonPublicClasses) continue;
           LOG(DEBUG, "DEBUG", "analyzing class: " + cls.getName().toString());
           for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
             // Skip methods without parameters, abstract methods, native methods

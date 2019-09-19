@@ -83,7 +83,8 @@ public class JarInferTest {
         compileResult);
     DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
     Map<String, Set<Integer>> result =
-        driver.run(temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/"));
+        driver.run(
+            temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/"), true);
     Assert.assertTrue(
         testName + ": test failed! \n" + result + " does not match " + expected,
         verify(result, new HashMap<>(expected)));

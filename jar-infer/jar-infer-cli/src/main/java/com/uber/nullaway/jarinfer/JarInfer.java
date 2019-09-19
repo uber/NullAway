@@ -103,7 +103,8 @@ public class JarInfer {
         pkgName = "L" + pkgName.replaceAll("\\.", "/");
       }
       DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
-      driver.run(jarPath, pkgName, outPath, annotateBytecode, stripJarSignatures, debug, verbose);
+      driver.run(
+          jarPath, pkgName, outPath, annotateBytecode, stripJarSignatures, false, debug, verbose);
       if (!new File(outPath).exists()) {
         System.out.println("Could not write jar file: " + outPath);
       }
