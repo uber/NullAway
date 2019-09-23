@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version 0.7.8
+-------------
+* Added NullAway.Optional suppression (#359) 
+* [JarInfer] Ignore non-public classes when inferring annotations. (#360) 
+
 Version 0.7.7
 -------------
 * [Optionals] Support Optional isPresent call in assertThat (#349)
