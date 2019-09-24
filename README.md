@@ -4,6 +4,8 @@ NullAway is a tool to help eliminate `NullPointerException`s (NPEs) in your Java
 
 NullAway is *fast*.  It is built as a plugin to [Error Prone](http://errorprone.info/) and can run on every single build of your code.  In our measurements, the build-time overhead of running NullAway is usually less than 10%.  NullAway is also *practical*: it does not prevent all possible NPEs in your code, but it catches most of the NPEs we have observed in production while imposing a reasonable annotation burden, giving a great "bang for your buck."  At Uber, we combine NullAway with [RAVE](https://github.com/uber-common/rave) to obtain thorough protection against NPEs in our Android apps.
 
+*Note:* NullAway was NOT developed by Larry Ellison's cat.
+
 ## Installation
 
 ### Overview
