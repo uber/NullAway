@@ -25,6 +25,17 @@ targetCompatibility = "1.8"
 
 def astubxPath = "META-INF/nullaway/jarinfer.astubx"
 
+jar {
+    manifest {
+        attributes(
+                'Build-Timestamp': new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ").format(new Date()),
+                'Created-By'     : "Gradle ${gradle.gradleVersion}",
+                'Build-Jdk'      : "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
+                'Build-OS'       : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
+        )
+    }
+}
+
 jar.doLast {
     javaexec {
         classpath = files("${rootProject.projectDir}/jar-infer/jar-infer-cli/build/libs/jar-infer-cli-${VERSION_NAME}.jar")
@@ -36,4 +47,9 @@ jar.doLast {
         commandLine "jar", "uf", "test-java-lib-jarinfer.jar", astubxPath
     }
 }
+
+dependencies {
+    implementation deps.build.jsr305Annotations
+}
+
 jar.dependsOn ":jar-infer:jar-infer-cli:assemble"

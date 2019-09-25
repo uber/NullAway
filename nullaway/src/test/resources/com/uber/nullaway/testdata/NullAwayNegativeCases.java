@@ -529,6 +529,100 @@ public class NullAwayNegativeCases {
     o.toString();
   }
 
+  static void checkNotNullWithTemplateMessage(
+      @Nullable Object o1,
+      @Nullable Object o2,
+      @Nullable Object o3,
+      @Nullable Object o4,
+      @Nullable Object o5,
+      @Nullable Object o6,
+      @Nullable Object o7,
+      @Nullable Object o8,
+      @Nullable Object o9,
+      @Nullable Object o10,
+      @Nullable Object o11,
+      @Nullable Object o12,
+      @Nullable Object o13,
+      @Nullable Object o14,
+      @Nullable Object o15,
+      @Nullable Object o16,
+      @Nullable Object o17,
+      @Nullable Object o18,
+      @Nullable Object o19,
+      @Nullable Object o20,
+      @Nullable Object o21,
+      @Nullable Object o22,
+      @Nullable Object o23) {
+    Preconditions.checkNotNull(o1, "%s %s %s %s %s", "a", "b", "c", "d", "e");
+    o1.toString();
+
+    Preconditions.checkNotNull(o2, "%s", 'a');
+    o2.toString();
+
+    Preconditions.checkNotNull(o3, "%s", 1);
+    o3.toString();
+
+    Preconditions.checkNotNull(o4, "%s", 1L);
+    o4.toString();
+
+    Preconditions.checkNotNull(o5, "%s", "a");
+    o5.toString();
+
+    Preconditions.checkNotNull(o6, "%s %s", 'a', 'b');
+    o6.toString();
+
+    Preconditions.checkNotNull(o7, "%s %s", 'a', 1);
+    o7.toString();
+
+    Preconditions.checkNotNull(o8, "%s %s", 'a', 1L);
+    o8.toString();
+
+    Preconditions.checkNotNull(o9, "%s %s", 'a', "a");
+    o9.toString();
+
+    Preconditions.checkNotNull(o10, "%s %s", 1, 'a');
+    o10.toString();
+
+    Preconditions.checkNotNull(o11, "%s %s", 1, 1);
+    o11.toString();
+
+    Preconditions.checkNotNull(o12, "%s %s", 1, 1L);
+    o12.toString();
+
+    Preconditions.checkNotNull(o13, "%s %s", 1, "a");
+    o13.toString();
+
+    Preconditions.checkNotNull(o14, "%s %s", 1L, 'a');
+    o14.toString();
+
+    Preconditions.checkNotNull(o15, "%s %s", 1L, 1);
+    o15.toString();
+
+    Preconditions.checkNotNull(o16, "%s %s", 1L, 1L);
+    o16.toString();
+
+    Preconditions.checkNotNull(o17, "%s %s", 1L, "a");
+    o17.toString();
+
+    Preconditions.checkNotNull(o18, "%s %s", "a", 'a');
+    o18.toString();
+
+    Preconditions.checkNotNull(o19, "%s %s", "a", 1);
+    o19.toString();
+
+    Preconditions.checkNotNull(o20, "%s %s", "a", 1L);
+    o20.toString();
+
+    Preconditions.checkNotNull(o21, "%s %s", "a", "a");
+    o21.toString();
+
+    Preconditions.checkNotNull(o22, "%s %s %s", "a", "a", "a");
+    o22.toString();
+
+    Preconditions.checkNotNull(o23, "%s %s %s %s", "a", "a", "a", "a");
+    o23.toString();
+  }
+
   static void requireNonNull(@Nullable Object o, @Nullable Object p) {
     Objects.requireNonNull(o);
     o.toString();

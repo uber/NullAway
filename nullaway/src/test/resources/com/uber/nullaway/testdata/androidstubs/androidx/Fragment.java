@@ -40,4 +40,6 @@ public class Fragment {
       LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
     return null;
   }
+
+  public void onActivityCreated(Bundle savedInstanceState) {}
 }

@@ -12,6 +12,7 @@ public class AndroidxFragment extends Fragment {
   private Object mOnCreateInitialisedField;
   private Object mOnCreateViewInitialisedField;
   private Object mOnAttachInitialisedField;
+  private Object monActivityCreatedField;
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -30,5 +31,11 @@ public class AndroidxFragment extends Fragment {
   public void onAttach(Context context) {
     super.onAttach(context);
     mOnAttachInitialisedField = new Object();
+  }
+
+  @Override
+  public void onActivityCreated(Bundle savedInstanceState) {
+    super.onActivityCreated(savedInstanceState);
+    monActivityCreatedField = new Object();
   }
 }

@@ -302,4 +302,21 @@ public class CheckFieldInitNegativeCases {
     @Initializer
     static void init() {}
   }
+
+  public class SuppressWarningsE {
+
+    @SuppressWarnings("NullAway.Init")
+    private Object f;
+
+    SuppressWarningsE(final Object f) {
+      this.setF(f);
+    }
+
+    @SuppressWarnings("NullAway.Init")
+    protected SuppressWarningsE() {}
+
+    public void setF(final Object f) {
+      this.f = f;
+    }
+  }
 }

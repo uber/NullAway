@@ -12,6 +12,7 @@ repositories {
 
 dependencies {
     compile deps.build.asm
+    compile deps.build.asmTree
     compile deps.build.wala
     compile deps.build.guava
     compile deps.build.commonsIO
@@ -22,6 +23,8 @@ dependencies {
         exclude group: "junit", module: "junit"
     }
     testCompile project(":jar-infer:test-java-lib-jarinfer")
+    testCompile project(path: ":jar-infer:test-android-lib-jarinfer", configuration: "default")
+    testCompile files("${System.properties['java.home']}/../lib/tools.jar") // is there a better way?
     testRuntime deps.build.errorProneCheckApi
 }
 

@@ -170,6 +170,7 @@ public class NullAway extends BugChecker
         BugChecker.SwitchTreeMatcher {
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
+  static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
 
   private static final Matcher<ExpressionTree> THIS_MATCHER =
       (expressionTree, state) -> isThisIdentifier(expressionTree);
@@ -787,9 +788,20 @@ public class NullAway extends BugChecker
   private Description checkForReadBeforeInit(ExpressionTree tree, VisitorState state) {
     // do a bunch of filtering.  first, filter out anything outside an initializer
     TreePath path = state.getPath();
-    TreePath enclosingBlockPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(path);
+    TreePath enclosingBlockPath;
+    if (config.assertsEnabled()) {
+      enclosingBlockPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(path);
+    } else {
+      enclosingBlockPath =
+          NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(
+              path, ImmutableSet.of(Tree.Kind.ASSERT));
+    }
     if (enclosingBlockPath == null) {
       // is this possible?
+      return Description.NO_MATCH;
+    }
+    if (!config.assertsEnabled()
+        && enclosingBlockPath.getLeaf().getKind().equals(Tree.Kind.ASSERT)) {
       return Description.NO_MATCH;
     }
     if (!relevantInitializerMethodOrBlock(enclosingBlockPath, state)) {
@@ -826,7 +838,7 @@ public class NullAway extends BugChecker
       // field is either nullable or initialized at declaration
       return Description.NO_MATCH;
     }
-    if (errorBuilder.symbolHasSuppressInitializationWarningsAnnotation(symbol)) {
+    if (errorBuilder.symbolHasSuppressWarningsAnnotation(symbol, INITIALIZATION_CHECK_NAME)) {
       // also suppress checking read before init, as we may not find explicit initialization
       return Description.NO_MATCH;
     }
@@ -1433,6 +1445,10 @@ public class NullAway extends BugChecker
           ASTHelpers.getSymbol(entities.instanceInitializerMethods().iterator().next());
     }
     for (Symbol uninitField : notInitializedAtAll) {
+      if (errorBuilder.symbolHasSuppressWarningsAnnotation(
+          uninitField, INITIALIZATION_CHECK_NAME)) {
+        continue;
+      }
       if (singleInitializerMethod != null) {
         // report it on the initializer
         errorFieldsForInitializer.put(singleInitializerMethod, uninitField);

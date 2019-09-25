@@ -1557,6 +1557,17 @@ public class NullAwayTest {
             "          lambdaConsumer(v -> b.get().toString());",
             "       }",
             "    }",
+            "  @SuppressWarnings(\"NullAway.Optional\")",
+            "  void SupWarn() {",
+            "    Optional<Object> a = Optional.empty();",
+            "      // no error since suppressed",
+            "      a.get().toString();",
+            "    }",
+            "  void SupWarn2() {",
+            "    Optional<Object> a = Optional.empty();",
+            "      // no error since suppressed",
+            "     @SuppressWarnings(\"NullAway.Optional\") String b = a.get().toString();",
+            "    }",
             "}")
         .addSourceLines(
             "TestPositive.java",
@@ -1577,6 +1588,13 @@ public class NullAwayTest {
             "     Optional<Object> b = Optional.empty();",
             "    // BUG: Diagnostic contains: Optional b can be empty",
             "           lambdaConsumer(v -> b.get().toString());",
+            "    }",
+            "   // This tests if the suppression is not suppressing unrelated errors ",
+            "  @SuppressWarnings(\"NullAway.Optional\")",
+            "  void SupWarn() {",
+            "    Object a = null;",
+            "      // BUG: Diagnostic contains: dereferenced expression a is @Nullable",
+            "      a.toString();",
             "    }",
             "}")
         .doTest();
@@ -1837,6 +1855,42 @@ public class NullAwayTest {
             "           .filter(optional -> optional.isPresent() && perhaps())",
             "           .map(optional -> optional.get());",
             "     }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void OptionalEmptinessHandleAssertionLibraryTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber,io.reactivex",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "import static com.google.common.truth.Truth.assertThat;",
+            "public class Test {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    assertThat(a.isPresent()).isTrue(); ",
+            "    a.get().toString();",
+            "  }",
+            "  public void lambdaConsumer(Function a){",
+            "    return;",
+            "  }",
+            "  void bar() {",
+            "    Optional<Object> b = Optional.empty();",
+            "    assertThat(b.isPresent()).isTrue(); ",
+            "    lambdaConsumer(v -> b.get().toString());",
+            "  }",
             "}")
         .doTest();
   }

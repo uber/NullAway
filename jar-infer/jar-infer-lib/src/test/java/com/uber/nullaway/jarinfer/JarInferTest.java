@@ -24,6 +24,9 @@ import com.sun.tools.javac.main.Main.Result;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -80,7 +83,8 @@ public class JarInferTest {
         compileResult);
     DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
     Map<String, Set<Integer>> result =
-        driver.run(temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/"));
+        driver.run(
+            temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/"), true);
     Assert.assertTrue(
         testName + ": test failed! \n" + result + " does not match " + expected,
         verify(result, new HashMap<>(expected)));
@@ -118,6 +122,30 @@ public class JarInferTest {
         testName + ": generated jar does not match the expected jar!",
         AnnotationChecker.checkMethodAnnotationsInJar(
             outputJarPath, expectedToActualAnnotationsMap));
+    Assert.assertTrue(
+        testName + ": generated jar does not have all the entries present in the input jar!",
+        EntriesComparator.compareEntriesInJars(outputJarPath, inputJarPath));
+  }
+
+  private void testAnnotationInAarTemplate(
+      String testName,
+      String pkg,
+      String inputAarPath,
+      Map<String, String> expectedToActualAnnotationMap)
+      throws Exception {
+    String outputFolderPath = outputFolder.newFolder(pkg).getAbsolutePath();
+    String inputAarName = FilenameUtils.getBaseName(inputAarPath);
+    String outputAarPath = outputFolderPath + "/" + inputAarName + "-annotated.aar";
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.runAndAnnotate(inputAarPath, "", outputAarPath);
+
+    Assert.assertTrue(
+        testName + ": generated aar does not match the expected aar!",
+        AnnotationChecker.checkMethodAnnotationsInAar(
+            outputAarPath, expectedToActualAnnotationMap));
+    Assert.assertTrue(
+        testName + ": generated aar does not have all the entries present in the input aar!",
+        EntriesComparator.compareEntriesInAars(outputAarPath, inputAarPath));
   }
 
   /**
@@ -383,6 +411,19 @@ public class JarInferTest {
   }
 
   @Test
+  public void toyAARAnnotatingClasses() throws Exception {
+    testAnnotationInAarTemplate(
+        "toyAARAnnotatingClasses",
+        "com.uber.nullaway.jarinfer.toys.unannotated",
+        "../test-android-lib-jarinfer/build/outputs/aar/test-android-lib-jarinfer.aar",
+        ImmutableMap.of(
+            "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNullable;",
+            BytecodeAnnotator.androidNullableDesc,
+            "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNonnull;",
+            BytecodeAnnotator.androidNonnullDesc));
+  }
+
+  @Test
   public void jarinferOutputJarIsBytePerByteDeterministic() throws Exception {
     String jarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
     String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
@@ -394,6 +435,63 @@ public class JarInferTest {
     driver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
     byte[] checksumBytes2 = sha1sum(driver.lastOutPath);
     Assert.assertArrayEquals(checksumBytes1, checksumBytes2);
+  }
+
+  @Test
+  public void testSignedJars() throws Exception {
+    // Set test configuration paths / options
+    final String baseJarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
+    final String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
+    final String baseJarName = FilenameUtils.getBaseName(baseJarPath);
+    final String workingFolderPath = outputFolder.newFolder("signed_" + pkg).getAbsolutePath();
+    final String inputJarPath = workingFolderPath + "/" + baseJarName + ".jar";
+    final String outputJarPath = workingFolderPath + "/" + baseJarName + "-annotated.jar";
+
+    // Copy Jar to workspace, and sign it
+    Files.copy(
+        Paths.get(baseJarPath), Paths.get(inputJarPath), StandardCopyOption.REPLACE_EXISTING);
+    String ksPath =
+        Thread.currentThread().getContextClassLoader().getResource("testKeyStore.jks").getPath();
+    // JDK 8 only?
+    sun.security.tools.jarsigner.Main jarSignerTool = new sun.security.tools.jarsigner.Main();
+    jarSignerTool.run(
+        new String[] {
+          "-keystore", ksPath, "-storepass", "testPassword", inputJarPath, "testKeystore"
+        });
+
+    // Test that this new jar fails if not run in --strip-jar-signatures mode
+    boolean signedJarExceptionThrown = false;
+    try {
+      DefinitelyDerefedParamsDriver driver1 = new DefinitelyDerefedParamsDriver();
+      driver1.runAndAnnotate(inputJarPath, "", outputJarPath);
+    } catch (SignedJarException sje) {
+      signedJarExceptionThrown = true;
+    }
+    Assert.assertTrue(signedJarExceptionThrown);
+
+    // And that it succeeds if run in --strip-jar-signatures mode
+    DefinitelyDerefedParamsDriver driver2 = new DefinitelyDerefedParamsDriver();
+    driver2.runAndAnnotate(inputJarPath, "", outputJarPath, true);
+
+    Assert.assertTrue(
+        "Annotated jar after signature stripping does not match the expected jar!",
+        AnnotationChecker.checkMethodAnnotationsInJar(
+            outputJarPath,
+            ImmutableMap.of(
+                "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNullable;",
+                BytecodeAnnotator.javaxNullableDesc,
+                "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNonnull;",
+                BytecodeAnnotator.javaxNonnullDesc)));
+    // Files should match the base jar, not the one to which we added META-INF, since we are
+    // stripping those files
+    Assert.assertTrue(
+        "Annotated jar after signature stripping does not have all the entries present in the input "
+            + "jar (before signing), or contains extra (e.g. META-INF) entries!",
+        EntriesComparator.compareEntriesInJars(outputJarPath, baseJarPath));
+    // Check that META-INF/Manifest.MF is content-identical to the original unsigned jar
+    Assert.assertTrue(
+        "Annotated jar after signature stripping does not preserve the info inside META-INF/MANIFEST.MF",
+        EntriesComparator.compareManifestContents(outputJarPath, baseJarPath));
   }
 
   private byte[] sha1sum(String path) throws Exception {

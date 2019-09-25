@@ -83,6 +83,7 @@ public class DefinitelyDerefedParamsDriver {
   private MethodReturnAnnotations nullableReturns = new MethodReturnAnnotations();
 
   private boolean annotateBytecode = false;
+  private boolean stripJarSignatures = false;
 
   private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
   private static final String ASTUBX_JAR_SUFFIX = ".astubx.jar";
@@ -111,7 +112,7 @@ public class DefinitelyDerefedParamsDriver {
     return new DefinitelyDerefedParams(mtd, ir, cfg);
   }
 
-  MethodParamAnnotations run(String inPaths, String pkgName)
+  MethodParamAnnotations run(String inPaths, String pkgName, boolean includeNonPublicClasses)
       throws IOException, ClassHierarchyException, IllegalArgumentException {
     String outPath = "";
     String firstInPath = inPaths.split(",")[0];
@@ -123,12 +124,23 @@ public class DefinitelyDerefedParamsDriver {
     } else if (new File(firstInPath).exists()) {
       outPath = FilenameUtils.getFullPath(firstInPath) + DEFAULT_ASTUBX_LOCATION;
     }
-    return run(inPaths, pkgName, outPath, false, DEBUG, VERBOSE);
+    return run(inPaths, pkgName, outPath, false, false, includeNonPublicClasses, DEBUG, VERBOSE);
+  }
+
+  MethodParamAnnotations run(String inPaths, String pkgName)
+      throws IOException, ClassHierarchyException, IllegalArgumentException {
+    return run(inPaths, pkgName, false);
+  }
+
+  MethodParamAnnotations runAndAnnotate(
+      String inPaths, String pkgName, String outPath, boolean stripJarSignatures)
+      throws IOException, ClassHierarchyException {
+    return run(inPaths, pkgName, outPath, true, stripJarSignatures, false, DEBUG, VERBOSE);
   }
 
   MethodParamAnnotations runAndAnnotate(String inPaths, String pkgName, String outPath)
       throws IOException, ClassHierarchyException {
-    return run(inPaths, pkgName, outPath, true, DEBUG, VERBOSE);
+    return runAndAnnotate(inPaths, pkgName, outPath, false);
   }
 
   /**
@@ -140,6 +152,11 @@ public class DefinitelyDerefedParamsDriver {
    * @param outPath Path to output processed jar/aar file. Default outPath for 'a/b/c/x.jar' is
    *     'a/b/c/x-ji.jar'. When 'annotatedBytecode' is enabled, this should refer to the directory
    *     that should contain all the output jars.
+   * @param annotateBytecode Perform bytecode transformation
+   * @param stripJarSignatures Remove jar cryptographic signatures
+   * @param includeNonPublicClasses Include non-public/ABI classes (e.g. for testing)
+   * @param dbg Output debug level logs
+   * @param vbs Output verbose level logs
    * @return MethodParamAnnotations Map of 'method signatures' to their 'list of NonNull
    *     parameters'.
    * @throws IOException on IO error.
@@ -151,16 +168,19 @@ public class DefinitelyDerefedParamsDriver {
       String pkgName,
       String outPath,
       boolean annotateBytecode,
+      boolean stripJarSignatures,
+      boolean includeNonPublicClasses,
       boolean dbg,
       boolean vbs)
-      throws IOException, ClassHierarchyException, IllegalArgumentException {
+      throws IOException, ClassHierarchyException {
     DEBUG = dbg;
     VERBOSE = vbs;
     this.annotateBytecode = annotateBytecode;
+    this.stripJarSignatures = stripJarSignatures;
     Set<String> setInPaths = new HashSet<>(Arrays.asList(inPaths.split(",")));
     analysisStartTime = System.currentTimeMillis();
     for (String inPath : setInPaths) {
-      analyzeFile(pkgName, inPath);
+      analyzeFile(pkgName, inPath, includeNonPublicClasses);
       if (this.annotateBytecode) {
         String outFile = outPath;
         if (setInPaths.size() > 1) {
@@ -186,7 +206,7 @@ public class DefinitelyDerefedParamsDriver {
     return nonnullParams;
   }
 
-  private void analyzeFile(String pkgName, String inPath)
+  private void analyzeFile(String pkgName, String inPath, boolean includeNonPublicClasses)
       throws IOException, ClassHierarchyException {
     InputStream jarIS = null;
     if (inPath.endsWith(".jar") || inPath.endsWith(".aar")) {
@@ -216,6 +236,8 @@ public class DefinitelyDerefedParamsDriver {
           // Only process classes in specified classpath and not its dependencies.
           // TODO: figure the right way to do this
           if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
+          // Skip non-public / ABI classes
+          if (!cls.isPublic() && !includeNonPublicClasses) continue;
           LOG(DEBUG, "DEBUG", "analyzing class: " + cls.getName().toString());
           for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
             // Skip methods without parameters, abstract methods, native methods
@@ -399,17 +421,23 @@ public class DefinitelyDerefedParamsDriver {
 
   private void writeAnnotations(String inPath, String outFile) throws IOException {
     Preconditions.checkArgument(
-        inPath.endsWith(".jar") || inPath.endsWith(".class"), "invalid input path - " + inPath);
+        inPath.endsWith(".jar") || inPath.endsWith(".aar") || inPath.endsWith(".class"),
+        "invalid input path - " + inPath);
     LOG(DEBUG, "DEBUG", "Writing Annotations to " + outFile);
 
     new File(outFile).getParentFile().mkdirs();
     if (inPath.endsWith(".jar")) {
       JarFile jar = new JarFile(inPath);
       JarOutputStream jarOS = new JarOutputStream(new FileOutputStream(outFile));
-      BytecodeAnnotator.annotateBytecodeInJar(jar, jarOS, nonnullParams, nullableReturns, DEBUG);
+      BytecodeAnnotator.annotateBytecodeInJar(
+          jar, jarOS, nonnullParams, nullableReturns, stripJarSignatures, DEBUG);
       jarOS.close();
     } else if (inPath.endsWith(".aar")) {
-      // TODO(ragr@): Handle this case.
+      ZipFile zip = new ZipFile(inPath);
+      ZipOutputStream zipOS = new ZipOutputStream(new FileOutputStream(outFile));
+      BytecodeAnnotator.annotateBytecodeInAar(
+          zip, zipOS, nonnullParams, nullableReturns, stripJarSignatures, DEBUG);
+      zipOS.close();
     } else {
       InputStream is = new FileInputStream(inPath);
       OutputStream os = new FileOutputStream(outFile);
