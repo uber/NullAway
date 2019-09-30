@@ -225,7 +225,7 @@ public class DefinitelyDerefedParamsDriver {
     else AnalysisScopeReader.addClassPathToScope(inPath, scope, ClassLoaderReference.Application);
     AnalysisOptions options = new AnalysisOptions(scope, null);
     AnalysisCache cache = new AnalysisCacheImpl();
-    IClassHierarchy cha = ClassHierarchyFactory.makeWithPhantom(scope);
+    IClassHierarchy cha = ClassHierarchyFactory.makeWithRoot(scope);
     Warnings.clear();
 
     // Iterate over all classes:methods in the 'Application' and 'Extension' class loaders
