@@ -170,9 +170,9 @@ abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public void onPrepareErrorMessage(
-      ExpressionTree expr, VisitorState state, ErrorMessage errorMessage) {
-    // NoOp
+  public ErrorMessage checkErrorMessageInDereference(
+      ExpressionTree expr, ExpressionTree baseExpr, VisitorState state) {
+    return null;
   }
 
   @Override

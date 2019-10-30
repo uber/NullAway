@@ -1618,11 +1618,12 @@ public class NullAwayTest {
             "import javax.annotation.Nullable;",
             "import com.google.common.base.Function;",
             "public class TestNegative {",
+            "  class ABC { Optional<Object> ob = Optional.absent();} ",
             "  void foo() {",
-            "    Optional<Object> a = Optional.absent();",
+            "      ABC abc = new ABC();",
             "      // no error since a.isPresent() is called",
-            "      if(a.isPresent()){",
-            "         a.get().toString();",
+            "      if(abc.ob.isPresent()){",
+            "         abc.ob.get().toString();",
             "       }",
             "    }",
             "   public void lambdaConsumer(Function a){",
@@ -1642,10 +1643,11 @@ public class NullAwayTest {
             "import javax.annotation.Nullable;",
             "import com.google.common.base.Function;",
             "public class TestPositive {",
+            "  class ABC { Optional<Object> ob = Optional.empty();} ",
             "  void foo() {",
-            "    Optional<Object> a = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional a can be empty",
-            "    a.get().toString();",
+            "    ABC abc = new ABC();",
+            "    // BUG: Diagnostic contains: Optional abc.ob can be empty",
+            "    abc.ob.get().toString();",
             "  }",
             "   public void lambdaConsumer(Function a){",
             "        return;",
@@ -1891,6 +1893,76 @@ public class NullAwayTest {
             "    assertThat(b.isPresent()).isTrue(); ",
             "    lambdaConsumer(v -> b.get().toString());",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void OptionalEmptinessAssignmentCheckNegativeTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "TestNegative.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "public class TestNegative {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    Object x = a.isPresent() ? a.get() : \"something\";",
+            "    x.toString();",
+            "  }",
+            "   public void lambdaConsumer(Function a){",
+            "        return;",
+            "   }",
+            "  void bar() {",
+            "     Optional<Object> b = Optional.empty();",
+            "      if(b.isPresent()){",
+            "          lambdaConsumer(v -> b.get().toString());",
+            "       }",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void OptionalEmptinessAssignmentCheckPositiveTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "TestPositive.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "public class TestPositive {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    // BUG: Diagnostic contains: Optional a can be empty",
+            "    Object x = a.get();",
+            "    x.toString();",
+            "  }",
+            "   public void lambdaConsumer(Function a){",
+            "        return;",
+            "   }",
+            "  void bar() {",
+            "     Optional<Object> b = Optional.empty();",
+            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "     lambdaConsumer(v -> {Object x = b.get();  return \"irrelevant\";});",
+            "    }",
             "}")
         .doTest();
   }

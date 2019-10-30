@@ -211,11 +211,14 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public void onPrepareErrorMessage(
-      ExpressionTree expr, VisitorState state, ErrorMessage errorMessage) {
+  public ErrorMessage checkErrorMessageInDereference(
+      ExpressionTree expr, ExpressionTree baseExpr, VisitorState state) {
+    ErrorMessage errorMessage = null;
     for (Handler h : handlers) {
-      h.onPrepareErrorMessage(expr, state, errorMessage);
+      errorMessage = h.checkErrorMessageInDereference(expr, baseExpr, state);
+      if (errorMessage != null) return errorMessage;
     }
+    return null;
   }
 
   @Override

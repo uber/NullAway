@@ -18,6 +18,8 @@
 
 package com.uber.nullaway.dataflow;
 
+import static com.uber.nullaway.NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.cache.CacheBuilder;
@@ -153,6 +155,21 @@ public final class DataFlow {
         return cfg;
       }
     };
+  }
+
+  /**
+   * @param path expression
+   * @param context Javac context
+   * @param transfer transfer functions
+   * @param <A> values in abstraction
+   * @param <S> store type
+   * @param <T> transfer function type
+   * @return {@link ControlFlowGraph} containing expression
+   */
+  <A extends AbstractValue<A>, S extends Store<S>, T extends TransferFunction<A, S>>
+      ControlFlowGraph getControlFlowGraph(TreePath path, Context context, T transfer) {
+    return dataflow(findEnclosingMethodOrLambdaOrInitializer(path), context, transfer)
+        .getControlFlowGraph();
   }
 
   /**

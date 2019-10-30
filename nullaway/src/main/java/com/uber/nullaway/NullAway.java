@@ -657,7 +657,6 @@ public class NullAway extends BugChecker
           new ErrorMessage(
               MessageTypes.RETURN_NULLABLE,
               "returning @Nullable expression from method with @NonNull return type");
-      handler.onPrepareErrorMessage(retExpr, state, errorMessage);
 
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, retExpr, state.getPath(), buildDescription(tree));
@@ -2025,11 +2024,17 @@ public class NullAway extends BugChecker
           "dereferenced expression " + state.getSourceForNode(baseExpression) + " is @Nullable";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
 
-      handler.onPrepareErrorMessage(baseExpression, state, errorMessage);
-
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, baseExpression, state.getPath(), buildDescription(derefExpression));
     }
+
+    ErrorMessage handlerErrorMessage =
+        handler.checkErrorMessageInDereference(derefExpression, baseExpression, state);
+    if (handlerErrorMessage != null) {
+      return errorBuilder.createErrorDescriptionForNullAssignment(
+          handlerErrorMessage, derefExpression, state.getPath(), buildDescription(derefExpression));
+    }
+
     return Description.NO_MATCH;
   }
 
