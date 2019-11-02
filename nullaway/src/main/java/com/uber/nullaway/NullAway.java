@@ -25,6 +25,7 @@ package com.uber.nullaway;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static com.sun.source.tree.Tree.Kind.EXPRESSION_STATEMENT;
 import static com.sun.source.tree.Tree.Kind.IDENTIFIER;
+import static com.sun.source.tree.Tree.Kind.OTHER;
 import static com.sun.source.tree.Tree.Kind.PARENTHESIZED;
 import static com.sun.source.tree.Tree.Kind.TYPE_CAST;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
@@ -2095,7 +2096,7 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * strip out enclosing parentheses and type casts.
+   * strip out enclosing parentheses, type casts and Nullchk operators.
    *
    * @param expr
    * @return
@@ -2110,6 +2111,12 @@ public class NullAway extends BugChecker
       }
       if (expr.getKind().equals(TYPE_CAST)) {
         expr = ((TypeCastTree) expr).getExpression();
+        someChange = true;
+      }
+
+      // Strips Nullchk operator
+      if (expr.getKind().equals(OTHER) && expr instanceof JCTree.JCUnary) {
+        expr = ((JCTree.JCUnary) expr).getExpression();
         someChange = true;
       }
     }
