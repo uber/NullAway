@@ -41,6 +41,7 @@ import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
+import java.util.Optional;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
@@ -211,11 +212,14 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public void onPrepareErrorMessage(
-      ExpressionTree expr, VisitorState state, ErrorMessage errorMessage) {
+  public Optional<ErrorMessage> onExpressionDereference(
+      ExpressionTree expr, ExpressionTree baseExpr, VisitorState state) {
+    Optional<ErrorMessage> optionalErrorMessage;
     for (Handler h : handlers) {
-      h.onPrepareErrorMessage(expr, state, errorMessage);
+      optionalErrorMessage = h.onExpressionDereference(expr, baseExpr, state);
+      if (optionalErrorMessage.isPresent()) return optionalErrorMessage;
     }
+    return Optional.empty();
   }
 
   @Override

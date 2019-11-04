@@ -1578,7 +1578,7 @@ public class NullAwayTest {
             "public class TestPositive {",
             "  void foo() {",
             "    Optional<Object> a = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional a can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
             "    a.get().toString();",
             "  }",
             "   public void lambdaConsumer(Function a){",
@@ -1586,7 +1586,7 @@ public class NullAwayTest {
             "   }",
             "  void bar() {",
             "     Optional<Object> b = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
             "           lambdaConsumer(v -> b.get().toString());",
             "    }",
             "   // This tests if the suppression is not suppressing unrelated errors ",
@@ -1618,11 +1618,12 @@ public class NullAwayTest {
             "import javax.annotation.Nullable;",
             "import com.google.common.base.Function;",
             "public class TestNegative {",
+            "  class ABC { Optional<Object> ob = Optional.absent();} ",
             "  void foo() {",
-            "    Optional<Object> a = Optional.absent();",
+            "      ABC abc = new ABC();",
             "      // no error since a.isPresent() is called",
-            "      if(a.isPresent()){",
-            "         a.get().toString();",
+            "      if(abc.ob.isPresent()){",
+            "         abc.ob.get().toString();",
             "       }",
             "    }",
             "   public void lambdaConsumer(Function a){",
@@ -1642,17 +1643,18 @@ public class NullAwayTest {
             "import javax.annotation.Nullable;",
             "import com.google.common.base.Function;",
             "public class TestPositive {",
+            "  class ABC { Optional<Object> ob = Optional.empty();} ",
             "  void foo() {",
-            "    Optional<Object> a = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional a can be empty",
-            "    a.get().toString();",
+            "    ABC abc = new ABC();",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional abc.ob",
+            "    abc.ob.get().toString();",
             "  }",
             "   public void lambdaConsumer(Function a){",
             "        return;",
             "   }",
             "  void bar() {",
             "     Optional<Object> b = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
             "           lambdaConsumer(v -> b.get().toString());",
             "    }",
             "}")
@@ -1665,7 +1667,7 @@ public class NullAwayTest {
             "public class TestPositive2 {",
             "  void foo() {",
             "    Optional<Object> a = Optional.absent();",
-            "    // BUG: Diagnostic contains: Optional a can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
             "    a.get().toString();",
             "  }",
             "   public void lambdaConsumer(Function a){",
@@ -1673,7 +1675,7 @@ public class NullAwayTest {
             "   }",
             "  void bar() {",
             "     Optional<Object> b = Optional.absent();",
-            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
             "           lambdaConsumer(v -> b.get().toString());",
             "    }",
             "}")
@@ -1724,7 +1726,7 @@ public class NullAwayTest {
             "public class TestPositive {",
             "  void foo() {",
             "    Optional<Object> a = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional a can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
             "    a.get().toString();",
             "  }",
             "   public void lambdaConsumer(Function a){",
@@ -1732,7 +1734,7 @@ public class NullAwayTest {
             "   }",
             "  void bar() {",
             "     Optional<Object> b = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
             "           lambdaConsumer(v -> b.get().toString());",
             "    }",
             "}")
@@ -1745,7 +1747,7 @@ public class NullAwayTest {
             "public class TestPositive2 {",
             "  void foo() {",
             "    Optional<Object> a = Optional.absent();",
-            "    // BUG: Diagnostic contains: Optional a can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
             "    a.get().toString();",
             "  }",
             "   public void lambdaConsumer(Function a){",
@@ -1753,7 +1755,7 @@ public class NullAwayTest {
             "   }",
             "  void bar() {",
             "     Optional<Object> b = Optional.absent();",
-            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
             "           lambdaConsumer(v -> b.get().toString());",
             "    }",
             "}")
@@ -1815,11 +1817,11 @@ public class NullAwayTest {
             "  void foo(Observable<Optional<String>> observable) {",
             "     observable",
             "           .filter(optional -> optional.isPresent() || perhaps())",
-            "           // BUG: Diagnostic contains: Optional optional can be empty",
+            "           // BUG: Diagnostic contains: Invoking get() on possibly empty Optional optional",
             "           .map(optional -> optional.get().toString());",
             "     observable",
             "           .filter(optional -> optional.isPresent() || perhaps())",
-            "           // BUG: Diagnostic contains: Optional optional can be empty",
+            "           // BUG: Diagnostic contains: Invoking get() on possibly empty Optional optional",
             "           .map(optional -> optional.get())",
             "           .map(irr -> irr.toString());",
             "     }",
@@ -1891,6 +1893,76 @@ public class NullAwayTest {
             "    assertThat(b.isPresent()).isTrue(); ",
             "    lambdaConsumer(v -> b.get().toString());",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void OptionalEmptinessAssignmentCheckNegativeTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "TestNegative.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "public class TestNegative {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    Object x = a.isPresent() ? a.get() : \"something\";",
+            "    x.toString();",
+            "  }",
+            "   public void lambdaConsumer(Function a){",
+            "        return;",
+            "   }",
+            "  void bar() {",
+            "     Optional<Object> b = Optional.empty();",
+            "      if(b.isPresent()){",
+            "          lambdaConsumer(v -> b.get().toString());",
+            "       }",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void OptionalEmptinessAssignmentCheckPositiveTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "TestPositive.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "public class TestPositive {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
+            "    Object x = a.get();",
+            "    x.toString();",
+            "  }",
+            "   public void lambdaConsumer(Function a){",
+            "        return;",
+            "   }",
+            "  void bar() {",
+            "     Optional<Object> b = Optional.empty();",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
+            "     lambdaConsumer(v -> {Object x = b.get();  return \"irrelevant\";});",
+            "    }",
             "}")
         .doTest();
   }

@@ -41,6 +41,7 @@ import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
+import java.util.Optional;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
@@ -273,14 +274,17 @@ public interface Handler {
       ExpressionTree tree, NullnessStore thenStore, NullnessStore elseStore);
 
   /**
-   * Called while creating the error message on a possible null/empty optional deference.
+   * It should return an error wrapped in Optional if any of the handlers detect an error in
+   * dereference.
    *
    * @param expr The AST node for the expression being matched.
+   * @param baseExpr The AST node for the base of dereference expression being matched.
    * @param state The current visitor state.
-   * @param errorMessage error message string and type of the error wrapped in {@link
-   *     com.uber.nullaway.NullAway.ErrorMessage}.
+   * @return {@link ErrorMessage} wrapped in {@link Optional} if dereference causes some error,
+   *     otherwise returns empty Optional
    */
-  void onPrepareErrorMessage(ExpressionTree expr, VisitorState state, ErrorMessage errorMessage);
+  Optional<ErrorMessage> onExpressionDereference(
+      ExpressionTree expr, ExpressionTree baseExpr, VisitorState state);
 
   /**
    * Called when the store access paths are filtered for local variable information before an

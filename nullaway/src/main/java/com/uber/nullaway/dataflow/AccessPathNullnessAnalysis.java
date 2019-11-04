@@ -32,7 +32,9 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.VariableElement;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.dataflow.cfg.node.Node;
 
 /**
  * API to our nullness dataflow analysis for access paths.
@@ -219,6 +221,43 @@ public final class AccessPathNullnessAnalysis {
    */
   public NullnessStore forceRunOnMethod(TreePath methodPath, Context context) {
     return dataFlow.finalResult(methodPath, context, nullnessPropagation);
+  }
+
+  /**
+   * Nullness of the variable element field of the expression is checked in the store.
+   *
+   * @param exprPath tree path of the expression
+   * @param context Javac context
+   * @param variableElement variable element for which the nullness is evaluated
+   * @return nullness info of variable element field of the expression
+   */
+  public Nullness getNullnessOfExpressionNamedField(
+      TreePath exprPath, Context context, VariableElement variableElement) {
+    NullnessStore store = dataFlow.resultBeforeExpr(exprPath, context, nullnessPropagation);
+
+    // We use the CFG to get the Node corresponding to the expression
+    Set<Node> exprNodes =
+        dataFlow
+            .getControlFlowGraph(exprPath, context, nullnessPropagation)
+            .getNodesCorrespondingToTree(exprPath.getLeaf());
+
+    if (exprNodes.size() != 1) {
+      // Since the expression must have a single corresponding node
+      // NULLABLE is our default assumption
+      return Nullness.NULLABLE;
+    }
+
+    AccessPath ap = AccessPath.fromBaseAndElement(exprNodes.iterator().next(), variableElement);
+
+    if (store != null && ap != null) {
+      if (store
+          .getAccessPathsWithValue(Nullness.NONNULL)
+          .stream()
+          .anyMatch(accessPath -> accessPath.equals(ap))) {
+        return Nullness.NONNULL;
+      }
+    }
+    return Nullness.NULLABLE;
   }
 
   /** invalidate all caches */

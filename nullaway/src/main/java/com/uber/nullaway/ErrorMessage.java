@@ -32,11 +32,6 @@ public class ErrorMessage {
     this.message = message;
   }
 
-  public void updateErrorMessage(MessageTypes messageType, String message) {
-    this.messageType = messageType;
-    this.message = message;
-  }
-
   public enum MessageTypes {
     DEREFERENCE_NULLABLE,
     RETURN_NULLABLE,
