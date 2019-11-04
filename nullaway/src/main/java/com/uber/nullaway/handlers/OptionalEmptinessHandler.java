@@ -42,6 +42,7 @@ import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
@@ -121,23 +122,23 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public ErrorMessage checkErrorMessageInDereference(
+  public Optional<ErrorMessage> onExpressionDereference(
       ExpressionTree expr, ExpressionTree baseExpr, VisitorState state) {
 
     if (ASTHelpers.getSymbol(expr) instanceof Symbol.MethodSymbol
         && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())
         && isOptionalContentNullable(state, baseExpr, analysis.getNullnessAnalysis(state))) {
-      final String message =
-          "Optional " + baseExpr + " can be empty, dereferenced get() call on it";
-      return new ErrorMessage(ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL, message);
+      final String message = "Invoking get() on possibly empty Optional " + baseExpr;
+      return Optional.of(
+          new ErrorMessage(ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL, message));
     }
-    return null;
+    return Optional.empty();
   }
 
   private boolean isOptionalContentNullable(
       VisitorState state, ExpressionTree baseExpr, AccessPathNullnessAnalysis analysis) {
-    return analysis.getNullnessOfExpressionOptionalContent(
-            new TreePath(state.getPath(), baseExpr), state.context)
+    return analysis.getNullnessOfExpressionNamedField(
+            new TreePath(state.getPath(), baseExpr), state.context, OPTIONAL_CONTENT)
         == Nullness.NULLABLE;
   }
 

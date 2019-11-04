@@ -18,8 +18,6 @@
 
 package com.uber.nullaway.dataflow;
 
-import static com.uber.nullaway.handlers.OptionalEmptinessHandler.OPTIONAL_CONTENT;
-
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
 import com.sun.source.util.TreePath;
@@ -34,6 +32,7 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.VariableElement;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 
@@ -225,13 +224,15 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
-   * Nullness of the optional content of the expression is checked in the store.
+   * Nullness of the variable element field of the expression is checked in the store.
    *
    * @param exprPath tree path of the expression
    * @param context Javac context
-   * @return nullness info of optional content of the optional expression
+   * @param variableElement variable element for which the nullness is evaluated
+   * @return nullness info of variable element field of the expression
    */
-  public Nullness getNullnessOfExpressionOptionalContent(TreePath exprPath, Context context) {
+  public Nullness getNullnessOfExpressionNamedField(
+      TreePath exprPath, Context context, VariableElement variableElement) {
     NullnessStore store = dataFlow.resultBeforeExpr(exprPath, context, nullnessPropagation);
 
     // We use the CFG to get the Node corresponding to the expression
@@ -246,7 +247,7 @@ public final class AccessPathNullnessAnalysis {
       return Nullness.NULLABLE;
     }
 
-    AccessPath ap = AccessPath.fromBaseAndElement(exprNodes.iterator().next(), OPTIONAL_CONTENT);
+    AccessPath ap = AccessPath.fromBaseAndElement(exprNodes.iterator().next(), variableElement);
 
     if (store != null && ap != null) {
       if (store

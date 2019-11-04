@@ -40,6 +40,7 @@ import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
+import java.util.Optional;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
@@ -170,9 +171,9 @@ abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public ErrorMessage checkErrorMessageInDereference(
+  public Optional<ErrorMessage> onExpressionDereference(
       ExpressionTree expr, ExpressionTree baseExpr, VisitorState state) {
-    return null;
+    return Optional.empty();
   }
 
   @Override

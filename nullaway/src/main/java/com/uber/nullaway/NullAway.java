@@ -97,6 +97,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -2028,11 +2029,14 @@ public class NullAway extends BugChecker
           errorMessage, baseExpression, state.getPath(), buildDescription(derefExpression));
     }
 
-    ErrorMessage handlerErrorMessage =
-        handler.checkErrorMessageInDereference(derefExpression, baseExpression, state);
-    if (handlerErrorMessage != null) {
+    Optional<ErrorMessage> handlerErrorMessage =
+        handler.onExpressionDereference(derefExpression, baseExpression, state);
+    if (handlerErrorMessage.isPresent()) {
       return errorBuilder.createErrorDescriptionForNullAssignment(
-          handlerErrorMessage, derefExpression, state.getPath(), buildDescription(derefExpression));
+          handlerErrorMessage.get(),
+          derefExpression,
+          state.getPath(),
+          buildDescription(derefExpression));
     }
 
     return Description.NO_MATCH;
