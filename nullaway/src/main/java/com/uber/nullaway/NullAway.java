@@ -1309,6 +1309,13 @@ public class NullAway extends BugChecker
               this, state, methodSymbol, actualParams, ImmutableSet.of());
     }
     List<VarSymbol> formalParams = methodSymbol.getParameters();
+
+    if (formalParams.size() != actualParams.size() && !methodSymbol.isVarArgs()) {
+      // In some special cases like one in issue #366
+      // formal params and actual params do not match while using JDK11
+      return Description.NO_MATCH;
+    }
+
     if (nonNullPositions == null) {
       ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
       // compute which arguments are @NonNull
@@ -1330,6 +1337,7 @@ public class NullAway extends BugChecker
       }
       nonNullPositions = builder.build();
     }
+
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
