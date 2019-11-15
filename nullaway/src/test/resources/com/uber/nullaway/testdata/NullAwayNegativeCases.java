@@ -918,4 +918,44 @@ public class NullAwayNegativeCases {
     s += boxAndDeref(n >>> 3);
     return s;
   }
+
+  // Cases from issue https://github.com/uber/NullAway/issues/366
+  class AnotherClass {
+    class Inner {
+      int x;
+    }
+  }
+
+  AnotherClass.Inner anotherMethod() {
+    AnotherClass anotherClass = new AnotherClass();
+    return anotherClass.new Inner() {
+      int getX() {
+        return x;
+      }
+    };
+  }
+
+  class YetAnotherClass {
+    class Inner {
+      int x;
+
+      Inner(int __x) {
+        x = __x;
+      }
+
+      int getX() {
+        return 3;
+      }
+    }
+  }
+
+  YetAnotherClass.Inner yetAnotherMethod() {
+    YetAnotherClass yetAnotherClass = new YetAnotherClass();
+    return yetAnotherClass.new Inner(4) {
+      @Override
+      int getX() {
+        return 5;
+      }
+    };
+  }
 }
