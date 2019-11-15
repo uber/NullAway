@@ -1,6 +1,17 @@
 Changelog
 =========
 
+Version 0.7.9
+-------------
+* Multiple dependency upgrades
+  - Gradle to 5.6.2. (#362)
+  - WALA to 1.5.4 (#337)
+  - Checker Dataflow to 3.0.0 (#369)
+* Added OPTIONAL_CONTENT synthetic field to track Optional  emptiness (#364)
+  - With this, `-XepOpt:NullAway:CheckOptionalEmptiness` should be 
+    ready for use.
+* Handle Nullchk operator (#368)
+
 Version 0.7.8
 -------------
 * Added NullAway.Optional suppression (#359) 
