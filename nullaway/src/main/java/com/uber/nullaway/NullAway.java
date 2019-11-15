@@ -1310,9 +1310,14 @@ public class NullAway extends BugChecker
     }
     List<VarSymbol> formalParams = methodSymbol.getParameters();
 
-    if (formalParams.size() != actualParams.size() && !methodSymbol.isVarArgs()) {
-      // In some special cases like one in issue #366
-      // formal params and actual params do not match while using JDK11
+    if (formalParams.size() != actualParams.size()
+        && !methodSymbol.isVarArgs()
+        && !methodSymbol.isStatic()
+        && methodSymbol.isConstructor()
+        && methodSymbol.enclClass().isInner()) {
+      // In special cases like one in issue #366
+      // formal params and actual params do not match while using JDK11+
+      // we bail out in this particular case
       return Description.NO_MATCH;
     }
 
