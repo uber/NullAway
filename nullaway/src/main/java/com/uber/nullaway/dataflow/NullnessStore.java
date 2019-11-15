@@ -161,7 +161,7 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   @Override
-  public void visualize(CFGVisualizer<?, NullnessStore, ?> cfgVisualizer) {
+  public String visualize(CFGVisualizer<?, NullnessStore, ?> cfgVisualizer) {
     throw new UnsupportedOperationException();
   }
 
