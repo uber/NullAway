@@ -25,6 +25,7 @@ package com.uber.nullaway;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static com.sun.source.tree.Tree.Kind.EXPRESSION_STATEMENT;
 import static com.sun.source.tree.Tree.Kind.IDENTIFIER;
+import static com.sun.source.tree.Tree.Kind.OTHER;
 import static com.sun.source.tree.Tree.Kind.PARENTHESIZED;
 import static com.sun.source.tree.Tree.Kind.TYPE_CAST;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
@@ -1308,6 +1309,18 @@ public class NullAway extends BugChecker
               this, state, methodSymbol, actualParams, ImmutableSet.of());
     }
     List<VarSymbol> formalParams = methodSymbol.getParameters();
+
+    if (formalParams.size() != actualParams.size()
+        && !methodSymbol.isVarArgs()
+        && !methodSymbol.isStatic()
+        && methodSymbol.isConstructor()
+        && methodSymbol.enclClass().isInner()) {
+      // In special cases like one in issue #366
+      // formal params and actual params do not match while using JDK11+
+      // we bail out in this particular case
+      return Description.NO_MATCH;
+    }
+
     if (nonNullPositions == null) {
       ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
       // compute which arguments are @NonNull
@@ -1329,6 +1342,7 @@ public class NullAway extends BugChecker
       }
       nonNullPositions = builder.build();
     }
+
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
@@ -2095,7 +2109,7 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * strip out enclosing parentheses and type casts.
+   * strip out enclosing parentheses, type casts and Nullchk operators.
    *
    * @param expr
    * @return
@@ -2110,6 +2124,12 @@ public class NullAway extends BugChecker
       }
       if (expr.getKind().equals(TYPE_CAST)) {
         expr = ((TypeCastTree) expr).getExpression();
+        someChange = true;
+      }
+
+      // Strips Nullchk operator
+      if (expr.getKind().equals(OTHER) && expr instanceof JCTree.JCUnary) {
+        expr = ((JCTree.JCUnary) expr).getExpression();
         someChange = true;
       }
     }

@@ -378,7 +378,10 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
   @Override
   public TransferResult<Nullness, NullnessStore> visitNullChk(
       NullChkNode nullChkNode, TransferInput<Nullness, NullnessStore> input) {
-    throw new RuntimeException("we should never see this");
+    SubNodeValues values = values(input);
+    Nullness nullness =
+        hasPrimitiveType(nullChkNode) ? NONNULL : values.valueOfSubNode(nullChkNode.getOperand());
+    return noStoreChanges(nullness, input);
   }
 
   @Override
