@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.testdata;
 
+import com.google.common.collect.ImmutableList;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
@@ -46,8 +47,12 @@ public class NullAwayStreamSupportNegativeCases {
     }
   }
 
-  private Stream<Integer> filterThenMap(Stream<String> observable) {
-    return observable
+  private static boolean perhaps() {
+    return Math.random() > 0.5;
+  }
+
+  private Stream<Integer> filterThenMap(Stream<String> stream) {
+    return stream
         .filter(
             new Predicate<String>() {
               @Override
@@ -85,5 +90,172 @@ public class NullAwayStreamSupportNegativeCases {
                 return c.get().length();
               }
             });
+  }
+
+  private Stream<Integer> filterWithNEExpressionThenMapNullableContainer(
+      Stream<NullableContainer<String>> stream) {
+    return stream
+        .filter(
+            new Predicate<NullableContainer<String>>() {
+              @Override
+              public boolean test(NullableContainer<String> container) {
+                return container.get() != null;
+              }
+            })
+        .map(
+            new Function<NullableContainer<String>, Integer>() {
+              @Override
+              public Integer apply(NullableContainer<String> container) {
+                return container.get().length();
+              }
+            });
+  }
+
+  private Stream<Integer> filterWithAndExpressionThenMapNullableContainer(
+      Stream<NullableContainer<NullableContainer<String>>> stream) {
+    return stream
+        .filter(
+            new Predicate<NullableContainer<NullableContainer<String>>>() {
+              @Override
+              public boolean test(NullableContainer<NullableContainer<String>> container) {
+                return container.get() != null && container.get().get() != null;
+              }
+            })
+        .map(
+            new Function<NullableContainer<NullableContainer<String>>, Integer>() {
+              @Override
+              public Integer apply(NullableContainer<NullableContainer<String>> container) {
+                return container.get().get().length();
+              }
+            });
+  }
+
+  private Stream<Integer> filterThenMapNullableContainerMergesReturns(
+      Stream<NullableContainer<String>> stream) {
+    return stream
+        .filter(
+            new Predicate<NullableContainer<String>>() {
+              @Override
+              public boolean test(NullableContainer<String> container) {
+                if (perhaps() && container.get() != null) {
+                  return true;
+                } else {
+                  return (container.get() != null);
+                }
+              }
+            })
+        .map(
+            new Function<NullableContainer<String>, Integer>() {
+              @Override
+              public Integer apply(NullableContainer<String> c) {
+                return c.get().length();
+              }
+            });
+  }
+
+  private Stream<Integer> filterThenMapNullableContainerWPassthroughMethods(
+      Stream<NullableContainer<String>> stream) {
+    return stream
+        .filter(
+            new Predicate<NullableContainer<String>>() {
+              @Override
+              public boolean test(NullableContainer<String> container) {
+                return container.get() != null;
+              }
+            })
+        .distinct()
+        .flatMap(
+            new Function<NullableContainer<String>, Stream<Integer>>() {
+              @Override
+              public Stream<Integer> apply(NullableContainer<String> container) {
+                return ImmutableList.of(container.get().length(), container.get().length())
+                    .stream();
+              }
+            });
+  }
+
+  private static class NoOpFilterClass<T> implements Predicate<T> {
+    public NoOpFilterClass() {}
+
+    public boolean test(T o) {
+      return true;
+    }
+  }
+
+  private Stream<Integer> filterThenMapDoesntBreakWithNonAnnonClass(Stream<String> observable) {
+    return observable
+        .filter(new NoOpFilterClass<String>())
+        .map(
+            new Function<String, Integer>() {
+              @Override
+              public Integer apply(String s) {
+                // No new nullability facts, this test is only to ensure our handler doesn't
+                // break the checker when using Streams with non-annonymous functions.
+                return s.length();
+              }
+            });
+  }
+
+  private Stream<Integer> filterThenMapLambdas(Stream<String> observable) {
+    return observable.filter(s -> s != null).map(s -> s.length());
+  }
+
+  private Stream<Integer> filterThenMapNullableContainerLambdas(
+      Stream<NullableContainer<String>> observable) {
+    return observable.filter(c -> c.get() != null).map(c -> c.get().length());
+  }
+
+  private Stream<Integer> filterThenMapNullableContainerLambdas2(
+      Stream<NullableContainer<String>> observable) {
+    return observable
+        .filter(
+            c -> {
+              if (c.get() == null) {
+                return false;
+              } else {
+                return true;
+              }
+            })
+        .map(c -> c.get().length());
+  }
+
+  private Stream<Integer> filterThenMapNullableContainerLambdas3(
+      Stream<NullableContainer<String>> observable) {
+    return observable
+        .filter(c -> c.get() != null)
+        .map(
+            c -> {
+              String s = c.get();
+              return s.length();
+            });
+  }
+
+  private Stream<Integer> filterThenMapLambdas4(Stream<String> observable) {
+    return observable.filter(s -> s != null && perhaps()).map(s -> s.length());
+  }
+
+  private static <T> boolean predtest(Predicate<T> f, T val) {
+    try {
+      return f.test(val);
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
+  private static <T, R> R funcapply(Function<T, R> f, T val) {
+    return f.apply(val);
+  }
+
+  private Stream<Integer> filterThenMapLambdas5(Stream<String> observable) {
+    return observable
+        .filter(s -> predtest(r -> r != null, s))
+        .map(s -> funcapply(r -> r.length(), s));
+  }
+
+  private Stream<Integer> filterThenMapMethodRefs1(Stream<NullableContainer<String>> observable) {
+    return observable
+        .filter(c -> c.get() != null && perhaps())
+        .map(NullableContainer::get)
+        .map(String::length);
   }
 }

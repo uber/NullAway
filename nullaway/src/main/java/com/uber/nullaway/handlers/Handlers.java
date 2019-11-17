@@ -53,6 +53,7 @@ public class Handlers {
     }
     handlerListBuilder.add(new LibraryModelsHandler());
     handlerListBuilder.add(new RxNullabilityPropagator());
+    handlerListBuilder.add(new StreamNullabilityPropagator());
     handlerListBuilder.add(new ContractHandler());
     handlerListBuilder.add(new ApacheThriftIsSetHandler());
     if (config.checkOptionalEmptiness()) {
