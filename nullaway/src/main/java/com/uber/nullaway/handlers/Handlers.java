@@ -52,8 +52,8 @@ public class Handlers {
       handlerListBuilder.add(new AssertionHandler(methodNameUtil));
     }
     handlerListBuilder.add(new LibraryModelsHandler());
-    handlerListBuilder.add(new RxNullabilityPropagator());
-    handlerListBuilder.add(new StreamNullabilityPropagator());
+    handlerListBuilder.add(StreamNullabilityPropagatorFactory.getRxStreamNullabilityPropagator());
+    handlerListBuilder.add(StreamNullabilityPropagatorFactory.getJavaStreamNullabilityPropagator());
     handlerListBuilder.add(new ContractHandler());
     handlerListBuilder.add(new ApacheThriftIsSetHandler());
     if (config.checkOptionalEmptiness()) {
