@@ -190,6 +190,11 @@ public class NullAwayTest {
   }
 
   @Test
+  public void streamSupportPositiveCases() {
+    compilationHelper.addSourceFile("NullAwayStreamSupportPositiveCases.java").doTest();
+  }
+
+  @Test
   public void functionalMethodSuperInterface() {
     compilationHelper.addSourceFile("NullAwaySuperFunctionalInterface.java").doTest();
   }
