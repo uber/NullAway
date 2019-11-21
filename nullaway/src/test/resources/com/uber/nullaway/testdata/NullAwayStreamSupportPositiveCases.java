@@ -24,6 +24,9 @@ package com.uber.nullaway.testdata;
 
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -122,5 +125,20 @@ public class NullAwayStreamSupportPositiveCases {
       Stream<NullableContainer<String>> stream) {
     // BUG: Diagnostic contains: dereferenced expression
     return stream.filter(c -> c.get() != null || perhaps()).map(c -> c.get().length());
+  }
+
+  private IntStream mapToInt(Stream<NullableContainer<String>> stream) {
+    // BUG: Diagnostic contains: dereferenced expression
+    return stream.mapToInt(c -> c.get().length());
+  }
+
+  private LongStream mapToLong(Stream<NullableContainer<String>> stream) {
+    // BUG: Diagnostic contains: dereferenced expression
+    return stream.mapToLong(c -> c.get().length());
+  }
+
+  private DoubleStream mapToDouble(Stream<NullableContainer<String>> stream) {
+    // BUG: Diagnostic contains: dereferenced expression
+    return stream.mapToDouble(c -> c.get().length());
   }
 }

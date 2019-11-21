@@ -23,6 +23,18 @@ public class StreamNullabilityPropagatorFactory {
                 "<R>map(java.util.function.Function<? super T,? extends R>)",
                 "apply",
                 ImmutableSet.of(0))
+            .withMapMethodFromSignature(
+                "mapToInt(java.util.function.ToIntFunction<? super T>)",
+                "applyAsInt",
+                ImmutableSet.of(0))
+            .withMapMethodFromSignature(
+                "mapToLong(java.util.function.ToLongFunction<? super T>)",
+                "applyAsLong",
+                ImmutableSet.of(0))
+            .withMapMethodFromSignature(
+                "mapToDouble(java.util.function.ToDoubleFunction<? super T>)",
+                "applyAsDouble",
+                ImmutableSet.of(0))
             .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
             // List of methods of java.util.stream.Stream through which we just propagate the
             // nullability information of the last call, e.g. m() in

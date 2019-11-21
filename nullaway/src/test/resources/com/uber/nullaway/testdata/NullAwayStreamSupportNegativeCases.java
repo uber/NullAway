@@ -25,6 +25,9 @@ package com.uber.nullaway.testdata;
 import com.google.common.collect.ImmutableList;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
@@ -257,5 +260,17 @@ public class NullAwayStreamSupportNegativeCases {
         .filter(c -> c.get() != null && perhaps())
         .map(NullableContainer::get)
         .map(String::length);
+  }
+
+  private IntStream filterThenMapToInt(Stream<NullableContainer<String>> stream) {
+    return stream.filter(c -> c.get() != null).mapToInt(c -> c.get().length());
+  }
+
+  private LongStream filterThenMapToLong(Stream<NullableContainer<String>> stream) {
+    return stream.filter(c -> c.get() != null).mapToLong(c -> c.get().length());
+  }
+
+  private DoubleStream filterThenMapToDouble(Stream<NullableContainer<String>> stream) {
+    return stream.filter(c -> c.get() != null).mapToDouble(c -> c.get().length());
   }
 }
