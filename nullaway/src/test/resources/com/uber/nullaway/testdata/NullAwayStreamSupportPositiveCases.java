@@ -141,4 +141,9 @@ public class NullAwayStreamSupportPositiveCases {
     // BUG: Diagnostic contains: dereferenced expression
     return stream.mapToDouble(c -> c.get().length());
   }
+
+  private void forEach(Stream<NullableContainer<String>> stream) {
+    // BUG: Diagnostic contains: dereferenced expression
+    stream.forEach(s -> System.out.println(s.get().length()));
+  }
 }

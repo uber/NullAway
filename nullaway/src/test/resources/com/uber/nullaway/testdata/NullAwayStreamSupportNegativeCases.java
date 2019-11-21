@@ -273,4 +273,8 @@ public class NullAwayStreamSupportNegativeCases {
   private DoubleStream filterThenMapToDouble(Stream<NullableContainer<String>> stream) {
     return stream.filter(c -> c.get() != null).mapToDouble(c -> c.get().length());
   }
+
+  private void filterThenForEach(Stream<NullableContainer<String>> stream) {
+    stream.filter(s -> s.get() != null).forEach(s -> System.out.println(s.get().length()));
+  }
 }
