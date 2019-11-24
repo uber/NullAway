@@ -23,12 +23,9 @@
 package com.uber.nullaway.testdata;
 
 import com.google.common.collect.ImmutableList;
-import java.util.function.Function;
-import java.util.function.Predicate;
-import java.util.stream.DoubleStream;
-import java.util.stream.IntStream;
-import java.util.stream.LongStream;
-import java.util.stream.Stream;
+import java.util.Optional;
+import java.util.function.*;
+import java.util.stream.*;
 import javax.annotation.Nullable;
 
 public class NullAwayStreamSupportNegativeCases {
@@ -276,5 +273,39 @@ public class NullAwayStreamSupportNegativeCases {
 
   private void filterThenForEach(Stream<NullableContainer<String>> stream) {
     stream.filter(s -> s.get() != null).forEach(s -> System.out.println(s.get().length()));
+  }
+
+  private void filterThenForEachOrdered(Stream<NullableContainer<String>> stream) {
+    stream.filter(s -> s.get() != null).forEachOrdered(s -> System.out.println(s.get().length()));
+  }
+
+  private void filterThenReduce(Stream<NullableContainer<String>> stream) {
+    Optional<NullableContainer<String>> reduce =
+        stream
+            .filter(s -> s.get() != null)
+            .reduce(
+                new BinaryOperator<NullableContainer<String>>() {
+                  @Override
+                  public NullableContainer<String> apply(
+                      NullableContainer<String> s1, NullableContainer<String> s2) {
+                    s1.set(s1.get() + s2.get());
+                    return s1;
+                  }
+                });
+  }
+
+  private void filterThenReduceIdentity(Stream<NullableContainer<String>> stream) {
+    NullableContainer<String> z = new NullableContainer<>();
+    z.set("");
+    assert z.get() != null;
+    NullableContainer<String> res =
+        stream
+            .filter(s -> s.get() != null)
+            .reduce(
+                z,
+                (c1, c2) -> {
+                  c1.set(c1.get().concat(c2.get()));
+                  return c1;
+                });
   }
 }
