@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.testdata;
 
-import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.DoubleStream;
@@ -151,15 +150,5 @@ public class NullAwayStreamSupportPositiveCases {
   private void forEachOrdered(Stream<NullableContainer<String>> stream) {
     // BUG: Diagnostic contains: dereferenced expression
     stream.forEachOrdered(s -> System.out.println(s.get().length()));
-  }
-
-  private void reduce(Stream<NullableContainer<String>> stream) {
-    Optional<NullableContainer<String>> reduce =
-        stream.reduce(
-            (s1, s2) -> {
-              // BUG: Diagnostic contains: dereferenced expression
-              s1.set(s1.get().concat(s2.get()));
-              return s1;
-            });
   }
 }

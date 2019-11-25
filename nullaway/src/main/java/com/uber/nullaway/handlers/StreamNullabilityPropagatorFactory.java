@@ -41,10 +41,6 @@ public class StreamNullabilityPropagatorFactory {
                 "forEachOrdered(java.util.function.Consumer<? super T>)",
                 "accept",
                 ImmutableSet.of(0))
-            .withMapMethodFromSignature(
-                "<T>reduce(java.util.function.BinaryOperator<T>)", "apply", ImmutableSet.of(0))
-            .withMapMethodFromSignature(
-                "<T>reduce(T,java.util.function.BinaryOperator<T>)", "apply", ImmutableSet.of(0, 1))
             .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
             // List of methods of java.util.stream.Stream through which we just propagate the
             // nullability information of the last call, e.g. m() in
