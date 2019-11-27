@@ -23,8 +23,12 @@
 package com.uber.nullaway.testdata;
 
 import com.google.common.collect.ImmutableList;
-import java.util.function.*;
-import java.util.stream.*;
+import java.util.function.Function;
+import java.util.function.Predicate;
+import java.util.stream.DoubleStream;
+import java.util.stream.IntStream;
+import java.util.stream.LongStream;
+import java.util.stream.Stream;
 import javax.annotation.Nullable;
 
 public class NullAwayStreamSupportNegativeCases {
