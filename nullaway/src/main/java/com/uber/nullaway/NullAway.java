@@ -1486,7 +1486,7 @@ public class NullAway extends BugChecker
     for (Element constructorElement : errorFieldsForInitializer.keySet()) {
       errorBuilder.reportInitializerError(
           (Symbol.MethodSymbol) constructorElement,
-          errMsgForInitializer(errorFieldsForInitializer.get(constructorElement)),
+          errMsgForInitializer(errorFieldsForInitializer.get(constructorElement), state),
           state,
           buildDescription(getTreesInstance(state).getTree(constructorElement)));
     }
