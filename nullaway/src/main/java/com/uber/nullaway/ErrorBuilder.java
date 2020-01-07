@@ -302,12 +302,33 @@ public class ErrorBuilder {
     return false;
   }
 
-  static String errMsgForInitializer(Set<Element> uninitFields) {
+  int GetLineforField(Element uninitField, VisitorState state){
+    Tree fieldTree = getTreeInstance(state).getTree(uninitField);
+    DiagnosticPosition position = (DiagnosticPosition)fieldTree;
+    TreePath path = state.getPath();
+    JCCompilationUnit compilation = (JCCompilationUnit)path.getCompilationUnit();
+    JavaFileObject file = compilation.getSourceFile();
+    DiagnosticSource source = new DiagnosticSource(file, null);
+    return source.getLineNumber(position.getStartPosition());
+  }
+  
+  static String errMsgForInitializer(Set<Element> uninitFields, VisitorState state) {
     String message = "initializer method does not guarantee @NonNull ";
+    Element uninitField;
     if (uninitFields.size() == 1) {
-      message += "field " + uninitFields.iterator().next().toString() + " is initialized";
+      uninitField = uninitFields.iterator().next();
+      message += "field " + uninitField.toString() + "(Line:" + GetLineforField(uninitField, state) + ") is initialized";
     } else {
-      message += "fields " + Joiner.on(", ").join(uninitFields) + " are initialized";
+      message += "fields ";
+      while(uninitFields.hasNext()){
+        uninitField = uninitFields.iterator().next();
+        message += uninitField.toString() + "(Line:" + GetLineforField(uninitField, state) + ")";
+        if(uninitFields.hasNext()){
+          message += ", ";
+        }else{
+          message += " are initialized";
+        }
+      }
     }
     message += " along all control-flow paths (remember to check for exceptions or early returns).";
     return message;
