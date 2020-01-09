@@ -45,11 +45,16 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import com.sun.tools.javac.util.DiagnosticSource;
+import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
+import javax.tools.JavaFileObject;
 
 /** A class to construct error message to be displayed after the analysis finds error. */
 public class ErrorBuilder {
@@ -302,30 +307,36 @@ public class ErrorBuilder {
     return false;
   }
 
-  int GetLineforField(Element uninitField, VisitorState state){
-    Tree fieldTree = getTreeInstance(state).getTree(uninitField);
-    DiagnosticPosition position = (DiagnosticPosition)fieldTree;
+  static int GetLineforField(Element uninitField, VisitorState state) {
+    Tree fieldTree = getTreesInstance(state).getTree(uninitField);
+    DiagnosticPosition position = (DiagnosticPosition) fieldTree;
     TreePath path = state.getPath();
-    JCCompilationUnit compilation = (JCCompilationUnit)path.getCompilationUnit();
+    JCCompilationUnit compilation = (JCCompilationUnit) path.getCompilationUnit();
     JavaFileObject file = compilation.getSourceFile();
     DiagnosticSource source = new DiagnosticSource(file, null);
     return source.getLineNumber(position.getStartPosition());
   }
-  
+
   static String errMsgForInitializer(Set<Element> uninitFields, VisitorState state) {
     String message = "initializer method does not guarantee @NonNull ";
     Element uninitField;
     if (uninitFields.size() == 1) {
       uninitField = uninitFields.iterator().next();
-      message += "field " + uninitField.toString() + "(Line:" + GetLineforField(uninitField, state) + ") is initialized";
+      message +=
+          "field "
+              + uninitField.toString()
+              + "(Line:"
+              + GetLineforField(uninitField, state)
+              + ") is initialized";
     } else {
       message += "fields ";
-      while(uninitFields.hasNext()){
-        uninitField = uninitFields.iterator().next();
+      Iterator<Element> it = uninitFields.iterator();
+      while (it.hasNext()) {
+        uninitField = it.next();
         message += uninitField.toString() + "(Line:" + GetLineforField(uninitField, state) + ")";
-        if(uninitFields.hasNext()){
+        if (it.hasNext()) {
           message += ", ";
-        }else{
+        } else {
           message += " are initialized";
         }
       }
