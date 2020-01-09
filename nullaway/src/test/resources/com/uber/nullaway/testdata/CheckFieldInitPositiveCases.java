@@ -32,7 +32,7 @@ public class CheckFieldInitPositiveCases {
 
     Object f;
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f(Line:33) is
     // initialized
     T1() {}
   }
@@ -41,7 +41,8 @@ public class CheckFieldInitPositiveCases {
 
     Object f, g;
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull fields f, g are
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull fields f(Line:42),
+    // g(Line:42) are
     // initialized
     T2() {}
   }
@@ -70,7 +71,7 @@ public class CheckFieldInitPositiveCases {
 
     Object f;
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f(Line:71) is
     // initialized
     T5(boolean b) {
       if (b) {
@@ -88,7 +89,7 @@ public class CheckFieldInitPositiveCases {
       this(false);
     }
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f(Line:84) is
     // initialized
     T6(boolean b) {}
   }
@@ -98,7 +99,7 @@ public class CheckFieldInitPositiveCases {
     Object f;
     Object g;
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f(Line:98) is
     // initialized
     T7(boolean b) {
       if (b) {
@@ -107,7 +108,7 @@ public class CheckFieldInitPositiveCases {
       g = new Object();
     }
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g(Line:99) is
     // initialized
     T7() {
       init();
@@ -128,7 +129,7 @@ public class CheckFieldInitPositiveCases {
     Object f;
 
     @Initializer
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f(Line:128) is
     // initialized
     public void init() {}
   }
