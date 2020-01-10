@@ -130,7 +130,7 @@ public class CheckFieldInitPositiveCases {
     Object f;
 
     @Initializer
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f (line 129)
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f (line 130)
     // is
     // initialized
     public void init() {}
