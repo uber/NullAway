@@ -307,9 +307,14 @@ public class ErrorBuilder {
     return false;
   }
 
-  static int GetLineforField(Element uninitField, VisitorState state) {
+  static int getLineNumForElement(Element uninitField, VisitorState state) {
     Tree fieldTree = getTreesInstance(state).getTree(uninitField);
-    DiagnosticPosition position = (DiagnosticPosition) fieldTree;
+    if (fieldTree == null)
+      throw new RuntimeException(
+          "When getting the line number for uninitialized field, can't get the fieldTree from the element.");
+    DiagnosticPosition position =
+        (DiagnosticPosition)
+            fieldTree; // Expect Tree to be JCTree and thus implement DiagnosticPosition
     TreePath path = state.getPath();
     JCCompilationUnit compilation = (JCCompilationUnit) path.getCompilationUnit();
     JavaFileObject file = compilation.getSourceFile();
@@ -317,32 +322,34 @@ public class ErrorBuilder {
     return source.getLineNumber(position.getStartPosition());
   }
 
+  // Generate the message for uninitialized fields, including the line number for fields.
   static String errMsgForInitializer(Set<Element> uninitFields, VisitorState state) {
-    String message = "initializer method does not guarantee @NonNull ";
+    StringBuilder message = new StringBuilder("initializer method does not guarantee @NonNull ");
     Element uninitField;
     if (uninitFields.size() == 1) {
       uninitField = uninitFields.iterator().next();
-      message +=
-          "field "
-              + uninitField.toString()
-              + "(Line:"
-              + GetLineforField(uninitField, state)
-              + ") is initialized";
+      message.append("field ");
+      message.append(uninitField.toString());
+      message.append("(Line ");
+      message.append(getLineNumForElement(uninitField, state));
+      message.append(") is initialized");
     } else {
-      message += "fields ";
+      message.append("fields ");
       Iterator<Element> it = uninitFields.iterator();
       while (it.hasNext()) {
         uninitField = it.next();
-        message += uninitField.toString() + "(Line:" + GetLineforField(uninitField, state) + ")";
+        message.append(
+            uninitField.toString() + "(Line " + getLineNumForElement(uninitField, state) + ")");
         if (it.hasNext()) {
-          message += ", ";
+          message.append(", ");
         } else {
-          message += " are initialized";
+          message.append(" are initialized");
         }
       }
     }
-    message += " along all control-flow paths (remember to check for exceptions or early returns).";
-    return message;
+    message.append(
+        " along all control-flow paths (remember to check for exceptions or early returns).");
+    return message.toString();
   }
 
   void reportInitErrorOnField(Symbol symbol, VisitorState state, Description.Builder builder) {

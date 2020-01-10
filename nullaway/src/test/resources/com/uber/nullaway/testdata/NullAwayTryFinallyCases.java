@@ -259,7 +259,7 @@ public class NullAwayTryFinallyCases {
       // method... mmh
     }
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g(Line:228) is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g(Line 228) is
     // initialized
     Initializers(Object o1, Object o2, Object o3) {
       f = new Object();
