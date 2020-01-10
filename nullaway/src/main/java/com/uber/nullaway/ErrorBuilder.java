@@ -308,13 +308,12 @@ public class ErrorBuilder {
   }
 
   static int getLineNumForElement(Element uninitField, VisitorState state) {
-    Tree fieldTree = getTreesInstance(state).getTree(uninitField);
-    if (fieldTree == null)
+    Tree tree = getTreesInstance(state).getTree(uninitField);
+    if (tree == null)
       throw new RuntimeException(
-          "When getting the line number for uninitialized field, can't get the fieldTree from the element.");
+          "When getting the line number for uninitialized field, can't get the tree from the element.");
     DiagnosticPosition position =
-        (DiagnosticPosition)
-            fieldTree; // Expect Tree to be JCTree and thus implement DiagnosticPosition
+        (DiagnosticPosition) tree; // Expect Tree to be JCTree and thus implement DiagnosticPosition
     TreePath path = state.getPath();
     JCCompilationUnit compilation = (JCCompilationUnit) path.getCompilationUnit();
     JavaFileObject file = compilation.getSourceFile();
@@ -322,7 +321,13 @@ public class ErrorBuilder {
     return source.getLineNumber(position.getStartPosition());
   }
 
-  // Generate the message for uninitialized fields, including the line number for fields.
+  /**
+   * Generate the message for uninitialized fields, including the line number for fields.
+   *
+   * @param uninitFields the set of uninitialized fields as the type of Element.
+   * @param state the VisitorState object.
+   * @return the error message for uninitialized fields with line numbers.
+   */
   static String errMsgForInitializer(Set<Element> uninitFields, VisitorState state) {
     StringBuilder message = new StringBuilder("initializer method does not guarantee @NonNull ");
     Element uninitField;
@@ -330,7 +335,7 @@ public class ErrorBuilder {
       uninitField = uninitFields.iterator().next();
       message.append("field ");
       message.append(uninitField.toString());
-      message.append("(Line ");
+      message.append(" (line ");
       message.append(getLineNumForElement(uninitField, state));
       message.append(") is initialized");
     } else {
@@ -339,7 +344,7 @@ public class ErrorBuilder {
       while (it.hasNext()) {
         uninitField = it.next();
         message.append(
-            uninitField.toString() + "(Line " + getLineNumForElement(uninitField, state) + ")");
+            uninitField.toString() + " (line " + getLineNumForElement(uninitField, state) + ")");
         if (it.hasNext()) {
           message.append(", ");
         } else {
