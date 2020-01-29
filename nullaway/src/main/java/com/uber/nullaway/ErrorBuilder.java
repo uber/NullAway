@@ -322,7 +322,9 @@ public class ErrorBuilder {
     String fieldName = symbol.toString();
 
     if (symbol.enclClass().getNestingKind().isNested()) {
-      fieldName = symbol.enclClass().getSimpleName() + "." + symbol;
+      String flatName = symbol.enclClass().flatName().toString();
+      int index = flatName.lastIndexOf(".") + 1;
+      fieldName = flatName.substring(index) + "." + symbol;
     }
 
     if (symbol.isStatic()) {
