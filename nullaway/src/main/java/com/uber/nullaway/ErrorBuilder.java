@@ -45,11 +45,16 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
+import com.sun.tools.javac.util.DiagnosticSource;
+import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
+import javax.tools.JavaFileObject;
 
 /** A class to construct error message to be displayed after the analysis finds error. */
 public class ErrorBuilder {
@@ -302,15 +307,54 @@ public class ErrorBuilder {
     return false;
   }
 
-  static String errMsgForInitializer(Set<Element> uninitFields) {
-    String message = "initializer method does not guarantee @NonNull ";
+  static int getLineNumForElement(Element uninitField, VisitorState state) {
+    Tree tree = getTreesInstance(state).getTree(uninitField);
+    if (tree == null)
+      throw new RuntimeException(
+          "When getting the line number for uninitialized field, can't get the tree from the element.");
+    DiagnosticPosition position =
+        (DiagnosticPosition) tree; // Expect Tree to be JCTree and thus implement DiagnosticPosition
+    TreePath path = state.getPath();
+    JCCompilationUnit compilation = (JCCompilationUnit) path.getCompilationUnit();
+    JavaFileObject file = compilation.getSourceFile();
+    DiagnosticSource source = new DiagnosticSource(file, null);
+    return source.getLineNumber(position.getStartPosition());
+  }
+
+  /**
+   * Generate the message for uninitialized fields, including the line number for fields.
+   *
+   * @param uninitFields the set of uninitialized fields as the type of Element.
+   * @param state the VisitorState object.
+   * @return the error message for uninitialized fields with line numbers.
+   */
+  static String errMsgForInitializer(Set<Element> uninitFields, VisitorState state) {
+    StringBuilder message = new StringBuilder("initializer method does not guarantee @NonNull ");
+    Element uninitField;
     if (uninitFields.size() == 1) {
-      message += "field " + uninitFields.iterator().next().toString() + " is initialized";
+      uninitField = uninitFields.iterator().next();
+      message.append("field ");
+      message.append(uninitField.toString());
+      message.append(" (line ");
+      message.append(getLineNumForElement(uninitField, state));
+      message.append(") is initialized");
     } else {
-      message += "fields " + Joiner.on(", ").join(uninitFields) + " are initialized";
+      message.append("fields ");
+      Iterator<Element> it = uninitFields.iterator();
+      while (it.hasNext()) {
+        uninitField = it.next();
+        message.append(
+            uninitField.toString() + " (line " + getLineNumForElement(uninitField, state) + ")");
+        if (it.hasNext()) {
+          message.append(", ");
+        } else {
+          message.append(" are initialized");
+        }
+      }
     }
-    message += " along all control-flow paths (remember to check for exceptions or early returns).";
-    return message;
+    message.append(
+        " along all control-flow paths (remember to check for exceptions or early returns).");
+    return message.toString();
   }
 
   void reportInitErrorOnField(Symbol symbol, VisitorState state, Description.Builder builder) {
