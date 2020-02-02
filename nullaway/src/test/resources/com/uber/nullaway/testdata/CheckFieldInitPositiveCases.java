@@ -49,7 +49,7 @@ public class CheckFieldInitPositiveCases {
 
   static class T3 {
 
-    // BUG: Diagnostic contains: @NonNull field f not initialized
+    // BUG: Diagnostic contains: @NonNull field CheckFieldInitPositiveCases$T3.f not initialized
     Object f;
   }
 
@@ -138,7 +138,8 @@ public class CheckFieldInitPositiveCases {
 
   static class T9 {
 
-    // BUG: Diagnostic contains: @NonNull static field f not initialized
+    // BUG: Diagnostic contains: @NonNull static field CheckFieldInitPositiveCases$T9.f not
+    // initialized
     static Object f;
 
     static {
@@ -147,7 +148,8 @@ public class CheckFieldInitPositiveCases {
 
   static class T10 {
 
-    // BUG: Diagnostic contains: @NonNull static field f not initialized
+    // BUG: Diagnostic contains: @NonNull static field CheckFieldInitPositiveCases$T10.f not
+    // initialized
     static Object f;
 
     static {
@@ -159,7 +161,8 @@ public class CheckFieldInitPositiveCases {
 
   static class T11 {
 
-    // BUG: Diagnostic contains: @NonNull static field f not initialized
+    // BUG: Diagnostic contains: @NonNull static field CheckFieldInitPositiveCases$T11.f not
+    // initialized
     static Object f;
 
     static {

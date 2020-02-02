@@ -362,17 +362,26 @@ public class ErrorBuilder {
       return;
     }
     Tree tree = getTreesInstance(state).getTree(symbol);
+
+    String fieldName = symbol.toString();
+
+    if (symbol.enclClass().getNestingKind().isNested()) {
+      String flatName = symbol.enclClass().flatName().toString();
+      int index = flatName.lastIndexOf(".") + 1;
+      fieldName = flatName.substring(index) + "." + fieldName;
+    }
+
     if (symbol.isStatic()) {
       state.reportMatch(
           createErrorDescription(
               new ErrorMessage(
-                  FIELD_NO_INIT, "@NonNull static field " + symbol + " not initialized"),
+                  FIELD_NO_INIT, "@NonNull static field " + fieldName + " not initialized"),
               tree,
               builder));
     } else {
       state.reportMatch(
           createErrorDescription(
-              new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + symbol + " not initialized"),
+              new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),
               tree,
               builder));
     }

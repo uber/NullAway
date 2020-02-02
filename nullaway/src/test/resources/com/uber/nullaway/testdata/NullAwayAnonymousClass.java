@@ -35,6 +35,10 @@ public class NullAwayAnonymousClass {
 
     Runnable r =
         new Runnable() {
+
+          // BUG: Diagnostic contains: @NonNull field NullAwayAnonymousClass$1.f not initialized
+          private Object f;
+
           @Override
           public void run() {
             Object y = new Object();
