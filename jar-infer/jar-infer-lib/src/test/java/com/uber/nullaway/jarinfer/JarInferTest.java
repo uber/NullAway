@@ -415,7 +415,7 @@ public class JarInferTest {
     testAnnotationInAarTemplate(
         "toyAARAnnotatingClasses",
         "com.uber.nullaway.jarinfer.toys.unannotated",
-        "../test-android-lib-jarinfer/build/outputs/aar/test-android-lib-jarinfer.aar",
+        "../test-android-lib-jarinfer/build/outputs/aar/test-android-lib-jarinfer-release.aar",
         ImmutableMap.of(
             "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNullable;",
             BytecodeAnnotator.androidNullableDesc,
