@@ -110,7 +110,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final ImmutableSet<String> DEFAULT_EXCLUDED_FIELD_ANNOT =
       ImmutableSet.of(
           "javax.inject.Inject", // no explicit initialization when there is dependency injection
-          "com.google.errorprone.annotations.concurrent.LazyInit");
+          "com.google.errorprone.annotations.concurrent.LazyInit",
+          "org.checkerframework.checker.nullness.qual.MonotonicNonNull");
 
   private static final String DEFAULT_URL = "http://t.uber.com/nullaway";
 
