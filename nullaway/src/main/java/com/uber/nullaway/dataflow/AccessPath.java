@@ -319,8 +319,12 @@ public final class AccessPath {
     return "AccessPath{" + "root=" + root + ", elements=" + elements + '}';
   }
 
-  private static boolean isMapMethod(Symbol.MethodSymbol symbol, Types types, String methodName) {
+  private static boolean isMapMethod(
+      Symbol.MethodSymbol symbol, Types types, String methodName, int numParams) {
     if (!symbol.getSimpleName().toString().equals(methodName)) {
+      return false;
+    }
+    if (symbol.getParameters().size() != numParams) {
       return false;
     }
     Symbol owner = symbol.owner;
@@ -337,15 +341,15 @@ public final class AccessPath {
   }
 
   private static boolean isMapGet(Symbol.MethodSymbol symbol, Types types) {
-    return isMapMethod(symbol, types, "get");
+    return isMapMethod(symbol, types, "get", 1);
   }
 
   public static boolean isContainsKey(Symbol.MethodSymbol symbol, Types types) {
-    return isMapMethod(symbol, types, "containsKey");
+    return isMapMethod(symbol, types, "containsKey", 1);
   }
 
   public static boolean isMapPut(Symbol.MethodSymbol symbol, Types types) {
-    return isMapMethod(symbol, types, "put");
+    return isMapMethod(symbol, types, "put", 2);
   }
 
   /**

@@ -2360,4 +2360,49 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testMapWithCustomPut() { // See https://github.com/uber/NullAway/issues/389
+    compilationHelper
+        .addSourceLines(
+            "Item.java",
+            "package com.uber.lib.unannotated.collections;",
+            "public class Item<K,V> {",
+            " public final K key;",
+            " public final V value;",
+            " public Item(K k, V v) {",
+            "  this.key = k;",
+            "  this.value = v;",
+            " }",
+            "}")
+        .addSourceLines(
+            "MapLike.java",
+            "package com.uber.lib.unannotated.collections;",
+            "import java.util.HashMap;",
+            "// Too much work to implement java.util.Map from scratch",
+            "public class MapLike<K,V> extends HashMap<K,V> {",
+            " public MapLike() {",
+            "   super();",
+            " }",
+            " public void put(Item<K,V> item) {",
+            "   put(item.key, item.value);",
+            " }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.collections.Item;",
+            "import com.uber.lib.unannotated.collections.MapLike;",
+            "public class Test {",
+            " public static MapLike test_389(@Nullable Item<String, String> item) {",
+            "  MapLike<String, String> map = new MapLike<String, String>();",
+            "  if (item != null) {", // Required to trigger dataflow analysis
+            "    map.put(item);",
+            "  }",
+            "  return map;",
+            " }",
+            "}")
+        .doTest();
+  }
 }
