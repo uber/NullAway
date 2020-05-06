@@ -1,6 +1,17 @@
 Changelog
 =========
 
+Version 0.7.10
+--------------
+* Add Java 8 streams nullness-propagation support (#371) 
+* Give line numbers for uninitialized fields when reporting error on an initializer (#380)
+* Include outer$inner class name when reporting field init errors (#375) 
+* Update to Gradle 6.1.1 (#381)
+* Add @MonotonicNonNull as lazy initialization annotation. (#383)
+* Add default library model for CompilationUnitTree.getPackageName() (#384)
+* Improve matching of native Map methods (#390) 
+  - Fixes an IndexOutOfBoundsException checker crash
+
 Version 0.7.9
 -------------
 * Multiple dependency upgrades
