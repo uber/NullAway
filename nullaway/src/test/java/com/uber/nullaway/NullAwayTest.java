@@ -1535,7 +1535,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessHandlerTest() {
+  public void optionalEmptinessHandlerTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1611,7 +1611,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessHandlerWithSingleCustomPathTest() {
+  public void optionalEmptinessHandlerWithSingleCustomPathTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1693,7 +1693,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessHandlerWithTwoCustomPathsTest() {
+  public void optionalEmptinessHandlerWithTwoCustomPathsTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1773,7 +1773,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessUncheckedTest() {
+  public void optionalEmptinessUncheckedTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1808,7 +1808,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessRxPositiveTest() {
+  public void optionalEmptinessRxPositiveTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1840,7 +1840,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessRxNegativeTest() {
+  public void optionalEmptinessRxNegativeTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1872,7 +1872,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessHandleAssertionLibraryTest() {
+  public void optionalEmptinessHandleAssertionLibraryTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1908,7 +1908,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessAssignmentCheckNegativeTest() {
+  public void optionalEmptinessAssignmentCheckNegativeTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1943,7 +1943,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessAssignmentCheckPositiveTest() {
+  public void optionalEmptinessAssignmentCheckPositiveTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1973,6 +1973,74 @@ public class NullAwayTest {
             "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
             "     lambdaConsumer(v -> {Object x = b.get();  return \"irrelevant\";});",
             "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void optionalEmptinessContextualSuppressionTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "TestClassSuppression.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "@SuppressWarnings(\"NullAway.Optional\")",
+            "public class TestClassSuppression {",
+            "  // no error since suppressed",
+            "  Function<Optional, String> lambdaField = opt -> opt.get().toString();",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    // no error since suppressed",
+            "    a.get().toString();",
+            "  }",
+            "  public void lambdaConsumer(Function a){",
+            "    return;",
+            "  }",
+            "  void bar() {",
+            "    Optional<Object> b = Optional.empty();",
+            "    // no error since suppressed",
+            "    lambdaConsumer(v -> b.get().toString());",
+            "  }",
+            "  void baz(@Nullable Object o) {",
+            "    // unrelated errors not suppressed",
+            "    // BUG: Diagnostic contains: dereferenced expression o is @Nullable",
+            "    o.toString();",
+            "  }",
+            "  public static class Inner {",
+            "    void foo() {",
+            "      Optional<Object> a = Optional.empty();",
+            "      // no error since suppressed in outer class",
+            "      a.get().toString();",
+            "    }",
+            "  }",
+            "}")
+        .addSourceLines(
+            "TestLambdaFieldNoSuppression.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import com.google.common.base.Function;",
+            "public class TestLambdaFieldNoSuppression {",
+            "  // BUG: Diagnostic contains: Invoking get() on possibly empty Optional opt",
+            "  Function<Optional, String> lambdaField = opt -> opt.get().toString();",
+            "}")
+        .addSourceLines(
+            "TestLambdaFieldWithSuppression.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import com.google.common.base.Function;",
+            "public class TestLambdaFieldWithSuppression {",
+            "  // no error since suppressed",
+            "  @SuppressWarnings(\"NullAway.Optional\")",
+            "  Function<Optional, String> lambdaField = opt -> opt.get().toString();",
             "}")
         .doTest();
   }

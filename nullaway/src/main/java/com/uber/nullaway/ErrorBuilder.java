@@ -77,15 +77,14 @@ public class ErrorBuilder {
    * create an error description for a nullability warning
    *
    * @param errorMessage the error message object.
-   * @param path the TreePath to the error location. Used to compute a suggested fix at the
-   *     enclosing method for the error location
    * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state (used for e.g. suppression finding).
    * @return the error description
    */
   Description createErrorDescription(
-      ErrorMessage errorMessage, TreePath path, Description.Builder descriptionBuilder) {
-    Tree enclosingSuppressTree = suppressibleNode(path);
-    return createErrorDescription(errorMessage, enclosingSuppressTree, descriptionBuilder);
+      ErrorMessage errorMessage, Description.Builder descriptionBuilder, VisitorState state) {
+    Tree enclosingSuppressTree = suppressibleNode(state.getPath());
+    return createErrorDescription(errorMessage, enclosingSuppressTree, descriptionBuilder, state);
   }
 
   /**
@@ -94,14 +93,17 @@ public class ErrorBuilder {
    * @param errorMessage the error message object.
    * @param suggestTree the location at which a fix suggestion should be made
    * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state (used for e.g. suppression finding).
    * @return the error description
    */
   public Description createErrorDescription(
       ErrorMessage errorMessage,
       @Nullable Tree suggestTree,
-      Description.Builder descriptionBuilder) {
+      Description.Builder descriptionBuilder,
+      VisitorState state) {
     Description.Builder builder = descriptionBuilder.setMessage(errorMessage.message);
-    if (isOptionalTypeErrorAndSuppressed(errorMessage, suggestTree)) {
+    if (errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)
+        && hasPathSuppression(state.getPath(), OPTIONAL_CHECK_NAME)) {
       return Description.NO_MATCH;
     }
 
@@ -112,13 +114,28 @@ public class ErrorBuilder {
     return builder.build();
   }
 
-  private boolean isOptionalTypeErrorAndSuppressed(
-      ErrorMessage errorMessage, @Nullable Tree suggestTree) {
-    return errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)
-        && suggestTree != null
-        && ASTHelpers.getSymbol(suggestTree) != null
-        && symbolHasSuppressWarningsAnnotation(
-            ASTHelpers.getSymbol(suggestTree), OPTIONAL_CHECK_NAME);
+  /**
+   * Find out if a particular subchecker (e.g. NullAway.Optional) is being suppressed in a given
+   * path.
+   *
+   * <p>This requires a tree path traversal, which is expensive, but we only do this when we would
+   * otherwise report an error, which means this won't happen for most nodes/files.
+   *
+   * @param treePath The path with the error location as the leaf.
+   * @param subcheckerName The string to check for inside @SuppressWarnings
+   * @return
+   */
+  private boolean hasPathSuppression(TreePath treePath, String subcheckerName) {
+    return StreamSupport.stream(treePath.spliterator(), false)
+        .filter(
+            tree ->
+                tree instanceof MethodTree
+                    || (tree instanceof ClassTree
+                        && ((ClassTree) tree).getSimpleName().length() != 0)
+                    || tree instanceof VariableTree)
+        .map(tree -> ASTHelpers.getSymbol(tree))
+        .filter(symbol -> symbol != null)
+        .anyMatch(symbol -> symbolHasSuppressWarningsAnnotation(symbol, subcheckerName));
   }
 
   private Description.Builder addSuggestedSuppression(
@@ -168,18 +185,21 @@ public class ErrorBuilder {
    *     castToNonNull method is not available (usually the enclosing method, or any place
    *     where @SuppressWarnings can be added).
    * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state for the location which triggered the error (i.e. for suppression
+   *     finding)
    * @return the error description.
    */
   Description createErrorDescriptionForNullAssignment(
       ErrorMessage errorMessage,
       @Nullable Tree suggestTreeIfCastToNonNull,
-      @Nullable TreePath suggestTreePathIfSuppression,
-      Description.Builder descriptionBuilder) {
-    final Tree enclosingSuppressTree = suppressibleNode(suggestTreePathIfSuppression);
+      Description.Builder descriptionBuilder,
+      VisitorState state) {
     if (config.getCastToNonNullMethod() != null) {
-      return createErrorDescription(errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder);
+      return createErrorDescription(
+          errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state);
     } else {
-      return createErrorDescription(errorMessage, enclosingSuppressTree, descriptionBuilder);
+      return createErrorDescription(
+          errorMessage, suppressibleNode(state.getPath()), descriptionBuilder, state);
     }
   }
 
@@ -290,7 +310,7 @@ public class ErrorBuilder {
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
     state.reportMatch(
         createErrorDescription(
-            new ErrorMessage(METHOD_NO_INIT, message), methodTree, descriptionBuilder));
+            new ErrorMessage(METHOD_NO_INIT, message), methodTree, descriptionBuilder, state));
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
@@ -377,13 +397,15 @@ public class ErrorBuilder {
               new ErrorMessage(
                   FIELD_NO_INIT, "@NonNull static field " + fieldName + " not initialized"),
               tree,
-              builder));
+              builder,
+              state));
     } else {
       state.reportMatch(
           createErrorDescription(
               new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),
               tree,
-              builder));
+              builder,
+              state));
     }
   }
 }
