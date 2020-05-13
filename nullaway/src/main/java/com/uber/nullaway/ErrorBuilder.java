@@ -114,6 +114,12 @@ public class ErrorBuilder {
     return builder.build();
   }
 
+  private static boolean canHaveSuppressWarningsAnnotation(Tree tree) {
+    return tree instanceof MethodTree
+        || (tree instanceof ClassTree && ((ClassTree) tree).getSimpleName().length() != 0)
+        || tree instanceof VariableTree;
+  }
+
   /**
    * Find out if a particular subchecker (e.g. NullAway.Optional) is being suppressed in a given
    * path.
@@ -127,12 +133,7 @@ public class ErrorBuilder {
    */
   private boolean hasPathSuppression(TreePath treePath, String subcheckerName) {
     return StreamSupport.stream(treePath.spliterator(), false)
-        .filter(
-            tree ->
-                tree instanceof MethodTree
-                    || (tree instanceof ClassTree
-                        && ((ClassTree) tree).getSimpleName().length() != 0)
-                    || tree instanceof VariableTree)
+        .filter(ErrorBuilder::canHaveSuppressWarningsAnnotation)
         .map(tree -> ASTHelpers.getSymbol(tree))
         .filter(symbol -> symbol != null)
         .anyMatch(symbol -> symbolHasSuppressWarningsAnnotation(symbol, subcheckerName));
@@ -256,12 +257,7 @@ public class ErrorBuilder {
       return null;
     }
     return StreamSupport.stream(path.spliterator(), false)
-        .filter(
-            tree ->
-                tree instanceof MethodTree
-                    || (tree instanceof ClassTree
-                        && ((ClassTree) tree).getSimpleName().length() != 0)
-                    || tree instanceof VariableTree)
+        .filter(ErrorBuilder::canHaveSuppressWarningsAnnotation)
         .findFirst()
         .orElse(null);
   }
