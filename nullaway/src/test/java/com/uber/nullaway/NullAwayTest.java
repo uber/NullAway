@@ -2473,4 +2473,23 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void defaultLibraryModelsObjectNonNull() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  String foo(@Nullable Object o) {",
+            "    if (Objects.nonNull(o)) {",
+            "     return o.toString();",
+            "    };",
+            "    return \"\";",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

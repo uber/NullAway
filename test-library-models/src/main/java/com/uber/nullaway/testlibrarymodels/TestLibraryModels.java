@@ -52,6 +52,11 @@ public class TestLibraryModels implements LibraryModels {
   }
 
   @Override
+  public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
+    return ImmutableSetMultimap.of();
+  }
+
+  @Override
   public ImmutableSet<MethodRef> nullableReturns() {
     return ImmutableSet.of();
   }
