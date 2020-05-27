@@ -126,7 +126,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, context);
-    setConditionalArgumentNullness(elseUpdates, node.getArguments(), callee, context);
+    setConditionalArgumentNullness(thenUpdates, elseUpdates, node.getArguments(), callee, context);
     if (getOptLibraryModels(context).hasNonNullReturn(callee, types)) {
       return NullnessHint.FORCE_NONNULL;
     } else if (getOptLibraryModels(context).hasNullableReturn(callee, types)) {
@@ -137,14 +137,20 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   private void setConditionalArgumentNullness(
+      AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       List<Node> arguments,
       Symbol.MethodSymbol callee,
       Context context) {
     Set<Integer> nullImpliesTrueParameters =
         getOptLibraryModels(context).nullImpliesTrueParameters(callee);
+    Set<Integer> nullImpliesFalseParameters =
+        getOptLibraryModels(context).nullImpliesFalseParameters(callee);
     for (AccessPath accessPath : accessPathsAtIndexes(nullImpliesTrueParameters, arguments)) {
       elseUpdates.set(accessPath, NONNULL);
+    }
+    for (AccessPath accessPath : accessPathsAtIndexes(nullImpliesFalseParameters, arguments)) {
+      thenUpdates.set(accessPath, NONNULL);
     }
   }
 
@@ -448,6 +454,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 0)
             .build();
 
+    private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_FALSE_PARAMETERS =
+        new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+            .put(methodRef("java.util.Objects", "nonNull(java.lang.Object)"), 0)
+            .build();
+
     private static final ImmutableSet<MethodRef> NULLABLE_RETURNS =
         new ImmutableSet.Builder<MethodRef>()
             .add(methodRef("java.lang.ref.Reference", "get()"))
@@ -538,6 +549,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     @Override
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
+      return NULL_IMPLIES_FALSE_PARAMETERS;
+    }
+
+    @Override
     public ImmutableSet<MethodRef> nullableReturns() {
       return NULLABLE_RETURNS;
     }
@@ -558,6 +574,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters;
 
+    private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters;
+
     private final ImmutableSet<MethodRef> nullableReturns;
 
     private final ImmutableSet<MethodRef> nonNullReturns;
@@ -570,6 +588,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       ImmutableSetMultimap.Builder<MethodRef, Integer> nonNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesFalseParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSet.Builder<MethodRef> nullableReturnsBuilder = new ImmutableSet.Builder<>();
       ImmutableSet.Builder<MethodRef> nonNullReturnsBuilder = new ImmutableSet.Builder<>();
@@ -588,6 +608,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             libraryModels.nullImpliesTrueParameters().entries()) {
           nullImpliesTrueParametersBuilder.put(entry);
         }
+        for (Map.Entry<MethodRef, Integer> entry :
+            libraryModels.nullImpliesFalseParameters().entries()) {
+          nullImpliesFalseParametersBuilder.put(entry);
+        }
         for (MethodRef name : libraryModels.nullableReturns()) {
           nullableReturnsBuilder.add(name);
         }
@@ -599,6 +623,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       explicitlyNullableParameters = explicitlyNullableParametersBuilder.build();
       nonNullParameters = nonNullParametersBuilder.build();
       nullImpliesTrueParameters = nullImpliesTrueParametersBuilder.build();
+      nullImpliesFalseParameters = nullImpliesFalseParametersBuilder.build();
       nullableReturns = nullableReturnsBuilder.build();
       nonNullReturns = nonNullReturnsBuilder.build();
     }
@@ -621,6 +646,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
       return nullImpliesTrueParameters;
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
+      return nullImpliesFalseParameters;
     }
 
     @Override
@@ -674,6 +704,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private final NameIndexedMap<ImmutableSet<Integer>> explicitlyNullableParams;
     private final NameIndexedMap<ImmutableSet<Integer>> nonNullParams;
     private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesTrueParams;
+    private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesFalseParams;
     private final NameIndexedMap<Boolean> nullableRet;
     private final NameIndexedMap<Boolean> nonNullRet;
 
@@ -684,6 +715,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           makeOptimizedIntSetLookup(names, models.explicitlyNullableParameters());
       nonNullParams = makeOptimizedIntSetLookup(names, models.nonNullParameters());
       nullImpliesTrueParams = makeOptimizedIntSetLookup(names, models.nullImpliesTrueParameters());
+      nullImpliesFalseParams =
+          makeOptimizedIntSetLookup(names, models.nullImpliesFalseParameters());
       nullableRet = makeOptimizedBoolLookup(names, models.nullableReturns());
       nonNullRet = makeOptimizedBoolLookup(names, models.nonNullReturns());
     }
@@ -710,6 +743,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     ImmutableSet<Integer> nullImpliesTrueParameters(Symbol.MethodSymbol symbol) {
       return lookupImmutableSet(symbol, nullImpliesTrueParams);
+    }
+
+    ImmutableSet<Integer> nullImpliesFalseParameters(Symbol.MethodSymbol symbol) {
+      return lookupImmutableSet(symbol, nullImpliesFalseParams);
     }
 
     private ImmutableSet<Integer> lookupImmutableSet(

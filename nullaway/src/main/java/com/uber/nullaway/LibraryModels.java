@@ -64,6 +64,12 @@ public interface LibraryModels {
    */
   ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters();
 
+  /**
+   * @return map from the names of non-null-querying methods to the indexes of the arguments that
+   *     are compared against null.
+   */
+  ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters();
+
   /** @return set of library methods that may return null */
   ImmutableSet<MethodRef> nullableReturns();
 
