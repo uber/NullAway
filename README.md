@@ -80,7 +80,7 @@ dependencies {
   errorproneJavac "com.google.errorprone:javac:9+181-r4173-1"  
 }
 ```
-A complete Android `build.gradle` example is [here](https://gist.github.com/msridhar/6cacd429567f1d1ad9a278e06809601c).  Also see our [sample app](https://github.com/uber/NullAway/blob/master/sample-app/).
+A complete Android `build.gradle` example is [here](https://gist.github.com/msridhar/6cacd429567f1d1ad9a278e06809601c).  Also see our [sample app](https://github.com/uber/NullAway/blob/master/sample-app/).  (The sample app's `[build.gradle](https://github.com/uber/NullAway/blob/master/sample-app/)` is not suitable for direct copy-pasting, as some configuration is inherited from the top-level `build.gradle`.)
 
 #### Annotation Processors / Generated Code
 
