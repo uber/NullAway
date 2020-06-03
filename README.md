@@ -76,6 +76,8 @@ The configuration for an Android project is very similar to the Java case, with 
 ```gradle
 dependencies {
   annotationProcessor "com.uber.nullaway:nullaway:0.7.10"
+  errorprone "com.google.errorprone:error_prone_core:2.3.2"
+  errorproneJavac "com.google.errorprone:javac:9+181-r4173-1"  
 }
 ```
 A complete Android `build.gradle` example is [here](https://gist.github.com/msridhar/6cacd429567f1d1ad9a278e06809601c).  Also see our [sample app](https://github.com/uber/NullAway/blob/master/sample-app/).
