@@ -2496,8 +2496,9 @@ public class NullAwayTest {
   @Test
   public void checkForNullSupport() {
     compilationHelper
+        // This is just to check the behavior is the same between @Nullable and @CheckForNull
         .addSourceLines(
-            "Nullable.java",
+            "TestNullable.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "class TestNullable {",
