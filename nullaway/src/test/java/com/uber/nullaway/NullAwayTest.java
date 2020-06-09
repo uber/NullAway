@@ -2492,4 +2492,32 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void checkForNullSupport() {
+    compilationHelper
+        .addSourceLines(
+            "Nullable.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class TestNullable {",
+            "  @Nullable",
+            "  Object nullable = new Object();",
+            "  public void setNullable(@Nullable Object nullable) {this.nullable = nullable;}",
+            "  // BUG: Diagnostic contains: dereferenced expression nullable is @Nullable",
+            "  public void run() {System.out.println(nullable.toString());}",
+            "}")
+        .addSourceLines(
+            "CheckForNull.java",
+            "package com.uber;",
+            "import javax.annotation.CheckForNull;",
+            "class TestCheckForNull {",
+            "  @CheckForNull",
+            "  Object checkForNull = new Object();",
+            "  public void setCheckForNull(@CheckForNull Object checkForNull) {this.checkForNull = checkForNull;}",
+            "  // BUG: Diagnostic contains: dereferenced expression checkForNull is @Nullable",
+            "  public void run() {System.out.println(checkForNull.toString());}",
+            "}")
+        .doTest();
+  }
 }

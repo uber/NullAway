@@ -152,6 +152,8 @@ public enum Nullness implements AbstractValue<Nullness> {
         // and will replace `org.checkerframework` with `shadow.checkerframework`. Yes, really...
         // I assume it's something to handle reflection.
         || annotName.endsWith(".checkerframework.checker.nullness.compatqual.NullableDecl")
+        // matches javax.annotation.CheckForNull and edu.umd.cs.findbugs.annotations.CheckForNull
+        || annotName.endsWith(".CheckForNull")
         || (config.acknowledgeAndroidRecent()
             && annotName.equals("androidx.annotation.RecentlyNullable"));
   }
