@@ -2508,7 +2508,7 @@ public class NullAwayTest {
             "  public void run() {System.out.println(nullable.toString());}",
             "}")
         .addSourceLines(
-            "CheckForNull.java",
+            "TestCheckForNull.java",
             "package com.uber;",
             "import javax.annotation.CheckForNull;",
             "class TestCheckForNull {",
