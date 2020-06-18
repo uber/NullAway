@@ -50,4 +50,5 @@ cmd = "java -jar " + jarinfer + " -i " + ",".join(list(jars_to_process)) + " -o 
 if options.verbose:
   cmd += " -dv"
 print cmd
-subprocess.call(cmd, shell=True)
+returncode = subprocess.call(cmd, shell=True)
+sys.exit(returncode)
