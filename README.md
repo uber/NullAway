@@ -30,7 +30,7 @@ dependencies {
   // library nullability annotations.
   compileOnly "com.google.code.findbugs:jsr305:3.0.2"
 
-  errorprone "com.google.errorprone:error_prone_core:2.3.2"
+  errorprone "com.google.errorprone:error_prone_core:2.4.0"
   errorproneJavac "com.google.errorprone:javac:9+181-r4173-1"
 }
 
@@ -76,7 +76,7 @@ The configuration for an Android project is very similar to the Java case, with 
 ```gradle
 dependencies {
   annotationProcessor "com.uber.nullaway:nullaway:0.7.10"
-  errorprone "com.google.errorprone:error_prone_core:2.3.2"
+  errorprone "com.google.errorprone:error_prone_core:2.4.0"
   errorproneJavac "com.google.errorprone:javac:9+181-r4173-1"  
 }
 ```
