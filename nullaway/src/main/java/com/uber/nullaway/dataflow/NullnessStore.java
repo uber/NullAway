@@ -48,12 +48,18 @@ public class NullnessStore implements Store<NullnessStore> {
   private NullnessStore(Map<AccessPath, Nullness> contents) {
     this.contents = ImmutableMap.copyOf(contents);
   }
-  /** @return an empty store */
+  /**
+   * Produce an empty store.
+   *
+   * @return an empty store
+   */
   public static NullnessStore empty() {
     return EMPTY;
   }
 
   /**
+   * Get the nullness for a local variable.
+   *
    * @param node node representing local variable
    * @param defaultValue default value if we have no fact
    * @return fact associated with local
@@ -64,6 +70,8 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   /**
+   * Get the nullness of a field.
+   *
    * @param node node representing field access
    * @param defaultValue default value if we have no fact
    * @return fact associated with field access
@@ -78,6 +86,8 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   /**
+   * Get the nullness of a method call.
+   *
    * @param node node representing method invocation
    * @param defaultValue default value if we have no fact
    * @return fact associated with method invocation
@@ -92,6 +102,8 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   /**
+   * Get all access paths in this store with a particular nullness value.
+   *
    * @param value a nullness value
    * @return all access paths in this store that have the given nullness value
    */
@@ -201,6 +213,8 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   /**
+   * Get access paths matching a predicate.
+   *
    * @param pred predicate over {@link AccessPath}s
    * @return NullnessStore containing only AccessPaths that pass the predicate
    */
@@ -237,7 +251,11 @@ public class NullnessStore implements Store<NullnessStore> {
       return this;
     }
 
-    /** @return a store constructed from everything added to the builder */
+    /**
+     * Construct the immutable NullnessStore instance.
+     *
+     * @return a store constructed from everything added to the builder
+     */
     public NullnessStore build() {
       return new NullnessStore(contents);
     }

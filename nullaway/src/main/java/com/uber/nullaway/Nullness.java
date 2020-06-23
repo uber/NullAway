@@ -143,6 +143,8 @@ public enum Nullness implements AbstractValue<Nullness> {
   }
 
   /**
+   * Check whether an annotation should be treated as equivalent to <code>@Nullable</code>.
+   *
    * @param annotName annotation name
    * @return true if we treat annotName as a <code>@Nullable</code> annotation, false otherwise
    */
@@ -159,6 +161,8 @@ public enum Nullness implements AbstractValue<Nullness> {
   }
 
   /**
+   * Check whether an annotation should be treated as equivalent to <code>@NonNull</code>.
+   *
    * @param annotName annotation name
    * @return true if we treat annotName as a <code>@NonNull</code> annotation, false otherwise
    */

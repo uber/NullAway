@@ -99,7 +99,7 @@ public class DefinitelyDerefedParams {
   /**
    * This is the core analysis that identifies definitely-dereferenced parameters.
    *
-   * @return Set<Integer> The ordinal indices of formal parameters that are definitely-dereferenced.
+   * @return The ordinal indices of formal parameters that are definitely-dereferenced.
    */
   Set<Integer> analyze() {
     // Get ExceptionPrunedCFG

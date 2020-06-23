@@ -129,7 +129,7 @@ public class ErrorBuilder {
    *
    * @param treePath The path with the error location as the leaf.
    * @param subcheckerName The string to check for inside @SuppressWarnings
-   * @return
+   * @return Whether the subchecker is being suppressed at treePath.
    */
   private boolean hasPathSuppression(TreePath treePath, String subcheckerName) {
     return StreamSupport.stream(treePath.spliterator(), false)
@@ -182,9 +182,6 @@ public class ErrorBuilder {
    * @param errorMessage the error message object.
    * @param suggestTreeIfCastToNonNull the location at which a fix suggestion should be made if a
    *     castToNonNull method is available (usually the expression to cast)
-   * @param suggestTreePathIfSuppression the location at which a fix suggestion should be made if a
-   *     castToNonNull method is not available (usually the enclosing method, or any place
-   *     where @SuppressWarnings can be added).
    * @param descriptionBuilder the description builder for the error.
    * @param state the visitor state for the location which triggered the error (i.e. for suppression
    *     finding)
@@ -206,8 +203,11 @@ public class ErrorBuilder {
 
   Description.Builder addSuppressWarningsFix(
       Tree suggestTree, Description.Builder builder, String suppressionName) {
-    SuppressWarnings extantSuppressWarnings =
-        ASTHelpers.getAnnotation(suggestTree, SuppressWarnings.class);
+    SuppressWarnings extantSuppressWarnings = null;
+    Symbol treeSymbol = ASTHelpers.getSymbol(suggestTree);
+    if (treeSymbol != null) {
+      extantSuppressWarnings = treeSymbol.getAnnotation(SuppressWarnings.class);
+    }
     SuggestedFix fix;
     if (extantSuppressWarnings == null) {
       fix =
