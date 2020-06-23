@@ -33,12 +33,16 @@ import java.util.regex.Pattern;
 public interface LibraryModels {
 
   /**
+   * Get methods which fail/error out when passed null.
+   *
    * @return map from the names of null-rejecting methods to the indexes of the arguments that
    *     aren't permitted to be null.
    */
   ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters();
 
   /**
+   * Get (method, parameter) pairs that must be modeled as if explicitly annotated with @Nullable.
+   *
    * @return map from the names of methods with @Nullable parameters to the indexes of the arguments
    *     that are @Nullable.
    *     <p>This is taken into account for override checks, requiring methods that override the
@@ -48,6 +52,8 @@ public interface LibraryModels {
   ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters();
 
   /**
+   * Get (method, parameter) pairs that must be modeled as @NonNull.
+   *
    * @return map from the names of methods with @NonNull parameters to the indexes of the arguments
    *     that are @NonNull.
    *     <p>Note that these methods are different from the {@link #failIfNullParameters()} methods,
@@ -59,21 +65,33 @@ public interface LibraryModels {
   ImmutableSetMultimap<MethodRef, Integer> nonNullParameters();
 
   /**
+   * Get (method, parameter) pairs that cause the method to return <code>true</code> when null.
+   *
    * @return map from the names of null-querying methods to the indexes of the arguments that are
    *     compared against null.
    */
   ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters();
 
   /**
+   * Get (method, parameter) pairs that cause the method to return <code>false</code> when null.
+   *
    * @return map from the names of non-null-querying methods to the indexes of the arguments that
    *     are compared against null.
    */
   ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters();
 
-  /** @return set of library methods that may return null */
+  /**
+   * Get the set of library methods that may return null.
+   *
+   * @return set of library methods that may return null
+   */
   ImmutableSet<MethodRef> nullableReturns();
 
-  /** @return set of library methods that are assumed not to return null */
+  /**
+   * Get the set of library methods that are assumed not to return null.
+   *
+   * @return set of library methods that are assumed not to return null
+   */
   ImmutableSet<MethodRef> nonNullReturns();
 
   /**
@@ -115,6 +133,8 @@ public interface LibraryModels {
     private static final Pattern METHOD_SIG_PATTERN = Pattern.compile("^(<.*>)?(\\w+)(\\(.*\\))$");
 
     /**
+     * Construct a method reference.
+     *
      * @param enclosingClass containing class
      * @param methodSignature method signature in the appropriate format (see class docs)
      * @return corresponding {@link MethodRef}

@@ -48,8 +48,9 @@ public class AnnotationChecker {
    *     that are expected to be present.
    * @return True when the actual annotations that are expected to be present are present iff the
    *     'Expect*' annotations are present.
-   * @throws IOException
+   * @throws IOException if an error happens when reading the AAR file.
    */
+  @SuppressWarnings("JdkObsolete")
   public static boolean checkMethodAnnotationsInAar(
       String aarFile, Map<String, String> expectedToActualAnnotations) throws IOException {
     Preconditions.checkArgument(aarFile.endsWith(".aar"), "invalid aar file: " + aarFile);
@@ -83,8 +84,9 @@ public class AnnotationChecker {
    *     that are expected to be present.
    * @return True when the actual annotations that are expected to be present are present iff the
    *     'Expect*' annotations are present.
-   * @throws IOException
+   * @throws IOException if an error happens when reading the jar file.
    */
+  @SuppressWarnings("JdkObsolete")
   public static boolean checkMethodAnnotationsInJar(
       String jarFile, Map<String, String> expectedToActualAnnotations) throws IOException {
     Preconditions.checkArgument(jarFile.endsWith(".jar"), "invalid jar file: " + jarFile);

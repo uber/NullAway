@@ -48,13 +48,16 @@ subprojects { project ->
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)
         options.compilerArgs += [
-            "-Xlint:unchecked",
+            "-Xlint:deprecation",
             "-Xlint:rawtypes",
+            "-Xlint:unchecked",
             "-Werror"
         ]
         options.errorprone {
             // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
             disableWarningsInGeneratedCode = true
+            // Triggers for generated Android code (R.java)
+            check("MutablePublicArray", CheckSeverity.OFF)
             // this check is too noisy
             check("StringSplitter", CheckSeverity.OFF)
             check("WildcardImport", CheckSeverity.ERROR)
