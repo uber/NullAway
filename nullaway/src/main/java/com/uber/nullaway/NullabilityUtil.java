@@ -191,6 +191,8 @@ public class NullabilityUtil {
   }
 
   /**
+   * Check if a field might be null, based on the type.
+   *
    * @param symbol symbol for field
    * @param config NullAway config
    * @return true if based on the type, package, and name of the field, the analysis should assume
@@ -207,6 +209,8 @@ public class NullabilityUtil {
   }
 
   /**
+   * Check if a symbol comes from unannotated code.
+   *
    * @param symbol symbol for entity
    * @param config NullAway config
    * @return true if symbol represents an entity from a class that is unannotated; false otherwise
@@ -218,6 +222,8 @@ public class NullabilityUtil {
   }
 
   /**
+   * Check if a symbol comes from generated code.
+   *
    * @param symbol symbol for entity
    * @return true if symbol represents an entity from a class annotated with {@code @Generated};
    *     false otherwise

@@ -17,8 +17,8 @@
 def versions = [
     asm                    : "7.1",
     checkerFramework       : "3.0.0",
-    errorProne             : "2.3.3", // The version of error prone running on this project
-    errorProneApi          : "2.3.1", // The version of error prone built against and shipped
+    errorProne             : "2.4.0", // The version of error prone running on this project
+    errorProneApi          : "2.4.0", // The version of error prone built against and shipped
     support                : "27.1.1",
     wala                   : "1.5.4",
     commonscli             : "1.4",

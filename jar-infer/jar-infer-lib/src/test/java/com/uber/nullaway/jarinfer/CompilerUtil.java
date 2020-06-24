@@ -19,11 +19,11 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.BaseErrorProneCompiler;
+import com.google.errorprone.BaseErrorProneJavaCompiler;
+import com.google.errorprone.DiagnosticTestHelper;
 import com.google.errorprone.ErrorProneInMemoryFileManager;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.scanner.ScannerSupplier;
-import com.sun.tools.javac.main.Main;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -33,6 +33,7 @@ import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 
@@ -54,8 +55,9 @@ public class CompilerUtil {
 
   private final ErrorProneInMemoryFileManager fileManager;
   private final List<JavaFileObject> sources = new ArrayList<>();
-  private final BaseErrorProneCompiler compiler;
+  private final BaseErrorProneJavaCompiler compiler;
   private final ByteArrayOutputStream outputStream;
+  private final DiagnosticTestHelper diagnosticHelper;
   private List<String> args = ImmutableList.of();
 
   public CompilerUtil(Class<?> klass) {
@@ -66,15 +68,11 @@ public class CompilerUtil {
       throw new RuntimeException("unexpected IOException", e);
     }
     outputStream = new ByteArrayOutputStream();
+    diagnosticHelper = new DiagnosticTestHelper();
     this.compiler =
-        BaseErrorProneCompiler.builder()
-            .redirectOutputTo(
-                new PrintWriter(
-                    new BufferedWriter(new OutputStreamWriter(outputStream, UTF_8)), true))
-            .report(
-                ScannerSupplier.fromBugCheckerClasses(
-                    Collections.<Class<? extends BugChecker>>emptySet()))
-            .build();
+        new BaseErrorProneJavaCompiler(
+            ScannerSupplier.fromBugCheckerClasses(
+                Collections.<Class<? extends BugChecker>>emptySet()));
   }
   /**
    * Adds a source file to the test compilation, from an existing resource file.
@@ -100,8 +98,18 @@ public class CompilerUtil {
     return this;
   }
 
-  private Main.Result compile(Iterable<JavaFileObject> sources, String[] args) {
-    return compiler.run(args, fileManager, ImmutableList.copyOf(sources), null);
+  private boolean compile(Iterable<JavaFileObject> sources, Iterable<String> args) {
+    PrintWriter writer =
+        new PrintWriter(new BufferedWriter(new OutputStreamWriter(outputStream, UTF_8)), true);
+    JavaCompiler.CompilationTask task =
+        compiler.getTask(
+            writer,
+            fileManager,
+            diagnosticHelper.collector,
+            args,
+            null,
+            ImmutableList.copyOf(sources));
+    return task.call();
   }
 
   public String getOutput() {
@@ -130,9 +138,9 @@ public class CompilerUtil {
     return ImmutableList.<String>builder().addAll(args).add("-proc:none").build();
   }
 
-  public Main.Result run() {
+  public boolean run() {
     Preconditions.checkState(!sources.isEmpty(), "No source files to compile");
     List<String> allArgs = buildArguments(args);
-    return compile(sources, allArgs.toArray(new String[allArgs.size()]));
+    return compile(sources, allArgs);
   }
 }

@@ -38,8 +38,9 @@ public class EntriesComparator {
    * @param jarFile1 Path to the first jar file.
    * @param jarFile2 Path to the second jar file.
    * @return True iff the entries present in the two jar files are the same.
-   * @throws IOException
+   * @throws IOException if an error happens when reading jar files.
    */
+  @SuppressWarnings("JdkObsolete")
   public static boolean compareEntriesInJars(String jarFile1, String jarFile2) throws IOException {
     Preconditions.checkArgument(jarFile1.endsWith(".jar"), "invalid jar file: " + jarFile1);
     Preconditions.checkArgument(jarFile2.endsWith(".jar"), "invalid jar file: " + jarFile2);
@@ -64,8 +65,9 @@ public class EntriesComparator {
    * @param aarFile2 Path to the second aar file.
    * @return True iff the entries present in the two aar files are the same and entries in
    *     "classes.jar" in the two aar files are the same.
-   * @throws IOException
+   * @throws IOException if an error happens when reading aar files.
    */
+  @SuppressWarnings("JdkObsolete")
   public static boolean compareEntriesInAars(String aarFile1, String aarFile2) throws IOException {
     Preconditions.checkArgument(aarFile1.endsWith(".aar"), "invalid aar file: " + aarFile1);
     Preconditions.checkArgument(aarFile2.endsWith(".aar"), "invalid aar file: " + aarFile2);
@@ -132,8 +134,8 @@ public class EntriesComparator {
    * @param jarFile1 Path to the first jar file.
    * @param jarFile2 Path to the second jar file.
    * @return True iff the MANIFEST.MF files in the two jar files exist and are the same.
-   * @throws IOException
-   * @throws IllegalArgumentException
+   * @throws IOException if an error happens when reading jar files.
+   * @throws IllegalArgumentException if either jar does not contain a manifest.
    */
   public static boolean compareManifestContents(String jarFile1, String jarFile2)
       throws IOException {

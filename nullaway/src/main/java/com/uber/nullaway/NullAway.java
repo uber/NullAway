@@ -174,6 +174,7 @@ public class NullAway extends BugChecker
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
   static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
 
+  @SuppressWarnings("UnnecessaryLambda")
   private static final Matcher<ExpressionTree> THIS_MATCHER =
       (expressionTree, state) -> isThisIdentifier(expressionTree);
 
@@ -262,6 +263,7 @@ public class NullAway extends BugChecker
     return builder.build();
   }
 
+  @SuppressWarnings("UnnecessaryLambda")
   private Predicate<MethodInvocationNode> nonAnnotatedMethodCheck() {
     return invocationNode ->
         invocationNode == null
@@ -532,7 +534,7 @@ public class NullAway extends BugChecker
    *     LambdaExpressionTree}; otherwise {@code null}
    * @param memberReferenceTree if the overriding method is a member reference (which "overrides" a
    *     functional interface method), the {@link MemberReferenceTree}; otherwise {@code null}
-   * @return
+   * @return discovered error, or {@link Description#NO_MATCH} if no error
    */
   private Description checkParamOverriding(
       List<VarSymbol> overridingParamSymbols,
@@ -725,7 +727,7 @@ public class NullAway extends BugChecker
    * @param memberReferenceTree if override is via a method reference, the relevant {@link
    *     MemberReferenceTree}; otherwise {@code null}. If non-null, overridingTree is the AST of the
    *     referenced method
-   * @param state
+   * @param state visitor state.
    * @return discovered error, or {@link Description#NO_MATCH} if no error
    */
   private Description checkOverriding(
@@ -1503,7 +1505,7 @@ public class NullAway extends BugChecker
   /**
    * @param entities relevant entities from class
    * @param notInitializedInConstructors those fields not initialized in some constructor
-   * @param state
+   * @param state visitor state
    * @return those fields from notInitializedInConstructors that are not initialized in any
    *     initializer method
    */
@@ -2007,7 +2009,7 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * @param kind
+   * @param kind an element kind.
    * @return <code>true</code> if a deference of the kind might dereference null, <code>false</code>
    *     otherwise
    */
@@ -2107,8 +2109,8 @@ public class NullAway extends BugChecker
   /**
    * strip out enclosing parentheses, type casts and Nullchk operators.
    *
-   * @param expr
-   * @return
+   * @param expr a potentially parenthesised expression.
+   * @return the same expression without parentheses.
    */
   private static ExpressionTree stripParensAndCasts(ExpressionTree expr) {
     boolean someChange = true;
@@ -2200,13 +2202,13 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Add computed nullness informat to an expression.
+   * Add computed nullness information to an expression.
    *
    * <p>Used by handlers to communicate that an expression should has a more precise nullness than
    * what is known from source annotations.
    *
-   * @param e
-   * @param nullness
+   * @param e any expression in the AST.
+   * @param nullness the added nullness information.
    */
   public void setComputedNullness(ExpressionTree e, Nullness nullness) {
     computedNullnessMap.put(e, nullness);
@@ -2238,10 +2240,15 @@ public class NullAway extends BugChecker
     /** @return symbol for class */
     abstract Symbol.ClassSymbol classSymbol();
 
-    /** @return @NonNull instance fields that are not directly initialized at declaration */
+    /**
+     * @return <code>@NonNull</code> instance fields that are not directly initialized at
+     *     declaration
+     */
     abstract ImmutableSet<Symbol> nonnullInstanceFields();
 
-    /** @return @NonNull static fields that are not directly initialized at declaration */
+    /**
+     * @return <code>@NonNull</code> static fields that are not directly initialized at declaration
+     */
     abstract ImmutableSet<Symbol> nonnullStaticFields();
 
     /**

@@ -78,6 +78,8 @@ public final class AccessPath {
   }
 
   /**
+   * Construct the access path of a local.
+   *
    * @param node the local
    * @return access path representing the local
    */
@@ -86,6 +88,8 @@ public final class AccessPath {
   }
 
   /**
+   * Construct the access path of a variable declaration.
+   *
    * @param node the variable declaration
    * @return access path representing the variable declaration
    */
@@ -95,6 +99,8 @@ public final class AccessPath {
   }
 
   /**
+   * Construct the access path of a field access.
+   *
    * @param node the field access
    * @return access path for the field access, or <code>null</code> if it cannot be represented
    */
@@ -106,6 +112,8 @@ public final class AccessPath {
   }
 
   /**
+   * Construct the access path of a method call.
+   *
    * @param node the method call
    * @return access path for the method call, or <code>null</code> if it cannot be represented
    */
@@ -125,6 +133,8 @@ public final class AccessPath {
   }
 
   /**
+   * Construct the access path given a {@code base.element} structure.
+   *
    * @param base the base expression for the access path
    * @param element the final element of the access path (a field or method)
    * @return the {@link AccessPath} {@code base.element}
@@ -141,6 +151,9 @@ public final class AccessPath {
   }
 
   /**
+   * Construct the access path for <code>map.get(x)</code> from an invocation of <code>put(x)</code>
+   * or <code>containsKey(x)</code>.
+   *
    * @param node a node invoking containsKey() or put() on a map
    * @return an AccessPath representing invoking get() on the same type of map as from node, passing
    *     the same first argument as is passed in node
@@ -374,12 +387,20 @@ public final class AccessPath {
       this.varElement = null;
     }
 
-    /** @return the variable, if not representing 'this' */
+    /**
+     * Get the variable element of this access path root, if not representing <code>this</code>.
+     *
+     * @return the variable, if not representing 'this'
+     */
     public Element getVarElement() {
       return Preconditions.checkNotNull(varElement);
     }
 
-    /** @return <code>true</code> if representing 'this', <code>false</code> otherwise */
+    /**
+     * Check whether this access path root represents the receiver (i.e. <code>this</code>). s
+     *
+     * @return <code>true</code> if representing 'this', <code>false</code> otherwise
+     */
     public boolean isReceiver() {
       return isMethodReceiver;
     }

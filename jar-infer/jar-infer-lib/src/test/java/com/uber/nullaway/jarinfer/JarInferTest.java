@@ -19,8 +19,6 @@ package com.uber.nullaway.jarinfer;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
-import com.sun.tools.javac.main.Main;
-import com.sun.tools.javac.main.Main.Result;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -73,14 +71,12 @@ public class JarInferTest {
       Map<String, Set<Integer>> expected,
       String... lines)
       throws Exception {
-    Result compileResult =
+    boolean compileSucceeded =
         compilerUtil
             .addSourceLines(cls + ".java", ObjectArrays.concat("package " + pkg + ";\n", lines))
             .run();
-    Assert.assertEquals(
-        testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
-        Main.Result.OK,
-        compileResult);
+    Assert.assertTrue(
+        testName + ": test compilation failed!\n" + compilerUtil.getOutput(), compileSucceeded);
     DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
     Map<String, Set<Integer>> result =
         driver.run(

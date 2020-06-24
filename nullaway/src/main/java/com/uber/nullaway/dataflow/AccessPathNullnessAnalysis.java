@@ -63,6 +63,8 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
+   * Get the per-Javac instance of the analysis.
+   *
    * @param context Javac context
    * @param methodReturnsNonNull predicate determining whether a method is assumed to return NonNull
    *     value
@@ -83,6 +85,8 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
+   * Get an expression's nullness info.
+   *
    * @param exprPath tree path of expression
    * @param context Javac context
    * @return nullness info for expression, from dataflow
@@ -93,6 +97,8 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
+   * Get the fields that are guaranteed to be nonnull after a method or initializer block.
+   *
    * @param path tree path of method, or initializer block
    * @param context Javac context
    * @return fields guaranteed to be nonnull at exit of method (or initializer block)
@@ -125,6 +131,8 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
+   * Get the instance fields that are guaranteed to be nonnull before the current expression.
+   *
    * @param path tree path of some expression
    * @param context Javac context
    * @return fields of receiver guaranteed to be nonnull before expression is evaluated
@@ -138,6 +146,8 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
+   * Get the static fields that are guaranteed to be nonnull before the current expression.
+   *
    * @param path tree path of some expression
    * @param context Javac context
    * @return static fields guaranteed to be nonnull before expression is evaluated
@@ -179,6 +189,8 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
+   * Get the static fields that are guaranteed to be nonnull after a method or initializer block.
+   *
    * @param path tree path of static method, or initializer block
    * @param context Javac context
    * @return fields guaranteed to be nonnull at exit of static method (or initializer block)

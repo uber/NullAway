@@ -158,6 +158,8 @@ public final class DataFlow {
   }
 
   /**
+   * Get the control flow graph (GFG) for a given expression.
+   *
    * @param path expression
    * @param context Javac context
    * @param transfer transfer functions
@@ -192,6 +194,8 @@ public final class DataFlow {
   }
 
   /**
+   * Get the dataflow result at exit for a given method (or lambda, or initializer block)
+   *
    * @param path path to method (or lambda, or initializer block)
    * @param context Javac context
    * @param transfer transfer functions
