@@ -16,9 +16,9 @@
 package com.uber.nullaway.jarinfer;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Map;
 import java.util.jar.JarEntry;
@@ -50,14 +50,11 @@ public class AnnotationChecker {
    *     'Expect*' annotations are present.
    * @throws IOException if an error happens when reading the AAR file.
    */
-  @SuppressWarnings("JdkObsolete")
   public static boolean checkMethodAnnotationsInAar(
       String aarFile, Map<String, String> expectedToActualAnnotations) throws IOException {
     Preconditions.checkArgument(aarFile.endsWith(".aar"), "invalid aar file: " + aarFile);
     ZipFile zip = new ZipFile(aarFile);
-    Enumeration<? extends ZipEntry> zipEntries = zip.entries();
-    while (zipEntries.hasMoreElements()) {
-      ZipEntry zipEntry = zipEntries.nextElement();
+    for (ZipEntry zipEntry : zip.stream().collect(ImmutableList.toImmutableList())) {
       if (zipEntry.getName().equals("classes.jar")) {
         JarInputStream jarIS = new JarInputStream(zip.getInputStream(zipEntry));
         JarEntry jarEntry = jarIS.getNextJarEntry();
@@ -86,14 +83,11 @@ public class AnnotationChecker {
    *     'Expect*' annotations are present.
    * @throws IOException if an error happens when reading the jar file.
    */
-  @SuppressWarnings("JdkObsolete")
   public static boolean checkMethodAnnotationsInJar(
       String jarFile, Map<String, String> expectedToActualAnnotations) throws IOException {
     Preconditions.checkArgument(jarFile.endsWith(".jar"), "invalid jar file: " + jarFile);
     JarFile jar = new JarFile(jarFile);
-    Enumeration<JarEntry> entries = jar.entries();
-    while (entries.hasMoreElements()) {
-      JarEntry entry = entries.nextElement();
+    for (JarEntry entry : jar.stream().collect(ImmutableList.toImmutableList())) {
       if (entry.getName().endsWith(".class")
           && !checkMethodAnnotationsInClass(
               jar.getInputStream(entry), expectedToActualAnnotations)) {

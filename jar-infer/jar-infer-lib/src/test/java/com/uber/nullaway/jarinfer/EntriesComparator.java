@@ -19,7 +19,6 @@ import com.google.common.base.Preconditions;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.jar.JarEntry;
@@ -40,20 +39,15 @@ public class EntriesComparator {
    * @return True iff the entries present in the two jar files are the same.
    * @throws IOException if an error happens when reading jar files.
    */
-  @SuppressWarnings("JdkObsolete")
   public static boolean compareEntriesInJars(String jarFile1, String jarFile2) throws IOException {
     Preconditions.checkArgument(jarFile1.endsWith(".jar"), "invalid jar file: " + jarFile1);
     Preconditions.checkArgument(jarFile2.endsWith(".jar"), "invalid jar file: " + jarFile2);
     JarFile jar1 = new JarFile(jarFile1);
     Set<String> jar1Entries = new HashSet<>();
-    for (Enumeration<JarEntry> entries = jar1.entries(); entries.hasMoreElements(); ) {
-      jar1Entries.add(entries.nextElement().getName());
-    }
+    jar1.stream().forEach(entry -> jar1Entries.add(entry.getName()));
     JarFile jar2 = new JarFile(jarFile2);
     Set<String> jar2Entries = new HashSet<>();
-    for (Enumeration<JarEntry> entries = jar2.entries(); entries.hasMoreElements(); ) {
-      jar2Entries.add(entries.nextElement().getName());
-    }
+    jar2.stream().forEach(entry -> jar2Entries.add(entry.getName()));
     return jar1Entries.equals(jar2Entries);
   }
 
@@ -67,20 +61,15 @@ public class EntriesComparator {
    *     "classes.jar" in the two aar files are the same.
    * @throws IOException if an error happens when reading aar files.
    */
-  @SuppressWarnings("JdkObsolete")
   public static boolean compareEntriesInAars(String aarFile1, String aarFile2) throws IOException {
     Preconditions.checkArgument(aarFile1.endsWith(".aar"), "invalid aar file: " + aarFile1);
     Preconditions.checkArgument(aarFile2.endsWith(".aar"), "invalid aar file: " + aarFile2);
     ZipFile zip1 = new ZipFile(aarFile1);
     Set<String> zip1Entries = new HashSet<>();
-    for (Enumeration<? extends ZipEntry> entries = zip1.entries(); entries.hasMoreElements(); ) {
-      zip1Entries.add(entries.nextElement().getName());
-    }
+    zip1.stream().forEach(entry -> zip1Entries.add(entry.getName()));
     ZipFile zip2 = new ZipFile(aarFile2);
     Set<String> zip2Entries = new HashSet<>();
-    for (Enumeration<? extends ZipEntry> entries = zip2.entries(); entries.hasMoreElements(); ) {
-      zip2Entries.add(entries.nextElement().getName());
-    }
+    zip2.stream().forEach(entry -> zip2Entries.add(entry.getName()));
     if (!zip1Entries.equals(zip2Entries)) {
       return false;
     }
