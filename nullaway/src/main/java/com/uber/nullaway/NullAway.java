@@ -174,9 +174,7 @@ public class NullAway extends BugChecker
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
   static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
 
-  @SuppressWarnings("UnnecessaryLambda")
-  private static final Matcher<ExpressionTree> THIS_MATCHER =
-      (expressionTree, state) -> isThisIdentifier(expressionTree);
+  private static final Matcher<ExpressionTree> THIS_MATCHER = NullAway::isThisIdentifierMatcher;
 
   private final Predicate<MethodInvocationNode> nonAnnotatedMethod;
 
@@ -233,7 +231,7 @@ public class NullAway extends BugChecker
   public NullAway() {
     config = new DummyOptionsConfig();
     handler = Handlers.buildEmpty();
-    nonAnnotatedMethod = nonAnnotatedMethodCheck();
+    nonAnnotatedMethod = this::isMethodUnannotated;
     customSuppressionAnnotations = ImmutableSet.of();
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
   }
@@ -241,7 +239,7 @@ public class NullAway extends BugChecker
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
-    nonAnnotatedMethod = nonAnnotatedMethodCheck();
+    nonAnnotatedMethod = this::isMethodUnannotated;
     customSuppressionAnnotations = initCustomSuppressions();
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames());
     // workaround for Checker Framework static state bug;
@@ -263,12 +261,9 @@ public class NullAway extends BugChecker
     return builder.build();
   }
 
-  @SuppressWarnings("UnnecessaryLambda")
-  private Predicate<MethodInvocationNode> nonAnnotatedMethodCheck() {
-    return invocationNode ->
-        invocationNode == null
-            || NullabilityUtil.isUnannotated(
-                ASTHelpers.getSymbol(invocationNode.getTree()), config);
+  private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
+    return invocationNode == null
+        || NullabilityUtil.isUnannotated(ASTHelpers.getSymbol(invocationNode.getTree()), config);
   }
 
   @Override
@@ -2100,6 +2095,11 @@ public class NullAway extends BugChecker
   private static boolean isThisIdentifier(ExpressionTree expressionTree) {
     return expressionTree.getKind().equals(IDENTIFIER)
         && ((IdentifierTree) expressionTree).getName().toString().equals("this");
+  }
+
+  private static boolean isThisIdentifierMatcher(
+      ExpressionTree expressionTree, VisitorState state) {
+    return isThisIdentifier(expressionTree);
   }
 
   public ErrorBuilder getErrorBuilder() {

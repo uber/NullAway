@@ -15,6 +15,7 @@
  */
 package com.uber.nullaway.jarinfer;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.io.BufferedReader;
@@ -23,7 +24,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.util.Enumeration;
 import java.util.List;
 import java.util.Set;
 import java.util.jar.JarEntry;
@@ -264,7 +264,6 @@ public final class BytecodeAnnotator {
    * @param debug flag to output debug logs.
    * @throws IOException if an error happens when reading or writing to jar or class streams.
    */
-  @SuppressWarnings("JdkObsolete")
   public static void annotateBytecodeInJar(
       JarFile inputJar,
       JarOutputStream jarOS,
@@ -279,8 +278,9 @@ public final class BytecodeAnnotator {
     // Do not use JarInputStream in place of JarFile/JarEntry. JarInputStream misses MANIFEST.MF
     // while iterating over the entries in the stream.
     // Reference: https://bugs.openjdk.java.net/browse/JDK-8215788
-    for (Enumeration<JarEntry> entries = inputJar.entries(); entries.hasMoreElements(); ) {
-      JarEntry jarEntry = entries.nextElement();
+    // Note: we can't just put the code below inside stream().forach(), because it can throw
+    // IOException.
+    for (JarEntry jarEntry : inputJar.stream().collect(ImmutableList.toImmutableList())) {
       InputStream is = inputJar.getInputStream(jarEntry);
       copyAndAnnotateJarEntry(
           jarEntry,
@@ -305,7 +305,6 @@ public final class BytecodeAnnotator {
    * @param debug flag to output debug logs.
    * @throws IOException if an error happens when reading or writing to AAR/JAR/class streams.
    */
-  @SuppressWarnings("JdkObsolete")
   public static void annotateBytecodeInAar(
       ZipFile inputZip,
       ZipOutputStream zipOS,
@@ -317,9 +316,11 @@ public final class BytecodeAnnotator {
     BytecodeAnnotator.debug = debug;
     LOG(debug, "DEBUG", "nullableReturns: " + nullableReturns);
     LOG(debug, "DEBUG", "nonnullParams: " + nonnullParams);
-    for (Enumeration<? extends ZipEntry> entries = inputZip.entries();
-        entries.hasMoreElements(); ) {
-      ZipEntry zipEntry = entries.nextElement();
+    // Error Prone doesn't like usages of the old Java Enumerator APIs. ZipFile does not implement
+    // Iterable, and likely
+    // never will (see  https://bugs.openjdk.java.net/browse/JDK-6581715). So this seems like the
+    // best remaining way:
+    for (ZipEntry zipEntry : inputZip.stream().collect(ImmutableList.toImmutableList())) {
       InputStream is = inputZip.getInputStream(zipEntry);
       zipOS.putNextEntry(new ZipEntry(zipEntry.getName()));
       if (zipEntry.getName().equals("classes.jar")) {
