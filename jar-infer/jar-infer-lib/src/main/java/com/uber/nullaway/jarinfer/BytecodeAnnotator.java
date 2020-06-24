@@ -278,6 +278,8 @@ public final class BytecodeAnnotator {
     // Do not use JarInputStream in place of JarFile/JarEntry. JarInputStream misses MANIFEST.MF
     // while iterating over the entries in the stream.
     // Reference: https://bugs.openjdk.java.net/browse/JDK-8215788
+    // Note: we can't just put the code below inside stream().forach(), because it can throw
+    // IOException.
     for (JarEntry jarEntry : inputJar.stream().collect(ImmutableList.toImmutableList())) {
       InputStream is = inputJar.getInputStream(jarEntry);
       copyAndAnnotateJarEntry(
