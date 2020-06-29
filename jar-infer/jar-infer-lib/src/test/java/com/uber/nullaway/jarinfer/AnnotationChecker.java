@@ -16,9 +16,9 @@
 package com.uber.nullaway.jarinfer;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.jar.JarEntry;
@@ -54,7 +54,9 @@ public class AnnotationChecker {
       String aarFile, Map<String, String> expectedToActualAnnotations) throws IOException {
     Preconditions.checkArgument(aarFile.endsWith(".aar"), "invalid aar file: " + aarFile);
     ZipFile zip = new ZipFile(aarFile);
-    for (ZipEntry zipEntry : zip.stream().collect(ImmutableList.toImmutableList())) {
+    Iterator<? extends ZipEntry> zipIterator = zip.stream().iterator();
+    while (zipIterator.hasNext()) {
+      ZipEntry zipEntry = zipIterator.next();
       if (zipEntry.getName().equals("classes.jar")) {
         JarInputStream jarIS = new JarInputStream(zip.getInputStream(zipEntry));
         JarEntry jarEntry = jarIS.getNextJarEntry();
@@ -87,7 +89,7 @@ public class AnnotationChecker {
       String jarFile, Map<String, String> expectedToActualAnnotations) throws IOException {
     Preconditions.checkArgument(jarFile.endsWith(".jar"), "invalid jar file: " + jarFile);
     JarFile jar = new JarFile(jarFile);
-    for (JarEntry entry : jar.stream().collect(ImmutableList.toImmutableList())) {
+    for (JarEntry entry : (Iterable<JarEntry>) jar.stream()::iterator) {
       if (entry.getName().endsWith(".class")
           && !checkMethodAnnotationsInClass(
               jar.getInputStream(entry), expectedToActualAnnotations)) {

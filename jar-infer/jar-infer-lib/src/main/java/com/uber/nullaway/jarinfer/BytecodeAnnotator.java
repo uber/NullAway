@@ -15,7 +15,6 @@
  */
 package com.uber.nullaway.jarinfer;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.io.BufferedReader;
@@ -24,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.jar.JarEntry;
@@ -318,9 +318,12 @@ public final class BytecodeAnnotator {
     LOG(debug, "DEBUG", "nonnullParams: " + nonnullParams);
     // Error Prone doesn't like usages of the old Java Enumerator APIs. ZipFile does not implement
     // Iterable, and likely never will (see  https://bugs.openjdk.java.net/browse/JDK-6581715).
-    // Additionally, inputZip.stream() returns a Stream<? extends ZipEntry>, and the ::iterator
-    // method has trouble handling that. So this seems like the best remaining way:
-    for (ZipEntry zipEntry : inputZip.stream().collect(ImmutableList.toImmutableList())) {
+    // Additionally, inputZip.stream() returns a Stream<? extends ZipEntry>, and a for-each loop
+    // has trouble handling the corresponding ::iterator  method reference. So this seems like the
+    // best remaining way:
+    Iterator<? extends ZipEntry> zipIterator = inputZip.stream().iterator();
+    while (zipIterator.hasNext()) {
+      ZipEntry zipEntry = zipIterator.next();
       InputStream is = inputZip.getInputStream(zipEntry);
       zipOS.putNextEntry(new ZipEntry(zipEntry.getName()));
       if (zipEntry.getName().equals("classes.jar")) {
