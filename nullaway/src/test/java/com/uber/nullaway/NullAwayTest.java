@@ -2534,7 +2534,6 @@ public class NullAwayTest {
     // Checks both Optional.orElse(...) support itself and the general nullImpliesNullParameters
     // Library Models mechanism for encoding @Contract(!null -> !null) as a library model.
     compilationHelper
-        // This is just to check the behavior is the same between @Nullable and @CheckForNull
         .addSourceLines(
             "TestOptionalOrElseNegative.java",
             "package com.uber;",
