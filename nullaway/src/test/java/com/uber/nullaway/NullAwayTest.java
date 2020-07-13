@@ -436,6 +436,10 @@ public class NullAwayTest {
             "  String test2(Object o2) {",
             "    return NullnessChecker.noOp(o2).toString();",
             "  }",
+            "  Object test3(@Nullable Object o1) {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    return NullnessChecker.noOp(o1);",
+            "  }",
             "}")
         .doTest();
   }
@@ -2521,6 +2525,41 @@ public class NullAwayTest {
             "  public void setCheckForNull(@CheckForNull Object checkForNull) {this.checkForNull = checkForNull;}",
             "  // BUG: Diagnostic contains: dereferenced expression checkForNull is @Nullable",
             "  public void run() {System.out.println(checkForNull.toString());}",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void orElseLibraryModelSupport() {
+    // Checks both Optional.orElse(...) support itself and the general nullImpliesNullParameters
+    // Library Models mechanism for encoding @Contract(!null -> !null) as a library model.
+    compilationHelper
+        .addSourceLines(
+            "TestOptionalOrElseNegative.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import java.util.Optional;",
+            "class TestOptionalOrElseNegative {",
+            "  public Object foo(Optional<Object> o) {",
+            "    return o.orElse(\"Something\");",
+            "  }",
+            "  public @Nullable Object bar(Optional<Object> o) {",
+            "    return o.orElse(null);",
+            "  }",
+            "}")
+        .addSourceLines(
+            "TestOptionalOrElsePositive.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "class TestOptionalOrElsePositive {",
+            "  public Object foo(Optional<Object> o) {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    return o.orElse(null);",
+            "  }",
+            "  public void bar(Optional<Object> o) {",
+            "    // BUG: Diagnostic contains: dereferenced expression o.orElse(null) is @Nullable",
+            "    System.out.println(o.orElse(null).toString());",
+            "  }",
             "}")
         .doTest();
   }
