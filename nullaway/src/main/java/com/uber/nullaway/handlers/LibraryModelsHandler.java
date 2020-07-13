@@ -133,10 +133,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         getOptLibraryModels(context).nullImpliesNullParameters(callee);
     if (!nullImpliesNullIndexes.isEmpty()) {
       // If the method is marked as having argument dependent nullability and any of the
-      // corresponding
-      // arguments is null, then the return is nullable. If the method is marked as having argument
-      // dependent nullability but NONE of the corresponding arguments is null, then the return
-      // should be non-null.
+      // corresponding arguments is null, then the return is nullable. If the method is
+      // marked as having argument dependent nullability but NONE of the corresponding
+      // arguments is null, then the return should be non-null.
       boolean anyNull = false;
       for (int idx : nullImpliesNullIndexes) {
         if (!inputs.valueOfSubNode(node.getArgument(idx)).equals(NONNULL)) {
