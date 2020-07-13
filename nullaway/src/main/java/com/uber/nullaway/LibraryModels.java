@@ -81,6 +81,18 @@ public interface LibraryModels {
   ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters();
 
   /**
+   * Get (method, parameter) pairs that cause the method to return <code>null</code> when passed
+   * <code>null</code> on that parameter.
+   *
+   * <p>This is equivalent to annotating a method with <code>
+   * @Contract("!null -&gt; !null") @Nullable</code> or similar.
+   *
+   * @return map from the names of null-in-implies-null out methods to the indexes of the arguments
+   *     that determine nullness of the return.
+   */
+  ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters();
+
+  /**
    * Get the set of library methods that may return null.
    *
    * @return set of library methods that may return null

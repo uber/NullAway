@@ -100,16 +100,18 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
-    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
-        && getOptLibraryModels(state.context)
-            .hasNullableReturn(
-                (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
-      return analysis.nullnessFromDataflow(state, expr) || exprMayBeNull;
-    }
-    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
-        && getOptLibraryModels(state.context)
-            .hasNonNullReturn((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
-      return false;
+    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION) {
+      OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
+      Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr);
+      if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes())
+          || !optLibraryModels.nullImpliesNullParameters(methodSymbol).isEmpty()) {
+        // These mean the method might be null, depending on dataflow and arguments. We force
+        // dataflow to run.
+        return analysis.nullnessFromDataflow(state, expr) || exprMayBeNull;
+      } else if (optLibraryModels.hasNonNullReturn(methodSymbol, state.getTypes())) {
+        // This means the method can't be null, so we return false outright.
+        return false;
+      }
     }
     return exprMayBeNull;
   }
@@ -127,6 +129,22 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     Preconditions.checkNotNull(callee);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, context);
     setConditionalArgumentNullness(thenUpdates, elseUpdates, node.getArguments(), callee, context);
+    ImmutableSet<Integer> nullImpliesNullIndexes =
+        getOptLibraryModels(context).nullImpliesNullParameters(callee);
+    if (!nullImpliesNullIndexes.isEmpty()) {
+      // If the method is marked as having argument dependent nullability and any of the
+      // corresponding
+      // arguments is null, then the return is nullable. If the method is marked as having argument
+      // dependent nullability but NONE of the corresponding arguments is null, then the return
+      // should be non-null.
+      boolean anyNull = false;
+      for (int idx : nullImpliesNullIndexes) {
+        if (!inputs.valueOfSubNode(node.getArgument(idx)).equals(NONNULL)) {
+          anyNull = true;
+        }
+      }
+      return anyNull ? NullnessHint.HINT_NULLABLE : NullnessHint.FORCE_NONNULL;
+    }
     if (getOptLibraryModels(context).hasNonNullReturn(callee, types)) {
       return NullnessHint.FORCE_NONNULL;
     } else if (getOptLibraryModels(context).hasNullableReturn(callee, types)) {
@@ -459,6 +477,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put(methodRef("java.util.Objects", "nonNull(java.lang.Object)"), 0)
             .build();
 
+    private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_NULL_PARAMETERS =
+        new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+            .put(methodRef("java.util.Optional", "orElse(T)"), 0)
+            .build();
+
     private static final ImmutableSet<MethodRef> NULLABLE_RETURNS =
         new ImmutableSet.Builder<MethodRef>()
             .add(methodRef("java.lang.ref.Reference", "get()"))
@@ -554,6 +577,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     @Override
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
+      return NULL_IMPLIES_NULL_PARAMETERS;
+    }
+
+    @Override
     public ImmutableSet<MethodRef> nullableReturns() {
       return NULLABLE_RETURNS;
     }
@@ -576,6 +604,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters;
 
+    private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters;
+
     private final ImmutableSet<MethodRef> nullableReturns;
 
     private final ImmutableSet<MethodRef> nonNullReturns;
@@ -590,6 +620,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesFalseParametersBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSet.Builder<MethodRef> nullableReturnsBuilder = new ImmutableSet.Builder<>();
       ImmutableSet.Builder<MethodRef> nonNullReturnsBuilder = new ImmutableSet.Builder<>();
@@ -612,6 +644,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             libraryModels.nullImpliesFalseParameters().entries()) {
           nullImpliesFalseParametersBuilder.put(entry);
         }
+        for (Map.Entry<MethodRef, Integer> entry :
+            libraryModels.nullImpliesNullParameters().entries()) {
+          nullImpliesNullParametersBuilder.put(entry);
+        }
         for (MethodRef name : libraryModels.nullableReturns()) {
           nullableReturnsBuilder.add(name);
         }
@@ -624,6 +660,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       nonNullParameters = nonNullParametersBuilder.build();
       nullImpliesTrueParameters = nullImpliesTrueParametersBuilder.build();
       nullImpliesFalseParameters = nullImpliesFalseParametersBuilder.build();
+      nullImpliesNullParameters = nullImpliesNullParametersBuilder.build();
       nullableReturns = nullableReturnsBuilder.build();
       nonNullReturns = nonNullReturnsBuilder.build();
     }
@@ -651,6 +688,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
       return nullImpliesFalseParameters;
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
+      return nullImpliesNullParameters;
     }
 
     @Override
@@ -705,6 +747,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private final NameIndexedMap<ImmutableSet<Integer>> nonNullParams;
     private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesTrueParams;
     private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesFalseParams;
+    private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesNullParams;
     private final NameIndexedMap<Boolean> nullableRet;
     private final NameIndexedMap<Boolean> nonNullRet;
 
@@ -717,6 +760,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       nullImpliesTrueParams = makeOptimizedIntSetLookup(names, models.nullImpliesTrueParameters());
       nullImpliesFalseParams =
           makeOptimizedIntSetLookup(names, models.nullImpliesFalseParameters());
+      nullImpliesNullParams = makeOptimizedIntSetLookup(names, models.nullImpliesNullParameters());
       nullableRet = makeOptimizedBoolLookup(names, models.nullableReturns());
       nonNullRet = makeOptimizedBoolLookup(names, models.nonNullReturns());
     }
@@ -747,6 +791,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     ImmutableSet<Integer> nullImpliesFalseParameters(Symbol.MethodSymbol symbol) {
       return lookupImmutableSet(symbol, nullImpliesFalseParams);
+    }
+
+    ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol) {
+      return lookupImmutableSet(symbol, nullImpliesNullParams);
     }
 
     private ImmutableSet<Integer> lookupImmutableSet(
