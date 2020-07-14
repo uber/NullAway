@@ -7,7 +7,7 @@
 
 SLUG="uber/NullAway"
 JDK="oraclejdk8"
-BRANCH="master"
+BRANCH="lazaro_investigate_uploadarchives"
 
 set -e
 
