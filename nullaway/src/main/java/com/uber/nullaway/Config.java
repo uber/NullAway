@@ -30,6 +30,12 @@ import javax.annotation.Nullable;
 /** Provides configuration parameters for the nullability checker. */
 public interface Config {
 
+  boolean shouldAutoFix();
+
+  AnnotationFactory getAnnotationFactory();
+
+  String getJsonFileWriterPath();
+
   /**
    * Checks if a symbol comes from an annotated package.
    *

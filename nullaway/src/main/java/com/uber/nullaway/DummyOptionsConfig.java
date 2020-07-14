@@ -51,7 +51,20 @@ public class DummyOptionsConfig implements Config {
           + FL_ANNOTATED_PACKAGES
           + "=[...] flag.";
 
-  public DummyOptionsConfig() {}
+  @Override
+  public boolean shouldAutoFix() {
+    return false;
+  }
+
+  @Override
+  public AnnotationFactory getAnnotationFactory() {
+    return new AnnotationFactory();
+  }
+
+  @Override
+  public String getJsonFileWriterPath() {
+    return "/tmp/NullAwayFix/fixes.json";
+  }
 
   @Override
   public boolean fromAnnotatedPackage(Symbol.ClassSymbol symbol) {

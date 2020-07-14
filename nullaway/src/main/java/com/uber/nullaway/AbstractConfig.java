@@ -106,6 +106,9 @@ public abstract class AbstractConfig implements Config {
 
   protected String errorURL;
 
+  protected boolean autofix;
+  protected String fixFilePath;
+
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
     // noinspection ConstantConditions
     String choiceRegexp =
@@ -228,6 +231,11 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean isExternalInitClassAnnotation(String annotationName) {
     return externalInitAnnotations.contains(annotationName);
+  }
+
+  @Override
+  public boolean shouldAutoFix() {
+    return autofix;
   }
 
   protected Set<MethodClassAndName> getKnownInitializers(Set<String> qualifiedNames) {

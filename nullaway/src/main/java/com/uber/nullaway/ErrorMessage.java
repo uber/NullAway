@@ -49,4 +49,12 @@ public class ErrorMessage {
     GET_ON_EMPTY_OPTIONAL,
     SWITCH_EXPRESSION_NULLABLE
   }
+
+  public String getMessage() {
+    return message;
+  }
+
+  public MessageTypes getMessageType() {
+    return messageType;
+  }
 }

@@ -24,6 +24,9 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.ErrorProneFlags;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -70,6 +73,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_JI_REGEX_MODEL_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripModelJar";
   static final String FL_JI_REGEX_CODE_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripCodeJar";
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
+
+  static final String AUTO_FIX = EP_FL_NAMESPACE + ":AutoFix";
+  static final String FIX_FILE_PATH = EP_FL_NAMESPACE + ":FixFilePath";
 
   private static final String DELIMITER = ",";
 
@@ -177,6 +183,28 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + FL_ACKNOWLEDGE_RESTRICTIVE
               + " is also set");
     }
+    autofix = flags.getBoolean(AUTO_FIX).orElse(false);
+    if (autofix && isSuggestSuppressions)
+      throw new IllegalStateException(
+          "In order to activate autoFix mode ("
+              + AUTO_FIX
+              + "), Suggest Suppression mode must be deactivated ("
+              + FL_SUGGEST_SUPPRESSIONS
+              + ")");
+    fixFilePath = flags.get(FIX_FILE_PATH).orElse("/tmp/NullAwayFix/fixes.json");
+    if (autofix) makeDirectoriesForFixFile(fixFilePath);
+  }
+
+  private void makeDirectoriesForFixFile(String fixFilePath) {
+    String pathToDirectory = fixFilePath.substring(0, fixFilePath.lastIndexOf("/"));
+    try {
+      Files.createDirectories(Paths.get(pathToDirectory + "/"));
+      /*File file = new File(fixFilePath);
+      if (!file.createNewFile() && !file.delete())
+        throw new RuntimeException("Could not clear the existing fix.json file at: " + fixFilePath);*/
+    } catch (IOException e) {
+      throw new RuntimeException("Could not create the directories for fix json file");
+    }
   }
 
   private static ImmutableSet<String> getFlagStringSet(ErrorProneFlags flags, String flagName) {
@@ -195,5 +223,15 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
       Collections.addAll(combined, flagValue.get().split(DELIMITER));
     }
     return ImmutableSet.copyOf(combined);
+  }
+
+  @Override
+  public AnnotationFactory getAnnotationFactory() {
+    return new AnnotationFactory();
+  }
+
+  @Override
+  public String getJsonFileWriterPath() {
+    return fixFilePath;
   }
 }

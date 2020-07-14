@@ -55,6 +55,7 @@ import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.EnhancedForLoopTree;
@@ -90,6 +91,9 @@ import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
+import com.uber.nullaway.fixer.Fixer;
+import com.uber.nullaway.fixer.Location;
+import com.uber.nullaway.fixer.LocationUtils;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import java.lang.annotation.Annotation;
@@ -141,6 +145,9 @@ import org.checkerframework.javacutil.AnnotationUtils;
  *   <li><code>f</code> is always initialized in some static initializer block
  * </ol>
  */
+@SuppressWarnings(
+    "UnusedVariable") // TODO: remove this later, this class is still under construction on
+// 'AutoFix' branch
 @AutoService(BugChecker.class)
 @BugPattern(
     name = "NullAway",
@@ -222,6 +229,8 @@ public class NullAway extends BugChecker
 
   private final ImmutableSet<Class<? extends Annotation>> customSuppressionAnnotations;
 
+  private final Fixer fixer;
+
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
@@ -234,6 +243,7 @@ public class NullAway extends BugChecker
     nonAnnotatedMethod = this::isMethodUnannotated;
     customSuppressionAnnotations = ImmutableSet.of();
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
+    fixer = new Fixer(config);
   }
 
   public NullAway(ErrorProneFlags flags) {
@@ -242,6 +252,7 @@ public class NullAway extends BugChecker
     nonAnnotatedMethod = this::isMethodUnannotated;
     customSuppressionAnnotations = initCustomSuppressions();
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames());
+    fixer = new Fixer(config);
     // workaround for Checker Framework static state bug;
     // See https://github.com/typetools/checker-framework/issues/1482
     AnnotationUtils.clear();
@@ -657,6 +668,21 @@ public class NullAway extends BugChecker
               MessageTypes.RETURN_NULLABLE,
               "returning @Nullable expression from method with @NonNull return type");
 
+      if (config.shouldAutoFix()) {
+        MethodTree methodTree = ASTHelpers.findMethod(methodSymbol, state);
+        if (methodTree == null)
+          throw new RuntimeException("AutoFix cannot find the method with symbol: " + methodSymbol);
+        CompilationUnitTree c = getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
+        Location location =
+            Location.Builder()
+                .setClassTree(LocationUtils.getClassTree(methodSymbol, state))
+                .setMethodTree(methodTree)
+                .setCompilationUnitTree(c)
+                .setKind(Location.Kind.METHOD_RETURN)
+                .build();
+        fixer.fix(errorMessage, location);
+      }
+
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, retExpr, buildDescription(tree), state);
     }
@@ -760,6 +786,25 @@ public class NullAway extends BugChecker
                 + overriddenMethod.toString()
                 + " returns @NonNull";
       }
+
+      Tree superTree =
+          memberReferenceTree != null
+              ? memberReferenceTree
+              : getTreesInstance(state).getTree(overriddenMethod);
+
+      if (config.shouldAutoFix()) {
+        CompilationUnitTree c =
+            getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
+        Location location =
+            Location.Builder()
+                .setClassTree(LocationUtils.getClassTree(overriddenMethod, state))
+                .setMethodTree(superTree)
+                .setCompilationUnitTree(c)
+                .setKind(Location.Kind.METHOD_RETURN)
+                .build();
+        fixer.fix(new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message), location);
+      }
+
       Tree errorTree =
           memberReferenceTree != null
               ? memberReferenceTree
