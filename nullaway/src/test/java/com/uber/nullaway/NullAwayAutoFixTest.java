@@ -23,7 +23,9 @@ package com.uber.nullaway;
  */
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
+import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.ErrorProneFlags;
+import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -44,6 +46,42 @@ public class NullAwayAutoFixTest {
     b.putFlag("NullAway:AnnotatedPackages", "com.uber,com.ubercab,io.reactivex");
     b.putFlag("NullAway:AutoFix", "true");
     flags = b.build();
+  }
+
+  @Test
+  public void seeNullAwayResponse() {
+    CompilationTestHelper compilationHelper =
+        CompilationTestHelper.newInstance(NullAway.class, getClass());
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class Super {",
+            "   @Nullable String test(@Nullable Object o) {",
+            "     if(o != null) {",
+            "       return o.toString();",
+            "     }",
+            "     return null;",
+            "   }",
+            "}")
+        .addSourceLines(
+            "com/uber/test/SubClass.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class SubClass extends Super {",
+            "   @Nullable String test(Object o) {",
+            "     return o.toString();",
+            "   }",
+            "}")
+        .doTest();
   }
 
   @Test

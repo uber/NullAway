@@ -15,7 +15,10 @@ import java.util.ArrayList;
 import java.util.List;
 import org.json.simple.JSONObject;
 
-@SuppressWarnings({"UnusedVariable"}) // This class is still under construction
+@SuppressWarnings({
+  "UnusedVariable",
+  "PackageAccessibility"
+}) // This class is still under construction
 public class Fixer {
 
   private final Config config;
@@ -34,6 +37,9 @@ public class Fixer {
       case WRONG_OVERRIDE_RETURN:
         fix = addReturnNullableFix(location);
         break;
+      case WRONG_OVERRIDE_PARAM:
+        fix = addParamNullableFix(location);
+        break;
       default:
         suggestSuppressWarning(errorMessage, location);
     }
@@ -42,8 +48,21 @@ public class Fixer {
 
   private void suggestSuppressWarning(ErrorMessage errorMessage, Location location) {}
 
+  private Fix addParamNullableFix(Location location) {
+    if (!location.kind.equals(Location.Kind.METHOD_PARAM)) {
+      throw new RuntimeException(
+          "Incompatible Fix Call: Cannot fix location type: "
+              + location.kind.label
+              + " with this method: addParamNullableFix");
+    }
+    final Fix fix = new Fix();
+    fix.location = location;
+    fix.annotation = config.getAnnotationFactory().getNullable();
+    fix.inject = true;
+    return fix;
+  }
+
   private Fix addReturnNullableFix(Location location) {
-    System.out.println("Entered Here.....");
     AnnotationFactory.Annotation nonNull = config.getAnnotationFactory().getNonNull();
 
     if (!location.kind.equals(Location.Kind.METHOD_RETURN)) {

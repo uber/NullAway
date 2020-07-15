@@ -148,13 +148,13 @@ public class ExplorerTest {
         .addFixes(
             new Fix(
                 "javax.annotation.Nullable",
-                "test(Object)",
+                "test(java.lang.Object)",
                 "o",
                 "METHOD_PARAM",
-                "",
-                "com.uber.Super",
+                "@Nullable()n",
+                "com.uber.SubClass",
                 "com.uber",
-                "com/uber/android/Super.java",
+                "com/uber/test/SubClass.java",
                 "true"))
         .doTest();
   }

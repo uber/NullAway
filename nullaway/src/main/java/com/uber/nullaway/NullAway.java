@@ -542,11 +542,13 @@ public class NullAway extends BugChecker
    * @return discovered error, or {@link Description#NO_MATCH} if no error
    */
   private Description checkParamOverriding(
+      Symbol.MethodSymbol overridingnMethod,
       List<VarSymbol> overridingParamSymbols,
       Symbol.MethodSymbol overriddenMethod,
       @Nullable LambdaExpressionTree lambdaExpressionTree,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
+
     com.sun.tools.javac.util.List<VarSymbol> superParamSymbols = overriddenMethod.getParameters();
     boolean unboundMemberRef =
         (memberReferenceTree != null)
@@ -628,16 +630,32 @@ public class NullAway extends BugChecker
                 + "."
                 + overriddenMethod.toString()
                 + " is @Nullable";
+
         Tree errorTree;
         if (memberReferenceTree != null) {
           errorTree = memberReferenceTree;
         } else {
           errorTree = getTreesInstance(state).getTree(paramSymbol);
         }
+
+        ErrorMessage errorMessage = new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message);
+
+        if (config.shouldAutoFix()) {
+          CompilationUnitTree c =
+              getTreesInstance(state).getPath(overridingnMethod).getCompilationUnit();
+          Location location =
+              Location.Builder()
+                  .setClassTree(LocationUtils.getClassTree(overridingnMethod, state))
+                  .setMethodTree(ASTHelpers.findMethod(overridingnMethod, state))
+                  .setCompilationUnitTree(c)
+                  .setKind(Location.Kind.METHOD_PARAM)
+                  .setVariableSymbol(paramSymbol)
+                  .build();
+          fixer.fix(errorMessage, location);
+        }
+
         return errorBuilder.createErrorDescription(
-            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
-            buildDescription(errorTree),
-            state);
+            errorMessage, buildDescription(errorTree), state);
       }
     }
     return Description.NO_MATCH;
@@ -704,6 +722,7 @@ public class NullAway extends BugChecker
     }
     Description description =
         checkParamOverriding(
+            null,
             tree.getParameters().stream().map(ASTHelpers::getSymbol).collect(Collectors.toList()),
             funcInterfaceMethod,
             tree,
@@ -816,7 +835,12 @@ public class NullAway extends BugChecker
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
     return checkParamOverriding(
-        overridingMethod.getParameters(), overriddenMethod, null, memberReferenceTree, state);
+        overridingMethod,
+        overridingMethod.getParameters(),
+        overriddenMethod,
+        null,
+        memberReferenceTree,
+        state);
   }
 
   @Override

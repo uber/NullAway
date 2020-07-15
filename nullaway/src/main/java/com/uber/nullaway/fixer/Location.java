@@ -5,17 +5,16 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
-import com.sun.source.tree.VariableTree;
+import com.sun.tools.javac.code.Symbol;
 import java.io.Serializable;
 import org.json.simple.JSONObject;
 
-@SuppressWarnings(
-    "UnusedVariable") // TODO: Remove this later, This class is still under construction
+@SuppressWarnings("ALL") // TODO: Remove this later, This class is still under construction
 public class Location implements Serializable {
   CompilationUnitTree compilationUnitTree;
   ClassTree classTree;
   MethodTree methodTree;
-  VariableTree variableTree;
+  Symbol.VarSymbol variableSymbol;
   Kind kind;
 
   public enum Kind {
@@ -40,8 +39,7 @@ public class Location implements Serializable {
     JSONObject res = new JSONObject();
     String classSymbolRep = classTree != null ? ASTHelpers.getSymbol(classTree).toString() : "";
     String methodSymbolRep = methodTree != null ? ASTHelpers.getSymbol(methodTree).toString() : "";
-    String paramSymbolRep =
-        variableTree != null ? ASTHelpers.getSymbol(variableTree).toString() : "";
+    String paramSymbolRep = variableSymbol != null ? variableSymbol.toString() : "";
     String pkg = compilationUnitTree != null ? compilationUnitTree.getPackageName().toString() : "";
     res.put(KEYS.CLASS.label, classSymbolRep);
     res.put(KEYS.METHOD.label, methodSymbolRep);
@@ -71,7 +69,7 @@ public class Location implements Serializable {
         + ", methodTree="
         + methodTree
         + ", variableTree="
-        + variableTree
+        + variableSymbol
         + ", kind="
         + kind
         + '}';
@@ -108,8 +106,8 @@ public class Location implements Serializable {
       return this;
     }
 
-    public LocationBuilder setVariableTree(VariableTree vt) {
-      location.variableTree = vt;
+    public LocationBuilder setVariableSymbol(Symbol.VarSymbol vs) {
+      location.variableSymbol = vs;
       return this;
     }
 

@@ -6,6 +6,7 @@ import com.sun.source.tree.ClassTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree;
 
+@SuppressWarnings("ALL")
 public class LocationUtils extends ASTHelpers {
 
   public static JCTree.JCCompilationUnit getCompilationUnit(VisitorState state) {
