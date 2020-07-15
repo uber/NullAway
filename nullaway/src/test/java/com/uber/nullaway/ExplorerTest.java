@@ -109,4 +109,53 @@ public class ExplorerTest {
                 "true"))
         .doTest();
   }
+
+  @Test
+  public void add_nullable_paramType_subclass() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class Super {",
+            "   @Nullable String test(@Nullable Object o) {",
+            "     if(o != null) {",
+            "       return o.toString();",
+            "     }",
+            "     return null;",
+            "   }",
+            "}")
+        .addSourceLines(
+            "com/uber/test/SubClass.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class SubClass extends Super {",
+            "   @Nullable String test(Object o) {",
+            "     return o.toString();",
+            "   }",
+            "}")
+        .addFixes(
+            new Fix(
+                "javax.annotation.Nullable",
+                "test(Object)",
+                "o",
+                "METHOD_PARAM",
+                "",
+                "com.uber.Super",
+                "com.uber",
+                "com/uber/android/Super.java",
+                "true"))
+        .doTest();
+  }
 }

@@ -145,8 +145,7 @@ import org.checkerframework.javacutil.AnnotationUtils;
  *   <li><code>f</code> is always initialized in some static initializer block
  * </ol>
  */
-@SuppressWarnings(
-    "UnusedVariable") // TODO: remove this later, this class is still under construction on
+@SuppressWarnings("ALL") // TODO: remove this later, this class is still under construction on
 // 'AutoFix' branch
 @AutoService(BugChecker.class)
 @BugPattern(
