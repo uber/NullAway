@@ -53,6 +53,11 @@ public class ExampleLibraryModels implements LibraryModels {
   }
 
   @Override
+  public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
+    return ImmutableSetMultimap.of();
+  }
+
+  @Override
   public ImmutableSet<MethodRef> nullableReturns() {
     return ImmutableSet.of();
   }
