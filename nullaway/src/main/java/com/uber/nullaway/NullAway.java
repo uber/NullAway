@@ -1436,11 +1436,24 @@ public class NullAway extends BugChecker
             "passing @Nullable parameter '"
                 + state.getSourceForNode(actual)
                 + "' where @NonNull is required";
+        ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message);
+
+        if (config.shouldAutoFix()) {
+          CompilationUnitTree c =
+              getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
+          Location location =
+              Location.Builder()
+                  .setCompilationUnitTree(c)
+                  .setClassTree(LocationUtils.getClassTree(methodSymbol, state))
+                  .setMethodTree(ASTHelpers.findMethod(methodSymbol, state))
+                  .setVariableSymbol(LocationUtils.getParamSymbol(methodSymbol, argPos))
+                  .setKind(Location.Kind.METHOD_PARAM)
+                  .build();
+          fixer.fix(errorMessage, location);
+        }
+
         return errorBuilder.createErrorDescriptionForNullAssignment(
-            new ErrorMessage(MessageTypes.PASS_NULLABLE, message),
-            actual,
-            buildDescription(actual),
-            state);
+            errorMessage, actual, buildDescription(actual), state);
       }
     }
     // Check for @NonNull being passed to castToNonNull (if configured)

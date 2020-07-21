@@ -158,4 +158,71 @@ public class ExplorerTest {
                 "true"))
         .doTest();
   }
+
+  @Test
+  public void add_nullable_pass_param_simple() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class Super {",
+            "   Object test(int i, Object h) {",
+            "     return h;",
+            "   }",
+            "   Object test_param(@Nullable String o) {",
+            "     return test(0, o);",
+            "   }",
+            "}")
+        .addFixes(
+            new Fix(
+                "javax.annotation.Nullable",
+                "test(int,java.lang.Object)",
+                "h",
+                "METHOD_PARAM",
+                "",
+                "com.uber.Super",
+                "com.uber",
+                "com/uber/android/Super.java",
+                "true"))
+        .doTest();
+  }
+
+  @Test
+  public void add_nullable_pass_param_simple_no_fix() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class Super {",
+            "   Object test(int i, @Nonnull Object h) {",
+            "     return h;",
+            "   }",
+            "   Object test_param(@Nullable String o) {",
+            "     return test(0, o);",
+            "   }",
+            "}")
+        .doTest();
+  }
 }

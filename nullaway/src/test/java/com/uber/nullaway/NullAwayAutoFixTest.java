@@ -64,21 +64,11 @@ public class NullAwayAutoFixTest {
             "import javax.annotation.Nullable;",
             "import javax.annotation.Nonnull;",
             "public class Super {",
-            "   @Nullable String test(@Nullable Object o) {",
-            "     if(o != null) {",
-            "       return o.toString();",
-            "     }",
-            "     return null;",
+            "   Object test(int i, @Nonnull Object h) {",
+            "     return h;",
             "   }",
-            "}")
-        .addSourceLines(
-            "com/uber/test/SubClass.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import javax.annotation.Nonnull;",
-            "public class SubClass extends Super {",
-            "   @Nullable String test(Object o) {",
-            "     return o.toString();",
+            "   Object test_param(@Nullable String o) {",
+            "     return test(0, o);",
             "   }",
             "}")
         .doTest();

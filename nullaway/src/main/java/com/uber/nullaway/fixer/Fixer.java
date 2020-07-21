@@ -1,8 +1,10 @@
 package com.uber.nullaway.fixer;
 
+import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ModifiersTree;
+import com.sun.source.tree.VariableTree;
 import com.uber.nullaway.AnnotationFactory;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
@@ -12,6 +14,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import org.json.simple.JSONObject;
 
@@ -23,11 +26,16 @@ public class Fixer {
 
   private final Config config;
   private final WriterUtils writerUtils;
+  private final HashMap<ErrorMessage.MessageTypes, List<Location.Kind>> messageTypeLocationMap;
 
   public Fixer(Config config) {
     this.config = config;
     this.writerUtils = new WriterUtils(config);
+    messageTypeLocationMap = new HashMap<>();
+    fillMessageTypeLocationMap();
   }
+
+  private void fillMessageTypeLocationMap() {}
 
   public void fix(ErrorMessage errorMessage, Location location) {
     Fix fix = new Fix();
@@ -40,10 +48,33 @@ public class Fixer {
       case WRONG_OVERRIDE_PARAM:
         fix = addParamNullableFix(location);
         break;
+      case PASS_NULLABLE:
+        fix = addParamPassNullableFix(location);
+        break;
       default:
         suggestSuppressWarning(errorMessage, location);
     }
-    writerUtils.saveFix(fix);
+    if (fix != null) writerUtils.saveFix(fix);
+  }
+
+  private Fix addParamPassNullableFix(Location location) {
+    AnnotationFactory.Annotation nonNull = config.getAnnotationFactory().getNonNull();
+    VariableTree variableTree =
+        LocationUtils.getVariableTree(location.methodTree, location.variableSymbol);
+    if (variableTree != null) {
+      final List<? extends AnnotationTree> annotations =
+          variableTree.getModifiers().getAnnotations();
+      Optional<? extends AnnotationTree> nonNullAnnot =
+          Iterables.tryFind(
+              annotations, annot -> annot.toString().equals("@" + nonNull.name + "()"));
+      if (nonNullAnnot.isPresent()) return null;
+      final Fix fix = new Fix();
+      fix.location = location;
+      fix.annotation = config.getAnnotationFactory().getNullable();
+      fix.inject = true;
+      return fix;
+    }
+    return null;
   }
 
   private void suggestSuppressWarning(ErrorMessage errorMessage, Location location) {}
