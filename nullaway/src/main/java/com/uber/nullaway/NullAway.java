@@ -173,13 +173,15 @@ public class NullAway extends BugChecker
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
   static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
+  // Unmatched, used for when we only want full checker suppressions to work
+  static final String CORE_CHECK_NAME = "NullAway.<core>";
 
   private static final Matcher<ExpressionTree> THIS_MATCHER = NullAway::isThisIdentifierMatcher;
 
   private final Predicate<MethodInvocationNode> nonAnnotatedMethod;
 
-  /** should we match within the current class? */
-  private boolean matchWithinClass = true;
+  /** should we match within the current top level class? */
+  private boolean matchWithinTopLevelClass = true;
 
   private final Config config;
 
@@ -283,7 +285,7 @@ public class NullAway extends BugChecker
    */
   @Override
   public Description matchReturn(ReturnTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     handler.onMatchReturn(this, tree, state);
@@ -319,7 +321,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     final Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
@@ -334,7 +336,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchNewClass(NewClassTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
@@ -392,7 +394,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchAssignment(AssignmentTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     Type lhsType = ASTHelpers.getType(tree.getVariable());
@@ -423,7 +425,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchCompoundAssignment(CompoundAssignmentTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     Type lhsType = ASTHelpers.getType(tree.getVariable());
@@ -437,7 +439,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchArrayAccess(ArrayAccessTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     Description description = matchDereference(tree.getExpression(), tree, state);
@@ -450,7 +452,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchMemberSelect(MemberSelectTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     Symbol symbol = ASTHelpers.getSymbol(tree);
@@ -474,7 +476,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     // if the method is overriding some other method,
@@ -497,7 +499,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchSwitch(SwitchTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
 
@@ -665,7 +667,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchLambdaExpression(LambdaExpressionTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     Symbol.MethodSymbol funcInterfaceMethod =
@@ -703,7 +705,7 @@ public class NullAway extends BugChecker
    */
   @Override
   public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(tree);
@@ -777,7 +779,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchIdentifier(IdentifierTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     return checkForReadBeforeInit(tree, state);
@@ -1114,7 +1116,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchVariable(VariableTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
@@ -1142,19 +1144,24 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchClass(ClassTree tree, VisitorState state) {
-    // check if the class is excluded according to the filter
+    // Check if the class is excluded according to the filter
     // if so, set the flag to match within the class to false
     // NOTE: for this mechanism to work, we rely on the enclosing ClassTree
     // always being visited before code within that class.  We also
     // assume that a single checker object is not being
     // used from multiple threads
+    // We don't want to update the flag for nested classes.
+    // Ideally we would keep a stack of flags to handle nested types,
+    // but this is not easy within the Error Prone APIs.
+    // Instead, we use this flag as an optimization, skipping work if the
+    // top-level class is to be skipped. If a nested class should be
+    // skipped, we instead rely on last-minute suppression of the
+    // error message, using the mechanism in
+    // ErrorBuilder.hasPathSuppression(...)
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(tree);
-    // we don't want to update the flag for nested classes.
-    // ideally we would keep a stack of flags to handle nested types,
-    // but this is not easy within the Error Prone APIs
     NestingKind nestingKind = classSymbol.getNestingKind();
     if (!nestingKind.isNested()) {
-      matchWithinClass = !isExcludedClass(classSymbol);
+      matchWithinTopLevelClass = !isExcludedClass(classSymbol);
       // since we are processing a new top-level class, invalidate any cached
       // results for previous classes
       handler.onMatchTopLevelClass(this, tree, state, classSymbol);
@@ -1165,7 +1172,7 @@ public class NullAway extends BugChecker
       computedNullnessMap.clear();
       EnclosingEnvironmentNullness.instance(state.context).clear();
     }
-    if (matchWithinClass) {
+    if (matchWithinTopLevelClass) {
       // we need to update the environment before checking field initialization, as the latter
       // may run dataflow analysis
       if (nestingKind.equals(NestingKind.LOCAL) || nestingKind.equals(NestingKind.ANONYMOUS)) {
@@ -1180,7 +1187,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchBinary(BinaryTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     ExpressionTree leftOperand = tree.getLeftOperand();
@@ -1201,7 +1208,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchUnary(UnaryTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     return doUnboxingCheck(state, tree.getExpression());
@@ -1210,7 +1217,7 @@ public class NullAway extends BugChecker
   @Override
   public Description matchConditionalExpression(
       ConditionalExpressionTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     return doUnboxingCheck(state, tree.getCondition());
@@ -1218,7 +1225,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchIf(IfTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     return doUnboxingCheck(state, tree.getCondition());
@@ -1226,7 +1233,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchWhileLoop(WhileLoopTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     return doUnboxingCheck(state, tree.getCondition());
@@ -1234,7 +1241,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchForLoop(ForLoopTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     if (tree.getCondition() != null) {
@@ -1245,7 +1252,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchEnhancedForLoop(EnhancedForLoopTree tree, VisitorState state) {
-    if (!matchWithinClass) {
+    if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
     ExpressionTree expr = tree.getExpression();

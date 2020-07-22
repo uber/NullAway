@@ -25,11 +25,14 @@ package com.uber.nullaway;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.METHOD_NO_INIT;
+import static com.uber.nullaway.ErrorMessage.MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT;
+import static com.uber.nullaway.NullAway.CORE_CHECK_NAME;
 import static com.uber.nullaway.NullAway.INITIALIZATION_CHECK_NAME;
 import static com.uber.nullaway.NullAway.OPTIONAL_CHECK_NAME;
 import static com.uber.nullaway.NullAway.getTreesInstance;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import com.google.errorprone.VisitorState;
@@ -102,8 +105,18 @@ public class ErrorBuilder {
       Description.Builder descriptionBuilder,
       VisitorState state) {
     Description.Builder builder = descriptionBuilder.setMessage(errorMessage.message);
-    if (errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)
-        && hasPathSuppression(state.getPath(), OPTIONAL_CHECK_NAME)) {
+    String checkName = CORE_CHECK_NAME;
+    if (errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)) {
+      checkName = OPTIONAL_CHECK_NAME;
+    } else if (errorMessage.messageType.equals(FIELD_NO_INIT)
+        || errorMessage.messageType.equals(METHOD_NO_INIT)
+        || errorMessage.messageType.equals(NONNULL_FIELD_READ_BEFORE_INIT)) {
+      checkName = INITIALIZATION_CHECK_NAME;
+    }
+
+    // Mildly expensive state.getPath() traversal, occurs only once per potentially
+    // reported error.
+    if (hasPathSuppression(state.getPath(), checkName)) {
       return Description.NO_MATCH;
     }
 
@@ -136,7 +149,10 @@ public class ErrorBuilder {
         .filter(ErrorBuilder::canHaveSuppressWarningsAnnotation)
         .map(tree -> ASTHelpers.getSymbol(tree))
         .filter(symbol -> symbol != null)
-        .anyMatch(symbol -> symbolHasSuppressWarningsAnnotation(symbol, subcheckerName));
+        .anyMatch(
+            symbol ->
+                symbolHasSuppressWarningsAnnotation(symbol, subcheckerName)
+                    || symbolIsExcludedClassSymbol(symbol));
   }
 
   private Description.Builder addSuggestedSuppression(
@@ -319,6 +335,18 @@ public class ErrorBuilder {
           return true;
         }
       }
+    }
+    return false;
+  }
+
+  private boolean symbolIsExcludedClassSymbol(Symbol symbol) {
+    if (symbol instanceof Symbol.ClassSymbol) {
+      ImmutableSet<String> excludedClassAnnotations = config.getExcludedClassAnnotations();
+      return ((Symbol.ClassSymbol) symbol)
+          .getAnnotationMirrors()
+          .stream()
+          .map(anno -> anno.getAnnotationType().toString())
+          .anyMatch(excludedClassAnnotations::contains);
     }
     return false;
   }
