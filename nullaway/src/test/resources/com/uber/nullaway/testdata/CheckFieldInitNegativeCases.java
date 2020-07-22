@@ -327,4 +327,20 @@ public class CheckFieldInitNegativeCases {
 
     MonotonicNonNullUsage() {}
   }
+
+  @SuppressWarnings("NullAway.Init")
+  public Object getSuppressWarningsF() {
+    return (new Object() {
+      /*SuppressWarningsF*/
+      private Object f;
+
+      public Object getF() {
+        return f;
+      }
+
+      public void setF(Object f) {
+        this.f = f;
+      }
+    });
+  }
 }

@@ -316,6 +316,9 @@ public class ErrorBuilder {
       String message,
       VisitorState state,
       Description.Builder descriptionBuilder) {
+    // Check needed here, despite check in hasPathSuppression because initialization
+    // checking happens at the class-level (meaning state.getPath() might not include the
+    // method itself).
     if (symbolHasSuppressWarningsAnnotation(methodSymbol, INITIALIZATION_CHECK_NAME)) {
       return;
     }
@@ -402,6 +405,9 @@ public class ErrorBuilder {
   }
 
   void reportInitErrorOnField(Symbol symbol, VisitorState state, Description.Builder builder) {
+    // Check needed here, despite check in hasPathSuppression because initialization
+    // checking happens at the class-level (meaning state.getPath() might not include the
+    // field itself).
     if (symbolHasSuppressWarningsAnnotation(symbol, INITIALIZATION_CHECK_NAME)) {
       return;
     }

@@ -173,4 +173,20 @@ public class CheckFieldInitPositiveCases {
       f = new Object(); // Wrong f
     }
   }
+
+  public Object getT12() {
+    return (new Object() {
+      /*T12*/
+      // BUG: Diagnostic contains: f not initialized
+      private Object f;
+
+      public Object getF() {
+        return f;
+      }
+
+      public void setF(Object f) {
+        this.f = f;
+      }
+    });
+  }
 }
