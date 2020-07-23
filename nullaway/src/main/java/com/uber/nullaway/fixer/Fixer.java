@@ -5,6 +5,7 @@ import com.google.common.collect.Iterables;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.VariableTree;
+import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.AnnotationFactory;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
@@ -51,16 +52,29 @@ public class Fixer {
       case PASS_NULLABLE:
         fix = addParamPassNullableFix(location);
         break;
+      case ASSIGN_FIELD_NULLABLE:
+        fix = addFieldNullableFix(location);
+        break;
       default:
         suggestSuppressWarning(errorMessage, location);
     }
     if (fix != null) writerUtils.saveFix(fix);
   }
 
+  private Fix addFieldNullableFix(Location location) {
+    // todo: return null if @Nonnull exists
+    final Fix fix = new Fix();
+    fix.location = location;
+    fix.annotation = config.getAnnotationFactory().getNullable();
+    fix.inject = true;
+    return fix;
+  }
+
   private Fix addParamPassNullableFix(Location location) {
     AnnotationFactory.Annotation nonNull = config.getAnnotationFactory().getNonNull();
     VariableTree variableTree =
-        LocationUtils.getVariableTree(location.methodTree, location.variableSymbol);
+        LocationUtils.getVariableTree(
+            location.methodTree, (Symbol.VarSymbol) location.variableSymbol);
     if (variableTree != null) {
       final List<? extends AnnotationTree> annotations =
           variableTree.getModifiers().getAnnotations();

@@ -4,6 +4,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree;
@@ -16,8 +17,12 @@ public class LocationUtils extends ASTHelpers {
     return (JCTree.JCCompilationUnit) state.getPath().getCompilationUnit();
   }
 
-  public static ClassTree getClassTree(Symbol.MethodSymbol methodSymbol, VisitorState state) {
-    return findClass(enclosingClass(methodSymbol), state);
+  public static ClassTree getClassTree(Symbol symbol, VisitorState state) {
+    return findClass(enclosingClass(symbol), state);
+  }
+
+  public static ClassTree getClassTree(Tree tree, VisitorState state) {
+    return getClassTree(getSymbol(tree), state);
   }
 
   public static VariableTree getVariableTree(MethodTree methodTree, Symbol.VarSymbol varSymbol) {

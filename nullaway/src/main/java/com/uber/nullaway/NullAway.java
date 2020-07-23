@@ -400,6 +400,7 @@ public class NullAway extends BugChecker
     throw new IllegalStateException("unexpected anonymous class constructor body " + statements);
   }
 
+  @SuppressWarnings("TreeToString")
   @Override
   public Description matchAssignment(AssignmentTree tree, VisitorState state) {
     if (!matchWithinClass) {
@@ -422,11 +423,24 @@ public class NullAway extends BugChecker
     ExpressionTree expression = tree.getExpression();
     if (mayBeNullExpr(state, expression)) {
       String message = "assigning @Nullable expression to @NonNull field";
+      ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message);
+
+      if (config.shouldAutoFix()) {
+        CompilationUnitTree c =
+            getTreesInstance(state)
+                .getPath(ASTHelpers.getSymbol(tree.getVariable()))
+                .getCompilationUnit();
+        Location location =
+            Location.Builder()
+                .setClassTree(LocationUtils.getClassTree(tree.getVariable(), state))
+                .setCompilationUnitTree(c)
+                .setVariableSymbol(ASTHelpers.getSymbol(tree.getVariable()))
+                .setKind(Location.Kind.CLASS_FIELD)
+                .build();
+        fixer.fix(errorMessage, location);
+      }
       return errorBuilder.createErrorDescriptionForNullAssignment(
-          new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message),
-          expression,
-          buildDescription(tree),
-          state);
+          errorMessage, expression, buildDescription(tree), state);
     }
     return Description.NO_MATCH;
   }

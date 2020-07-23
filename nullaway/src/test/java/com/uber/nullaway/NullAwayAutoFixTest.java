@@ -64,11 +64,10 @@ public class NullAwayAutoFixTest {
             "import javax.annotation.Nullable;",
             "import javax.annotation.Nonnull;",
             "public class Super {",
-            "   Object test(int i, @Nonnull Object h) {",
-            "     return h;",
-            "   }",
-            "   Object test_param(@Nullable String o) {",
-            "     return test(0, o);",
+            "   Object f = new Object();",
+            "   void test() {",
+            "     f = null;",
+            "     System.out.println(f.toString());",
             "   }",
             "}")
         .doTest();

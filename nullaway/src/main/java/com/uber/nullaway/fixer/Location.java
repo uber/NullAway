@@ -14,7 +14,7 @@ public class Location implements Serializable {
   CompilationUnitTree compilationUnitTree;
   ClassTree classTree;
   MethodTree methodTree;
-  Symbol.VarSymbol variableSymbol;
+  Symbol variableSymbol;
   Kind kind;
 
   public enum Kind {
@@ -106,8 +106,8 @@ public class Location implements Serializable {
       return this;
     }
 
-    public LocationBuilder setVariableSymbol(Symbol.VarSymbol vs) {
-      location.variableSymbol = vs;
+    public LocationBuilder setVariableSymbol(Symbol s) {
+      location.variableSymbol = s;
       return this;
     }
 
