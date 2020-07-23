@@ -92,7 +92,6 @@ import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
-import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -222,8 +221,6 @@ public class NullAway extends BugChecker
    */
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
-  private final ImmutableSet<Class<? extends Annotation>> customSuppressionAnnotations;
-
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
@@ -234,7 +231,6 @@ public class NullAway extends BugChecker
     config = new DummyOptionsConfig();
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
-    customSuppressionAnnotations = ImmutableSet.of();
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
   }
 
@@ -242,25 +238,10 @@ public class NullAway extends BugChecker
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
-    customSuppressionAnnotations = initCustomSuppressions();
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames());
     // workaround for Checker Framework static state bug;
     // See https://github.com/typetools/checker-framework/issues/1482
     AnnotationUtils.clear();
-  }
-
-  private ImmutableSet<Class<? extends Annotation>> initCustomSuppressions() {
-    ImmutableSet.Builder<Class<? extends Annotation>> builder = ImmutableSet.builder();
-    builder.addAll(super.customSuppressionAnnotations());
-    for (String annotName : config.getExcludedClassAnnotations()) {
-      try {
-        builder.add(Class.forName(annotName).asSubclass(Annotation.class));
-      } catch (ClassNotFoundException e) {
-        // in this case, the annotation may be a source file currently being compiled,
-        // in which case we won't be able to resolve the class
-      }
-    }
-    return builder.build();
   }
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
@@ -272,11 +253,6 @@ public class NullAway extends BugChecker
   public String linkUrl() {
     // add a space to make it clickable from iTerm
     return config.getErrorURL() + " ";
-  }
-
-  @Override
-  public Set<Class<? extends Annotation>> customSuppressionAnnotations() {
-    return customSuppressionAnnotations;
   }
 
   /**
