@@ -95,7 +95,30 @@ public class NullAwayTest {
         .doTest();
   }
 
-  // @Test // This test is actually broken, see
+  @Test
+  public void skipClass() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.lib.MyExcluded"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "@com.uber.lib.MyExcluded",
+            "public class Test {",
+            "  static void bar() {",
+            "    // No error",
+            "    Object x = null; x.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void skipNestedClass() {
     compilationHelper
         .setArgs(
