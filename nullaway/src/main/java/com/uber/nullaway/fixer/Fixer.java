@@ -2,6 +2,7 @@ package com.uber.nullaway.fixer;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.VariableTree;
@@ -39,6 +40,8 @@ public class Fixer {
   private void fillMessageTypeLocationMap() {}
 
   public void fix(ErrorMessage errorMessage, Location location) {
+    // todo: remove this condition later, for now we are not supporting anonymous classes
+    if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
     Fix fix = new Fix();
     if (!config.shouldAutoFix()) return;
     switch (errorMessage.getMessageType()) {
