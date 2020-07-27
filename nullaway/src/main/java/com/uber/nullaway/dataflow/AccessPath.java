@@ -36,10 +36,13 @@ import java.util.List;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import org.checkerframework.dataflow.cfg.node.FieldAccessNode;
+import org.checkerframework.dataflow.cfg.node.IntegerLiteralNode;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
+import org.checkerframework.dataflow.cfg.node.LongLiteralNode;
 import org.checkerframework.dataflow.cfg.node.MethodAccessNode;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
+import org.checkerframework.dataflow.cfg.node.StringLiteralNode;
 import org.checkerframework.dataflow.cfg.node.ThisLiteralNode;
 import org.checkerframework.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.javacutil.TreeUtils;
@@ -54,7 +57,7 @@ import org.checkerframework.javacutil.TreeUtils;
  *
  * <p>We do not allow array accesses in access paths for the moment.
  */
-public final class AccessPath {
+public final class AccessPath implements MapKey {
 
   private final Root root;
 
@@ -63,18 +66,18 @@ public final class AccessPath {
   /**
    * if present, the argument to the map get() method call that is the final element of this path
    */
-  @Nullable private final AccessPath mapGetArgAccessPath;
+  @Nullable private final MapKey mapGetArg;
 
   AccessPath(Root root, List<AccessPathElement> elements) {
     this.root = root;
     this.elements = ImmutableList.copyOf(elements);
-    this.mapGetArgAccessPath = null;
+    this.mapGetArg = null;
   }
 
-  private AccessPath(Root root, List<AccessPathElement> elements, AccessPath mapGetArgAccessPath) {
+  private AccessPath(Root root, List<AccessPathElement> elements, MapKey mapGetArg) {
     this.root = root;
     this.elements = ImmutableList.copyOf(elements);
-    this.mapGetArgAccessPath = mapGetArgAccessPath;
+    this.mapGetArg = mapGetArg;
   }
 
   /**
@@ -170,10 +173,38 @@ public final class AccessPath {
   }
 
   @Nullable
+  private static MapKey argumentToMapKeySpecifier(Node argument) {
+    // A switch at the Tree level should be faster than multiple if checks at the Node level.
+    switch (argument.getTree().getKind()) {
+      case STRING_LITERAL:
+        return new StringMapKey(((StringLiteralNode) argument).getValue());
+      case INT_LITERAL:
+        return new NumericMapKey(((IntegerLiteralNode) argument).getValue());
+      case LONG_LITERAL:
+        return new NumericMapKey(((LongLiteralNode) argument).getValue());
+      case METHOD_INVOCATION:
+        MethodAccessNode target = ((MethodInvocationNode) argument).getTarget();
+        List<Node> arguments = ((MethodInvocationNode) argument).getArguments();
+        // Check for int/long boxing.
+        if (target.getMethod().getSimpleName().toString().equals("valueOf")
+            && arguments.size() == 1
+            && target.getReceiver().getTree().getKind().equals(Tree.Kind.IDENTIFIER)
+            && (target.getReceiver().toString().equals("Integer")
+                || target.getReceiver().toString().equals("Long"))) {
+          return argumentToMapKeySpecifier(arguments.get(0));
+        }
+        // Fine to fallthrough:
+      default:
+        // Every other type of expression, including variables, field accesses, new A(...), etc.
+        return getAccessPathForNodeNoMapGet(argument); // Every AP is a MapKey too
+    }
+  }
+
+  @Nullable
   private static AccessPath fromMapGetCall(MethodInvocationNode node) {
     Node argument = node.getArgument(0);
-    AccessPath argAccessPath = getAccessPathForNodeNoMapGet(argument);
-    if (argAccessPath == null) {
+    MapKey mapKey = argumentToMapKeySpecifier(argument);
+    if (mapKey == null) {
       return null;
     }
     MethodAccessNode target = node.getTarget();
@@ -183,7 +214,7 @@ public final class AccessPath {
     if (root == null) {
       return null;
     }
-    return new AccessPath(root, elements, argAccessPath);
+    return new AccessPath(root, elements, mapKey);
   }
 
   /**
@@ -306,16 +337,16 @@ public final class AccessPath {
     if (!elements.equals(that.elements)) {
       return false;
     }
-    return mapGetArgAccessPath != null
-        ? (that.mapGetArgAccessPath != null && mapGetArgAccessPath.equals(that.mapGetArgAccessPath))
-        : that.mapGetArgAccessPath == null;
+    return mapGetArg != null
+        ? (that.mapGetArg != null && mapGetArg.equals(that.mapGetArg))
+        : that.mapGetArg == null;
   }
 
   @Override
   public int hashCode() {
     int result = root.hashCode();
     result = 31 * result + elements.hashCode();
-    result = 31 * result + (mapGetArgAccessPath != null ? mapGetArgAccessPath.hashCode() : 0);
+    result = 31 * result + (mapGetArg != null ? mapGetArg.hashCode() : 0);
     return result;
   }
 
@@ -432,6 +463,50 @@ public final class AccessPath {
     @Override
     public String toString() {
       return "Root{" + "isMethodReceiver=" + isMethodReceiver + ", varElement=" + varElement + '}';
+    }
+  }
+
+  private static final class StringMapKey implements MapKey {
+
+    private String key;
+
+    public StringMapKey(String key) {
+      this.key = key;
+    }
+
+    @Override
+    public int hashCode() {
+      return this.key.hashCode();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof StringMapKey) {
+        return this.key.equals(((StringMapKey) obj).key);
+      }
+      return false;
+    }
+  }
+
+  private static final class NumericMapKey implements MapKey {
+
+    private long key;
+
+    public NumericMapKey(long key) {
+      this.key = key;
+    }
+
+    @Override
+    public int hashCode() {
+      return Long.hashCode(this.key);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (obj instanceof NumericMapKey) {
+        return this.key == ((NumericMapKey) obj).key;
+      }
+      return false;
     }
   }
 }

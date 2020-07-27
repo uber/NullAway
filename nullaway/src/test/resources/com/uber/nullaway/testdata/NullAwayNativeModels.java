@@ -202,6 +202,34 @@ public class NullAwayNativeModels {
     }
   }
 
+  static void mapCheckWithPrimitiveUnboxing(int key) {
+    Map<Integer, Object> m = new HashMap<>();
+    if (m.containsKey(key)) {
+      m.get(key).hashCode();
+    }
+  }
+
+  static void mapCheckWithPrimitiveUnboxingLong(long key) {
+    Map<Integer, Object> m = new HashMap<>();
+    if (m.containsKey(key)) {
+      m.get(key).hashCode();
+    }
+  }
+
+  static void mapCheckWithStringConstantKey() {
+    Map<String, Object> m = new HashMap<>();
+    if (m.containsKey("key")) {
+      m.get("key").hashCode();
+    }
+  }
+
+  static void mapCheckWithIntConstantKey() {
+    Map<String, Object> m = new HashMap<>();
+    if (m.containsKey(42)) {
+      m.get(42).hashCode();
+    }
+  }
+
   static void failIfNull(
       @Nullable Object o1,
       @Nullable Object o2,
