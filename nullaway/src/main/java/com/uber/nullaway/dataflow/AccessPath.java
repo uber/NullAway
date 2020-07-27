@@ -210,7 +210,6 @@ public final class AccessPath {
     Node argument = node.getArgument(0);
     MapKey mapKey = argumentToMapKeySpecifier(argument);
     if (mapKey == null) {
-      System.err.println("Argument has no Map Key: " + argument.toString());
       return null;
     }
     MethodAccessNode target = node.getTarget();
