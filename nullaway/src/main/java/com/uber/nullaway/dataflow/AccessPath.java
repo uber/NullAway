@@ -57,7 +57,7 @@ import org.checkerframework.javacutil.TreeUtils;
  *
  * <p>We do not allow array accesses in access paths for the moment.
  */
-public final class AccessPath {
+public final class AccessPath implements MapKey {
 
   private final Root root;
 
@@ -196,12 +196,7 @@ public final class AccessPath {
         // Fine to fallthrough:
       default:
         // Every other type of expression, including variables, field accesses, new A(...), etc.
-        AccessPath accessPath = getAccessPathForNodeNoMapGet(argument);
-        if (accessPath == null) {
-          // No MapKey object can be constructed here
-          return null;
-        }
-        return new AccessPathMapKey(accessPath);
+        return getAccessPathForNodeNoMapGet(argument); // Every AP is a MapKey too
     }
   }
 
@@ -468,31 +463,6 @@ public final class AccessPath {
     @Override
     public String toString() {
       return "Root{" + "isMethodReceiver=" + isMethodReceiver + ", varElement=" + varElement + '}';
-    }
-  }
-
-  // A union type by another name
-  private interface MapKey {}
-
-  private static final class AccessPathMapKey implements MapKey {
-
-    private AccessPath accessPath;
-
-    public AccessPathMapKey(AccessPath accessPath) {
-      this.accessPath = accessPath;
-    }
-
-    @Override
-    public int hashCode() {
-      return this.accessPath.hashCode();
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (obj instanceof AccessPathMapKey) {
-        return this.accessPath.equals(((AccessPathMapKey) obj).accessPath);
-      }
-      return false;
     }
   }
 
