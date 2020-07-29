@@ -276,6 +276,10 @@ public class NullAway extends BugChecker
         || NullabilityUtil.isUnannotated(ASTHelpers.getSymbol(invocationNode.getTree()), config);
   }
 
+  private boolean shouldInvokeAutoFix(VisitorState state, Element symbol) {
+    return config.shouldAutoFix() && getTreesInstance(state).getPath(symbol) != null;
+  }
+
   @Override
   public String linkUrl() {
     // add a space to make it clickable from iTerm
@@ -425,7 +429,7 @@ public class NullAway extends BugChecker
       String message = "assigning @Nullable expression to @NonNull field";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message);
 
-      if (config.shouldAutoFix()) {
+      if (shouldInvokeAutoFix(state, ASTHelpers.getSymbol(tree.getVariable()))) {
         CompilationUnitTree c =
             getTreesInstance(state)
                 .getPath(ASTHelpers.getSymbol(tree.getVariable()))
@@ -654,7 +658,7 @@ public class NullAway extends BugChecker
 
         ErrorMessage errorMessage = new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message);
 
-        if (config.shouldAutoFix()) {
+        if (shouldInvokeAutoFix(state, overridingnMethod)) {
           CompilationUnitTree c =
               getTreesInstance(state).getPath(overridingnMethod).getCompilationUnit();
           Location location =
@@ -699,7 +703,7 @@ public class NullAway extends BugChecker
               MessageTypes.RETURN_NULLABLE,
               "returning @Nullable expression from method with @NonNull return type");
 
-      if (config.shouldAutoFix()) {
+      if (shouldInvokeAutoFix(state, methodSymbol)) {
         MethodTree methodTree = ASTHelpers.findMethod(methodSymbol, state);
         if (methodTree == null)
           throw new RuntimeException("AutoFix cannot find the method with symbol: " + methodSymbol);
@@ -824,7 +828,7 @@ public class NullAway extends BugChecker
               ? memberReferenceTree
               : getTreesInstance(state).getTree(overriddenMethod);
 
-      if (config.shouldAutoFix()) {
+      if (shouldInvokeAutoFix(state, overriddenMethod)) {
         CompilationUnitTree c =
             getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
         Location location =
@@ -1452,7 +1456,7 @@ public class NullAway extends BugChecker
                 + "' where @NonNull is required";
         ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message);
 
-        if (config.shouldAutoFix()) {
+        if (shouldInvokeAutoFix(state, methodSymbol)) {
           CompilationUnitTree c =
               getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
           Location location =
