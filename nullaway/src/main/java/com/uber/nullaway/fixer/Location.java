@@ -46,11 +46,6 @@ public class Location implements Serializable {
     res.put(KEYS.PARAM.label, paramSymbolRep);
     res.put(KEYS.LOCATION.label, kind.label);
     res.put(KEYS.PKG.label, pkg);
-    if (methodTree != null && methodTree.getModifiers() != null) {
-      res.put(KEYS.MODIFIERS.label, methodTree.getModifiers().toString());
-    } else {
-      res.put(KEYS.MODIFIERS.label, "");
-    }
     if (compilationUnitTree != null) {
       res.put(KEYS.URI.label, compilationUnitTree.getSourceFile().toUri().toASCIIString());
     } else {

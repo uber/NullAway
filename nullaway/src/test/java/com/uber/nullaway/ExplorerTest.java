@@ -53,7 +53,6 @@ public class ExplorerTest {
                 "test(boolean)",
                 "",
                 "METHOD_RETURN",
-                "",
                 "com.uber.SubClass",
                 "com.uber",
                 "com/uber/SubClass.java",
@@ -102,7 +101,6 @@ public class ExplorerTest {
                 "test(boolean)",
                 "",
                 "METHOD_RETURN",
-                "",
                 "com.uber.Super",
                 "com.uber",
                 "com/uber/android/Super.java",
@@ -151,7 +149,6 @@ public class ExplorerTest {
                 "test(java.lang.Object)",
                 "o",
                 "METHOD_PARAM",
-                "@Nullable()n",
                 "com.uber.SubClass",
                 "com.uber",
                 "com/uber/test/SubClass.java",
@@ -190,7 +187,6 @@ public class ExplorerTest {
                 "test(int,java.lang.Object)",
                 "h",
                 "METHOD_PARAM",
-                "",
                 "com.uber.Super",
                 "com.uber",
                 "com/uber/android/Super.java",
@@ -255,10 +251,53 @@ public class ExplorerTest {
                 "",
                 "h",
                 "CLASS_FIELD",
-                "",
                 "com.uber.Super",
                 "com.uber",
                 "com/uber/android/Super.java",
+                "true"))
+        .doTest();
+  }
+
+  @Test
+  public void add_nullable_pass_param_generics() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/Base.java",
+            "package com.uber;",
+            "import java.util.ArrayList;",
+            "public class Base extends Super<String>{",
+            "   public void newSideEffect(ArrayList<String> op) {",
+            "     newStatement(null, op, true, true);",
+            "   }",
+            "}")
+        .addSourceLines(
+            "com/uber/Super.java",
+            "package com.uber;",
+            "import java.util.ArrayList;",
+            "class Super<T extends Object> {",
+            "   public boolean newStatement(",
+            "     T lhs, ArrayList<T> operator, boolean toWorkList, boolean eager) {",
+            "       return false;",
+            "   }",
+            "}")
+        .addFixes(
+            new Fix(
+                "javax.annotation.Nullable",
+                "newStatement(T,java.util.ArrayList<T>,boolean,boolean)",
+                "lhs",
+                "METHOD_PARAM",
+                "com.uber.Super",
+                "com.uber",
+                "com/uber/Super.java",
                 "true"))
         .doTest();
   }

@@ -4,7 +4,6 @@ public enum KEYS {
   PARAM("param"),
   METHOD("method"),
   LOCATION("location"),
-  MODIFIERS("modifiers"),
   CLASS("class"),
   PKG("pkg"),
   URI("uri"),
