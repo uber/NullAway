@@ -174,4 +174,9 @@ public class DummyOptionsConfig implements Config {
   public boolean acknowledgeAndroidRecent() {
     throw new IllegalStateException(error_msg);
   }
+
+  @Override
+  public boolean tryHandleLombok() {
+    throw new IllegalStateException(error_msg);
+  }
 }

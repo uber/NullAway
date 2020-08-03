@@ -65,6 +65,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   /** --- JarInfer configs --- */
   static final String FL_JI_ENABLED = EP_FL_NAMESPACE + ":JarInferEnabled";
 
+  static final String FL_TRY_HANDLE_LOMBOK = EP_FL_NAMESPACE + ":TryHandleLombok";
+
   static final String FL_JI_USE_RETURN = EP_FL_NAMESPACE + ":JarInferUseReturnAnnotations";
 
   static final String FL_JI_REGEX_MODEL_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripModelJar";
@@ -171,6 +173,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     // the analyzed classes.
     jarInferRegexStripModelJarName = flags.get(FL_JI_REGEX_MODEL_PATH).orElse(BASENAME_REGEX);
     jarInferRegexStripCodeJarName = flags.get(FL_JI_REGEX_CODE_PATH).orElse(BASENAME_REGEX);
+    tryHandleLombok = flags.getBoolean(FL_TRY_HANDLE_LOMBOK).orElse(false);
     errorURL = flags.get(FL_ERROR_URL).orElse(DEFAULT_URL);
     if (acknowledgeAndroidRecent && !isAcknowledgeRestrictive) {
       throw new IllegalStateException(

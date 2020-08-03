@@ -330,7 +330,6 @@ public class ErrorBuilder {
       return;
     }
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
-    System.err.println(state.getPath().getCompilationUnit().toString());
     state.reportMatch(
         createErrorDescription(
             new ErrorMessage(METHOD_NO_INIT, message), methodTree, descriptionBuilder, state));

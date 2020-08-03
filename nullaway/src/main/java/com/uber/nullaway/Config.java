@@ -234,4 +234,11 @@ public interface Config {
    *     similarly for {@code @RecentlyNonNull}
    */
   boolean acknowledgeAndroidRecent();
+
+  /**
+   * Try to handle lombok-using code on a best-effort basis.
+   *
+   * @return true if the experimental lombok code handler should be turned on.
+   */
+  boolean tryHandleLombok();
 }
