@@ -59,6 +59,7 @@ public class Handlers {
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }
+    handlerListBuilder.add(new LombokHandler());
     return new CompositeHandler(handlerListBuilder.build());
   }
 

@@ -231,14 +231,14 @@ public class NullAway extends BugChecker
     config = new DummyOptionsConfig();
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
-    errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
+    errorBuilder = new ErrorBuilder(config, handler, "", ImmutableSet.of());
   }
 
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
-    errorBuilder = new ErrorBuilder(config, canonicalName(), allNames());
+    errorBuilder = new ErrorBuilder(config, handler, canonicalName(), allNames());
     // workaround for Checker Framework static state bug;
     // See https://github.com/typetools/checker-framework/issues/1482
     AnnotationUtils.clear();

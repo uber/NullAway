@@ -107,6 +107,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "org.junit.jupiter.api.BeforeAll",
           "org.junit.jupiter.api.BeforeEach"); // + Anything with @Initializer as its "simple name"
 
+  static final ImmutableSet<String> DEFAULT_EXTERNAL_INIT_ANNOT = ImmutableSet.of("lombok.Builder");
+
   static final ImmutableSet<String> DEFAULT_EXCLUDED_FIELD_ANNOT =
       ImmutableSet.of(
           "javax.inject.Inject", // no explicit initialization when there is dependency injection
@@ -136,7 +138,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     excludedClassAnnotations = getFlagStringSet(flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE);
     initializerAnnotations =
         getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);
-    externalInitAnnotations = getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT);
+    externalInitAnnotations =
+        getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT, DEFAULT_EXTERNAL_INIT_ANNOT);
     isExhaustiveOverride = flags.getBoolean(FL_EXHAUSTIVE_OVERRIDE).orElse(false);
     isSuggestSuppressions = flags.getBoolean(FL_SUGGEST_SUPPRESSIONS).orElse(false);
     isAcknowledgeRestrictive = flags.getBoolean(FL_ACKNOWLEDGE_RESTRICTIVE).orElse(false);

@@ -180,4 +180,9 @@ abstract class BaseNoOpHandler implements Handler {
   public boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state) {
     return false;
   }
+
+  @Override
+  public boolean onPreErrorReporting(ErrorMessage errorMessage, VisitorState state) {
+    return true;
+  }
 }
