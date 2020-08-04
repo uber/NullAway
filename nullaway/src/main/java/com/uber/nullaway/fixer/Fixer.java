@@ -1,5 +1,7 @@
 package com.uber.nullaway.fixer;
 
+import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
+
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
@@ -55,11 +57,13 @@ public class Fixer {
       case PASS_NULLABLE:
         fix = addParamPassNullableFix(location);
         break;
+      case FIELD_NO_INIT:
       case ASSIGN_FIELD_NULLABLE:
         fix = addFieldNullableFix(location);
         break;
       default:
         suggestSuppressWarning(errorMessage, location);
+        return;
     }
     if (fix != null) writerUtils.saveFix(fix);
   }

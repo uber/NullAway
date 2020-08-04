@@ -38,6 +38,7 @@ import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
@@ -48,6 +49,9 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import com.uber.nullaway.fixer.Fixer;
+import com.uber.nullaway.fixer.Location;
+import com.uber.nullaway.fixer.LocationUtils;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -67,10 +71,13 @@ public class ErrorBuilder {
   /** Additional identifiers for this check, to be checked for in @SuppressWarnings annotations. */
   private final Set<String> allNames;
 
-  ErrorBuilder(Config config, String suppressionName, Set<String> allNames) {
+  private final Fixer fixer;
+
+  ErrorBuilder(Config config, String suppressionName, Set<String> allNames, Fixer fixer) {
     this.config = config;
     this.suppressionName = suppressionName;
     this.allNames = allNames;
+    this.fixer = fixer;
   }
 
   /**
@@ -373,6 +380,7 @@ public class ErrorBuilder {
     return message.toString();
   }
 
+  @SuppressWarnings("TreeToString")
   void reportInitErrorOnField(Symbol symbol, VisitorState state, Description.Builder builder) {
     if (symbolHasSuppressWarningsAnnotation(symbol, INITIALIZATION_CHECK_NAME)) {
       return;
@@ -385,6 +393,20 @@ public class ErrorBuilder {
       String flatName = symbol.enclClass().flatName().toString();
       int index = flatName.lastIndexOf(".") + 1;
       fieldName = flatName.substring(index) + "." + fieldName;
+    }
+
+    if (config.shouldAutoFix() && getTreesInstance(state).getPath(symbol) != null) {
+      CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
+      Location location =
+          Location.Builder()
+              .setClassTree(LocationUtils.getClassTree(tree, state))
+              .setCompilationUnitTree(c)
+              .setVariableSymbol(ASTHelpers.getSymbol(tree))
+              .setKind(Location.Kind.CLASS_FIELD)
+              .build();
+      fixer.fix(
+          new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),
+          location);
     }
 
     if (symbol.isStatic()) {

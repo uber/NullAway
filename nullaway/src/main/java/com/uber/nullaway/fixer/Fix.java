@@ -19,4 +19,16 @@ public class Fix implements Serializable {
     res.put(KEYS.ANNOTATION.label, annotation.fullName.replace(";", ""));
     return res;
   }
+
+  @Override
+  public String toString() {
+    return "Fix{"
+        + "location="
+        + location
+        + ", annotation="
+        + annotation
+        + ", inject="
+        + inject
+        + '}';
+  }
 }

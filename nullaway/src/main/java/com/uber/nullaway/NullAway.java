@@ -241,8 +241,8 @@ public class NullAway extends BugChecker
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
     customSuppressionAnnotations = ImmutableSet.of();
-    errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
     fixer = new Fixer(config);
+    errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), fixer);
   }
 
   public NullAway(ErrorProneFlags flags) {
@@ -250,8 +250,8 @@ public class NullAway extends BugChecker
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
     customSuppressionAnnotations = initCustomSuppressions();
-    errorBuilder = new ErrorBuilder(config, canonicalName(), allNames());
     fixer = new Fixer(config);
+    errorBuilder = new ErrorBuilder(config, canonicalName(), allNames(), fixer);
     // workaround for Checker Framework static state bug;
     // See https://github.com/typetools/checker-framework/issues/1482
     AnnotationUtils.clear();
@@ -404,7 +404,6 @@ public class NullAway extends BugChecker
     throw new IllegalStateException("unexpected anonymous class constructor body " + statements);
   }
 
-  @SuppressWarnings("TreeToString")
   @Override
   public Description matchAssignment(AssignmentTree tree, VisitorState state) {
     if (!matchWithinClass) {
