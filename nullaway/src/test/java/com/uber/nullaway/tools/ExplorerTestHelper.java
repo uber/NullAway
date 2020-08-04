@@ -128,6 +128,7 @@ public class ExplorerTestHelper {
     compareFixes(outputFixes);
   }
 
+  @SuppressWarnings("ResultOfMethodCallIgnored")
   private void clearOutput() {
     new File(outputPath).delete();
   }
@@ -147,13 +148,8 @@ public class ExplorerTestHelper {
               + " redundant fix(s) were found: "
               + "\n"
               + Arrays.deepToString(output.toArray())
-              + "fixes not found by checker:"
               + "\n"
-              + "================="
-              + "\n"
-              + Arrays.deepToString(notFound.toArray())
-              + "\n"
-              + "================="
+              + "Fixer did not found any fix!"
               + "\n");
     }
     fail(

@@ -1198,6 +1198,7 @@ public class NullAway extends BugChecker
     return false;
   }
 
+  @SuppressWarnings("TreeToString")
   @Override
   public Description matchVariable(VariableTree tree, VisitorState state) {
     if (!matchWithinClass) {
@@ -1218,6 +1219,17 @@ public class NullAway extends BugChecker
               new ErrorMessage(
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
                   "assigning @Nullable expression to @NonNull field");
+          if (shouldInvokeAutoFix(state, symbol)) {
+            CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
+            Location location =
+                Location.Builder()
+                    .setClassTree(LocationUtils.getClassTree(tree, state))
+                    .setCompilationUnitTree(c)
+                    .setVariableSymbol(ASTHelpers.getSymbol(tree))
+                    .setKind(Location.Kind.CLASS_FIELD)
+                    .build();
+            fixer.fix(errorMessage, location);
+          }
           return errorBuilder.createErrorDescriptionForNullAssignment(
               errorMessage, initializer, buildDescription(tree), state);
         }
