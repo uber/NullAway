@@ -229,6 +229,7 @@ public class NullAway extends BugChecker
   private final ImmutableSet<Class<? extends Annotation>> customSuppressionAnnotations;
 
   private final Fixer fixer;
+  private final String fixMessageSignature = "(Covered) ";
 
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
@@ -425,7 +426,7 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expression = tree.getExpression();
     if (mayBeNullExpr(state, expression)) {
-      String message = "assigning @Nullable expression to @NonNull field";
+      String message = fixMessageSignature + "assigning @Nullable expression to @NonNull field";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message);
 
       if (shouldInvokeAutoFix(state, ASTHelpers.getSymbol(tree.getVariable()))) {
@@ -655,7 +656,8 @@ public class NullAway extends BugChecker
           errorTree = getTreesInstance(state).getTree(paramSymbol);
         }
 
-        ErrorMessage errorMessage = new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message);
+        ErrorMessage errorMessage =
+            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, fixMessageSignature + message);
 
         if (shouldInvokeAutoFix(state, overridingnMethod)) {
           CompilationUnitTree c =
@@ -700,7 +702,8 @@ public class NullAway extends BugChecker
       final ErrorMessage errorMessage =
           new ErrorMessage(
               MessageTypes.RETURN_NULLABLE,
-              "returning @Nullable expression from method with @NonNull return type");
+              fixMessageSignature
+                  + "returning @Nullable expression from method with @NonNull return type");
 
       if (shouldInvokeAutoFix(state, methodSymbol)) {
         MethodTree methodTree = ASTHelpers.findMethod(methodSymbol, state);
@@ -837,7 +840,9 @@ public class NullAway extends BugChecker
                 .setCompilationUnitTree(c)
                 .setKind(Location.Kind.METHOD_RETURN)
                 .build();
-        fixer.fix(new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message), location);
+        fixer.fix(
+            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature + message),
+            location);
       }
 
       Tree errorTree =
@@ -1217,7 +1222,7 @@ public class NullAway extends BugChecker
           final ErrorMessage errorMessage =
               new ErrorMessage(
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
-                  "assigning @Nullable expression to @NonNull field");
+                  fixMessageSignature + "assigning @Nullable expression to @NonNull field");
           if (shouldInvokeAutoFix(state, symbol)) {
             CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
             Location location =
@@ -1465,7 +1470,8 @@ public class NullAway extends BugChecker
             "passing @Nullable parameter '"
                 + state.getSourceForNode(actual)
                 + "' where @NonNull is required";
-        ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message);
+        ErrorMessage errorMessage =
+            new ErrorMessage(MessageTypes.PASS_NULLABLE, fixMessageSignature + message);
 
         if (shouldInvokeAutoFix(state, methodSymbol)) {
           CompilationUnitTree c =
@@ -1604,6 +1610,57 @@ public class NullAway extends BugChecker
       // anyways).
       errorBuilder.reportInitErrorOnField(
           uninitSField, state, buildDescription(getTreesInstance(state).getTree(uninitSField)));
+    }
+    if (config.shouldAutoFix()) {
+      fixInitializationErrorsOnControlFlowPaths(
+          state, notInitializedStaticFields, errorFieldsForInitializer);
+    }
+  }
+
+  private void fixInitializationErrorsOnControlFlowPaths(
+      VisitorState state,
+      Set<Symbol> notInitializedStaticFields,
+      SetMultimap<Element, Element> errorFieldsForInitializer) {
+    for (Element constructorElement : errorFieldsForInitializer.keySet()) {
+      for (Element element : errorFieldsForInitializer.get(constructorElement)) {
+        if (shouldInvokeAutoFix(state, element)) {
+          Tree tree = getTreesInstance(state).getTree(element);
+          Symbol symbol = ASTHelpers.getSymbol(tree);
+          CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
+          Location location =
+              Location.Builder()
+                  .setClassTree(LocationUtils.getClassTree(tree, state))
+                  .setCompilationUnitTree(c)
+                  .setVariableSymbol(symbol)
+                  .setKind(Location.Kind.CLASS_FIELD)
+                  .build();
+          ErrorMessage errorMessage =
+              new ErrorMessage(
+                  MessageTypes.FIELD_NO_INIT,
+                  fixMessageSignature + "initializer method does not guarantee @NonNull fields");
+          fixer.fix(errorMessage, location);
+        }
+      }
+    }
+    // For static fields
+    for (Symbol uninitSField : notInitializedStaticFields) {
+      if (shouldInvokeAutoFix(state, uninitSField)) {
+        Tree tree = getTreesInstance(state).getTree(uninitSField);
+        Symbol symbol = ASTHelpers.getSymbol(tree);
+        CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
+        Location location =
+            Location.Builder()
+                .setClassTree(LocationUtils.getClassTree(tree, state))
+                .setCompilationUnitTree(c)
+                .setVariableSymbol(symbol)
+                .setKind(Location.Kind.CLASS_FIELD)
+                .build();
+        ErrorMessage errorMessage =
+            new ErrorMessage(
+                MessageTypes.FIELD_NO_INIT,
+                fixMessageSignature + "initializer method does not guarantee @NonNull fields");
+        fixer.fix(errorMessage, location);
+      }
     }
   }
 

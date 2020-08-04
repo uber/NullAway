@@ -73,6 +73,8 @@ public class ErrorBuilder {
 
   private final Fixer fixer;
 
+  private final String fixMessageSignature = "(Covered) ";
+
   ErrorBuilder(Config config, String suppressionName, Set<String> allNames, Fixer fixer) {
     this.config = config;
     this.suppressionName = suppressionName;
@@ -413,14 +415,17 @@ public class ErrorBuilder {
       state.reportMatch(
           createErrorDescription(
               new ErrorMessage(
-                  FIELD_NO_INIT, "@NonNull static field " + fieldName + " not initialized"),
+                  FIELD_NO_INIT,
+                  fixMessageSignature + "@NonNull static field " + fieldName + " not initialized"),
               tree,
               builder,
               state));
     } else {
       state.reportMatch(
           createErrorDescription(
-              new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),
+              new ErrorMessage(
+                  FIELD_NO_INIT,
+                  fixMessageSignature + "@NonNull field " + fieldName + " not initialized"),
               tree,
               builder,
               state));
