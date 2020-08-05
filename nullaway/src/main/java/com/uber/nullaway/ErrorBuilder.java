@@ -73,7 +73,7 @@ public class ErrorBuilder {
 
   private final Fixer fixer;
 
-  private final String fixMessageSignature = "(Covered) ";
+  static final String fixMessageSignature = "(Covered) ";
 
   ErrorBuilder(Config config, String suppressionName, Set<String> allNames, Fixer fixer) {
     this.config = config;
@@ -354,7 +354,8 @@ public class ErrorBuilder {
    * @return the error message for uninitialized fields with line numbers.
    */
   static String errMsgForInitializer(Set<Element> uninitFields, VisitorState state) {
-    StringBuilder message = new StringBuilder("initializer method does not guarantee @NonNull ");
+    StringBuilder message =
+        new StringBuilder(fixMessageSignature + "initializer method does not guarantee @NonNull ");
     Element uninitField;
     if (uninitFields.size() == 1) {
       uninitField = uninitFields.iterator().next();
