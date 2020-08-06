@@ -45,6 +45,7 @@ import org.checkerframework.dataflow.cfg.node.Node;
 import org.checkerframework.dataflow.cfg.node.StringLiteralNode;
 import org.checkerframework.dataflow.cfg.node.ThisLiteralNode;
 import org.checkerframework.dataflow.cfg.node.VariableDeclarationNode;
+import org.checkerframework.dataflow.cfg.node.WideningConversionNode;
 import org.checkerframework.javacutil.TreeUtils;
 
 /**
@@ -174,6 +175,10 @@ public final class AccessPath implements MapKey {
 
   @Nullable
   private static MapKey argumentToMapKeySpecifier(Node argument) {
+    // Required to have Node type match Tree type in some instances.
+    if (argument instanceof WideningConversionNode) {
+      argument = ((WideningConversionNode) argument).getOperand();
+    }
     // A switch at the Tree level should be faster than multiple if checks at the Node level.
     switch (argument.getTree().getKind()) {
       case STRING_LITERAL:
