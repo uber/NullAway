@@ -51,7 +51,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
-import com.uber.nullaway.handlers.Handler;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -64,7 +63,6 @@ import javax.tools.JavaFileObject;
 public class ErrorBuilder {
 
   private final Config config;
-  private final Handler handler;
 
   /** Checker name that can be used to suppress the warnings. */
   private final String suppressionName;
@@ -72,9 +70,8 @@ public class ErrorBuilder {
   /** Additional identifiers for this check, to be checked for in @SuppressWarnings annotations. */
   private final Set<String> allNames;
 
-  ErrorBuilder(Config config, Handler handler, String suppressionName, Set<String> allNames) {
+  ErrorBuilder(Config config, String suppressionName, Set<String> allNames) {
     this.config = config;
-    this.handler = handler;
     this.suppressionName = suppressionName;
     this.allNames = allNames;
   }
@@ -120,10 +117,6 @@ public class ErrorBuilder {
     // Mildly expensive state.getPath() traversal, occurs only once per potentially
     // reported error.
     if (hasPathSuppression(state.getPath(), checkName)) {
-      return Description.NO_MATCH;
-    }
-
-    if (!handler.onPreErrorReporting(errorMessage, state)) {
       return Description.NO_MATCH;
     }
 

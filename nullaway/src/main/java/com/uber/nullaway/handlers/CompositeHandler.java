@@ -230,10 +230,4 @@ class CompositeHandler implements Handler {
     }
     return shouldFilter;
   }
-
-  @Override
-  public boolean onPreErrorReporting(ErrorMessage errorMessage, VisitorState state) {
-    // Return true if and only if all handlers return true
-    return handlers.stream().allMatch(h -> h.onPreErrorReporting(errorMessage, state));
-  }
 }

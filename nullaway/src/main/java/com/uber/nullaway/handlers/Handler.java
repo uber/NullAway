@@ -298,17 +298,6 @@ public interface Handler {
   boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state);
 
   /**
-   * Called right before reporting a NullAway error.
-   *
-   * <p>This callback point allows handlers to suppress errors.
-   *
-   * @param errorMessage The error being reported
-   * @param state The current visitor state.
-   * @return true if the error should be reported (default), false to suppress the error.
-   */
-  boolean onPreErrorReporting(ErrorMessage errorMessage, VisitorState state);
-
-  /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
    * their knowledge of the method return nullability to the the rest of NullAway.
    */

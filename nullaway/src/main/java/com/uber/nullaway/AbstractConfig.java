@@ -104,8 +104,6 @@ public abstract class AbstractConfig implements Config {
   protected String jarInferRegexStripModelJarName;
   protected String jarInferRegexStripCodeJarName;
 
-  protected boolean tryHandleLombok;
-
   protected String errorURL;
 
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
@@ -289,10 +287,5 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean acknowledgeAndroidRecent() {
     return acknowledgeAndroidRecent;
-  }
-
-  @Override
-  public boolean tryHandleLombok() {
-    return tryHandleLombok;
   }
 }

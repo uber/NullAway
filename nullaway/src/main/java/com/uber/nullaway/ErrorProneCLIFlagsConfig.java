@@ -65,8 +65,6 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   /** --- JarInfer configs --- */
   static final String FL_JI_ENABLED = EP_FL_NAMESPACE + ":JarInferEnabled";
 
-  static final String FL_TRY_HANDLE_LOMBOK = EP_FL_NAMESPACE + ":TryHandleLombok";
-
   static final String FL_JI_USE_RETURN = EP_FL_NAMESPACE + ":JarInferUseReturnAnnotations";
 
   static final String FL_JI_REGEX_MODEL_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripModelJar";
@@ -74,6 +72,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
 
   private static final String DELIMITER = ",";
+
+  static final ImmutableSet<String> DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE =
+      ImmutableSet.of("lombok.Generated");
 
   static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS =
       ImmutableSet.of(
@@ -137,7 +138,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     knownInitializers =
         getKnownInitializers(
             getFlagStringSet(flags, FL_KNOWN_INITIALIZERS, DEFAULT_KNOWN_INITIALIZERS));
-    excludedClassAnnotations = getFlagStringSet(flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE);
+    excludedClassAnnotations =
+        getFlagStringSet(
+            flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE, DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE);
     initializerAnnotations =
         getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);
     externalInitAnnotations =
@@ -173,7 +176,6 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     // the analyzed classes.
     jarInferRegexStripModelJarName = flags.get(FL_JI_REGEX_MODEL_PATH).orElse(BASENAME_REGEX);
     jarInferRegexStripCodeJarName = flags.get(FL_JI_REGEX_CODE_PATH).orElse(BASENAME_REGEX);
-    tryHandleLombok = flags.getBoolean(FL_TRY_HANDLE_LOMBOK).orElse(false);
     errorURL = flags.get(FL_ERROR_URL).orElse(DEFAULT_URL);
     if (acknowledgeAndroidRecent && !isAcknowledgeRestrictive) {
       throw new IllegalStateException(

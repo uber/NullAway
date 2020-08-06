@@ -22,14 +22,13 @@
 
 package com.uber.lombok;
 
-import javax.annotation.Nullable;
-import lombok.Builder;
-import lombok.Data;
-
-@Builder
-@Data
-public class LombokBuilderInit {
-  private String field;
-  @Builder.Default private String fieldWithDefault = "Default";
-  @Nullable private String nullableField;
+class UsesBuilder {
+  public static String foo(LombokBuilderInit lbi) {
+    String s = "";
+    s += lbi.getField().toString();
+    s += " ";
+    // Removing this nullness check produces a NullAway error
+    s += (lbi.getNullableField() == null ? "" : lbi.getNullableField().toString());
+    return s;
+  }
 }
