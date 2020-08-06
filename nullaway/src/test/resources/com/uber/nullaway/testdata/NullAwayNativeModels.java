@@ -230,6 +230,11 @@ public class NullAwayNativeModels {
     }
   }
 
+  static void mapCheckWithWideningNode() {
+    Map<Long, String> m = new HashMap<>();
+    m.put(Long.valueOf(42), "");
+  }
+
   static void failIfNull(
       @Nullable Object o1,
       @Nullable Object o2,
