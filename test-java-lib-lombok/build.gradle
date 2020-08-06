@@ -40,7 +40,6 @@ tasks.withType(JavaCompile) {
       check("UnusedVariable", CheckSeverity.OFF) // We are not the only checker that fails on Lombok
       option("NullAway:AnnotatedPackages", "com.uber")
       option("NullAway:UnannotatedSubPackages", "com.uber.lib.unannotated")
-      option("NullAway:TryHandleLombok", "true")
     }
   }
 }
