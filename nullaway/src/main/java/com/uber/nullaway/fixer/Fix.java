@@ -18,6 +18,7 @@ public class Fix implements Serializable {
     res.put(KEYS.INJECT.label, "" + inject);
     // todo remove this:
     res.put(KEYS.ANNOTATION.label, annotation.fullName.replace(";", ""));
+    //    res.put(KEYS.ANNOTATION.label, "org.checkerframework.checker.nullness.qual.Nullable");
     return res;
   }
 

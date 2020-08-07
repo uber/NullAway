@@ -23,9 +23,7 @@ package com.uber.nullaway;
  */
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
-import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.ErrorProneFlags;
-import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -48,32 +46,32 @@ public class NullAwayAutoFixTest {
     flags = b.build();
   }
 
-  @Test
-  public void seeNullAwayResponse() {
-    CompilationTestHelper compilationHelper =
-        CompilationTestHelper.newInstance(NullAway.class, getClass());
-    compilationHelper
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
-        .addSourceLines(
-            "com/uber/android/Super.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import javax.annotation.Nonnull;",
-            "public class Super {",
-            "   Object f;",
-            "   Object c = new Object();",
-            "   Object d;",
-            "   Super(boolean b) {",
-            "     if(b) f = new Object();",
-            "     else d = new Object();",
-            "   }",
-            "}")
-        .doTest();
-  }
+  //  @Test
+  //  public void seeNullAwayResponse() {
+  //    CompilationTestHelper compilationHelper =
+  //        CompilationTestHelper.newInstance(NullAway.class, getClass());
+  //    compilationHelper
+  //        .setArgs(
+  //            Arrays.asList(
+  //                "-d",
+  //                temporaryFolder.getRoot().getAbsolutePath(),
+  //                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+  //        .addSourceLines(
+  //            "com/uber/android/Super.java",
+  //            "package com.uber;",
+  //            "import javax.annotation.Nullable;",
+  //            "import javax.annotation.Nonnull;",
+  //            "public class Super {",
+  //            "   Object f;",
+  //            "   Object c = new Object();",
+  //            "   Object d;",
+  //            "   Super(boolean b) {",
+  //            "     if(b) f = new Object();",
+  //            "     else d = new Object();",
+  //            "   }",
+  //            "}")
+  //        .doTest();
+  //  }
 
   @Test
   public void correctCode() {

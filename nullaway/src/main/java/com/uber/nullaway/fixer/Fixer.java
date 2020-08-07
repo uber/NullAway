@@ -12,6 +12,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.AnnotationFactory;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
+import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.charset.Charset;
@@ -40,11 +41,13 @@ public class Fixer {
     cleanFixOutPutFolder();
   }
 
-  private void cleanFixOutPutFolder() {}
+  @SuppressWarnings("ResultOfMethodCallIgnored")
+  private void cleanFixOutPutFolder() {
+    File file = new File(config.getJsonFileWriterPath());
+    file.delete();
+  }
 
   private void fillMessageTypeLocationMap() {}
-
-  int counter = 0;
 
   public void fix(ErrorMessage errorMessage, Location location) {
     // todo: remove this condition later, for now we are not supporting anonymous classes
