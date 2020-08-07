@@ -16,6 +16,7 @@ public class Fix implements Serializable {
   public JSONObject getJson() {
     JSONObject res = location.getJson();
     res.put(KEYS.INJECT.label, "" + inject);
+    // todo remove this:
     res.put(KEYS.ANNOTATION.label, annotation.fullName.replace(";", ""));
     return res;
   }

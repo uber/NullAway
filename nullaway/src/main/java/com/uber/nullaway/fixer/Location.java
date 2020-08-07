@@ -57,17 +57,17 @@ public class Location implements Serializable {
   @Override
   public String toString() {
     return "Location{"
-        + "compilationUnitTree="
-        + compilationUnitTree
-        + ", classTree="
-        + classTree
-        + ", methodTree="
-        + methodTree
-        + ", variableTree="
+        + "\n\tURI="
+        + compilationUnitTree.getSourceFile().toUri().toASCIIString()
+        + "\n\tClass Symbol="
+        + (classTree != null ? ASTHelpers.getSymbol(classTree).toString() : "null")
+        + "\n\tMethod Symbol="
+        + (methodTree != null ? ASTHelpers.getSymbol(methodTree).toString() : "null")
+        + "\n\tvariable Symbol="
         + variableSymbol
-        + ", kind="
+        + "\n\tkind="
         + kind
-        + '}';
+        + "\n}";
   }
 
   public static LocationBuilder Builder() {

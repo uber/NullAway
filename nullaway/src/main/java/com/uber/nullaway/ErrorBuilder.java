@@ -383,7 +383,6 @@ public class ErrorBuilder {
     return message.toString();
   }
 
-  @SuppressWarnings("TreeToString")
   void reportInitErrorOnField(Symbol symbol, VisitorState state, Description.Builder builder) {
     if (symbolHasSuppressWarningsAnnotation(symbol, INITIALIZATION_CHECK_NAME)) {
       return;

@@ -1612,15 +1612,12 @@ public class NullAway extends BugChecker
           uninitSField, state, buildDescription(getTreesInstance(state).getTree(uninitSField)));
     }
     if (config.shouldAutoFix()) {
-      fixInitializationErrorsOnControlFlowPaths(
-          state, notInitializedStaticFields, errorFieldsForInitializer);
+      fixInitializationErrorsOnControlFlowPaths(state, errorFieldsForInitializer);
     }
   }
 
   private void fixInitializationErrorsOnControlFlowPaths(
-      VisitorState state,
-      Set<Symbol> notInitializedStaticFields,
-      SetMultimap<Element, Element> errorFieldsForInitializer) {
+      VisitorState state, SetMultimap<Element, Element> errorFieldsForInitializer) {
     for (Element constructorElement : errorFieldsForInitializer.keySet()) {
       for (Element element : errorFieldsForInitializer.get(constructorElement)) {
         if (shouldInvokeAutoFix(state, element)) {
@@ -1640,26 +1637,6 @@ public class NullAway extends BugChecker
                   fixMessageSignature + "initializer method does not guarantee @NonNull fields");
           fixer.fix(errorMessage, location);
         }
-      }
-    }
-    // For static fields
-    for (Symbol uninitSField : notInitializedStaticFields) {
-      if (shouldInvokeAutoFix(state, uninitSField)) {
-        Tree tree = getTreesInstance(state).getTree(uninitSField);
-        Symbol symbol = ASTHelpers.getSymbol(tree);
-        CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
-        Location location =
-            Location.Builder()
-                .setClassTree(LocationUtils.getClassTree(tree, state))
-                .setCompilationUnitTree(c)
-                .setVariableSymbol(symbol)
-                .setKind(Location.Kind.CLASS_FIELD)
-                .build();
-        ErrorMessage errorMessage =
-            new ErrorMessage(
-                MessageTypes.FIELD_NO_INIT,
-                fixMessageSignature + "initializer method does not guarantee @NonNull fields");
-        fixer.fix(errorMessage, location);
       }
     }
   }

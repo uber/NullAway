@@ -37,14 +37,19 @@ public class Fixer {
     this.writerUtils = new WriterUtils(config);
     messageTypeLocationMap = new HashMap<>();
     fillMessageTypeLocationMap();
+    cleanFixOutPutFolder();
   }
 
+  private void cleanFixOutPutFolder() {}
+
   private void fillMessageTypeLocationMap() {}
+
+  int counter = 0;
 
   public void fix(ErrorMessage errorMessage, Location location) {
     // todo: remove this condition later, for now we are not supporting anonymous classes
     if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
-    Fix fix = new Fix();
+    Fix fix;
     if (!config.shouldAutoFix()) return;
     switch (errorMessage.getMessageType()) {
       case RETURN_NULLABLE:
@@ -98,8 +103,6 @@ public class Fixer {
     return null;
   }
 
-  private void suggestSuppressWarning(ErrorMessage errorMessage, Location location) {}
-
   private Fix addParamNullableFix(Location location) {
     if (!location.kind.equals(Location.Kind.METHOD_PARAM)) {
       throw new RuntimeException(
@@ -125,7 +128,6 @@ public class Fixer {
     }
     final Fix fix = new Fix();
     final ModifiersTree modifiers = location.methodTree.getModifiers();
-
     final List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
     // noinspection ConstantConditions
     com.google.common.base.Optional<? extends AnnotationTree> nonNullAnnot =
@@ -136,6 +138,8 @@ public class Fixer {
     fix.inject = !nonNullAnnot.isPresent();
     return fix;
   }
+
+  private void suggestSuppressWarning(ErrorMessage errorMessage, Location location) {}
 
   @SuppressWarnings("unchecked")
   static class WriterUtils {
