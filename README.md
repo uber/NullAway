@@ -88,6 +88,20 @@ Some annotation processors like [Dagger](https://google.github.io/dagger/) and [
 
 **Note for Dagger users**: Dagger versions older than 2.12 can have bad interactions with NullAway; see [here](https://github.com/uber/NullAway/issues/48#issuecomment-340018409).  Please update to Dagger 2.12 to fix the problem.
 
+#### Lombok
+
+Unlike other annotation processors above, Lombok modifies the in-memory AST of the code it processes, which is the source of numerous incompatibilities with Error Prone and, consequently, NullAway. 
+
+We do not particularly recommend using NullAway with Lombok. However, NullAway encodes some knowledge of common Lombok annotations and we do try for best-effort compatibility. In particular, common usages like `@lombok.Builder` and `@Data` classes should be supported.
+
+In order for NullAway to successfully detect Lombok generated code within the in-memory Java AST, the following configuration option must be passed to Lombok as part of an applicable `lombok.config` file:
+
+```
+addLombokGeneratedAnnotation
+```
+
+This causes Lombok to add `@lombok.Generated` to the methods/classes it generates. NullAway will ignore (i.e. not check) the implementation of this generated code, treating it as unannotated. 
+
 ## Code Example
 
 Let's see how NullAway works on a simple code example:

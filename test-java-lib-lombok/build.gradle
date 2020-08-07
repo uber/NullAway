@@ -1,0 +1,45 @@
+/*
+ * Copyright (C) 2017. Uber Technologies
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+import net.ltgt.gradle.errorprone.CheckSeverity
+
+plugins {
+  id "java"
+}
+
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
+
+dependencies {
+    annotationProcessor project(path: ":nullaway", configuration: "shadow")
+    annotationProcessor deps.test.lombok
+
+    compileOnly deps.build.jsr305Annotations
+    compileOnly deps.build.javaxValidation
+    compileOnly deps.test.cfQual
+    compileOnly deps.test.lombok
+}
+
+tasks.withType(JavaCompile) {
+  if (!name.toLowerCase().contains("test")) {
+    options.errorprone {
+      check("NullAway", CheckSeverity.ERROR)
+      check("UnusedVariable", CheckSeverity.OFF) // We are not the only checker that fails on Lombok
+      option("NullAway:AnnotatedPackages", "com.uber")
+      option("NullAway:UnannotatedSubPackages", "com.uber.lib.unannotated")
+    }
+  }
+}

@@ -96,6 +96,11 @@ public class NullAwayTest {
   }
 
   @Test
+  public void lombokSupportTesting() {
+    compilationHelper.addSourceFile("lombok/LombokBuilderInit.java").doTest();
+  }
+
+  @Test
   public void skipClass() {
     compilationHelper
         .setArgs(
