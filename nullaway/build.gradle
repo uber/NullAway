@@ -51,6 +51,7 @@ dependencies {
     testCompile deps.test.commonsLang
     testCompile deps.test.commonsLang3
     testCompile project(":test-library-models")
+    testCompile deps.test.lombok
 }
 
 // We include and shade the checker framework jars into the NullAway jar, as we may have custom
