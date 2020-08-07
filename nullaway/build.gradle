@@ -26,15 +26,6 @@ plugins {
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
-configurations.all {
-    resolutionStrategy {
-        // Force needed, since:
-        // a) There are newer versions of CF than the one we forked
-        // b) It seems x.y.z-name < x.y.z for gradle dependency resolution purposes.
-        force deps.build.checkerDataflow
-    }
-}
-
 dependencies {
     compileOnly deps.apt.autoValue
     annotationProcessor deps.apt.autoValue

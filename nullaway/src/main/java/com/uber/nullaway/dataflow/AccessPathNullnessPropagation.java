@@ -51,8 +51,8 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.NestingKind;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.dataflow.analysis.ConditionalTransferResult;
+import org.checkerframework.dataflow.analysis.ForwardTransferFunction;
 import org.checkerframework.dataflow.analysis.RegularTransferResult;
-import org.checkerframework.dataflow.analysis.TransferFunction;
 import org.checkerframework.dataflow.analysis.TransferInput;
 import org.checkerframework.dataflow.analysis.TransferResult;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
@@ -135,7 +135,8 @@ import org.checkerframework.dataflow.cfg.node.WideningConversionNode;
  * com.google.errorprone.dataflow.nullnesspropagation.AbstractNullnessPropagationTransfer} and
  * {@link com.google.errorprone.dataflow.nullnesspropagation.NullnessPropagationTransfer})
  */
-public class AccessPathNullnessPropagation implements TransferFunction<Nullness, NullnessStore> {
+public class AccessPathNullnessPropagation
+    implements ForwardTransferFunction<Nullness, NullnessStore> {
 
   private static final boolean NO_STORE_CHANGE = false;
 
