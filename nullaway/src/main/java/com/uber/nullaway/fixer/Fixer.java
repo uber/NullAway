@@ -1,7 +1,5 @@
 package com.uber.nullaway.fixer;
 
-import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
-
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
@@ -9,7 +7,6 @@ import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.AnnotationFactory;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import java.io.File;

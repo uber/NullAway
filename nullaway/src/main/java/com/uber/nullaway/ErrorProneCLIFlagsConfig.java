@@ -24,6 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.ErrorProneFlags;
+import com.uber.nullaway.fixer.AnnotationFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -76,6 +77,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
 
   static final String AUTO_FIX = EP_FL_NAMESPACE + ":AutoFix";
   static final String FIX_FILE_PATH = EP_FL_NAMESPACE + ":FixFilePath";
+  static final String FIX_ANNOTATIONS = EP_FL_NAMESPACE + ":FixAnnotations";
 
   private static final String DELIMITER = ",";
 
@@ -192,7 +194,11 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + FL_SUGGEST_SUPPRESSIONS
               + ")");
     fixFilePath = flags.get(FIX_FILE_PATH).orElse("/tmp/NullAwayFix/fixes.json");
-    if (autofix) makeDirectoriesForFixFile(fixFilePath);
+    String fixAnnotations = flags.get(FIX_ANNOTATIONS).orElse("");
+    if (autofix) {
+      makeDirectoriesForFixFile(fixFilePath);
+      annotationFactory = new AnnotationFactory(fixAnnotations);
+    }
   }
 
   private void makeDirectoriesForFixFile(String fixFilePath) {
@@ -226,8 +232,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   }
 
   @Override
-  public AnnotationFactory getAnnotationFactory() {
-    return new AnnotationFactory();
+  public com.uber.nullaway.fixer.AnnotationFactory getAnnotationFactory() {
+    if (annotationFactory == null) return new AnnotationFactory();
+    else return annotationFactory;
   }
 
   @Override

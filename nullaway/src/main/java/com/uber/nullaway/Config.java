@@ -24,6 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.fixer.AnnotationFactory;
 import java.util.Set;
 import javax.annotation.Nullable;
 

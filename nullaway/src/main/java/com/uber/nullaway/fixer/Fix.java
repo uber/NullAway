@@ -1,6 +1,5 @@
 package com.uber.nullaway.fixer;
 
-import com.uber.nullaway.AnnotationFactory;
 import java.io.Serializable;
 import org.json.simple.JSONObject;
 
@@ -16,9 +15,7 @@ public class Fix implements Serializable {
   public JSONObject getJson() {
     JSONObject res = location.getJson();
     res.put(KEYS.INJECT.label, "" + inject);
-    // todo remove this:
     res.put(KEYS.ANNOTATION.label, annotation.fullName.replace(";", ""));
-    //    res.put(KEYS.ANNOTATION.label, "org.checkerframework.checker.nullness.qual.Nullable");
     return res;
   }
 

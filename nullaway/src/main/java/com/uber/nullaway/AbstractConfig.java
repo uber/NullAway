@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.fixer.AnnotationFactory;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -108,6 +109,7 @@ public abstract class AbstractConfig implements Config {
 
   protected boolean autofix;
   protected String fixFilePath;
+  protected AnnotationFactory annotationFactory;
 
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
     // noinspection ConstantConditions

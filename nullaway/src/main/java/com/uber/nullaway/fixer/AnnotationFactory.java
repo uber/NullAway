@@ -1,4 +1,4 @@
-package com.uber.nullaway;
+package com.uber.nullaway.fixer;
 
 public class AnnotationFactory {
 
@@ -20,8 +20,11 @@ public class AnnotationFactory {
     setFullNames("javax.annotation.Nonnull", "javax.annotation.Nullable");
   }
 
-  public AnnotationFactory(String nonnullFullName, String nullableFullName) {
-    setFullNames(nonnullFullName, nullableFullName);
+  public AnnotationFactory(String annotations) {
+    this();
+    if (annotations == null || annotations.equals("") || !annotations.contains(",")) return;
+    String[] annots = annotations.split(",");
+    setFullNames(annots[0], annots[1]);
   }
 
   public void setFullNames(String nonnullFullName, String nullableFullName) {
