@@ -34,11 +34,21 @@ public class Location implements Serializable {
     }
   }
 
+  private String escapeQotation(String text) {
+    StringBuilder ans = new StringBuilder();
+    for (int i = 0; i < text.length(); i++) {
+      if (text.charAt(i) == '"') ans.append("\\");
+      ans.append(text.charAt(i));
+    }
+    return ans.toString();
+  }
+
   @SuppressWarnings("unchecked")
   public JSONObject getJson() {
     JSONObject res = new JSONObject();
     String classSymbolRep = classTree != null ? ASTHelpers.getSymbol(classTree).toString() : "";
-    String methodSymbolRep = methodTree != null ? ASTHelpers.getSymbol(methodTree).toString() : "";
+    String methodSymbolRep =
+        methodTree != null ? escapeQotation(ASTHelpers.getSymbol(methodTree).toString()) : "";
     String paramSymbolRep = variableSymbol != null ? variableSymbol.toString() : "";
     String pkg = compilationUnitTree != null ? compilationUnitTree.getPackageName().toString() : "";
     res.put(KEYS.CLASS.label, classSymbolRep);
