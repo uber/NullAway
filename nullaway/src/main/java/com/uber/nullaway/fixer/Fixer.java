@@ -158,7 +158,7 @@ public class Fixer {
       try (Writer writer =
           Files.newBufferedWriter(
               Paths.get(config.getJsonFileWriterPath()), Charset.defaultCharset())) {
-        writer.write(toWrite.toJSONString().replace("\\", ""));
+        writer.write(toWrite.toJSONString().replace("\\/", "/").replace("\\\\\\", "\\"));
         writer.flush();
       } catch (IOException e) {
         throw new RuntimeException("Could not create the fix json file");

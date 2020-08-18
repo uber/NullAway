@@ -34,13 +34,15 @@ public class Location implements Serializable {
     }
   }
 
-  private String escapeQotation(String text) {
+  private String escapeQuotationMark(String text) {
     StringBuilder ans = new StringBuilder();
     for (int i = 0; i < text.length(); i++) {
       if (text.charAt(i) == '"') ans.append("\\");
       ans.append(text.charAt(i));
     }
-    return ans.toString();
+    String finalAns = ans.toString();
+    System.out.println("Returning: " + finalAns);
+    return finalAns;
   }
 
   @SuppressWarnings("unchecked")
@@ -48,7 +50,7 @@ public class Location implements Serializable {
     JSONObject res = new JSONObject();
     String classSymbolRep = classTree != null ? ASTHelpers.getSymbol(classTree).toString() : "";
     String methodSymbolRep =
-        methodTree != null ? escapeQotation(ASTHelpers.getSymbol(methodTree).toString()) : "";
+        methodTree != null ? escapeQuotationMark(ASTHelpers.getSymbol(methodTree).toString()) : "";
     String paramSymbolRep = variableSymbol != null ? variableSymbol.toString() : "";
     String pkg = compilationUnitTree != null ? compilationUnitTree.getPackageName().toString() : "";
     res.put(KEYS.CLASS.label, classSymbolRep);
