@@ -5,6 +5,7 @@ import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ModifiersTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
@@ -22,7 +23,8 @@ import org.json.simple.JSONObject;
 
 @SuppressWarnings({
   "UnusedVariable",
-  "PackageAccessibility"
+  "PackageAccessibility",
+  "UnusedMethod"
 }) // This class is still under construction
 public class Fixer {
 
@@ -46,7 +48,7 @@ public class Fixer {
 
   private void fillMessageTypeLocationMap() {}
 
-  public void fix(ErrorMessage errorMessage, Location location) {
+  public void fix(ErrorMessage errorMessage, Location location, Tree cause) {
     // todo: remove this condition later, for now we are not supporting anonymous classes
     if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
     Fix fix;

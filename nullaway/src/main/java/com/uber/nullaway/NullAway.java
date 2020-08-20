@@ -441,7 +441,7 @@ public class NullAway extends BugChecker
                 .setVariableSymbol(ASTHelpers.getSymbol(tree.getVariable()))
                 .setKind(Location.Kind.CLASS_FIELD)
                 .build();
-        fixer.fix(errorMessage, location);
+        fixer.fix(errorMessage, location, expression);
       }
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, expression, buildDescription(tree), state);
@@ -670,7 +670,8 @@ public class NullAway extends BugChecker
                   .setKind(Location.Kind.METHOD_PARAM)
                   .setVariableSymbol(paramSymbol)
                   .build();
-          fixer.fix(errorMessage, location);
+          Tree cause = (memberReferenceTree == null) ? lambdaExpressionTree : memberReferenceTree;
+          fixer.fix(errorMessage, location, cause);
         }
 
         return errorBuilder.createErrorDescription(
@@ -717,7 +718,7 @@ public class NullAway extends BugChecker
                 .setCompilationUnitTree(c)
                 .setKind(Location.Kind.METHOD_RETURN)
                 .build();
-        fixer.fix(errorMessage, location);
+        fixer.fix(errorMessage, location, retExpr);
       }
 
       return errorBuilder.createErrorDescriptionForNullAssignment(
@@ -830,6 +831,11 @@ public class NullAway extends BugChecker
               ? memberReferenceTree
               : getTreesInstance(state).getTree(overriddenMethod);
 
+      Tree errorTree =
+          memberReferenceTree != null
+              ? memberReferenceTree
+              : getTreesInstance(state).getTree(overridingMethod);
+
       if (shouldInvokeAutoFix(state, overriddenMethod)) {
         CompilationUnitTree c =
             getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
@@ -842,13 +848,9 @@ public class NullAway extends BugChecker
                 .build();
         fixer.fix(
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature + message),
-            location);
+            location,
+            errorTree);
       }
-
-      Tree errorTree =
-          memberReferenceTree != null
-              ? memberReferenceTree
-              : getTreesInstance(state).getTree(overridingMethod);
       return errorBuilder.createErrorDescription(
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message),
           buildDescription(errorTree),
@@ -1232,7 +1234,7 @@ public class NullAway extends BugChecker
                     .setVariableSymbol(ASTHelpers.getSymbol(tree))
                     .setKind(Location.Kind.CLASS_FIELD)
                     .build();
-            fixer.fix(errorMessage, location);
+            fixer.fix(errorMessage, location, initializer);
           }
           return errorBuilder.createErrorDescriptionForNullAssignment(
               errorMessage, initializer, buildDescription(tree), state);
@@ -1484,7 +1486,7 @@ public class NullAway extends BugChecker
                   .setVariableSymbol(LocationUtils.getParamSymbol(methodSymbol, argPos))
                   .setKind(Location.Kind.METHOD_PARAM)
                   .build();
-          fixer.fix(errorMessage, location);
+          fixer.fix(errorMessage, location, actual);
         }
 
         return errorBuilder.createErrorDescriptionForNullAssignment(
@@ -1635,7 +1637,7 @@ public class NullAway extends BugChecker
               new ErrorMessage(
                   MessageTypes.FIELD_NO_INIT,
                   fixMessageSignature + "initializer method does not guarantee @NonNull fields");
-          fixer.fix(errorMessage, location);
+          fixer.fix(errorMessage, location, null);
         }
       }
     }
