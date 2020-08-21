@@ -27,12 +27,14 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixer.AnnotationFactory;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import javax.lang.model.element.Element;
 
 /** abstract base class for null checker {@link Config} implementations */
 public abstract class AbstractConfig implements Config {
@@ -236,7 +238,14 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public boolean shouldAutoFix() {
+  public boolean canFixElement(Trees trees, Element symbol) {
+    if (!autofix) return false;
+    if (trees == null) return false;
+    return trees.getPath(symbol) != null;
+  }
+
+  @Override
+  public boolean autofixIsEnabled() {
     return autofix;
   }
 

@@ -26,10 +26,12 @@ import static com.uber.nullaway.ErrorProneCLIFlagsConfig.EP_FL_NAMESPACE;
 import static com.uber.nullaway.ErrorProneCLIFlagsConfig.FL_ANNOTATED_PACKAGES;
 
 import com.google.common.collect.ImmutableSet;
+import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixer.AnnotationFactory;
 import java.util.Set;
 import javax.annotation.Nullable;
+import javax.lang.model.element.Element;
 
 /**
  * Dummy Config class required for the {@link NullAway} empty constructor.
@@ -53,7 +55,12 @@ public class DummyOptionsConfig implements Config {
           + "=[...] flag.";
 
   @Override
-  public boolean shouldAutoFix() {
+  public boolean canFixElement(Trees trees, Element symbol) {
+    return false;
+  }
+
+  @Override
+  public boolean autofixIsEnabled() {
     return false;
   }
 

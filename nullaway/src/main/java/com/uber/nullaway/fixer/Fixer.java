@@ -50,7 +50,7 @@ public class Fixer {
 
   public void fix(ErrorMessage errorMessage, Location location, Tree cause) {
     // todo: remove this condition later, for now we are not supporting anonymous classes
-    if (!config.shouldAutoFix()) return;
+    if (!config.autofixIsEnabled()) return;
     if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
     Fix fix = buildFix(errorMessage, location, cause);
     if (fix != null) writerUtils.saveFix(fix);

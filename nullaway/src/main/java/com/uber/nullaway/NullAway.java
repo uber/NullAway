@@ -280,10 +280,6 @@ public class NullAway extends BugChecker
         || NullabilityUtil.isUnannotated(ASTHelpers.getSymbol(invocationNode.getTree()), config);
   }
 
-  private boolean shouldInvokeAutoFix(VisitorState state, Element symbol) {
-    return config.shouldAutoFix() && getTreesInstance(state).getPath(symbol) != null;
-  }
-
   @Override
   public String linkUrl() {
     // add a space to make it clickable from iTerm
@@ -432,7 +428,7 @@ public class NullAway extends BugChecker
       String message = fixMessageSignature + "assigning @Nullable expression to @NonNull field";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message);
 
-      if (shouldInvokeAutoFix(state, ASTHelpers.getSymbol(tree.getVariable()))) {
+      if (config.canFixElement(getTreesInstance(state), ASTHelpers.getSymbol(tree.getVariable()))) {
         CompilationUnitTree c =
             getTreesInstance(state)
                 .getPath(ASTHelpers.getSymbol(tree.getVariable()))
@@ -662,7 +658,7 @@ public class NullAway extends BugChecker
         ErrorMessage errorMessage =
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, fixMessageSignature + message);
 
-        if (shouldInvokeAutoFix(state, overridingnMethod)) {
+        if (config.canFixElement(getTreesInstance(state), overridingnMethod)) {
           CompilationUnitTree c =
               getTreesInstance(state).getPath(overridingnMethod).getCompilationUnit();
           Location location =
@@ -709,7 +705,7 @@ public class NullAway extends BugChecker
               fixMessageSignature
                   + "returning @Nullable expression from method with @NonNull return type");
 
-      if (shouldInvokeAutoFix(state, methodSymbol)) {
+      if (config.canFixElement(getTreesInstance(state), methodSymbol)) {
         MethodTree methodTree = ASTHelpers.findMethod(methodSymbol, state);
         if (methodTree == null)
           throw new RuntimeException("AutoFix cannot find the method with symbol: " + methodSymbol);
@@ -839,7 +835,7 @@ public class NullAway extends BugChecker
               ? memberReferenceTree
               : getTreesInstance(state).getTree(overridingMethod);
 
-      if (shouldInvokeAutoFix(state, overriddenMethod)) {
+      if (config.canFixElement(getTreesInstance(state), overriddenMethod)) {
         CompilationUnitTree c =
             getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
         Location location =
@@ -1227,7 +1223,7 @@ public class NullAway extends BugChecker
               new ErrorMessage(
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
                   fixMessageSignature + "assigning @Nullable expression to @NonNull field");
-          if (shouldInvokeAutoFix(state, symbol)) {
+          if (config.canFixElement(getTreesInstance(state), symbol)) {
             CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
             Location location =
                 Location.Builder()
@@ -1477,7 +1473,7 @@ public class NullAway extends BugChecker
         ErrorMessage errorMessage =
             new ErrorMessage(MessageTypes.PASS_NULLABLE, fixMessageSignature + message);
 
-        if (shouldInvokeAutoFix(state, methodSymbol)) {
+        if (config.canFixElement(getTreesInstance(state), methodSymbol)) {
           CompilationUnitTree c =
               getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
           Location location =
@@ -1615,7 +1611,7 @@ public class NullAway extends BugChecker
       errorBuilder.reportInitErrorOnField(
           uninitSField, state, buildDescription(getTreesInstance(state).getTree(uninitSField)));
     }
-    if (config.shouldAutoFix()) {
+    if (config.autofixIsEnabled()) {
       fixInitializationErrorsOnControlFlowPaths(state, errorFieldsForInitializer);
     }
   }
@@ -1624,7 +1620,7 @@ public class NullAway extends BugChecker
       VisitorState state, SetMultimap<Element, Element> errorFieldsForInitializer) {
     for (Element constructorElement : errorFieldsForInitializer.keySet()) {
       for (Element element : errorFieldsForInitializer.get(constructorElement)) {
-        if (shouldInvokeAutoFix(state, element)) {
+        if (config.canFixElement(getTreesInstance(state), element)) {
           Tree tree = getTreesInstance(state).getTree(element);
           Symbol symbol = ASTHelpers.getSymbol(tree);
           CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();

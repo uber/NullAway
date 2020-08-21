@@ -397,7 +397,7 @@ public class ErrorBuilder {
       fieldName = flatName.substring(index) + "." + fieldName;
     }
 
-    if (config.shouldAutoFix() && getTreesInstance(state).getPath(symbol) != null) {
+    if (config.canFixElement(getTreesInstance(state), symbol)) {
       CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
       Location location =
           Location.Builder()
