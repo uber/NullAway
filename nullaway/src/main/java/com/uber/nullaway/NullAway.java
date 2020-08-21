@@ -94,6 +94,7 @@ import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.fixer.Fixer;
 import com.uber.nullaway.fixer.Location;
 import com.uber.nullaway.fixer.LocationUtils;
+import com.uber.nullaway.fixer.PreliminaryFixer;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import java.lang.annotation.Annotation;
@@ -145,7 +146,10 @@ import org.checkerframework.javacutil.AnnotationUtils;
  *   <li><code>f</code> is always initialized in some static initializer block
  * </ol>
  */
-@SuppressWarnings("ALL") // TODO: remove this later, this class is still under construction on
+@SuppressWarnings({
+  "ALL",
+  "TreeToString"
+}) // TODO: remove this later, this class is still under construction on
 // 'AutoFix' branch
 @AutoService(BugChecker.class)
 @BugPattern(
@@ -242,7 +246,7 @@ public class NullAway extends BugChecker
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
     customSuppressionAnnotations = ImmutableSet.of();
-    fixer = new Fixer(config);
+    fixer = new PreliminaryFixer(config);
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), fixer);
   }
 
@@ -251,7 +255,7 @@ public class NullAway extends BugChecker
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
     customSuppressionAnnotations = initCustomSuppressions();
-    fixer = new Fixer(config);
+    fixer = new PreliminaryFixer(config);
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames(), fixer);
     // workaround for Checker Framework static state bug;
     // See https://github.com/typetools/checker-framework/issues/1482
@@ -1204,7 +1208,6 @@ public class NullAway extends BugChecker
     return false;
   }
 
-  @SuppressWarnings("TreeToString")
   @Override
   public Description matchVariable(VariableTree tree, VisitorState state) {
     if (!matchWithinClass) {

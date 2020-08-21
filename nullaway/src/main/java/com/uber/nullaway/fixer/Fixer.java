@@ -28,9 +28,9 @@ import org.json.simple.JSONObject;
 }) // This class is still under construction
 public class Fixer {
 
-  private final Config config;
-  private final WriterUtils writerUtils;
-  private final HashMap<ErrorMessage.MessageTypes, List<Location.Kind>> messageTypeLocationMap;
+  protected final Config config;
+  protected final WriterUtils writerUtils;
+  protected final HashMap<ErrorMessage.MessageTypes, List<Location.Kind>> messageTypeLocationMap;
 
   public Fixer(Config config) {
     this.config = config;
@@ -50,32 +50,37 @@ public class Fixer {
 
   public void fix(ErrorMessage errorMessage, Location location, Tree cause) {
     // todo: remove this condition later, for now we are not supporting anonymous classes
-    if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
-    Fix fix;
     if (!config.shouldAutoFix()) return;
-    switch (errorMessage.getMessageType()) {
-      case RETURN_NULLABLE:
-      case WRONG_OVERRIDE_RETURN:
-        fix = addReturnNullableFix(location);
-        break;
-      case WRONG_OVERRIDE_PARAM:
-        fix = addParamNullableFix(location);
-        break;
-      case PASS_NULLABLE:
-        fix = addParamPassNullableFix(location);
-        break;
-      case FIELD_NO_INIT:
-      case ASSIGN_FIELD_NULLABLE:
-        fix = addFieldNullableFix(location);
-        break;
-      default:
-        suggestSuppressWarning(errorMessage, location);
-        return;
-    }
+    if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
+    Fix fix = buildFix(errorMessage, location, cause);
     if (fix != null) writerUtils.saveFix(fix);
   }
 
-  private Fix addFieldNullableFix(Location location) {
+  protected Fix buildFix(ErrorMessage errorMessage, Location location, Tree cause) {
+    Fix fix;
+    switch (errorMessage.getMessageType()) {
+      case RETURN_NULLABLE:
+      case WRONG_OVERRIDE_RETURN:
+        fix = addReturnNullableFix(location, cause);
+        break;
+      case WRONG_OVERRIDE_PARAM:
+        fix = addParamNullableFix(location, cause);
+        break;
+      case PASS_NULLABLE:
+        fix = addParamPassNullableFix(location, cause);
+        break;
+      case FIELD_NO_INIT:
+      case ASSIGN_FIELD_NULLABLE:
+        fix = addFieldNullableFix(location, cause);
+        break;
+      default:
+        suggestSuppressWarning(errorMessage, location);
+        return null;
+    }
+    return fix;
+  }
+
+  protected Fix addFieldNullableFix(Location location, Tree cause) {
     // todo: return null if @Nonnull exists
     final Fix fix = new Fix();
     fix.location = location;
@@ -84,7 +89,7 @@ public class Fixer {
     return fix;
   }
 
-  private Fix addParamPassNullableFix(Location location) {
+  protected Fix addParamPassNullableFix(Location location, Tree cause) {
     AnnotationFactory.Annotation nonNull = config.getAnnotationFactory().getNonNull();
     VariableTree variableTree =
         LocationUtils.getVariableTree(
@@ -105,7 +110,7 @@ public class Fixer {
     return null;
   }
 
-  private Fix addParamNullableFix(Location location) {
+  protected Fix addParamNullableFix(Location location, Tree cause) {
     if (!location.kind.equals(Location.Kind.METHOD_PARAM)) {
       throw new RuntimeException(
           "Incompatible Fix Call: Cannot fix location type: "
@@ -119,7 +124,7 @@ public class Fixer {
     return fix;
   }
 
-  private Fix addReturnNullableFix(Location location) {
+  protected Fix addReturnNullableFix(Location location, Tree cause) {
     AnnotationFactory.Annotation nonNull = config.getAnnotationFactory().getNonNull();
 
     if (!location.kind.equals(Location.Kind.METHOD_RETURN)) {
@@ -141,7 +146,7 @@ public class Fixer {
     return fix;
   }
 
-  private void suggestSuppressWarning(ErrorMessage errorMessage, Location location) {}
+  protected void suggestSuppressWarning(ErrorMessage errorMessage, Location location) {}
 
   @SuppressWarnings("unchecked")
   static class WriterUtils {

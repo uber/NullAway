@@ -40,9 +40,7 @@ public class Location implements Serializable {
       if (text.charAt(i) == '"') ans.append("\\");
       ans.append(text.charAt(i));
     }
-    String finalAns = ans.toString();
-    System.out.println("Returning: " + finalAns);
-    return finalAns;
+    return ans.toString();
   }
 
   @SuppressWarnings("unchecked")
