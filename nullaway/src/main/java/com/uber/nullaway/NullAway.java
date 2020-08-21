@@ -94,7 +94,6 @@ import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.fixer.Fixer;
 import com.uber.nullaway.fixer.Location;
 import com.uber.nullaway.fixer.LocationUtils;
-import com.uber.nullaway.fixer.PreliminaryFixer;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import java.lang.annotation.Annotation;
@@ -246,7 +245,7 @@ public class NullAway extends BugChecker
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
     customSuppressionAnnotations = ImmutableSet.of();
-    fixer = new PreliminaryFixer(config);
+    fixer = new Fixer(config);
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), fixer);
   }
 
@@ -255,7 +254,7 @@ public class NullAway extends BugChecker
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
     customSuppressionAnnotations = initCustomSuppressions();
-    fixer = new PreliminaryFixer(config);
+    fixer = new Fixer(config);
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames(), fixer);
     // workaround for Checker Framework static state bug;
     // See https://github.com/typetools/checker-framework/issues/1482
