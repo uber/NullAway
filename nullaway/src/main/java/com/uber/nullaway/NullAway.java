@@ -110,7 +110,6 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.NestingKind;
 import javax.lang.model.type.TypeKind;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
-import org.checkerframework.javacutil.AnnotationUtils;
 
 /**
  * Checker for nullability errors. It assumes that any field, method parameter, or return type that
@@ -239,9 +238,6 @@ public class NullAway extends BugChecker
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames());
-    // workaround for Checker Framework static state bug;
-    // See https://github.com/typetools/checker-framework/issues/1482
-    AnnotationUtils.clear();
   }
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
