@@ -259,6 +259,31 @@ public class ExplorerTest {
   }
 
   @Test
+  public void add_nullable_field_skip_final() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Super {",
+            "   final Object h;",
+            "   public Super(@Nullable Object f) {",
+            "      h = f;",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void add_nullable_field_initialization() {
     String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper

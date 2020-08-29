@@ -558,6 +558,7 @@ public class NullAway extends BugChecker
    *     functional interface method), the {@link MemberReferenceTree}; otherwise {@code null}
    * @return discovered error, or {@link Description#NO_MATCH} if no error
    */
+  @SuppressWarnings("UnusedVariable")
   private Description checkParamOverriding(
       Symbol.MethodSymbol overridingnMethod,
       List<VarSymbol> overridingParamSymbols,
@@ -672,7 +673,6 @@ public class NullAway extends BugChecker
           Tree cause = (memberReferenceTree == null) ? lambdaExpressionTree : memberReferenceTree;
           fixer.fix(errorMessage, location, cause);
         }
-
         return errorBuilder.createErrorDescription(
             errorMessage, buildDescription(errorTree), state);
       }
@@ -789,6 +789,7 @@ public class NullAway extends BugChecker
    * @param state visitor state.
    * @return discovered error, or {@link Description#NO_MATCH} if no error
    */
+  @SuppressWarnings("UnusedVariable")
   private Description checkOverriding(
       Symbol.MethodSymbol overriddenMethod,
       Symbol.MethodSymbol overridingMethod,
@@ -851,7 +852,7 @@ public class NullAway extends BugChecker
             errorTree);
       }
       return errorBuilder.createErrorDescription(
-          new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message),
+          new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature + message),
           buildDescription(errorTree),
           state);
     }

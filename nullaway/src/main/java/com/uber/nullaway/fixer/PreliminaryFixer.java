@@ -12,7 +12,8 @@ public class PreliminaryFixer extends Fixer {
   @Override
   protected Fix buildFix(ErrorMessage errorMessage, Location location, Tree cause) {
     Fix fix;
-    if (cause == null || !(cause.getKind() == Tree.Kind.NULL_LITERAL)) return null;
+    if (cause == null) return null;
+    if (cause.getKind() != Tree.Kind.NULL_LITERAL) return null;
     switch (errorMessage.getMessageType()) {
       case RETURN_NULLABLE:
         fix = addReturnNullableFix(location, cause);

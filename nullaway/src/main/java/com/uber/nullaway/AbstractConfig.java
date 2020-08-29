@@ -237,11 +237,18 @@ public abstract class AbstractConfig implements Config {
     return externalInitAnnotations.contains(annotationName);
   }
 
+  int attempts = 0;
+  int outsides = 0;
+
   @Override
   public boolean canFixElement(Trees trees, Element symbol) {
+    attempts++;
+    boolean ans = false;
     if (!autofix) return false;
     if (trees == null) return false;
-    return trees.getPath(symbol) != null;
+    if (trees.getPath(symbol) == null) outsides++;
+    else ans = true;
+    return ans;
   }
 
   @Override

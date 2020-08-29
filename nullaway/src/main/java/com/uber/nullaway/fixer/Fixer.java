@@ -7,6 +7,7 @@ import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
@@ -81,9 +82,11 @@ public class Fixer {
   }
 
   protected Fix addFieldNullableFix(Location location, Tree cause) {
-    // todo: return null if @Nonnull exists
     final Fix fix = new Fix();
     fix.location = location;
+    Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) location.variableSymbol;
+    // skip final properties
+    if ((varSymbol.flags() == Flags.FINAL)) return null;
     fix.annotation = config.getAnnotationFactory().getNullable();
     fix.inject = true;
     return fix;
