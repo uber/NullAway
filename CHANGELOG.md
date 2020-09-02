@@ -1,6 +1,84 @@
 Changelog
 =========
 
+Version 0.8.0
+--------------
+* Improve suppression of subcheckers, using full AST path (#392)
+* Support null implies false library models (#394)
+* Make `@ChecksForNull` an alias for `@Nullable` (#397)
+* Fix: android-jar.py's exit code. (#399)
+* Upgrade Error Prone dependencies to 2.4.0. (#400)
+  - And fix detected issues (#403, #404)
+* Allow library models of the form null param -> null return (#407)
+* Make excluded class annotations work on nested classes (#412)
+* Improved Map handling: Strings and integers. (#413)
+* Also `-SNAPSHOT` builds are being published correctly again (#409)
+* New android-jarinfer-models-sdk29 artifact for Android 10
+
+Version 0.7.10
+--------------
+* Add Java 8 streams nullness-propagation support (#371) 
+* Give line numbers for uninitialized fields when reporting error on an initializer (#380)
+* Include outer$inner class name when reporting field init errors (#375) 
+* Update to Gradle 6.1.1 (#381)
+* Add @MonotonicNonNull as lazy initialization annotation. (#383)
+* Add default library model for CompilationUnitTree.getPackageName() (#384)
+* Improve matching of native Map methods (#390) 
+  - Fixes an IndexOutOfBoundsException checker crash
+
+Version 0.7.9
+-------------
+* Multiple dependency upgrades
+  - Gradle to 5.6.2. (#362)
+  - WALA to 1.5.4 (#337)
+  - Checker Dataflow to 3.0.0 (#369)
+* Added OPTIONAL_CONTENT synthetic field to track Optional  emptiness (#364)
+  - With this, `-XepOpt:NullAway:CheckOptionalEmptiness` should be 
+    ready for use.
+* Handle Nullchk operator (#368)
+
+Version 0.7.8
+-------------
+* Added NullAway.Optional suppression (#359) 
+* [JarInfer] Ignore non-public classes when inferring annotations. (#360) 
+
+Version 0.7.7
+-------------
+* [Optionals] Support Optional isPresent call in assertThat (#349)
+* Preconditions checkNotNull support, added missing cases. (#355)
+* [JarInfer] Use Android Nullable/NonNull annotations for AARs (not javax) (#357)
+
+Version 0.7.6
+-------------
+* Library models for guava's AsyncFunction (#328)
+* Annotate StringUtils.isBlank() of org.apache.commons (lang & lang3) (#330)
+* Adding support for Aar-to-aar transformation (#334)
+* Add support for @RecentlyNullable and @RecentlyNonNull (#335)
+* Update to Gradle 5.5.1 (#336)
+* Don't compute frames on bytecode writting in JarInfer (#338)
+* Use exact jar output path when possible in JarInfer (#339)
+* Avoid adding redundant annotations during bytecode rewriting in JarInfer (#341)
+* Handle cases when there are no annotations on methods or parameters in JarInfer (#342)
+* Fix #333 Nullaway init suppression issue (#343)
+* Add option to JarInfer to deal with signed jars (#345)
+* Fix #344 onActivityCreated known initializer (#346)
+* Skip read-before-init analysis for assert statements (#348)
+
+Version 0.7.5
+------------
+* Allow models to override @nullable on third-party functional interfaces (#326)
+  - Defines Guava's Function and Predicate as @NonNull->@NonNull
+    by default.
+
+Version 0.7.4
+-------------
+* Add support for Jar to Jar transformation to JarInfer (#316)
+* Refactor the driver and annotation summary type in JarInfer (#317)
+* Minor refactor and cleanup in JarInfer-lib (#319)
+* Different approach for param analysis (#320)
+* Fix @NullableDecl support (#324) 
+* Treat methods of final classes as final for initialization. (#325)
+
 Version 0.7.3
 -------------
 * Optional support for assertThat(...).isNotNull() statements (#304)

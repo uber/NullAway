@@ -41,8 +41,8 @@ import javax.annotation.CheckReturnValue;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.dataflow.analysis.ConditionalTransferResult;
+import org.checkerframework.dataflow.analysis.ForwardTransferFunction;
 import org.checkerframework.dataflow.analysis.RegularTransferResult;
-import org.checkerframework.dataflow.analysis.TransferFunction;
 import org.checkerframework.dataflow.analysis.TransferInput;
 import org.checkerframework.dataflow.analysis.TransferResult;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
@@ -125,7 +125,8 @@ import org.checkerframework.dataflow.cfg.node.WideningConversionNode;
  * com.google.errorprone.dataflow.nullnesspropagation.AbstractNullnessPropagationTransfer} and
  * {@link com.google.errorprone.dataflow.nullnesspropagation.NullnessPropagationTransfer})
  */
-public class AccessPathNullnessPropagation implements TransferFunction<Nullness, NullnessStore> {
+public class AccessPathNullnessPropagation
+    implements ForwardTransferFunction<Nullness, NullnessStore> {
 
   private static final boolean NO_STORE_CHANGE = false;
 
@@ -261,7 +262,10 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
   @Override
   public TransferResult<Nullness, NullnessStore> visitNullChk(
       NullChkNode nullChkNode, TransferInput<Nullness, NullnessStore> input) {
-    throw new RuntimeException("we should never see this");
+    SubNodeValues values = values(input);
+    Nullness nullness =
+        hasPrimitiveType(nullChkNode) ? NONNULL : values.valueOfSubNode(nullChkNode.getOperand());
+    return noStoreChanges(nullness, input);
   }
 
   @Override
@@ -806,7 +810,7 @@ public class AccessPathNullnessPropagation implements TransferFunction<Nullness,
       nullness = input.getRegularStore().valueOfMethodCall(node, types, NULLABLE);
     } else if (node == null
         || methodReturnsNonNull.test(node)
-        || !Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod())) {
+        || !Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod(), config)) {
       // definite non-null return
       nullness = NONNULL;
     } else {

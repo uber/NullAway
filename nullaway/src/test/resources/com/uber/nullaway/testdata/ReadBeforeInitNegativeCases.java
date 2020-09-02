@@ -274,4 +274,16 @@ public class ReadBeforeInitNegativeCases {
       castG = "bye";
     }
   }
+
+  // https://github.com/uber/NullAway/issues/347
+  static class ReadInsideAssert {
+
+    Object f;
+
+    public ReadInsideAssert(Object o) {
+      this.f = o;
+      if (this.f.toString() != "") throw new Error();
+      assert this.f.toString() != "";
+    }
+  }
 }

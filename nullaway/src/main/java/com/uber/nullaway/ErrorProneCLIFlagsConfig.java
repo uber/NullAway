@@ -48,6 +48,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
       EP_FL_NAMESPACE + ":ExcludedClassAnnotations";
   static final String FL_SUGGEST_SUPPRESSIONS = EP_FL_NAMESPACE + ":SuggestSuppressions";
   static final String FL_GENERATED_UNANNOTATED = EP_FL_NAMESPACE + ":TreatGeneratedAsUnannotated";
+  static final String FL_ACKNOWLEDGE_ANDROID_RECENT = EP_FL_NAMESPACE + ":AcknowledgeAndroidRecent";
   static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
@@ -73,6 +74,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
 
   private static final String DELIMITER = ",";
 
+  static final ImmutableSet<String> DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE =
+      ImmutableSet.of("lombok.Generated");
+
   static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS =
       ImmutableSet.of(
           "android.view.View.onFinishInflate",
@@ -95,6 +99,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "androidx.fragment.app.Fragment.onCreate",
           "androidx.fragment.app.Fragment.onAttach",
           "androidx.fragment.app.Fragment.onCreateView",
+          "androidx.fragment.app.Fragment.onActivityCreated",
           "androidx.fragment.app.Fragment.onViewCreated",
           // Multidex app
           "android.support.multidex.Application.onCreate");
@@ -106,10 +111,13 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "org.junit.jupiter.api.BeforeAll",
           "org.junit.jupiter.api.BeforeEach"); // + Anything with @Initializer as its "simple name"
 
+  static final ImmutableSet<String> DEFAULT_EXTERNAL_INIT_ANNOT = ImmutableSet.of("lombok.Builder");
+
   static final ImmutableSet<String> DEFAULT_EXCLUDED_FIELD_ANNOT =
       ImmutableSet.of(
           "javax.inject.Inject", // no explicit initialization when there is dependency injection
-          "com.google.errorprone.annotations.concurrent.LazyInit");
+          "com.google.errorprone.annotations.concurrent.LazyInit",
+          "org.checkerframework.checker.nullness.qual.MonotonicNonNull");
 
   private static final String DEFAULT_URL = "http://t.uber.com/nullaway";
 
@@ -131,10 +139,13 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     knownInitializers =
         getKnownInitializers(
             getFlagStringSet(flags, FL_KNOWN_INITIALIZERS, DEFAULT_KNOWN_INITIALIZERS));
-    excludedClassAnnotations = getFlagStringSet(flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE);
+    excludedClassAnnotations =
+        getFlagStringSet(
+            flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE, DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE);
     initializerAnnotations =
         getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);
-    externalInitAnnotations = getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT);
+    externalInitAnnotations =
+        getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT, DEFAULT_EXTERNAL_INIT_ANNOT);
     isExhaustiveOverride = flags.getBoolean(FL_EXHAUSTIVE_OVERRIDE).orElse(false);
     isSuggestSuppressions = flags.getBoolean(FL_SUGGEST_SUPPRESSIONS).orElse(false);
     isAcknowledgeRestrictive = flags.getBoolean(FL_ACKNOWLEDGE_RESTRICTIVE).orElse(false);
@@ -143,6 +154,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     handleTestAssertionLibraries =
         flags.getBoolean(FL_HANDLE_TEST_ASSERTION_LIBRARIES).orElse(false);
     treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
+    acknowledgeAndroidRecent = flags.getBoolean(FL_ACKNOWLEDGE_ANDROID_RECENT).orElse(false);
     assertsEnabled = flags.getBoolean(FL_ASSERTS_ENABLED).orElse(false);
     fieldAnnotPattern =
         getPackagePattern(
@@ -156,7 +168,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
             .build();
     if (autofixSuppressionComment.contains("\n")) {
       throw new IllegalStateException(
-          "Invalid -XepOpt" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
+          "Invalid -XepOpt:" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
     }
     /** --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
@@ -167,6 +179,14 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     jarInferRegexStripModelJarName = flags.get(FL_JI_REGEX_MODEL_PATH).orElse(BASENAME_REGEX);
     jarInferRegexStripCodeJarName = flags.get(FL_JI_REGEX_CODE_PATH).orElse(BASENAME_REGEX);
     errorURL = flags.get(FL_ERROR_URL).orElse(DEFAULT_URL);
+    if (acknowledgeAndroidRecent && !isAcknowledgeRestrictive) {
+      throw new IllegalStateException(
+          "-XepOpt:"
+              + FL_ACKNOWLEDGE_ANDROID_RECENT
+              + " should only be set when -XepOpt:"
+              + FL_ACKNOWLEDGE_RESTRICTIVE
+              + " is also set");
+    }
   }
 
   private static ImmutableSet<String> getFlagStringSet(ErrorProneFlags flags, String flagName) {

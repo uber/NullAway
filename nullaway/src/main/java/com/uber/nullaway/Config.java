@@ -31,6 +31,8 @@ import javax.annotation.Nullable;
 public interface Config {
 
   /**
+   * Checks if a symbol comes from an annotated package.
+   *
    * @param symbol symbol for class
    * @return true if the class is from a package that should be treated as properly annotated
    *     according to our convention (every possibly null parameter / return / field
@@ -39,6 +41,8 @@ public interface Config {
   boolean fromAnnotatedPackage(Symbol.ClassSymbol symbol);
 
   /**
+   * Checks if a class should be excluded.
+   *
    * @param className fully-qualified class name
    * @return true if the source file for the class should be excluded from nullability analysis,
    *     false otherwise
@@ -46,16 +50,24 @@ public interface Config {
   boolean isExcludedClass(String className);
 
   /**
+   * Checks if a class should be treated as unannotated.
+   *
    * @param symbol symbol for class
    * @return true if the class should be treated as unannotated (in spite of being in an annotated
    *     package)
    */
   boolean isUnannotatedClass(Symbol.ClassSymbol symbol);
 
-  /** @return class annotations that should exclude a class from nullability analysis */
+  /**
+   * Gets the list of excluded class annotations.
+   *
+   * @return class annotations that should exclude a class from nullability analysis
+   */
   ImmutableSet<String> getExcludedClassAnnotations();
 
   /**
+   * Checks if the annotation is an @Initializer annotation.
+   *
    * @param annotationName fully-qualified annotation name
    * @return true if a method with this annotation should be considered an initializer method, false
    *     otherwise.
@@ -63,6 +75,8 @@ public interface Config {
   boolean isInitializerMethodAnnotation(String annotationName);
 
   /**
+   * Checks if the annotation is an excluded field annotation.
+   *
    * @param annotationName fully-qualified annotation name
    * @return true if a field with this annotation should not be checked for proper initialization,
    *     false otherwise
@@ -70,12 +84,16 @@ public interface Config {
   boolean isExcludedFieldAnnotation(String annotationName);
 
   /**
+   * Checks whether the analysis can assume that @Override annotations are enforced on the codebase.
+   *
    * @return true if the analysis can assume that all overriding methods (including implementations
    *     of interface methods) are annotated with @Override, false otherwise
    */
   boolean exhaustiveOverride();
 
   /**
+   * Checks if a method is a known initializer.
+   *
    * @param methodSymbol the method
    * @return true if the method is a known initializer
    */
@@ -91,15 +109,23 @@ public interface Config {
   boolean isExternalInitClassAnnotation(String annotationName);
 
   /**
+   * Checks if the checker should suggest adding warning suppressions instead of fixes.
+   *
    * @return true if the null checker should suggest adding warning suppressions. Only useful for
    *     suppressing all warnings in a large code base.
    */
   boolean suggestSuppressions();
 
-  /** @return true if the assert support is enabled. */
+  /**
+   * Checks if assert support is enabled.
+   *
+   * @return true if the assert support is enabled.
+   */
   boolean assertsEnabled();
 
   /**
+   * Checks if acknowledging restrictive annotations is enabled.
+   *
    * @return true if the null checker should acknowledge stricter nullability annotations whenever
    *     they are available in unannotated code, defaulting to optimistic defaults only when
    *     explicit annotations are missing. false if any annotations in code not explicitly marked as
@@ -109,6 +135,8 @@ public interface Config {
   boolean acknowledgeRestrictiveAnnotations();
 
   /**
+   * Checks if optional emptiness checking is enabled.
+   *
    * @return true if Optional Emptiness Handler is to be used. When Optional.get() method is called
    *     on an empty optional, program will crash with an exception. This handler warns on possible
    *     cases where Optional.get() call is made on an empty optional. Nullaway determines if an
@@ -119,6 +147,8 @@ public interface Config {
   boolean checkContract();
 
   /**
+   * Checks if test assertion library handling is enabled.
+   *
    * @return true if AssertionHandler should be enabled. In the absence of this handler, checks in
    *     tests using assertion libraries are ignored. So, any deference of an object that follows
    *     such checks are still considered a potential dereference of null. When this handler is
@@ -128,12 +158,16 @@ public interface Config {
   boolean handleTestAssertionLibraries();
 
   /**
+   * Gets the list of Optional classes (e.g. {@link java.util.Optional})
+   *
    * @return the paths for Optional class. The list always contains the path of {@link
    *     java.util.Optional}.
    */
   Set<String> getOptionalClassPaths();
 
   /**
+   * Gets the fully qualified name of the <code>castToNonNull()</code> method, if any.
+   *
    * @return the fully qualified name of a method which will take a @Nullable version of a value and
    *     return an @NonNull copy (likely through an unsafe downcast, but performing runtime checking
    *     and logging)
@@ -142,6 +176,8 @@ public interface Config {
   String getCastToNonNullMethod();
 
   /**
+   * Gets an optional comment to add to auto-fix suppressions.
+   *
    * @return the comment to add to @SuppressWarnings annotations inserted into fix suggestions
    *     and/or auto-fix runs.
    */
@@ -149,22 +185,55 @@ public interface Config {
 
   // --- JarInfer configs ---
 
-  /** @return true if JarInfer should be enabled */
+  /**
+   * Checks if JarInfer should be enabled.
+   *
+   * @return true if JarInfer should be enabled
+   */
   boolean isJarInferEnabled();
 
   /**
+   * Checks if NullAway should use @Nullable return value annotations inferred by JarInfer.
+   *
    * @return true if NullAway should use the @Nullable return value annotations inferred by
    *     JarInfer.
    */
   boolean isJarInferUseReturnAnnotations();
-  /** @return the regex to extract jar name from the JarInfer model jar's path. */
+
+  /**
+   * Used by JarInfer
+   *
+   * @return the regex to extract jar name from the JarInfer model jar's path.
+   */
   String getJarInferRegexStripModelJarName();
-  /** @return the regex to extract jar name from the classfile jar's path. */
+
+  /**
+   * Used by JarInfer.
+   *
+   * @return the regex to extract jar name from the classfile jar's path.
+   */
   String getJarInferRegexStripCodeJarName();
 
-  /** @return the URL to show with NullAway error messages */
+  /**
+   * Gets the URL to show with NullAway error messages.
+   *
+   * @return the URL to show with NullAway error messages
+   */
   String getErrorURL();
 
-  /** @return true if generated code should be treated as unannotated */
+  /**
+   * Checks whether (tool-)generated code should be treated as unannotated.
+   *
+   * @return true if generated code should be treated as unannotated
+   */
   boolean treatGeneratedAsUnannotated();
+
+  /**
+   * Checks if acknowledging {@code @RecentlyNullable} and {@code @RecentlyNonNull} annotations is
+   * enabled.
+   *
+   * @return true if Android's {@code @RecentlyNullable} should be treated as {@code @Nullable}, and
+   *     similarly for {@code @RecentlyNonNull}
+   */
+  boolean acknowledgeAndroidRecent();
 }

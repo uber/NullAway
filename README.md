@@ -23,14 +23,14 @@ plugins {
 }
 
 dependencies {
-  annotationProcessor "com.uber.nullaway:nullaway:0.7.3"
+  annotationProcessor "com.uber.nullaway:nullaway:0.8.0"
 
   // Optional, some source of nullability annotations.
   // Not required on Android if you use the support 
   // library nullability annotations.
   compileOnly "com.google.code.findbugs:jsr305:3.0.2"
 
-  errorprone "com.google.errorprone:error_prone_core:2.3.2"
+  errorprone "com.google.errorprone:error_prone_core:2.4.0"
   errorproneJavac "com.google.errorprone:javac:9+181-r4173-1"
 }
 
@@ -75,16 +75,32 @@ The configuration for an Android project is very similar to the Java case, with 
 
 ```gradle
 dependencies {
-  annotationProcessor "com.uber.nullaway:nullaway:0.7.3"
+  annotationProcessor "com.uber.nullaway:nullaway:0.8.0"
+  errorprone "com.google.errorprone:error_prone_core:2.4.0"
+  errorproneJavac "com.google.errorprone:javac:9+181-r4173-1"  
 }
 ```
-A complete Android `build.gradle` example is [here](https://gist.github.com/msridhar/6cacd429567f1d1ad9a278e06809601c).  Also see our [sample app](https://github.com/uber/NullAway/blob/master/sample-app/).
+A complete Android `build.gradle` example is [here](https://gist.github.com/msridhar/6cacd429567f1d1ad9a278e06809601c).  Also see our [sample app](https://github.com/uber/NullAway/blob/master/sample-app/).  (The sample app's [`build.gradle`](https://github.com/uber/NullAway/blob/master/sample-app/) is not suitable for direct copy-pasting, as some configuration is inherited from the top-level `build.gradle`.)
 
 #### Annotation Processors / Generated Code
 
 Some annotation processors like [Dagger](https://google.github.io/dagger/) and [AutoValue](https://github.com/google/auto/tree/master/value) generate code into the same package namespace as your own code.  This can cause problems when setting NullAway to the `ERROR` level as suggested above, since errors in this generated code will block the build.  Currently the best solution to this problem is to completely disable Error Prone on generated code, using the `-XepExcludedPaths` option added in Error Prone 2.13 (documented [here](http://errorprone.info/docs/flags), use `options.errorprone.excludedPaths=` in Gradle).  To use, figure out which directory contains the generated code, and add that directory to the excluded path regex.
 
 **Note for Dagger users**: Dagger versions older than 2.12 can have bad interactions with NullAway; see [here](https://github.com/uber/NullAway/issues/48#issuecomment-340018409).  Please update to Dagger 2.12 to fix the problem.
+
+#### Lombok
+
+Unlike other annotation processors above, Lombok modifies the in-memory AST of the code it processes, which is the source of numerous incompatibilities with Error Prone and, consequently, NullAway. 
+
+We do not particularly recommend using NullAway with Lombok. However, NullAway encodes some knowledge of common Lombok annotations and we do try for best-effort compatibility. In particular, common usages like `@lombok.Builder` and `@Data` classes should be supported.
+
+In order for NullAway to successfully detect Lombok generated code within the in-memory Java AST, the following configuration option must be passed to Lombok as part of an applicable `lombok.config` file:
+
+```
+addLombokGeneratedAnnotation
+```
+
+This causes Lombok to add `@lombok.Generated` to the methods/classes it generates. NullAway will ignore (i.e. not check) the implementation of this generated code, treating it as unannotated. 
 
 ## Code Example
 

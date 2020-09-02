@@ -28,7 +28,6 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
-import com.sun.tools.javac.util.Name;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.List;
@@ -38,44 +37,11 @@ import org.checkerframework.dataflow.cfg.node.Node;
 /** This Handler deals with assertions which ensure that their arguments cannot be null. */
 public class AssertionHandler extends BaseNoOpHandler {
 
-  // Strings corresponding to the names of the methods (and their owners) used to identify
-  // assertions in this handler.
-  private static final String IS_NOT_NULL_METHOD = "isNotNull";
-  private static final String IS_NOT_NULL_OWNER = "com.google.common.truth.Subject";
-  private static final String ASSERT_THAT_METHOD = "assertThat";
-  private static final String ASSERT_THAT_OWNER = "com.google.common.truth.Truth";
+  private final MethodNameUtil methodNameUtil;
 
-  private static final String HAMCREST_ASSERT_CLASS = "org.hamcrest.MatcherAssert";
-  private static final String JUNIT_ASSERT_CLASS = "org.junit.Assert";
-
-  private static final String MATCHERS_CLASS = "org.hamcrest.Matchers";
-  private static final String CORE_MATCHERS_CLASS = "org.hamcrest.CoreMatchers";
-  private static final String CORE_IS_NULL_CLASS = "org.hamcrest.core.IsNull";
-  private static final String IS_MATCHER = "is";
-  private static final String NOT_MATCHER = "not";
-  private static final String NOT_NULL_VALUE_MATCHER = "notNullValue";
-  private static final String NULL_VALUE_MATCHER = "nullValue";
-
-  // Names of the methods (and their owners) used to identify assertions in this handler. Name used
-  // here refers to com.sun.tools.javac.util.Name. Comparing methods using Names is faster than
-  // comparing using strings.
-  private Name isNotNull;
-  private Name isNotNullOwner;
-  private Name assertThat;
-  private Name assertThatOwner;
-
-  // Names for junit assertion libraries.
-  private Name hamcrestAssertClass;
-  private Name junitAssertClass;
-
-  // Names for hamcrest matchers.
-  private Name matchersClass;
-  private Name coreMatchersClass;
-  private Name coreIsNullClass;
-  private Name isMatcher;
-  private Name notMatcher;
-  private Name notNullValueMatcher;
-  private Name nullValueMatcher;
+  AssertionHandler(MethodNameUtil methodNameUtil) {
+    this.methodNameUtil = methodNameUtil;
+  }
 
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
@@ -91,18 +57,18 @@ public class AssertionHandler extends BaseNoOpHandler {
       return NullnessHint.UNKNOWN;
     }
 
-    if (!areMethodNamesInitialized()) {
-      initializeMethodNames(callee.name.table);
+    if (!methodNameUtil.isUtilInitialized()) {
+      methodNameUtil.initializeMethodNames(callee.name.table);
     }
 
     // Look for statements of the form: assertThat(A).isNotNull()
     // A will not be NULL after this statement.
-    if (isMethodIsNotNull(callee)) {
+    if (methodNameUtil.isMethodIsNotNull(callee)) {
       Node receiver = node.getTarget().getReceiver();
       if (receiver instanceof MethodInvocationNode) {
         MethodInvocationNode receiver_method = (MethodInvocationNode) receiver;
         Symbol.MethodSymbol receiver_symbol = ASTHelpers.getSymbol(receiver_method.getTree());
-        if (isMethodAssertThat(receiver_symbol)) {
+        if (methodNameUtil.isMethodAssertThat(receiver_symbol)) {
           Node arg = receiver_method.getArgument(0);
           AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(arg);
           if (ap != null) {
@@ -115,9 +81,10 @@ public class AssertionHandler extends BaseNoOpHandler {
     // Look for statements of the form:
     //    * assertThat(A, is(not(nullValue())))
     //    * assertThat(A, is(notNullValue()))
-    if (isMethodHamcrestAssertThat(callee) || isMethodJunitAssertThat(callee)) {
+    if (methodNameUtil.isMethodHamcrestAssertThat(callee)
+        || methodNameUtil.isMethodJunitAssertThat(callee)) {
       List<Node> args = node.getArguments();
-      if (args.size() == 2 && isMatcherIsNotNull(args.get(1))) {
+      if (args.size() == 2 && methodNameUtil.isMatcherIsNotNull(args.get(1))) {
         AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(args.get(0));
         if (ap != null) {
           bothUpdates.set(ap, NONNULL);
@@ -126,91 +93,5 @@ public class AssertionHandler extends BaseNoOpHandler {
     }
 
     return NullnessHint.UNKNOWN;
-  }
-
-  private boolean isMethodIsNotNull(Symbol.MethodSymbol methodSymbol) {
-    return matchesMethod(methodSymbol, isNotNull, isNotNullOwner);
-  }
-
-  private boolean isMethodAssertThat(Symbol.MethodSymbol methodSymbol) {
-    return matchesMethod(methodSymbol, assertThat, assertThatOwner);
-  }
-
-  private boolean isMethodHamcrestAssertThat(Symbol.MethodSymbol methodSymbol) {
-    return matchesMethod(methodSymbol, assertThat, hamcrestAssertClass);
-  }
-
-  private boolean isMethodJunitAssertThat(Symbol.MethodSymbol methodSymbol) {
-    return matchesMethod(methodSymbol, assertThat, junitAssertClass);
-  }
-
-  private boolean isMatcherIsNotNull(Node node) {
-    // Matches with
-    //   * is(not(nullValue()))
-    //   * is(notNullValue())
-    if (matchesMatcherMethod(node, isMatcher, matchersClass)
-        || matchesMatcherMethod(node, isMatcher, coreMatchersClass)) {
-      // All overloads of `is` method have exactly one argument.
-      return isMatcherNotNull(((MethodInvocationNode) node).getArgument(0));
-    }
-    return false;
-  }
-
-  private boolean isMatcherNotNull(Node node) {
-    // Matches with
-    //   * not(nullValue())
-    //   * notNullValue()
-    if (matchesMatcherMethod(node, notMatcher, matchersClass)
-        || matchesMatcherMethod(node, notMatcher, coreMatchersClass)) {
-      // All overloads of `not` method have exactly one argument.
-      return isMatcherNull(((MethodInvocationNode) node).getArgument(0));
-    }
-    return matchesMatcherMethod(node, notNullValueMatcher, matchersClass)
-        || matchesMatcherMethod(node, notNullValueMatcher, coreMatchersClass)
-        || matchesMatcherMethod(node, notNullValueMatcher, coreIsNullClass);
-  }
-
-  private boolean isMatcherNull(Node node) {
-    // Matches with nullValue()
-    return matchesMatcherMethod(node, nullValueMatcher, matchersClass)
-        || matchesMatcherMethod(node, nullValueMatcher, coreMatchersClass)
-        || matchesMatcherMethod(node, nullValueMatcher, coreIsNullClass);
-  }
-
-  private boolean matchesMatcherMethod(Node node, Name matcherName, Name matcherClass) {
-    if (node instanceof MethodInvocationNode) {
-      MethodInvocationNode methodInvocationNode = (MethodInvocationNode) node;
-      Symbol.MethodSymbol callee = ASTHelpers.getSymbol(methodInvocationNode.getTree());
-      return matchesMethod(callee, matcherName, matcherClass);
-    }
-    return false;
-  }
-
-  private boolean matchesMethod(
-      Symbol.MethodSymbol methodSymbol, Name toMatchMethodName, Name toMatchOwnerName) {
-    return methodSymbol.name.equals(toMatchMethodName)
-        && methodSymbol.owner.getQualifiedName().equals(toMatchOwnerName);
-  }
-
-  private boolean areMethodNamesInitialized() {
-    return isNotNull != null;
-  }
-
-  private void initializeMethodNames(Name.Table table) {
-    isNotNull = table.fromString(IS_NOT_NULL_METHOD);
-    isNotNullOwner = table.fromString(IS_NOT_NULL_OWNER);
-    assertThat = table.fromString(ASSERT_THAT_METHOD);
-    assertThatOwner = table.fromString(ASSERT_THAT_OWNER);
-
-    hamcrestAssertClass = table.fromString(HAMCREST_ASSERT_CLASS);
-    junitAssertClass = table.fromString(JUNIT_ASSERT_CLASS);
-
-    matchersClass = table.fromString(MATCHERS_CLASS);
-    coreMatchersClass = table.fromString(CORE_MATCHERS_CLASS);
-    coreIsNullClass = table.fromString(CORE_IS_NULL_CLASS);
-    isMatcher = table.fromString(IS_MATCHER);
-    notMatcher = table.fromString(NOT_MATCHER);
-    notNullValueMatcher = table.fromString(NOT_NULL_VALUE_MATCHER);
-    nullValueMatcher = table.fromString(NULL_VALUE_MATCHER);
   }
 }

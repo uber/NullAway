@@ -25,6 +25,7 @@ package com.uber.nullaway.testdata;
 import com.facebook.infer.annotation.Initializer;
 import com.google.errorprone.annotations.concurrent.LazyInit;
 import javax.inject.Inject;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.jupiter.api.BeforeAll;
@@ -158,6 +159,33 @@ public class CheckFieldInitNegativeCases {
     }
   }
 
+  final class T8 {
+
+    Object f;
+
+    @Initializer
+    public void init1() {
+      init();
+    }
+
+    public void init() {
+      f = new Object();
+    }
+  }
+
+  final class T9 {
+
+    Object f;
+
+    public T9() {
+      init();
+    }
+
+    public void init() {
+      f = new Object();
+    }
+  }
+
   abstract class Super {
 
     // to test known initializer methods
@@ -274,5 +302,45 @@ public class CheckFieldInitNegativeCases {
 
     @Initializer
     static void init() {}
+  }
+
+  public class SuppressWarningsE {
+
+    @SuppressWarnings("NullAway.Init")
+    private Object f;
+
+    SuppressWarningsE(final Object f) {
+      this.setF(f);
+    }
+
+    @SuppressWarnings("NullAway.Init")
+    protected SuppressWarningsE() {}
+
+    public void setF(final Object f) {
+      this.f = f;
+    }
+  }
+
+  static class MonotonicNonNullUsage {
+
+    @MonotonicNonNull Object f;
+
+    MonotonicNonNullUsage() {}
+  }
+
+  @SuppressWarnings("NullAway.Init")
+  public Object getSuppressWarningsF() {
+    return (new Object() {
+      /*SuppressWarningsF*/
+      private Object f;
+
+      public Object getF() {
+        return f;
+      }
+
+      public void setF(Object f) {
+        this.f = f;
+      }
+    });
   }
 }

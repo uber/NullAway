@@ -90,7 +90,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       Symbol.MethodSymbol methodSymbol,
       ImmutableSet<Integer> explicitlyNullablePositions) {
     return Sets.union(
-            explicitlyNullablePositions,
+            Sets.difference(
+                explicitlyNullablePositions,
+                getOptLibraryModels(context).nonNullParameters(methodSymbol)),
             getOptLibraryModels(context).explicitlyNullableParameters(methodSymbol))
         .immutableCopy();
   }
@@ -98,16 +100,18 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
-    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
-        && getOptLibraryModels(state.context)
-            .hasNullableReturn(
-                (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
-      return analysis.nullnessFromDataflow(state, expr) || exprMayBeNull;
-    }
-    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
-        && getOptLibraryModels(state.context)
-            .hasNonNullReturn((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
-      return false;
+    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION) {
+      OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
+      Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr);
+      if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes())
+          || !optLibraryModels.nullImpliesNullParameters(methodSymbol).isEmpty()) {
+        // These mean the method might be null, depending on dataflow and arguments. We force
+        // dataflow to run.
+        return analysis.nullnessFromDataflow(state, expr) || exprMayBeNull;
+      } else if (optLibraryModels.hasNonNullReturn(methodSymbol, state.getTypes())) {
+        // This means the method can't be null, so we return false outright.
+        return false;
+      }
     }
     return exprMayBeNull;
   }
@@ -124,7 +128,22 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, context);
-    setConditionalArgumentNullness(elseUpdates, node.getArguments(), callee, context);
+    setConditionalArgumentNullness(thenUpdates, elseUpdates, node.getArguments(), callee, context);
+    ImmutableSet<Integer> nullImpliesNullIndexes =
+        getOptLibraryModels(context).nullImpliesNullParameters(callee);
+    if (!nullImpliesNullIndexes.isEmpty()) {
+      // If the method is marked as having argument dependent nullability and any of the
+      // corresponding arguments is null, then the return is nullable. If the method is
+      // marked as having argument dependent nullability but NONE of the corresponding
+      // arguments is null, then the return should be non-null.
+      boolean anyNull = false;
+      for (int idx : nullImpliesNullIndexes) {
+        if (!inputs.valueOfSubNode(node.getArgument(idx)).equals(NONNULL)) {
+          anyNull = true;
+        }
+      }
+      return anyNull ? NullnessHint.HINT_NULLABLE : NullnessHint.FORCE_NONNULL;
+    }
     if (getOptLibraryModels(context).hasNonNullReturn(callee, types)) {
       return NullnessHint.FORCE_NONNULL;
     } else if (getOptLibraryModels(context).hasNullableReturn(callee, types)) {
@@ -135,14 +154,20 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   private void setConditionalArgumentNullness(
+      AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       List<Node> arguments,
       Symbol.MethodSymbol callee,
       Context context) {
     Set<Integer> nullImpliesTrueParameters =
         getOptLibraryModels(context).nullImpliesTrueParameters(callee);
+    Set<Integer> nullImpliesFalseParameters =
+        getOptLibraryModels(context).nullImpliesFalseParameters(callee);
     for (AccessPath accessPath : accessPathsAtIndexes(nullImpliesTrueParameters, arguments)) {
       elseUpdates.set(accessPath, NONNULL);
+    }
+    for (AccessPath accessPath : accessPathsAtIndexes(nullImpliesFalseParameters, arguments)) {
+      thenUpdates.set(accessPath, NONNULL);
     }
   }
 
@@ -197,6 +222,121 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put(
                 methodRef(
                     "com.google.common.base.Preconditions", "<T>checkNotNull(T,java.lang.Object)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,java.lang.Object...)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,char)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,int)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,long)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,java.lang.Object)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,char,char)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,char,int)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,char,long)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,char,java.lang.Object)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,int,char)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,int,int)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,int,long)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,int,java.lang.Object)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,long,char)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,long,int)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,long,long)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,long,java.lang.Object)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,java.lang.Object,char)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,java.lang.Object,int)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,java.lang.Object,long)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,java.lang.Object,java.lang.Object)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,java.lang.Object,java.lang.Object,java.lang.Object)"),
+                0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Preconditions",
+                    "<T>checkNotNull(T,java.lang.String,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object)"),
                 0)
             .put(methodRef("java.util.Objects", "<T>requireNonNull(T)"), 0)
             .put(methodRef("java.util.Objects", "<T>requireNonNull(T,java.lang.String)"), 0)
@@ -267,6 +407,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                     "com.google.common.util.concurrent.SettableFuture",
                     "setException(java.lang.Throwable)"),
                 0)
+            .put(methodRef("com.google.common.base.Function", "apply(F)"), 0)
+            .put(methodRef("com.google.common.base.Predicate", "apply(T)"), 0)
+            .put(methodRef("com.google.common.util.concurrent.AsyncFunction", "apply(I)"), 0)
             .put(methodRef("java.io.File", "File(java.lang.String)"), 0)
             .put(methodRef("java.lang.Class", "getResource(java.lang.String)"), 0)
             .put(methodRef("java.lang.Class", "isAssignableFrom(java.lang.Class<?>)"), 0)
@@ -321,6 +464,21 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 methodRef(
                     "org.apache.commons.lang3.StringUtils", "isEmpty(java.lang.CharSequence)"),
                 0)
+            .put(methodRef("org.apache.commons.lang.StringUtils", "isBlank(java.lang.String)"), 0)
+            .put(
+                methodRef(
+                    "org.apache.commons.lang3.StringUtils", "isBlank(java.lang.CharSequence)"),
+                0)
+            .build();
+
+    private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_FALSE_PARAMETERS =
+        new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+            .put(methodRef("java.util.Objects", "nonNull(java.lang.Object)"), 0)
+            .build();
+
+    private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_NULL_PARAMETERS =
+        new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+            .put(methodRef("java.util.Optional", "orElse(T)"), 0)
             .build();
 
     private static final ImmutableSet<MethodRef> NULLABLE_RETURNS =
@@ -340,11 +498,15 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .add(methodRef("android.view.View", "getHandler()"))
             .add(methodRef("java.lang.Throwable", "getMessage()"))
             .add(methodRef("android.webkit.WebView", "getUrl()"))
+            .add(methodRef("com.sun.source.tree.CompilationUnitTree", "getPackageName()"))
             .build();
 
     private static final ImmutableSet<MethodRef> NONNULL_RETURNS =
         new ImmutableSet.Builder<MethodRef>()
             .add(methodRef("com.google.gson", "<T>fromJson(String,Class)"))
+            .add(methodRef("com.google.common.base.Function", "apply(F)"))
+            .add(methodRef("com.google.common.base.Predicate", "apply(T)"))
+            .add(methodRef("com.google.common.util.concurrent.AsyncFunction", "apply(I)"))
             .add(methodRef("android.app.Activity", "<T>findViewById(int)"))
             .add(methodRef("android.view.View", "<T>findViewById(int)"))
             .add(methodRef("android.view.View", "getResources()"))
@@ -409,6 +571,16 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     @Override
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
+      return NULL_IMPLIES_FALSE_PARAMETERS;
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
+      return NULL_IMPLIES_NULL_PARAMETERS;
+    }
+
+    @Override
     public ImmutableSet<MethodRef> nullableReturns() {
       return NULLABLE_RETURNS;
     }
@@ -429,6 +601,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters;
 
+    private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters;
+
+    private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters;
+
     private final ImmutableSet<MethodRef> nullableReturns;
 
     private final ImmutableSet<MethodRef> nonNullReturns;
@@ -441,6 +617,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       ImmutableSetMultimap.Builder<MethodRef, Integer> nonNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesFalseParametersBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSet.Builder<MethodRef> nullableReturnsBuilder = new ImmutableSet.Builder<>();
       ImmutableSet.Builder<MethodRef> nonNullReturnsBuilder = new ImmutableSet.Builder<>();
@@ -459,6 +639,14 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             libraryModels.nullImpliesTrueParameters().entries()) {
           nullImpliesTrueParametersBuilder.put(entry);
         }
+        for (Map.Entry<MethodRef, Integer> entry :
+            libraryModels.nullImpliesFalseParameters().entries()) {
+          nullImpliesFalseParametersBuilder.put(entry);
+        }
+        for (Map.Entry<MethodRef, Integer> entry :
+            libraryModels.nullImpliesNullParameters().entries()) {
+          nullImpliesNullParametersBuilder.put(entry);
+        }
         for (MethodRef name : libraryModels.nullableReturns()) {
           nullableReturnsBuilder.add(name);
         }
@@ -470,6 +658,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       explicitlyNullableParameters = explicitlyNullableParametersBuilder.build();
       nonNullParameters = nonNullParametersBuilder.build();
       nullImpliesTrueParameters = nullImpliesTrueParametersBuilder.build();
+      nullImpliesFalseParameters = nullImpliesFalseParametersBuilder.build();
+      nullImpliesNullParameters = nullImpliesNullParametersBuilder.build();
       nullableReturns = nullableReturnsBuilder.build();
       nonNullReturns = nonNullReturnsBuilder.build();
     }
@@ -495,6 +685,16 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     @Override
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
+      return nullImpliesFalseParameters;
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
+      return nullImpliesNullParameters;
+    }
+
+    @Override
     public ImmutableSet<MethodRef> nullableReturns() {
       return nullableReturns;
     }
@@ -516,7 +716,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
      * name as an optimization. The {@link Name} data structure is used to avoid unnecessary String
      * conversions when looking up {@link com.sun.tools.javac.code.Symbol.MethodSymbol}s.
      *
-     * @param <T>
+     * @param <T> the type of the associated state.
      */
     private static class NameIndexedMap<T> {
 
@@ -545,6 +745,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private final NameIndexedMap<ImmutableSet<Integer>> explicitlyNullableParams;
     private final NameIndexedMap<ImmutableSet<Integer>> nonNullParams;
     private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesTrueParams;
+    private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesFalseParams;
+    private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesNullParams;
     private final NameIndexedMap<Boolean> nullableRet;
     private final NameIndexedMap<Boolean> nonNullRet;
 
@@ -555,6 +757,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           makeOptimizedIntSetLookup(names, models.explicitlyNullableParameters());
       nonNullParams = makeOptimizedIntSetLookup(names, models.nonNullParameters());
       nullImpliesTrueParams = makeOptimizedIntSetLookup(names, models.nullImpliesTrueParameters());
+      nullImpliesFalseParams =
+          makeOptimizedIntSetLookup(names, models.nullImpliesFalseParameters());
+      nullImpliesNullParams = makeOptimizedIntSetLookup(names, models.nullImpliesNullParameters());
       nullableRet = makeOptimizedBoolLookup(names, models.nullableReturns());
       nonNullRet = makeOptimizedBoolLookup(names, models.nonNullReturns());
     }
@@ -581,6 +786,14 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     ImmutableSet<Integer> nullImpliesTrueParameters(Symbol.MethodSymbol symbol) {
       return lookupImmutableSet(symbol, nullImpliesTrueParams);
+    }
+
+    ImmutableSet<Integer> nullImpliesFalseParameters(Symbol.MethodSymbol symbol) {
+      return lookupImmutableSet(symbol, nullImpliesFalseParams);
+    }
+
+    ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol) {
+      return lookupImmutableSet(symbol, nullImpliesNullParams);
     }
 
     private ImmutableSet<Integer> lookupImmutableSet(

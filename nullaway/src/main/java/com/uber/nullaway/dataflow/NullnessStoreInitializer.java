@@ -33,9 +33,8 @@ public abstract class NullnessStoreInitializer {
       Config config);
 
   /**
-   * @param classTree a class
-   * @return the nullness info of locals in the enclosing environment for the closest enclosing
-   *     local or anonymous class. if no such class, returns an empty {@link NullnessStore}
+   * Returns the nullness info of locals in the enclosing environment for the closest enclosing
+   * local or anonymous class. if no such class, returns an empty {@link NullnessStore}
    */
   protected static NullnessStore getEnvNullnessStoreForClass(ClassTree classTree, Context context) {
     NullnessStore envStore = NullnessStore.empty();

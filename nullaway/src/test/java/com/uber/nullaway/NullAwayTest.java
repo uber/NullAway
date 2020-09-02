@@ -23,6 +23,7 @@
 package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
+import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
@@ -86,9 +87,40 @@ public class NullAwayTest {
 
   @Test
   public void coreNullabilitySkipClass() {
-    compilationHelper.addSourceFile("Shape_Stuff.java").doTest();
-    compilationHelper.addSourceFile("excluded/Shape_Stuff2.java").doTest();
-    compilationHelper.addSourceFile("AnnotatedClass.java").addSourceFile("TestAnnot.java").doTest();
+    compilationHelper
+        .addSourceFile("Shape_Stuff.java")
+        .addSourceFile("excluded/Shape_Stuff2.java")
+        .addSourceFile("AnnotatedClass.java")
+        .addSourceFile("TestAnnot.java")
+        .doTest();
+  }
+
+  @Test
+  public void lombokSupportTesting() {
+    compilationHelper.addSourceFile("lombok/LombokBuilderInit.java").doTest();
+  }
+
+  @Test
+  public void skipClass() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.lib.MyExcluded"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "@com.uber.lib.MyExcluded",
+            "public class Test {",
+            "  static void bar() {",
+            "    // No error",
+            "    Object x = null; x.toString();",
+            "  }",
+            "}")
+        .doTest();
   }
 
   @Test
@@ -210,6 +242,16 @@ public class NullAwayTest {
   }
 
   @Test
+  public void streamSupportNegativeCases() {
+    compilationHelper.addSourceFile("NullAwayStreamSupportNegativeCases.java").doTest();
+  }
+
+  @Test
+  public void streamSupportPositiveCases() {
+    compilationHelper.addSourceFile("NullAwayStreamSupportPositiveCases.java").doTest();
+  }
+
+  @Test
   public void functionalMethodSuperInterface() {
     compilationHelper.addSourceFile("NullAwaySuperFunctionalInterface.java").doTest();
   }
@@ -325,7 +367,6 @@ public class NullAwayTest {
         (Double.parseDouble(System.getProperty("java.specification.version")) >= 11)
             ? "@javax.annotation.processing.Generated"
             : "@javax.annotation.Generated";
-    System.err.println();
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -448,6 +489,10 @@ public class NullAwayTest {
             "  }",
             "  String test2(Object o2) {",
             "    return NullnessChecker.noOp(o2).toString();",
+            "  }",
+            "  Object test3(@Nullable Object o1) {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    return NullnessChecker.noOp(o1);",
             "  }",
             "}")
         .doTest();
@@ -1343,6 +1388,62 @@ public class NullAwayTest {
   }
 
   @Test
+  public void defaultPermissiveOnRecently() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                // should be permissive even when AcknowledgeRestrictiveAnnotations is set
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.AndroidRecentlyAnnotatedClass;",
+            "class Test {",
+            "  Object test() {",
+            "    // Assume methods take @Nullable, even if annotated otherwise",
+            "    AndroidRecentlyAnnotatedClass.consumesObjectUnannotated(null);",
+            "    AndroidRecentlyAnnotatedClass.consumesObjectNonNull(null);",
+            "    // Ignore explict @Nullable return",
+            "    return AndroidRecentlyAnnotatedClass.returnsNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void acknowledgeRecentlyAnnotationsWhenFlagSet() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+                "-XepOpt:NullAway:AcknowledgeAndroidRecent=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.AndroidRecentlyAnnotatedClass;",
+            "class Test {",
+            "  Object test() {",
+            "    AndroidRecentlyAnnotatedClass.consumesObjectUnannotated(null);",
+            "    // BUG: Diagnostic contains: @NonNull is required",
+            "    AndroidRecentlyAnnotatedClass.consumesObjectNonNull(null);",
+            "    // BUG: Diagnostic contains: returning @Nullable",
+            "    return AndroidRecentlyAnnotatedClass.returnsNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void restrictivelyAnnotatedMethodsWorkWithNullnessFromDataflow() {
     compilationHelper
         .setArgs(
@@ -1495,7 +1596,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessHandlerTest() {
+  public void optionalEmptinessHandlerTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1527,6 +1628,17 @@ public class NullAwayTest {
             "          lambdaConsumer(v -> b.get().toString());",
             "       }",
             "    }",
+            "  @SuppressWarnings(\"NullAway.Optional\")",
+            "  void SupWarn() {",
+            "    Optional<Object> a = Optional.empty();",
+            "      // no error since suppressed",
+            "      a.get().toString();",
+            "    }",
+            "  void SupWarn2() {",
+            "    Optional<Object> a = Optional.empty();",
+            "      // no error since suppressed",
+            "     @SuppressWarnings(\"NullAway.Optional\") String b = a.get().toString();",
+            "    }",
             "}")
         .addSourceLines(
             "TestPositive.java",
@@ -1537,7 +1649,7 @@ public class NullAwayTest {
             "public class TestPositive {",
             "  void foo() {",
             "    Optional<Object> a = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional a can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
             "    a.get().toString();",
             "  }",
             "   public void lambdaConsumer(Function a){",
@@ -1545,15 +1657,22 @@ public class NullAwayTest {
             "   }",
             "  void bar() {",
             "     Optional<Object> b = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
             "           lambdaConsumer(v -> b.get().toString());",
+            "    }",
+            "   // This tests if the suppression is not suppressing unrelated errors ",
+            "  @SuppressWarnings(\"NullAway.Optional\")",
+            "  void SupWarn() {",
+            "    Object a = null;",
+            "      // BUG: Diagnostic contains: dereferenced expression a is @Nullable",
+            "      a.toString();",
             "    }",
             "}")
         .doTest();
   }
 
   @Test
-  public void OptionalEmptinessHandlerWithSingleCustomPathTest() {
+  public void optionalEmptinessHandlerWithSingleCustomPathTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1570,11 +1689,12 @@ public class NullAwayTest {
             "import javax.annotation.Nullable;",
             "import com.google.common.base.Function;",
             "public class TestNegative {",
+            "  class ABC { Optional<Object> ob = Optional.absent();} ",
             "  void foo() {",
-            "    Optional<Object> a = Optional.absent();",
+            "      ABC abc = new ABC();",
             "      // no error since a.isPresent() is called",
-            "      if(a.isPresent()){",
-            "         a.get().toString();",
+            "      if(abc.ob.isPresent()){",
+            "         abc.ob.get().toString();",
             "       }",
             "    }",
             "   public void lambdaConsumer(Function a){",
@@ -1594,17 +1714,18 @@ public class NullAwayTest {
             "import javax.annotation.Nullable;",
             "import com.google.common.base.Function;",
             "public class TestPositive {",
+            "  class ABC { Optional<Object> ob = Optional.empty();} ",
             "  void foo() {",
-            "    Optional<Object> a = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional a can be empty",
-            "    a.get().toString();",
+            "    ABC abc = new ABC();",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional abc.ob",
+            "    abc.ob.get().toString();",
             "  }",
             "   public void lambdaConsumer(Function a){",
             "        return;",
             "   }",
             "  void bar() {",
             "     Optional<Object> b = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
             "           lambdaConsumer(v -> b.get().toString());",
             "    }",
             "}")
@@ -1617,7 +1738,7 @@ public class NullAwayTest {
             "public class TestPositive2 {",
             "  void foo() {",
             "    Optional<Object> a = Optional.absent();",
-            "    // BUG: Diagnostic contains: Optional a can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
             "    a.get().toString();",
             "  }",
             "   public void lambdaConsumer(Function a){",
@@ -1625,7 +1746,7 @@ public class NullAwayTest {
             "   }",
             "  void bar() {",
             "     Optional<Object> b = Optional.absent();",
-            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
             "           lambdaConsumer(v -> b.get().toString());",
             "    }",
             "}")
@@ -1633,7 +1754,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessHandlerWithTwoCustomPathsTest() {
+  public void optionalEmptinessHandlerWithTwoCustomPathsTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1676,7 +1797,7 @@ public class NullAwayTest {
             "public class TestPositive {",
             "  void foo() {",
             "    Optional<Object> a = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional a can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
             "    a.get().toString();",
             "  }",
             "   public void lambdaConsumer(Function a){",
@@ -1684,7 +1805,7 @@ public class NullAwayTest {
             "   }",
             "  void bar() {",
             "     Optional<Object> b = Optional.empty();",
-            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
             "           lambdaConsumer(v -> b.get().toString());",
             "    }",
             "}")
@@ -1697,7 +1818,7 @@ public class NullAwayTest {
             "public class TestPositive2 {",
             "  void foo() {",
             "    Optional<Object> a = Optional.absent();",
-            "    // BUG: Diagnostic contains: Optional a can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
             "    a.get().toString();",
             "  }",
             "   public void lambdaConsumer(Function a){",
@@ -1705,7 +1826,7 @@ public class NullAwayTest {
             "   }",
             "  void bar() {",
             "     Optional<Object> b = Optional.absent();",
-            "    // BUG: Diagnostic contains: Optional b can be empty",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
             "           lambdaConsumer(v -> b.get().toString());",
             "    }",
             "}")
@@ -1713,7 +1834,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessUncheckedTest() {
+  public void optionalEmptinessUncheckedTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1748,7 +1869,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessRxPositiveTest() {
+  public void optionalEmptinessRxPositiveTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1767,11 +1888,11 @@ public class NullAwayTest {
             "  void foo(Observable<Optional<String>> observable) {",
             "     observable",
             "           .filter(optional -> optional.isPresent() || perhaps())",
-            "           // BUG: Diagnostic contains: Optional optional can be empty",
+            "           // BUG: Diagnostic contains: Invoking get() on possibly empty Optional optional",
             "           .map(optional -> optional.get().toString());",
             "     observable",
             "           .filter(optional -> optional.isPresent() || perhaps())",
-            "           // BUG: Diagnostic contains: Optional optional can be empty",
+            "           // BUG: Diagnostic contains: Invoking get() on possibly empty Optional optional",
             "           .map(optional -> optional.get())",
             "           .map(irr -> irr.toString());",
             "     }",
@@ -1780,7 +1901,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OptionalEmptinessRxNegativeTest() {
+  public void optionalEmptinessRxNegativeTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -1807,6 +1928,180 @@ public class NullAwayTest {
             "           .filter(optional -> optional.isPresent() && perhaps())",
             "           .map(optional -> optional.get());",
             "     }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void optionalEmptinessHandleAssertionLibraryTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber,io.reactivex",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "import static com.google.common.truth.Truth.assertThat;",
+            "public class Test {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    assertThat(a.isPresent()).isTrue(); ",
+            "    a.get().toString();",
+            "  }",
+            "  public void lambdaConsumer(Function a){",
+            "    return;",
+            "  }",
+            "  void bar() {",
+            "    Optional<Object> b = Optional.empty();",
+            "    assertThat(b.isPresent()).isTrue(); ",
+            "    lambdaConsumer(v -> b.get().toString());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void optionalEmptinessAssignmentCheckNegativeTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "TestNegative.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "public class TestNegative {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    Object x = a.isPresent() ? a.get() : \"something\";",
+            "    x.toString();",
+            "  }",
+            "   public void lambdaConsumer(Function a){",
+            "        return;",
+            "   }",
+            "  void bar() {",
+            "     Optional<Object> b = Optional.empty();",
+            "      if(b.isPresent()){",
+            "          lambdaConsumer(v -> b.get().toString());",
+            "       }",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void optionalEmptinessAssignmentCheckPositiveTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "TestPositive.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "public class TestPositive {",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
+            "    Object x = a.get();",
+            "    x.toString();",
+            "  }",
+            "   public void lambdaConsumer(Function a){",
+            "        return;",
+            "   }",
+            "  void bar() {",
+            "     Optional<Object> b = Optional.empty();",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
+            "     lambdaConsumer(v -> {Object x = b.get();  return \"irrelevant\";});",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void optionalEmptinessContextualSuppressionTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "TestClassSuppression.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Function;",
+            "@SuppressWarnings(\"NullAway.Optional\")",
+            "public class TestClassSuppression {",
+            "  // no error since suppressed",
+            "  Function<Optional, String> lambdaField = opt -> opt.get().toString();",
+            "  void foo() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    // no error since suppressed",
+            "    a.get().toString();",
+            "  }",
+            "  public void lambdaConsumer(Function a){",
+            "    return;",
+            "  }",
+            "  void bar() {",
+            "    Optional<Object> b = Optional.empty();",
+            "    // no error since suppressed",
+            "    lambdaConsumer(v -> b.get().toString());",
+            "  }",
+            "  void baz(@Nullable Object o) {",
+            "    // unrelated errors not suppressed",
+            "    // BUG: Diagnostic contains: dereferenced expression o is @Nullable",
+            "    o.toString();",
+            "  }",
+            "  public static class Inner {",
+            "    void foo() {",
+            "      Optional<Object> a = Optional.empty();",
+            "      // no error since suppressed in outer class",
+            "      a.get().toString();",
+            "    }",
+            "  }",
+            "}")
+        .addSourceLines(
+            "TestLambdaFieldNoSuppression.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import com.google.common.base.Function;",
+            "public class TestLambdaFieldNoSuppression {",
+            "  // BUG: Diagnostic contains: Invoking get() on possibly empty Optional opt",
+            "  Function<Optional, String> lambdaField = opt -> opt.get().toString();",
+            "}")
+        .addSourceLines(
+            "TestLambdaFieldWithSuppression.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import com.google.common.base.Function;",
+            "public class TestLambdaFieldWithSuppression {",
+            "  // no error since suppressed",
+            "  @SuppressWarnings(\"NullAway.Optional\")",
+            "  Function<Optional, String> lambdaField = opt -> opt.get().toString();",
             "}")
         .doTest();
   }
@@ -2149,6 +2444,175 @@ public class NullAwayTest {
             "    Generated.takesNonNullVarargs(o1);", // Empty var args passed
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
             "    Generated.takesNonNullVarargs(o1, o4);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void libraryModelsOverrideRestrictiveAnnotations() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-processorpath",
+                TestLibraryModels.class
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation()
+                    .getPath(),
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.unannotated.RestrictivelyAnnotatedFIWithModelOverride;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  void bar(RestrictivelyAnnotatedFIWithModelOverride f) {",
+            "     // Param is @NullableDecl in bytecode, overridden by library model",
+            "     // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull",
+            "     f.apply(null);",
+            "  }",
+            "  void foo() {",
+            "    RestrictivelyAnnotatedFIWithModelOverride func = (x) -> {",
+            "     // Param is @NullableDecl in bytecode, overridden by library model, thus safe",
+            "     return x.toString();",
+            "    };",
+            "  }",
+            "  void baz() {",
+            "     // Safe to pass, since Function can't have a null instance parameter",
+            "     bar(Object::toString);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testMapWithCustomPut() { // See https://github.com/uber/NullAway/issues/389
+    compilationHelper
+        .addSourceLines(
+            "Item.java",
+            "package com.uber.lib.unannotated.collections;",
+            "public class Item<K,V> {",
+            " public final K key;",
+            " public final V value;",
+            " public Item(K k, V v) {",
+            "  this.key = k;",
+            "  this.value = v;",
+            " }",
+            "}")
+        .addSourceLines(
+            "MapLike.java",
+            "package com.uber.lib.unannotated.collections;",
+            "import java.util.HashMap;",
+            "// Too much work to implement java.util.Map from scratch",
+            "public class MapLike<K,V> extends HashMap<K,V> {",
+            " public MapLike() {",
+            "   super();",
+            " }",
+            " public void put(Item<K,V> item) {",
+            "   put(item.key, item.value);",
+            " }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lib.unannotated.collections.Item;",
+            "import com.uber.lib.unannotated.collections.MapLike;",
+            "public class Test {",
+            " public static MapLike test_389(@Nullable Item<String, String> item) {",
+            "  MapLike<String, String> map = new MapLike<String, String>();",
+            "  if (item != null) {", // Required to trigger dataflow analysis
+            "    map.put(item);",
+            "  }",
+            "  return map;",
+            " }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void defaultLibraryModelsObjectNonNull() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  String foo(@Nullable Object o) {",
+            "    if (Objects.nonNull(o)) {",
+            "     return o.toString();",
+            "    };",
+            "    return \"\";",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void checkForNullSupport() {
+    compilationHelper
+        // This is just to check the behavior is the same between @Nullable and @CheckForNull
+        .addSourceLines(
+            "TestNullable.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class TestNullable {",
+            "  @Nullable",
+            "  Object nullable = new Object();",
+            "  public void setNullable(@Nullable Object nullable) {this.nullable = nullable;}",
+            "  // BUG: Diagnostic contains: dereferenced expression nullable is @Nullable",
+            "  public void run() {System.out.println(nullable.toString());}",
+            "}")
+        .addSourceLines(
+            "TestCheckForNull.java",
+            "package com.uber;",
+            "import javax.annotation.CheckForNull;",
+            "class TestCheckForNull {",
+            "  @CheckForNull",
+            "  Object checkForNull = new Object();",
+            "  public void setCheckForNull(@CheckForNull Object checkForNull) {this.checkForNull = checkForNull;}",
+            "  // BUG: Diagnostic contains: dereferenced expression checkForNull is @Nullable",
+            "  public void run() {System.out.println(checkForNull.toString());}",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void orElseLibraryModelSupport() {
+    // Checks both Optional.orElse(...) support itself and the general nullImpliesNullParameters
+    // Library Models mechanism for encoding @Contract(!null -> !null) as a library model.
+    compilationHelper
+        .addSourceLines(
+            "TestOptionalOrElseNegative.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import java.util.Optional;",
+            "class TestOptionalOrElseNegative {",
+            "  public Object foo(Optional<Object> o) {",
+            "    return o.orElse(\"Something\");",
+            "  }",
+            "  public @Nullable Object bar(Optional<Object> o) {",
+            "    return o.orElse(null);",
+            "  }",
+            "}")
+        .addSourceLines(
+            "TestOptionalOrElsePositive.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "class TestOptionalOrElsePositive {",
+            "  public Object foo(Optional<Object> o) {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    return o.orElse(null);",
+            "  }",
+            "  public void bar(Optional<Object> o) {",
+            "    // BUG: Diagnostic contains: dereferenced expression o.orElse(null) is @Nullable",
+            "    System.out.println(o.orElse(null).toString());",
             "  }",
             "}")
         .doTest();

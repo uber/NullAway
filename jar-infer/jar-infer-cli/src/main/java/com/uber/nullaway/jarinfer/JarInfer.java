@@ -67,6 +67,12 @@ public class JarInfer {
             .desc("annotate bytecode")
             .build());
     options.addOption(
+        Option.builder("s")
+            .argName("strip-jar-signatures")
+            .longOpt("strip-jar-signatures")
+            .desc("handle signed jars by removing signature information from META-INF/")
+            .build());
+    options.addOption(
         Option.builder("h")
             .argName("help")
             .longOpt("help")
@@ -90,13 +96,15 @@ public class JarInfer {
       String pkgName = line.getOptionValue('p', "");
       String outPath = line.getOptionValue('o');
       boolean annotateBytecode = line.hasOption('b');
+      boolean stripJarSignatures = line.hasOption('s');
       boolean debug = line.hasOption('d');
       boolean verbose = line.hasOption('v');
       if (!pkgName.isEmpty()) {
         pkgName = "L" + pkgName.replaceAll("\\.", "/");
       }
-      DefinitelyDerefedParamsDriver.run(
-          jarPath, pkgName, outPath, annotateBytecode, debug, verbose);
+      DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+      driver.run(
+          jarPath, pkgName, outPath, annotateBytecode, stripJarSignatures, false, debug, verbose);
       if (!new File(outPath).exists()) {
         System.out.println("Could not write jar file: " + outPath);
       }

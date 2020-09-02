@@ -27,6 +27,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
@@ -36,11 +37,22 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
+import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
+import java.lang.annotation.Annotation;
+import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import javax.annotation.Nullable;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.ElementVisitor;
+import javax.lang.model.element.Modifier;
+import javax.lang.model.element.Name;
+import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeMirror;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 
@@ -51,10 +63,16 @@ import org.checkerframework.dataflow.cfg.node.Node;
 public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
   @Nullable private ImmutableSet<Type> optionalTypes;
-  private final Config config;
+  private NullAway analysis;
 
-  OptionalEmptinessHandler(Config config) {
+  private final Config config;
+  private final MethodNameUtil methodNameUtil;
+
+  public static final VariableElement OPTIONAL_CONTENT = getOptionalContentElement();
+
+  OptionalEmptinessHandler(Config config, MethodNameUtil methodNameUtil) {
     this.config = config;
+    this.methodNameUtil = methodNameUtil;
   }
 
   @Override
@@ -70,6 +88,9 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+
+    this.analysis = analysis;
+
     optionalTypes =
         config
             .getOptionalClassPaths()
@@ -91,35 +112,34 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(node.getTree());
 
-    if (optionalIsGetCall(symbol, types)) {
-      return NullnessHint.HINT_NULLABLE;
-    } else if (optionalIsPresentCall(symbol, types)) {
-      Element getter = null;
-      Node base = node.getTarget().getReceiver();
-      for (Symbol elem : symbol.owner.getEnclosedElements()) {
-        if (elem.getKind().equals(ElementKind.METHOD)
-            && elem.getSimpleName().toString().equals("get")) {
-          getter = elem;
-        }
-      }
-      updateNonNullAPsForElement(thenUpdates, getter, base);
+    if (optionalIsPresentCall(symbol, types)) {
+      updateNonNullAPsForOptionalContent(thenUpdates, node.getTarget().getReceiver());
+    } else if (config.handleTestAssertionLibraries() && methodNameUtil.isMethodIsTrue(symbol)) {
+      // we check for instance of AssertThat(optionalFoo.isPresent()).isTrue()
+      updateIfAssertIsPresentTrueOnOptional(node, types, bothUpdates);
     }
     return NullnessHint.UNKNOWN;
   }
 
   @Override
-  public void onPrepareErrorMessage(
-      ExpressionTree expr, VisitorState state, ErrorMessage errorMessage) {
-    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
-        && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
-      final int exprStringSize = expr.toString().length();
-      // Name of the optional is extracted from the expression
-      final String message =
-          "Optional "
-              + expr.toString().substring(0, exprStringSize - 6)
-              + " can be empty, dereferenced get() call on it";
-      errorMessage.updateErrorMessage(ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL, message);
+  public Optional<ErrorMessage> onExpressionDereference(
+      ExpressionTree expr, ExpressionTree baseExpr, VisitorState state) {
+
+    if (ASTHelpers.getSymbol(expr) instanceof Symbol.MethodSymbol
+        && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())
+        && isOptionalContentNullable(state, baseExpr, analysis.getNullnessAnalysis(state))) {
+      final String message = "Invoking get() on possibly empty Optional " + baseExpr;
+      return Optional.of(
+          new ErrorMessage(ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL, message));
     }
+    return Optional.empty();
+  }
+
+  private boolean isOptionalContentNullable(
+      VisitorState state, ExpressionTree baseExpr, AccessPathNullnessAnalysis analysis) {
+    return analysis.getNullnessOfExpressionNamedField(
+            new TreePath(state.getPath(), baseExpr), state.context, OPTIONAL_CONTENT)
+        == Nullness.NULLABLE;
   }
 
   @Override
@@ -127,25 +147,46 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
     if (accessPath.getElements().size() == 1) {
       AccessPath.Root root = accessPath.getRoot();
-      if (!root.isReceiver()
-          && (accessPath.getElements().get(0).getJavaElement() instanceof Symbol.MethodSymbol)) {
+      if (!root.isReceiver()) {
         final Element e = root.getVarElement();
-        final Symbol.MethodSymbol g =
-            (Symbol.MethodSymbol) accessPath.getElements().get(0).getJavaElement();
         return e.getKind().equals(ElementKind.LOCAL_VARIABLE)
-            && optionalIsGetCall(g, state.getTypes());
+            && accessPath.getElements().get(0).getJavaElement().equals(OPTIONAL_CONTENT);
       }
     }
     return false;
   }
 
-  private void updateNonNullAPsForElement(
-      AccessPathNullnessPropagation.Updates updates, @Nullable Element elem, Node base) {
-    if (elem != null) {
-      AccessPath ap = AccessPath.fromBaseAndElement(base, elem);
-      if (ap != null) {
-        updates.set(ap, Nullness.NONNULL);
+  private void updateIfAssertIsPresentTrueOnOptional(
+      MethodInvocationNode node, Types types, AccessPathNullnessPropagation.Updates bothUpdates) {
+    Node receiver = node.getTarget().getReceiver();
+    if (receiver instanceof MethodInvocationNode) {
+      MethodInvocationNode receiverMethod = (MethodInvocationNode) receiver;
+      Symbol.MethodSymbol receiverSymbol = ASTHelpers.getSymbol(receiverMethod.getTree());
+      if (methodNameUtil.isMethodAssertThat(receiverSymbol)) {
+        // assertThat will always have at least one argument, So safe to extract from the arguments
+        Node arg = receiverMethod.getArgument(0);
+        if (arg instanceof MethodInvocationNode) {
+          // Since assertThat(a.isPresent()) changes to
+          // Truth.assertThat(Boolean.valueOf(a.isPresent()))
+          // need to be unwrapped from Boolean.valueOf
+          Node unwrappedArg = ((MethodInvocationNode) arg).getArgument(0);
+          if (unwrappedArg instanceof MethodInvocationNode) {
+            MethodInvocationNode argMethod = (MethodInvocationNode) unwrappedArg;
+            Symbol.MethodSymbol argSymbol = ASTHelpers.getSymbol(argMethod.getTree());
+            if (optionalIsPresentCall(argSymbol, types)) {
+              updateNonNullAPsForOptionalContent(bothUpdates, argMethod.getTarget().getReceiver());
+            }
+          }
+        }
       }
+    }
+  }
+
+  private void updateNonNullAPsForOptionalContent(
+      AccessPathNullnessPropagation.Updates updates, Node base) {
+    AccessPath ap = AccessPath.fromBaseAndElement(base, OPTIONAL_CONTENT);
+    if (ap != null && base.getTree() != null) {
+      updates.set(ap, Nullness.NONNULL);
     }
   }
 
@@ -165,5 +206,69 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
           && types.isSubtype(symbol.owner.type, optionalType)) return true;
     }
     return false;
+  }
+
+  private static VariableElement getOptionalContentElement() {
+    return new VariableElement() {
+      @Override
+      public Object getConstantValue() {
+        return null;
+      }
+
+      @Override
+      public Name getSimpleName() {
+        return null;
+      }
+
+      @Override
+      public Element getEnclosingElement() {
+        return null;
+      }
+
+      @Override
+      public List<? extends Element> getEnclosedElements() {
+        return null;
+      }
+
+      @Override
+      public List<? extends AnnotationMirror> getAnnotationMirrors() {
+        return null;
+      }
+
+      @Override
+      public <A extends Annotation> A getAnnotation(Class<A> aClass) {
+        return null;
+      }
+
+      @Override
+      public <A extends Annotation> A[] getAnnotationsByType(Class<A> aClass) {
+        return null;
+      }
+
+      @Override
+      public <R, P> R accept(ElementVisitor<R, P> elementVisitor, P p) {
+        return null;
+      }
+
+      @Override
+      public TypeMirror asType() {
+        return null;
+      }
+
+      @Override
+      public ElementKind getKind() {
+        return null;
+      }
+
+      @Override
+      public Set<Modifier> getModifiers() {
+        return null;
+      }
+
+      @Override
+      public String toString() {
+        return "OPTIONAL_CONTENT";
+      }
+    };
   }
 }

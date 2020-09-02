@@ -40,6 +40,8 @@ public class Handlers {
    */
   public static Handler buildDefault(Config config) {
     ImmutableList.Builder<Handler> handlerListBuilder = ImmutableList.builder();
+    final MethodNameUtil methodNameUtil = new MethodNameUtil();
+
     if (config.acknowledgeRestrictiveAnnotations()) {
       // This runs before LibraryModelsHandler, so that library models can override third-party
       // bytecode annotations
@@ -49,14 +51,15 @@ public class Handlers {
       handlerListBuilder.add(new InferredJARModelsHandler(config));
     }
     if (config.handleTestAssertionLibraries()) {
-      handlerListBuilder.add(new AssertionHandler());
+      handlerListBuilder.add(new AssertionHandler(methodNameUtil));
     }
     handlerListBuilder.add(new LibraryModelsHandler());
-    handlerListBuilder.add(new RxNullabilityPropagator());
+    handlerListBuilder.add(StreamNullabilityPropagatorFactory.getRxStreamNullabilityPropagator());
+    handlerListBuilder.add(StreamNullabilityPropagatorFactory.getJavaStreamNullabilityPropagator());
     handlerListBuilder.add(new ContractHandler());
     handlerListBuilder.add(new ApacheThriftIsSetHandler());
     if (config.checkOptionalEmptiness()) {
-      handlerListBuilder.add(new OptionalEmptinessHandler(config));
+      handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }
     if (config.checkContract()) {
       handlerListBuilder.add(new ContractCheckHandler());

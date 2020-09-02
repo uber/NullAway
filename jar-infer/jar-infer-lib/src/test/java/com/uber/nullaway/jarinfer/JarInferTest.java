@@ -19,11 +19,12 @@ package com.uber.nullaway.jarinfer;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
-import com.sun.tools.javac.main.Main;
-import com.sun.tools.javac.main.Main.Result;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -70,21 +71,19 @@ public class JarInferTest {
       Map<String, Set<Integer>> expected,
       String... lines)
       throws Exception {
-    Result compileResult =
+    boolean compileSucceeded =
         compilerUtil
             .addSourceLines(cls + ".java", ObjectArrays.concat("package " + pkg + ";\n", lines))
             .run();
-    Assert.assertEquals(
-        testName + ": test compilation failed!\n" + compilerUtil.getOutput(),
-        Main.Result.OK,
-        compileResult);
-    DefinitelyDerefedParamsDriver.reset();
     Assert.assertTrue(
-        testName + ": test failed!",
-        verify(
-            DefinitelyDerefedParamsDriver.run(
-                temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/")),
-            new HashMap<>(expected)));
+        testName + ": test compilation failed!\n" + compilerUtil.getOutput(), compileSucceeded);
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    Map<String, Set<Integer>> result =
+        driver.run(
+            temporaryFolder.getRoot().getAbsolutePath(), "L" + pkg.replaceAll("\\.", "/"), true);
+    Assert.assertTrue(
+        testName + ": test failed! \n" + result + " does not match " + expected,
+        verify(result, new HashMap<>(expected)));
   }
 
   /**
@@ -97,9 +96,9 @@ public class JarInferTest {
       String pkg, // in dot syntax
       String jarPath // in dot syntax
       ) throws Exception {
-    DefinitelyDerefedParamsDriver.reset();
-    DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
-    String outJARPath = DefinitelyDerefedParamsDriver.lastOutPath;
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
+    String outJARPath = driver.lastOutPath;
     Assert.assertTrue("jar file not found! - " + outJARPath, new File(outJARPath).exists());
   }
 
@@ -110,15 +109,39 @@ public class JarInferTest {
       Map<String, String> expectedToActualAnnotationsMap)
       throws Exception {
     String outputFolderPath = outputFolder.newFolder(pkg).getAbsolutePath();
-    DefinitelyDerefedParamsDriver.reset();
-    DefinitelyDerefedParamsDriver.runAndAnnotate(inputJarPath, "", outputFolderPath);
-
     String inputJarName = FilenameUtils.getBaseName(inputJarPath);
     String outputJarPath = outputFolderPath + "/" + inputJarName + "-annotated.jar";
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.runAndAnnotate(inputJarPath, "", outputJarPath);
+
     Assert.assertTrue(
         testName + ": generated jar does not match the expected jar!",
         AnnotationChecker.checkMethodAnnotationsInJar(
             outputJarPath, expectedToActualAnnotationsMap));
+    Assert.assertTrue(
+        testName + ": generated jar does not have all the entries present in the input jar!",
+        EntriesComparator.compareEntriesInJars(outputJarPath, inputJarPath));
+  }
+
+  private void testAnnotationInAarTemplate(
+      String testName,
+      String pkg,
+      String inputAarPath,
+      Map<String, String> expectedToActualAnnotationMap)
+      throws Exception {
+    String outputFolderPath = outputFolder.newFolder(pkg).getAbsolutePath();
+    String inputAarName = FilenameUtils.getBaseName(inputAarPath);
+    String outputAarPath = outputFolderPath + "/" + inputAarName + "-annotated.aar";
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.runAndAnnotate(inputAarPath, "", outputAarPath);
+
+    Assert.assertTrue(
+        testName + ": generated aar does not match the expected aar!",
+        AnnotationChecker.checkMethodAnnotationsInAar(
+            outputAarPath, expectedToActualAnnotationMap));
+    Assert.assertTrue(
+        testName + ": generated aar does not have all the entries present in the input aar!",
+        EntriesComparator.compareEntriesInAars(outputAarPath, inputAarPath));
   }
 
   /**
@@ -276,6 +299,101 @@ public class JarInferTest {
   }
 
   @Test
+  public void toyConditionalFlow() throws Exception {
+    testTemplate(
+        "toyNullTestAPI",
+        "toys",
+        "Foo",
+        ImmutableMap.of("toys.Foo:void test(String, String, String)", Sets.newHashSet(1, 2)),
+        "import com.google.common.base.Preconditions;",
+        "import java.util.Objects;",
+        "import org.junit.Assert;",
+        "class Foo {",
+        "  private String foo;",
+        "  public Foo(String str) {",
+        "    if (str == null) str = \"foo\";",
+        "    this.foo = str;",
+        "  }",
+        "  public void test(String s, String t, String u) {",
+        "    if (s.length() >= 5) {",
+        "      t.toString();",
+        "      t = s;",
+        "    } else {",
+        "      Preconditions.checkNotNull(t);",
+        "      u = t;",
+        "    }",
+        "    Objects.requireNonNull(u);",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void toyConditionalFlow2() throws Exception {
+    testTemplate(
+        "toyNullTestAPI",
+        "toys",
+        "Foo",
+        ImmutableMap.of(
+            "toys.Foo:void test(Object, Object, Object, Object)", Sets.newHashSet(1, 4)),
+        "import com.google.common.base.Preconditions;",
+        "import java.util.Objects;",
+        "import org.junit.Assert;",
+        "class Foo {",
+        "  private String foo;",
+        "  public Foo(String str) {",
+        "    if (str == null) str = \"foo\";",
+        "    this.foo = str;",
+        "  }",
+        "  public void test(Object a, Object b, Object c, Object d) {",
+        "    if (a != null) {",
+        "      b.toString();",
+        "      d.toString();",
+        "    } else {",
+        "      Preconditions.checkNotNull(c);",
+        "    }",
+        "    Objects.requireNonNull(a);",
+        "    if (b != null) {",
+        "      c.toString();",
+        "      d.toString();",
+        "    } else {",
+        "      Preconditions.checkNotNull(b);",
+        "       if (c != null) {",
+        "          d.toString();",
+        "       } else {",
+        "          Preconditions.checkNotNull(d);",
+        "       }",
+        "    }",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void toyReassigningTest() throws Exception {
+    testTemplate(
+        "toyNullTestAPI",
+        "toys",
+        "Foo",
+        ImmutableMap.of("toys.Foo:void test(String, String)", Sets.newHashSet(1)),
+        "import com.google.common.base.Preconditions;",
+        "import java.util.Objects;",
+        "import org.junit.Assert;",
+        "class Foo {",
+        "  private String foo;",
+        "  public Foo(String str) {",
+        "    if (str == null) str = \"foo\";",
+        "    this.foo = str;",
+        "  }",
+        "  public void test(String s, String t) {",
+        "    Preconditions.checkNotNull(s);",
+        "    if (t == null) {",
+        "      t = s;",
+        "    }",
+        "    Objects.requireNonNull(t);",
+        "  }",
+        "}");
+  }
+
+  @Test
   public void toyJARAnnotatingClasses() throws Exception {
     testAnnotationInJarTemplate(
         "toyJARAnnotatingClasses",
@@ -289,20 +407,90 @@ public class JarInferTest {
   }
 
   @Test
-  public void jarinferOutputJarIsBytePerByteDeterministic() throws Exception {
-    DefinitelyDerefedParamsDriver.reset();
-    String jarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
-    String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
-    DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
-    byte[] checksumBytes1 = sha1sum(DefinitelyDerefedParamsDriver.lastOutPath);
-    // Wait a second to ensure system time has changed
-    Thread.sleep(1);
-    DefinitelyDerefedParamsDriver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
-    byte[] checksumBytes2 = sha1sum(DefinitelyDerefedParamsDriver.lastOutPath);
-    Assert.assertTrue(Arrays.equals(checksumBytes1, checksumBytes2));
+  public void toyAARAnnotatingClasses() throws Exception {
+    testAnnotationInAarTemplate(
+        "toyAARAnnotatingClasses",
+        "com.uber.nullaway.jarinfer.toys.unannotated",
+        "../test-android-lib-jarinfer/build/outputs/aar/test-android-lib-jarinfer-release.aar",
+        ImmutableMap.of(
+            "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNullable;",
+            BytecodeAnnotator.androidNullableDesc,
+            "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNonnull;",
+            BytecodeAnnotator.androidNonnullDesc));
   }
 
-  public byte[] sha1sum(String path) throws Exception {
+  @Test
+  public void jarinferOutputJarIsBytePerByteDeterministic() throws Exception {
+    String jarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
+    String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
+    DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
+    driver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
+    byte[] checksumBytes1 = sha1sum(driver.lastOutPath);
+    // Wait a second to ensure system time has changed
+    Thread.sleep(1);
+    driver.run(jarPath, "L" + pkg.replaceAll("\\.", "/"));
+    byte[] checksumBytes2 = sha1sum(driver.lastOutPath);
+    Assert.assertArrayEquals(checksumBytes1, checksumBytes2);
+  }
+
+  @Test
+  public void testSignedJars() throws Exception {
+    // Set test configuration paths / options
+    final String baseJarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
+    final String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
+    final String baseJarName = FilenameUtils.getBaseName(baseJarPath);
+    final String workingFolderPath = outputFolder.newFolder("signed_" + pkg).getAbsolutePath();
+    final String inputJarPath = workingFolderPath + "/" + baseJarName + ".jar";
+    final String outputJarPath = workingFolderPath + "/" + baseJarName + "-annotated.jar";
+
+    // Copy Jar to workspace, and sign it
+    Files.copy(
+        Paths.get(baseJarPath), Paths.get(inputJarPath), StandardCopyOption.REPLACE_EXISTING);
+    String ksPath =
+        Thread.currentThread().getContextClassLoader().getResource("testKeyStore.jks").getPath();
+    // JDK 8 only?
+    sun.security.tools.jarsigner.Main jarSignerTool = new sun.security.tools.jarsigner.Main();
+    jarSignerTool.run(
+        new String[] {
+          "-keystore", ksPath, "-storepass", "testPassword", inputJarPath, "testKeystore"
+        });
+
+    // Test that this new jar fails if not run in --strip-jar-signatures mode
+    boolean signedJarExceptionThrown = false;
+    try {
+      DefinitelyDerefedParamsDriver driver1 = new DefinitelyDerefedParamsDriver();
+      driver1.runAndAnnotate(inputJarPath, "", outputJarPath);
+    } catch (SignedJarException sje) {
+      signedJarExceptionThrown = true;
+    }
+    Assert.assertTrue(signedJarExceptionThrown);
+
+    // And that it succeeds if run in --strip-jar-signatures mode
+    DefinitelyDerefedParamsDriver driver2 = new DefinitelyDerefedParamsDriver();
+    driver2.runAndAnnotate(inputJarPath, "", outputJarPath, true);
+
+    Assert.assertTrue(
+        "Annotated jar after signature stripping does not match the expected jar!",
+        AnnotationChecker.checkMethodAnnotationsInJar(
+            outputJarPath,
+            ImmutableMap.of(
+                "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNullable;",
+                BytecodeAnnotator.javaxNullableDesc,
+                "Lcom/uber/nullaway/jarinfer/toys/unannotated/ExpectNonnull;",
+                BytecodeAnnotator.javaxNonnullDesc)));
+    // Files should match the base jar, not the one to which we added META-INF, since we are
+    // stripping those files
+    Assert.assertTrue(
+        "Annotated jar after signature stripping does not have all the entries present in the input "
+            + "jar (before signing), or contains extra (e.g. META-INF) entries!",
+        EntriesComparator.compareEntriesInJars(outputJarPath, baseJarPath));
+    // Check that META-INF/Manifest.MF is content-identical to the original unsigned jar
+    Assert.assertTrue(
+        "Annotated jar after signature stripping does not preserve the info inside META-INF/MANIFEST.MF",
+        EntriesComparator.compareManifestContents(outputJarPath, baseJarPath));
+  }
+
+  private byte[] sha1sum(String path) throws Exception {
     File file = new File(path);
     MessageDigest digest = MessageDigest.getInstance("SHA-1");
     InputStream fis = new FileInputStream(file);

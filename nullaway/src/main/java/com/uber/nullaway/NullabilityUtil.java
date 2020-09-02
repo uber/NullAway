@@ -23,6 +23,7 @@
 package com.uber.nullaway;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
@@ -30,6 +31,7 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
@@ -103,14 +105,17 @@ public class NullabilityUtil {
    * path
    *
    * @param path the tree path
+   * @param others also stop and return in case of any of these tree kinds
    * @return the closest enclosing method / lambda
    */
   @Nullable
-  public static TreePath findEnclosingMethodOrLambdaOrInitializer(TreePath path) {
+  public static TreePath findEnclosingMethodOrLambdaOrInitializer(
+      TreePath path, ImmutableSet<Tree.Kind> others) {
     TreePath curPath = path.getParentPath();
     while (curPath != null) {
       if (curPath.getLeaf() instanceof MethodTree
-          || curPath.getLeaf() instanceof LambdaExpressionTree) {
+          || curPath.getLeaf() instanceof LambdaExpressionTree
+          || others.contains(curPath.getLeaf().getKind())) {
         return curPath;
       }
       TreePath parent = curPath.getParentPath();
@@ -128,6 +133,18 @@ public class NullabilityUtil {
       curPath = parent;
     }
     return null;
+  }
+
+  /**
+   * find the enclosing method, lambda expression or initializer block for the leaf of some tree
+   * path
+   *
+   * @param path the tree path
+   * @return the closest enclosing method / lambda
+   */
+  @Nullable
+  public static TreePath findEnclosingMethodOrLambdaOrInitializer(TreePath path) {
+    return findEnclosingMethodOrLambdaOrInitializer(path, ImmutableSet.of());
   }
 
   /**
@@ -174,6 +191,8 @@ public class NullabilityUtil {
   }
 
   /**
+   * Check if a field might be null, based on the type.
+   *
    * @param symbol symbol for field
    * @param config NullAway config
    * @return true if based on the type, package, and name of the field, the analysis should assume
@@ -186,10 +205,12 @@ public class NullabilityUtil {
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
             || isUnannotated(symbol, config))
-        && Nullness.hasNullableAnnotation(symbol);
+        && Nullness.hasNullableAnnotation(symbol, config);
   }
 
   /**
+   * Check if a symbol comes from unannotated code.
+   *
    * @param symbol symbol for entity
    * @param config NullAway config
    * @return true if symbol represents an entity from a class that is unannotated; false otherwise
@@ -201,6 +222,8 @@ public class NullabilityUtil {
   }
 
   /**
+   * Check if a symbol comes from generated code.
+   *
    * @param symbol symbol for entity
    * @return true if symbol represents an entity from a class annotated with {@code @Generated};
    *     false otherwise

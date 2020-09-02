@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017. Uber Technologies
+ * Copyright (C) 2019. Uber Technologies
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,22 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-plugins {
-  id "java"
-  id "application"
-}
+package com.uber.nullaway.jarinfer;
 
-sourceCompatibility = "1.8"
-targetCompatibility = "1.8"
+import java.util.HashSet;
 
-application {
-    mainClassName = "com.uber.nullaway.benchmark.NullAwayBenchmarkHarness"
-    applicationDefaultJvmArgs = ["-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"]
-}
-
-dependencies {
-    compile deps.build.errorProneCore
-    compile project(path: ":nullaway", configuration: "shadow")
-}
-
-
+public class MethodReturnAnnotations extends HashSet<String> {}

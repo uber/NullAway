@@ -60,6 +60,7 @@ class ContractUtils {
             .createErrorDescription(
                 new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                 errorLocTree,
-                buildDescriptionFromChecker(errorLocTree, analysis)));
+                buildDescriptionFromChecker(errorLocTree, analysis),
+                state));
   }
 }

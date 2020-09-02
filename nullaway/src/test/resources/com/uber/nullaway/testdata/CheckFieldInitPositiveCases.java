@@ -32,7 +32,7 @@ public class CheckFieldInitPositiveCases {
 
     Object f;
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f (line 33) is
     // initialized
     T1() {}
   }
@@ -41,14 +41,15 @@ public class CheckFieldInitPositiveCases {
 
     Object f, g;
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull fields f, g are
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull fields f (line 42),
+    // g (line 42) are
     // initialized
     T2() {}
   }
 
   static class T3 {
 
-    // BUG: Diagnostic contains: @NonNull field f not initialized
+    // BUG: Diagnostic contains: @NonNull field CheckFieldInitPositiveCases$T3.f not initialized
     Object f;
   }
 
@@ -70,7 +71,7 @@ public class CheckFieldInitPositiveCases {
 
     Object f;
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f (line 72) is
     // initialized
     T5(boolean b) {
       if (b) {
@@ -88,7 +89,7 @@ public class CheckFieldInitPositiveCases {
       this(false);
     }
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f (line 85) is
     // initialized
     T6(boolean b) {}
   }
@@ -98,7 +99,7 @@ public class CheckFieldInitPositiveCases {
     Object f;
     Object g;
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f (line 99) is
     // initialized
     T7(boolean b) {
       if (b) {
@@ -107,7 +108,8 @@ public class CheckFieldInitPositiveCases {
       g = new Object();
     }
 
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field g (line 100)
+    // is
     // initialized
     T7() {
       init();
@@ -128,14 +130,16 @@ public class CheckFieldInitPositiveCases {
     Object f;
 
     @Initializer
-    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f is
+    // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f (line 130)
+    // is
     // initialized
     public void init() {}
   }
 
   static class T9 {
 
-    // BUG: Diagnostic contains: @NonNull static field f not initialized
+    // BUG: Diagnostic contains: @NonNull static field CheckFieldInitPositiveCases$T9.f not
+    // initialized
     static Object f;
 
     static {
@@ -144,7 +148,8 @@ public class CheckFieldInitPositiveCases {
 
   static class T10 {
 
-    // BUG: Diagnostic contains: @NonNull static field f not initialized
+    // BUG: Diagnostic contains: @NonNull static field CheckFieldInitPositiveCases$T10.f not
+    // initialized
     static Object f;
 
     static {
@@ -156,7 +161,8 @@ public class CheckFieldInitPositiveCases {
 
   static class T11 {
 
-    // BUG: Diagnostic contains: @NonNull static field f not initialized
+    // BUG: Diagnostic contains: @NonNull static field CheckFieldInitPositiveCases$T11.f not
+    // initialized
     static Object f;
 
     static {
@@ -166,5 +172,21 @@ public class CheckFieldInitPositiveCases {
     static void init(Object f) {
       f = new Object(); // Wrong f
     }
+  }
+
+  public Object getT12() {
+    return (new Object() {
+      /*T12*/
+      // BUG: Diagnostic contains: f not initialized
+      private Object f;
+
+      public Object getF() {
+        return f;
+      }
+
+      public void setF(Object f) {
+        this.f = f;
+      }
+    });
   }
 }

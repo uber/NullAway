@@ -41,7 +41,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
           (UnderlyingAST.CFGLambda) underlyingAST, parameters, handler, context, types, config);
     } else {
       return methodInitialStore(
-          (UnderlyingAST.CFGMethod) underlyingAST, parameters, handler, context);
+          (UnderlyingAST.CFGMethod) underlyingAST, parameters, handler, context, config);
     }
   }
 
@@ -49,13 +49,15 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       UnderlyingAST.CFGMethod underlyingAST,
       List<LocalVariableNode> parameters,
       Handler handler,
-      Context context) {
+      Context context,
+      Config config) {
     ClassTree classTree = underlyingAST.getClassTree();
     NullnessStore envStore = getEnvNullnessStoreForClass(classTree, context);
     NullnessStore.Builder result = envStore.toBuilder();
     for (LocalVariableNode param : parameters) {
       Element element = param.getElement();
-      Nullness assumed = Nullness.hasNullableAnnotation((Symbol) element) ? NULLABLE : NONNULL;
+      Nullness assumed =
+          Nullness.hasNullableAnnotation((Symbol) element, config) ? NULLABLE : NONNULL;
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
@@ -93,7 +95,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       Nullness assumed;
       // we treat lambda parameters differently; they "inherit" the nullability of the
       // corresponding functional interface parameter, unless they are explicitly annotated
-      if (Nullness.hasNullableAnnotation((Symbol) element)) {
+      if (Nullness.hasNullableAnnotation((Symbol) element, config)) {
         assumed = NULLABLE;
       } else if (!NullabilityUtil.lambdaParamIsImplicitlyTyped(variableTree)) {
         // the parameter has a declared type with no @Nullable annotation
@@ -104,7 +106,10 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
           // assume parameter is non-null unless handler tells us otherwise
           assumed = nullableParamsFromHandler.contains(i) ? NULLABLE : NONNULL;
         } else {
-          assumed = Nullness.hasNullableAnnotation(fiMethodParameters.get(i)) ? NULLABLE : NONNULL;
+          assumed =
+              Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config)
+                  ? NULLABLE
+                  : NONNULL;
         }
       }
       result.setInformation(AccessPath.fromLocal(param), assumed);
