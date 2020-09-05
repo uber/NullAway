@@ -7,7 +7,6 @@ import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
-import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
@@ -20,6 +19,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import javax.lang.model.element.Modifier;
 import org.json.simple.JSONObject;
 
 @SuppressWarnings({
@@ -86,7 +86,7 @@ public class Fixer {
     fix.location = location;
     Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) location.variableSymbol;
     // skip final properties
-    if ((varSymbol.flags() == Flags.FINAL)) return null;
+    if (varSymbol.getModifiers().contains(Modifier.FINAL)) return null;
     fix.annotation = config.getAnnotationFactory().getNullable();
     fix.inject = true;
     return fix;

@@ -671,10 +671,11 @@ public class NullAway extends BugChecker
                   .setVariableSymbol(paramSymbol)
                   .build();
           Tree cause = (memberReferenceTree == null) ? lambdaExpressionTree : memberReferenceTree;
-          fixer.fix(errorMessage, location, cause);
+          //          fixer.fix(errorMessage, location, cause);
         }
         return errorBuilder.createErrorDescription(
             errorMessage, buildDescription(errorTree), state);
+        //        return Description.NO_MATCH;
       }
     }
     return Description.NO_MATCH;
@@ -846,15 +847,17 @@ public class NullAway extends BugChecker
                 .setCompilationUnitTree(c)
                 .setKind(Location.Kind.METHOD_RETURN)
                 .build();
-        fixer.fix(
-            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature + message),
-            location,
-            errorTree);
+        //        fixer.fix(
+        //            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature +
+        // message),
+        //            location,
+        //            errorTree);
       }
       return errorBuilder.createErrorDescription(
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature + message),
           buildDescription(errorTree),
           state);
+      //      return Description.NO_MATCH;
     }
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
