@@ -16,24 +16,15 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
-  id "com.github.johnrengelman.shadow"
-  id "java"
-  // For code coverage:
-  id 'jacoco'
-  id 'com.github.kt3k.coveralls'
+    id "com.github.johnrengelman.shadow"
+    id "java"
+    // For code coverage:
+    id 'jacoco'
+    id 'com.github.kt3k.coveralls'
 }
 
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
-
-configurations.all {
-    resolutionStrategy {
-        // Force needed, since:
-        // a) There are newer versions of CF than the one we forked
-        // b) It seems x.y.z-name < x.y.z for gradle dependency resolution purposes.
-        force deps.build.checkerDataflow
-    }
-}
 
 dependencies {
     compileOnly deps.apt.autoValue
@@ -60,9 +51,7 @@ dependencies {
     testCompile deps.test.commonsLang
     testCompile deps.test.commonsLang3
     testCompile project(":test-library-models")
-
-    compile 'com.googlecode.json-simple:json-simple:1.1.1'
-    testCompile 'com.googlecode.json-simple:json-simple:1.1.1'
+    testCompile deps.test.lombok
 }
 
 // We include and shade the checker framework jars into the NullAway jar, as we may have custom
@@ -91,36 +80,36 @@ javadoc {
 
 
 test {
-  maxHeapSize = "1024m"
-  if (!JavaVersion.current().java9Compatible) {
-    jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
-  }
+    maxHeapSize = "1024m"
+    if (!JavaVersion.current().java9Compatible) {
+        jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
+    }
 }
 
 apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
 
 def configurePomForShadow(pom) {
-  pom.scopeMappings.mappings.remove(project.configurations.compile)
-  pom.scopeMappings.mappings.remove(project.configurations.runtime)
-  pom.scopeMappings.addMapping(MavenPlugin.COMPILE_PRIORITY, project.configurations.shadow, Conf2ScopeMappingContainer.COMPILE)
+    pom.scopeMappings.mappings.remove(project.configurations.compile)
+    pom.scopeMappings.mappings.remove(project.configurations.runtime)
+    pom.scopeMappings.addMapping(MavenPlugin.COMPILE_PRIORITY, project.configurations.shadow, Conf2ScopeMappingContainer.COMPILE)
 }
 
 install {
-  repositories.mavenInstaller {
-    configurePomForShadow(pom)
-  }
+    repositories.mavenInstaller {
+        configurePomForShadow(pom)
+    }
 }
 install.dependsOn shadowJar
 
 uploadArchives {
-  repositories.mavenDeployer {
-    configurePomForShadow(pom)
-  }
+    repositories.mavenDeployer {
+        configurePomForShadow(pom)
+    }
 }
 uploadArchives.dependsOn shadowJar
 
 jacoco {
-  toolVersion = "0.8.2"
+    toolVersion = "0.8.2"
 }
 
 // From https://github.com/kt3k/coveralls-gradle-plugin

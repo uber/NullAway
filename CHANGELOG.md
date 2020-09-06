@@ -1,6 +1,20 @@
 Changelog
 =========
 
+Version 0.8.0
+--------------
+* Improve suppression of subcheckers, using full AST path (#392)
+* Support null implies false library models (#394)
+* Make `@ChecksForNull` an alias for `@Nullable` (#397)
+* Fix: android-jar.py's exit code. (#399)
+* Upgrade Error Prone dependencies to 2.4.0. (#400)
+  - And fix detected issues (#403, #404)
+* Allow library models of the form null param -> null return (#407)
+* Make excluded class annotations work on nested classes (#412)
+* Improved Map handling: Strings and integers. (#413)
+* Also `-SNAPSHOT` builds are being published correctly again (#409)
+* New android-jarinfer-models-sdk29 artifact for Android 10
+
 Version 0.7.10
 --------------
 * Add Java 8 streams nullness-propagation support (#371) 

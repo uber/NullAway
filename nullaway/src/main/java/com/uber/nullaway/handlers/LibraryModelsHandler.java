@@ -483,6 +483,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private static final ImmutableSet<MethodRef> NULLABLE_RETURNS =
         new ImmutableSet.Builder<MethodRef>()
+            .add(methodRef("com.sun.source.tree.CompilationUnitTree", "getPackageName()"))
+            .add(methodRef("java.lang.Throwable", "getMessage()"))
             .add(methodRef("java.lang.ref.Reference", "get()"))
             .add(methodRef("java.lang.ref.PhantomReference", "get()"))
             .add(methodRef("java.lang.ref.SoftReference", "get()"))
@@ -496,9 +498,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .add(methodRef("javax.lang.model.type.WildcardType", "getSuperBound()"))
             .add(methodRef("android.app.ActivityManager", "getRunningAppProcesses()"))
             .add(methodRef("android.view.View", "getHandler()"))
-            .add(methodRef("java.lang.Throwable", "getMessage()"))
             .add(methodRef("android.webkit.WebView", "getUrl()"))
-            .add(methodRef("com.sun.source.tree.CompilationUnitTree", "getPackageName()"))
+            .add(methodRef("android.widget.TextView", "getLayout()"))
             .build();
 
     private static final ImmutableSet<MethodRef> NONNULL_RETURNS =

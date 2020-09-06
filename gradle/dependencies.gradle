@@ -16,7 +16,7 @@
 
 def versions = [
     asm                    : "7.1",
-    checkerFramework       : "3.0.0",
+    checkerFramework       : "3.6.0",
     errorProne             : "2.4.0", // The version of error prone running on this project
     errorProneApi          : "2.4.0", // The version of error prone built against and shipped
     support                : "27.1.1",
@@ -73,6 +73,7 @@ def test = [
     rxjava2                 : "io.reactivex.rxjava2:rxjava:2.1.2",
     commonsLang3            : "org.apache.commons:commons-lang3:3.8.1",
     commonsLang             : "commons-lang:commons-lang:2.6",
+    lombok                  : "org.projectlombok:lombok:1.18.12",
 ]
 
 ext.deps = [
