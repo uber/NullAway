@@ -52,6 +52,9 @@ dependencies {
     testCompile deps.test.commonsLang3
     testCompile project(":test-library-models")
     testCompile deps.test.lombok
+
+    compile 'com.googlecode.json-simple:json-simple:1.1.1'
+    testCompile 'com.googlecode.json-simple:json-simple:1.1.1'
 }
 
 // We include and shade the checker framework jars into the NullAway jar, as we may have custom
