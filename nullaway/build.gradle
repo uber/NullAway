@@ -16,11 +16,11 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
-    id "com.github.johnrengelman.shadow"
-    id "java"
-    // For code coverage:
-    id 'jacoco'
-    id 'com.github.kt3k.coveralls'
+  id "com.github.johnrengelman.shadow"
+  id "java"
+  // For code coverage:
+  id 'jacoco'
+  id 'com.github.kt3k.coveralls'
 }
 
 sourceCompatibility = "1.8"
