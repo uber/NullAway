@@ -361,6 +361,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private static final ImmutableSetMultimap<MethodRef, Integer> EXPLICITLY_NULLABLE_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
             .put(
+                methodRef("android.app.Service", "onStartCommand(android.content.Intent,int,int)"),
+                0)
+            .put(
                 methodRef(
                     "android.view.GestureDetector.OnGestureListener",
                     "onScroll(android.view.MotionEvent,android.view.MotionEvent,float,float)"),
