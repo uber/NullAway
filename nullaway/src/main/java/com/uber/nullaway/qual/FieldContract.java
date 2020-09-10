@@ -8,6 +8,6 @@ import java.lang.annotation.Target;
 
 @Target({FIELD})
 @Retention(RetentionPolicy.SOURCE)
-public @interface Contract {
+public @interface FieldContract {
   String value();
 }

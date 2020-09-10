@@ -2591,4 +2591,39 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void ensuresNonnullSimpleTest() {
+    // Checks both Optional.orElse(...) support itself and the general nullImpliesNullParameters
+    // Library Models mechanism for encoding @Contract(!null -> !null) as a library model.
+    compilationHelper
+        .addSourceLines(
+            "MyIterator.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class MyIterator {",
+            "  private Object[] items = new Object[10];",
+            "  private int index = 0;",
+            "  public boolean hasNext() {",
+            "    return index < items.length;",
+            "  }",
+            "  public @Nullable Object next() {",
+            "    if(index < items.length) return items[index++];",
+            "    else return null;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "User.java",
+            "package com.uber;",
+            "class User {",
+            "  MyIterator iterator = new MyIterator();",
+            "  public void foo() {",
+            "    if(iterator.hasNext()) {",
+            "      Object next = iterator.next();",
+            "      System.out.println(next.toString());",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
