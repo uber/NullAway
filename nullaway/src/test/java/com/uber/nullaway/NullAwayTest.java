@@ -431,6 +431,10 @@ public class NullAwayTest {
             "    NullnessChecker.assertNonNull(o);",
             "    return o.toString();",
             "  }",
+            "  String test4(@Nullable Object o) {",
+            "     if(NullnessChecker.isNull(false, o)) return \"Null\";",
+            "     else return o.toString();",
+            "  }",
             "}")
         .doTest();
   }
@@ -2593,35 +2597,53 @@ public class NullAwayTest {
   }
 
   @Test
-  public void ensuresNonnullSimpleTest() {
-    // Checks both Optional.orElse(...) support itself and the general nullImpliesNullParameters
-    // Library Models mechanism for encoding @Contract(!null -> !null) as a library model.
+  public void basicContract() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class NullnessChecker {",
+            "  @Contract(\"_, _, null, _ -> true\")",
+            "  static boolean isNull(boolean flag, String or, @Nullable Object o, int i) { return o == null; }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test(@Nullable Object o) {",
+            "    if(NullnessChecker.isNull(false, \"hello\", o, 0)) return \"Null\";",
+            "    return o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void requiresNonnullInterpretation() {
     compilationHelper
         .addSourceLines(
             "MyIterator.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
-            "class MyIterator {",
-            "  private Object[] items = new Object[10];",
-            "  private int index = 0;",
-            "  public boolean hasNext() {",
-            "    return index < items.length;",
+            "import com.uber.nullaway.qual.EnsuresNonnull;",
+            "import com.uber.nullaway.qual.RequiresNonnull;",
+            "class Foo {",
+            "  @Nullable private Object item;",
+            "  @EnsuresNonnull(\"item\")",
+            "  public void init() {",
+            "    item = new Object();",
             "  }",
-            "  public @Nullable Object next() {",
-            "    if(index < items.length) return items[index++];",
-            "    else return null;",
-            "  }",
-            "}")
-        .addSourceLines(
-            "User.java",
-            "package com.uber;",
-            "class User {",
-            "  MyIterator iterator = new MyIterator();",
-            "  public void foo() {",
-            "    if(iterator.hasNext()) {",
-            "      Object next = iterator.next();",
-            "      System.out.println(next.toString());",
-            "    }",
+            "  @RequiresNonnull(\"item\")",
+            "  public String disp() {",
+            "    return item.toString();",
             "  }",
             "}")
         .doTest();
