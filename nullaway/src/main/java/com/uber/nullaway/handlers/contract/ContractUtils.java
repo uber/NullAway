@@ -63,4 +63,63 @@ class ContractUtils {
                 buildDescriptionFromChecker(errorLocTree, analysis),
                 state));
   }
+
+  static String getConsequent(
+      String clause,
+      Tree tree,
+      @Nullable NullAway analysis,
+      @Nullable VisitorState state,
+      Symbol callee) {
+
+    assert analysis != null && state != null;
+
+    String[] parts = clause.split("->");
+    if (parts.length != 2) {
+      reportMatch(
+          tree,
+          "Invalid @Contract annotation detected for method "
+              + callee
+              + ". It contains the following uparseable clause: "
+              + clause
+              + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).",
+          analysis,
+          state);
+    }
+
+    String consequent = parts[1].trim();
+    return consequent;
+  }
+
+  static String[] getAntecedent(
+      String clause,
+      Tree tree,
+      @Nullable NullAway analysis,
+      @Nullable VisitorState state,
+      Symbol callee,
+      int numOfArguments) {
+
+    assert analysis != null && state != null;
+
+    String[] parts = clause.split("->");
+
+    String[] antecedent = parts[0].split(",");
+
+    if (antecedent.length != numOfArguments) {
+      reportMatch(
+          tree,
+          "Invalid @Contract annotation detected for method "
+              + callee
+              + ". It contains the following uparseable clause: "
+              + clause
+              + " (incorrect number of arguments in the clause's antecedent ["
+              + antecedent.length
+              + "], should be the same as the number of "
+              + "arguments in for the method ["
+              + numOfArguments
+              + "]).",
+          analysis,
+          state);
+    }
+    return antecedent;
+  }
 }

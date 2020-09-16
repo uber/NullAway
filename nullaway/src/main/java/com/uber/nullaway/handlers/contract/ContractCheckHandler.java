@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.handlers.contract;
 
+import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
+import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getContractFromAnnotation;
 import static com.uber.nullaway.handlers.contract.ContractUtils.reportMatch;
 
@@ -70,38 +72,9 @@ public class ContractCheckHandler extends BaseNoOpHandler {
       }
 
       String clause = clauses[0];
-
-      String[] parts = clause.split("->");
-      if (parts.length != 2) {
-        reportMatch(
-            tree,
-            "Invalid @Contract annotation detected for method "
-                + callee
-                + ". It contains the following uparseable clause: "
-                + clause
-                + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).",
-            analysis,
-            state);
-      }
-      String[] antecedent = parts[0].split(",");
-      String consequent = parts[1].trim();
-
-      if (antecedent.length != tree.getParameters().size()) {
-        reportMatch(
-            tree,
-            "Invalid @Contract annotation detected for method "
-                + callee
-                + ". It contains the following uparseable clause: "
-                + clause
-                + " (incorrect number of arguments in the clause's antecedent ["
-                + antecedent.length
-                + "], should be the same as the number of "
-                + "arguments in for the method ["
-                + tree.getParameters().size()
-                + "]).",
-            analysis,
-            state);
-      }
+      String[] antecedent =
+          getAntecedent(clause, tree, analysis, state, callee, tree.getParameters().size());
+      String consequent = getConsequent(clause, tree, analysis, state, callee);
 
       boolean supported = true;
 

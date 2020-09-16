@@ -23,6 +23,8 @@
 package com.uber.nullaway.handlers.contract;
 
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
+import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
@@ -108,33 +110,11 @@ public class ContractHandler extends BaseNoOpHandler {
       // Found a contract, lets parse it.
       String[] clauses = contractString.split(";");
       for (String clause : clauses) {
-        String[] parts = clause.split("->");
-        if (parts.length != 2) {
-          reportMatch(
-              node.getTree(),
-              "Invalid @Contract annotation detected for method "
-                  + callee
-                  + ". It contains the following uparseable clause: "
-                  + clause
-                  + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).");
-        }
-        String[] antecedent = parts[0].split(",");
-        String consequent = parts[1].trim();
 
-        if (antecedent.length != node.getArguments().size()) {
-          reportMatch(
-              node.getTree(),
-              "Invalid @Contract annotation detected for method "
-                  + callee
-                  + ". It contains the following uparseable clause: "
-                  + clause
-                  + " (incorrect number of arguments in the clause's antecedent ["
-                  + antecedent.length
-                  + "], should be the same as the number of "
-                  + "arguments in for the method ["
-                  + node.getArguments().size()
-                  + "]).");
-        }
+        String[] antecedent =
+            getAntecedent(
+                clause, node.getTree(), analysis, state, callee, node.getArguments().size());
+        String consequent = getConsequent(clause, node.getTree(), analysis, state, callee);
 
         // Find a single value constraint that is not already known. If more than one arguments with
         // unknown
