@@ -1986,9 +1986,7 @@ public class NullAway extends BugChecker
   }
 
   private boolean mayBeNullExpr(VisitorState state, ExpressionTree expr) {
-    System.out.println("Expression: " + expr);
     expr = stripParensAndCasts(expr);
-    System.out.println("After Strip: " + expr);
     if (ASTHelpers.constValue(expr) != null) {
       // This should include literals such as "true" or a string
       // obviously not null
