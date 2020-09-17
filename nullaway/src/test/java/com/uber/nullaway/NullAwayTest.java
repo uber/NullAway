@@ -2630,22 +2630,30 @@ public class NullAwayTest {
   public void requiresNonnullInterpretation() {
     compilationHelper
         .addSourceLines(
-            "MyIterator.java",
+            "Foo.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
             "import com.uber.nullaway.qual.EnsuresNonnull;",
             "import com.uber.nullaway.qual.RequiresNonnull;",
             "class Foo {",
-            "  @Nullable private Object item;",
-            "  @EnsuresNonnull(\"item\")",
+            "  @Nonnull Item nonnullItem = new Item();",
+            "  @Nullable Item nullableItem;",
+            "  @Nullable Item nullItem;",
+            "  @EnsuresNonnull(\"nullItem\")",
             "  public void init() {",
-            "    item = new Object();",
+            "    nullableItem = new Item();",
             "  }",
-            "  @RequiresNonnull(\"item\")",
-            "  public String disp() {",
-            "    return item.toString();",
+            "  @RequiresNonnull(\"nullItem\")",
+            "  public void run() {",
+            "    nullableItem = new Item();",
+            "    nonnullItem.call();",
+            "    nullableItem.call();",
+            "    nullItem.call();",
             "  }",
             "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() {", "  }", "}")
         .doTest();
   }
 }

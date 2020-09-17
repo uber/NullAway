@@ -22,7 +22,11 @@
 
 package com.uber.nullaway.handlers;
 
+import com.google.errorprone.VisitorState;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.NullAway;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
@@ -63,10 +67,25 @@ import javax.lang.model.element.TypeElement;
  * clause is given in terms of many. This is not behavior that should be counted on, but it is
  * sound.
  */
-@SuppressWarnings({"ALL", "UnusedMethod"})
+@SuppressWarnings({"ALL", "UnusedMethod", "UnusedVariable"})
 public class RequiresNonnullHandler extends BaseNoOpHandler {
 
   private static final String annotName = "com.uber.nullaway.qual.RequiresNonnull";
+
+  @Override
+  public void onMatchMethod(
+      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+    String contract = getContractFromAnnotation(methodSymbol);
+    super.onMatchMethod(analysis, tree, state, methodSymbol);
+  }
+
+  @Override
+  public boolean onOverrideMayBeNullExpr(
+      NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
+    // todo
+    //    return false;
+    return super.onOverrideMayBeNullExpr(analysis, expr, state, exprMayBeNull);
+  }
 
   /**
    * Retrieve the string value inside an @Contract annotation without statically depending on the
