@@ -47,7 +47,6 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 
-@SuppressWarnings({"ALL", "UnusedMethod", "UnusedVariable"})
 public class RequiresNonnullHandler extends BaseNoOpHandler {
 
   private static final String annotName = "com.uber.nullaway.qual.RequiresNonnull";
