@@ -22,11 +22,22 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
@@ -36,64 +47,89 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 
-/**
- * This Handler parses the jetbrains @Contract annotation and honors the nullness spec defined there
- * on a best effort basis.
- *
- * <p>Currently, we can only reason about cases where the contract specifies that the return value
- * of the method depends on the nullness value of a single argument. This means we can reason about
- * rules like the following:
- *
- * <ul>
- *   <li>@Contract("null -> true")
- *   <li>@Contract("_, null, _ -> false")
- *   <li>@Contract("!null, _ -> false; null, _ -> true")
- *   <li>@Contract("!null -> !null")
- * </ul>
- *
- * In the last case, nullness will be propagated iff the nullness of the argument is already known
- * at invocation.
- *
- * <p>However, when the return depends on multiple arguments, this handler usually ignores the rule,
- * since it is not clear which of the values in question are null or not. For example,
- * for @Contract("null, null -> true") we know nothing when the method returns true (because truth
- * of the consequent doesn't imply truth of the antecedent), and if it return false, we only know
- * that at least one of the two arguments was non-null, but can't know for sure which one. NullAway
- * doesn't reason about multiple value conditional nullness constraints in any general way.
- *
- * <p>In some cases, this handler can determine that some arguments are already known to be non-null
- * and reason in terms of the remaining (under-constrained) arguments, to see if the final value of
- * this method depends on the nullness of a single argument for this callsite, even if the @Contract
- * clause is given in terms of many. This is not behavior that should be counted on, but it is
- * sound.
- */
 @SuppressWarnings({"ALL", "UnusedMethod", "UnusedVariable"})
 public class RequiresNonnullHandler extends BaseNoOpHandler {
 
   private static final String annotName = "com.uber.nullaway.qual.RequiresNonnull";
 
+  private @Nullable NullAway analysis;
+  private @Nullable VisitorState state;
+
+  @Override
+  public void onMatchTopLevelClass(
+      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+    this.analysis = analysis;
+    this.state = state;
+  }
+
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+    Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
+    ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
+    if (classTree == null) {
+      reportMatch(tree, "Cannot find the enclosing class for method symbol: " + methodSymbol);
+      super.onMatchMethod(analysis, tree, state, methodSymbol);
+    }
     String contract = getContractFromAnnotation(methodSymbol);
+    if (contract != null) {
+      List<String> fields = new ArrayList<>();
+      for (Tree t : classTree.getMembers()) {
+        if (t.getKind().equals(Tree.Kind.VARIABLE)) {
+          fields.add(((VariableTree) t).getName().toString());
+        }
+      }
+      if (!fields.contains(contract)) {
+        reportMatch(tree, "Class " + classSymbol + " does not have any field named: " + contract);
+        super.onMatchMethod(analysis, tree, state, methodSymbol);
+      }
+    }
     super.onMatchMethod(analysis, tree, state, methodSymbol);
   }
 
   @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
-    // todo
-    //    return false;
+    boolean canSupport = false;
+    String contract = null;
+    MethodTree enclosingMethodTree = null;
+    TreePath path =
+        NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(
+            new TreePath(state.getPath(), expr));
+    if (path.getLeaf() != null && path.getLeaf() instanceof MethodTree) {
+      enclosingMethodTree = (MethodTree) path.getLeaf();
+      Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(enclosingMethodTree);
+      if (symbol != null) {
+        contract = getContractFromAnnotation(symbol);
+        if (contract != null) {
+          canSupport = true;
+        }
+      }
+    }
+    if (canSupport) {
+      if (expr.getKind() == Tree.Kind.IDENTIFIER) {
+        Symbol sym = ASTHelpers.getSymbol(expr);
+        if (sym.name.toString().equals(contract)) return false;
+      }
+      return exprMayBeNull;
+    }
     return super.onOverrideMayBeNullExpr(analysis, expr, state, exprMayBeNull);
   }
 
-  /**
-   * Retrieve the string value inside an @Contract annotation without statically depending on the
-   * type.
-   *
-   * @param sym A method which has an @Contract annotation.
-   * @return The string value spec inside the annotation.
-   */
+  private void reportMatch(Tree errorLocTree, String message) {
+    assert this.analysis != null && this.state != null;
+    if (this.analysis != null && this.state != null) {
+      this.state.reportMatch(
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                  errorLocTree,
+                  buildDescriptionFromChecker(errorLocTree, analysis),
+                  this.state));
+    }
+  }
+
   private static @Nullable String getContractFromAnnotation(Symbol.MethodSymbol sym) {
     for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
       Element element = annotation.getAnnotationType().asElement();

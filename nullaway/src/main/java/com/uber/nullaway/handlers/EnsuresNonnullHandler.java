@@ -32,37 +32,6 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 
-/**
- * This Handler parses the jetbrains @Contract annotation and honors the nullness spec defined there
- * on a best effort basis.
- *
- * <p>Currently, we can only reason about cases where the contract specifies that the return value
- * of the method depends on the nullness value of a single argument. This means we can reason about
- * rules like the following:
- *
- * <ul>
- *   <li>@Contract("null -> true")
- *   <li>@Contract("_, null, _ -> false")
- *   <li>@Contract("!null, _ -> false; null, _ -> true")
- *   <li>@Contract("!null -> !null")
- * </ul>
- *
- * In the last case, nullness will be propagated iff the nullness of the argument is already known
- * at invocation.
- *
- * <p>However, when the return depends on multiple arguments, this handler usually ignores the rule,
- * since it is not clear which of the values in question are null or not. For example,
- * for @Contract("null, null -> true") we know nothing when the method returns true (because truth
- * of the consequent doesn't imply truth of the antecedent), and if it return false, we only know
- * that at least one of the two arguments was non-null, but can't know for sure which one. NullAway
- * doesn't reason about multiple value conditional nullness constraints in any general way.
- *
- * <p>In some cases, this handler can determine that some arguments are already known to be non-null
- * and reason in terms of the remaining (under-constrained) arguments, to see if the final value of
- * this method depends on the nullness of a single argument for this callsite, even if the @Contract
- * clause is given in terms of many. This is not behavior that should be counted on, but it is
- * sound.
- */
 @SuppressWarnings({"ALL", "UnusedMethod"})
 public class EnsuresNonnullHandler extends BaseNoOpHandler {
 
