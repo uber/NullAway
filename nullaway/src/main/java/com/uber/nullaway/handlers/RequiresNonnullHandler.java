@@ -71,7 +71,7 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       super.onMatchMethod(analysis, tree, state, methodSymbol);
     }
     String contract = getContractFromAnnotation(methodSymbol);
-    if (contract != null) {
+    if (classTree != null && contract != null) {
       List<String> fields = new ArrayList<>();
       for (Tree t : classTree.getMembers()) {
         if (t.getKind().equals(Tree.Kind.VARIABLE)) {
@@ -90,11 +90,11 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     boolean canSupport = false;
     String contract = null;
-    MethodTree enclosingMethodTree = null;
+    MethodTree enclosingMethodTree;
     TreePath path =
         NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(
             new TreePath(state.getPath(), expr));
-    if (path.getLeaf() != null && path.getLeaf() instanceof MethodTree) {
+    if (path != null && path.getLeaf() != null && path.getLeaf() instanceof MethodTree) {
       enclosingMethodTree = (MethodTree) path.getLeaf();
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(enclosingMethodTree);
       if (symbol != null) {
@@ -115,16 +115,14 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
 
   private void reportMatch(Tree errorLocTree, String message) {
     assert this.analysis != null && this.state != null;
-    if (this.analysis != null && this.state != null) {
-      this.state.reportMatch(
-          analysis
-              .getErrorBuilder()
-              .createErrorDescription(
-                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                  errorLocTree,
-                  buildDescriptionFromChecker(errorLocTree, analysis),
-                  this.state));
-    }
+    this.state.reportMatch(
+        analysis
+            .getErrorBuilder()
+            .createErrorDescription(
+                new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                errorLocTree,
+                buildDescriptionFromChecker(errorLocTree, analysis),
+                this.state));
   }
 
   private static @Nullable String getContractFromAnnotation(Symbol.MethodSymbol sym) {
