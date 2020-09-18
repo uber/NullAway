@@ -81,7 +81,6 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       }
       if (!fields.contains(contract)) {
         reportMatch(tree, "Class " + classSymbol + " does not have any field named: " + contract);
-        super.onMatchMethod(analysis, tree, state, methodSymbol);
       }
     }
     super.onMatchMethod(analysis, tree, state, methodSymbol);
@@ -111,7 +110,6 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
         Symbol sym = ASTHelpers.getSymbol(expr);
         if (sym.name.toString().equals(contract)) return false;
       }
-      return exprMayBeNull;
     }
     return super.onOverrideMayBeNullExpr(analysis, expr, state, exprMayBeNull);
   }
