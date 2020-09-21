@@ -25,7 +25,7 @@ package com.uber.nullaway.handlers.contract;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getContractFromAnnotation;
-import static com.uber.nullaway.handlers.contract.ContractUtils.reportMatch;
+import static com.uber.nullaway.handlers.contract.ContractUtils.reportMatchForContractIssue;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
@@ -114,7 +114,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
                 new TreePath(state.getPath(), tree.getExpression()), state.context);
 
     if (nullness == Nullness.NULLABLE || nullness == Nullness.NULL) {
-      reportMatch(
+      reportMatchForContractIssue(
           tree,
           "@Contract might not be followed, as returning @Nullable from method with @NonNull return expected in contract",
           analysis,

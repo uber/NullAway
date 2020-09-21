@@ -48,12 +48,17 @@ class ContractUtils {
     return null;
   }
 
-  static void reportMatch(
-      Tree errorLocTree,
-      String message,
-      @Nullable NullAway analysis,
-      @Nullable VisitorState state) {
-    assert analysis != null && state != null;
+  /**
+   * Reports contract issue with appropriate message and error location in the AST information.
+   *
+   * @param errorLocTree The AST node for the error location.
+   * @param message The error message.
+   * @param analysis A reference to the running NullAway analysis.
+   * @param state The current visitor state.
+   */
+  static void reportMatchForContractIssue(
+      Tree errorLocTree, String message, NullAway analysis, VisitorState state) {
+
     state.reportMatch(
         analysis
             .getErrorBuilder()
@@ -64,18 +69,22 @@ class ContractUtils {
                 state));
   }
 
+  /**
+   * Parses the contract clause and returns the consequent in the contract.
+   *
+   * @param clause The contract clause.
+   * @param tree The AST Node for contract.
+   * @param analysis A reference to the running NullAway analysis.
+   * @param state The current visitor state.
+   * @param callee Symbol for callee.
+   * @return consequent in the contract.
+   */
   static String getConsequent(
-      String clause,
-      Tree tree,
-      @Nullable NullAway analysis,
-      @Nullable VisitorState state,
-      Symbol callee) {
-
-    assert analysis != null && state != null;
+      String clause, Tree tree, NullAway analysis, VisitorState state, Symbol callee) {
 
     String[] parts = clause.split("->");
     if (parts.length != 2) {
-      reportMatch(
+      reportMatchForContractIssue(
           tree,
           "Invalid @Contract annotation detected for method "
               + callee
@@ -90,22 +99,31 @@ class ContractUtils {
     return consequent;
   }
 
+  /**
+   * Parses the contract clause and returns the antecedents in the contract.
+   *
+   * @param clause The contract clause.
+   * @param tree The AST Node for contract.
+   * @param analysis A reference to the running NullAway analysis.
+   * @param state The current visitor state.
+   * @param callee Symbol for callee.
+   * @param numOfArguments Number of arguments in the method associated with the contract.
+   * @return antecedents in the contract.
+   */
   static String[] getAntecedent(
       String clause,
       Tree tree,
-      @Nullable NullAway analysis,
-      @Nullable VisitorState state,
+      NullAway analysis,
+      VisitorState state,
       Symbol callee,
       int numOfArguments) {
-
-    assert analysis != null && state != null;
 
     String[] parts = clause.split("->");
 
     String[] antecedent = parts[0].split(",");
 
     if (antecedent.length != numOfArguments) {
-      reportMatch(
+      reportMatchForContractIssue(
           tree,
           "Invalid @Contract annotation detected for method "
               + callee
