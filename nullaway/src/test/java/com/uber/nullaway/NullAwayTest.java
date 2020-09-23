@@ -2640,7 +2640,7 @@ public class NullAwayTest {
             "  public void run(int i) {",
             "    nullItem.call();",
             "    nullItem = null;",
-            "  // BUG: Diagnostic contains: dereferenced expression nullItem is @Nullable",
+            "    // BUG: Diagnostic contains: dereferenced expression nullItem is @Nullable",
             "    nullItem.call();",
             "     ",
             "  }",
