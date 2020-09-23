@@ -2637,8 +2637,9 @@ public class NullAwayTest {
             "class Foo {",
             "  @Nullable Item nullItem;",
             "  @RequiresNonnull(\"nullItem\")",
-            "  public void run() {",
+            "  public void run(int i) {",
             "    nullItem.call();",
+            "     ",
             "  }",
             "}")
         .addSourceLines(

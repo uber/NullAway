@@ -27,15 +27,15 @@ import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
-import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.NullabilityUtil;
+import com.uber.nullaway.Nullness;
+import com.uber.nullaway.dataflow.AccessPath;
+import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +46,8 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import org.checkerframework.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 
 public class RequiresNonnullHandler extends BaseNoOpHandler {
 
@@ -64,6 +66,7 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+
     Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
     ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
     if (classTree == null) {
@@ -76,6 +79,8 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       for (Tree t : classTree.getMembers()) {
         if (t.getKind().equals(Tree.Kind.VARIABLE)) {
           fields.add(((VariableTree) t).getName().toString());
+          //          VariableTree vt = (VariableTree) t;
+          //          analysis.setComputedNullness(vt.getInitializer(), Nullness.NONNULL);
         }
       }
       if (!fields.contains(contract)) {
@@ -86,31 +91,27 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public boolean onOverrideMayBeNullExpr(
-      NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
-    boolean canSupport = false;
-    String contract = null;
-    MethodTree enclosingMethodTree;
-    TreePath path =
-        NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(
-            new TreePath(state.getPath(), expr));
-    if (path != null && path.getLeaf() != null && path.getLeaf() instanceof MethodTree) {
-      enclosingMethodTree = (MethodTree) path.getLeaf();
-      Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(enclosingMethodTree);
-      if (symbol != null) {
-        contract = getContractFromAnnotation(symbol);
-        if (contract != null) {
-          canSupport = true;
+  public NullnessStore.Builder onDataflowInitialStore(
+      UnderlyingAST underlyingAST,
+      List<LocalVariableNode> parameters,
+      NullnessStore.Builder result) {
+    MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
+    String contract = getContractFromAnnotation(methodSymbol);
+    if (contract == null || contract.equals("")) {
+      return super.onDataflowInitialStore(underlyingAST, parameters, result);
+    }
+    ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
+    for (Tree member : classTree.getMembers()) {
+      if (member.getKind().equals(Tree.Kind.VARIABLE)) {
+        VariableTree vt = ((VariableTree) member);
+        if (vt.getName().toString().equals(contract)) {
+          AccessPath accessPath = AccessPath.fromFieldAccess(ASTHelpers.getSymbol(vt));
+          result.setInformation(accessPath, Nullness.NONNULL);
         }
       }
     }
-    if (canSupport) {
-      if (expr.getKind() == Tree.Kind.IDENTIFIER) {
-        Symbol sym = ASTHelpers.getSymbol(expr);
-        if (sym.name.toString().equals(contract)) return false;
-      }
-    }
-    return super.onOverrideMayBeNullExpr(analysis, expr, state, exprMayBeNull);
+    return result;
   }
 
   private void reportMatch(Tree errorLocTree, String message) {

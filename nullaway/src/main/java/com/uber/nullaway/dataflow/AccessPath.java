@@ -154,6 +154,12 @@ public final class AccessPath implements MapKey {
     return new AccessPath(root, elements);
   }
 
+  public static AccessPath fromFieldAccess(Element element) {
+    List<AccessPathElement> elements = new ArrayList<>();
+    elements.add(new AccessPathElement(element));
+    return new AccessPath(new Root(), elements);
+  }
+
   /**
    * Construct the access path for <code>map.get(x)</code> from an invocation of <code>put(x)</code>
    * or <code>containsKey(x)</code>.
