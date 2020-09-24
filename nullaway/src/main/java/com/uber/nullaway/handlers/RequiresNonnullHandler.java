@@ -95,6 +95,9 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
       NullnessStore.Builder result) {
+    if (!(underlyingAST instanceof UnderlyingAST.CFGMethod)) {
+      return super.onDataflowInitialStore(underlyingAST, parameters, result);
+    }
     MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
     String contract = getContractFromAnnotation(methodSymbol);
