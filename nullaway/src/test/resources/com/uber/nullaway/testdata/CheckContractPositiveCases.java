@@ -29,8 +29,8 @@ public class CheckContractPositiveCases {
   @Contract("_, !null -> !null")
   @Nullable
   Object foo(Object a, @Nullable Object b) {
-    if (a != null) {
-      // BUG: Diagnostic contains: @Contract might not be followed
+    if (a.hashCode() % 2 == 0) {
+      // BUG: Diagnostic contains: Method has @Contract
       return null;
     }
     return new Object();
@@ -40,9 +40,19 @@ public class CheckContractPositiveCases {
   @Nullable
   Object fooTwo(Object a, @Nullable Object b) {
     if (b != null) {
-      // BUG: Diagnostic contains: @Contract might not be followed
+      // BUG: Diagnostic contains: Method has @Contract
       return null;
     }
     return new Object();
+  }
+
+  @Nullable Object value = null;
+
+  @Contract("_ -> !null")
+  public @Nullable Object orElse(Object other) {
+    // So the contract checking uses only the information from contract antecedent and assumes
+    // that other is nullable
+    // BUG: Diagnostic contains: Method has @Contract
+    return value != null ? value : other;
   }
 }

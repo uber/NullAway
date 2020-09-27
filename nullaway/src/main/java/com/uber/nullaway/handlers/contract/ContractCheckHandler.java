@@ -30,17 +30,14 @@ import static com.uber.nullaway.handlers.contract.ContractUtils.reportMatchForCo
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * This Handler parses the jetbrains @Contract annotation and tries to check if the contract is
@@ -53,8 +50,6 @@ import java.util.Set;
  * expression.
  */
 public class ContractCheckHandler extends BaseNoOpHandler {
-
-  private Set<TreePath> supportedMethods = new HashSet<>();
 
   @Override
   public void onMatchMethod(
@@ -95,37 +90,32 @@ public class ContractCheckHandler extends BaseNoOpHandler {
         return;
       }
 
-      supportedMethods.add(state.getPath());
+      // we scan the method tree for the return nodes and check the contract
+      new TreePathScanner<Void, Void>() {
+        @Override
+        public Void visitReturn(ReturnTree returnTree, Void unused) {
+
+          final VisitorState returnState =
+              state.withPath(TreePath.getPath(state.getPath(), returnTree));
+          final Nullness nullness =
+              analysis
+                  .getNullnessAnalysis(returnState)
+                  .getNullnessForContractDataflow(
+                      new TreePath(returnState.getPath(), returnTree.getExpression()),
+                      returnState.context);
+
+          if (nullness == Nullness.NULLABLE || nullness == Nullness.NULL) {
+
+            final String errorMessage =
+                "Method has @Contract("
+                    + contractString
+                    + "), but this appears to be violated, as a @Nullable value may be returned.";
+
+            reportMatchForContractIssue(returnTree, errorMessage, analysis, returnState);
+          }
+          return super.visitReturn(returnTree, unused);
+        }
+      }.scan(state.getPath(), null);
     }
-  }
-
-  @Override
-  public void onMatchReturn(NullAway analysis, ReturnTree tree, VisitorState state) {
-    final TreePath enclosingMethod =
-        NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath());
-    if (!supportedMethods.contains(enclosingMethod)) {
-      return;
-    }
-
-    final Nullness nullness =
-        analysis
-            .getNullnessAnalysis(state)
-            .getNullnessForContractDataflow(
-                new TreePath(state.getPath(), tree.getExpression()), state.context);
-
-    if (nullness == Nullness.NULLABLE || nullness == Nullness.NULL) {
-      reportMatchForContractIssue(
-          tree,
-          "@Contract might not be followed, as returning @Nullable from method with @NonNull return expected in contract",
-          analysis,
-          state);
-    }
-  }
-
-  @Override
-  public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
-    // Clear compilation unit specific state
-    this.supportedMethods.clear();
   }
 }

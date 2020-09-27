@@ -30,7 +30,7 @@ public class CheckContractNegativeCases {
   @Contract("_, !null -> !null")
   @Nullable
   Object foo(Object a, @Nullable Object b) {
-    if (a != null) {
+    if (a.hashCode() % 2 == 0) {
       return b;
     }
     return new Object();
@@ -43,5 +43,12 @@ public class CheckContractNegativeCases {
       return b;
     }
     return new Object();
+  }
+
+  @Nullable Object value = null;
+
+  @Contract("!null -> !null")
+  public @Nullable Object orElse(@Nullable Object other) {
+    return value != null ? value : other;
   }
 }

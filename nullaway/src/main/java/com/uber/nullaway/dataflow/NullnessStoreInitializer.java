@@ -24,6 +24,17 @@ import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
  */
 public abstract class NullnessStoreInitializer {
 
+  /**
+   * An abstract method which returns the initial nullness store for dataflow analysis.
+   *
+   * @param underlyingAST The AST node being matched.
+   * @param parameters list of local variable nodes.
+   * @param handler reference to the handler invoked.
+   * @param context context.
+   * @param types types.
+   * @param config config for analysis.
+   * @return Initial Nullness store.
+   */
   public abstract NullnessStore getInitialStore(
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
