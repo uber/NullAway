@@ -2649,4 +2649,39 @@ public class NullAwayTest {
             "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
         .doTest();
   }
+
+  @Test
+  public void ensuresNonnullBasic() {
+    compilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.RequiresNonnull;",
+            "import com.uber.nullaway.qual.EnsuresNonnull;",
+            "class Foo {",
+            "  @Nullable Item nullItem;",
+            "  @RequiresNonnull(\"nullItem\")",
+            "  public void run() {",
+            "    nullItem.call();",
+            "  }",
+            "  @EnsuresNonnull(\"nullItem\")",
+            "  public void init() {",
+            "    nullItem = new Item();",
+            "  }",
+            "  public void test() {",
+            "    init();",
+            "    run();",
+            "    Foo bar = new Foo();",
+            "    bar.init();",
+            "    bar.run();",
+            "    Foo bar2 = new Foo();",
+            "    // BUG: Diagnostic contains: expected fields [nullItem] are not non-null at call site.",
+            "    bar2.run();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
 }

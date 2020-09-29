@@ -22,7 +22,21 @@
 
 package com.uber.nullaway.handlers;
 
+import com.google.common.base.Preconditions;
+import com.google.errorprone.VisitorState;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.NullAway;
+import com.uber.nullaway.Nullness;
+import com.uber.nullaway.dataflow.AccessPath;
+import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
+import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
@@ -31,11 +45,57 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 
 @SuppressWarnings({"ALL", "UnusedMethod"})
 public class EnsuresNonnullHandler extends BaseNoOpHandler {
 
   private static final String annotName = "com.uber.nullaway.qual.EnsuresNonnull";
+  Map<Symbol.MethodSymbol, ClassTree> methodToClass = new HashMap<>();
+
+  @Override
+  public void onMatchMethod(
+      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+    Preconditions.checkNotNull(methodSymbol);
+    String contract = getContractFromAnnotation(methodSymbol);
+    if (!(contract == null || contract.equals(""))) {
+      ClassTree enclisingClass =
+          ASTHelpers.findClass(ASTHelpers.enclosingClass(methodSymbol), state);
+      methodToClass.put(methodSymbol, enclisingClass);
+    }
+    super.onMatchMethod(analysis, tree, state, methodSymbol);
+  }
+
+  @Override
+  public NullnessHint onDataflowVisitMethodInvocation(
+      MethodInvocationNode node,
+      Types types,
+      Context context,
+      AccessPathNullnessPropagation.SubNodeValues inputs,
+      AccessPathNullnessPropagation.Updates thenUpdates,
+      AccessPathNullnessPropagation.Updates elseUpdates,
+      AccessPathNullnessPropagation.Updates bothUpdates) {
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
+    Preconditions.checkNotNull(methodSymbol);
+    String contract = getContractFromAnnotation(methodSymbol);
+    if (contract == null || contract.equals("")) {
+      return super.onDataflowVisitMethodInvocation(
+          node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
+    }
+    ClassTree classTree = methodToClass.get(methodSymbol);
+    for (Tree member : classTree.getMembers()) {
+      if (member.getKind().equals(Tree.Kind.VARIABLE)) {
+        VariableTree vt = ((VariableTree) member);
+        if (vt.getName().toString().equals(contract)) {
+          AccessPath accessPath =
+              AccessPath.fromFieldAccess(ASTHelpers.getSymbol(vt), node.getTarget().getReceiver());
+          bothUpdates.set(accessPath, Nullness.NONNULL);
+        }
+      }
+    }
+    return super.onDataflowVisitMethodInvocation(
+        node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
+  }
 
   /**
    * Retrieve the string value inside an @Contract annotation without statically depending on the

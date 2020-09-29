@@ -27,9 +27,12 @@ import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
@@ -79,8 +82,6 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       for (Tree t : classTree.getMembers()) {
         if (t.getKind().equals(Tree.Kind.VARIABLE)) {
           fields.add(((VariableTree) t).getName().toString());
-          //          VariableTree vt = (VariableTree) t;
-          //          analysis.setComputedNullness(vt.getInitializer(), Nullness.NONNULL);
         }
       }
       if (!fields.contains(contract)) {
@@ -88,6 +89,63 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       }
     }
     super.onMatchMethod(analysis, tree, state, methodSymbol);
+  }
+
+  @Override
+  public void onMatchMethodInvocation(
+      NullAway analysis,
+      MethodInvocationTree tree,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol) {
+    String contract = getContractFromAnnotation(methodSymbol);
+    if (contract == null || contract.equals("")) {
+      super.onMatchMethodInvocation(analysis, tree, state, methodSymbol);
+      return;
+    }
+    Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
+    ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
+    if (classTree == null) {
+      reportMatch(tree, "Cannot find the enclosing class for method symbol: " + methodSymbol);
+      return;
+    }
+    MemberSelectTree receiver = null;
+    if (tree.getMethodSelect() instanceof MemberSelectTree) {
+      receiver = (MemberSelectTree) tree.getMethodSelect();
+    }
+    VariableTree variableTree = null;
+    for (Tree t : classTree.getMembers()) {
+      if (t.getKind().equals(Tree.Kind.VARIABLE)) {
+        variableTree = ((VariableTree) t);
+      }
+    }
+    if (variableTree == null) {
+      reportMatch(tree, "Cannot find the enclosing class for method symbol: " + methodSymbol);
+      return;
+    }
+    AccessPath accessPath =
+        AccessPath.fromFieldAccessTree(ASTHelpers.getSymbol(variableTree), receiver);
+    Nullness nullness =
+        analysis
+            .getNullnessAnalysis(state)
+            .getNullnessOfAccessPath(
+                new TreePath(state.getPath(), tree), state.context, accessPath);
+    if (nullness == null || nullnessToBool(nullness)) {
+      reportMatch(tree, "expected fields [" + contract + "] are not non-null at call site.");
+    }
+  }
+
+  private static boolean nullnessToBool(Nullness nullness) {
+    if (nullness == null) return true;
+    switch (nullness) {
+      case BOTTOM:
+      case NONNULL:
+        return false;
+      case NULL:
+      case NULLABLE:
+        return true;
+      default:
+        throw new AssertionError("Impossible: " + nullness);
+    }
   }
 
   @Override
@@ -109,7 +167,7 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       if (member.getKind().equals(Tree.Kind.VARIABLE)) {
         VariableTree vt = ((VariableTree) member);
         if (vt.getName().toString().equals(contract)) {
-          AccessPath accessPath = AccessPath.fromFieldAccess(ASTHelpers.getSymbol(vt));
+          AccessPath accessPath = AccessPath.fromFieldAccess(ASTHelpers.getSymbol(vt), null);
           result.setInformation(accessPath, Nullness.NONNULL);
         }
       }

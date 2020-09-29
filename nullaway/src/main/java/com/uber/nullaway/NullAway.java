@@ -94,6 +94,7 @@ import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.fixer.Fixer;
 import com.uber.nullaway.fixer.Location;
 import com.uber.nullaway.fixer.LocationUtils;
+import com.uber.nullaway.fixer.PreliminaryFixer;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import java.util.ArrayList;
@@ -145,7 +146,8 @@ import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
  */
 @SuppressWarnings({
   "ALL",
-  "TreeToString"
+  "TreeToString",
+  "UnusedVariable"
 }) // TODO: remove this later, this class is still under construction on
 // 'AutoFix' branch
 @AutoService(BugChecker.class)
@@ -242,7 +244,7 @@ public class NullAway extends BugChecker
     config = new DummyOptionsConfig();
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
-    fixer = new Fixer(config);
+    fixer = new PreliminaryFixer(config);
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), fixer);
   }
 
@@ -250,7 +252,7 @@ public class NullAway extends BugChecker
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
-    fixer = new Fixer(config);
+    fixer = new PreliminaryFixer(config);
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames(), fixer);
   }
 
@@ -632,20 +634,21 @@ public class NullAway extends BugChecker
         ErrorMessage errorMessage =
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, fixMessageSignature + message);
 
-        if (config.canFixElement(getTreesInstance(state), overridingnMethod)) {
-          CompilationUnitTree c =
-              getTreesInstance(state).getPath(overridingnMethod).getCompilationUnit();
-          Location location =
-              Location.Builder()
-                  .setClassTree(LocationUtils.getClassTree(overridingnMethod, state))
-                  .setMethodTree(ASTHelpers.findMethod(overridingnMethod, state))
-                  .setCompilationUnitTree(c)
-                  .setKind(Location.Kind.METHOD_PARAM)
-                  .setVariableSymbol(paramSymbol)
-                  .build();
-          Tree cause = (memberReferenceTree == null) ? lambdaExpressionTree : memberReferenceTree;
-          fixer.fix(errorMessage, location, cause);
-        }
+        //        if (config.canFixElement(getTreesInstance(state), overridingnMethod)) {
+        //          CompilationUnitTree c =
+        //              getTreesInstance(state).getPath(overridingnMethod).getCompilationUnit();
+        //          Location location =
+        //              Location.Builder()
+        //                  .setClassTree(LocationUtils.getClassTree(overridingnMethod, state))
+        //                  .setMethodTree(ASTHelpers.findMethod(overridingnMethod, state))
+        //                  .setCompilationUnitTree(c)
+        //                  .setKind(Location.Kind.METHOD_PARAM)
+        //                  .setVariableSymbol(paramSymbol)
+        //                  .build();
+        //          Tree cause = (memberReferenceTree == null) ? lambdaExpressionTree :
+        // memberReferenceTree;
+        //          fixer.fix(errorMessage, location, cause);
+        //        }
         return errorBuilder.createErrorDescription(
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
             buildDescription(errorTree),
@@ -805,21 +808,22 @@ public class NullAway extends BugChecker
           memberReferenceTree != null
               ? memberReferenceTree
               : getTreesInstance(state).getTree(overridingMethod);
-      if (config.canFixElement(getTreesInstance(state), overriddenMethod)) {
-        CompilationUnitTree c =
-            getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
-        Location location =
-            Location.Builder()
-                .setClassTree(LocationUtils.getClassTree(overriddenMethod, state))
-                .setMethodTree(superTree)
-                .setCompilationUnitTree(c)
-                .setKind(Location.Kind.METHOD_RETURN)
-                .build();
-        fixer.fix(
-            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature + message),
-            location,
-            errorTree);
-      }
+      //      if (config.canFixElement(getTreesInstance(state), overriddenMethod)) {
+      //        CompilationUnitTree c =
+      //            getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
+      //        Location location =
+      //            Location.Builder()
+      //                .setClassTree(LocationUtils.getClassTree(overriddenMethod, state))
+      //                .setMethodTree(superTree)
+      //                .setCompilationUnitTree(c)
+      //                .setKind(Location.Kind.METHOD_RETURN)
+      //                .build();
+      //        fixer.fix(
+      //            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature +
+      // message),
+      //            location,
+      //            errorTree);
+      //      }
       return errorBuilder.createErrorDescription(
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message),
           buildDescription(errorTree),

@@ -227,6 +227,16 @@ public class NullnessStore implements Store<NullnessStore> {
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
   }
 
+  public Nullness getNullnessOfAccessPath(AccessPath accessPath) {
+    if (contents == null) return null;
+    for (Map.Entry<AccessPath, Nullness> entry : contents.entrySet()) {
+      if (entry.getKey().equals(accessPath)) {
+        return entry.getValue();
+      }
+    }
+    return null;
+  }
+
   /** class for building up instances of the store. */
   public static final class Builder {
     private final Map<AccessPath, Nullness> contents;

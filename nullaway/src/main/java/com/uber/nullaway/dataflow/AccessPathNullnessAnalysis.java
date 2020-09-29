@@ -145,6 +145,14 @@ public final class AccessPathNullnessAnalysis {
     return getNonnullReceiverFields(store);
   }
 
+  public Nullness getNullnessOfAccessPath(TreePath path, Context context, AccessPath accessPath) {
+    NullnessStore store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
+    if (store == null) {
+      return Nullness.NULLABLE;
+    }
+    return store.getNullnessOfAccessPath(accessPath);
+  }
+
   /**
    * Get the static fields that are guaranteed to be nonnull before the current expression.
    *
