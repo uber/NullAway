@@ -2679,9 +2679,12 @@ public class NullAwayTest {
             "    bar.run();",
             "  }",
             "  public void test3() {",
-            "    Foo bar2 = new Foo();",
+            "    Foo bar = new Foo();",
+            "    init();",
+            "Foo other = new Foo();",
+            "other.init();",
             "    // BUG: Diagnostic contains: expected fields [nullItem] are not non-null at call site.",
-            "    bar2.run();",
+            "    bar.run();",
             "  }",
             "}")
         .addSourceLines(
