@@ -2597,36 +2597,6 @@ public class NullAwayTest {
   }
 
   @Test
-  public void basicContract() {
-    compilationHelper
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
-        .addSourceLines(
-            "NullnessChecker.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import org.jetbrains.annotations.Contract;",
-            "public class NullnessChecker {",
-            "  @Contract(\"_, _, null, _ -> true\")",
-            "  static boolean isNull(boolean flag, String or, @Nullable Object o, int i) { return o == null; }",
-            "}")
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o) {",
-            "    if(NullnessChecker.isNull(false, \"hello\", o, 0)) return \"Null\";",
-            "    return o.toString();",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
   public void requiresNonnullInterpretation() {
     compilationHelper
         .addSourceLines(
