@@ -256,6 +256,13 @@ public final class AccessPath implements MapKey {
     }
   }
 
+  /**
+   * Gets corresponding AccessPath for a class field element.
+   *
+   * @param fieldElement The class field element.
+   * @param nodeReceiver The receiver as a {@link Node}.
+   * @return corresponding AccessPath.
+   */
   public static AccessPath fromFieldAccessNode(Element fieldElement, Node nodeReceiver) {
     Tree receiver = null;
     if (nodeReceiver != null) {
@@ -264,6 +271,13 @@ public final class AccessPath implements MapKey {
     return fromFieldAccess(fieldElement, receiver);
   }
 
+  /**
+   * Gets corresponding AccessPath for a class field element.
+   *
+   * @param fieldElement The class field element.
+   * @param tree The receiver as a {@link MemberSelectTree}.
+   * @return corresponding AccessPath.
+   */
   public static AccessPath fromFieldAccessTree(Element fieldElement, MemberSelectTree tree) {
     Tree receiver = null;
     if (tree != null) {
@@ -272,6 +286,13 @@ public final class AccessPath implements MapKey {
     return fromFieldAccess(fieldElement, receiver);
   }
 
+  /**
+   * Gets corresponding AccessPath for a class field element.
+   *
+   * @param fieldElement The class field element.
+   * @param receiver The receiver.
+   * @return corresponding AccessPath.
+   */
   private static AccessPath fromFieldAccess(Element fieldElement, Tree receiver) {
     List<AccessPathElement> elements = new ArrayList<>();
     elements.add(new AccessPathElement(fieldElement));

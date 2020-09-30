@@ -151,6 +151,13 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
                 this.state));
   }
 
+  /**
+   * Finds a specific field of a class
+   *
+   * @param classTree A classTree.
+   * @param name Name of the field.
+   * @return The class field with the given name.
+   */
   private static VariableTree getFieldFromClass(ClassTree classTree, String name) {
     Preconditions.checkNotNull(classTree);
     for (Tree member : classTree.getMembers()) {

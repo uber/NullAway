@@ -117,6 +117,12 @@ public class NullnessStore implements Store<NullnessStore> {
     return result;
   }
 
+  /**
+   * Gets the {@link Nullness} value of an access path.
+   *
+   * @param accessPath The access path.
+   * @return The {@link Nullness} value of the access path.
+   */
   public Nullness getNullnessOfAccessPath(AccessPath accessPath) {
     if (contents == null) return Nullness.NULLABLE;
     for (Map.Entry<AccessPath, Nullness> entry : contents.entrySet()) {

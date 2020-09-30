@@ -170,6 +170,12 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
                 this.state));
   }
 
+  /**
+   * Finds all fields of a class
+   *
+   * @param classTree A classTree.
+   * @return The set of classes fields.
+   */
   private static Set<VariableTree> getFieldsOfClass(ClassTree classTree) {
     Preconditions.checkNotNull(classTree);
     Set<VariableTree> fields = new HashSet<>();
@@ -181,6 +187,13 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
     return fields;
   }
 
+  /**
+   * Finds a specific field of a class
+   *
+   * @param classTree A classTree.
+   * @param name Name of the field.
+   * @return The class field with the given name.
+   */
   private static VariableTree getFieldFromClass(ClassTree classTree, String name) {
     Set<VariableTree> fields = getFieldsOfClass(classTree);
     for (VariableTree field : fields) {
@@ -192,6 +205,11 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
         "cannot find field [" + name + "] in class: " + classTree.getSimpleName());
   }
 
+  /**
+   * @param classTree A classTree.
+   * @param name Name of the field.
+   * @return true, if the class contains a field with the given name.
+   */
   private static boolean classContainsFieldWithName(ClassTree classTree, String name) {
     Set<VariableTree> fields = getFieldsOfClass(classTree);
     for (VariableTree field : fields) {
