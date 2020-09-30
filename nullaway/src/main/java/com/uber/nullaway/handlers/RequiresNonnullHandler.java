@@ -71,9 +71,9 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
-    String contract = getContractFromAnnotation(methodSymbol);
-    if (contract != null) {
-      if (contract.equals("")) {
+    String fieldName = getFieldNameFromAnnotation(methodSymbol);
+    if (fieldName != null) {
+      if (fieldName.equals("")) {
         // we should not allow useless requiresNonnull annotations.
         reportMatch(
             tree,
@@ -83,8 +83,8 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
       assert classTree != null
           : "can not find the enclosing class for method symbol: " + methodSymbol;
-      if (!classContainsFieldWithName(classTree, contract)) {
-        reportMatch(tree, "cannot find field [" + contract + "] in class: " + classSymbol.name);
+      if (!classContainsFieldWithName(classTree, fieldName)) {
+        reportMatch(tree, "cannot find field [" + fieldName + "] in class: " + classSymbol.name);
       }
     }
     super.onMatchMethod(analysis, tree, state, methodSymbol);
@@ -97,8 +97,8 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       MethodInvocationTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
-    String contract = getContractFromAnnotation(methodSymbol);
-    if (contract == null || contract.equals("")) {
+    String fieldName = getFieldNameFromAnnotation(methodSymbol);
+    if (fieldName == null || fieldName.equals("")) {
       super.onMatchMethodInvocation(analysis, tree, state, methodSymbol);
       return;
     }
@@ -110,7 +110,7 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
     if (tree.getMethodSelect() instanceof MemberSelectTree) {
       receiver = (MemberSelectTree) tree.getMethodSelect();
     }
-    VariableTree variableTree = getFieldFromClass(classTree, contract);
+    VariableTree variableTree = getFieldFromClass(classTree, fieldName);
     AccessPath accessPath =
         AccessPath.fromFieldAccessTree(ASTHelpers.getSymbol(variableTree), receiver);
     Nullness nullness =
@@ -119,7 +119,7 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
             .getNullnessOfAccessPath(
                 new TreePath(state.getPath(), tree), state.context, accessPath);
     if (nullnessToBool(nullness)) {
-      reportMatch(tree, "expected field [" + contract + "] is not non-null at call site.");
+      reportMatch(tree, "expected field [" + fieldName + "] is not non-null at call site.");
     }
   }
 
@@ -146,12 +146,12 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
     }
     MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
-    String contract = getContractFromAnnotation(methodSymbol);
-    if (contract == null) {
+    String fieldName = getFieldNameFromAnnotation(methodSymbol);
+    if (fieldName == null) {
       return super.onDataflowInitialStore(underlyingAST, parameters, result);
     }
     ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
-    VariableTree variableTree = getFieldFromClass(classTree, contract);
+    VariableTree variableTree = getFieldFromClass(classTree, fieldName);
     AccessPath accessPath =
         AccessPath.fromFieldAccessNode(ASTHelpers.getSymbol(variableTree), null);
     result.setInformation(accessPath, Nullness.NONNULL);
@@ -202,7 +202,14 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
     return false;
   }
 
-  private static @Nullable String getContractFromAnnotation(Symbol.MethodSymbol sym) {
+  /**
+   * Retrieve the string value inside an @RequiresNonnull annotation without statically depending on
+   * the type.
+   *
+   * @param sym A method which has an @RequiresNonnull annotation.
+   * @return The string value spec inside the annotation.
+   */
+  private static @Nullable String getFieldNameFromAnnotation(Symbol.MethodSymbol sym) {
     for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
       Element element = annotation.getAnnotationType().asElement();
       assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);

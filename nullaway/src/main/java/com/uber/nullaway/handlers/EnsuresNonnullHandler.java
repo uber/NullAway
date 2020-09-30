@@ -71,12 +71,12 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
     Preconditions.checkNotNull(methodSymbol);
-    String contract = getContractFromAnnotation(methodSymbol);
+    String fieldName = getFieldNameFromAnnotation(methodSymbol);
     boolean supported = true;
-    if (contract == null) {
+    if (fieldName == null) {
       supported = false;
     } else {
-      if (contract.equals("")) {
+      if (fieldName.equals("")) {
         // we should not allow useless ensuresNonnull annotations.
         reportMatch(
             tree,
@@ -96,7 +96,7 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
             .getNonnullFieldsOfReceiverAtExit(new TreePath(state.getPath(), tree), state.context);
     boolean isValidPostCondition = false;
     for (Element element : elements) {
-      if (element.getKind().isField() && element.getSimpleName().toString().equals(contract)) {
+      if (element.getKind().isField() && element.getSimpleName().toString().equals(fieldName)) {
         isValidPostCondition = true;
       }
     }
@@ -104,7 +104,7 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
       reportMatch(
           tree,
           "field ["
-              + contract
+              + fieldName
               + "] is not guaranteed to be nonnull at exit point of method: "
               + methodSymbol);
     }
@@ -125,13 +125,13 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
     }
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(methodSymbol);
-    String contract = getContractFromAnnotation(methodSymbol);
-    if (contract == null) {
+    String fieldName = getFieldNameFromAnnotation(methodSymbol);
+    if (fieldName == null) {
       return super.onDataflowVisitMethodInvocation(
           node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
     }
     ClassTree classTree = methodToClass.get(methodSymbol);
-    VariableTree field = getFieldFromClass(classTree, contract);
+    VariableTree field = getFieldFromClass(classTree, fieldName);
     AccessPath accessPath =
         AccessPath.fromFieldAccessNode(ASTHelpers.getSymbol(field), node.getTarget().getReceiver());
     bothUpdates.set(accessPath, Nullness.NONNULL);
@@ -166,13 +166,13 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
   }
 
   /**
-   * Retrieve the string value inside an @Contract annotation without statically depending on the
-   * type.
+   * Retrieve the string value inside an @EnsuresNonnull annotation without statically depending on
+   * the type.
    *
-   * @param sym A method which has an @Contract annotation.
+   * @param sym A method which has an @EnsuresNonnull annotation.
    * @return The string value spec inside the annotation.
    */
-  private static @Nullable String getContractFromAnnotation(Symbol.MethodSymbol sym) {
+  private static @Nullable String getFieldNameFromAnnotation(Symbol.MethodSymbol sym) {
     for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
       Element element = annotation.getAnnotationType().asElement();
       assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
