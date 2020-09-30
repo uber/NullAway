@@ -2591,4 +2591,94 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void requiresNonnullInterpretation() {
+    compilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.RequiresNonnull;",
+            "class Foo {",
+            "  @Nullable Item nullItem;",
+            "  @RequiresNonnull(\"nullItem\")",
+            "  public void run() {",
+            "    nullItem.call();",
+            "    nullItem = null;",
+            "    // BUG: Diagnostic contains: dereferenced expression nullItem is @Nullable",
+            "    nullItem.call();",
+            "     ",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void ensuresNonnullInterpretation() {
+    compilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.EnsuresNonnull;",
+            "class Foo {",
+            "  @Nullable Item nullItem;",
+            "  @EnsuresNonnull(\"nullItem\")",
+            "  public void test1() {",
+            "    nullItem = new Item();",
+            "  }",
+            "  @EnsuresNonnull(\"nullItem\")",
+            "  // BUG: Diagnostic contains: field [nullItem] is not guaranteed to be nonnull at exit point of method: test2()",
+            "  public void test2() {",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void ensuresNonnullBasic() {
+    compilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.RequiresNonnull;",
+            "import com.uber.nullaway.qual.EnsuresNonnull;",
+            "class Foo {",
+            "  @Nullable Item nullItem;",
+            "  @RequiresNonnull(\"nullItem\")",
+            "  public void run() {",
+            "    nullItem.call();",
+            "  }",
+            "  @EnsuresNonnull(\"nullItem\")",
+            "  public void init() {",
+            "    nullItem = new Item();",
+            "  }",
+            "  public void test1() {",
+            "    init();",
+            "    run();",
+            "  }",
+            "  public void test2() {",
+            "    Foo bar = new Foo();",
+            "    bar.init();",
+            "    bar.run();",
+            "  }",
+            "  public void test3() {",
+            "    Foo bar = new Foo();",
+            "    init();",
+            "    Foo other = new Foo();",
+            "    other.init();",
+            "    // BUG: Diagnostic contains: expected field [nullItem] is not non-null at call site.",
+            "    bar.run();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
 }

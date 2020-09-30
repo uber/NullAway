@@ -188,6 +188,14 @@ public final class AccessPathNullnessAnalysis {
         });
   }
 
+  public Nullness getNullnessOfAccessPath(TreePath path, Context context, AccessPath accessPath) {
+    NullnessStore store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
+    if (store == null) {
+      return Nullness.NULLABLE;
+    }
+    return store.getNullnessOfAccessPath(accessPath);
+  }
+
   /**
    * Get the static fields that are guaranteed to be nonnull after a method or initializer block.
    *

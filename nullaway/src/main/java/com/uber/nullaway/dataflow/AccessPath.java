@@ -26,6 +26,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
@@ -253,6 +254,34 @@ public final class AccessPath implements MapKey {
     } else {
       return null;
     }
+  }
+
+  public static AccessPath fromFieldAccessNode(Element fieldElement, Node nodeReceiver) {
+    Tree receiver = null;
+    if (nodeReceiver != null) {
+      receiver = nodeReceiver.getTree();
+    }
+    return fromFieldAccess(fieldElement, receiver);
+  }
+
+  public static AccessPath fromFieldAccessTree(Element fieldElement, MemberSelectTree tree) {
+    Tree receiver = null;
+    if (tree != null) {
+      receiver = tree.getExpression();
+    }
+    return fromFieldAccess(fieldElement, receiver);
+  }
+
+  private static AccessPath fromFieldAccess(Element fieldElement, Tree receiver) {
+    List<AccessPathElement> elements = new ArrayList<>();
+    elements.add(new AccessPathElement(fieldElement));
+    Root root;
+    if (receiver == null) {
+      root = new Root();
+    } else {
+      root = new Root(ASTHelpers.getSymbol(receiver));
+    }
+    return new AccessPath(root, elements);
   }
 
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
