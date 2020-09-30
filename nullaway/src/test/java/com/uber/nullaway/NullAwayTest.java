@@ -2610,6 +2610,10 @@ public class NullAwayTest {
             "    nullItem.call();",
             "     ",
             "  }",
+            "  @RequiresNonnull(\"this.nullItem\")",
+            "  public void test() {",
+            "    nullItem.call();",
+            "  }",
             "}")
         .addSourceLines(
             "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
@@ -2633,6 +2637,15 @@ public class NullAwayTest {
             "  @EnsuresNonnull(\"nullItem\")",
             "  // BUG: Diagnostic contains: field [nullItem] is not guaranteed to be nonnull at exit point of method: test2()",
             "  public void test2() {",
+            "  }",
+            "  @EnsuresNonnull(\"this.nullItem\")",
+            "  public void test3() {",
+            "    nullItem = new Item();",
+            "  }",
+            "  @EnsuresNonnull(\"other.nullItem\")",
+            "  // BUG: Diagnostic contains: currently @EnsuresNonnull supports only class fields of the method receiver.",
+            "  public void test4() {",
+            "    nullItem = new Item();",
             "  }",
             "}")
         .addSourceLines(

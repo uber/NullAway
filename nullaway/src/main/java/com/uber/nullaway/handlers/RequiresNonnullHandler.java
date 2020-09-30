@@ -57,6 +57,7 @@ import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 public class RequiresNonnullHandler extends BaseNoOpHandler {
 
   private static final String annotName = "com.uber.nullaway.qual.RequiresNonnull";
+  private static final String thisNotation = "this.";
 
   private @Nullable NullAway analysis;
   private @Nullable VisitorState state;
@@ -79,6 +80,15 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
             tree,
             "empty requiresNonnull is the default precondition for every method, please remove it.");
       }
+      if (fieldName.contains(".")) {
+        if (!fieldName.startsWith(thisNotation)) {
+          reportMatch(
+              tree,
+              "currently @RequiresNonnull supports only class fields of the method receiver.");
+        } else {
+          fieldName = fieldName.substring(thisNotation.length());
+        }
+      }
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
       ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
       assert classTree != null
@@ -100,6 +110,9 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
     if (fieldName == null || fieldName.equals("")) {
       super.onMatchMethodInvocation(analysis, tree, state, methodSymbol);
       return;
+    }
+    if (fieldName.startsWith(thisNotation)) {
+      fieldName = fieldName.substring(thisNotation.length());
     }
     Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
     ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
@@ -148,6 +161,9 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
     String fieldName = getFieldNameFromAnnotation(methodSymbol);
     if (fieldName == null) {
       return super.onDataflowInitialStore(underlyingAST, parameters, result);
+    }
+    if (fieldName.startsWith(thisNotation)) {
+      fieldName = fieldName.substring(thisNotation.length());
     }
     ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
     VariableTree variableTree = getFieldFromClass(classTree, fieldName);

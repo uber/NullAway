@@ -55,6 +55,7 @@ import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 public class EnsuresNonnullHandler extends BaseNoOpHandler {
 
   private static final String annotName = "com.uber.nullaway.qual.EnsuresNonnull";
+  private static final String thisNotation = "this.";
   Map<Symbol.MethodSymbol, ClassTree> methodToClass = new HashMap<>();
 
   private @Nullable NullAway analysis;
@@ -82,6 +83,15 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
             tree,
             "empty ensuresNonnull is the default precondition for every method, please remove it.");
         supported = false;
+      }
+      if (fieldName.contains(".")) {
+        if (!fieldName.startsWith(thisNotation)) {
+          reportMatch(
+              tree, "currently @EnsuresNonnull supports only class fields of the method receiver.");
+          supported = false;
+        } else {
+          fieldName = fieldName.substring(thisNotation.length());
+        }
       }
     }
     if (!supported) {
@@ -129,6 +139,9 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
     if (fieldName == null) {
       return super.onDataflowVisitMethodInvocation(
           node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
+    }
+    if (fieldName.startsWith(thisNotation)) {
+      fieldName = fieldName.substring(thisNotation.length());
     }
     ClassTree classTree = methodToClass.get(methodSymbol);
     VariableTree field = getFieldFromClass(classTree, fieldName);
