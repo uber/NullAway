@@ -228,13 +228,13 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   public Nullness getNullnessOfAccessPath(AccessPath accessPath) {
-    if (contents == null) return null;
+    if (contents == null) return Nullness.NULLABLE;
     for (Map.Entry<AccessPath, Nullness> entry : contents.entrySet()) {
       if (entry.getKey().equals(accessPath)) {
         return entry.getValue();
       }
     }
-    return null;
+    return Nullness.NULLABLE;
   }
 
   /** class for building up instances of the store. */

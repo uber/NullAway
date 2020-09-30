@@ -2607,12 +2607,35 @@ public class NullAwayTest {
             "class Foo {",
             "  @Nullable Item nullItem;",
             "  @RequiresNonnull(\"nullItem\")",
-            "  public void run(int i) {",
+            "  public void run() {",
             "    nullItem.call();",
             "    nullItem = null;",
             "    // BUG: Diagnostic contains: dereferenced expression nullItem is @Nullable",
             "    nullItem.call();",
             "     ",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void ensuresNonnullInterpretation() {
+    compilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.EnsuresNonnull;",
+            "class Foo {",
+            "  @Nullable Item nullItem;",
+            "  @EnsuresNonnull(\"nullItem\")",
+            "  public void test1() {",
+            "    nullItem = new Item();",
+            "  }",
+            "  @EnsuresNonnull(\"nullItem\")",
+            "  public void test2() {",
             "  }",
             "}")
         .addSourceLines(
@@ -2653,7 +2676,7 @@ public class NullAwayTest {
             "    init();",
             "    Foo other = new Foo();",
             "    other.init();",
-            "    // BUG: Diagnostic contains: expected fields [nullItem] are not non-null at call site.",
+            "    // BUG: Diagnostic contains: expected field [nullItem] is not non-null at call site.",
             "    bar.run();",
             "  }",
             "}")

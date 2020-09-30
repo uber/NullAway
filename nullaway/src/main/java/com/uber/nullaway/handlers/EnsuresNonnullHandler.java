@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -29,15 +31,18 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -47,23 +52,62 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 
-@SuppressWarnings({"ALL", "UnusedMethod"})
 public class EnsuresNonnullHandler extends BaseNoOpHandler {
 
   private static final String annotName = "com.uber.nullaway.qual.EnsuresNonnull";
   Map<Symbol.MethodSymbol, ClassTree> methodToClass = new HashMap<>();
+
+  private @Nullable NullAway analysis;
+  private @Nullable VisitorState state;
+
+  @Override
+  public void onMatchTopLevelClass(
+      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+    this.analysis = analysis;
+    this.state = state;
+  }
 
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
     Preconditions.checkNotNull(methodSymbol);
     String contract = getContractFromAnnotation(methodSymbol);
-    if (!(contract == null || contract.equals(""))) {
-      ClassTree enclisingClass =
-          ASTHelpers.findClass(ASTHelpers.enclosingClass(methodSymbol), state);
-      methodToClass.put(methodSymbol, enclisingClass);
+    boolean supported = true;
+    if (contract == null) {
+      supported = false;
+    } else {
+      if (contract.equals("")) {
+        // we should not allow useless ensuresNonnull annotations.
+        reportMatch(
+            tree,
+            "empty ensuresNonnull is the default precondition for every method, please remove it.");
+        supported = false;
+      }
     }
-    super.onMatchMethod(analysis, tree, state, methodSymbol);
+    if (!supported) {
+      super.onMatchMethod(analysis, tree, state, methodSymbol);
+      return;
+    }
+    ClassTree enclosingClass = ASTHelpers.findClass(ASTHelpers.enclosingClass(methodSymbol), state);
+    methodToClass.put(methodSymbol, enclosingClass);
+    Set<Element> elements =
+        analysis
+            .getNullnessAnalysis(state)
+            .getNonnullFieldsOfReceiverAtExit(new TreePath(state.getPath(), tree), state.context);
+    boolean isValidPostCondition = false;
+    for (Element element : elements) {
+      if (element.getKind().isField() && element.getSimpleName().toString().equals(contract)) {
+        isValidPostCondition = true;
+      }
+    }
+    if (!isValidPostCondition) {
+      reportMatch(
+          tree,
+          "field ["
+              + contract
+              + "] is not guaranteed to be nonnull at exit point of method: "
+              + methodSymbol);
+    }
   }
 
   @Override
@@ -75,26 +119,50 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
+    if (node.getTree() == null) {
+      return super.onDataflowVisitMethodInvocation(
+          node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
+    }
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(methodSymbol);
     String contract = getContractFromAnnotation(methodSymbol);
-    if (contract == null || contract.equals("")) {
+    if (contract == null) {
       return super.onDataflowVisitMethodInvocation(
           node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
     }
     ClassTree classTree = methodToClass.get(methodSymbol);
+    VariableTree field = getFieldFromClass(classTree, contract);
+    AccessPath accessPath =
+        AccessPath.fromFieldAccessNode(ASTHelpers.getSymbol(field), node.getTarget().getReceiver());
+    bothUpdates.set(accessPath, Nullness.NONNULL);
+    return super.onDataflowVisitMethodInvocation(
+        node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
+  }
+
+  private void reportMatch(Tree errorLocTree, String message) {
+    assert this.analysis != null && this.state != null;
+    this.state.reportMatch(
+        analysis
+            .getErrorBuilder()
+            .createErrorDescription(
+                new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                errorLocTree,
+                buildDescriptionFromChecker(errorLocTree, analysis),
+                this.state));
+  }
+
+  private static VariableTree getFieldFromClass(ClassTree classTree, String name) {
+    Preconditions.checkNotNull(classTree);
     for (Tree member : classTree.getMembers()) {
       if (member.getKind().equals(Tree.Kind.VARIABLE)) {
-        VariableTree vt = ((VariableTree) member);
-        if (vt.getName().toString().equals(contract)) {
-          AccessPath accessPath =
-              AccessPath.fromFieldAccess(ASTHelpers.getSymbol(vt), node.getTarget().getReceiver());
-          bothUpdates.set(accessPath, Nullness.NONNULL);
+        VariableTree field = (VariableTree) member;
+        if (field.getName().toString().equals(name)) {
+          return field;
         }
       }
     }
-    return super.onDataflowVisitMethodInvocation(
-        node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
+    throw new AssertionError(
+        "cannot find field [" + name + "] in class: " + classTree.getSimpleName());
   }
 
   /**

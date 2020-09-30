@@ -24,6 +24,7 @@ package com.uber.nullaway.handlers;
 
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 
+import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -39,9 +40,10 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.NullnessStore;
-import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -69,28 +71,26 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
-
-    Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
-    ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
-    if (classTree == null) {
-      reportMatch(tree, "Cannot find the enclosing class for method symbol: " + methodSymbol);
-      super.onMatchMethod(analysis, tree, state, methodSymbol);
-    }
     String contract = getContractFromAnnotation(methodSymbol);
-    if (classTree != null && contract != null) {
-      List<String> fields = new ArrayList<>();
-      for (Tree t : classTree.getMembers()) {
-        if (t.getKind().equals(Tree.Kind.VARIABLE)) {
-          fields.add(((VariableTree) t).getName().toString());
-        }
+    if (contract != null) {
+      if (contract.equals("")) {
+        // we should not allow useless requiresNonnull annotations.
+        reportMatch(
+            tree,
+            "empty requiresNonnull is the default precondition for every method, please remove it.");
       }
-      if (!fields.contains(contract)) {
-        reportMatch(tree, "Class " + classSymbol + " does not have any field named: " + contract);
+      Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
+      ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
+      assert classTree != null
+          : "can not find the enclosing class for method symbol: " + methodSymbol;
+      if (!classContainsFieldWithName(classTree, contract)) {
+        reportMatch(tree, "cannot find field [" + contract + "] in class: " + classSymbol.name);
       }
     }
     super.onMatchMethod(analysis, tree, state, methodSymbol);
   }
 
+  @SuppressWarnings("UnusedVariable")
   @Override
   public void onMatchMethodInvocation(
       NullAway analysis,
@@ -104,24 +104,13 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
     }
     Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
     ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
-    if (classTree == null) {
-      reportMatch(tree, "Cannot find the enclosing class for method symbol: " + methodSymbol);
-      return;
-    }
-    MemberSelectTree receiver = null;
+    assert classTree != null
+        : "can not find the enclosing class for method symbol: " + methodSymbol;
+    MemberSelectTree receiver = null; // null receiver means (this) is the receiver.
     if (tree.getMethodSelect() instanceof MemberSelectTree) {
       receiver = (MemberSelectTree) tree.getMethodSelect();
     }
-    VariableTree variableTree = null;
-    for (Tree t : classTree.getMembers()) {
-      if (t.getKind().equals(Tree.Kind.VARIABLE)) {
-        variableTree = ((VariableTree) t);
-      }
-    }
-    if (variableTree == null) {
-      reportMatch(tree, "Cannot find the enclosing class for method symbol: " + methodSymbol);
-      return;
-    }
+    VariableTree variableTree = getFieldFromClass(classTree, contract);
     AccessPath accessPath =
         AccessPath.fromFieldAccessTree(ASTHelpers.getSymbol(variableTree), receiver);
     Nullness nullness =
@@ -129,13 +118,12 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
             .getNullnessAnalysis(state)
             .getNullnessOfAccessPath(
                 new TreePath(state.getPath(), tree), state.context, accessPath);
-    if (nullness == null || nullnessToBool(nullness)) {
-      reportMatch(tree, "expected fields [" + contract + "] are not non-null at call site.");
+    if (nullnessToBool(nullness)) {
+      reportMatch(tree, "expected field [" + contract + "] is not non-null at call site.");
     }
   }
 
   private static boolean nullnessToBool(Nullness nullness) {
-    if (nullness == null) return true;
     switch (nullness) {
       case BOTTOM:
       case NONNULL:
@@ -159,19 +147,14 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
     MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
     String contract = getContractFromAnnotation(methodSymbol);
-    if (contract == null || contract.equals("")) {
+    if (contract == null) {
       return super.onDataflowInitialStore(underlyingAST, parameters, result);
     }
     ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
-    for (Tree member : classTree.getMembers()) {
-      if (member.getKind().equals(Tree.Kind.VARIABLE)) {
-        VariableTree vt = ((VariableTree) member);
-        if (vt.getName().toString().equals(contract)) {
-          AccessPath accessPath = AccessPath.fromFieldAccess(ASTHelpers.getSymbol(vt), null);
-          result.setInformation(accessPath, Nullness.NONNULL);
-        }
-      }
-    }
+    VariableTree variableTree = getFieldFromClass(classTree, contract);
+    AccessPath accessPath =
+        AccessPath.fromFieldAccessNode(ASTHelpers.getSymbol(variableTree), null);
+    result.setInformation(accessPath, Nullness.NONNULL);
     return result;
   }
 
@@ -185,6 +168,38 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
                 errorLocTree,
                 buildDescriptionFromChecker(errorLocTree, analysis),
                 this.state));
+  }
+
+  private static Set<VariableTree> getFieldsOfClass(ClassTree classTree) {
+    Preconditions.checkNotNull(classTree);
+    Set<VariableTree> fields = new HashSet<>();
+    for (Tree t : classTree.getMembers()) {
+      if (t.getKind().equals(Tree.Kind.VARIABLE)) {
+        fields.add(((VariableTree) t));
+      }
+    }
+    return fields;
+  }
+
+  private static VariableTree getFieldFromClass(ClassTree classTree, String name) {
+    Set<VariableTree> fields = getFieldsOfClass(classTree);
+    for (VariableTree field : fields) {
+      if (field.getName().toString().equals(name)) {
+        return field;
+      }
+    }
+    throw new AssertionError(
+        "cannot find field [" + name + "] in class: " + classTree.getSimpleName());
+  }
+
+  private static boolean classContainsFieldWithName(ClassTree classTree, String name) {
+    Set<VariableTree> fields = getFieldsOfClass(classTree);
+    for (VariableTree field : fields) {
+      if (field.getName().toString().equals(name)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private static @Nullable String getContractFromAnnotation(Symbol.MethodSymbol sym) {

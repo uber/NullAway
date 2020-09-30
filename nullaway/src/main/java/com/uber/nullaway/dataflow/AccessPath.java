@@ -155,26 +155,30 @@ public final class AccessPath implements MapKey {
     return new AccessPath(root, elements);
   }
 
-  public static AccessPath fromFieldAccess(Element fieldElement, Node receiver) {
-    List<AccessPathElement> elements = new ArrayList<>();
-    elements.add(new AccessPathElement(fieldElement));
-    Root root;
-    if (receiver == null || receiver.getTree() == null) {
-      root = new Root();
-    } else {
-      root = new Root(ASTHelpers.getSymbol(receiver.getTree()));
+  public static AccessPath fromFieldAccessNode(Element fieldElement, Node nodeReceiver) {
+    Tree receiver = null;
+    if (nodeReceiver != null) {
+      receiver = nodeReceiver.getTree();
     }
-    return new AccessPath(root, elements);
+    return fromFieldAccess(fieldElement, receiver);
   }
 
-  public static AccessPath fromFieldAccessTree(Element fieldElement, MemberSelectTree receiver) {
+  public static AccessPath fromFieldAccessTree(Element fieldElement, MemberSelectTree tree) {
+    Tree receiver = null;
+    if (tree != null) {
+      receiver = tree.getExpression();
+    }
+    return fromFieldAccess(fieldElement, receiver);
+  }
+
+  private static AccessPath fromFieldAccess(Element fieldElement, Tree receiver) {
     List<AccessPathElement> elements = new ArrayList<>();
     elements.add(new AccessPathElement(fieldElement));
     Root root;
     if (receiver == null) {
       root = new Root();
     } else {
-      root = new Root(ASTHelpers.getSymbol(receiver.getExpression()));
+      root = new Root(ASTHelpers.getSymbol(receiver));
     }
     return new AccessPath(root, elements);
   }
