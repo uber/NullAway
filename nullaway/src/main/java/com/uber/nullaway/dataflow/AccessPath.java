@@ -275,15 +275,15 @@ public final class AccessPath implements MapKey {
    * Gets corresponding AccessPath for a class field element.
    *
    * @param fieldElement The class field element.
-   * @param tree The receiver as a {@link MemberSelectTree}.
+   * @param receiver The receiver as a {@link MemberSelectTree}.
    * @return corresponding AccessPath.
    */
-  public static AccessPath fromFieldAccessTree(Element fieldElement, MemberSelectTree tree) {
-    Tree receiver = null;
-    if (tree != null) {
-      receiver = tree.getExpression();
+  public static AccessPath fromFieldAccessTree(Element fieldElement, MemberSelectTree receiver) {
+    Tree tree = null;
+    if (receiver != null) {
+      tree = receiver.getExpression();
     }
-    return fromFieldAccess(fieldElement, receiver);
+    return fromFieldAccess(fieldElement, tree);
   }
 
   /**

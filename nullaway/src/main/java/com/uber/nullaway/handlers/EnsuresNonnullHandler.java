@@ -56,7 +56,7 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
 
   private static final String annotName = "com.uber.nullaway.qual.EnsuresNonnull";
   private static final String thisNotation = "this.";
-  Map<Symbol.MethodSymbol, ClassTree> methodToClass = new HashMap<>();
+  private final Map<Symbol.MethodSymbol, ClassTree> methodToClass = new HashMap<>();
 
   private @Nullable NullAway analysis;
   private @Nullable VisitorState state;
