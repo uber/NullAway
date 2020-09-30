@@ -2641,7 +2641,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void ensuresNonnullBasic() {
+  public void supportEnsuresAndRequiresNonnullConditions() {
     compilationHelper
         .addSourceLines(
             "Foo.java",

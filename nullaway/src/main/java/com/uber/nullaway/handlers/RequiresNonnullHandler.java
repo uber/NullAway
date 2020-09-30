@@ -90,7 +90,6 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
     super.onMatchMethod(analysis, tree, state, methodSymbol);
   }
 
-  @SuppressWarnings("UnusedVariable")
   @Override
   public void onMatchMethodInvocation(
       NullAway analysis,
