@@ -32,6 +32,7 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -40,7 +41,6 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -56,7 +56,6 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
 
   private static final String annotName = "com.uber.nullaway.qual.EnsuresNonnull";
   private static final String thisNotation = "this.";
-  private final Map<Symbol.MethodSymbol, ClassTree> methodToClass = new HashMap<>();
 
   private @Nullable NullAway analysis;
   private @Nullable VisitorState state;
@@ -98,8 +97,6 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
       super.onMatchMethod(analysis, tree, state, methodSymbol);
       return;
     }
-    ClassTree enclosingClass = ASTHelpers.findClass(ASTHelpers.enclosingClass(methodSymbol), state);
-    methodToClass.put(methodSymbol, enclosingClass);
     Set<Element> elements =
         analysis
             .getNullnessAnalysis(state)
@@ -143,7 +140,8 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
     if (fieldName.startsWith(thisNotation)) {
       fieldName = fieldName.substring(thisNotation.length());
     }
-    ClassTree classTree = methodToClass.get(methodSymbol);
+
+    ClassTree classTree = findClassTree(ASTHelpers.enclosingClass(methodSymbol), context);
     VariableTree field = getFieldFromClass(classTree, fieldName);
     AccessPath accessPath =
         AccessPath.fromFieldAccessNode(ASTHelpers.getSymbol(field), node.getTarget().getReceiver());
@@ -162,6 +160,17 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
                 errorLocTree,
                 buildDescriptionFromChecker(errorLocTree, analysis),
                 this.state));
+  }
+
+  /**
+   * Finds the corresponding {@link ClassTree} to a {@link Symbol.ClassSymbol}
+   *
+   * @param classSymbol A {@link Symbol.ClassSymbol}.
+   * @param context Javac {@link Context}.
+   * @return The corresponding {@link ClassTree}.
+   */
+  private ClassTree findClassTree(Symbol.ClassSymbol classSymbol, Context context) {
+    return JavacTrees.instance(context).getTree(classSymbol);
   }
 
   /**
