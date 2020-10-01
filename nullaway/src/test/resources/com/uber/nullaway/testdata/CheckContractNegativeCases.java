@@ -47,8 +47,9 @@ public class CheckContractNegativeCases {
 
   @Nullable Object value = null;
 
-  @Contract("!null -> !null")
-  public @Nullable Object orElse(@Nullable Object other) {
+  @Contract("_ -> !null")
+  public @Nullable Object orElse(Object other) {
+    // 'other' is assumed to NONNULL using the information from method signature
     return value != null ? value : other;
   }
 }

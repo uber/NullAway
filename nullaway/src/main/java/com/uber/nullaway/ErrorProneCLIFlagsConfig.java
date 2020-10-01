@@ -57,7 +57,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_ACKNOWLEDGE_RESTRICTIVE =
       EP_FL_NAMESPACE + ":AcknowledgeRestrictiveAnnotations";
   static final String FL_CHECK_OPTIONAL_EMPTINESS = EP_FL_NAMESPACE + ":CheckOptionalEmptiness";
-  static final String FL_CHECK_CONTRACT = EP_FL_NAMESPACE + ":CheckContract";
+  static final String FL_CHECK_CONTRACT = EP_FL_NAMESPACE + ":CheckContracts";
   static final String FL_HANDLE_TEST_ASSERTION_LIBRARIES =
       EP_FL_NAMESPACE + ":HandleTestAssertionLibraries";
   static final String FL_OPTIONAL_CLASS_PATHS =

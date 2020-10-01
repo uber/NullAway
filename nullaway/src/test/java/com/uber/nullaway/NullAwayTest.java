@@ -203,7 +203,7 @@ public class NullAwayTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:CheckContract=true"))
+                "-XepOpt:NullAway:CheckContracts=true"))
         .addSourceFile("CheckContractPositiveCases.java")
         .doTest();
   }
@@ -216,7 +216,7 @@ public class NullAwayTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:CheckContract=true"))
+                "-XepOpt:NullAway:CheckContracts=true"))
         .addSourceFile("CheckContractNegativeCases.java")
         .doTest();
   }

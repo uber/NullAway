@@ -49,9 +49,8 @@ public class CheckContractPositiveCases {
   @Nullable Object value = null;
 
   @Contract("_ -> !null")
-  public @Nullable Object orElse(Object other) {
-    // So the contract checking uses only the information from contract antecedent and assumes
-    // that other is nullable
+  public @Nullable Object orElse(@Nullable Object other) {
+    // Both contract and method signature assume 'other' is NULLABLE
     // BUG: Diagnostic contains: Method has @Contract
     return value != null ? value : other;
   }

@@ -95,8 +95,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
         @Override
         public Void visitReturn(ReturnTree returnTree, Void unused) {
 
-          final VisitorState returnState =
-              state.withPath(TreePath.getPath(state.getPath(), returnTree));
+          final VisitorState returnState = state.withPath(getCurrentPath());
           final Nullness nullness =
               analysis
                   .getNullnessAnalysis(returnState)
