@@ -70,7 +70,7 @@ public abstract class AbstractConfig implements Config {
 
   protected boolean checkOptionalEmptiness;
 
-  protected boolean checkContract;
+  protected boolean checkContracts;
 
   protected boolean handleTestAssertionLibraries;
 
@@ -198,8 +198,8 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public boolean checkContract() {
-    return checkContract;
+  public boolean checkContracts() {
+    return checkContracts;
   }
 
   @Override

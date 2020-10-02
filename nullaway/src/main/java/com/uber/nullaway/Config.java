@@ -144,7 +144,7 @@ public interface Config {
    */
   boolean checkOptionalEmptiness();
 
-  boolean checkContract();
+  boolean checkContracts();
 
   /**
    * Checks if test assertion library handling is enabled.

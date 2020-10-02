@@ -61,7 +61,7 @@ public class Handlers {
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }
-    if (config.checkContract()) {
+    if (config.checkContracts()) {
       handlerListBuilder.add(new ContractCheckHandler());
     }
 

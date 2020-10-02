@@ -105,10 +105,40 @@ public class ContractCheckHandler extends BaseNoOpHandler {
 
           if (nullness == Nullness.NULLABLE || nullness == Nullness.NULL) {
 
-            final String errorMessage =
-                "Method has @Contract("
-                    + contractString
-                    + "), but this appears to be violated, as a @Nullable value may be returned.";
+            String errorMessage;
+
+            // used for error message
+            int nonNullAntecedentCount = 0;
+            int nonNullAntecedentPosition = -1;
+
+            for (int i = 0; i < antecedent.length; ++i) {
+              String valueConstraint = antecedent[i].trim();
+
+              if (valueConstraint.equals("!null")) {
+                nonNullAntecedentCount += 1;
+                nonNullAntecedentPosition = i;
+              }
+            }
+
+            if (nonNullAntecedentCount == 1) {
+
+              errorMessage =
+                  "Method "
+                      + callee.name
+                      + " has @Contract("
+                      + contractString
+                      + "), but this appears to be violated, as a @Nullable value may be returned when parameter "
+                      + tree.getParameters().get(nonNullAntecedentPosition).getName()
+                      + " is non-null.";
+            } else {
+              errorMessage =
+                  "Method "
+                      + callee.name
+                      + " has @Contract("
+                      + contractString
+                      + "), but this appears to be violated, as a @Nullable value may be returned "
+                      + "when the contract preconditions are true.";
+            }
 
             reportMatchForContractIssue(returnTree, errorMessage, analysis, returnState);
           }
