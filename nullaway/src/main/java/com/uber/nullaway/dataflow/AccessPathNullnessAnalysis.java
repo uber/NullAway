@@ -189,7 +189,7 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
-   * Gets the {@link Nullness} value where an access path leads to at a specific program point.
+   * Gets the {@link Nullness} value of an access path leads to at a specific program point.
    *
    * @param path Tree path to the specific program point.
    * @param context Javac context.

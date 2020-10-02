@@ -26,7 +26,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LiteralTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
@@ -260,40 +259,10 @@ public final class AccessPath implements MapKey {
    * Gets corresponding AccessPath for a class field element.
    *
    * @param fieldElement The class field element.
-   * @param nodeReceiver The receiver as a {@link Node}.
-   * @return corresponding AccessPath.
-   */
-  public static AccessPath fromFieldAccessNode(Element fieldElement, Node nodeReceiver) {
-    Tree receiver = null;
-    if (nodeReceiver != null) {
-      receiver = nodeReceiver.getTree();
-    }
-    return fromFieldAccess(fieldElement, receiver);
-  }
-
-  /**
-   * Gets corresponding AccessPath for a class field element.
-   *
-   * @param fieldElement The class field element.
-   * @param receiver The receiver as a {@link MemberSelectTree}.
-   * @return corresponding AccessPath.
-   */
-  public static AccessPath fromFieldAccessTree(Element fieldElement, MemberSelectTree receiver) {
-    Tree tree = null;
-    if (receiver != null) {
-      tree = receiver.getExpression();
-    }
-    return fromFieldAccess(fieldElement, tree);
-  }
-
-  /**
-   * Gets corresponding AccessPath for a class field element.
-   *
-   * @param fieldElement The class field element.
    * @param receiver The receiver.
    * @return corresponding AccessPath.
    */
-  private static AccessPath fromFieldAccess(Element fieldElement, Tree receiver) {
+  public static AccessPath fromFieldAccess(Element fieldElement, Tree receiver) {
     List<AccessPathElement> elements = new ArrayList<>();
     elements.add(new AccessPathElement(fieldElement));
     Root root;

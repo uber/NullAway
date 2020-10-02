@@ -51,22 +51,14 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.dataflow.cfg.node.Node;
 
-public class EnsuresNonnullHandler extends BaseNoOpHandler {
+public class EnsuresNonNullHandler extends BaseNoOpHandler {
 
-  private static final String annotName = "com.uber.nullaway.qual.EnsuresNonnull";
-  private static final String thisNotation = "this.";
+  private static final String ANNOT_NAME = "EnsuresNonNull";
+  private static final String THIS_NOTATION = "this.";
 
-  private @Nullable NullAway analysis;
-  private @Nullable VisitorState state;
-
-  @Override
-  public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
-    this.analysis = analysis;
-    this.state = state;
-  }
-
+  /** This method verifies that the method adheres to any @EnsuresNonNull annotation. */
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
@@ -79,17 +71,22 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
       if (fieldName.equals("")) {
         // we should not allow useless ensuresNonnull annotations.
         reportMatch(
+            analysis,
+            state,
             tree,
             "empty ensuresNonnull is the default precondition for every method, please remove it.");
         supported = false;
       }
       if (fieldName.contains(".")) {
-        if (!fieldName.startsWith(thisNotation)) {
+        if (!fieldName.startsWith(THIS_NOTATION)) {
           reportMatch(
-              tree, "currently @EnsuresNonnull supports only class fields of the method receiver.");
+              analysis,
+              state,
+              tree,
+              "currently @EnsuresNonnull supports only class fields of the method receiver.");
           supported = false;
         } else {
-          fieldName = fieldName.substring(thisNotation.length());
+          fieldName = fieldName.substring(THIS_NOTATION.length());
         }
       }
     }
@@ -109,6 +106,8 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
     }
     if (!isValidPostCondition) {
       reportMatch(
+          analysis,
+          state,
           tree,
           "field ["
               + fieldName
@@ -137,29 +136,34 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
       return super.onDataflowVisitMethodInvocation(
           node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
     }
-    if (fieldName.startsWith(thisNotation)) {
-      fieldName = fieldName.substring(thisNotation.length());
+    if (fieldName.startsWith(THIS_NOTATION)) {
+      fieldName = fieldName.substring(THIS_NOTATION.length());
     }
 
     ClassTree classTree = findClassTree(ASTHelpers.enclosingClass(methodSymbol), context);
     VariableTree field = getFieldFromClass(classTree, fieldName);
-    AccessPath accessPath =
-        AccessPath.fromFieldAccessNode(ASTHelpers.getSymbol(field), node.getTarget().getReceiver());
+    Tree receiver = null;
+    Node receiverNode = node.getTarget().getReceiver();
+    if (receiverNode != null) {
+      receiver = receiverNode.getTree();
+    }
+    AccessPath accessPath = AccessPath.fromFieldAccess(ASTHelpers.getSymbol(field), receiver);
     bothUpdates.set(accessPath, Nullness.NONNULL);
     return super.onDataflowVisitMethodInvocation(
         node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
   }
 
-  private void reportMatch(Tree errorLocTree, String message) {
-    assert this.analysis != null && this.state != null;
-    this.state.reportMatch(
+  private void reportMatch(
+      NullAway analysis, VisitorState state, Tree errorLocTree, String message) {
+    assert analysis != null && state != null;
+    state.reportMatch(
         analysis
             .getErrorBuilder()
             .createErrorDescription(
                 new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                 errorLocTree,
                 buildDescriptionFromChecker(errorLocTree, analysis),
-                this.state));
+                state));
   }
 
   /**
@@ -205,7 +209,7 @@ public class EnsuresNonnullHandler extends BaseNoOpHandler {
     for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
       Element element = annotation.getAnnotationType().asElement();
       assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
-      if (((TypeElement) element).getQualifiedName().contentEquals(annotName)) {
+      if (((TypeElement) element).getQualifiedName().toString().endsWith(ANNOT_NAME)) {
         for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
             annotation.getElementValues().entrySet()) {
           if (e.getKey().getSimpleName().contentEquals("value")) {

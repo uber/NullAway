@@ -2593,16 +2593,16 @@ public class NullAwayTest {
   }
 
   @Test
-  public void requiresNonnullInterpretation() {
+  public void requiresNonNullInterpretation() {
     compilationHelper
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.qual.RequiresNonnull;",
+            "import com.uber.nullaway.qual.RequiresNonNull;",
             "class Foo {",
             "  @Nullable Item nullItem;",
-            "  @RequiresNonnull(\"nullItem\")",
+            "  @RequiresNonNull(\"nullItem\")",
             "  public void run() {",
             "    nullItem.call();",
             "    nullItem = null;",
@@ -2610,7 +2610,7 @@ public class NullAwayTest {
             "    nullItem.call();",
             "     ",
             "  }",
-            "  @RequiresNonnull(\"this.nullItem\")",
+            "  @RequiresNonNull(\"this.nullItem\")",
             "  public void test() {",
             "    nullItem.call();",
             "  }",
@@ -2621,28 +2621,28 @@ public class NullAwayTest {
   }
 
   @Test
-  public void ensuresNonnullInterpretation() {
+  public void ensuresNonNullInterpretation() {
     compilationHelper
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.qual.EnsuresNonnull;",
+            "import com.uber.nullaway.qual.EnsuresNonNull;",
             "class Foo {",
             "  @Nullable Item nullItem;",
-            "  @EnsuresNonnull(\"nullItem\")",
+            "  @EnsuresNonNull(\"nullItem\")",
             "  public void test1() {",
             "    nullItem = new Item();",
             "  }",
-            "  @EnsuresNonnull(\"nullItem\")",
+            "  @EnsuresNonNull(\"nullItem\")",
             "  // BUG: Diagnostic contains: field [nullItem] is not guaranteed to be nonnull at exit point of method: test2()",
             "  public void test2() {",
             "  }",
-            "  @EnsuresNonnull(\"this.nullItem\")",
+            "  @EnsuresNonNull(\"this.nullItem\")",
             "  public void test3() {",
             "    nullItem = new Item();",
             "  }",
-            "  @EnsuresNonnull(\"other.nullItem\")",
+            "  @EnsuresNonNull(\"other.nullItem\")",
             "  // BUG: Diagnostic contains: currently @EnsuresNonnull supports only class fields of the method receiver.",
             "  public void test4() {",
             "    nullItem = new Item();",
@@ -2654,21 +2654,21 @@ public class NullAwayTest {
   }
 
   @Test
-  public void supportEnsuresAndRequiresNonnullConditions() {
+  public void supportEnsuresAndRequiresNonNullConditions() {
     compilationHelper
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.qual.RequiresNonnull;",
-            "import com.uber.nullaway.qual.EnsuresNonnull;",
+            "import com.uber.nullaway.qual.RequiresNonNull;",
+            "import com.uber.nullaway.qual.EnsuresNonNull;",
             "class Foo {",
             "  @Nullable Item nullItem;",
-            "  @RequiresNonnull(\"nullItem\")",
+            "  @RequiresNonNull(\"nullItem\")",
             "  public void run() {",
             "    nullItem.call();",
             "  }",
-            "  @EnsuresNonnull(\"nullItem\")",
+            "  @EnsuresNonNull(\"nullItem\")",
             "  public void init() {",
             "    nullItem = new Item();",
             "  }",

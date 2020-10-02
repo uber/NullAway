@@ -54,21 +54,12 @@ import javax.lang.model.element.TypeElement;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 
-public class RequiresNonnullHandler extends BaseNoOpHandler {
+public class RequiresNonNullHandler extends BaseNoOpHandler {
 
-  private static final String annotName = "com.uber.nullaway.qual.RequiresNonnull";
-  private static final String thisNotation = "this.";
+  private static final String ANNOT_NAME = "RequiresNonNull";
+  private static final String THIS_NOTATION = "this.";
 
-  private @Nullable NullAway analysis;
-  private @Nullable VisitorState state;
-
-  @Override
-  public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
-    this.analysis = analysis;
-    this.state = state;
-  }
-
+  /** This method verifies that the method adheres to any @RequireNonNull annotation. */
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
@@ -77,16 +68,20 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       if (fieldName.equals("")) {
         // we should not allow useless requiresNonnull annotations.
         reportMatch(
+            analysis,
+            state,
             tree,
             "empty requiresNonnull is the default precondition for every method, please remove it.");
       }
       if (fieldName.contains(".")) {
-        if (!fieldName.startsWith(thisNotation)) {
+        if (!fieldName.startsWith(THIS_NOTATION)) {
           reportMatch(
+              analysis,
+              state,
               tree,
               "currently @RequiresNonnull supports only class fields of the method receiver.");
         } else {
-          fieldName = fieldName.substring(thisNotation.length());
+          fieldName = fieldName.substring(THIS_NOTATION.length());
         }
       }
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
@@ -94,7 +89,11 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       assert classTree != null
           : "can not find the enclosing class for method symbol: " + methodSymbol;
       if (!classContainsFieldWithName(classTree, fieldName)) {
-        reportMatch(tree, "cannot find field [" + fieldName + "] in class: " + classSymbol.name);
+        reportMatch(
+            analysis,
+            state,
+            tree,
+            "cannot find field [" + fieldName + "] in class: " + classSymbol.name);
       }
     }
     super.onMatchMethod(analysis, tree, state, methodSymbol);
@@ -111,27 +110,35 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
       super.onMatchMethodInvocation(analysis, tree, state, methodSymbol);
       return;
     }
-    if (fieldName.startsWith(thisNotation)) {
-      fieldName = fieldName.substring(thisNotation.length());
+    if (fieldName.startsWith(THIS_NOTATION)) {
+      fieldName = fieldName.substring(THIS_NOTATION.length());
     }
     Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
     ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
     assert classTree != null
         : "can not find the enclosing class for method symbol: " + methodSymbol;
-    MemberSelectTree receiver = null; // null receiver means (this) is the receiver.
+    Tree receiver = null; // null receiver means (this) is the receiver.
     if (tree.getMethodSelect() instanceof MemberSelectTree) {
-      receiver = (MemberSelectTree) tree.getMethodSelect();
+      MemberSelectTree memberTree = (MemberSelectTree) tree.getMethodSelect();
+      if (memberTree != null) {
+        receiver = memberTree.getExpression();
+      }
     }
     VariableTree variableTree = getFieldFromClass(classTree, fieldName);
+
     AccessPath accessPath =
-        AccessPath.fromFieldAccessTree(ASTHelpers.getSymbol(variableTree), receiver);
+        AccessPath.fromFieldAccess(ASTHelpers.getSymbol(variableTree), receiver);
     Nullness nullness =
         analysis
             .getNullnessAnalysis(state)
             .getNullnessOfAccessPath(
                 new TreePath(state.getPath(), tree), state.context, accessPath);
     if (nullnessToBool(nullness)) {
-      reportMatch(tree, "expected field [" + fieldName + "] is not non-null at call site.");
+      reportMatch(
+          analysis,
+          state,
+          tree,
+          "expected field [" + fieldName + "] is not non-null at call site.");
     }
   }
 
@@ -162,27 +169,27 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
     if (fieldName == null) {
       return super.onDataflowInitialStore(underlyingAST, parameters, result);
     }
-    if (fieldName.startsWith(thisNotation)) {
-      fieldName = fieldName.substring(thisNotation.length());
+    if (fieldName.startsWith(THIS_NOTATION)) {
+      fieldName = fieldName.substring(THIS_NOTATION.length());
     }
     ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
     VariableTree variableTree = getFieldFromClass(classTree, fieldName);
-    AccessPath accessPath =
-        AccessPath.fromFieldAccessNode(ASTHelpers.getSymbol(variableTree), null);
+    AccessPath accessPath = AccessPath.fromFieldAccess(ASTHelpers.getSymbol(variableTree), null);
     result.setInformation(accessPath, Nullness.NONNULL);
     return result;
   }
 
-  private void reportMatch(Tree errorLocTree, String message) {
-    assert this.analysis != null && this.state != null;
-    this.state.reportMatch(
+  private void reportMatch(
+      NullAway analysis, VisitorState state, Tree errorLocTree, String message) {
+    assert analysis != null && state != null;
+    state.reportMatch(
         analysis
             .getErrorBuilder()
             .createErrorDescription(
                 new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                 errorLocTree,
                 buildDescriptionFromChecker(errorLocTree, analysis),
-                this.state));
+                state));
   }
 
   /**
@@ -246,7 +253,7 @@ public class RequiresNonnullHandler extends BaseNoOpHandler {
     for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
       Element element = annotation.getAnnotationType().asElement();
       assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
-      if (((TypeElement) element).getQualifiedName().contentEquals(annotName)) {
+      if (((TypeElement) element).getQualifiedName().toString().endsWith(ANNOT_NAME)) {
         for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
             annotation.getElementValues().entrySet()) {
           if (e.getKey().getSimpleName().contentEquals("value")) {
