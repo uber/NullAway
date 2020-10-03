@@ -113,6 +113,11 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
     }
   }
 
+  /**
+   * On every method annotated with {@link com.uber.nullaway.qual.EnsuresNonNull}, this method,
+   * injects the {@code Nonnull} value for the class field given in the {@code @EnsuresNonNull}
+   * parameter to the dataflow analysis.
+   */
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
