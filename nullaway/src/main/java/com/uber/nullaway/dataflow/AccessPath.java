@@ -258,18 +258,18 @@ public final class AccessPath implements MapKey {
   /**
    * Gets corresponding AccessPath for a class field element.
    *
-   * @param fieldElement The class field element.
+   * @param field The class field element.
    * @param receiver The receiver.
    * @return corresponding AccessPath.
    */
-  public static AccessPath fromFieldAccess(Element fieldElement, Tree receiver) {
+  public static AccessPath fromFieldAccess(Element field, Element receiver) {
     List<AccessPathElement> elements = new ArrayList<>();
-    elements.add(new AccessPathElement(fieldElement));
+    elements.add(new AccessPathElement(field));
     Root root;
     if (receiver == null) {
       root = new Root();
     } else {
-      root = new Root(ASTHelpers.getSymbol(receiver));
+      root = new Root(receiver);
     }
     return new AccessPath(root, elements);
   }

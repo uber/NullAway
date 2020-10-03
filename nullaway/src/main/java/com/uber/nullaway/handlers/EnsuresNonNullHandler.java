@@ -27,12 +27,9 @@ import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
-import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import com.sun.tools.javac.api.JavacTrees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -140,14 +137,13 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
       fieldName = fieldName.substring(THIS_NOTATION.length());
     }
 
-    ClassTree classTree = findClassTree(ASTHelpers.enclosingClass(methodSymbol), context);
-    VariableTree field = getFieldFromClass(classTree, fieldName);
-    Tree receiver = null;
+    Element field = getFieldFromClass(ASTHelpers.enclosingClass(methodSymbol), fieldName);
+    Element receiver = null;
     Node receiverNode = node.getTarget().getReceiver();
     if (receiverNode != null) {
-      receiver = receiverNode.getTree();
+      receiver = ASTHelpers.getSymbol(receiverNode.getTree());
     }
-    AccessPath accessPath = AccessPath.fromFieldAccess(ASTHelpers.getSymbol(field), receiver);
+    AccessPath accessPath = AccessPath.fromFieldAccess(field, receiver);
     bothUpdates.set(accessPath, Nullness.NONNULL);
     return super.onDataflowVisitMethodInvocation(
         node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
@@ -167,35 +163,23 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
   }
 
   /**
-   * Finds the corresponding {@link ClassTree} to a {@link Symbol.ClassSymbol}
-   *
-   * @param classSymbol A {@link Symbol.ClassSymbol}.
-   * @param context Javac {@link Context}.
-   * @return The corresponding {@link ClassTree}.
-   */
-  private ClassTree findClassTree(Symbol.ClassSymbol classSymbol, Context context) {
-    return JavacTrees.instance(context).getTree(classSymbol);
-  }
-
-  /**
    * Finds a specific field of a class
    *
-   * @param classTree A classTree.
+   * @param classSymbol A class symbol.
    * @param name Name of the field.
    * @return The class field with the given name.
    */
-  private static VariableTree getFieldFromClass(ClassTree classTree, String name) {
-    Preconditions.checkNotNull(classTree);
-    for (Tree member : classTree.getMembers()) {
-      if (member.getKind().equals(Tree.Kind.VARIABLE)) {
-        VariableTree field = (VariableTree) member;
-        if (field.getName().toString().equals(name)) {
-          return field;
+  private static Element getFieldFromClass(Symbol.ClassSymbol classSymbol, String name) {
+    Preconditions.checkNotNull(classSymbol);
+    for (Element member : classSymbol.getEnclosedElements()) {
+      if (member.getKind().isField()) {
+        if (member.getSimpleName().toString().equals(name)) {
+          return member;
         }
       }
     }
     throw new AssertionError(
-        "cannot find field [" + name + "] in class: " + classTree.getSimpleName());
+        "cannot find field [" + name + "] in class: " + classSymbol.getSimpleName());
   }
 
   /**

@@ -32,7 +32,6 @@ import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
-import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
@@ -85,10 +84,9 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
         }
       }
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
-      ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
-      assert classTree != null
+      assert classSymbol != null
           : "can not find the enclosing class for method symbol: " + methodSymbol;
-      if (!classContainsFieldWithName(classTree, fieldName)) {
+      if (!classContainsFieldWithName(classSymbol, fieldName)) {
         reportMatch(
             analysis,
             state,
@@ -114,20 +112,18 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
       fieldName = fieldName.substring(THIS_NOTATION.length());
     }
     Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
-    ClassTree classTree = ASTHelpers.findClass(classSymbol, state);
-    assert classTree != null
+    assert classSymbol != null
         : "can not find the enclosing class for method symbol: " + methodSymbol;
-    Tree receiver = null; // null receiver means (this) is the receiver.
+    Element receiver = null; // null receiver means (this) is the receiver.
     if (tree.getMethodSelect() instanceof MemberSelectTree) {
       MemberSelectTree memberTree = (MemberSelectTree) tree.getMethodSelect();
       if (memberTree != null) {
-        receiver = memberTree.getExpression();
+        receiver = ASTHelpers.getSymbol(memberTree.getExpression());
       }
     }
-    VariableTree variableTree = getFieldFromClass(classTree, fieldName);
+    Element field = getFieldFromClass(classSymbol, fieldName);
 
-    AccessPath accessPath =
-        AccessPath.fromFieldAccess(ASTHelpers.getSymbol(variableTree), receiver);
+    AccessPath accessPath = AccessPath.fromFieldAccess(field, receiver);
     Nullness nullness =
         analysis
             .getNullnessAnalysis(state)
@@ -173,8 +169,8 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
       fieldName = fieldName.substring(THIS_NOTATION.length());
     }
     ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
-    VariableTree variableTree = getFieldFromClass(classTree, fieldName);
-    AccessPath accessPath = AccessPath.fromFieldAccess(ASTHelpers.getSymbol(variableTree), null);
+    Element field = getFieldFromClass(ASTHelpers.getSymbol(classTree), fieldName);
+    AccessPath accessPath = AccessPath.fromFieldAccess(field, null);
     result.setInformation(accessPath, Nullness.NONNULL);
     return result;
   }
@@ -195,15 +191,15 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
   /**
    * Finds all fields of a class
    *
-   * @param classTree A classTree.
+   * @param classSymbol A class symbol.
    * @return The set of classes fields.
    */
-  private static Set<VariableTree> getFieldsOfClass(ClassTree classTree) {
-    Preconditions.checkNotNull(classTree);
-    Set<VariableTree> fields = new HashSet<>();
-    for (Tree t : classTree.getMembers()) {
-      if (t.getKind().equals(Tree.Kind.VARIABLE)) {
-        fields.add(((VariableTree) t));
+  private static Set<Element> getFieldsOfClass(Symbol.ClassSymbol classSymbol) {
+    Preconditions.checkNotNull(classSymbol);
+    Set<Element> fields = new HashSet<>();
+    for (Element t : classSymbol.getEnclosedElements()) {
+      if (t.getKind().isField()) {
+        fields.add(t);
       }
     }
     return fields;
@@ -212,30 +208,30 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
   /**
    * Finds a specific field of a class
    *
-   * @param classTree A classTree.
+   * @param classSymbol A class symbol.
    * @param name Name of the field.
    * @return The class field with the given name.
    */
-  private static VariableTree getFieldFromClass(ClassTree classTree, String name) {
-    Set<VariableTree> fields = getFieldsOfClass(classTree);
-    for (VariableTree field : fields) {
-      if (field.getName().toString().equals(name)) {
+  private static Element getFieldFromClass(Symbol.ClassSymbol classSymbol, String name) {
+    Set<Element> fields = getFieldsOfClass(classSymbol);
+    for (Element field : fields) {
+      if (field.getSimpleName().toString().equals(name)) {
         return field;
       }
     }
     throw new AssertionError(
-        "cannot find field [" + name + "] in class: " + classTree.getSimpleName());
+        "cannot find field [" + name + "] in class: " + classSymbol.getSimpleName());
   }
 
   /**
-   * @param classTree A classTree.
+   * @param classSymbol A class symbol.
    * @param name Name of the field.
    * @return true, if the class contains a field with the given name.
    */
-  private static boolean classContainsFieldWithName(ClassTree classTree, String name) {
-    Set<VariableTree> fields = getFieldsOfClass(classTree);
-    for (VariableTree field : fields) {
-      if (field.getName().toString().equals(name)) {
+  private static boolean classContainsFieldWithName(Symbol.ClassSymbol classSymbol, String name) {
+    Set<Element> fields = getFieldsOfClass(classSymbol);
+    for (Element field : fields) {
+      if (field.getSimpleName().toString().equals(name)) {
         return true;
       }
     }
