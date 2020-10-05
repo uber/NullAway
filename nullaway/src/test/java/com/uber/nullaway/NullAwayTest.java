@@ -2621,6 +2621,52 @@ public class NullAwayTest {
   }
 
   @Test
+  public void supportRequiresNonNullOverridingTest() {
+    compilationHelper
+        .addSourceLines(
+            "SuperClass.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.RequiresNonNull;",
+            "class SuperClass {",
+            "  @Nullable Item a;",
+            "  public void test1() {",
+            "  }",
+            "  @RequiresNonNull(\"a\")",
+            "  public void test2() {",
+            "    a.call();",
+            "  }",
+            "  @RequiresNonNull(\"a\")",
+            "  public void test3() {",
+            "    a.call();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "ChildLevelOne.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.RequiresNonNull;",
+            "class ChildLevelOne extends SuperClass {",
+            "  @Nullable Item b;",
+            "  public void test1() {",
+            "    // BUG: Diagnostic contains: dereferenced expression a is @Nullable",
+            "    a.call();",
+            "  }",
+            "  public void test2() {",
+            "    a.call();",
+            "  }",
+            "  @RequiresNonNull(\"b\")",
+            "  public void test3() {",
+            "    a.call();",
+            "    b.call();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
   public void ensuresNonNullInterpretation() {
     compilationHelper
         .addSourceLines(
@@ -2635,7 +2681,7 @@ public class NullAwayTest {
             "    nullItem = new Item();",
             "  }",
             "  @EnsuresNonNull(\"nullItem\")",
-            "  // BUG: Diagnostic contains: field [nullItem] is not guaranteed to be nonnull at exit point of method: test2()",
+            "  // BUG: Diagnostic contains: method: test2() is annotated with @EnsuresNonNull annotation, it indicates that  field [nullItem] must be guaranteed to be nonnull at exit point and it does not",
             "  public void test2() {",
             "  }",
             "  @EnsuresNonNull(\"this.nullItem\")",
@@ -2647,6 +2693,59 @@ public class NullAwayTest {
             "  public void test4() {",
             "    nullItem = new Item();",
             "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportEnsuresNonNullOverridingTest() {
+    compilationHelper
+        .addSourceLines(
+            "SuperClass.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.EnsuresNonNull;",
+            "class SuperClass {",
+            "  @Nullable Item a;",
+            //                    "  @EnsuresNonNull(\"a\")",
+            //                    "  public void test1() {",
+            //                    "    a = new Item();",
+            //                    "  }",
+            "  @EnsuresNonNull(\"a\")",
+            "  public void test2() {",
+            "    a = new Item();",
+            "  }",
+            //                    "  @EnsuresNonNull(\"a\")",
+            //                    "  public void noAnnotation() {",
+            //                    "    a = new Item();",
+            //                    "  }",
+            "}")
+        .addSourceLines(
+            "ChildLevelOne.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.EnsuresNonNull;",
+            "class ChildLevelOne extends SuperClass {",
+            "  @Nullable Item b;",
+            //                    "  @EnsuresNonNull(\"b\")",
+            //                    "  // BUG: Diagnostic contains: Fields [a] are not guaranteed to
+            // be Nonnull at exit point and it violates the overriding rule since super methods are
+            // annotated with @EnsuresNonNull annotation.",
+            //                    "  public void test1() {",
+            //                    "    b = new Item();",
+            //                    "  }",
+            "  @EnsuresNonNull(\"b\")",
+            "  public void test2() {",
+            "    super.test2();",
+            "    b = new Item();",
+            "  }",
+            //                    "  // BUG: Diagnostic contains: Fields [a] are not guaranteed to
+            // be Nonnull at exit point and it violates the overriding rule since super methods are
+            // annotated with @EnsuresNonNull annotation.",
+            //                    "  public void noAnnotation() {",
+            //                    "  }",
             "}")
         .addSourceLines(
             "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")

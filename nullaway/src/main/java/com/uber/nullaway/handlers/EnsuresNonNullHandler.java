@@ -38,6 +38,8 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nullable;
@@ -60,6 +62,40 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
     Preconditions.checkNotNull(methodSymbol);
+    boolean isValidAnnotation = checkAnnotationValidation(analysis, tree, state, methodSymbol);
+    if (tree.getBody() != null) {
+      Set<Element> elements =
+          analysis
+              .getNullnessAnalysis(state)
+              .getNonnullFieldsOfReceiverAtExit(new TreePath(state.getPath(), tree), state.context);
+      if (isValidAnnotation) {
+        String fieldName = getFieldNameFromAnnotation(methodSymbol);
+        // skip abstract methods
+        boolean isValidLocalPostCondition = false;
+        for (Element element : elements) {
+          if (element.getSimpleName().toString().equals(fieldName)) {
+            isValidLocalPostCondition = true;
+            break;
+          }
+        }
+        if (!isValidLocalPostCondition) {
+          reportMatch(
+              analysis,
+              state,
+              tree,
+              "method: "
+                  + methodSymbol
+                  + " is annotated with @EnsuresNonNull annotation, it indicates that  field ["
+                  + fieldName
+                  + "] must be guaranteed to be nonnull at exit point and it does not");
+        }
+      }
+      checkOverridingConditions(analysis, tree, methodSymbol, state, elements);
+    }
+  }
+
+  private boolean checkAnnotationValidation(
+      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
     String fieldName = getFieldNameFromAnnotation(methodSymbol);
     boolean supported = true;
     if (fieldName == null) {
@@ -74,43 +110,42 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
             "empty ensuresNonnull is the default precondition for every method, please remove it.");
         supported = false;
       }
-      if (fieldName.contains(".")) {
-        if (!fieldName.startsWith(THIS_NOTATION)) {
-          reportMatch(
-              analysis,
-              state,
-              tree,
-              "currently @EnsuresNonnull supports only class fields of the method receiver.");
-          supported = false;
-        } else {
-          fieldName = fieldName.substring(THIS_NOTATION.length());
-        }
+      if (fieldName.contains(".") && !fieldName.startsWith(THIS_NOTATION)) {
+        reportMatch(
+            analysis,
+            state,
+            tree,
+            "currently @EnsuresNonnull supports only class fields of the method receiver.");
+        supported = false;
       }
     }
-    if (!supported) {
-      super.onMatchMethod(analysis, tree, state, methodSymbol);
+    return supported;
+  }
+
+  private void checkOverridingConditions(
+      NullAway analysis,
+      MethodTree tree,
+      Symbol.MethodSymbol methodSymbol,
+      VisitorState state,
+      Set<Element> elements) {
+    Set<String> fields = getSuperMethodEnsuresNonNullFields(methodSymbol, state);
+    for (Element element : elements) {
+      fields.remove(element.getSimpleName().toString());
+    }
+    if (fields.size() == 0) {
       return;
     }
-    Set<Element> elements =
-        analysis
-            .getNullnessAnalysis(state)
-            .getNonnullFieldsOfReceiverAtExit(new TreePath(state.getPath(), tree), state.context);
-    boolean isValidPostCondition = false;
-    for (Element element : elements) {
-      if (element.getKind().isField() && element.getSimpleName().toString().equals(fieldName)) {
-        isValidPostCondition = true;
+    StringBuilder errorMessage = new StringBuilder("Fields [");
+    Iterator<String> iterator = fields.iterator();
+    while (iterator.hasNext()) {
+      errorMessage.append(iterator.next());
+      if (iterator.hasNext()) {
+        errorMessage.append(", ");
       }
     }
-    if (!isValidPostCondition) {
-      reportMatch(
-          analysis,
-          state,
-          tree,
-          "field ["
-              + fieldName
-              + "] is not guaranteed to be nonnull at exit point of method: "
-              + methodSymbol);
-    }
+    errorMessage.append(
+        "] are not guaranteed to be Nonnull at exit point and it violates the overriding rule since super methods are annotated with @EnsuresNonNull annotation.");
+    reportMatch(analysis, state, tree, errorMessage.toString());
   }
 
   /**
@@ -141,7 +176,6 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
     if (fieldName.startsWith(THIS_NOTATION)) {
       fieldName = fieldName.substring(THIS_NOTATION.length());
     }
-
     Element field = getFieldFromClass(ASTHelpers.enclosingClass(methodSymbol), fieldName);
     Element receiver = null;
     Node receiverNode = node.getTarget().getReceiver();
@@ -185,6 +219,29 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
     }
     throw new AssertionError(
         "cannot find field [" + name + "] in class: " + classSymbol.getSimpleName());
+  }
+
+  /**
+   * Finds the set of fields that are given as param in {@link
+   * com.uber.nullaway.qual.EnsuresNonNull} annotation through all super methods.
+   *
+   * @param methodSymbol A method symbol.
+   * @param state Javac Visoitor State.
+   * @return Set of fields name in {@code String}.
+   */
+  private static Set<String> getSuperMethodEnsuresNonNullFields(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    Preconditions.checkNotNull(methodSymbol);
+    Set<Symbol.MethodSymbol> superMethods =
+        ASTHelpers.findSuperMethods(methodSymbol, state.getTypes());
+    Set<String> fieldNames = new HashSet<>();
+    for (Symbol.MethodSymbol superMethodSymbol : superMethods) {
+      String field = getFieldNameFromAnnotation(superMethodSymbol);
+      if (field != null) {
+        fieldNames.add(field);
+      }
+    }
+    return fieldNames;
   }
 
   /**

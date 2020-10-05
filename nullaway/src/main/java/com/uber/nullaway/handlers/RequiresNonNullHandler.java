@@ -39,6 +39,7 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.NullnessStore;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -57,11 +58,13 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
 
   private static final String ANNOT_NAME = "RequiresNonNull";
   private static final String THIS_NOTATION = "this.";
+  private static final Map<MethodTree, Set<String>> METHOD_FIELDS_MAP = new HashMap<>();
 
   /** This method verifies that the method adheres to any @RequireNonNull annotation. */
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+    Set<String> fields = new HashSet<>();
     String fieldName = getFieldNameFromAnnotation(methodSymbol);
     if (fieldName != null) {
       if (fieldName.equals("")) {
@@ -86,13 +89,18 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
       assert classSymbol != null
           : "can not find the enclosing class for method symbol: " + methodSymbol;
-      if (!classContainsFieldWithName(classSymbol, fieldName)) {
+      if (getFieldFromClassAndSuperClasses(classSymbol, fieldName) == null) {
         reportMatch(
             analysis,
             state,
             tree,
             "cannot find field [" + fieldName + "] in class: " + classSymbol.name);
       }
+      fields.add(fieldName);
+    }
+    fields.addAll(getSuperMethodRequiresNonNullFields(methodSymbol, state));
+    if (fields.size() > 0) {
+      METHOD_FIELDS_MAP.put(tree, fields);
     }
     super.onMatchMethod(analysis, tree, state, methodSymbol);
   }
@@ -121,7 +129,9 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
         receiver = ASTHelpers.getSymbol(memberTree.getExpression());
       }
     }
-    Element field = getFieldFromClass(classSymbol, fieldName);
+    Element field = getFieldFromClassAndSuperClasses(classSymbol, fieldName);
+    assert field != null
+        : "Could not find field: [" + fieldName + "]" + "for class: " + classSymbol;
 
     AccessPath accessPath = AccessPath.fromFieldAccess(field, receiver);
     Nullness nullness =
@@ -165,18 +175,21 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
       return super.onDataflowInitialStore(underlyingAST, parameters, result);
     }
     MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
-    String fieldName = getFieldNameFromAnnotation(methodSymbol);
-    if (fieldName == null) {
-      return super.onDataflowInitialStore(underlyingAST, parameters, result);
-    }
-    if (fieldName.startsWith(THIS_NOTATION)) {
-      fieldName = fieldName.substring(THIS_NOTATION.length());
-    }
     ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
-    Element field = getFieldFromClass(ASTHelpers.getSymbol(classTree), fieldName);
-    AccessPath accessPath = AccessPath.fromFieldAccess(field, null);
-    result.setInformation(accessPath, Nullness.NONNULL);
+    Set<String> fields = METHOD_FIELDS_MAP.get(methodTree);
+    if (fields == null) {
+      return result;
+    }
+    for (String fieldName : fields) {
+      if (fieldName.startsWith(THIS_NOTATION)) {
+        fieldName = fieldName.substring(THIS_NOTATION.length());
+      }
+      Element field = getFieldFromClassAndSuperClasses(ASTHelpers.getSymbol(classTree), fieldName);
+      assert field != null
+          : "Could not find field: [" + fieldName + "]" + "for class: " + classTree.getSimpleName();
+      AccessPath accessPath = AccessPath.fromFieldAccess(field, null);
+      result.setInformation(accessPath, Nullness.NONNULL);
+    }
     return result;
   }
 
@@ -194,7 +207,7 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
   }
 
   /**
-   * Finds all fields of a class
+   * Finds all declared fields of a class
    *
    * @param classSymbol A class symbol.
    * @return The set of classes fields.
@@ -211,36 +224,48 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
   }
 
   /**
-   * Finds a specific field of a class
+   * Finds a specific field of a class considering it's super classes
    *
    * @param classSymbol A class symbol.
    * @param name Name of the field.
-   * @return The class field with the given name.
+   * @return The closest class field element with the given name.
    */
-  private static Element getFieldFromClass(Symbol.ClassSymbol classSymbol, String name) {
+  private static Element getFieldFromClassAndSuperClasses(
+      Symbol.ClassSymbol classSymbol, String name) {
     Set<Element> fields = getFieldsOfClass(classSymbol);
     for (Element field : fields) {
       if (field.getSimpleName().toString().equals(name)) {
         return field;
       }
     }
-    throw new AssertionError(
-        "cannot find field [" + name + "] in class: " + classSymbol.getSimpleName());
+    Symbol.ClassSymbol superClass = (Symbol.ClassSymbol) classSymbol.getSuperclass().tsym;
+    if (superClass != null) {
+      return getFieldFromClassAndSuperClasses(superClass, name);
+    }
+    return null;
   }
 
   /**
-   * @param classSymbol A class symbol.
-   * @param name Name of the field.
-   * @return true, if the class contains a field with the given name.
+   * Finds the set of fields that are given as param in {@link
+   * com.uber.nullaway.qual.RequiresNonNull} annotation through all super methods.
+   *
+   * @param methodSymbol A method symbol.
+   * @param state Javac Visoitor State.
+   * @return Set of fields name in {@code String}.
    */
-  private static boolean classContainsFieldWithName(Symbol.ClassSymbol classSymbol, String name) {
-    Set<Element> fields = getFieldsOfClass(classSymbol);
-    for (Element field : fields) {
-      if (field.getSimpleName().toString().equals(name)) {
-        return true;
+  private static Set<String> getSuperMethodRequiresNonNullFields(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    Preconditions.checkNotNull(methodSymbol);
+    Set<Symbol.MethodSymbol> superMethods =
+        ASTHelpers.findSuperMethods(methodSymbol, state.getTypes());
+    Set<String> fieldNames = new HashSet<>();
+    for (Symbol.MethodSymbol superMethodSymbol : superMethods) {
+      String field = getFieldNameFromAnnotation(superMethodSymbol);
+      if (field != null) {
+        fieldNames.add(field);
       }
     }
-    return false;
+    return fieldNames;
   }
 
   /**
