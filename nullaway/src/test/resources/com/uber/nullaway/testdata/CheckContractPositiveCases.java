@@ -41,8 +41,7 @@ public class CheckContractPositiveCases {
   Object fooTwo(Object a, @Nullable Object b) {
     if (b != null) {
       // BUG: Diagnostic contains: Method fooTwo has @Contract(_, !null -> !null), but this appears
-      // to be violated,
-      // as a @Nullable value may be returned when parameter b is non-null.
+      // to be violated, as a @Nullable value may be returned when parameter b is non-null.
       return null;
     }
     return new Object();
@@ -53,8 +52,7 @@ public class CheckContractPositiveCases {
   Object fooThree(Object a, @Nullable Object b, Object c) {
     if (b != null) {
       // BUG: Diagnostic contains:  Method fooThree has @Contract(_, !null, _ -> !null), but this
-      // appears to be
-      // violated, as a @Nullable value may be returned when parameter b is non-null.
+      // appears to be violated, as a @Nullable value may be returned when parameter b is non-null.
       return null;
     }
     return new Object();
@@ -65,8 +63,8 @@ public class CheckContractPositiveCases {
   Object fooFour(Object a, @Nullable Object b, Object c, Object d) {
     if (b != null) {
       // BUG: Diagnostic contains: Method fooFour has @Contract(_, !null, !null, _ -> !null), but
-      // this appears to be
-      // violated, as a @Nullable value may be returned when the contract preconditions are true.
+      // this appears to be violated, as a @Nullable value may be returned when the contract
+      // preconditions are true.
       return null;
     }
     return new Object();
@@ -78,8 +76,7 @@ public class CheckContractPositiveCases {
   public @Nullable Object orElse(@Nullable Object other) {
     // Both contract and method signature assume 'other' is NULLABLE
     // BUG: Diagnostic contains: Method orElse has @Contract(_ -> !null), but this appears to be
-    // violated, as a
-    // @Nullable value may be returned when the contract preconditions are true.
+    // violated, as a @Nullable value may be returned when the contract preconditions are true.
     return value != null ? value : other;
   }
 }
