@@ -53,7 +53,7 @@ import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
  * interface. Additionally, we can add extensibility points without breaking existing handlers, as
  * long as we define the corresponding No-Op behavior here.
  */
-abstract class BaseNoOpHandler implements Handler {
+public abstract class BaseNoOpHandler implements Handler {
 
   protected BaseNoOpHandler() {
     // We don't allow creating useless handlers, subclass to add real behavior.

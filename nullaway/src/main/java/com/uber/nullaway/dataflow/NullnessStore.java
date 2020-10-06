@@ -117,7 +117,7 @@ public class NullnessStore implements Store<NullnessStore> {
     return result;
   }
 
-  Builder toBuilder() {
+  public Builder toBuilder() {
     return new Builder(this);
   }
 

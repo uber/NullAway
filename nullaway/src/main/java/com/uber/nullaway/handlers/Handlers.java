@@ -24,6 +24,8 @@ package com.uber.nullaway.handlers;
 
 import com.google.common.collect.ImmutableList;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.handlers.contract.ContractCheckHandler;
+import com.uber.nullaway.handlers.contract.ContractHandler;
 
 /** Utility static methods for the handlers package. */
 public class Handlers {
@@ -59,6 +61,10 @@ public class Handlers {
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }
+    if (config.checkContracts()) {
+      handlerListBuilder.add(new ContractCheckHandler());
+    }
+
     return new CompositeHandler(handlerListBuilder.build());
   }
 
