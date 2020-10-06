@@ -221,7 +221,6 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
     if (fieldName.startsWith(THIS_NOTATION)) {
       fieldName = fieldName.substring(THIS_NOTATION.length());
     }
-    System.out.println("Method: " + methodTree);
     Element field = getFieldFromClassAndSuperClasses(ASTHelpers.getSymbol(classTree), fieldName);
     assert field != null
         : "Could not find field: [" + fieldName + "]" + "for class: " + classTree.getSimpleName();
