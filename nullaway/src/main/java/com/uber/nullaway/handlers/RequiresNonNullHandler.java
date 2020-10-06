@@ -64,16 +64,64 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+    boolean isValidAnnotation = checkAnnotationValidation(analysis, tree, state, methodSymbol);
+    if (!isValidAnnotation) {
+      return;
+    }
     String fieldName = getFieldNameFromAnnotation(methodSymbol);
-    if (fieldName != null) {
+    Preconditions.checkNotNull(fieldName);
+    fieldName = trimFieldName(fieldName);
+    Symbol.MethodSymbol closestOverriddenMethod =
+        getClosestOverriddenMethod(methodSymbol, state.getTypes());
+    if (closestOverriddenMethod == null) {
+      return;
+    }
+    String fieldNameInSuperMethod = getFieldNameFromAnnotation(closestOverriddenMethod);
+    if (fieldNameInSuperMethod == null) {
+      reportMatch(
+          analysis,
+          state,
+          tree,
+          "method in child class cannot have a stricter precondition than the overridden super method");
+      return;
+    }
+    fieldNameInSuperMethod = trimFieldName(fieldNameInSuperMethod);
+    if (!fieldName.equals(fieldNameInSuperMethod)) {
+      reportMatch(
+          analysis,
+          state,
+          tree,
+          "method: "
+              + methodSymbol
+              + " in child class: "
+              + ASTHelpers.enclosingClass(methodSymbol)
+              + " requires ["
+              + fieldName
+              + "] to be @NonNull and in super class: "
+              + ASTHelpers.enclosingClass(closestOverriddenMethod)
+              + " requires ["
+              + fieldNameInSuperMethod
+              + "] to be @NonNull,"
+              + " preconditions in child class method should be equal to the preconditions of overridden method in super class");
+      return;
+    }
+    super.onMatchMethod(analysis, tree, state, methodSymbol);
+  }
+
+  private boolean checkAnnotationValidation(
+      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+    String fieldName = getFieldNameFromAnnotation(methodSymbol);
+    if (fieldName == null) {
+      return false;
+    } else {
       if (fieldName.equals("")) {
-        // we should not allow useless requiresNonnull annotations.
+        // we should not allow useless ensuresNonnull annotations.
         reportMatch(
             analysis,
             state,
             tree,
-            "empty requiresNonnull is the default precondition for every method, please remove it.");
-        return;
+            "empty ensuresNonnull is the default precondition for every method, please remove it.");
+        return false;
       }
       if (fieldName.contains(".")) {
         if (!fieldName.startsWith(THIS_NOTATION)) {
@@ -81,59 +129,24 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
               analysis,
               state,
               tree,
-              "currently @RequiresNonnull supports only class fields of the method receiver.");
-          return;
+              "currently @EnsuresNonnull supports only class fields of the method receiver.");
+          return false;
         } else {
           fieldName = fieldName.substring(THIS_NOTATION.length());
         }
       }
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
-      assert classSymbol != null
-          : "can not find the enclosing class for method symbol: " + methodSymbol;
       Element field = getFieldFromClassAndSuperClasses(classSymbol, fieldName);
       if (field == null) {
         reportMatch(
             analysis,
             state,
             tree,
-            "cannot find field [" + fieldName + "] in class: " + classSymbol.name);
-        return;
-      }
-      Symbol.MethodSymbol closestOverriddenMethod =
-          getClosestOverriddenMethod(methodSymbol, state.getTypes());
-      if (closestOverriddenMethod != null) {
-        String fieldNameInSuperMethod = getFieldNameFromAnnotation(closestOverriddenMethod);
-        if (fieldNameInSuperMethod == null) {
-          reportMatch(
-              analysis,
-              state,
-              tree,
-              "method in child class cannot have a stricter precondition than the overridden super method");
-          return;
-        }
-        fieldNameInSuperMethod = trimFieldName(fieldNameInSuperMethod);
-        if (!fieldName.equals(fieldNameInSuperMethod)) {
-          reportMatch(
-              analysis,
-              state,
-              tree,
-              "method: "
-                  + methodSymbol
-                  + " in child class: "
-                  + classSymbol
-                  + " requires ["
-                  + fieldName
-                  + "] to be @NonNull and in super class: "
-                  + ASTHelpers.enclosingClass(closestOverriddenMethod)
-                  + " requires ["
-                  + fieldNameInSuperMethod
-                  + "] to be @NonNull,"
-                  + " preconditions in child class method should be equal to the preconditions of overridden method in super class");
-          return;
-        }
+            "cannot find field [" + fieldName + "] in class: " + classSymbol.getSimpleName());
+        return false;
       }
     }
-    super.onMatchMethod(analysis, tree, state, methodSymbol);
+    return true;
   }
 
   @Override

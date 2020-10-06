@@ -61,40 +61,40 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
-    Preconditions.checkNotNull(methodSymbol);
     boolean isValidAnnotation = checkAnnotationValidation(analysis, tree, state, methodSymbol);
-    if (tree.getBody() != null) {
-      Set<Element> elements =
-          analysis
-              .getNullnessAnalysis(state)
-              .getNonnullFieldsOfReceiverAtExit(new TreePath(state.getPath(), tree), state.context);
-      if (isValidAnnotation) {
-        String fieldName = getFieldNameFromAnnotation(methodSymbol);
-        if (fieldName.startsWith(THIS_NOTATION)) {
-          fieldName = fieldName.substring(THIS_NOTATION.length());
-        }
-        // skip abstract methods
-        boolean isValidLocalPostCondition = false;
-        for (Element element : elements) {
-          if (element.getSimpleName().toString().equals(fieldName)) {
-            isValidLocalPostCondition = true;
-            break;
-          }
-        }
-        if (!isValidLocalPostCondition) {
-          reportMatch(
-              analysis,
-              state,
-              tree,
-              "method: "
-                  + methodSymbol
-                  + " is annotated with @EnsuresNonNull annotation, it indicates that field ["
-                  + fieldName
-                  + "] must be guaranteed to be nonnull at exit point and it does not");
-        }
-      }
-      checkOverridingConditions(analysis, tree, methodSymbol, state, elements);
+    if (!isValidAnnotation) {
+      return;
     }
+    // skip abstract methods
+    if (tree.getBody() == null) {
+      return;
+    }
+    Set<Element> elements =
+        analysis
+            .getNullnessAnalysis(state)
+            .getNonnullFieldsOfReceiverAtExit(new TreePath(state.getPath(), tree), state.context);
+    String fieldName = getFieldNameFromAnnotation(methodSymbol);
+    Preconditions.checkNotNull(fieldName);
+    fieldName = trimFieldName(fieldName);
+    boolean isValidLocalPostCondition = false;
+    for (Element element : elements) {
+      if (element.getSimpleName().toString().equals(fieldName)) {
+        isValidLocalPostCondition = true;
+        break;
+      }
+    }
+    if (!isValidLocalPostCondition) {
+      reportMatch(
+          analysis,
+          state,
+          tree,
+          "method: "
+              + methodSymbol
+              + " is annotated with @EnsuresNonNull annotation, it indicates that field ["
+              + fieldName
+              + "] must be guaranteed to be nonnull at exit point and it does not");
+    }
+    checkOverridingConditions(analysis, tree, methodSymbol, state, elements);
   }
 
   private boolean checkAnnotationValidation(
@@ -136,6 +136,13 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
       }
     }
     return true;
+  }
+
+  private static String trimFieldName(String fieldName) {
+    if (fieldName.startsWith(THIS_NOTATION)) {
+      return fieldName.substring(THIS_NOTATION.length());
+    }
+    return fieldName;
   }
 
   private void checkOverridingConditions(
@@ -189,9 +196,7 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
       return super.onDataflowVisitMethodInvocation(
           node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
     }
-    if (fieldName.startsWith(THIS_NOTATION)) {
-      fieldName = fieldName.substring(THIS_NOTATION.length());
-    }
+    fieldName = trimFieldName(fieldName);
     Element field = getFieldFromClass(ASTHelpers.enclosingClass(methodSymbol), fieldName);
     assert field != null
         : "cannot find field ["
