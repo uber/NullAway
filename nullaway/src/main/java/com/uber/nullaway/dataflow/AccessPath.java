@@ -266,7 +266,9 @@ public final class AccessPath implements MapKey {
     List<AccessPathElement> elements = new ArrayList<>();
     elements.add(new AccessPathElement(field));
     Root root;
-    if (receiver == null) {
+    if (receiver == null
+        || receiver.toString().equals("super")
+        || receiver.toString().equals("this")) {
       root = new Root();
     } else {
       root = new Root(receiver);
