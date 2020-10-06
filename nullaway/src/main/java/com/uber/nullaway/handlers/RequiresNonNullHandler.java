@@ -34,12 +34,13 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.NullnessStore;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -58,13 +59,11 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
 
   private static final String ANNOT_NAME = "RequiresNonNull";
   private static final String THIS_NOTATION = "this.";
-  private static final Map<MethodTree, Set<String>> METHOD_FIELDS_MAP = new HashMap<>();
 
   /** This method verifies that the method adheres to any @RequireNonNull annotation. */
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
-    Set<String> fields = new HashSet<>();
     String fieldName = getFieldNameFromAnnotation(methodSymbol);
     if (fieldName != null) {
       if (fieldName.equals("")) {
@@ -74,6 +73,7 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
             state,
             tree,
             "empty requiresNonnull is the default precondition for every method, please remove it.");
+        return;
       }
       if (fieldName.contains(".")) {
         if (!fieldName.startsWith(THIS_NOTATION)) {
@@ -82,6 +82,7 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
               state,
               tree,
               "currently @RequiresNonnull supports only class fields of the method receiver.");
+          return;
         } else {
           fieldName = fieldName.substring(THIS_NOTATION.length());
         }
@@ -89,18 +90,48 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
       assert classSymbol != null
           : "can not find the enclosing class for method symbol: " + methodSymbol;
-      if (getFieldFromClassAndSuperClasses(classSymbol, fieldName) == null) {
+      Element field = getFieldFromClassAndSuperClasses(classSymbol, fieldName);
+      if (field == null) {
         reportMatch(
             analysis,
             state,
             tree,
             "cannot find field [" + fieldName + "] in class: " + classSymbol.name);
+        return;
       }
-      fields.add(fieldName);
-    }
-    fields.addAll(getSuperMethodRequiresNonNullFields(methodSymbol, state));
-    if (fields.size() > 0) {
-      METHOD_FIELDS_MAP.put(tree, fields);
+      Symbol.MethodSymbol closestOverriddenMethod =
+          getClosestOverriddenMethod(methodSymbol, state.getTypes());
+      if (closestOverriddenMethod != null) {
+        String fieldNameInSuperMethod = getFieldNameFromAnnotation(closestOverriddenMethod);
+        if (fieldNameInSuperMethod == null) {
+          reportMatch(
+              analysis,
+              state,
+              tree,
+              "method in child class cannot have a stricter precondition than the overridden super method");
+          return;
+        }
+        fieldNameInSuperMethod = trimFieldName(fieldNameInSuperMethod);
+        if (!fieldName.equals(fieldNameInSuperMethod)) {
+          reportMatch(
+              analysis,
+              state,
+              tree,
+              "method: "
+                  + methodSymbol
+                  + " in child class: "
+                  + classSymbol
+                  + " requires ["
+                  + fieldName
+                  + "] to be @NonNull and in super class: "
+                  + ASTHelpers.enclosingClass(closestOverriddenMethod)
+                  + " requires ["
+                  + fieldNameInSuperMethod
+                  + "] to be @NonNull,"
+                  + " preconditions in child class method should be equal to the preconditions of overridden method in super class");
+          return;
+        }
+      }
     }
     super.onMatchMethod(analysis, tree, state, methodSymbol);
   }
@@ -148,6 +179,13 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
     }
   }
 
+  private static String trimFieldName(String fieldName) {
+    if (fieldName.startsWith(THIS_NOTATION)) {
+      return fieldName.substring(THIS_NOTATION.length());
+    }
+    return fieldName;
+  }
+
   private static boolean nullnessToBool(Nullness nullness) {
     switch (nullness) {
       case BOTTOM:
@@ -176,20 +214,19 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
     }
     MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
     ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
-    Set<String> fields = METHOD_FIELDS_MAP.get(methodTree);
-    if (fields == null) {
+    String fieldName = getFieldNameFromAnnotation(ASTHelpers.getSymbol(methodTree));
+    if (fieldName == null) {
       return result;
     }
-    for (String fieldName : fields) {
-      if (fieldName.startsWith(THIS_NOTATION)) {
-        fieldName = fieldName.substring(THIS_NOTATION.length());
-      }
-      Element field = getFieldFromClassAndSuperClasses(ASTHelpers.getSymbol(classTree), fieldName);
-      assert field != null
-          : "Could not find field: [" + fieldName + "]" + "for class: " + classTree.getSimpleName();
-      AccessPath accessPath = AccessPath.fromFieldAccess(field, null);
-      result.setInformation(accessPath, Nullness.NONNULL);
+    if (fieldName.startsWith(THIS_NOTATION)) {
+      fieldName = fieldName.substring(THIS_NOTATION.length());
     }
+    System.out.println("Method: " + methodTree);
+    Element field = getFieldFromClassAndSuperClasses(ASTHelpers.getSymbol(classTree), fieldName);
+    assert field != null
+        : "Could not find field: [" + fieldName + "]" + "for class: " + classTree.getSimpleName();
+    AccessPath accessPath = AccessPath.fromFieldAccess(field, null);
+    result.setInformation(accessPath, Nullness.NONNULL);
     return result;
   }
 
@@ -246,26 +283,35 @@ public class RequiresNonNullHandler extends BaseNoOpHandler {
   }
 
   /**
-   * Finds the set of fields that are given as param in {@link
-   * com.uber.nullaway.qual.RequiresNonNull} annotation through all super methods.
+   * find the closest ancestor method in a superclass or superinterface that method overrides
    *
-   * @param methodSymbol A method symbol.
-   * @param state Javac Visoitor State.
-   * @return Set of fields name in {@code String}.
+   * @param method the subclass method
+   * @param types the types data structure from javac
+   * @return closest overridden ancestor method, or <code>null</code> if method does not override
+   *     anything
    */
-  private static Set<String> getSuperMethodRequiresNonNullFields(
-      Symbol.MethodSymbol methodSymbol, VisitorState state) {
-    Preconditions.checkNotNull(methodSymbol);
-    Set<Symbol.MethodSymbol> superMethods =
-        ASTHelpers.findSuperMethods(methodSymbol, state.getTypes());
-    Set<String> fieldNames = new HashSet<>();
-    for (Symbol.MethodSymbol superMethodSymbol : superMethods) {
-      String field = getFieldNameFromAnnotation(superMethodSymbol);
-      if (field != null) {
-        fieldNames.add(field);
+  @Nullable
+  private Symbol.MethodSymbol getClosestOverriddenMethod(Symbol.MethodSymbol method, Types types) {
+    // taken from Error Prone MethodOverrides check
+    Symbol.ClassSymbol owner = method.enclClass();
+    for (Type s : types.closure(owner.type)) {
+      if (types.isSameType(s, owner.type)) {
+        continue;
+      }
+      for (Symbol m : s.tsym.members().getSymbolsByName(method.name)) {
+        if (!(m instanceof Symbol.MethodSymbol)) {
+          continue;
+        }
+        Symbol.MethodSymbol msym = (Symbol.MethodSymbol) m;
+        if (msym.isStatic()) {
+          continue;
+        }
+        if (method.overrides(msym, owner, types, /*checkReturn*/ false)) {
+          return msym;
+        }
       }
     }
-    return fieldNames;
+    return null;
   }
 
   /**

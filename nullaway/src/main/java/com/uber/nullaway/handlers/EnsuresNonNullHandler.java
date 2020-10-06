@@ -70,6 +70,9 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
               .getNonnullFieldsOfReceiverAtExit(new TreePath(state.getPath(), tree), state.context);
       if (isValidAnnotation) {
         String fieldName = getFieldNameFromAnnotation(methodSymbol);
+        if (fieldName.startsWith(THIS_NOTATION)) {
+          fieldName = fieldName.substring(THIS_NOTATION.length());
+        }
         // skip abstract methods
         boolean isValidLocalPostCondition = false;
         for (Element element : elements) {
@@ -85,7 +88,7 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
               tree,
               "method: "
                   + methodSymbol
-                  + " is annotated with @EnsuresNonNull annotation, it indicates that  field ["
+                  + " is annotated with @EnsuresNonNull annotation, it indicates that field ["
                   + fieldName
                   + "] must be guaranteed to be nonnull at exit point and it does not");
         }
@@ -97,9 +100,8 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
   private boolean checkAnnotationValidation(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
     String fieldName = getFieldNameFromAnnotation(methodSymbol);
-    boolean supported = true;
     if (fieldName == null) {
-      supported = false;
+      return false;
     } else {
       if (fieldName.equals("")) {
         // we should not allow useless ensuresNonnull annotations.
@@ -108,18 +110,32 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
             state,
             tree,
             "empty ensuresNonnull is the default precondition for every method, please remove it.");
-        supported = false;
+        return false;
       }
-      if (fieldName.contains(".") && !fieldName.startsWith(THIS_NOTATION)) {
+      if (fieldName.contains(".")) {
+        if (!fieldName.startsWith(THIS_NOTATION)) {
+          reportMatch(
+              analysis,
+              state,
+              tree,
+              "currently @EnsuresNonnull supports only class fields of the method receiver.");
+          return false;
+        } else {
+          fieldName = fieldName.substring(THIS_NOTATION.length());
+        }
+      }
+      Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
+      Element field = getFieldFromClass(classSymbol, fieldName);
+      if (field == null) {
         reportMatch(
             analysis,
             state,
             tree,
-            "currently @EnsuresNonnull supports only class fields of the method receiver.");
-        supported = false;
+            "cannot find field [" + fieldName + "] in class: " + classSymbol.getSimpleName());
+        return false;
       }
     }
-    return supported;
+    return true;
   }
 
   private void checkOverridingConditions(
@@ -177,6 +193,11 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
       fieldName = fieldName.substring(THIS_NOTATION.length());
     }
     Element field = getFieldFromClass(ASTHelpers.enclosingClass(methodSymbol), fieldName);
+    assert field != null
+        : "cannot find field ["
+            + fieldName
+            + "] in class: "
+            + ASTHelpers.enclosingClass(methodSymbol).getSimpleName();
     Element receiver = null;
     Node receiverNode = node.getTarget().getReceiver();
     if (receiverNode != null) {
@@ -217,8 +238,11 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
         }
       }
     }
-    throw new AssertionError(
-        "cannot find field [" + name + "] in class: " + classSymbol.getSimpleName());
+    Symbol.ClassSymbol superClass = (Symbol.ClassSymbol) classSymbol.getSuperclass().tsym;
+    if (superClass != null) {
+      return getFieldFromClass(superClass, name);
+    }
+    return null;
   }
 
   /**
