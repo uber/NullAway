@@ -123,7 +123,9 @@ public abstract class ConditionHandler extends BaseNoOpHandler {
             analysis,
             state,
             tree,
-            "empty @ensuresNonnull is the default precondition for every method, please remove it.");
+            "empty @"
+                + ANNOT_NAME
+                + " is the default precondition for every method, please remove it.");
         return false;
       } else {
         for (String fieldName : content) {
@@ -133,7 +135,9 @@ public abstract class ConditionHandler extends BaseNoOpHandler {
                   analysis,
                   state,
                   tree,
-                  "currently @EnsuresNonnull supports only class fields of the method receiver: "
+                  "currently @"
+                      + ANNOT_NAME
+                      + " supports only class fields of the method receiver: "
                       + fieldName
                       + " is not supported");
               return false;

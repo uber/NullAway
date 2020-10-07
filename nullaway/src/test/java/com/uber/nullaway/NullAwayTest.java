@@ -2726,7 +2726,7 @@ public class NullAwayTest {
             "    test1();",
             "  }",
             "  @EnsuresNonNull(\"other.nullItem\")",
-            "  // BUG: Diagnostic contains: currently @EnsuresNonnull supports only class fields of the method receiver: other.nullItem is not supported",
+            "  // BUG: Diagnostic contains: currently @EnsuresNonNull supports only class fields of the method receiver: other.nullItem is not supported",
             "  public void test4() {",
             "    nullItem = new Item();",
             "  }",
