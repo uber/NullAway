@@ -24,6 +24,8 @@ package com.uber.nullaway.handlers;
 
 import com.google.common.collect.ImmutableList;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.handlers.condition.EnsuresNonNullHandler;
+import com.uber.nullaway.handlers.condition.RequiresNonNullHandler;
 
 /** Utility static methods for the handlers package. */
 public class Handlers {

@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway.handlers;
+package com.uber.nullaway.handlers.condition;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -34,6 +34,7 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.NullnessStore;
+import com.uber.nullaway.handlers.ConditionHandler;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
