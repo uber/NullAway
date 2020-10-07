@@ -22,56 +22,41 @@
 
 package com.uber.nullaway.handlers;
 
-import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
-
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
-import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 
-public class EnsuresNonNullHandler extends BaseNoOpHandler {
+public class EnsuresNonNullHandler extends ConditionHandler {
 
-  private static final String ANNOT_NAME = "EnsuresNonNull";
-  private static final String THIS_NOTATION = "this.";
-
-  /** This method verifies that the method adheres to any @EnsuresNonNull annotation. */
   @Override
-  public void onMatchMethod(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
-    boolean isValidAnnotation = checkAnnotationValidation(analysis, tree, state, methodSymbol);
-    if (!isValidAnnotation) {
-      checkOverridingConditions(analysis, tree, methodSymbol, state, Collections.emptySet());
-      return;
-    }
+  public void onMatchTopLevelClass(
+      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+    ANNOT_NAME = "EnsuresNonNull";
+  }
+
+  @Override
+  protected boolean validateAnnotationSemantics(
+      NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol) {
     // skip abstract methods
     if (tree.getBody() == null) {
-      return;
+      return true;
     }
     Set<String> nonnullFieldsOfReceiverAtExit =
         analysis
@@ -95,84 +80,34 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
               + " is annotated with @EnsuresNonNull annotation, it indicates that all fields "
               + fieldNames
               + " must be guaranteed to be nonnull at exit point and it does not");
-    }
-    checkOverridingConditions(analysis, tree, methodSymbol, state, fieldNames);
-  }
-
-  private boolean checkAnnotationValidation(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
-    Set<String> fieldNames = getFieldNamesFromAnnotation(methodSymbol);
-    if (fieldNames == null) {
       return false;
-    } else {
-      if (fieldNames.size() == 0) {
-        // we should not allow useless ensuresNonnull annotations.
-        reportMatch(
-            analysis,
-            state,
-            tree,
-            "empty ensuresNonnull is the default precondition for every method, please remove it.");
-        return false;
-      }
-      for (String fieldName : fieldNames) {
-        if (fieldName.contains(".")) {
-          if (!fieldName.startsWith(THIS_NOTATION)) {
-            reportMatch(
-                analysis,
-                state,
-                tree,
-                "currently @EnsuresNonnull supports only class fields of the method receiver.");
-            return false;
-          } else {
-            fieldName = fieldName.substring(THIS_NOTATION.length());
-          }
-        }
-        Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
-        Element field = getFieldFromClass(classSymbol, fieldName);
-        if (field == null) {
-          reportMatch(
-              analysis,
-              state,
-              tree,
-              "cannot find field [" + fieldNames + "] in class: " + classSymbol.getSimpleName());
-          return false;
-        }
-      }
     }
     return true;
   }
 
-  private static String trimFieldName(String fieldName) {
-    if (fieldName.startsWith(THIS_NOTATION)) {
-      return fieldName.substring(THIS_NOTATION.length());
-    }
-    return fieldName;
-  }
-
-  private void checkOverridingConditions(
+  @Override
+  protected void validateOverridingRules(
+      Set<String> overridingFieldNames,
       NullAway analysis,
-      MethodTree tree,
-      Symbol.MethodSymbol overridingMethod,
       VisitorState state,
-      Set<String> overridingMethodFieldNames) {
-    Symbol.MethodSymbol overriddenMethod =
-        getClosestOverriddenMethod(overridingMethod, state.getTypes());
-    if (overriddenMethod == null) {
+      MethodTree tree,
+      Symbol.MethodSymbol overriddenMethod) {
+    Set<String> overriddenFieldNames = getFieldNamesFromAnnotation(overriddenMethod);
+    if (overriddenFieldNames == null) {
       return;
     }
-    Set<String> overriddenMethodFieldNames = getFieldNamesFromAnnotation(overriddenMethod);
-    if (overriddenMethodFieldNames == null) {
-      overriddenMethodFieldNames = Collections.emptySet();
+    if (overridingFieldNames == null) {
+      overridingFieldNames = Collections.emptySet();
     }
-    if (overridingMethodFieldNames.containsAll(overriddenMethodFieldNames)) {
+    if (overridingFieldNames.containsAll(overriddenFieldNames)) {
       return;
     }
-    overriddenMethodFieldNames.removeAll(overridingMethodFieldNames);
+    overriddenFieldNames.removeAll(overridingFieldNames);
 
     StringBuilder errorMessage = new StringBuilder();
     errorMessage.append(
         "postcondition inheritance is violated, this method must guarantee that all fields written in overridden method @EnsuresNonNull annotation are @NonNull at exit point as well. Fields [");
-    Iterator<String> iterator = overriddenMethodFieldNames.iterator();
+    Iterator<String> iterator = overriddenFieldNames.iterator();
     while (iterator.hasNext()) {
       errorMessage.append(iterator.next());
       if (iterator.hasNext()) {
@@ -228,105 +163,5 @@ public class EnsuresNonNullHandler extends BaseNoOpHandler {
     }
     return super.onDataflowVisitMethodInvocation(
         node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
-  }
-
-  private void reportMatch(
-      NullAway analysis, VisitorState state, Tree errorLocTree, String message) {
-    assert analysis != null && state != null;
-    state.reportMatch(
-        analysis
-            .getErrorBuilder()
-            .createErrorDescription(
-                new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                errorLocTree,
-                buildDescriptionFromChecker(errorLocTree, analysis),
-                state));
-  }
-
-  /**
-   * Finds a specific field of a class
-   *
-   * @param classSymbol A class symbol.
-   * @param name Name of the field.
-   * @return The class field with the given name.
-   */
-  private static Element getFieldFromClass(Symbol.ClassSymbol classSymbol, String name) {
-    Preconditions.checkNotNull(classSymbol);
-    for (Element member : classSymbol.getEnclosedElements()) {
-      if (member.getKind().isField()) {
-        if (member.getSimpleName().toString().equals(name)) {
-          return member;
-        }
-      }
-    }
-    Symbol.ClassSymbol superClass = (Symbol.ClassSymbol) classSymbol.getSuperclass().tsym;
-    if (superClass != null) {
-      return getFieldFromClass(superClass, name);
-    }
-    return null;
-  }
-
-  /**
-   * find the closest ancestor method in a superclass or superinterface that method overrides
-   *
-   * @param method the subclass method
-   * @param types the types data structure from javac
-   * @return closest overridden ancestor method, or <code>null</code> if method does not override
-   *     anything
-   */
-  @Nullable
-  private Symbol.MethodSymbol getClosestOverriddenMethod(Symbol.MethodSymbol method, Types types) {
-    // taken from Error Prone MethodOverrides check
-    Symbol.ClassSymbol owner = method.enclClass();
-    for (Type s : types.closure(owner.type)) {
-      if (types.isSameType(s, owner.type)) {
-        continue;
-      }
-      for (Symbol m : s.tsym.members().getSymbolsByName(method.name)) {
-        if (!(m instanceof Symbol.MethodSymbol)) {
-          continue;
-        }
-        Symbol.MethodSymbol msym = (Symbol.MethodSymbol) m;
-        if (msym.isStatic()) {
-          continue;
-        }
-        if (method.overrides(msym, owner, types, /*checkReturn*/ false)) {
-          return msym;
-        }
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Retrieve the string value inside an @EnsuresNonnull annotation without statically depending on
-   * the type.
-   *
-   * @param sym A method which has an @EnsuresNonnull annotation.
-   * @return The string value spec inside the annotation.
-   */
-  private static @Nullable Set<String> getFieldNamesFromAnnotation(Symbol.MethodSymbol sym) {
-    for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
-      Element element = annotation.getAnnotationType().asElement();
-      assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
-      if (((TypeElement) element).getQualifiedName().toString().endsWith(ANNOT_NAME)) {
-        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
-            annotation.getElementValues().entrySet()) {
-          if (e.getKey().getSimpleName().contentEquals("value")) {
-            String value = e.getValue().toString();
-            if (value.startsWith("{") && value.endsWith("}")) {
-              value = value.substring(1, value.length() - 1);
-            }
-            String[] rawFieldNamesArray = value.split(",");
-            Set<String> ans = new HashSet<>();
-            for (String s : rawFieldNamesArray) {
-              ans.add(s.trim().replaceAll("\"", ""));
-            }
-            return ans;
-          }
-        }
-      }
-    }
-    return null;
   }
 }
