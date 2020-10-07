@@ -52,6 +52,18 @@ public class RequiresNonNullHandler extends ConditionHandler {
     ANNOT_NAME = "RequiresNonNull";
   }
 
+  /** All methods can add the precondition of {@code RequiresNonNull}. */
+  @Override
+  protected boolean validateAnnotationSemantics(
+      NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol) {
+    return true;
+  }
+
+  /**
+   * All overriding methods can only weaken the precondition of its super method. All overriding
+   * methods cannot add new field names to the set of fields of its super method mentioned in {@code
+   * EnsuresNonNull}.
+   */
   @Override
   protected void validateOverridingRules(
       Set<String> overridingFieldNames,
@@ -89,12 +101,10 @@ public class RequiresNonNullHandler extends ConditionHandler {
     reportMatch(analysis, state, tree, errorMessage.toString());
   }
 
-  @Override
-  protected boolean validateAnnotationSemantics(
-      NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol) {
-    return true;
-  }
-
+  /**
+   * It checks whether all class fields given in {@code RequiresNonNull} parameter are @NonNull at
+   * call site.
+   */
   @Override
   public void onMatchMethodInvocation(
       NullAway analysis,

@@ -52,6 +52,10 @@ public class EnsuresNonNullHandler extends ConditionHandler {
     ANNOT_NAME = "EnsuresNonNull";
   }
 
+  /**
+   * Validates whether all parameters mentioned in the @EnsuresNonNull annotation are guaranteed to
+   * be {@code @NonNull} at exit point of this method.
+   */
   @Override
   protected boolean validateAnnotationSemantics(
       NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol) {
@@ -86,6 +90,11 @@ public class EnsuresNonNullHandler extends ConditionHandler {
     return true;
   }
 
+  /**
+   * All overriding methods can only strengthen the postcondition of its super method. All
+   * overriding methods can only add new field names to the set of fields of its super method
+   * mentioned in {@code EnsuresNonNull}.
+   */
   @Override
   protected void validateOverridingRules(
       Set<String> overridingFieldNames,
@@ -122,7 +131,7 @@ public class EnsuresNonNullHandler extends ConditionHandler {
 
   /**
    * On every method annotated with {@link com.uber.nullaway.qual.EnsuresNonNull}, this method,
-   * injects the {@code Nonnull} value for the class field given in the {@code @EnsuresNonNull}
+   * injects the {@code Nonnull} value for the class fields given in the {@code @EnsuresNonNull}
    * parameter to the dataflow analysis.
    */
   @Override

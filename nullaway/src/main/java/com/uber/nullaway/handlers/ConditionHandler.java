@@ -60,12 +60,12 @@ public abstract class ConditionHandler extends BaseNoOpHandler {
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
     Set<String> annotationContent = getFieldNamesFromAnnotation(methodSymbol);
-    boolean isValidAnnotation =
+    boolean isValid =
         validateAnnotationSyntax(annotationContent, analysis, tree, state, methodSymbol);
-    if (annotationContent != null && isValidAnnotation) {
-      isValidAnnotation = validateAnnotationSemantics(analysis, state, tree, methodSymbol);
+    if (annotationContent != null && isValid) {
+      isValid = validateAnnotationSemantics(analysis, state, tree, methodSymbol);
     }
-    if (isValidAnnotation) {
+    if (isValid) {
       Set<String> fieldNames = null;
       Symbol.MethodSymbol closestOverriddenMethod =
           getClosestOverriddenMethod(methodSymbol, state.getTypes());
@@ -84,16 +84,30 @@ public abstract class ConditionHandler extends BaseNoOpHandler {
     super.onMatchMethod(analysis, tree, state, methodSymbol);
   }
 
+  /** Validates whether the annotation conforms to the inheritance rules. */
   protected abstract void validateOverridingRules(
       Set<String> fieldNames,
       NullAway analysis,
       VisitorState state,
       MethodTree tree,
-      Symbol.MethodSymbol closestOverriddenMethod);
+      Symbol.MethodSymbol overriddenMethod);
 
+  /**
+   * Validates the semantic of the annotation
+   *
+   * @return Returns true, if the annotation conforms to the semantic rules.
+   */
   protected abstract boolean validateAnnotationSemantics(
       NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol);
 
+  /**
+   * Validates whether the parameter inside annotation conforms to the syntax rules. Parameters must
+   * conform to the following rules: 1. Cannot annotate a method with empty param set. 2. The
+   * receiver of selected fields in annotation can only be the receiver of the method. 3. All
+   * parameters given in the annotation must be one of the fields of the class or its super classes.
+   *
+   * @return Returns true, if the annotation conforms to the syntax rules.
+   */
   protected boolean validateAnnotationSyntax(
       Set<String> content,
       NullAway analysis,
@@ -143,11 +157,14 @@ public abstract class ConditionHandler extends BaseNoOpHandler {
     return true;
   }
 
+  /**
+   * Returns the field name excluding its receiver (e.g. "this.a" will be "a")
+   *
+   * @param fieldName A class symbol.
+   * @return The class field name.
+   */
   protected static String trimFieldName(String fieldName) {
-    if (fieldName.startsWith(THIS_NOTATION)) {
-      return fieldName.substring(THIS_NOTATION.length());
-    }
-    return fieldName;
+    return fieldName.substring(fieldName.lastIndexOf(".") + 1);
   }
 
   /**
@@ -220,11 +237,11 @@ public abstract class ConditionHandler extends BaseNoOpHandler {
   }
 
   /**
-   * Retrieve the string value inside an @EnsuresNonnull annotation without statically depending on
-   * the type.
+   * Retrieve the string value inside the corresponding (@EnsuresNonNull/@RequiresNonNull depending
+   * on the value of {@code ANNOT_NAME}) annotation without statically depending on the type.
    *
-   * @param sym A method which has an @EnsuresNonnull annotation.
-   * @return The string value spec inside the annotation.
+   * @param sym A method.
+   * @return The set of all values inside the annotation.
    */
   protected @Nullable Set<String> getFieldNamesFromAnnotation(Symbol.MethodSymbol sym) {
     for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
