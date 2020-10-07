@@ -133,7 +133,7 @@ public class NullnessStore implements Store<NullnessStore> {
     return Nullness.NULLABLE;
   }
 
-  Builder toBuilder() {
+  public Builder toBuilder() {
     return new Builder(this);
   }
 

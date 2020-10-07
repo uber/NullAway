@@ -196,6 +196,32 @@ public class NullAwayTest {
   }
 
   @Test
+  public void checkContractPositiveCases() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceFile("CheckContractPositiveCases.java")
+        .doTest();
+  }
+
+  @Test
+  public void checkContractNegativeCases() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceFile("CheckContractNegativeCases.java")
+        .doTest();
+  }
+
+  @Test
   public void java8PositiveCases() {
     compilationHelper.addSourceFile("NullAwayJava8PositiveCases.java").doTest();
   }
