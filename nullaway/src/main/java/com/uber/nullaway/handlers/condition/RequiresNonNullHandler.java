@@ -60,9 +60,9 @@ public class RequiresNonNullHandler extends ConditionHandler {
   }
 
   /**
-   * All overriding methods can only weaken the precondition of its super method. All overriding
-   * methods cannot add new field names to the set of fields of its super method mentioned in {@code
-   * EnsuresNonNull}.
+   * All overriding methods can only weaken the precondition of its super method. No overriding
+   * methods can add new field names to the set of fields of its super method mentioned in {@code
+   * RequiresNonNull} annotation.
    */
   @Override
   protected void validateOverridingRules(

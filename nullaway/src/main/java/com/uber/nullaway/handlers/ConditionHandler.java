@@ -118,7 +118,7 @@ public abstract class ConditionHandler extends BaseNoOpHandler {
       return true;
     } else {
       if (content.isEmpty()) {
-        // we should not allow useless ensuresNonnull annotations.
+        // we should not allow useless annotations.
         reportMatch(
             analysis,
             state,
