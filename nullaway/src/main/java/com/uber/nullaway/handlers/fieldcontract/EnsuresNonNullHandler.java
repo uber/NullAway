@@ -73,10 +73,6 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
   @Override
   protected boolean validateAnnotationSemantics(
       NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol) {
-    // skip abstract methods
-    if (tree.getBody() == null) {
-      return true;
-    }
     Set<String> nonnullFieldsOfReceiverAtExit =
         analysis
             .getNullnessAnalysis(state)
@@ -90,15 +86,16 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
         fieldNames.stream().map(EnsuresNonNullHandler::trimReceiver).collect(Collectors.toSet());
     boolean isValidLocalPostCondition = nonnullFieldsOfReceiverAtExit.containsAll(fieldNames);
     if (!isValidLocalPostCondition) {
+      fieldNames.removeAll(nonnullFieldsOfReceiverAtExit);
       reportMatch(
           analysis,
           state,
           tree,
           "method: "
               + methodSymbol
-              + " is annotated with @EnsuresNonNull annotation, it indicates that all fields "
-              + fieldNames
-              + " must be guaranteed to be nonnull at exit point and it does not");
+              + " is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter"
+              + " must be guaranteed to be nonnull at exit point and it fails to do so for the fields: "
+              + fieldNames);
       return false;
     }
     return true;

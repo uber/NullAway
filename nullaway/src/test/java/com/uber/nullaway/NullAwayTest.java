@@ -2718,7 +2718,7 @@ public class NullAwayTest {
             "    nullItem = new Item();",
             "  }",
             "  @EnsuresNonNull(\"nullItem\")",
-            "  // BUG: Diagnostic contains: method: test2() is annotated with @EnsuresNonNull annotation, it indicates that all fields [nullItem] must be guaranteed to be nonnull at exit point and it does not",
+            "  // BUG: Diagnostic contains: test2() is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter must be guaranteed to be nonnull at exit point and it fails to do so for the fields: [nullItem]",
             "  public void test2() {",
             "  }",
             "  @EnsuresNonNull(\"this.nullItem\")",
