@@ -259,19 +259,29 @@ public final class AccessPath implements MapKey {
    * Gets corresponding AccessPath for a class field element.
    *
    * @param field The class field element.
-   * @param receiver The receiver.
+   * @param receivers The receiver.
    * @return corresponding AccessPath.
    */
-  public static AccessPath fromFieldAccess(Element field, Element receiver) {
+  public static AccessPath fromFieldAndBase(Element field, List<Element> receivers) {
     List<AccessPathElement> elements = new ArrayList<>();
     elements.add(new AccessPathElement(field));
     Root root;
-    if (receiver == null
-        || receiver.toString().equals("super")
-        || receiver.toString().equals("this")) {
+    Element rootReceiver;
+    if (receivers == null || receivers.size() == 0) {
       root = new Root();
     } else {
-      root = new Root(receiver);
+      rootReceiver = receivers.get(0);
+      if (rootReceiver == null
+          || rootReceiver.toString().equals("super")
+          || rootReceiver.toString().equals("this")) {
+        root = new Root();
+      } else {
+        root = new Root(rootReceiver);
+      }
+      receivers.remove(0);
+      for (Element element : receivers) {
+        elements.add(new AccessPathElement(element));
+      }
     }
     return new AccessPath(root, elements);
   }

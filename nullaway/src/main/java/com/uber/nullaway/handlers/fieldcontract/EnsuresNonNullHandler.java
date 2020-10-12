@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway.handlers.condition;
+package com.uber.nullaway.handlers.fieldcontract;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
@@ -35,16 +35,17 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
-import com.uber.nullaway.handlers.ConditionHandler;
+import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import java.util.Collections;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 
-public class EnsuresNonNullHandler extends ConditionHandler {
+public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
 
   @Override
   public void onMatchTopLevelClass(
@@ -73,7 +74,7 @@ public class EnsuresNonNullHandler extends ConditionHandler {
     Set<String> fieldNames = getFieldNamesFromAnnotation(methodSymbol);
     Preconditions.checkNotNull(fieldNames);
     fieldNames =
-        fieldNames.stream().map(EnsuresNonNullHandler::trimFieldName).collect(Collectors.toSet());
+        fieldNames.stream().map(EnsuresNonNullHandler::trimReceiver).collect(Collectors.toSet());
     boolean isValidLocalPostCondition = nonnullFieldsOfReceiverAtExit.containsAll(fieldNames);
     if (!isValidLocalPostCondition) {
       reportMatch(
@@ -155,7 +156,7 @@ public class EnsuresNonNullHandler extends ConditionHandler {
           node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
     }
     fieldNames =
-        fieldNames.stream().map(EnsuresNonNullHandler::trimFieldName).collect(Collectors.toSet());
+        fieldNames.stream().map(EnsuresNonNullHandler::trimReceiver).collect(Collectors.toSet());
     for (String fieldName : fieldNames) {
       Element field = getFieldFromClass(ASTHelpers.enclosingClass(methodSymbol), fieldName);
       assert field != null
@@ -163,12 +164,12 @@ public class EnsuresNonNullHandler extends ConditionHandler {
               + fieldNames
               + "] in class: "
               + ASTHelpers.enclosingClass(methodSymbol).getSimpleName();
-      Element receiver = null;
+      List<Element> receivers = null;
       Node receiverNode = node.getTarget().getReceiver();
       if (receiverNode != null) {
-        receiver = ASTHelpers.getSymbol(receiverNode.getTree());
+        receivers = getReceiverTreeElements(receiverNode.getTree());
       }
-      AccessPath accessPath = AccessPath.fromFieldAccess(field, receiver);
+      AccessPath accessPath = AccessPath.fromFieldAndBase(field, receivers);
       bothUpdates.set(accessPath, Nullness.NONNULL);
     }
     return super.onDataflowVisitMethodInvocation(

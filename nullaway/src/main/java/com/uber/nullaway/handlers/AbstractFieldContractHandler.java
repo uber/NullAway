@@ -27,6 +27,8 @@ import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
@@ -35,7 +37,9 @@ import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -47,7 +51,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 
-public abstract class ConditionHandler extends BaseNoOpHandler {
+public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
 
   protected static final String THIS_NOTATION = "this.";
   protected String ANNOT_NAME;
@@ -76,7 +80,7 @@ public abstract class ConditionHandler extends BaseNoOpHandler {
         fieldNames =
             annotationContent
                 .stream()
-                .map(ConditionHandler::trimFieldName)
+                .map(AbstractFieldContractHandler::trimReceiver)
                 .collect(Collectors.toSet());
       }
       validateOverridingRules(fieldNames, analysis, state, tree, closestOverriddenMethod);
@@ -142,7 +146,7 @@ public abstract class ConditionHandler extends BaseNoOpHandler {
                       + " is not supported");
               return false;
             } else {
-              fieldName = trimFieldName(fieldName);
+              fieldName = trimReceiver(fieldName);
             }
           }
           Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
@@ -167,7 +171,7 @@ public abstract class ConditionHandler extends BaseNoOpHandler {
    * @param fieldName A class symbol.
    * @return The class field name.
    */
-  protected static String trimFieldName(String fieldName) {
+  protected static String trimReceiver(String fieldName) {
     return fieldName.substring(fieldName.lastIndexOf(".") + 1);
   }
 
@@ -225,6 +229,19 @@ public abstract class ConditionHandler extends BaseNoOpHandler {
       }
     }
     return null;
+  }
+
+  protected static List<Element> getReceiverTreeElements(Tree receiver) {
+    List<Element> elements = new ArrayList<>();
+    if (receiver != null) {
+      elements.add(0, ASTHelpers.getSymbol(receiver));
+      while (receiver instanceof MemberSelectTree) {
+        ExpressionTree expression = ((MemberSelectTree) receiver).getExpression();
+        elements.add(0, ASTHelpers.getSymbol(expression));
+        receiver = expression;
+      }
+    }
+    return elements;
   }
 
   protected static void reportMatch(

@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway.handlers.condition;
+package com.uber.nullaway.handlers.fieldcontract;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -34,7 +34,7 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.NullnessStore;
-import com.uber.nullaway.handlers.ConditionHandler;
+import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -44,7 +44,7 @@ import javax.lang.model.element.Element;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 
-public class RequiresNonNullHandler extends ConditionHandler {
+public class RequiresNonNullHandler extends AbstractFieldContractHandler {
 
   @Override
   public void onMatchTopLevelClass(
@@ -81,7 +81,7 @@ public class RequiresNonNullHandler extends ConditionHandler {
     overriddenFieldNames =
         overriddenFieldNames
             .stream()
-            .map(RequiresNonNullHandler::trimFieldName)
+            .map(RequiresNonNullHandler::trimReceiver)
             .collect(Collectors.toSet());
     if (overriddenFieldNames.containsAll(overridingFieldNames)) {
       return;
@@ -117,22 +117,22 @@ public class RequiresNonNullHandler extends ConditionHandler {
       return;
     }
     fieldNames =
-        fieldNames.stream().map(RequiresNonNullHandler::trimFieldName).collect(Collectors.toSet());
+        fieldNames.stream().map(RequiresNonNullHandler::trimReceiver).collect(Collectors.toSet());
     for (String fieldName : fieldNames) {
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
       assert classSymbol != null
           : "can not find the enclosing class for method symbol: " + methodSymbol;
-      Element receiver = null; // null receiver means (this) is the receiver.
+      List<Element> receivers = null; // null receiver means (this) is the receiver.
       if (tree.getMethodSelect() instanceof MemberSelectTree) {
         MemberSelectTree memberTree = (MemberSelectTree) tree.getMethodSelect();
         if (memberTree != null) {
-          receiver = ASTHelpers.getSymbol(memberTree.getExpression());
+          receivers = getReceiverTreeElements(memberTree.getExpression());
         }
       }
       Element field = getFieldFromClass(classSymbol, fieldName);
       assert field != null
           : "Could not find field: [" + fieldName + "]" + "for class: " + classSymbol;
-      AccessPath accessPath = AccessPath.fromFieldAccess(field, receiver);
+      AccessPath accessPath = AccessPath.fromFieldAndBase(field, receivers);
       Nullness nullness =
           analysis
               .getNullnessAnalysis(state)
@@ -143,7 +143,7 @@ public class RequiresNonNullHandler extends ConditionHandler {
             analysis,
             state,
             tree,
-            "expected field [" + fieldName + "] is not non-null at call site.");
+            "expected field [" + fieldName + "] is not non-null at call site");
       }
     }
   }
@@ -168,12 +168,12 @@ public class RequiresNonNullHandler extends ConditionHandler {
       return result;
     }
     fieldNames =
-        fieldNames.stream().map(RequiresNonNullHandler::trimFieldName).collect(Collectors.toSet());
+        fieldNames.stream().map(RequiresNonNullHandler::trimReceiver).collect(Collectors.toSet());
     for (String fieldName : fieldNames) {
       Element field = getFieldFromClass(ASTHelpers.getSymbol(classTree), fieldName);
       assert field != null
           : "Could not find field: [" + fieldName + "]" + "for class: " + classTree.getSimpleName();
-      AccessPath accessPath = AccessPath.fromFieldAccess(field, null);
+      AccessPath accessPath = AccessPath.fromFieldAndBase(field, null);
       result.setInformation(accessPath, Nullness.NONNULL);
     }
     return result;
