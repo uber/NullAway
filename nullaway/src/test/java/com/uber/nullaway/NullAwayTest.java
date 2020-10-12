@@ -2741,50 +2741,6 @@ public class NullAwayTest {
   }
 
   @Test
-  public void ensuresNonNullInterpretationComplex() {
-    compilationHelper
-        .addSourceLines(
-            "Content.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.qual.EnsuresNonNull;",
-            "import com.uber.nullaway.qual.RequiresNonNull;",
-            "class Content {",
-            "  @Nullable Item nullableItem;",
-            "  @EnsuresNonNull(\"nullableItem\")",
-            "  public void init() {",
-            "    nullableItem = new Item();",
-            "  }",
-            "  @RequiresNonNull(\"nullableItem\")",
-            "  public void test() {",
-            "    nullableItem.call();",
-            "  }",
-            "}")
-        .addSourceLines(
-            "Box.java",
-            "package com.uber;",
-            "class Box {",
-            "  Content content = new Content();",
-            "}")
-        .addSourceLines(
-            "Office.java",
-            "package com.uber;",
-            "class Office {",
-            "  Box box = new Box();",
-            "  public void test() {",
-            "    Office office1 = new Office();",
-            "    Office office2 = new Office();",
-            "    office1.box.content.init();",
-            "    // BUG: Diagnostic contains: expected field [nullableItem] is not non-null at call site",
-            "    office2.box.content.test();",
-            "  }",
-            "}")
-        .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
-        .doTest();
-  }
-
-  @Test
   public void supportEnsuresNonNullOverridingTest() {
     compilationHelper
         .addSourceLines(
@@ -2834,15 +2790,15 @@ public class NullAwayTest {
   }
 
   @Test
-  public void supportEnsuresAndRequiresNonNullConditions() {
+  public void supportEnsuresAndRequiresNonNullContract() {
     compilationHelper
         .addSourceLines(
-            "Foo.java",
+            "Content.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "import com.uber.nullaway.qual.RequiresNonNull;",
             "import com.uber.nullaway.qual.EnsuresNonNull;",
-            "class Foo {",
+            "class Content {",
             "  @Nullable Item nullItem;",
             "  @RequiresNonNull(\"nullItem\")",
             "  public void run() {",
@@ -2857,21 +2813,40 @@ public class NullAwayTest {
             "    run();",
             "  }",
             "  public void test2() {",
-            "    Foo bar = new Foo();",
-            "    bar.init();",
-            "    bar.run();",
+            "    Content content = new Content();",
+            "    content.init();",
+            "    content.run();",
             "  }",
             "  public void test3() {",
-            "    Foo bar = new Foo();",
+            "    Content content = new Content();",
             "    init();",
-            "    Foo other = new Foo();",
+            "    Content other = new Content();",
             "    other.init();",
             "    // BUG: Diagnostic contains: expected field [nullItem] is not non-null at call site",
-            "    bar.run();",
+            "    content.run();",
             "  }",
             "}")
         .addSourceLines(
             "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .addSourceLines(
+            "Box.java",
+            "package com.uber;",
+            "class Box {",
+            "  Content content = new Content();",
+            "}")
+        .addSourceLines(
+            "Office.java",
+            "package com.uber;",
+            "class Office {",
+            "  Box box = new Box();",
+            "  public void test() {",
+            "    Office office1 = new Office();",
+            "    Office office2 = new Office();",
+            "    office1.box.content.init();",
+            "    // BUG: Diagnostic contains: expected field [nullItem] is not non-null at call site",
+            "    office2.box.content.run();",
+            "  }",
+            "}")
         .doTest();
   }
 }
