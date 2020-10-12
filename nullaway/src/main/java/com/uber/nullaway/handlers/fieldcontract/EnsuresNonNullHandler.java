@@ -73,6 +73,14 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
   @Override
   protected boolean validateAnnotationSemantics(
       NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol) {
+    if (tree.getBody() == null) {
+      reportMatch(
+          analysis,
+          state,
+          tree,
+          "cannot annotate an abstract method with @EnsuresNonNull annotation");
+      return false;
+    }
     Set<String> nonnullFieldsOfReceiverAtExit =
         analysis
             .getNullnessAnalysis(state)

@@ -26,6 +26,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LiteralTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
@@ -259,7 +260,7 @@ public final class AccessPath implements MapKey {
    * Gets corresponding AccessPath for a class field element.
    *
    * @param field The class field element.
-   * @param receivers The receiver.
+   * @param receivers The list of receivers.
    * @return corresponding AccessPath.
    */
   public static AccessPath fromFieldAndBase(Element field, List<Element> receivers) {
@@ -271,6 +272,7 @@ public final class AccessPath implements MapKey {
       root = new Root();
     } else {
       rootReceiver = receivers.get(0);
+      assert !(rootReceiver instanceof MemberSelectTree);
       if (rootReceiver == null
           || rootReceiver.toString().equals("super")
           || rootReceiver.toString().equals("this")) {
