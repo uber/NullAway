@@ -148,6 +148,8 @@ public class ContractHandler extends BaseNoOpHandler {
                 valueConstraint.equals("null") ? Nullness.NULLABLE : Nullness.NONNULL;
           } else {
             reportMatch(
+                analysis,
+                state,
                 node.getTree(),
                 "Invalid @Contract annotation detected for method "
                     + callee
@@ -203,17 +205,17 @@ public class ContractHandler extends BaseNoOpHandler {
     return NullnessHint.UNKNOWN;
   }
 
-  private void reportMatch(Tree errorLocTree, String message) {
-    assert this.analysis != null && this.state != null;
-    if (this.analysis != null && this.state != null) {
-      this.state.reportMatch(
+  protected static void reportMatch(
+      NullAway analysis, VisitorState state, Tree errorLocTree, String message) {
+    if (analysis != null && state != null) {
+      state.reportMatch(
           analysis
               .getErrorBuilder()
               .createErrorDescription(
                   new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                   errorLocTree,
                   buildDescriptionFromChecker(errorLocTree, analysis),
-                  this.state));
+                  state));
     }
   }
 

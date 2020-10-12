@@ -45,12 +45,25 @@ import javax.lang.model.element.Element;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 
+/**
+ * This Handler parses {@code @EnsuresNonNull} annotation and when the annotated method is invoked,
+ * it injects the knowledge gained from the annotation to the data flow analysis. The following
+ * tasks are performed when the {@code @EnsuresNonNull} annotation has observed:
+ *
+ * <ul>
+ *   <li>It validates the syntax of the annotation.
+ *   <li>It validates whether all fields specified in the annotation are guaranteed to be {@code
+ *       Nonnull} at exit point of the method.
+ *   <li>It validates whether the specified postcondition conforms to the overriding rules. Every
+ *       methods postcondition must satisfy all postconditions of the super methods as well.
+ * </ul>
+ */
 public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
 
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
-    ANNOT_NAME = "EnsuresNonNull";
+    annotName = "EnsuresNonNull";
   }
 
   /**

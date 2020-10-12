@@ -31,6 +31,7 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.NullnessStore;
@@ -44,12 +45,25 @@ import javax.lang.model.element.Element;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 
+/**
+ * This Handler parses {@code @RequiresNonNull} annotation and when the annotated method is invoked,
+ * it checks whether the specified class field are {@code @Nonnull} at call site. The following
+ * tasks are performed when the {@code @EnsuresNonNull} annotation has observed:
+ *
+ * <ul>
+ *   <li>It validates the syntax of the annotation.
+ *   <li>It injects the {@code Nonnull} value for the specified fields to pars the method body
+ *       because of the precondition assumption.
+ *   <li>It validates whether the specified precondition conforms to the overriding rules. Every
+ *       methods precondition cannot be stronger than it's super methods precondition.
+ * </ul>
+ */
 public class RequiresNonNullHandler extends AbstractFieldContractHandler {
 
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
-    ANNOT_NAME = "RequiresNonNull";
+    annotName = "RequiresNonNull";
   }
 
   /** All methods can add the precondition of {@code RequiresNonNull}. */
@@ -138,7 +152,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
               .getNullnessAnalysis(state)
               .getNullnessOfAccessPath(
                   new TreePath(state.getPath(), tree), state.context, accessPath);
-      if (nullnessToBool(nullness)) {
+      if (NullabilityUtil.nullnessToBool(nullness)) {
         reportMatch(
             analysis,
             state,

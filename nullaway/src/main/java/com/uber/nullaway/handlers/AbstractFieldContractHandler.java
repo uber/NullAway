@@ -22,8 +22,6 @@
 
 package com.uber.nullaway.handlers;
 
-import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
-
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -32,11 +30,8 @@ import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
-import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.Nullness;
+import com.uber.nullaway.NullabilityUtil;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -51,10 +46,16 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 
+/**
+ * Abstract base class for any annotation which aims processing class fields to satisfy pre/post
+ * conditions. Note: all fields that are going to be processed must be the fields of the receiver.
+ * (e.g. field or this.field)
+ */
 public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
 
   protected static final String THIS_NOTATION = "this.";
-  protected String ANNOT_NAME;
+  /** Simple name of the annotation in {@code String} */
+  protected String annotName;
 
   /**
    * This method verifies that the method adheres to any corresponding
@@ -66,13 +67,14 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     Set<String> annotationContent = getFieldNamesFromAnnotation(methodSymbol);
     boolean isValid =
         validateAnnotationSyntax(annotationContent, analysis, tree, state, methodSymbol);
-    if (annotationContent != null && isValid) {
-      isValid = validateAnnotationSemantics(analysis, state, tree, methodSymbol);
-    }
+    isValid =
+        (isValid && annotationContent != null)
+            ? validateAnnotationSemantics(analysis, state, tree, methodSymbol)
+            : isValid;
     if (isValid) {
       Set<String> fieldNames = null;
       Symbol.MethodSymbol closestOverriddenMethod =
-          getClosestOverriddenMethod(methodSymbol, state.getTypes());
+          NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
       if (closestOverriddenMethod == null) {
         return;
       }
@@ -97,7 +99,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
       Symbol.MethodSymbol overriddenMethod);
 
   /**
-   * Validates the semantic of the annotation
+   * Validates that a method implementation matches the semantics of the annotation.
    *
    * @return Returns true, if the annotation conforms to the semantic rules.
    */
@@ -128,7 +130,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
             state,
             tree,
             "empty @"
-                + ANNOT_NAME
+                + annotName
                 + " is the default precondition for every method, please remove it.");
         return false;
       } else {
@@ -140,7 +142,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                   state,
                   tree,
                   "currently @"
-                      + ANNOT_NAME
+                      + annotName
                       + " supports only class fields of the method receiver: "
                       + fieldName
                       + " is not supported");
@@ -198,39 +200,6 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     return null;
   }
 
-  /**
-   * find the closest ancestor method in a superclass or superinterface that method overrides
-   *
-   * @param method the subclass method
-   * @param types the types data structure from javac
-   * @return closest overridden ancestor method, or <code>null</code> if method does not override
-   *     anything
-   */
-  @Nullable
-  protected static Symbol.MethodSymbol getClosestOverriddenMethod(
-      Symbol.MethodSymbol method, Types types) {
-    // taken from Error Prone MethodOverrides check
-    Symbol.ClassSymbol owner = method.enclClass();
-    for (Type s : types.closure(owner.type)) {
-      if (types.isSameType(s, owner.type)) {
-        continue;
-      }
-      for (Symbol m : s.tsym.members().getSymbolsByName(method.name)) {
-        if (!(m instanceof Symbol.MethodSymbol)) {
-          continue;
-        }
-        Symbol.MethodSymbol msym = (Symbol.MethodSymbol) m;
-        if (msym.isStatic()) {
-          continue;
-        }
-        if (method.overrides(msym, owner, types, /*checkReturn*/ false)) {
-          return msym;
-        }
-      }
-    }
-    return null;
-  }
-
   protected static List<Element> getReceiverTreeElements(Tree receiver) {
     List<Element> elements = new ArrayList<>();
     if (receiver != null) {
@@ -244,19 +213,6 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     return elements;
   }
 
-  protected static void reportMatch(
-      NullAway analysis, VisitorState state, Tree errorLocTree, String message) {
-    assert analysis != null && state != null;
-    state.reportMatch(
-        analysis
-            .getErrorBuilder()
-            .createErrorDescription(
-                new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                errorLocTree,
-                buildDescriptionFromChecker(errorLocTree, analysis),
-                state));
-  }
-
   /**
    * Retrieve the string value inside the corresponding (@EnsuresNonNull/@RequiresNonNull depending
    * on the value of {@code ANNOT_NAME}) annotation without statically depending on the type.
@@ -268,7 +224,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
       Element element = annotation.getAnnotationType().asElement();
       assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
-      if (((TypeElement) element).getQualifiedName().toString().endsWith(ANNOT_NAME)) {
+      if (((TypeElement) element).getQualifiedName().toString().endsWith(annotName)) {
         for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
             annotation.getElementValues().entrySet()) {
           if (e.getKey().getSimpleName().contentEquals("value")) {
@@ -287,18 +243,5 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
       }
     }
     return null;
-  }
-
-  protected static boolean nullnessToBool(Nullness nullness) {
-    switch (nullness) {
-      case BOTTOM:
-      case NONNULL:
-        return false;
-      case NULL:
-      case NULLABLE:
-        return true;
-      default:
-        throw new AssertionError("Impossible: " + nullness);
-    }
   }
 }
