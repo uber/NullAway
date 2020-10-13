@@ -240,6 +240,14 @@ public class NullabilityUtil {
         && Nullness.hasNullableAnnotation(symbol, config);
   }
 
+  /**
+   * Coverts the {@link Nullness} value to {@code bool} value.
+   *
+   * @param nullness nullness value.
+   * @return true if the nullness value represents a {@code Nullable} value. To be more specific, it
+   *     returns true if the nullness value is either {@link Nullness#NULL} or {@link
+   *     Nullness#NULLABLE}.
+   */
   public static boolean nullnessToBool(Nullness nullness) {
     switch (nullness) {
       case BOTTOM:

@@ -33,6 +33,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -47,9 +48,9 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 
 /**
- * Abstract base class for any annotation which aims processing class fields to satisfy pre/post
- * conditions. Note: all fields that are going to be processed must be the fields of the receiver.
- * (e.g. field or this.field)
+ * Abstract base class for handlers that process pre- and post-condition annotations for fields.
+ * Note: all fields that are going to be processed must be the fields of the receiver. (e.g. field
+ * or this.field)
  */
 public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
 
@@ -65,28 +66,30 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
     Set<String> annotationContent = getFieldNamesFromAnnotation(methodSymbol);
+    boolean isAnnotated = annotationContent != null;
     boolean isValid =
-        validateAnnotationSyntax(annotationContent, analysis, tree, state, methodSymbol);
-    isValid =
-        (isValid && annotationContent != null)
-            ? validateAnnotationSemantics(analysis, state, tree, methodSymbol)
-            : isValid;
-    if (isValid) {
-      Set<String> fieldNames = null;
-      Symbol.MethodSymbol closestOverriddenMethod =
-          NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
-      if (closestOverriddenMethod == null) {
-        return;
-      }
-      if (annotationContent != null) {
-        fieldNames =
-            annotationContent
-                .stream()
-                .map(AbstractFieldContractHandler::trimReceiver)
-                .collect(Collectors.toSet());
-      }
-      validateOverridingRules(fieldNames, analysis, state, tree, closestOverriddenMethod);
+        isAnnotated
+            && validateAnnotationSyntax(annotationContent, analysis, tree, state, methodSymbol)
+            && validateAnnotationSemantics(analysis, state, tree, methodSymbol);
+    if (isAnnotated && !isValid) {
+      return;
     }
+    Symbol.MethodSymbol closestOverriddenMethod =
+        NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
+    if (closestOverriddenMethod == null) {
+      return;
+    }
+    Set<String> fieldNames;
+    if (isAnnotated) {
+      fieldNames =
+          annotationContent
+              .stream()
+              .map(AbstractFieldContractHandler::trimReceiver)
+              .collect(Collectors.toSet());
+    } else {
+      fieldNames = Collections.emptySet();
+    }
+    validateOverridingRules(fieldNames, analysis, state, tree, closestOverriddenMethod);
     super.onMatchMethod(analysis, tree, state, methodSymbol);
   }
 

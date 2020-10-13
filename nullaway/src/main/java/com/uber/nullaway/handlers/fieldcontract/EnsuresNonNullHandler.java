@@ -89,7 +89,9 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
     Set<String> fieldNames = getFieldNamesFromAnnotation(methodSymbol);
-    Preconditions.checkNotNull(fieldNames);
+    if (fieldNames == null) {
+      fieldNames = Collections.emptySet();
+    }
     fieldNames =
         fieldNames.stream().map(EnsuresNonNullHandler::trimReceiver).collect(Collectors.toSet());
     boolean isValidLocalPostCondition = nonnullFieldsOfReceiverAtExit.containsAll(fieldNames);
@@ -187,7 +189,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       if (receiverNode != null) {
         receivers = getReceiverTreeElements(receiverNode.getTree());
       }
-      AccessPath accessPath = AccessPath.fromFieldAndBase(field, receivers);
+      AccessPath accessPath = AccessPath.fromFieldAndBase(receivers, field);
       bothUpdates.set(accessPath, Nullness.NONNULL);
     }
     return super.onDataflowVisitMethodInvocation(

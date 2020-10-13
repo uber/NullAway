@@ -146,7 +146,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       Element field = getFieldFromClass(classSymbol, fieldName);
       assert field != null
           : "Could not find field: [" + fieldName + "]" + "for class: " + classSymbol;
-      AccessPath accessPath = AccessPath.fromFieldAndBase(field, receivers);
+      AccessPath accessPath = AccessPath.fromFieldAndBase(receivers, field);
       Nullness nullness =
           analysis
               .getNullnessAnalysis(state)
@@ -187,7 +187,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       Element field = getFieldFromClass(ASTHelpers.getSymbol(classTree), fieldName);
       assert field != null
           : "Could not find field: [" + fieldName + "]" + "for class: " + classTree.getSimpleName();
-      AccessPath accessPath = AccessPath.fromFieldAndBase(field, null);
+      AccessPath accessPath = AccessPath.fromFieldAndBase(null, field);
       result.setInformation(accessPath, Nullness.NONNULL);
     }
     return result;
