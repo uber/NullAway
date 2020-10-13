@@ -30,6 +30,7 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -112,7 +113,12 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       }
     }
     errorMessage.append("] makes this method precondition stricter");
-    reportMatch(analysis, state, tree, errorMessage.toString());
+    reportMatch(
+        analysis,
+        state,
+        tree,
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage.toString()));
   }
 
   /**
@@ -157,7 +163,9 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
             analysis,
             state,
             tree,
-            "expected field [" + fieldName + "] is not non-null at call site");
+            new ErrorMessage(
+                ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
+                "expected field [" + fieldName + "] is not non-null at call site"));
       }
     }
   }

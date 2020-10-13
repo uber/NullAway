@@ -30,6 +30,7 @@ import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import java.util.ArrayList;
@@ -45,6 +46,7 @@ import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 
 /**
@@ -59,8 +61,12 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   protected String annotName;
 
   /**
-   * This method verifies that the method adheres to any corresponding
-   * (@EnsuresNonNull/@RequiresNonNull) annotation.
+   * Verifies that the processing method adheres to the annotation specifications.
+   *
+   * @param analysis NullAway instance.
+   * @param tree Processing method tree.
+   * @param state Javac {@link VisitorState}.
+   * @param methodSymbol Processing method symbol.
    */
   @Override
   public void onMatchMethod(
@@ -132,9 +138,11 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
             analysis,
             state,
             tree,
-            "empty @"
-                + annotName
-                + " is the default precondition for every method, please remove it.");
+            new ErrorMessage(
+                ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
+                "empty @"
+                    + annotName
+                    + " is the default precondition for every method, please remove it."));
         return false;
       } else {
         for (String fieldName : content) {
@@ -144,11 +152,13 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                   analysis,
                   state,
                   tree,
-                  "currently @"
-                      + annotName
-                      + " supports only class fields of the method receiver: "
-                      + fieldName
-                      + " is not supported");
+                  new ErrorMessage(
+                      ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
+                      "currently @"
+                          + annotName
+                          + " supports only class fields of the method receiver: "
+                          + fieldName
+                          + " is not supported"));
               return false;
             } else {
               fieldName = trimReceiver(fieldName);
@@ -161,7 +171,26 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                 analysis,
                 state,
                 tree,
-                "cannot find field [" + fieldName + "] in class: " + classSymbol.getSimpleName());
+                new ErrorMessage(
+                    ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
+                    "cannot find field ["
+                        + fieldName
+                        + "] in class: "
+                        + classSymbol.getSimpleName()));
+            return false;
+          }
+          if (field.getModifiers().contains(Modifier.STATIC)) {
+            reportMatch(
+                analysis,
+                state,
+                tree,
+                new ErrorMessage(
+                    ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
+                    "cannot accept static field: ["
+                        + fieldName
+                        + "] as a parameter in @"
+                        + annotName
+                        + " annotation"));
             return false;
           }
         }
@@ -176,7 +205,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    * @param fieldName A class symbol.
    * @return The class field name.
    */
-  protected static String trimReceiver(String fieldName) {
+  public static String trimReceiver(String fieldName) {
     return fieldName.substring(fieldName.lastIndexOf(".") + 1);
   }
 
@@ -187,7 +216,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    * @param name Name of the field.
    * @return The class field with the given name.
    */
-  protected static Element getFieldFromClass(Symbol.ClassSymbol classSymbol, String name) {
+  public static Element getFieldFromClass(Symbol.ClassSymbol classSymbol, String name) {
     Preconditions.checkNotNull(classSymbol);
     for (Element member : classSymbol.getEnclosedElements()) {
       if (member.getKind().isField()) {
@@ -203,16 +232,17 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     return null;
   }
 
-  protected static List<Element> getReceiverTreeElements(Tree receiver) {
+  public static List<Element> getReceiverTreeElements(Tree receiver) {
     List<Element> elements = new ArrayList<>();
     if (receiver != null) {
-      elements.add(0, ASTHelpers.getSymbol(receiver));
+      elements.add(ASTHelpers.getSymbol(receiver));
       while (receiver instanceof MemberSelectTree) {
         ExpressionTree expression = ((MemberSelectTree) receiver).getExpression();
-        elements.add(0, ASTHelpers.getSymbol(expression));
+        elements.add(ASTHelpers.getSymbol(expression));
         receiver = expression;
       }
     }
+    Collections.reverse(elements);
     return elements;
   }
 
@@ -223,7 +253,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    * @param sym A method.
    * @return The set of all values inside the annotation.
    */
-  protected @Nullable Set<String> getFieldNamesFromAnnotation(Symbol.MethodSymbol sym) {
+  public @Nullable Set<String> getFieldNamesFromAnnotation(Symbol.MethodSymbol sym) {
     for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
       Element element = annotation.getAnnotationType().asElement();
       assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);

@@ -31,6 +31,7 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -78,7 +79,9 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
           analysis,
           state,
           tree,
-          "cannot annotate an abstract method with @EnsuresNonNull annotation");
+          new ErrorMessage(
+              ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
+              "cannot annotate an abstract method with @EnsuresNonNull annotation"));
       return false;
     }
     Set<String> nonnullFieldsOfReceiverAtExit =
@@ -101,11 +104,13 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
           analysis,
           state,
           tree,
-          "method: "
-              + methodSymbol
-              + " is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter"
-              + " must be guaranteed to be nonnull at exit point and it fails to do so for the fields: "
-              + fieldNames);
+          new ErrorMessage(
+              ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
+              "method: "
+                  + methodSymbol
+                  + " is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter"
+                  + " must be guaranteed to be nonnull at exit point and it fails to do so for the fields: "
+                  + fieldNames));
       return false;
     }
     return true;
@@ -147,7 +152,12 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     }
     errorMessage.append(
         "] must explicitly appear as parameters at this method @EnsuresNonNull annotation");
-    reportMatch(analysis, state, tree, errorMessage.toString());
+    reportMatch(
+        analysis,
+        state,
+        tree,
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage.toString()));
   }
 
   /**

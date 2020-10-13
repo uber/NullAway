@@ -271,8 +271,6 @@ public final class AccessPath implements MapKey {
       root = new Root();
     } else {
       rootReceiver = receivers.get(0);
-      System.out.println("KIND: " + rootReceiver.getKind());
-      System.out.println("Element: " + rootReceiver);
       if (rootReceiver.toString().equals("super") || rootReceiver.toString().equals("this")) {
         root = new Root();
       } else {
