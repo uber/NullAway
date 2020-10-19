@@ -241,7 +241,7 @@ public class NullabilityUtil {
   }
 
   /**
-   * Coverts the {@link Nullness} value to {@code bool} value.
+   * Coverts a {@link Nullness} value to {@code bool} value.
    *
    * @param nullness nullness value.
    * @return true if the nullness value represents a {@code Nullable} value. To be more specific, it

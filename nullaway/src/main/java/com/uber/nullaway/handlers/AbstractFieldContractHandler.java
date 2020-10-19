@@ -99,7 +99,18 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     super.onMatchMethod(analysis, tree, state, methodSymbol);
   }
 
-  /** Validates whether the annotation conforms to the inheritance rules. */
+  /**
+   * This method validates whether the input method in parameter conforms to the inheritance rules.
+   * Regardless of whether an annotation is present, every method cannot have a stricter
+   * precondition than its super method and must satisfy all postcondition of its super method.
+   *
+   * @param fieldNames The set of filed names that are given as parameter in the annotation, empty
+   *     if the annotation is not present.
+   * @param analysis NullAway instance.
+   * @param tree Processing method tree.
+   * @param state Javac {@link VisitorState}.
+   * @param overriddenMethod Processing method symbol.
+   */
   protected abstract void validateOverridingRules(
       Set<String> fieldNames,
       NullAway analysis,
@@ -253,7 +264,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    * @param sym A method.
    * @return The set of all values inside the annotation.
    */
-  public @Nullable Set<String> getFieldNamesFromAnnotation(Symbol.MethodSymbol sym) {
+  protected @Nullable Set<String> getFieldNamesFromAnnotation(Symbol.MethodSymbol sym) {
     for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
       Element element = annotation.getAnnotationType().asElement();
       assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
