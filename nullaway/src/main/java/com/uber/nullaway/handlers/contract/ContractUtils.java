@@ -2,12 +2,16 @@ package com.uber.nullaway.handlers.contract;
 
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 
+import com.google.common.base.Function;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -17,7 +21,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 
 /** An utility class for {@link ContractHandler} and {@link ContractCheckHandler}. */
-class ContractUtils {
+public class ContractUtils {
 
   /**
    * Retrieve the string value inside an @Contract annotation without statically depending on the
@@ -46,6 +50,52 @@ class ContractUtils {
       }
     }
     return null;
+  }
+
+  /**
+   * Retrieve the string value inside the corresponding (@EnsuresNonNull/@RequiresNonNull depending
+   * on the value of {@code ANNOT_NAME}) annotation without statically depending on the type.
+   *
+   * @param sym A method.
+   * @return The set of all values inside the annotation.
+   */
+  public static @Nullable Set<String> getFieldNamesFromAnnotation(
+      Symbol.MethodSymbol sym, String annotName) {
+    for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
+      Element element = annotation.getAnnotationType().asElement();
+      assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
+      if (((TypeElement) element).getQualifiedName().toString().endsWith(annotName)) {
+        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
+            annotation.getElementValues().entrySet()) {
+          if (e.getKey().getSimpleName().contentEquals("value")) {
+            String value = e.getValue().toString();
+            if (value.startsWith("{") && value.endsWith("}")) {
+              value = value.substring(1, value.length() - 1);
+            }
+            String[] rawFieldNamesArray = value.split(",");
+            Set<String> ans = new HashSet<>();
+            for (String s : rawFieldNamesArray) {
+              ans.add(s.trim().replaceAll("\"", ""));
+            }
+            return ans;
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Returns a set of field names excluding their receivers (e.g. "this.a" will be "a")
+   *
+   * @param fieldNames A set of raw class field names.
+   * @return A set of trimmed field names.
+   */
+  public static Set<String> trimReceivers(Set<String> fieldNames) {
+    return fieldNames
+        .stream()
+        .map((Function<String, String>) input -> input.substring(input.lastIndexOf(".") + 1))
+        .collect(Collectors.toSet());
   }
 
   /**

@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway.handlers.fieldcontract;
+package com.uber.nullaway.handlers.contract.fieldcontract;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
@@ -37,6 +37,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
+import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -91,12 +92,11 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
             .stream()
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
-    Set<String> fieldNames = getFieldNamesFromAnnotation(methodSymbol);
+    Set<String> fieldNames = ContractUtils.getFieldNamesFromAnnotation(methodSymbol, annotName);
     if (fieldNames == null) {
       fieldNames = Collections.emptySet();
     }
-    fieldNames =
-        fieldNames.stream().map(EnsuresNonNullHandler::trimReceiver).collect(Collectors.toSet());
+    fieldNames = ContractUtils.trimReceivers(fieldNames);
     boolean isValidLocalPostCondition = nonnullFieldsOfReceiverAtExit.containsAll(fieldNames);
     if (!isValidLocalPostCondition) {
       fieldNames.removeAll(nonnullFieldsOfReceiverAtExit);
@@ -128,7 +128,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       VisitorState state,
       MethodTree tree,
       Symbol.MethodSymbol overriddenMethod) {
-    Set<String> overriddenFieldNames = getFieldNamesFromAnnotation(overriddenMethod);
+    Set<String> overriddenFieldNames =
+        ContractUtils.getFieldNamesFromAnnotation(overriddenMethod, annotName);
     if (overriddenFieldNames == null) {
       return;
     }
@@ -180,13 +181,12 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     }
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(methodSymbol);
-    Set<String> fieldNames = getFieldNamesFromAnnotation(methodSymbol);
+    Set<String> fieldNames = ContractUtils.getFieldNamesFromAnnotation(methodSymbol, annotName);
     if (fieldNames == null) {
       return super.onDataflowVisitMethodInvocation(
           node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
     }
-    fieldNames =
-        fieldNames.stream().map(EnsuresNonNullHandler::trimReceiver).collect(Collectors.toSet());
+    fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
       Element field = getFieldFromClass(ASTHelpers.enclosingClass(methodSymbol), fieldName);
       assert field != null

@@ -33,21 +33,13 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
+import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
-import javax.annotation.Nullable;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
 
 /**
  * Abstract base class for handlers that process pre- and post-condition annotations for fields.
@@ -71,7 +63,8 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
-    Set<String> annotationContent = getFieldNamesFromAnnotation(methodSymbol);
+    Set<String> annotationContent =
+        ContractUtils.getFieldNamesFromAnnotation(methodSymbol, annotName);
     boolean isAnnotated = annotationContent != null;
     boolean isValid =
         isAnnotated
@@ -87,11 +80,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     }
     Set<String> fieldNames;
     if (isAnnotated) {
-      fieldNames =
-          annotationContent
-              .stream()
-              .map(AbstractFieldContractHandler::trimReceiver)
-              .collect(Collectors.toSet());
+      fieldNames = ContractUtils.trimReceivers(annotationContent);
     } else {
       fieldNames = Collections.emptySet();
     }
@@ -172,7 +161,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                           + " is not supported"));
               return false;
             } else {
-              fieldName = trimReceiver(fieldName);
+              fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
             }
           }
           Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
@@ -211,16 +200,6 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   }
 
   /**
-   * Returns the field name excluding its receiver (e.g. "this.a" will be "a")
-   *
-   * @param fieldName A class symbol.
-   * @return The class field name.
-   */
-  public static String trimReceiver(String fieldName) {
-    return fieldName.substring(fieldName.lastIndexOf(".") + 1);
-  }
-
-  /**
    * Finds a specific field of a class
    *
    * @param classSymbol A class symbol.
@@ -255,37 +234,5 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     }
     Collections.reverse(elements);
     return elements;
-  }
-
-  /**
-   * Retrieve the string value inside the corresponding (@EnsuresNonNull/@RequiresNonNull depending
-   * on the value of {@code ANNOT_NAME}) annotation without statically depending on the type.
-   *
-   * @param sym A method.
-   * @return The set of all values inside the annotation.
-   */
-  protected @Nullable Set<String> getFieldNamesFromAnnotation(Symbol.MethodSymbol sym) {
-    for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
-      Element element = annotation.getAnnotationType().asElement();
-      assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
-      if (((TypeElement) element).getQualifiedName().toString().endsWith(annotName)) {
-        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
-            annotation.getElementValues().entrySet()) {
-          if (e.getKey().getSimpleName().contentEquals("value")) {
-            String value = e.getValue().toString();
-            if (value.startsWith("{") && value.endsWith("}")) {
-              value = value.substring(1, value.length() - 1);
-            }
-            String[] rawFieldNamesArray = value.split(",");
-            Set<String> ans = new HashSet<>();
-            for (String s : rawFieldNamesArray) {
-              ans.add(s.trim().replaceAll("\"", ""));
-            }
-            return ans;
-          }
-        }
-      }
-    }
-    return null;
   }
 }

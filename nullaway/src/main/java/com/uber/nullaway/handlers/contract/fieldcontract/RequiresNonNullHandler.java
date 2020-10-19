@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway.handlers.fieldcontract;
+package com.uber.nullaway.handlers.contract.fieldcontract;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -37,11 +37,11 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
+import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
@@ -89,15 +89,12 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     if (overridingFieldNames == null) {
       return;
     }
-    Set<String> overriddenFieldNames = getFieldNamesFromAnnotation(overriddenMethod);
+    Set<String> overriddenFieldNames =
+        ContractUtils.getFieldNamesFromAnnotation(overriddenMethod, annotName);
     if (overriddenFieldNames == null) {
       overriddenFieldNames = Collections.emptySet();
     }
-    overriddenFieldNames =
-        overriddenFieldNames
-            .stream()
-            .map(RequiresNonNullHandler::trimReceiver)
-            .collect(Collectors.toSet());
+    overriddenFieldNames = ContractUtils.trimReceivers(overriddenFieldNames);
     if (overriddenFieldNames.containsAll(overridingFieldNames)) {
       return;
     }
@@ -131,13 +128,12 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       MethodInvocationTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
-    Set<String> fieldNames = getFieldNamesFromAnnotation(methodSymbol);
+    Set<String> fieldNames = ContractUtils.getFieldNamesFromAnnotation(methodSymbol, annotName);
     if (fieldNames == null) {
       super.onMatchMethodInvocation(analysis, tree, state, methodSymbol);
       return;
     }
-    fieldNames =
-        fieldNames.stream().map(RequiresNonNullHandler::trimReceiver).collect(Collectors.toSet());
+    fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
       assert classSymbol != null
@@ -185,12 +181,12 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     }
     MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
     ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
-    Set<String> fieldNames = getFieldNamesFromAnnotation(ASTHelpers.getSymbol(methodTree));
+    Set<String> fieldNames =
+        ContractUtils.getFieldNamesFromAnnotation(ASTHelpers.getSymbol(methodTree), annotName);
     if (fieldNames == null) {
       return result;
     }
-    fieldNames =
-        fieldNames.stream().map(RequiresNonNullHandler::trimReceiver).collect(Collectors.toSet());
+    fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
       Element field = getFieldFromClass(ASTHelpers.getSymbol(classTree), fieldName);
       assert field != null
