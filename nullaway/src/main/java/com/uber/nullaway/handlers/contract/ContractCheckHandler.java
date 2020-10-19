@@ -25,7 +25,6 @@ package com.uber.nullaway.handlers.contract;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getContractFromAnnotation;
-import static com.uber.nullaway.handlers.contract.ContractUtils.reportMatchForContractIssue;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
@@ -35,6 +34,7 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
@@ -140,7 +140,12 @@ public class ContractCheckHandler extends BaseNoOpHandler {
                       + "when the contract preconditions are true.";
             }
 
-            reportMatchForContractIssue(returnTree, errorMessage, analysis, returnState);
+            ContractUtils.reportMatch(
+                returnTree,
+                errorMessage,
+                analysis,
+                returnState,
+                ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
           }
           return super.visitReturn(returnTree, unused);
         }

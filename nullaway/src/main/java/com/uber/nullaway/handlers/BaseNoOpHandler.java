@@ -22,9 +22,6 @@
 
 package com.uber.nullaway.handlers;
 
-import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
-
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ClassTree;
@@ -34,7 +31,6 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
-import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -61,20 +57,6 @@ public abstract class BaseNoOpHandler implements Handler {
 
   protected BaseNoOpHandler() {
     // We don't allow creating useless handlers, subclass to add real behavior.
-  }
-
-  public static void reportMatch(
-      NullAway analysis, VisitorState state, Tree errorLocTree, ErrorMessage errorMessage) {
-    Preconditions.checkNotNull(analysis);
-    Preconditions.checkNotNull(state);
-    state.reportMatch(
-        analysis
-            .getErrorBuilder()
-            .createErrorDescription(
-                errorMessage,
-                errorLocTree,
-                buildDescriptionFromChecker(errorLocTree, analysis),
-                state));
   }
 
   @Override

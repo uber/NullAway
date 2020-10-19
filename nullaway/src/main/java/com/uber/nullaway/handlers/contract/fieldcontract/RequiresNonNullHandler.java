@@ -110,12 +110,12 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       }
     }
     errorMessage.append("] makes this method precondition stricter");
-    reportMatch(
+    ContractUtils.reportMatch(
+        tree,
+        errorMessage.toString(),
         analysis,
         state,
-        tree,
-        new ErrorMessage(
-            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage.toString()));
+        ErrorMessage.MessageTypes.WRONG_OVERRIDE_PRECONDITION);
   }
 
   /**
@@ -155,13 +155,9 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
               .getNullnessOfAccessPath(
                   new TreePath(state.getPath(), tree), state.context, accessPath);
       if (NullabilityUtil.nullnessToBool(nullness)) {
-        reportMatch(
-            analysis,
-            state,
-            tree,
-            new ErrorMessage(
-                ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
-                "expected field [" + fieldName + "] is not non-null at call site"));
+        String message = "expected field [" + fieldName + "] is not non-null at call site";
+        ContractUtils.reportMatch(
+            tree, message, analysis, state, ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED);
       }
     }
   }

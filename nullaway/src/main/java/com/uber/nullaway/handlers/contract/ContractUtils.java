@@ -3,6 +3,7 @@ package com.uber.nullaway.handlers.contract;
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
@@ -106,14 +107,19 @@ public class ContractUtils {
    * @param analysis A reference to the running NullAway analysis.
    * @param state The current visitor state.
    */
-  static void reportMatchForContractIssue(
-      Tree errorLocTree, String message, NullAway analysis, VisitorState state) {
-
+  public static void reportMatch(
+      Tree errorLocTree,
+      String message,
+      NullAway analysis,
+      VisitorState state,
+      ErrorMessage.MessageTypes messageType) {
+    Preconditions.checkNotNull(analysis);
+    Preconditions.checkNotNull(state);
     state.reportMatch(
         analysis
             .getErrorBuilder()
             .createErrorDescription(
-                new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                new ErrorMessage(messageType, message),
                 errorLocTree,
                 buildDescriptionFromChecker(errorLocTree, analysis),
                 state));
@@ -134,7 +140,7 @@ public class ContractUtils {
 
     String[] parts = clause.split("->");
     if (parts.length != 2) {
-      reportMatchForContractIssue(
+      reportMatch(
           tree,
           "Invalid @Contract annotation detected for method "
               + callee
@@ -142,7 +148,8 @@ public class ContractUtils {
               + clause
               + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).",
           analysis,
-          state);
+          state,
+          ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
     }
 
     String consequent = parts[1].trim();
@@ -173,7 +180,7 @@ public class ContractUtils {
     String[] antecedent = parts[0].split(",");
 
     if (antecedent.length != numOfArguments) {
-      reportMatchForContractIssue(
+      reportMatch(
           tree,
           "Invalid @Contract annotation detected for method "
               + callee
@@ -186,7 +193,8 @@ public class ContractUtils {
               + numOfArguments
               + "]).",
           analysis,
-          state);
+          state,
+          ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
     }
     return antecedent;
   }

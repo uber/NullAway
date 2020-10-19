@@ -132,33 +132,32 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     if (content == null) {
       return true;
     } else {
+      String message;
       if (content.isEmpty()) {
         // we should not allow useless annotations.
-        reportMatch(
-            analysis,
-            state,
-            tree,
-            new ErrorMessage(
-                ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
-                "empty @"
-                    + annotName
-                    + " is the default precondition for every method, please remove it."));
+        message =
+            "empty @"
+                + annotName
+                + " is the default precondition for every method, please remove it.";
+        ContractUtils.reportMatch(
+            tree, message, analysis, state, ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
         return false;
       } else {
         for (String fieldName : content) {
           if (fieldName.contains(".")) {
             if (!fieldName.startsWith(THIS_NOTATION)) {
-              reportMatch(
+              message =
+                  "currently @"
+                      + annotName
+                      + " supports only class fields of the method receiver: "
+                      + fieldName
+                      + " is not supported";
+              ContractUtils.reportMatch(
+                  tree,
+                  message,
                   analysis,
                   state,
-                  tree,
-                  new ErrorMessage(
-                      ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
-                      "currently @"
-                          + annotName
-                          + " supports only class fields of the method receiver: "
-                          + fieldName
-                          + " is not supported"));
+                  ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
               return false;
             } else {
               fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
@@ -167,30 +166,21 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
           Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
           Element field = getFieldFromClass(classSymbol, fieldName);
           if (field == null) {
-            reportMatch(
-                analysis,
-                state,
-                tree,
-                new ErrorMessage(
-                    ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
-                    "cannot find field ["
-                        + fieldName
-                        + "] in class: "
-                        + classSymbol.getSimpleName()));
+            message =
+                "cannot find field [" + fieldName + "] in class: " + classSymbol.getSimpleName();
+            ContractUtils.reportMatch(
+                tree, message, analysis, state, ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
             return false;
           }
           if (field.getModifiers().contains(Modifier.STATIC)) {
-            reportMatch(
-                analysis,
-                state,
-                tree,
-                new ErrorMessage(
-                    ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
-                    "cannot accept static field: ["
-                        + fieldName
-                        + "] as a parameter in @"
-                        + annotName
-                        + " annotation"));
+            message =
+                "cannot accept static field: ["
+                    + fieldName
+                    + "] as a parameter in @"
+                    + annotName
+                    + " annotation";
+            ContractUtils.reportMatch(
+                tree, message, analysis, state, ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
             return false;
           }
         }

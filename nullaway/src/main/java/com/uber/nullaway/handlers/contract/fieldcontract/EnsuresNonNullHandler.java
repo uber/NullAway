@@ -75,14 +75,11 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
   @Override
   protected boolean validateAnnotationSemantics(
       NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol) {
+    String message;
     if (tree.getBody() == null) {
-      reportMatch(
-          analysis,
-          state,
-          tree,
-          new ErrorMessage(
-              ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
-              "cannot annotate an abstract method with @EnsuresNonNull annotation"));
+      message = "cannot annotate an abstract method with @EnsuresNonNull annotation";
+      ContractUtils.reportMatch(
+          tree, message, analysis, state, ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
       return false;
     }
     Set<String> nonnullFieldsOfReceiverAtExit =
@@ -100,17 +97,14 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     boolean isValidLocalPostCondition = nonnullFieldsOfReceiverAtExit.containsAll(fieldNames);
     if (!isValidLocalPostCondition) {
       fieldNames.removeAll(nonnullFieldsOfReceiverAtExit);
-      reportMatch(
-          analysis,
-          state,
-          tree,
-          new ErrorMessage(
-              ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
-              "method: "
-                  + methodSymbol
-                  + " is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter"
-                  + " must be guaranteed to be nonnull at exit point and it fails to do so for the fields: "
-                  + fieldNames));
+      message =
+          "method: "
+              + methodSymbol
+              + " is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter"
+              + " must be guaranteed to be nonnull at exit point and it fails to do so for the fields: "
+              + fieldNames;
+      ContractUtils.reportMatch(
+          tree, message, analysis, state, ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED);
       return false;
     }
     return true;
@@ -153,12 +147,12 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     }
     errorMessage.append(
         "] must explicitly appear as parameters at this method @EnsuresNonNull annotation");
-    reportMatch(
+    ContractUtils.reportMatch(
+        tree,
+        errorMessage.toString(),
         analysis,
         state,
-        tree,
-        new ErrorMessage(
-            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage.toString()));
+        ErrorMessage.MessageTypes.WRONG_OVERRIDE_POSTCONDITION);
   }
 
   /**

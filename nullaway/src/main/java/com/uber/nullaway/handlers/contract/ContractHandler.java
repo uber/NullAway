@@ -145,19 +145,20 @@ public class ContractHandler extends BaseNoOpHandler {
             argAntecedentNullness =
                 valueConstraint.equals("null") ? Nullness.NULLABLE : Nullness.NONNULL;
           } else {
-            reportMatch(
+            String message =
+                "Invalid @Contract annotation detected for method "
+                    + callee
+                    + ". It contains the following uparseable clause: "
+                    + clause
+                    + " (unknown value constraint: "
+                    + valueConstraint
+                    + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).";
+            ContractUtils.reportMatch(
+                node.getTree(),
+                message,
                 analysis,
                 state,
-                node.getTree(),
-                new ErrorMessage(
-                    ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
-                    "Invalid @Contract annotation detected for method "
-                        + callee
-                        + ". It contains the following uparseable clause: "
-                        + clause
-                        + " (unknown value constraint: "
-                        + valueConstraint
-                        + ", see https://www.jetbrains.com/help/idea/contract-annotations.html)."));
+                ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
             supported = false;
             break;
           }
