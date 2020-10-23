@@ -259,6 +259,20 @@ public final class AccessPath implements MapKey {
   }
 
   /**
+   * Constructs an access path ending with the element in the argument. The receiver is the method
+   * receiver itself.
+   *
+   * @param element The receiver element.
+   * @return An access path ending with the element in the argument.
+   */
+  public static AccessPath fromElement(Element element) {
+    Root root = new Root();
+    ArrayList<AccessPathElement> elements = new ArrayList<>();
+    elements.add(new AccessPathElement(element));
+    return new AccessPath(root, elements);
+  }
+
+  /**
    * Extends an access path with a class field element.
    *
    * @param receiverNode The receiver node.
@@ -313,20 +327,6 @@ public final class AccessPath implements MapKey {
     }
     Collections.reverse(elements);
     return elements;
-  }
-
-  /**
-   * Constructs an access path ending with the element in the argument. The receiver is the method
-   * receiver itself.
-   *
-   * @param element The receiver element.
-   * @return An access path ending with the element in the argument.
-   */
-  public static AccessPath fromElement(Element element) {
-    Root root = new Root();
-    ArrayList<AccessPathElement> elements = new ArrayList<>();
-    elements.add(new AccessPathElement(element));
-    return new AccessPath(root, elements);
   }
 
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
