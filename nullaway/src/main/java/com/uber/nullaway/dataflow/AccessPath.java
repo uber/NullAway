@@ -295,7 +295,7 @@ public final class AccessPath implements MapKey {
   /**
    * Extends an access path with a class field element.
    *
-   * @param receiverTree The receiver tree
+   * @param receiverTree the receiver tree
    * @param field element of the class field
    * @return the extended access path
    */
