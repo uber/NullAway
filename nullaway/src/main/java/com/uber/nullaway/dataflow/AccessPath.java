@@ -262,8 +262,8 @@ public final class AccessPath implements MapKey {
    * Constructs an access path ending with the element in the argument. The receiver is the method
    * receiver itself.
    *
-   * @param element The receiver element.
-   * @return An access path ending with the element in the argument.
+   * @param element the receiver element.
+   * @return access path representing the class field
    */
   public static AccessPath fromElement(Element element) {
     Root root = new Root();
@@ -275,8 +275,9 @@ public final class AccessPath implements MapKey {
   /**
    * Extends an access path with a class field element.
    *
-   * @param receiverNode The receiver node.
-   * @param field element of the class field.
+   * @param receiverNode the receiver node
+   * @param field element of the class field
+   * @return the extended access path
    */
   public static AccessPath extendReceiverAccessPathWithField(Node receiverNode, Element field) {
     Root root;
@@ -294,8 +295,9 @@ public final class AccessPath implements MapKey {
   /**
    * Extends an access path with a class field element.
    *
-   * @param receiverTree The receiver tree.
+   * @param receiverTree The receiver tree
    * @param field element of the class field
+   * @return the extended access path
    */
   public static AccessPath extendReceiverAccessPathWithField(Tree receiverTree, Element field) {
     Root root;
