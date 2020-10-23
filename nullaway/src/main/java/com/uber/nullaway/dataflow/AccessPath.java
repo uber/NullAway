@@ -259,13 +259,15 @@ public final class AccessPath implements MapKey {
   }
 
   /**
-   * Constructs an access path ending with the element in the argument. The receiver is the method
-   * receiver itself.
+   * Constructs an access path ending with the class field element in the argument. The receiver is
+   * the method receiver itself.
    *
    * @param element the receiver element.
    * @return access path representing the class field
    */
   public static AccessPath fromElement(Element element) {
+    assert element.getKind().isField()
+        : "element must be of type: FIELD but received: " + element.getKind();
     Root root = new Root();
     ArrayList<AccessPathElement> elements = new ArrayList<>();
     elements.add(new AccessPathElement(element));
