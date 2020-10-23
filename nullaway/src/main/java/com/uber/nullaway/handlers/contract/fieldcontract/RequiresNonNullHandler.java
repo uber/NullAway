@@ -27,7 +27,6 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
@@ -140,13 +139,13 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       Element field = getFieldFromClass(classSymbol, fieldName);
       assert field != null
           : "Could not find field: [" + fieldName + "]" + "for class: " + classSymbol;
+      System.out.println("TYPE: " + tree.getMethodSelect().getKind());
       AccessPath accessPath =
-          AccessPath.extendReceiverAccessPathWithField(tree.getMethodSelect(), field);
+          AccessPath.extendReceiverTreeAccessPathWithField(tree.getMethodSelect(), field);
       Nullness nullness =
           analysis
               .getNullnessAnalysis(state)
-              .getNullnessOfAccessPath(
-                  new TreePath(state.getPath(), tree), state.context, accessPath);
+              .getNullnessOfAccessPath(state.getPath(), state.context, accessPath);
       if (NullabilityUtil.nullnessToBool(nullness)) {
         String message = "expected field [" + fieldName + "] is not non-null at call site";
         ContractUtils.reportMatch(

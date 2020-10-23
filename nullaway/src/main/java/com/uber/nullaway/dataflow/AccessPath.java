@@ -269,9 +269,7 @@ public final class AccessPath implements MapKey {
     assert element.getKind().isField()
         : "element must be of type: FIELD but received: " + element.getKind();
     Root root = new Root();
-    ArrayList<AccessPathElement> elements = new ArrayList<>();
-    elements.add(new AccessPathElement(element));
-    return new AccessPath(root, elements);
+    return new AccessPath(root, Collections.singletonList(new AccessPathElement(element)));
   }
 
   /**
@@ -281,7 +279,7 @@ public final class AccessPath implements MapKey {
    * @param field element of the class field
    * @return the extended access path
    */
-  public static AccessPath extendReceiverAccessPathWithField(Node receiverNode, Element field) {
+  public static AccessPath extendReceiverNodeAccessPathWithField(Node receiverNode, Element field) {
     Root root;
     if (receiverNode.getTree() == null) {
       // this is the receiver.
@@ -301,7 +299,7 @@ public final class AccessPath implements MapKey {
    * @param field element of the class field
    * @return the extended access path
    */
-  public static AccessPath extendReceiverAccessPathWithField(Tree receiverTree, Element field) {
+  public static AccessPath extendReceiverTreeAccessPathWithField(Tree receiverTree, Element field) {
     Root root;
     List<AccessPathElement> receivers;
     if (receiverTree instanceof MemberSelectTree) {

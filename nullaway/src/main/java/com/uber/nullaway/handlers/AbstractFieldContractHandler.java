@@ -25,18 +25,13 @@ package com.uber.nullaway.handlers;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.handlers.contract.ContractUtils;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
@@ -210,19 +205,5 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
       return getFieldFromClass(superClass, name);
     }
     return null;
-  }
-
-  public static List<Element> getReceiverTreeElements(Tree receiver) {
-    List<Element> elements = new ArrayList<>();
-    if (receiver != null) {
-      elements.add(ASTHelpers.getSymbol(receiver));
-      while (receiver instanceof MemberSelectTree) {
-        ExpressionTree expression = ((MemberSelectTree) receiver).getExpression();
-        elements.add(ASTHelpers.getSymbol(expression));
-        receiver = expression;
-      }
-    }
-    Collections.reverse(elements);
-    return elements;
   }
 }
