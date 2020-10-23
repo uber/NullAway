@@ -139,7 +139,6 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       Element field = getFieldFromClass(classSymbol, fieldName);
       assert field != null
           : "Could not find field: [" + fieldName + "]" + "for class: " + classSymbol;
-      System.out.println("TYPE: " + tree.getMethodSelect().getKind());
       AccessPath accessPath =
           AccessPath.extendReceiverTreeAccessPathWithField(tree.getMethodSelect(), field);
       Nullness nullness =
