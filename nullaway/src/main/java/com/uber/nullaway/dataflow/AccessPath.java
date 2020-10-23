@@ -262,7 +262,7 @@ public final class AccessPath implements MapKey {
    * Extends an access path with a class field element.
    *
    * @param receiverNode The receiver node.
-   * @param field element of the class field
+   * @param field element of the class field.
    */
   public static AccessPath extendReceiverAccessPathWithField(Node receiverNode, Element field) {
     Root root;
