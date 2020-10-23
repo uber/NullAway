@@ -25,7 +25,6 @@ package com.uber.nullaway.handlers.contract.fieldcontract;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
@@ -138,17 +137,11 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
       assert classSymbol != null
           : "can not find the enclosing class for method symbol: " + methodSymbol;
-      List<Element> receivers = null; // null receiver means (this) is the receiver.
-      if (tree.getMethodSelect() instanceof MemberSelectTree) {
-        MemberSelectTree memberTree = (MemberSelectTree) tree.getMethodSelect();
-        if (memberTree != null) {
-          receivers = getReceiverTreeElements(memberTree.getExpression());
-        }
-      }
       Element field = getFieldFromClass(classSymbol, fieldName);
       assert field != null
           : "Could not find field: [" + fieldName + "]" + "for class: " + classSymbol;
-      AccessPath accessPath = AccessPath.fromFieldAndBase(receivers, field);
+      AccessPath accessPath =
+          AccessPath.extendReceiverAccessPathWithField(tree.getMethodSelect(), field);
       Nullness nullness =
           analysis
               .getNullnessAnalysis(state)
@@ -187,7 +180,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       Element field = getFieldFromClass(ASTHelpers.getSymbol(classTree), fieldName);
       assert field != null
           : "Could not find field: [" + fieldName + "]" + "for class: " + classTree.getSimpleName();
-      AccessPath accessPath = AccessPath.fromFieldAndBase(null, field);
+      AccessPath accessPath = AccessPath.fromElement(field);
       result.setInformation(accessPath, Nullness.NONNULL);
     }
     return result;

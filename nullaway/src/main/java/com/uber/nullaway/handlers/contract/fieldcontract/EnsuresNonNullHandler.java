@@ -40,12 +40,10 @@ import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
-import org.checkerframework.dataflow.cfg.node.Node;
 
 /**
  * This Handler parses {@code @EnsuresNonNull} annotation and when the annotated method is invoked,
@@ -188,12 +186,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
               + fieldNames
               + "] in class: "
               + ASTHelpers.enclosingClass(methodSymbol).getSimpleName();
-      List<Element> receivers = null;
-      Node receiverNode = node.getTarget().getReceiver();
-      if (receiverNode != null) {
-        receivers = getReceiverTreeElements(receiverNode.getTree());
-      }
-      AccessPath accessPath = AccessPath.fromFieldAndBase(receivers, field);
+      AccessPath accessPath =
+          AccessPath.extendReceiverAccessPathWithField(node.getTarget().getReceiver(), field);
       bothUpdates.set(accessPath, Nullness.NONNULL);
     }
     return super.onDataflowVisitMethodInvocation(
