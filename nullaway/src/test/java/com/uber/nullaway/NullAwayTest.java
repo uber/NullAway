@@ -2850,14 +2850,13 @@ public class NullAwayTest {
             "package com.uber;",
             "class Office {",
             "  Box box = new Box();",
-            //            "  public void test() {",
-            //            "    Office office1 = new Office();",
-            //            "    Office office2 = new Office();",
-            //            "    office1.box.content.init();",
-            //            "    // BUG: Diagnostic contains: expected field [nullItem] is not
-            // non-null at call site",
-            //            "    office2.box.content.run();",
-            //            "  }",
+            "  public void test() {",
+            "    Office office1 = new Office();",
+            "    Office office2 = new Office();",
+            "    office1.box.content.init();",
+            "    // BUG: Diagnostic contains: expected field [nullItem] is not non-null at call site",
+            "    office2.box.content.run();",
+            "  }",
             "}")
         .doTest();
   }
