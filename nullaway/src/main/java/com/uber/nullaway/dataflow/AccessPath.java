@@ -316,10 +316,10 @@ public final class AccessPath implements MapKey {
   }
 
   /**
-   * Creates an access path ending with the element in the argument. The receiver is the method
+   * Constructs an access path ending with the element in the argument. The receiver is the method
    * receiver itself.
    *
-   * @param element The receiver tree.
+   * @param element The receiver element.
    * @return An access path ending with the element in the argument.
    */
   public static AccessPath fromElement(Element element) {
