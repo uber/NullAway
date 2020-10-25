@@ -88,7 +88,7 @@ public final class AccessPath implements MapKey {
    * @param node the local
    * @return access path representing the local
    */
-  static AccessPath fromLocal(LocalVariableNode node) {
+  public static AccessPath fromLocal(LocalVariableNode node) {
     return new AccessPath(new Root(node.getElement()), ImmutableList.of());
   }
 
