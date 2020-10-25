@@ -299,17 +299,10 @@ public final class AccessPath implements MapKey {
    * @param field element of the class field
    * @return the extended access path
    */
-  public static AccessPath extendReceiverTreeAccessPathWithField(Tree receiverTree, Element field) {
-    Root root;
-    List<AccessPathElement> receivers;
-    if (receiverTree instanceof MemberSelectTree) {
-      MemberSelectTree tree = ((MemberSelectTree) receiverTree);
-      root = new Root(ASTHelpers.getSymbol(tree.getExpression()));
-      receivers = getReceiverAccessPathElementChain(tree.getExpression());
-    } else {
-      root = new Root();
-      receivers = new ArrayList<>();
-    }
+  public static AccessPath extendReceiverTreeAccessPathWithField(
+      ExpressionTree receiverTree, Element field) {
+    Root root = new Root(ASTHelpers.getSymbol(receiverTree));
+    List<AccessPathElement> receivers = getReceiverAccessPathElementChain(receiverTree);
     receivers.add(new AccessPathElement(field));
     return new AccessPath(root, receivers);
   }
