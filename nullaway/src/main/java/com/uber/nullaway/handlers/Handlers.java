@@ -26,6 +26,8 @@ import com.google.common.collect.ImmutableList;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.contract.ContractCheckHandler;
 import com.uber.nullaway.handlers.contract.ContractHandler;
+import com.uber.nullaway.handlers.contract.fieldcontract.EnsuresNonNullHandler;
+import com.uber.nullaway.handlers.contract.fieldcontract.RequiresNonNullHandler;
 
 /** Utility static methods for the handlers package. */
 public class Handlers {
@@ -58,8 +60,8 @@ public class Handlers {
     handlerListBuilder.add(StreamNullabilityPropagatorFactory.getJavaStreamNullabilityPropagator());
     handlerListBuilder.add(new ContractHandler());
     handlerListBuilder.add(new ApacheThriftIsSetHandler());
-    handlerListBuilder.add(new EnsuresNonnullHandler());
-    handlerListBuilder.add(new RequiresNonnullHandler());
+    handlerListBuilder.add(new EnsuresNonNullHandler());
+    handlerListBuilder.add(new RequiresNonNullHandler());
 
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
