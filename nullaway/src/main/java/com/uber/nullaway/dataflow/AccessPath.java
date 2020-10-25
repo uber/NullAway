@@ -157,34 +157,6 @@ public final class AccessPath implements MapKey {
     return new AccessPath(root, elements);
   }
 
-  public static AccessPath fromFieldAccessNode(Element fieldElement, Node nodeReceiver) {
-    Tree receiver = null;
-    if (nodeReceiver != null) {
-      receiver = nodeReceiver.getTree();
-    }
-    return fromFieldAccess(fieldElement, receiver);
-  }
-
-  public static AccessPath fromFieldAccessTree(Element fieldElement, MemberSelectTree tree) {
-    Tree receiver = null;
-    if (tree != null) {
-      receiver = tree.getExpression();
-    }
-    return fromFieldAccess(fieldElement, receiver);
-  }
-
-  private static AccessPath fromFieldAccess(Element fieldElement, Tree receiver) {
-    List<AccessPathElement> elements = new ArrayList<>();
-    elements.add(new AccessPathElement(fieldElement));
-    Root root;
-    if (receiver == null) {
-      root = new Root();
-    } else {
-      root = new Root(ASTHelpers.getSymbol(receiver));
-    }
-    return new AccessPath(root, elements);
-  }
-
   /**
    * Construct the access path for <code>map.get(x)</code> from an invocation of <code>put(x)</code>
    * or <code>containsKey(x)</code>.
@@ -327,7 +299,10 @@ public final class AccessPath implements MapKey {
    * @param field element of the class field
    * @return the extended access path
    */
-  public static AccessPath extendReceiverTreeAccessPathWithField(Tree receiverTree, Element field) {
+  public static AccessPath extendReceiverTreeAccessPathWithField(
+      ExpressionTree receiverTree, Element field) {
+    System.out.println("TREE: " + receiverTree);
+    System.out.println("KIND: " + receiverTree.getKind());
     Root root;
     List<AccessPathElement> receivers;
     if (receiverTree instanceof MemberSelectTree) {
