@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.handlers.contract;
 
-import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 
@@ -30,7 +29,6 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -147,15 +145,20 @@ public class ContractHandler extends BaseNoOpHandler {
             argAntecedentNullness =
                 valueConstraint.equals("null") ? Nullness.NULLABLE : Nullness.NONNULL;
           } else {
-            reportMatch(
-                node.getTree(),
+            String message =
                 "Invalid @Contract annotation detected for method "
                     + callee
                     + ". It contains the following uparseable clause: "
                     + clause
                     + " (unknown value constraint: "
                     + valueConstraint
-                    + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).");
+                    + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).";
+            ContractUtils.reportMatch(
+                node.getTree(),
+                message,
+                analysis,
+                state,
+                ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
             supported = false;
             break;
           }
@@ -201,20 +204,6 @@ public class ContractHandler extends BaseNoOpHandler {
       }
     }
     return NullnessHint.UNKNOWN;
-  }
-
-  private void reportMatch(Tree errorLocTree, String message) {
-    assert this.analysis != null && this.state != null;
-    if (this.analysis != null && this.state != null) {
-      this.state.reportMatch(
-          analysis
-              .getErrorBuilder()
-              .createErrorDescription(
-                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                  errorLocTree,
-                  buildDescriptionFromChecker(errorLocTree, analysis),
-                  this.state));
-    }
   }
 
   /**

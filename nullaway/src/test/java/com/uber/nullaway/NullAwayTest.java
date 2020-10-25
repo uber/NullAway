@@ -2623,7 +2623,7 @@ public class NullAwayTest {
   }
 
   @Test
-  public void requiresNonnullInterpretation() {
+  public void requiresNonNullInterpretation() {
     compilationHelper
         .addSourceLines(
             "Foo.java",
@@ -2640,6 +2640,21 @@ public class NullAwayTest {
             "    nullItem.call();",
             "     ",
             "  }",
+            "import com.uber.nullaway.qual.RequiresNonNull;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @RequiresNonNull(\"nullableItem\")",
+            "  public void run() {",
+            "    nullableItem.call();",
+            "    nullableItem = null;",
+            "    // BUG: Diagnostic contains: dereferenced expression nullableItem is @Nullable",
+            "    nullableItem.call();",
+            "     ",
+            "  }",
+            "  @RequiresNonNull(\"this.nullableItem\")",
+            "  public void test() {",
+            "    nullableItem.call();",
+            "  }",
             "}")
         .addSourceLines(
             "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
@@ -2647,7 +2662,64 @@ public class NullAwayTest {
   }
 
   @Test
-  public void ensuresNonnullInterpretation() {
+  public void supportRequiresNonNullOverridingTest() {
+    compilationHelper
+        .addSourceLines(
+            "SuperClass.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.RequiresNonNull;",
+            "class SuperClass {",
+            "  @Nullable Item a;",
+            "  public void test1() {",
+            "  }",
+            "  @RequiresNonNull(\"a\")",
+            "  public void test2() {",
+            "    a.call();",
+            "  }",
+            "  @RequiresNonNull(\"a\")",
+            "  public void test3() {",
+            "    a.call();",
+            "  }",
+            "  @RequiresNonNull(\"a\")",
+            "  public void test4() {",
+            "    a.call();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "ChildLevelOne.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.RequiresNonNull;",
+            "class ChildLevelOne extends SuperClass {",
+            "  @Nullable Item b;",
+            "  public void test1() {",
+            "    // BUG: Diagnostic contains: dereferenced expression a is @Nullable",
+            "    a.call();",
+            "  }",
+            "  public void test2() {",
+            "    // BUG: Diagnostic contains: dereferenced expression a is @Nullable",
+            "    a.call();",
+            "  }",
+            "  @RequiresNonNull(\"a\")",
+            "  public void test3() {",
+            "    a.call();",
+            "  }",
+            "  @RequiresNonNull(\"b\")",
+            "  // BUG: Diagnostic contains: precondition inheritance is violated, method in child class cannot have a stricter precondition than its closest overridden method, adding @requiresNonNull for fields [a] makes this method precondition stricter",
+            "  public void test4() {",
+            "    // BUG: Diagnostic contains: dereferenced expression a is @Nullable",
+            "    a.call();",
+            "    b.call();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void ensuresNonNullInterpretation() {
     compilationHelper
         .addSourceLines(
             "Foo.java",
@@ -2662,6 +2734,40 @@ public class NullAwayTest {
             "  }",
             "  @EnsuresNonnull(\"nullItem\")",
             "  public void test2() {",
+            "import com.uber.nullaway.qual.EnsuresNonNull;",
+            "class Foo {",
+            "  @Nullable Item nullItem;",
+            "  @Nullable static Item staticItem;",
+            "  Foo foo = new Foo();",
+            "  @EnsuresNonNull(\"nullItem\")",
+            "  public void test1() {",
+            "    nullItem = new Item();",
+            "  }",
+            "  @EnsuresNonNull(\"nullItem\")",
+            "  // BUG: Diagnostic contains: test2() is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter must be guaranteed to be nonnull at exit point and it fails to do so for the fields: [nullItem]",
+            "  public void test2() {",
+            "  }",
+            "  @EnsuresNonNull(\"this.nullItem\")",
+            "  public void test3() {",
+            "    test1();",
+            "  }",
+            "  @EnsuresNonNull(\"other.nullItem\")",
+            "  // BUG: Diagnostic contains: currently @EnsuresNonNull supports only class fields of the method receiver: other.nullItem is not supported",
+            "  public void test4() {",
+            "    nullItem = new Item();",
+            "  }",
+            "  @EnsuresNonNull(\"nullItem\")",
+            "  // BUG: Diagnostic contains: method: test5() is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter must be guaranteed to be nonnull at exit point and it fails to do so for the fields: [nullItem]",
+            "  public void test5() {",
+            "    this.foo.test1();",
+            "  }",
+            "  @EnsuresNonNull(\"nullItem\")",
+            "  public void test6() {",
+            "    this.test1();",
+            "  }",
+            "  @EnsuresNonNull(\"staticItem\")",
+            "  // BUG: Diagnostic contains: cannot accept static field: [staticItem] as a parameter in @EnsuresNonNull annotation",
+            "  public void test7() {",
             "  }",
             "}")
         .addSourceLines(
@@ -2670,21 +2776,70 @@ public class NullAwayTest {
   }
 
   @Test
-  public void ensuresNonnullBasic() {
+  public void supportEnsuresNonNullOverridingTest() {
     compilationHelper
         .addSourceLines(
-            "Foo.java",
+            "SuperClass.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.qual.RequiresNonnull;",
-            "import com.uber.nullaway.qual.EnsuresNonnull;",
-            "class Foo {",
+            "import com.uber.nullaway.qual.EnsuresNonNull;",
+            "class SuperClass {",
+            "  @Nullable Item a;",
+            "  @EnsuresNonNull(\"a\")",
+            "  public void test1() {",
+            "    a = new Item();",
+            "  }",
+            "  @EnsuresNonNull(\"a\")",
+            "  public void test2() {",
+            "    a = new Item();",
+            "  }",
+            "  @EnsuresNonNull(\"a\")",
+            "  public void noAnnotation() {",
+            "    a = new Item();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "ChildLevelOne.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.EnsuresNonNull;",
+            "class ChildLevelOne extends SuperClass {",
+            "  @Nullable Item b;",
+            "  @EnsuresNonNull(\"b\")",
+            "  // BUG: Diagnostic contains: postcondition inheritance is violated, this method must guarantee that all fields written in overridden method @EnsuresNonNull annotation are @NonNull at exit point as well. Fields [a] must explicitly appear as parameters at this method @EnsuresNonNull annotation",
+            "  public void test1() {",
+            "    b = new Item();",
+            "  }",
+            "  @EnsuresNonNull({\"b\", \"a\"})",
+            "  public void test2() {",
+            "    super.test2();",
+            "    b = new Item();",
+            "  }",
+            "  // BUG: Diagnostic contains: postcondition inheritance is violated, this method must guarantee that all fields written in overridden method @EnsuresNonNull annotation are @NonNull at exit point as well. Fields [a] must explicitly appear as parameters at this method @EnsuresNonNull annotation",
+            "  public void noAnnotation() {",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportEnsuresAndRequiresNonNullContract() {
+    compilationHelper
+        .addSourceLines(
+            "Content.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.qual.RequiresNonNull;",
+            "import com.uber.nullaway.qual.EnsuresNonNull;",
+            "class Content {",
             "  @Nullable Item nullItem;",
-            "  @RequiresNonnull(\"nullItem\")",
+            "  @RequiresNonNull(\"nullItem\")",
             "  public void run() {",
             "    nullItem.call();",
             "  }",
-            "  @EnsuresNonnull(\"nullItem\")",
+            "  @EnsuresNonNull(\"nullItem\")",
             "  public void init() {",
             "    nullItem = new Item();",
             "  }",
@@ -2704,10 +2859,40 @@ public class NullAwayTest {
             "    other.init();",
             "    // BUG: Diagnostic contains: expected field [nullItem] is not non-null at call site.",
             "    bar.run();",
+            "    Content content = new Content();",
+            "    content.init();",
+            "    content.run();",
+            "  }",
+            "  public void test3() {",
+            "    Content content = new Content();",
+            "    init();",
+            "    Content other = new Content();",
+            "    other.init();",
+            "    // BUG: Diagnostic contains: expected field [nullItem] is not non-null at call site",
+            "    content.run();",
             "  }",
             "}")
         .addSourceLines(
             "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .addSourceLines(
+            "Box.java",
+            "package com.uber;",
+            "class Box {",
+            "  Content content = new Content();",
+            "}")
+        .addSourceLines(
+            "Office.java",
+            "package com.uber;",
+            "class Office {",
+            "  Box box = new Box();",
+            "  public void test() {",
+            "    Office office1 = new Office();",
+            "    Office office2 = new Office();",
+            "    office1.box.content.init();",
+            "    // BUG: Diagnostic contains: expected field [nullItem] is not non-null at call site",
+            "    office2.box.content.run();",
+            "  }",
+            "}")
         .doTest();
   }
 }

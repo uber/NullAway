@@ -25,6 +25,7 @@ package com.uber.nullaway.dataflow;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
@@ -33,6 +34,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
@@ -284,6 +286,79 @@ public final class AccessPath implements MapKey {
     }
   }
 
+  /**
+   * Constructs an access path ending with the class field element in the argument. The receiver is
+   * the method receiver itself.
+   *
+   * @param element the receiver element.
+   * @return access path representing the class field
+   */
+  public static AccessPath fromElement(Element element) {
+    assert element.getKind().isField()
+        : "element must be of type: FIELD but received: " + element.getKind();
+    Root root = new Root();
+    return new AccessPath(root, Collections.singletonList(new AccessPathElement(element)));
+  }
+
+  /**
+   * Extends an access path with a class field element.
+   *
+   * @param receiverNode the receiver node
+   * @param field element of the class field
+   * @return the extended access path
+   */
+  public static AccessPath extendReceiverNodeAccessPathWithField(Node receiverNode, Element field) {
+    Root root;
+    if (receiverNode.getTree() == null) {
+      // this is the receiver.
+      root = new Root();
+    } else {
+      root = new Root(ASTHelpers.getSymbol(receiverNode.getTree()));
+    }
+    List<AccessPathElement> receivers = getReceiverAccessPathElementChain(receiverNode.getTree());
+    receivers.add(new AccessPathElement(field));
+    return new AccessPath(root, receivers);
+  }
+
+  /**
+   * Extends an access path with a class field element.
+   *
+   * @param receiverTree the receiver tree
+   * @param field element of the class field
+   * @return the extended access path
+   */
+  public static AccessPath extendReceiverTreeAccessPathWithField(Tree receiverTree, Element field) {
+    Root root;
+    List<AccessPathElement> receivers;
+    if (receiverTree instanceof MemberSelectTree) {
+      MemberSelectTree tree = ((MemberSelectTree) receiverTree);
+      root = new Root(ASTHelpers.getSymbol(tree.getExpression()));
+      receivers = getReceiverAccessPathElementChain(tree.getExpression());
+    } else {
+      root = new Root();
+      receivers = new ArrayList<>();
+    }
+    receivers.add(new AccessPathElement(field));
+    return new AccessPath(root, receivers);
+  }
+
+  /**
+   * Extracts the chain of all receivers comprising an access path.
+   *
+   * @param receiver The receiver tree.
+   * @return A list of {@link AccessPathElement} elements extracted from the argument's receivers.
+   */
+  private static List<AccessPathElement> getReceiverAccessPathElementChain(Tree receiver) {
+    List<AccessPathElement> elements = new ArrayList<>();
+    while (receiver instanceof MemberSelectTree) {
+      ExpressionTree expression = ((MemberSelectTree) receiver).getExpression();
+      elements.add(new AccessPathElement(ASTHelpers.getSymbol(expression)));
+      receiver = expression;
+    }
+    Collections.reverse(elements);
+    return elements;
+  }
+
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
     return methodSymbol.isStatic()
         && methodSymbol.getSimpleName().contentEquals("valueOf")
@@ -442,8 +517,10 @@ public final class AccessPath implements MapKey {
     @Nullable private final Element varElement;
 
     Root(Element varElement) {
-      this.isMethodReceiver = false;
-      this.varElement = Preconditions.checkNotNull(varElement);
+      isMethodReceiver =
+          varElement.getSimpleName().toString().equals("super")
+              || varElement.getSimpleName().toString().equals("this");
+      this.varElement = isMethodReceiver ? null : Preconditions.checkNotNull(varElement);
     }
 
     /** for case when it represents the receiver */

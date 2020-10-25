@@ -85,7 +85,6 @@ import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
@@ -94,7 +93,6 @@ import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.fixer.Fixer;
 import com.uber.nullaway.fixer.Location;
 import com.uber.nullaway.fixer.LocationUtils;
-import com.uber.nullaway.fixer.PreliminaryFixer;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import java.util.ArrayList;
@@ -244,7 +242,7 @@ public class NullAway extends BugChecker
     config = new DummyOptionsConfig();
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
-    fixer = new PreliminaryFixer(config);
+    fixer = new Fixer(config);
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), fixer);
   }
 
@@ -252,7 +250,7 @@ public class NullAway extends BugChecker
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
-    fixer = new PreliminaryFixer(config);
+    fixer = new Fixer(config);
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames(), fixer);
   }
 
@@ -492,7 +490,7 @@ public class NullAway extends BugChecker
     boolean exhaustiveOverride = config.exhaustiveOverride();
     if (isOverriding || !exhaustiveOverride) {
       Symbol.MethodSymbol closestOverriddenMethod =
-          getClosestOverriddenMethod(methodSymbol, state.getTypes());
+          NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
       if (closestOverriddenMethod != null) {
         return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
       }
@@ -634,21 +632,20 @@ public class NullAway extends BugChecker
         ErrorMessage errorMessage =
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, fixMessageSignature + message);
 
-        //        if (config.canFixElement(getTreesInstance(state), overridingnMethod)) {
-        //          CompilationUnitTree c =
-        //              getTreesInstance(state).getPath(overridingnMethod).getCompilationUnit();
-        //          Location location =
-        //              Location.Builder()
-        //                  .setClassTree(LocationUtils.getClassTree(overridingnMethod, state))
-        //                  .setMethodTree(ASTHelpers.findMethod(overridingnMethod, state))
-        //                  .setCompilationUnitTree(c)
-        //                  .setKind(Location.Kind.METHOD_PARAM)
-        //                  .setVariableSymbol(paramSymbol)
-        //                  .build();
-        //          Tree cause = (memberReferenceTree == null) ? lambdaExpressionTree :
-        // memberReferenceTree;
-        //          fixer.fix(errorMessage, location, cause);
-        //        }
+        if (config.canFixElement(getTreesInstance(state), overridingnMethod)) {
+          CompilationUnitTree c =
+              getTreesInstance(state).getPath(overridingnMethod).getCompilationUnit();
+          Location location =
+              Location.Builder()
+                  .setClassTree(LocationUtils.getClassTree(overridingnMethod, state))
+                  .setMethodTree(ASTHelpers.findMethod(overridingnMethod, state))
+                  .setCompilationUnitTree(c)
+                  .setKind(Location.Kind.METHOD_PARAM)
+                  .setVariableSymbol(paramSymbol)
+                  .build();
+          Tree cause = (memberReferenceTree == null) ? lambdaExpressionTree : memberReferenceTree;
+          fixer.fix(errorMessage, location, cause);
+        }
         return errorBuilder.createErrorDescription(
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
             buildDescription(errorTree),
@@ -808,22 +805,21 @@ public class NullAway extends BugChecker
           memberReferenceTree != null
               ? memberReferenceTree
               : getTreesInstance(state).getTree(overridingMethod);
-      //      if (config.canFixElement(getTreesInstance(state), overriddenMethod)) {
-      //        CompilationUnitTree c =
-      //            getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
-      //        Location location =
-      //            Location.Builder()
-      //                .setClassTree(LocationUtils.getClassTree(overriddenMethod, state))
-      //                .setMethodTree(superTree)
-      //                .setCompilationUnitTree(c)
-      //                .setKind(Location.Kind.METHOD_RETURN)
-      //                .build();
-      //        fixer.fix(
-      //            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature +
-      // message),
-      //            location,
-      //            errorTree);
-      //      }
+      if (config.canFixElement(getTreesInstance(state), overriddenMethod)) {
+        CompilationUnitTree c =
+            getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
+        Location location =
+            Location.Builder()
+                .setClassTree(LocationUtils.getClassTree(overriddenMethod, state))
+                .setMethodTree(superTree)
+                .setCompilationUnitTree(c)
+                .setKind(Location.Kind.METHOD_RETURN)
+                .build();
+        fixer.fix(
+            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature + message),
+            location,
+            errorTree);
+      }
       return errorBuilder.createErrorDescription(
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message),
           buildDescription(errorTree),
@@ -1959,7 +1955,7 @@ public class NullAway extends BugChecker
       }
     }
     Symbol.MethodSymbol closestOverriddenMethod =
-        getClosestOverriddenMethod(symbol, state.getTypes());
+        NullabilityUtil.getClosestOverriddenMethod(symbol, state.getTypes());
     if (closestOverriddenMethod == null) {
       return false;
     }
@@ -2107,7 +2103,7 @@ public class NullAway extends BugChecker
       // figure out if we care
       return false;
     }
-    return nullnessToBool(nullness);
+    return NullabilityUtil.nullnessToBool(nullness);
   }
 
   public AccessPathNullnessAnalysis getNullnessAnalysis(VisitorState state) {
@@ -2253,51 +2249,6 @@ public class NullAway extends BugChecker
       }
     }
     return expr;
-  }
-
-  private static boolean nullnessToBool(Nullness nullness) {
-    switch (nullness) {
-      case BOTTOM:
-      case NONNULL:
-        return false;
-      case NULL:
-      case NULLABLE:
-        return true;
-      default:
-        throw new AssertionError("Impossible: " + nullness);
-    }
-  }
-
-  /**
-   * find the closest ancestor method in a superclass or superinterface that method overrides
-   *
-   * @param method the subclass method
-   * @param types the types data structure from javac
-   * @return closest overridden ancestor method, or <code>null</code> if method does not override
-   *     anything
-   */
-  @Nullable
-  private Symbol.MethodSymbol getClosestOverriddenMethod(Symbol.MethodSymbol method, Types types) {
-    // taken from Error Prone MethodOverrides check
-    Symbol.ClassSymbol owner = method.enclClass();
-    for (Type s : types.closure(owner.type)) {
-      if (types.isSameType(s, owner.type)) {
-        continue;
-      }
-      for (Symbol m : s.tsym.members().getSymbolsByName(method.name)) {
-        if (!(m instanceof Symbol.MethodSymbol)) {
-          continue;
-        }
-        Symbol.MethodSymbol msym = (Symbol.MethodSymbol) m;
-        if (msym.isStatic()) {
-          continue;
-        }
-        if (method.overrides(msym, owner, types, /*checkReturn*/ false)) {
-          return msym;
-        }
-      }
-    }
-    return null;
   }
 
   /**

@@ -177,14 +177,6 @@ public final class AccessPathNullnessAnalysis {
     return getNonnullReceiverFields(store);
   }
 
-  public Nullness getNullnessOfAccessPath(TreePath path, Context context, AccessPath accessPath) {
-    NullnessStore store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
-    if (store == null) {
-      return Nullness.NULLABLE;
-    }
-    return store.getNullnessOfAccessPath(accessPath);
-  }
-
   /**
    * Get the static fields that are guaranteed to be nonnull before the current expression.
    *
@@ -226,6 +218,22 @@ public final class AccessPathNullnessAnalysis {
 
           return handler.includeApInfoInSavedContext(ap, state);
         });
+  }
+
+  /**
+   * Gets the {@link Nullness} value of an access path leads to at a specific program point.
+   *
+   * @param path Tree path to the specific program point.
+   * @param context Javac context.
+   * @param accessPath The access path.
+   * @return The {@link Nullness} value of the access path.
+   */
+  public Nullness getNullnessOfAccessPath(TreePath path, Context context, AccessPath accessPath) {
+    NullnessStore store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
+    if (store == null) {
+      return Nullness.NULLABLE;
+    }
+    return store.getNullnessOfAccessPath(accessPath);
   }
 
   /**

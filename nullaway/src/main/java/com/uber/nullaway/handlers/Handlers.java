@@ -60,6 +60,7 @@ public class Handlers {
     handlerListBuilder.add(new ApacheThriftIsSetHandler());
     handlerListBuilder.add(new EnsuresNonnullHandler());
     handlerListBuilder.add(new RequiresNonnullHandler());
+
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }

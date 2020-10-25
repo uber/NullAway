@@ -79,6 +79,38 @@ public class NullabilityUtil {
   }
 
   /**
+   * find the closest ancestor method in a superclass or superinterface that method overrides
+   *
+   * @param method the subclass method
+   * @param types the types data structure from javac
+   * @return closest overridden ancestor method, or <code>null</code> if method does not override
+   *     anything
+   */
+  @Nullable
+  public static Symbol.MethodSymbol getClosestOverriddenMethod(
+      Symbol.MethodSymbol method, Types types) {
+    // taken from Error Prone MethodOverrides check
+    Symbol.ClassSymbol owner = method.enclClass();
+    for (Type s : types.closure(owner.type)) {
+      if (types.isSameType(s, owner.type)) {
+        continue;
+      }
+      for (Symbol m : s.tsym.members().getSymbolsByName(method.name)) {
+        if (!(m instanceof Symbol.MethodSymbol)) {
+          continue;
+        }
+        Symbol.MethodSymbol msym = (Symbol.MethodSymbol) m;
+        if (msym.isStatic()) {
+          continue;
+        }
+        if (method.overrides(msym, owner, types, /*checkReturn*/ false)) {
+          return msym;
+        }
+      }
+    }
+    return null;
+  }
+  /**
    * finds the symbol for the top-level class containing the given symbol
    *
    * @param symbol the given symbol
@@ -206,6 +238,27 @@ public class NullabilityUtil {
             || symbol.isEnum()
             || isUnannotated(symbol, config))
         && Nullness.hasNullableAnnotation(symbol, config);
+  }
+
+  /**
+   * Coverts a {@link Nullness} value to {@code bool} value.
+   *
+   * @param nullness nullness value.
+   * @return true if the nullness value represents a {@code Nullable} value. To be more specific, it
+   *     returns true if the nullness value is either {@link Nullness#NULL} or {@link
+   *     Nullness#NULLABLE}.
+   */
+  public static boolean nullnessToBool(Nullness nullness) {
+    switch (nullness) {
+      case BOTTOM:
+      case NONNULL:
+        return false;
+      case NULL:
+      case NULLABLE:
+        return true;
+      default:
+        throw new AssertionError("Impossible: " + nullness);
+    }
   }
 
   /**
