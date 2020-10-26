@@ -1192,7 +1192,7 @@ public class NullAway extends BugChecker
           final ErrorMessage errorMessage =
               new ErrorMessage(
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
-                  "assigning @Nullable expression to @NonNull field");
+                  fixMessageSignature + "assigning @Nullable expression to @NonNull field");
           if (config.canFixElement(getTreesInstance(state), symbol)) {
             CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
             Location location =
