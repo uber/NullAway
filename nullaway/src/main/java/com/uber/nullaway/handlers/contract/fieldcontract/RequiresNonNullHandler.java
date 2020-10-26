@@ -150,6 +150,9 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       } else {
         accessPath = AccessPath.fromElement(field);
       }
+      if (accessPath == null) {
+        continue;
+      }
       Nullness nullness =
           analysis
               .getNullnessAnalysis(state)

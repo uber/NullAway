@@ -298,6 +298,11 @@ public final class AccessPath implements MapKey {
    */
   public static AccessPath extendReceiverTreeAccessPathWithField(
       @Nonnull Tree receiverTree, Element field) {
+    if (receiverTree.getKind().equals(Tree.Kind.CONDITIONAL_EXPRESSION)) {
+      // since we can't reason which branch executes, we cannot create an access path for the
+      // expression.
+      return null;
+    }
     List<AccessPathElement> receivers = getReceiverAccessPathElementChain(receiverTree);
     receivers.add(new AccessPathElement(field));
     Root root = new Root(receivers.get(0).getJavaElement());
