@@ -280,7 +280,7 @@ public final class AccessPath implements MapKey {
    * @param field element of the class field
    * @return the extended access path
    */
-  public static AccessPath extendReceiverNodeAccessPathWithField(
+  public static @Nullable AccessPath extendReceiverNodeAccessPathWithField(
       @Nonnull Node receiverNode, Element field) {
     if (receiverNode.getTree() == null) {
       // "this" is the receiver.
