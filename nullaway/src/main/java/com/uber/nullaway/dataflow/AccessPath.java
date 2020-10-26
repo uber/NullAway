@@ -296,7 +296,7 @@ public final class AccessPath implements MapKey {
    * @param field element of the class field
    * @return the extended access path
    */
-  public static AccessPath extendReceiverTreeAccessPathWithField(
+  public static @Nullable AccessPath extendReceiverTreeAccessPathWithField(
       @Nonnull Tree receiverTree, Element field) {
     if (receiverTree.getKind().equals(Tree.Kind.CONDITIONAL_EXPRESSION)) {
       // since we can't reason which branch executes, we cannot create an access path for the
