@@ -188,6 +188,9 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
               + ASTHelpers.enclosingClass(methodSymbol).getSimpleName();
       AccessPath accessPath =
           AccessPath.extendReceiverNodeAccessPathWithField(node.getTarget().getReceiver(), field);
+      if (accessPath == null) {
+        continue;
+      }
       bothUpdates.set(accessPath, Nullness.NONNULL);
     }
     return super.onDataflowVisitMethodInvocation(

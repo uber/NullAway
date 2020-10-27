@@ -25,6 +25,8 @@ package com.uber.nullaway.handlers.contract.fieldcontract;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.tools.javac.code.Symbol;
@@ -139,8 +141,18 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       Element field = getFieldFromClass(classSymbol, fieldName);
       assert field != null
           : "Could not find field: [" + fieldName + "]" + "for class: " + classSymbol;
-      AccessPath accessPath =
-          AccessPath.extendReceiverTreeAccessPathWithField(tree.getMethodSelect(), field);
+      ExpressionTree methodSelectTree = tree.getMethodSelect();
+      AccessPath accessPath;
+      if (methodSelectTree instanceof MemberSelectTree) {
+        accessPath =
+            AccessPath.extendReceiverTreeAccessPathWithField(
+                ((MemberSelectTree) methodSelectTree).getExpression(), field);
+      } else {
+        accessPath = AccessPath.fromElement(field);
+      }
+      if (accessPath == null) {
+        continue;
+      }
       Nullness nullness =
           analysis
               .getNullnessAnalysis(state)

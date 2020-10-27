@@ -36,6 +36,7 @@ import com.sun.tools.javac.code.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import org.checkerframework.dataflow.cfg.node.FieldAccessNode;
@@ -279,17 +280,13 @@ public final class AccessPath implements MapKey {
    * @param field element of the class field
    * @return the extended access path
    */
-  public static AccessPath extendReceiverNodeAccessPathWithField(Node receiverNode, Element field) {
-    Root root;
+  public static @Nullable AccessPath extendReceiverNodeAccessPathWithField(
+      @Nonnull Node receiverNode, Element field) {
     if (receiverNode.getTree() == null) {
-      // this is the receiver.
-      root = new Root();
-    } else {
-      root = new Root(ASTHelpers.getSymbol(receiverNode.getTree()));
+      // "this" is the receiver.
+      return fromElement(field);
     }
-    List<AccessPathElement> receivers = getReceiverAccessPathElementChain(receiverNode.getTree());
-    receivers.add(new AccessPathElement(field));
-    return new AccessPath(root, receivers);
+    return extendReceiverTreeAccessPathWithField(receiverNode.getTree(), field);
   }
 
   /**
@@ -299,32 +296,31 @@ public final class AccessPath implements MapKey {
    * @param field element of the class field
    * @return the extended access path
    */
-  public static AccessPath extendReceiverTreeAccessPathWithField(
-      ExpressionTree receiverTree, Element field) {
-    System.out.println("TREE: " + receiverTree);
-    System.out.println("KIND: " + receiverTree.getKind());
-    Root root;
-    List<AccessPathElement> receivers;
-    if (receiverTree instanceof MemberSelectTree) {
-      MemberSelectTree tree = ((MemberSelectTree) receiverTree);
-      root = new Root(ASTHelpers.getSymbol(tree.getExpression()));
-      receivers = getReceiverAccessPathElementChain(tree.getExpression());
-    } else {
-      root = new Root();
-      receivers = new ArrayList<>();
+  public static AccessPath extendReceiverTreeAccessPathWithField(Tree receiverTree, Element field) {
+    if (receiverTree.getKind().equals(Tree.Kind.CONDITIONAL_EXPRESSION)) {
+      // since we can't reason which branch executes, we cannot create an access path for the
+      // expression.
+      return null;
     }
+    List<AccessPathElement> receivers = getReceiverAccessPathElementChain(receiverTree);
     receivers.add(new AccessPathElement(field));
-    return new AccessPath(root, receivers);
+    Root root = new Root(receivers.get(0).getJavaElement());
+    return new AccessPath(root, receivers.subList(1, receivers.size()));
   }
 
   /**
-   * Extracts the chain of all receivers comprising an access path.
+   * Extracts the chain of all receivers comprising an access path, e.g., If we pass c in a.b.c we
+   * will get [a, b, c] in result.
    *
    * @param receiver The receiver tree.
    * @return A list of {@link AccessPathElement} elements extracted from the argument's receivers.
    */
   private static List<AccessPathElement> getReceiverAccessPathElementChain(Tree receiver) {
     List<AccessPathElement> elements = new ArrayList<>();
+    if (receiver == null) {
+      return elements;
+    }
+    elements.add(new AccessPathElement(ASTHelpers.getSymbol(receiver)));
     while (receiver instanceof MemberSelectTree) {
       ExpressionTree expression = ((MemberSelectTree) receiver).getExpression();
       elements.add(new AccessPathElement(ASTHelpers.getSymbol(expression)));
