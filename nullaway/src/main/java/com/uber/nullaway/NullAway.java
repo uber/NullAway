@@ -400,7 +400,8 @@ public class NullAway extends BugChecker
     ExpressionTree expression = tree.getExpression();
     if (mayBeNullExpr(state, expression)) {
       String message = "assigning @Nullable expression to @NonNull field";
-      ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message);
+      ErrorMessage errorMessage =
+          new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, fixMessageSignature + message);
       if (config.canFixElement(getTreesInstance(state), ASTHelpers.getSymbol(tree.getVariable()))) {
         CompilationUnitTree c =
             getTreesInstance(state)
@@ -416,10 +417,7 @@ public class NullAway extends BugChecker
         fixer.fix(errorMessage, location, expression);
       }
       return errorBuilder.createErrorDescriptionForNullAssignment(
-          new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message),
-          expression,
-          buildDescription(tree),
-          state);
+          errorMessage, expression, buildDescription(tree), state);
     }
     return Description.NO_MATCH;
   }
@@ -677,7 +675,8 @@ public class NullAway extends BugChecker
       final ErrorMessage errorMessage =
           new ErrorMessage(
               MessageTypes.RETURN_NULLABLE,
-              "returning @Nullable expression from method with @NonNull return type");
+              fixMessageSignature
+                  + "returning @Nullable expression from method with @NonNull return type");
       if (config.canFixElement(getTreesInstance(state), methodSymbol)) {
         MethodTree methodTree = ASTHelpers.findMethod(methodSymbol, state);
         if (methodTree == null)
