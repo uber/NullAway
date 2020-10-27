@@ -629,7 +629,6 @@ public class NullAway extends BugChecker
 
         ErrorMessage errorMessage =
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, fixMessageSignature + message);
-
         if (config.canFixElement(getTreesInstance(state), overridingnMethod)) {
           CompilationUnitTree c =
               getTreesInstance(state).getPath(overridingnMethod).getCompilationUnit();
@@ -645,9 +644,7 @@ public class NullAway extends BugChecker
           fixer.fix(errorMessage, location, cause);
         }
         return errorBuilder.createErrorDescription(
-            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
-            buildDescription(errorTree),
-            state);
+            errorMessage, buildDescription(errorTree), state);
       }
     }
     return Description.NO_MATCH;
@@ -804,6 +801,8 @@ public class NullAway extends BugChecker
           memberReferenceTree != null
               ? memberReferenceTree
               : getTreesInstance(state).getTree(overridingMethod);
+      ErrorMessage errorMessage =
+          new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature + message);
       if (config.canFixElement(getTreesInstance(state), overriddenMethod)) {
         CompilationUnitTree c =
             getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
@@ -814,15 +813,9 @@ public class NullAway extends BugChecker
                 .setCompilationUnitTree(c)
                 .setKind(Location.Kind.METHOD_RETURN)
                 .build();
-        fixer.fix(
-            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature + message),
-            location,
-            errorTree);
+        fixer.fix(errorMessage, location, errorTree);
       }
-      return errorBuilder.createErrorDescription(
-          new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message),
-          buildDescription(errorTree),
-          state);
+      return errorBuilder.createErrorDescription(errorMessage, buildDescription(errorTree), state);
     }
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
