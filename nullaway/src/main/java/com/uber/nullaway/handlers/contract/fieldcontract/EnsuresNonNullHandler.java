@@ -191,6 +191,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       if (accessPath == null) {
         continue;
       }
+      System.out.println("A: " + accessPath);
       bothUpdates.set(accessPath, Nullness.NONNULL);
     }
     return super.onDataflowVisitMethodInvocation(
