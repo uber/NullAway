@@ -267,8 +267,9 @@ public final class AccessPath implements MapKey {
    * @return access path representing the class field
    */
   public static AccessPath fromElement(Element element) {
-    assert element.getKind().isField()
-        : "element must be of type: FIELD but received: " + element.getKind();
+    Preconditions.checkArgument(
+        element.getKind().isField(),
+        "element must be of type: FIELD but received: " + element.getKind());
     Root root = new Root();
     return new AccessPath(root, Collections.singletonList(new AccessPathElement(element)));
   }
@@ -298,15 +299,19 @@ public final class AccessPath implements MapKey {
    */
   public static @Nullable AccessPath extendReceiverTreeAccessPathWithField(
       @Nonnull Tree receiverTree, Element field) {
-    if (receiverTree.getKind().equals(Tree.Kind.CONDITIONAL_EXPRESSION)) {
-      // since we can't reason which branch executes, we cannot create an access path for the
-      // expression.
-      return null;
+    AccessPath accessPath;
+    switch (receiverTree.getKind()) {
+      case MEMBER_SELECT:
+      case IDENTIFIER:
+        List<AccessPathElement> receivers = getReceiverAccessPathElementChain(receiverTree);
+        receivers.add(new AccessPathElement(field));
+        Root root = new Root(receivers.get(0).getJavaElement());
+        accessPath = new AccessPath(root, receivers.subList(1, receivers.size()));
+        break;
+      default:
+        accessPath = null;
     }
-    List<AccessPathElement> receivers = getReceiverAccessPathElementChain(receiverTree);
-    receivers.add(new AccessPathElement(field));
-    Root root = new Root(receivers.get(0).getJavaElement());
-    return new AccessPath(root, receivers.subList(1, receivers.size()));
+    return accessPath;
   }
 
   /**
