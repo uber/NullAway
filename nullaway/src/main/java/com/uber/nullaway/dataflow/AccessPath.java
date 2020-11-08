@@ -283,11 +283,10 @@ public final class AccessPath implements MapKey {
    */
   public static @Nullable AccessPath extendReceiverNodeAccessPathWithField(
       @Nonnull Node receiverNode, Element field) {
-    if (receiverNode.getTree() == null) {
-      // "this" is the receiver.
-      return fromElement(field);
-    }
-    return extendReceiverTreeAccessPathWithField(receiverNode.getTree(), field);
+    List<AccessPathElement> receivers = new ArrayList<>();
+    Root root = populateElementsRec(receiverNode, receivers);
+    receivers.add(new AccessPathElement(field));
+    return root != null ? new AccessPath(root, receivers) : null;
   }
 
   /**
