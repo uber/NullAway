@@ -435,7 +435,7 @@ public final class AccessPath implements MapKey {
     @Nullable private final Element varElement;
 
     Root(Element varElement) {
-      isMethodReceiver = false;
+      this.isMethodReceiver = false;
       this.varElement = Preconditions.checkNotNull(varElement);
     }
 
