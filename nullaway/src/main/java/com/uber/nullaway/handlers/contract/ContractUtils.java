@@ -3,7 +3,6 @@ package com.uber.nullaway.handlers.contract;
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
@@ -100,32 +99,6 @@ public class ContractUtils {
   }
 
   /**
-   * Reports contract issue with appropriate message and error location in the AST information.
-   *
-   * @param errorLocTree The AST node for the error location.
-   * @param message The error message.
-   * @param analysis A reference to the running NullAway analysis.
-   * @param state The current visitor state.
-   */
-  public static void reportMatch(
-      Tree errorLocTree,
-      String message,
-      NullAway analysis,
-      VisitorState state,
-      ErrorMessage.MessageTypes messageType) {
-    Preconditions.checkNotNull(analysis);
-    Preconditions.checkNotNull(state);
-    state.reportMatch(
-        analysis
-            .getErrorBuilder()
-            .createErrorDescription(
-                new ErrorMessage(messageType, message),
-                errorLocTree,
-                buildDescriptionFromChecker(errorLocTree, analysis),
-                state));
-  }
-
-  /**
    * Parses the contract clause and returns the consequent in the contract.
    *
    * @param clause The contract clause.
@@ -140,20 +113,22 @@ public class ContractUtils {
 
     String[] parts = clause.split("->");
     if (parts.length != 2) {
-      reportMatch(
-          tree,
-          "Invalid @Contract annotation detected for method "
-              + callee
-              + ". It contains the following uparseable clause: "
-              + clause
-              + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).",
-          analysis,
-          state,
-          ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
+      state.reportMatch(
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  new ErrorMessage(
+                      ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
+                      "Invalid @Contract annotation detected for method "
+                          + callee
+                          + ". It contains the following uparseable clause: "
+                          + clause
+                          + "(see https://www.jetbrains.com/help/idea/contract-annotations.html)."),
+                  tree,
+                  buildDescriptionFromChecker(tree, analysis),
+                  state));
     }
-
-    String consequent = parts[1].trim();
-    return consequent;
+    return parts[1].trim();
   }
 
   /**
@@ -180,21 +155,26 @@ public class ContractUtils {
     String[] antecedent = parts[0].split(",");
 
     if (antecedent.length != numOfArguments) {
-      reportMatch(
-          tree,
-          "Invalid @Contract annotation detected for method "
-              + callee
-              + ". It contains the following uparseable clause: "
-              + clause
-              + " (incorrect number of arguments in the clause's antecedent ["
-              + antecedent.length
-              + "], should be the same as the number of "
-              + "arguments in for the method ["
-              + numOfArguments
-              + "]).",
-          analysis,
-          state,
-          ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
+
+      state.reportMatch(
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  new ErrorMessage(
+                      ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
+                      "Invalid @Contract annotation detected for method "
+                          + callee
+                          + ". It contains the following uparseable clause: "
+                          + clause
+                          + " (incorrect number of arguments in the clause's antecedent ["
+                          + antecedent.length
+                          + "], should be the same as the number of "
+                          + "arguments in for the method ["
+                          + numOfArguments
+                          + "])."),
+                  tree,
+                  buildDescriptionFromChecker(tree, analysis),
+                  state));
     }
     return antecedent;
   }

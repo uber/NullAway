@@ -242,7 +242,7 @@ public final class DataFlow {
   }
 
   @Nullable
-  private <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
+  public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       AnalysisResult<A, S> resultForExpr(TreePath exprPath, Context context, T transfer) {
     final Tree leaf = exprPath.getLeaf();
     Preconditions.checkArgument(

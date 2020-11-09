@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.handlers.contract;
 
+import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 
@@ -153,12 +154,18 @@ public class ContractHandler extends BaseNoOpHandler {
                     + " (unknown value constraint: "
                     + valueConstraint
                     + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).";
-            ContractUtils.reportMatch(
-                node.getTree(),
-                message,
-                analysis,
-                state,
-                ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
+
+            Preconditions.checkNotNull(state);
+            Preconditions.checkNotNull(analysis);
+            state.reportMatch(
+                analysis
+                    .getErrorBuilder()
+                    .createErrorDescription(
+                        new ErrorMessage(
+                            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                        node.getTree(),
+                        buildDescriptionFromChecker(node.getTree(), analysis),
+                        state));
             supported = false;
             break;
           }

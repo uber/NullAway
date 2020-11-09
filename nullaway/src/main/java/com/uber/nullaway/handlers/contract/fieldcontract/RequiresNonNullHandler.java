@@ -22,11 +22,12 @@
 
 package com.uber.nullaway.handlers.contract.fieldcontract;
 
+import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.tools.javac.code.Symbol;
@@ -110,12 +111,16 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       }
     }
     errorMessage.append("] makes this method precondition stricter");
-    ContractUtils.reportMatch(
-        tree,
-        errorMessage.toString(),
-        analysis,
-        state,
-        ErrorMessage.MessageTypes.WRONG_OVERRIDE_PRECONDITION);
+
+    state.reportMatch(
+        analysis
+            .getErrorBuilder()
+            .createErrorDescription(
+                new ErrorMessage(
+                    ErrorMessage.MessageTypes.WRONG_OVERRIDE_PRECONDITION, errorMessage.toString()),
+                tree,
+                buildDescriptionFromChecker(tree, analysis),
+                state));
   }
 
   /**
@@ -142,25 +147,22 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       assert field != null
           : "Could not find field: [" + fieldName + "]" + "for class: " + classSymbol;
       ExpressionTree methodSelectTree = tree.getMethodSelect();
-      AccessPath accessPath;
-      if (methodSelectTree instanceof MemberSelectTree) {
-        accessPath =
-            AccessPath.extendReceiverTreeAccessPathWithField(
-                ((MemberSelectTree) methodSelectTree).getExpression(), field);
-      } else {
-        accessPath = AccessPath.fromElement(field);
-      }
-      if (accessPath == null) {
-        continue;
-      }
       Nullness nullness =
           analysis
               .getNullnessAnalysis(state)
-              .getNullnessOfAccessPath(state.getPath(), state.context, accessPath);
+              .getNullnessOfFieldForReceiverTree(
+                  state.getPath(), state.context, methodSelectTree, field);
       if (NullabilityUtil.nullnessToBool(nullness)) {
         String message = "expected field [" + fieldName + "] is not non-null at call site";
-        ContractUtils.reportMatch(
-            tree, message, analysis, state, ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED);
+
+        state.reportMatch(
+            analysis
+                .getErrorBuilder()
+                .createErrorDescription(
+                    new ErrorMessage(ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED, message),
+                    tree,
+                    buildDescriptionFromChecker(tree, analysis),
+                    state));
       }
     }
   }

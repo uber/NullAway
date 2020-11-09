@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.handlers.contract.fieldcontract;
 
+import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -76,8 +78,15 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     String message;
     if (tree.getBody() == null) {
       message = "cannot annotate an abstract method with @EnsuresNonNull annotation";
-      ContractUtils.reportMatch(
-          tree, message, analysis, state, ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
+
+      state.reportMatch(
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                  tree,
+                  buildDescriptionFromChecker(tree, analysis),
+                  state));
       return false;
     }
     Set<String> nonnullFieldsOfReceiverAtExit =
@@ -101,8 +110,15 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
               + " is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter"
               + " must be guaranteed to be nonnull at exit point and it fails to do so for the fields: "
               + fieldNames;
-      ContractUtils.reportMatch(
-          tree, message, analysis, state, ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED);
+
+      state.reportMatch(
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  new ErrorMessage(ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED, message),
+                  tree,
+                  buildDescriptionFromChecker(tree, analysis),
+                  state));
       return false;
     }
     return true;
@@ -145,12 +161,16 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     }
     errorMessage.append(
         "] must explicitly appear as parameters at this method @EnsuresNonNull annotation");
-    ContractUtils.reportMatch(
-        tree,
-        errorMessage.toString(),
-        analysis,
-        state,
-        ErrorMessage.MessageTypes.WRONG_OVERRIDE_POSTCONDITION);
+    state.reportMatch(
+        analysis
+            .getErrorBuilder()
+            .createErrorDescription(
+                new ErrorMessage(
+                    ErrorMessage.MessageTypes.WRONG_OVERRIDE_POSTCONDITION,
+                    errorMessage.toString()),
+                tree,
+                buildDescriptionFromChecker(tree, analysis),
+                state));
   }
 
   /**
@@ -186,8 +206,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
               + fieldNames
               + "] in class: "
               + ASTHelpers.enclosingClass(methodSymbol).getSimpleName();
-      AccessPath accessPath =
-          AccessPath.extendReceiverNodeAccessPathWithField(node.getTarget().getReceiver(), field);
+      AccessPath accessPath = AccessPath.fromBaseAndElement(node.getTarget().getReceiver(), field);
       if (accessPath == null) {
         continue;
       }

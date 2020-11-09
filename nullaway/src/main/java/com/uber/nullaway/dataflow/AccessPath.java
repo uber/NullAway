@@ -25,9 +25,7 @@ package com.uber.nullaway.dataflow;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
@@ -36,7 +34,6 @@ import com.sun.tools.javac.code.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import org.checkerframework.dataflow.cfg.node.FieldAccessNode;
@@ -275,67 +272,6 @@ public final class AccessPath implements MapKey {
     return new AccessPath(root, Collections.singletonList(new AccessPathElement(element)));
   }
 
-  /**
-   * Extends an access path with a class field element.
-   *
-   * @param receiverNode the receiver node
-   * @param field element of the class field
-   * @return the extended access path
-   */
-  public static @Nullable AccessPath extendReceiverNodeAccessPathWithField(
-      @Nonnull Node receiverNode, Element field) {
-    List<AccessPathElement> receivers = new ArrayList<>();
-    Root root = populateElementsRec(receiverNode, receivers);
-    receivers.add(new AccessPathElement(field));
-    return root != null ? new AccessPath(root, receivers) : null;
-  }
-
-  /**
-   * Extends an access path with a class field element.
-   *
-   * @param receiverTree the receiver tree
-   * @param field element of the class field
-   * @return the extended access path
-   */
-  public static @Nullable AccessPath extendReceiverTreeAccessPathWithField(
-      @Nonnull Tree receiverTree, Element field) {
-    AccessPath accessPath;
-    switch (receiverTree.getKind()) {
-      case MEMBER_SELECT:
-      case IDENTIFIER:
-        List<AccessPathElement> receivers = getReceiverAccessPathElementChain(receiverTree);
-        receivers.add(new AccessPathElement(field));
-        Root root = new Root(receivers.get(0).getJavaElement());
-        accessPath = new AccessPath(root, receivers.subList(1, receivers.size()));
-        break;
-      default:
-        accessPath = null;
-    }
-    return accessPath;
-  }
-
-  /**
-   * Extracts the chain of all receivers comprising an access path, e.g., If we pass c in a.b.c we
-   * will get [a, b, c] in result.
-   *
-   * @param receiver The receiver tree.
-   * @return A list of {@link AccessPathElement} elements extracted from the argument's receivers.
-   */
-  private static List<AccessPathElement> getReceiverAccessPathElementChain(Tree receiver) {
-    List<AccessPathElement> elements = new ArrayList<>();
-    if (receiver == null) {
-      return elements;
-    }
-    elements.add(new AccessPathElement(ASTHelpers.getSymbol(receiver)));
-    while (receiver instanceof MemberSelectTree) {
-      ExpressionTree expression = ((MemberSelectTree) receiver).getExpression();
-      elements.add(new AccessPathElement(ASTHelpers.getSymbol(expression)));
-      receiver = expression;
-    }
-    Collections.reverse(elements);
-    return elements;
-  }
-
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
     return methodSymbol.isStatic()
         && methodSymbol.getSimpleName().contentEquals("valueOf")
@@ -395,6 +331,9 @@ public final class AccessPath implements MapKey {
       }
       result = populateElementsRec(accessNode.getReceiver(), elements);
       elements.add(accessPathElement);
+    } else if (node instanceof MethodAccessNode) {
+      MethodAccessNode methodAccessNode = (MethodAccessNode) node;
+      result = populateElementsRec(methodAccessNode.getReceiver(), elements);
     } else if (node instanceof LocalVariableNode) {
       result = new Root(((LocalVariableNode) node).getElement());
     } else if (node instanceof ThisLiteralNode) {
@@ -496,10 +435,8 @@ public final class AccessPath implements MapKey {
     @Nullable private final Element varElement;
 
     Root(Element varElement) {
-      isMethodReceiver =
-          varElement.getSimpleName().toString().equals("super")
-              || varElement.getSimpleName().toString().equals("this");
-      this.varElement = isMethodReceiver ? null : Preconditions.checkNotNull(varElement);
+      isMethodReceiver = false;
+      this.varElement = Preconditions.checkNotNull(varElement);
     }
 
     /** for case when it represents the receiver */

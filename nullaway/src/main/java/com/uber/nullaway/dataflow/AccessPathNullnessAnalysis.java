@@ -20,6 +20,7 @@ package com.uber.nullaway.dataflow;
 
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
+import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
@@ -34,6 +35,7 @@ import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
+import org.checkerframework.dataflow.analysis.AnalysisResult;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 
@@ -225,17 +227,32 @@ public final class AccessPathNullnessAnalysis {
    *
    * @param path Tree path to the specific program point.
    * @param context Javac context.
-   * @param accessPath The access path.
    * @return The {@link Nullness} value of the access path.
    */
-  public Nullness getNullnessOfAccessPath(TreePath path, Context context, AccessPath accessPath) {
-    NullnessStore store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
-    if (store == null) {
+  public Nullness getNullnessOfFieldForReceiverTree(
+      TreePath path, Context context, Tree receiver, Element field) {
+    AnalysisResult<Nullness, NullnessStore> result =
+        dataFlow.resultForExpr(path, context, nullnessPropagation);
+    if (result == null) {
       return Nullness.NULLABLE;
     }
-    return store.getNullnessOfAccessPath(accessPath);
+    NullnessStore store = result.getStoreBefore(path.getLeaf());
+    // used set of nodes, a tree can have multiple nodes.
+    Set<Node> receiverNodes = result.getNodesForTree(receiver);
+    if (store == null || receiverNodes == null) {
+      return Nullness.NULLABLE;
+    }
+    // look for all possible access paths might exist in store.
+    for (Node receiverNode : receiverNodes) {
+      AccessPath accessPath = AccessPath.fromBaseAndElement(receiverNode, field);
+      Nullness nullness = store.getNullnessOfAccessPath(accessPath);
+      // only process access paths with valuable information.
+      if (!nullness.equals(Nullness.NULLABLE)) {
+        return nullness;
+      }
+    }
+    return Nullness.NULLABLE;
   }
-
   /**
    * Get the static fields that are guaranteed to be nonnull after a method or initializer block.
    *

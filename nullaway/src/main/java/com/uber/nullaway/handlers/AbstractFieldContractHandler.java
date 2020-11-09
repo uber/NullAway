@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -134,8 +136,14 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
             "empty @"
                 + annotName
                 + " is the default precondition for every method, please remove it.";
-        ContractUtils.reportMatch(
-            tree, message, analysis, state, ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
+        state.reportMatch(
+            analysis
+                .getErrorBuilder()
+                .createErrorDescription(
+                    new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                    tree,
+                    buildDescriptionFromChecker(tree, analysis),
+                    state));
         return false;
       } else {
         for (String fieldName : content) {
@@ -147,12 +155,16 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                       + " supports only class fields of the method receiver: "
                       + fieldName
                       + " is not supported";
-              ContractUtils.reportMatch(
-                  tree,
-                  message,
-                  analysis,
-                  state,
-                  ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
+
+              state.reportMatch(
+                  analysis
+                      .getErrorBuilder()
+                      .createErrorDescription(
+                          new ErrorMessage(
+                              ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                          tree,
+                          buildDescriptionFromChecker(tree, analysis),
+                          state));
               return false;
             } else {
               fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
@@ -163,8 +175,15 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
           if (field == null) {
             message =
                 "cannot find field [" + fieldName + "] in class: " + classSymbol.getSimpleName();
-            ContractUtils.reportMatch(
-                tree, message, analysis, state, ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
+            state.reportMatch(
+                analysis
+                    .getErrorBuilder()
+                    .createErrorDescription(
+                        new ErrorMessage(
+                            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                        tree,
+                        buildDescriptionFromChecker(tree, analysis),
+                        state));
             return false;
           }
           if (field.getModifiers().contains(Modifier.STATIC)) {
@@ -174,8 +193,15 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                     + "] as a parameter in @"
                     + annotName
                     + " annotation";
-            ContractUtils.reportMatch(
-                tree, message, analysis, state, ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
+            state.reportMatch(
+                analysis
+                    .getErrorBuilder()
+                    .createErrorDescription(
+                        new ErrorMessage(
+                            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                        tree,
+                        buildDescriptionFromChecker(tree, analysis),
+                        state));
             return false;
           }
         }
