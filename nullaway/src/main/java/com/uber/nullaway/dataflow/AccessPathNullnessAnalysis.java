@@ -267,6 +267,7 @@ public final class AccessPathNullnessAnalysis {
     }
     return Nullness.NULLABLE;
   }
+
   /**
    * Get the static fields that are guaranteed to be nonnull after a method or initializer block.
    *
