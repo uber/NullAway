@@ -36,6 +36,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.dataflow.analysis.AnalysisResult;
+import org.checkerframework.dataflow.cfg.node.MethodAccessNode;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 
@@ -244,6 +245,9 @@ public final class AccessPathNullnessAnalysis {
     }
     // look for all possible access paths might exist in store.
     for (Node receiverNode : receiverNodes) {
+      if (receiverNode instanceof MethodAccessNode) {
+        receiverNode = ((MethodAccessNode) receiverNode).getReceiver();
+      }
       AccessPath accessPath = AccessPath.fromBaseAndElement(receiverNode, field);
       Nullness nullness = store.getNullnessOfAccessPath(accessPath);
       // only process access paths with valuable information.

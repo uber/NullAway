@@ -331,9 +331,6 @@ public final class AccessPath implements MapKey {
       }
       result = populateElementsRec(accessNode.getReceiver(), elements);
       elements.add(accessPathElement);
-    } else if (node instanceof MethodAccessNode) {
-      MethodAccessNode methodAccessNode = (MethodAccessNode) node;
-      result = populateElementsRec(methodAccessNode.getReceiver(), elements);
     } else if (node instanceof LocalVariableNode) {
       result = new Root(((LocalVariableNode) node).getElement());
     } else if (node instanceof ThisLiteralNode) {
