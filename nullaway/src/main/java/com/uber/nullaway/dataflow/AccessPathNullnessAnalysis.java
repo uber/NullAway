@@ -18,6 +18,7 @@
 
 package com.uber.nullaway.dataflow;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
@@ -224,14 +225,20 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
-   * Gets the {@link Nullness} value of an access path leads to at a specific program point.
+   * Get the {@link Nullness} value of an access path ending in a field at some program point.
    *
    * @param path Tree path to the specific program point.
    * @param context Javac context.
-   * @return The {@link Nullness} value of the access path.
+   * @param baseExpr base expression for the access path
+   * @param field the field for the access path
+   * @return The {@link Nullness} value of the access path at the program point. If the baseExpr and
+   *     field cannot be represented as an {@link AccessPath}, or if the dataflow analysis has no
+   *     result for the program point before {@code path}, conservatively returns {@link
+   *     Nullness#NULLABLE}
    */
   public Nullness getNullnessOfFieldForReceiverTree(
-      TreePath path, Context context, Tree receiver, Element field) {
+      TreePath path, Context context, Tree baseExpr, Element field) {
+    Preconditions.checkArgument(field.getKind().equals(ElementKind.FIELD));
     AnalysisResult<Nullness, NullnessStore> result =
         dataFlow.resultForExpr(path, context, nullnessPropagation);
     if (result == null) {
@@ -239,16 +246,19 @@ public final class AccessPathNullnessAnalysis {
     }
     NullnessStore store = result.getStoreBefore(path.getLeaf());
     // used set of nodes, a tree can have multiple nodes.
-    Set<Node> receiverNodes = result.getNodesForTree(receiver);
-    if (store == null || receiverNodes == null) {
+    Set<Node> baseNodes = result.getNodesForTree(baseExpr);
+    if (store == null || baseNodes == null) {
       return Nullness.NULLABLE;
     }
     // look for all possible access paths might exist in store.
-    for (Node receiverNode : receiverNodes) {
-      if (receiverNode instanceof MethodAccessNode) {
-        receiverNode = ((MethodAccessNode) receiverNode).getReceiver();
+    for (Node baseNode : baseNodes) {
+      if (baseNode instanceof MethodAccessNode) {
+        baseNode = ((MethodAccessNode) baseNode).getReceiver();
       }
-      AccessPath accessPath = AccessPath.fromBaseAndElement(receiverNode, field);
+      AccessPath accessPath = AccessPath.fromBaseAndElement(baseNode, field);
+      if (accessPath == null) {
+        continue;
+      }
       Nullness nullness = store.getNullnessOfAccessPath(accessPath);
       // only process access paths with valuable information.
       if (!nullness.equals(Nullness.NULLABLE)) {
