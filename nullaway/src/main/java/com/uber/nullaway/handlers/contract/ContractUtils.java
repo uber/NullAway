@@ -136,22 +136,19 @@ public class ContractUtils {
 
     String[] parts = clause.split("->");
     if (parts.length != 2) {
-      state.reportMatch(
-          analysis
-              .getErrorBuilder()
-              .createErrorDescription(
-                  new ErrorMessage(
-                      ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
-                      "Invalid @Contract annotation detected for method "
-                          + callee
-                          + ". It contains the following uparseable clause: "
-                          + clause
-                          + "(see https://www.jetbrains.com/help/idea/contract-annotations.html)."),
-                  tree,
-                  buildDescriptionFromChecker(tree, analysis),
-                  state));
+      reportMatchForContractIssue(
+          tree,
+          "Invalid @Contract annotation detected for method "
+              + callee
+              + ". It contains the following uparseable clause: "
+              + clause
+              + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).",
+          analysis,
+          state);
     }
-    return parts[1].trim();
+
+    String consequent = parts[1].trim();
+    return consequent;
   }
 
   /**
@@ -178,26 +175,20 @@ public class ContractUtils {
     String[] antecedent = parts[0].split(",");
 
     if (antecedent.length != numOfArguments) {
-
-      state.reportMatch(
-          analysis
-              .getErrorBuilder()
-              .createErrorDescription(
-                  new ErrorMessage(
-                      ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
-                      "Invalid @Contract annotation detected for method "
-                          + callee
-                          + ". It contains the following uparseable clause: "
-                          + clause
-                          + " (incorrect number of arguments in the clause's antecedent ["
-                          + antecedent.length
-                          + "], should be the same as the number of "
-                          + "arguments in for the method ["
-                          + numOfArguments
-                          + "])."),
-                  tree,
-                  buildDescriptionFromChecker(tree, analysis),
-                  state));
+      reportMatchForContractIssue(
+          tree,
+          "Invalid @Contract annotation detected for method "
+              + callee
+              + ". It contains the following uparseable clause: "
+              + clause
+              + " (incorrect number of arguments in the clause's antecedent ["
+              + antecedent.length
+              + "], should be the same as the number of "
+              + "arguments in for the method ["
+              + numOfArguments
+              + "]).",
+          analysis,
+          state);
     }
     return antecedent;
   }
