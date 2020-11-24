@@ -3,6 +3,7 @@ package com.uber.nullaway.handlers.contract;
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 
 import com.google.common.base.Function;
+import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
@@ -53,17 +54,39 @@ public class ContractUtils {
   }
 
   /**
-   * Retrieve the string value inside the corresponding (@EnsuresNonNull/@RequiresNonNull depending
-   * on the value of {@code ANNOT_NAME}) annotation without statically depending on the type.
+   * Reports contract issue with appropriate message and error location in the AST information.
    *
-   * @param sym A method.
+   * @param errorLocTree The AST node for the error location.
+   * @param message The error message.
+   * @param analysis A reference to the running NullAway analysis.
+   * @param state The current visitor state.
+   */
+  static void reportMatchForContractIssue(
+      Tree errorLocTree, String message, NullAway analysis, VisitorState state) {
+
+    state.reportMatch(
+        analysis
+            .getErrorBuilder()
+            .createErrorDescription(
+                new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                errorLocTree,
+                buildDescriptionFromChecker(errorLocTree, analysis),
+                state));
+  }
+
+  /**
+   * Retrieve the string value inside the corresponding (e.g. @EnsuresNonNull/@RequiresNonNull
+   * depending on the value of {@code ANNOT_NAME}) annotation without statically depending on the
+   * type.
+   *
+   * @param methodSymbol A method.
    * @return The set of all values inside the annotation.
    */
   public static @Nullable Set<String> getFieldNamesFromAnnotation(
-      Symbol.MethodSymbol sym, String annotName) {
-    for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
+      Symbol.MethodSymbol methodSymbol, String annotName) {
+    for (AnnotationMirror annotation : methodSymbol.getAnnotationMirrors()) {
       Element element = annotation.getAnnotationType().asElement();
-      assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
+      Preconditions.checkArgument(element.getKind().equals(ElementKind.ANNOTATION_TYPE));
       if (((TypeElement) element).getQualifiedName().toString().endsWith(annotName)) {
         for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
             annotation.getElementValues().entrySet()) {

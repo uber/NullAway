@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Uber Technologies, Inc.
+ * Copyright (c) 2017-2020 Uber Technologies, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -37,6 +37,7 @@ import java.util.Collections;
 import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.VariableElement;
 
 /**
  * Abstract base class for handlers that process pre- and post-condition annotations for fields.
@@ -47,14 +48,18 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
 
   protected static final String THIS_NOTATION = "this.";
   /** Simple name of the annotation in {@code String} */
-  protected String annotName;
+  protected final String annotName;
+
+  protected AbstractFieldContractHandler(String annotName) {
+    this.annotName = annotName;
+  }
 
   /**
-   * Verifies that the processing method adheres to the annotation specifications.
+   * Verifies that the method being processed adheres to the annotation specifications.
    *
    * @param analysis NullAway instance.
-   * @param tree Processing method tree.
-   * @param state Javac {@link VisitorState}.
+   * @param tree Method tree under processing.
+   * @param state Error Prone {@link VisitorState}.
    * @param methodSymbol Processing method symbol.
    */
   @Override
@@ -94,7 +99,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    *     if the annotation is not present.
    * @param analysis NullAway instance.
    * @param tree Processing method tree.
-   * @param state Javac {@link VisitorState}.
+   * @param state Error Prone's {@link VisitorState}.
    * @param overriddenMethod Processing method symbol.
    */
   protected abstract void validateOverridingRules(
@@ -114,9 +119,18 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
 
   /**
    * Validates whether the parameter inside annotation conforms to the syntax rules. Parameters must
-   * conform to the following rules: 1. Cannot annotate a method with empty param set. 2. The
-   * receiver of selected fields in annotation can only be the receiver of the method. 3. All
-   * parameters given in the annotation must be one of the fields of the class or its super classes.
+   * conform to the following rules:
+   *
+   * <p>
+   *
+   * <ul>
+   *   <li>Cannot annotate a method with empty param set.
+   *   <li>The receiver of selected fields in annotation can only be the receiver of the method.
+   *   <li>All parameters given in the annotation must be one of the fields of the class or its
+   *       super classes.
+   * </ul>
+   *
+   * <p>
    *
    * @return Returns true, if the annotation conforms to the syntax rules.
    */
@@ -171,7 +185,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
             }
           }
           Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
-          Element field = getFieldFromClass(classSymbol, fieldName);
+          VariableElement field = getFieldFromClass(classSymbol, fieldName);
           if (field == null) {
             message =
                 "cannot find field [" + fieldName + "] in class: " + classSymbol.getSimpleName();
@@ -217,12 +231,14 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    * @param name Name of the field.
    * @return The class field with the given name.
    */
-  public static Element getFieldFromClass(Symbol.ClassSymbol classSymbol, String name) {
+  public static VariableElement getFieldFromClass(Symbol.ClassSymbol classSymbol, String name) {
     Preconditions.checkNotNull(classSymbol);
     for (Element member : classSymbol.getEnclosedElements()) {
       if (member.getKind().isField()) {
         if (member.getSimpleName().toString().equals(name)) {
-          return member;
+          Preconditions.checkArgument(
+              member instanceof VariableElement, "element is not of type: VariableElement");
+          return (VariableElement) member;
         }
       }
     }

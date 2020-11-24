@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.VariableElement;
 import org.checkerframework.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.dataflow.cfg.node.IntegerLiteralNode;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
@@ -264,7 +265,7 @@ public final class AccessPath implements MapKey {
    * @param element the receiver element.
    * @return access path representing the class field
    */
-  public static AccessPath fromElement(Element element) {
+  public static AccessPath fromFieldElement(VariableElement element) {
     Preconditions.checkArgument(
         element.getKind().isField(),
         "element must be of type: FIELD but received: " + element.getKind());

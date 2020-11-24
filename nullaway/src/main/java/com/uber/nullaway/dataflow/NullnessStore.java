@@ -125,12 +125,8 @@ public class NullnessStore implements Store<NullnessStore> {
    */
   public Nullness getNullnessOfAccessPath(AccessPath accessPath) {
     if (contents == null) return Nullness.NULLABLE;
-    for (Map.Entry<AccessPath, Nullness> entry : contents.entrySet()) {
-      if (entry.getKey().equals(accessPath)) {
-        return entry.getValue();
-      }
-    }
-    return Nullness.NULLABLE;
+    Nullness nullness = contents.get(accessPath);
+    return (nullness == null) ? Nullness.NULLABLE : nullness;
   }
 
   public Builder toBuilder() {

@@ -229,15 +229,18 @@ public final class AccessPathNullnessAnalysis {
    *
    * @param path Tree path to the specific program point.
    * @param context Javac context.
-   * @param baseExpr base expression for the access path
-   * @param field the field for the access path
+   * @param baseExpr The base expression {@code expr} for the access path {@code expr . f}
+   * @param field The field {@code f} for the access path {@code expr . f}
+   * @param trimReceiver if {@code true}, {@code baseExpr} will be trimmed to extract only the
+   *     receiver if the node associated to {@code baseExpr} is of type {@link MethodAccessNode}.
+   *     (e.g. {@code t.f()} will be converted to {@code t})
    * @return The {@link Nullness} value of the access path at the program point. If the baseExpr and
    *     field cannot be represented as an {@link AccessPath}, or if the dataflow analysis has no
    *     result for the program point before {@code path}, conservatively returns {@link
    *     Nullness#NULLABLE}
    */
   public Nullness getNullnessOfFieldForReceiverTree(
-      TreePath path, Context context, Tree baseExpr, Element field) {
+      TreePath path, Context context, Tree baseExpr, VariableElement field, boolean trimReceiver) {
     Preconditions.checkArgument(field.getKind().equals(ElementKind.FIELD));
     AnalysisResult<Nullness, NullnessStore> result =
         dataFlow.resultForExpr(path, context, nullnessPropagation);
@@ -252,6 +255,7 @@ public final class AccessPathNullnessAnalysis {
     }
     // look for all possible access paths might exist in store.
     for (Node baseNode : baseNodes) {
+
       if (baseNode instanceof MethodAccessNode) {
         baseNode = ((MethodAccessNode) baseNode).getReceiver();
       }
@@ -260,7 +264,8 @@ public final class AccessPathNullnessAnalysis {
         continue;
       }
       Nullness nullness = store.getNullnessOfAccessPath(accessPath);
-      // only process access paths with valuable information.
+      // Field is non-null if at least one access path referring to it exists with non-null
+      // nullness.
       if (!nullness.equals(Nullness.NULLABLE)) {
         return nullness;
       }

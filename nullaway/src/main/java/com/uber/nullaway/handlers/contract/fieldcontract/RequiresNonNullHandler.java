@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Uber Technologies, Inc.
+ * Copyright (c) 2017-2020 Uber Technologies, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -24,6 +24,7 @@ package com.uber.nullaway.handlers.contract.fieldcontract;
 
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 
+import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -43,7 +44,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import javax.lang.model.element.Element;
+import javax.lang.model.element.VariableElement;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 
@@ -62,10 +63,8 @@ import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
  */
 public class RequiresNonNullHandler extends AbstractFieldContractHandler {
 
-  @Override
-  public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
-    annotName = "RequiresNonNull";
+  public RequiresNonNullHandler() {
+    super("RequiresNonNull");
   }
 
   /** All methods can add the precondition of {@code RequiresNonNull}. */
@@ -141,19 +140,30 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
-      assert classSymbol != null
-          : "can not find the enclosing class for method symbol: " + methodSymbol;
-      Element field = getFieldFromClass(classSymbol, fieldName);
-      assert field != null
-          : "Could not find field: [" + fieldName + "]" + "for class: " + classSymbol;
+      Preconditions.checkNotNull(
+          classSymbol, "can not find the enclosing class for method symbol: " + methodSymbol);
+      VariableElement field = getFieldFromClass(classSymbol, fieldName);
+      if (field == null) {
+        state.reportMatch(
+            analysis
+                .getErrorBuilder()
+                .createErrorDescription(
+                    new ErrorMessage(
+                        ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID,
+                        "Could not find field: [" + fieldName + "]" + "for class: " + classSymbol),
+                    tree,
+                    buildDescriptionFromChecker(tree, analysis),
+                    state));
+        continue;
+      }
       ExpressionTree methodSelectTree = tree.getMethodSelect();
       Nullness nullness =
           analysis
               .getNullnessAnalysis(state)
               .getNullnessOfFieldForReceiverTree(
-                  state.getPath(), state.context, methodSelectTree, field);
+                  state.getPath(), state.context, methodSelectTree, field, true);
       if (NullabilityUtil.nullnessToBool(nullness)) {
-        String message = "expected field [" + fieldName + "] is not non-null at call site";
+        String message = "expected field [" + fieldName + "] to be non-null at call site";
 
         state.reportMatch(
             analysis
@@ -189,10 +199,12 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     }
     fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
-      Element field = getFieldFromClass(ASTHelpers.getSymbol(classTree), fieldName);
-      assert field != null
-          : "Could not find field: [" + fieldName + "]" + "for class: " + classTree.getSimpleName();
-      AccessPath accessPath = AccessPath.fromElement(field);
+      VariableElement field = getFieldFromClass(ASTHelpers.getSymbol(classTree), fieldName);
+      if (field == null) {
+        // Invalid annotation, will result in an error during validation. For now, skip field.
+        continue;
+      }
+      AccessPath accessPath = AccessPath.fromFieldElement(field);
       result.setInformation(accessPath, Nullness.NONNULL);
     }
     return result;
