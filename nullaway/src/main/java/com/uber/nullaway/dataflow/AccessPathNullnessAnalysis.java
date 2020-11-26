@@ -255,8 +255,8 @@ public final class AccessPathNullnessAnalysis {
     }
     // look for all possible access paths might exist in store.
     for (Node baseNode : baseNodes) {
-
-      if (baseNode instanceof MethodAccessNode) {
+      // it trims the baseExpr to process only the receiver. (e.g. a.f() is trimmed to a)
+      if (trimReceiver && baseNode instanceof MethodAccessNode) {
         baseNode = ((MethodAccessNode) baseNode).getReceiver();
       }
       AccessPath accessPath = AccessPath.fromBaseAndElement(baseNode, field);
@@ -264,7 +264,7 @@ public final class AccessPathNullnessAnalysis {
         continue;
       }
       Nullness nullness = store.getNullnessOfAccessPath(accessPath);
-      // Field is non-null if at least one access path referring to it exists with non-null
+      // field is non-null if at least one access path referring to it exists with non-null
       // nullness.
       if (!nullness.equals(Nullness.NULLABLE)) {
         return nullness;
