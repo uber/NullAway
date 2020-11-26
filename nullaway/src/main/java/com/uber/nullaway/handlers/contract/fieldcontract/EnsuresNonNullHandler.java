@@ -180,6 +180,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     if (node.getTree() == null) {
+      // A synthetic node might be inserted by the Checker Framework during CFG construction, it is
+      // safer to do a null check here.
       return super.onDataflowVisitMethodInvocation(
           node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
     }

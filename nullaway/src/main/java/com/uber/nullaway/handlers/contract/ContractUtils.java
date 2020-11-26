@@ -3,7 +3,6 @@ package com.uber.nullaway.handlers.contract;
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 
 import com.google.common.base.Function;
-import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
@@ -20,6 +19,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import org.checkerframework.javacutil.AnnotationUtils;
 
 /** An utility class for {@link ContractHandler} and {@link ContractCheckHandler}. */
 public class ContractUtils {
@@ -84,28 +84,17 @@ public class ContractUtils {
    */
   public static @Nullable Set<String> getFieldNamesFromAnnotation(
       Symbol.MethodSymbol methodSymbol, String annotName) {
-    for (AnnotationMirror annotation : methodSymbol.getAnnotationMirrors()) {
-      Element element = annotation.getAnnotationType().asElement();
-      Preconditions.checkArgument(element.getKind().equals(ElementKind.ANNOTATION_TYPE));
-      if (((TypeElement) element).getQualifiedName().toString().endsWith(annotName)) {
-        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
-            annotation.getElementValues().entrySet()) {
-          if (e.getKey().getSimpleName().contentEquals("value")) {
-            String value = e.getValue().toString();
-            if (value.startsWith("{") && value.endsWith("}")) {
-              value = value.substring(1, value.length() - 1);
-            }
-            String[] rawFieldNamesArray = value.split(",");
-            Set<String> ans = new HashSet<>();
-            for (String s : rawFieldNamesArray) {
-              ans.add(s.trim().replaceAll("\"", ""));
-            }
-            return ans;
-          }
-        }
+    AnnotationMirror annot = null;
+    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
+      if (AnnotationUtils.annotationName(annotationMirror).endsWith(annotName)) {
+        annot = annotationMirror;
+        break;
       }
     }
-    return null;
+    if (annot == null) {
+      return null;
+    }
+    return new HashSet<>(AnnotationUtils.getElementValueArray(annot, "value", String.class, true));
   }
 
   /**

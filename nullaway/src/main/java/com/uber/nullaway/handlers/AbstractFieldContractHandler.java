@@ -36,7 +36,6 @@ import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
 import java.util.Set;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
 
 /**
@@ -140,73 +139,33 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
       MethodTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
-    if (content == null) {
-      return true;
+    String message;
+    if (content.isEmpty()) {
+      // we should not allow useless annotations.
+      message =
+          "empty @"
+              + annotName
+              + " is the default precondition for every method, please remove it.";
+      state.reportMatch(
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                  tree,
+                  buildDescriptionFromChecker(tree, analysis),
+                  state));
+      return false;
     } else {
-      String message;
-      if (content.isEmpty()) {
-        // we should not allow useless annotations.
-        message =
-            "empty @"
-                + annotName
-                + " is the default precondition for every method, please remove it.";
-        state.reportMatch(
-            analysis
-                .getErrorBuilder()
-                .createErrorDescription(
-                    new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                    tree,
-                    buildDescriptionFromChecker(tree, analysis),
-                    state));
-        return false;
-      } else {
-        for (String fieldName : content) {
-          if (fieldName.contains(".")) {
-            if (!fieldName.startsWith(THIS_NOTATION)) {
-              message =
-                  "currently @"
-                      + annotName
-                      + " supports only class fields of the method receiver: "
-                      + fieldName
-                      + " is not supported";
-
-              state.reportMatch(
-                  analysis
-                      .getErrorBuilder()
-                      .createErrorDescription(
-                          new ErrorMessage(
-                              ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                          tree,
-                          buildDescriptionFromChecker(tree, analysis),
-                          state));
-              return false;
-            } else {
-              fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
-            }
-          }
-          Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
-          VariableElement field = getFieldFromClass(classSymbol, fieldName);
-          if (field == null) {
+      for (String fieldName : content) {
+        if (fieldName.contains(".")) {
+          if (!fieldName.startsWith(THIS_NOTATION)) {
             message =
-                "cannot find field [" + fieldName + "] in class: " + classSymbol.getSimpleName();
-            state.reportMatch(
-                analysis
-                    .getErrorBuilder()
-                    .createErrorDescription(
-                        new ErrorMessage(
-                            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                        tree,
-                        buildDescriptionFromChecker(tree, analysis),
-                        state));
-            return false;
-          }
-          if (field.getModifiers().contains(Modifier.STATIC)) {
-            message =
-                "cannot accept static field: ["
-                    + fieldName
-                    + "] as a parameter in @"
+                "currently @"
                     + annotName
-                    + " annotation";
+                    + " supports only class fields of the method receiver: "
+                    + fieldName
+                    + " is not supported";
+
             state.reportMatch(
                 analysis
                     .getErrorBuilder()
@@ -217,7 +176,24 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                         buildDescriptionFromChecker(tree, analysis),
                         state));
             return false;
+          } else {
+            fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
           }
+        }
+        Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
+        VariableElement field = getFieldFromClass(classSymbol, fieldName);
+        if (field == null) {
+          message =
+              "cannot find field [" + fieldName + "] in class: " + classSymbol.getSimpleName();
+          state.reportMatch(
+              analysis
+                  .getErrorBuilder()
+                  .createErrorDescription(
+                      new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                      tree,
+                      buildDescriptionFromChecker(tree, analysis),
+                      state));
+          return false;
         }
       }
     }

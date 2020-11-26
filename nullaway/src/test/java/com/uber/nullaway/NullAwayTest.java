@@ -2718,7 +2718,6 @@ public class NullAwayTest {
             "import com.uber.nullaway.qual.EnsuresNonNull;",
             "class Foo {",
             "  @Nullable Item nullItem;",
-            "  @Nullable static Item staticItem;",
             "  Foo foo = new Foo();",
             "  @EnsuresNonNull(\"nullItem\")",
             "  public void test1() {",
@@ -2745,10 +2744,6 @@ public class NullAwayTest {
             "  @EnsuresNonNull(\"nullItem\")",
             "  public void test6() {",
             "    this.test1();",
-            "  }",
-            "  @EnsuresNonNull(\"staticItem\")",
-            "  // BUG: Diagnostic contains: cannot accept static field: [staticItem] as a parameter in @EnsuresNonNull annotation",
-            "  public void test7() {",
             "  }",
             "}")
         .addSourceLines(
