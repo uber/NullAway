@@ -3,6 +3,7 @@ package com.uber.nullaway.handlers.contract;
 import static com.uber.nullaway.NullabilityUtil.getAnnotationValue;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
+import static com.uber.nullaway.handlers.contract.ContractHandler.ANNOT_NAME;
 
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -26,8 +27,6 @@ import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
  * in this case is determined from @Contract annotation.
  */
 public class ContractNullnessStoreInitializer extends NullnessStoreInitializer {
-
-  static final String ANNOT_NAME = "org.jetbrains.annotations.Contract";
 
   @Override
   public NullnessStore getInitialStore(

@@ -164,8 +164,8 @@ public class NullabilityUtil {
   /**
    * Retrieve the string value inside an annotation without statically depending on the type.
    *
+   * @param methodSymbol A method which has the annotation.
    * @param annotName Annotation name to retrieve it's value.
-   * @param methodSymbol A method which has an @Contract annotation.
    * @return The string value spec inside the annotation.
    */
   public static @Nullable String getAnnotationValue(

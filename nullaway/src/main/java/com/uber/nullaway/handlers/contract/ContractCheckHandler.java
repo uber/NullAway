@@ -24,6 +24,7 @@ package com.uber.nullaway.handlers.contract;
 
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 import static com.uber.nullaway.NullabilityUtil.getAnnotationValue;
+import static com.uber.nullaway.handlers.contract.ContractHandler.ANNOT_NAME;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 
@@ -51,8 +52,6 @@ import com.uber.nullaway.handlers.BaseNoOpHandler;
  * expression.
  */
 public class ContractCheckHandler extends BaseNoOpHandler {
-
-  static final String ANNOT_NAME = "org.jetbrains.annotations.Contract";
 
   @Override
   public void onMatchMethod(
