@@ -23,7 +23,7 @@
 package com.uber.nullaway.handlers.contract;
 
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
-import static com.uber.nullaway.handlers.contract.ContractUtils.getAnnotationValue;
+import static com.uber.nullaway.NullabilityUtil.getAnnotationValue;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 

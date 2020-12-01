@@ -7,29 +7,9 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
-import javax.annotation.Nullable;
-import javax.lang.model.element.AnnotationMirror;
-import org.checkerframework.javacutil.AnnotationUtils;
 
 /** An utility class for {@link ContractHandler} and {@link ContractCheckHandler}. */
 class ContractUtils {
-
-  /**
-   * Retrieve the string value inside an annotation without statically depending on the type.
-   *
-   * @param annotName Annotation name to retrieve it's value.
-   * @param methodSymbol A method which has an @Contract annotation.
-   * @return The string value spec inside the annotation.
-   */
-  public static @Nullable String getAnnotationValue(
-      Symbol.MethodSymbol methodSymbol, String annotName) {
-    AnnotationMirror annot =
-        AnnotationUtils.getAnnotationByName(methodSymbol.getAnnotationMirrors(), annotName);
-    if (annot == null) {
-      return null;
-    }
-    return AnnotationUtils.getElementValue(annot, "value", String.class, true);
-  }
 
   /**
    * Parses the contract clause and returns the consequent in the contract.
@@ -61,8 +41,7 @@ class ContractUtils {
                   buildDescriptionFromChecker(tree, analysis),
                   state));
     }
-    String consequent = parts[1].trim();
-    return consequent;
+    return parts[1].trim();
   }
 
   /**

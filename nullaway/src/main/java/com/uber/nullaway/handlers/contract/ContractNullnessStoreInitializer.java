@@ -1,8 +1,8 @@
 package com.uber.nullaway.handlers.contract;
 
+import static com.uber.nullaway.NullabilityUtil.getAnnotationValue;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
-import static com.uber.nullaway.handlers.contract.ContractUtils.getAnnotationValue;
 
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
