@@ -7,66 +7,28 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
-import java.util.Map;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
+import org.checkerframework.javacutil.AnnotationUtils;
 
 /** An utility class for {@link ContractHandler} and {@link ContractCheckHandler}. */
 class ContractUtils {
 
   /**
-   * Retrieve the string value inside an @Contract annotation without statically depending on the
-   * type.
+   * Retrieve the string value inside an annotation without statically depending on the type.
    *
-   * @param sym A method which has an @Contract annotation.
+   * @param annotName Annotation name to retrieve it's value.
+   * @param methodSymbol A method which has an @Contract annotation.
    * @return The string value spec inside the annotation.
    */
-  static @Nullable String getContractFromAnnotation(Symbol.MethodSymbol sym) {
-    for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
-      Element element = annotation.getAnnotationType().asElement();
-      assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
-      if (((TypeElement) element)
-          .getQualifiedName()
-          .contentEquals("org.jetbrains.annotations.Contract")) {
-        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
-            annotation.getElementValues().entrySet()) {
-          if (e.getKey().getSimpleName().contentEquals("value")) {
-            String value = e.getValue().toString();
-            if (value.startsWith("\"") && value.endsWith("\"")) {
-              value = value.substring(1, value.length() - 1);
-            }
-            return value;
-          }
-        }
-      }
+  public static @Nullable String getAnnotationValue(
+      Symbol.MethodSymbol methodSymbol, String annotName) {
+    AnnotationMirror annot =
+        AnnotationUtils.getAnnotationByName(methodSymbol.getAnnotationMirrors(), annotName);
+    if (annot == null) {
+      return null;
     }
-    return null;
-  }
-
-  /**
-   * Reports contract issue with appropriate message and error location in the AST information.
-   *
-   * @param errorLocTree The AST node for the error location.
-   * @param message The error message.
-   * @param analysis A reference to the running NullAway analysis.
-   * @param state The current visitor state.
-   */
-  static void reportMatchForContractIssue(
-      Tree errorLocTree, String message, NullAway analysis, VisitorState state) {
-
-    state.reportMatch(
-        analysis
-            .getErrorBuilder()
-            .createErrorDescription(
-                new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                errorLocTree,
-                buildDescriptionFromChecker(errorLocTree, analysis),
-                state));
+    return AnnotationUtils.getElementValue(annot, "value", String.class, true);
   }
 
   /**
@@ -84,17 +46,21 @@ class ContractUtils {
 
     String[] parts = clause.split("->");
     if (parts.length != 2) {
-      reportMatchForContractIssue(
-          tree,
+      String message =
           "Invalid @Contract annotation detected for method "
               + callee
               + ". It contains the following uparseable clause: "
               + clause
-              + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).",
-          analysis,
-          state);
+              + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).";
+      state.reportMatch(
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                  tree,
+                  buildDescriptionFromChecker(tree, analysis),
+                  state));
     }
-
     String consequent = parts[1].trim();
     return consequent;
   }
@@ -123,8 +89,7 @@ class ContractUtils {
     String[] antecedent = parts[0].split(",");
 
     if (antecedent.length != numOfArguments) {
-      reportMatchForContractIssue(
-          tree,
+      String message =
           "Invalid @Contract annotation detected for method "
               + callee
               + ". It contains the following uparseable clause: "
@@ -134,9 +99,15 @@ class ContractUtils {
               + "], should be the same as the number of "
               + "arguments in for the method ["
               + numOfArguments
-              + "]).",
-          analysis,
-          state);
+              + "]).";
+      state.reportMatch(
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                  tree,
+                  buildDescriptionFromChecker(tree, analysis),
+                  state));
     }
     return antecedent;
   }

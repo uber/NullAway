@@ -2,7 +2,7 @@ package com.uber.nullaway.handlers.contract;
 
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
-import static com.uber.nullaway.handlers.contract.ContractUtils.getContractFromAnnotation;
+import static com.uber.nullaway.handlers.contract.ContractUtils.getAnnotationValue;
 
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -27,6 +27,8 @@ import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
  */
 public class ContractNullnessStoreInitializer extends NullnessStoreInitializer {
 
+  static final String ANNOT_NAME = "org.jetbrains.annotations.Contract";
+
   @Override
   public NullnessStore getInitialStore(
       UnderlyingAST underlyingAST,
@@ -40,7 +42,7 @@ public class ContractNullnessStoreInitializer extends NullnessStoreInitializer {
     final MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
     final ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
     final Symbol.MethodSymbol callee = ASTHelpers.getSymbol(methodTree);
-    final String contractString = getContractFromAnnotation(callee);
+    final String contractString = getAnnotationValue(callee, ANNOT_NAME);
 
     assert contractString != null;
 
