@@ -162,11 +162,12 @@ public class NullabilityUtil {
   }
 
   /**
-   * Retrieve the string value inside an annotation without statically depending on the type.
+   * Retrieve the {@code value} attribute of a method annotation of some type.
    *
-   * @param methodSymbol A method which has the annotation.
-   * @param annotName Annotation name to retrieve it's value.
-   * @return The string value spec inside the annotation.
+   * @param methodSymbol A method to check for the annotation.
+   * @param annotName The qualified name of the annotation.
+   * @return The {@code value} attribute of the annotation, or {@code null} if the annotation is not
+   *     present.
    */
   public static @Nullable String getAnnotationValue(
       Symbol.MethodSymbol methodSymbol, String annotName) {

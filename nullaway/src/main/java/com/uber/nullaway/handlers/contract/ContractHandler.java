@@ -76,7 +76,7 @@ import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
  */
 public class ContractHandler extends BaseNoOpHandler {
 
-  static final String ANNOT_NAME = "org.jetbrains.annotations.Contract";
+  static final String CONTRACT_ANNOTATION_NAME = "org.jetbrains.annotations.Contract";
 
   private @Nullable NullAway analysis;
   private @Nullable VisitorState state;
@@ -100,7 +100,7 @@ public class ContractHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
-    String contractString = NullabilityUtil.getAnnotationValue(callee, ANNOT_NAME);
+    String contractString = NullabilityUtil.getAnnotationValue(callee, CONTRACT_ANNOTATION_NAME);
     if (contractString != null) {
       // Found a contract, lets parse it.
       String[] clauses = contractString.split(";");

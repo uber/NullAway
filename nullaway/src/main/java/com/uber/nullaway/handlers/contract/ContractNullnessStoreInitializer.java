@@ -3,7 +3,7 @@ package com.uber.nullaway.handlers.contract;
 import static com.uber.nullaway.NullabilityUtil.getAnnotationValue;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
-import static com.uber.nullaway.handlers.contract.ContractHandler.ANNOT_NAME;
+import static com.uber.nullaway.handlers.contract.ContractHandler.CONTRACT_ANNOTATION_NAME;
 
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -41,7 +41,7 @@ public class ContractNullnessStoreInitializer extends NullnessStoreInitializer {
     final MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
     final ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
     final Symbol.MethodSymbol callee = ASTHelpers.getSymbol(methodTree);
-    final String contractString = getAnnotationValue(callee, ANNOT_NAME);
+    final String contractString = getAnnotationValue(callee, CONTRACT_ANNOTATION_NAME);
 
     assert contractString != null;
 

@@ -24,7 +24,7 @@ package com.uber.nullaway.handlers.contract;
 
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 import static com.uber.nullaway.NullabilityUtil.getAnnotationValue;
-import static com.uber.nullaway.handlers.contract.ContractHandler.ANNOT_NAME;
+import static com.uber.nullaway.handlers.contract.ContractHandler.CONTRACT_ANNOTATION_NAME;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 
@@ -59,7 +59,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
-    String contractString = getAnnotationValue(callee, ANNOT_NAME);
+    String contractString = getAnnotationValue(callee, CONTRACT_ANNOTATION_NAME);
     if (contractString != null) {
       // Found a contract, lets parse it.
       String[] clauses = contractString.split(";");
