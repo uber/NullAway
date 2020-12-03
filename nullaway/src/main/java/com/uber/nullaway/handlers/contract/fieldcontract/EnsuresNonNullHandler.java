@@ -23,6 +23,7 @@
 package com.uber.nullaway.handlers.contract.fieldcontract;
 
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+import static com.uber.nullaway.NullabilityUtil.getAnnotationValueArray;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
@@ -83,7 +84,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
             .stream()
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
-    Set<String> fieldNames = ContractUtils.getFieldNamesFromAnnotation(methodSymbol, annotName);
+    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames == null) {
       fieldNames = Collections.emptySet();
     }
@@ -123,8 +124,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       VisitorState state,
       MethodTree tree,
       Symbol.MethodSymbol overriddenMethod) {
-    Set<String> overriddenFieldNames =
-        ContractUtils.getFieldNamesFromAnnotation(overriddenMethod, annotName);
+    Set<String> overriddenFieldNames = getAnnotationValueArray(overriddenMethod, annotName, false);
     if (overriddenFieldNames == null) {
       return;
     }
@@ -187,7 +187,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     }
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(methodSymbol);
-    Set<String> fieldNames = ContractUtils.getFieldNamesFromAnnotation(methodSymbol, annotName);
+    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames == null) {
       return super.onDataflowVisitMethodInvocation(
           node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);

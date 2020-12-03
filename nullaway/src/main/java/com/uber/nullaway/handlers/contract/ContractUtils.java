@@ -8,38 +8,11 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
-import javax.lang.model.element.AnnotationMirror;
-import org.checkerframework.javacutil.AnnotationUtils;
 
 /** An utility class for {@link ContractHandler} and {@link ContractCheckHandler}. */
 public class ContractUtils {
-
-  /**
-   * Retrieve the string value inside the corresponding (e.g. @EnsuresNonNull/@RequiresNonNull
-   * depending on the value of {@code ANNOT_NAME}) annotation without statically depending on the
-   * type.
-   *
-   * @param methodSymbol A method.
-   * @return The set of all values inside the annotation.
-   */
-  public static @Nullable Set<String> getFieldNamesFromAnnotation(
-      Symbol.MethodSymbol methodSymbol, String annotName) {
-    AnnotationMirror annot = null;
-    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
-      if (AnnotationUtils.annotationName(annotationMirror).endsWith(annotName)) {
-        annot = annotationMirror;
-        break;
-      }
-    }
-    if (annot == null) {
-      return null;
-    }
-    return new HashSet<>(AnnotationUtils.getElementValueArray(annot, "value", String.class, true));
-  }
 
   /**
    * Returns a set of field names excluding their receivers (e.g. "this.a" will be "a")

@@ -23,6 +23,7 @@
 package com.uber.nullaway.handlers.contract.fieldcontract;
 
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+import static com.uber.nullaway.NullabilityUtil.getAnnotationValueArray;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
@@ -89,8 +90,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     if (overridingFieldNames == null) {
       return;
     }
-    Set<String> overriddenFieldNames =
-        ContractUtils.getFieldNamesFromAnnotation(overriddenMethod, annotName);
+    Set<String> overriddenFieldNames = getAnnotationValueArray(overriddenMethod, annotName, false);
     if (overriddenFieldNames == null) {
       overriddenFieldNames = Collections.emptySet();
     }
@@ -132,7 +132,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       MethodInvocationTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
-    Set<String> fieldNames = ContractUtils.getFieldNamesFromAnnotation(methodSymbol, annotName);
+    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames == null) {
       super.onMatchMethodInvocation(analysis, tree, state, methodSymbol);
       return;
@@ -193,7 +193,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
     ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
     Set<String> fieldNames =
-        ContractUtils.getFieldNamesFromAnnotation(ASTHelpers.getSymbol(methodTree), annotName);
+        getAnnotationValueArray(ASTHelpers.getSymbol(methodTree), annotName, false);
     if (fieldNames == null) {
       return result;
     }

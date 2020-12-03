@@ -65,7 +65,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
     Set<String> annotationContent =
-        ContractUtils.getFieldNamesFromAnnotation(methodSymbol, annotName);
+        NullabilityUtil.getAnnotationValueArray(methodSymbol, annotName, false);
     boolean isAnnotated = annotationContent != null;
     boolean isValid =
         isAnnotated
