@@ -44,6 +44,7 @@ import com.sun.tools.javac.util.JCDiagnostic;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
+import org.checkerframework.javacutil.AnnotationUtils;
 
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
@@ -190,6 +191,24 @@ public class NullabilityUtil {
     // for methods, we care about annotations on the return type, not on the method type itself
     Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations(symbol);
     return Stream.concat(symbol.getAnnotationMirrors().stream(), typeUseAnnotations);
+  }
+
+  /**
+   * Retrieve the {@code value} attribute of a method annotation of some type.
+   *
+   * @param methodSymbol A method to check for the annotation.
+   * @param annotName The qualified name of the annotation.
+   * @return The {@code value} attribute of the annotation, or {@code null} if the annotation is not
+   *     present.
+   */
+  public static @Nullable String getAnnotationValue(
+      Symbol.MethodSymbol methodSymbol, String annotName) {
+    AnnotationMirror annot =
+        AnnotationUtils.getAnnotationByName(methodSymbol.getAnnotationMirrors(), annotName);
+    if (annot == null) {
+      return null;
+    }
+    return AnnotationUtils.getElementValue(annot, "value", String.class, true);
   }
 
   /**

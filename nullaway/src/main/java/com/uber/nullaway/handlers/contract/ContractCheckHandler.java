@@ -22,10 +22,11 @@
 
 package com.uber.nullaway.handlers.contract;
 
+import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+import static com.uber.nullaway.NullabilityUtil.getAnnotationValue;
+import static com.uber.nullaway.handlers.contract.ContractHandler.CONTRACT_ANNOTATION_NAME;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
-import static com.uber.nullaway.handlers.contract.ContractUtils.getContractFromAnnotation;
-import static com.uber.nullaway.handlers.contract.ContractUtils.reportMatchForContractIssue;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
@@ -35,6 +36,7 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
@@ -57,8 +59,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
-    String contractString = getContractFromAnnotation(callee);
-
+    String contractString = getAnnotationValue(callee, CONTRACT_ANNOTATION_NAME);
     if (contractString != null) {
       // Found a contract, lets parse it.
       String[] clauses = contractString.split(";");
@@ -140,7 +141,15 @@ public class ContractCheckHandler extends BaseNoOpHandler {
                       + "when the contract preconditions are true.";
             }
 
-            reportMatchForContractIssue(returnTree, errorMessage, analysis, returnState);
+            returnState.reportMatch(
+                analysis
+                    .getErrorBuilder()
+                    .createErrorDescription(
+                        new ErrorMessage(
+                            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
+                        returnTree,
+                        buildDescriptionFromChecker(returnTree, analysis),
+                        returnState));
           }
           return super.visitReturn(returnTree, unused);
         }
