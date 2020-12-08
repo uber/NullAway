@@ -142,7 +142,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
       Preconditions.checkNotNull(
           classSymbol, "can not find the enclosing class for method symbol: " + methodSymbol);
-      VariableElement field = getFieldFromClass(classSymbol, fieldName);
+      VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
       if (field == null) {
         state.reportMatch(
             analysis
@@ -199,7 +199,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     }
     fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
-      VariableElement field = getFieldFromClass(ASTHelpers.getSymbol(classTree), fieldName);
+      VariableElement field = getInstanceFieldOfClass(ASTHelpers.getSymbol(classTree), fieldName);
       if (field == null) {
         // Invalid annotation, will result in an error during validation. For now, skip field.
         continue;

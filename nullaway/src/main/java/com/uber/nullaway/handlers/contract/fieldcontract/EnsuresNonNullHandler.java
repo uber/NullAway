@@ -194,7 +194,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     }
     fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
-      VariableElement field = getFieldFromClass(ASTHelpers.enclosingClass(methodSymbol), fieldName);
+      VariableElement field =
+          getInstanceFieldOfClass(ASTHelpers.enclosingClass(methodSymbol), fieldName);
       if (field == null) {
         // Invalid annotation, will result in an error during validation. For now, skip field.
         continue;

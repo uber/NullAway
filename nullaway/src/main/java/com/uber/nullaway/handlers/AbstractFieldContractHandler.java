@@ -35,7 +35,9 @@ import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
 
 /**
@@ -181,10 +183,15 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
           }
         }
         Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
-        VariableElement field = getFieldFromClass(classSymbol, fieldName);
+        VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
         if (field == null) {
           message =
-              "cannot find field [" + fieldName + "] in class: " + classSymbol.getSimpleName();
+              "For @"
+                  + annotName
+                  + " annotation, cannot find instance field "
+                  + fieldName
+                  + " in class "
+                  + classSymbol.getSimpleName();
           state.reportMatch(
               analysis
                   .getErrorBuilder()
@@ -201,26 +208,25 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   }
 
   /**
-   * Finds a specific field of a class
+   * Finds a specific instance field of a class or its superclasses
    *
    * @param classSymbol A class symbol.
    * @param name Name of the field.
-   * @return The class field with the given name.
+   * @return The field with the given name, or {@code null} if the field cannot be found
    */
-  public static VariableElement getFieldFromClass(Symbol.ClassSymbol classSymbol, String name) {
+  public static @Nullable VariableElement getInstanceFieldOfClass(
+      Symbol.ClassSymbol classSymbol, String name) {
     Preconditions.checkNotNull(classSymbol);
     for (Element member : classSymbol.getEnclosedElements()) {
-      if (member.getKind().isField()) {
+      if (member.getKind().isField() && !member.getModifiers().contains(Modifier.STATIC)) {
         if (member.getSimpleName().toString().equals(name)) {
-          Preconditions.checkArgument(
-              member instanceof VariableElement, "element is not of type: VariableElement");
           return (VariableElement) member;
         }
       }
     }
     Symbol.ClassSymbol superClass = (Symbol.ClassSymbol) classSymbol.getSuperclass().tsym;
     if (superClass != null) {
-      return getFieldFromClass(superClass, name);
+      return getInstanceFieldOfClass(superClass, name);
     }
     return null;
   }
