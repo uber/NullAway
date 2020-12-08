@@ -37,6 +37,7 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.annotations.RequiresNonNull;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
@@ -169,9 +170,9 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
   }
 
   /**
-   * On every method annotated with {@link com.uber.nullaway.qual.RequiresNonNull}, this method,
-   * injects the {@code Nonnull} value for the class field given in the {@code @RequiresNonNull}
-   * parameter to the dataflow analysis.
+   * On every method annotated with {@link RequiresNonNull}, this method, injects the {@code
+   * Nonnull} value for the class field given in the {@code @RequiresNonNull} parameter to the
+   * dataflow analysis.
    */
   @Override
   public NullnessStore.Builder onDataflowInitialStore(

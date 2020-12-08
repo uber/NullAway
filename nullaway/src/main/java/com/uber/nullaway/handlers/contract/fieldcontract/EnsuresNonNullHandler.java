@@ -36,6 +36,7 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.annotations.EnsuresNonNull;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
@@ -166,9 +167,9 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
   }
 
   /**
-   * On every method annotated with {@link com.uber.nullaway.qual.EnsuresNonNull}, this method,
-   * injects the {@code Nonnull} value for the class fields given in the {@code @EnsuresNonNull}
-   * parameter to the dataflow analysis.
+   * On every method annotated with {@link EnsuresNonNull}, this method, injects the {@code Nonnull}
+   * value for the class fields given in the {@code @EnsuresNonNull} parameter to the dataflow
+   * analysis.
    */
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
