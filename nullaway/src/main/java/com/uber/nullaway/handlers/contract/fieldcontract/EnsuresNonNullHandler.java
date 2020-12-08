@@ -188,23 +188,22 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(methodSymbol);
     Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
-    if (fieldNames == null) {
-      return super.onDataflowVisitMethodInvocation(
-          node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
-    }
-    fieldNames = ContractUtils.trimReceivers(fieldNames);
-    for (String fieldName : fieldNames) {
-      VariableElement field =
-          getInstanceFieldOfClass(ASTHelpers.enclosingClass(methodSymbol), fieldName);
-      if (field == null) {
-        // Invalid annotation, will result in an error during validation. For now, skip field.
-        continue;
+    if (fieldNames != null) {
+      fieldNames = ContractUtils.trimReceivers(fieldNames);
+      for (String fieldName : fieldNames) {
+        VariableElement field =
+            getInstanceFieldOfClass(ASTHelpers.enclosingClass(methodSymbol), fieldName);
+        if (field == null) {
+          // Invalid annotation, will result in an error during validation. For now, skip field.
+          continue;
+        }
+        AccessPath accessPath =
+            AccessPath.fromBaseAndElement(node.getTarget().getReceiver(), field);
+        if (accessPath == null) {
+          continue;
+        }
+        bothUpdates.set(accessPath, Nullness.NONNULL);
       }
-      AccessPath accessPath = AccessPath.fromBaseAndElement(node.getTarget().getReceiver(), field);
-      if (accessPath == null) {
-        continue;
-      }
-      bothUpdates.set(accessPath, Nullness.NONNULL);
     }
     return super.onDataflowVisitMethodInvocation(
         node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
