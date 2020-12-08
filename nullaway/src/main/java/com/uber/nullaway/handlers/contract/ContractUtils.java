@@ -2,14 +2,30 @@ package com.uber.nullaway.handlers.contract;
 
 import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 
+import com.google.common.base.Function;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /** An utility class for {@link ContractHandler} and {@link ContractCheckHandler}. */
-class ContractUtils {
+public class ContractUtils {
+
+  /**
+   * Returns a set of field names excluding their receivers (e.g. "this.a" will be "a")
+   *
+   * @param fieldNames A set of raw class field names.
+   * @return A set of trimmed field names.
+   */
+  public static Set<String> trimReceivers(Set<String> fieldNames) {
+    return fieldNames
+        .stream()
+        .map((Function<String, String>) input -> input.substring(input.lastIndexOf(".") + 1))
+        .collect(Collectors.toSet());
+  }
 
   /**
    * Parses the contract clause and returns the consequent in the contract.

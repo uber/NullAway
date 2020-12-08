@@ -84,7 +84,6 @@ import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
@@ -461,7 +460,7 @@ public class NullAway extends BugChecker
     boolean exhaustiveOverride = config.exhaustiveOverride();
     if (isOverriding || !exhaustiveOverride) {
       Symbol.MethodSymbol closestOverriddenMethod =
-          getClosestOverriddenMethod(methodSymbol, state.getTypes());
+          NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
       if (closestOverriddenMethod != null) {
         return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
       }
@@ -1817,7 +1816,7 @@ public class NullAway extends BugChecker
       }
     }
     Symbol.MethodSymbol closestOverriddenMethod =
-        getClosestOverriddenMethod(symbol, state.getTypes());
+        NullabilityUtil.getClosestOverriddenMethod(symbol, state.getTypes());
     if (closestOverriddenMethod == null) {
       return false;
     }
@@ -1965,7 +1964,7 @@ public class NullAway extends BugChecker
       // figure out if we care
       return false;
     }
-    return nullnessToBool(nullness);
+    return NullabilityUtil.nullnessToBool(nullness);
   }
 
   public AccessPathNullnessAnalysis getNullnessAnalysis(VisitorState state) {
@@ -2111,51 +2110,6 @@ public class NullAway extends BugChecker
       }
     }
     return expr;
-  }
-
-  private static boolean nullnessToBool(Nullness nullness) {
-    switch (nullness) {
-      case BOTTOM:
-      case NONNULL:
-        return false;
-      case NULL:
-      case NULLABLE:
-        return true;
-      default:
-        throw new AssertionError("Impossible: " + nullness);
-    }
-  }
-
-  /**
-   * find the closest ancestor method in a superclass or superinterface that method overrides
-   *
-   * @param method the subclass method
-   * @param types the types data structure from javac
-   * @return closest overridden ancestor method, or <code>null</code> if method does not override
-   *     anything
-   */
-  @Nullable
-  private Symbol.MethodSymbol getClosestOverriddenMethod(Symbol.MethodSymbol method, Types types) {
-    // taken from Error Prone MethodOverrides check
-    Symbol.ClassSymbol owner = method.enclClass();
-    for (Type s : types.closure(owner.type)) {
-      if (types.isSameType(s, owner.type)) {
-        continue;
-      }
-      for (Symbol m : s.tsym.members().getSymbolsByName(method.name)) {
-        if (!(m instanceof Symbol.MethodSymbol)) {
-          continue;
-        }
-        Symbol.MethodSymbol msym = (Symbol.MethodSymbol) m;
-        if (msym.isStatic()) {
-          continue;
-        }
-        if (method.overrides(msym, owner, types, /*checkReturn*/ false)) {
-          return msym;
-        }
-      }
-    }
-    return null;
   }
 
   /**

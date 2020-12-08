@@ -41,6 +41,8 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
@@ -79,6 +81,38 @@ public class NullabilityUtil {
     return diagnosticPosition.getStartPosition() == diagnosticPosition.getPreferredPosition();
   }
 
+  /**
+   * find the closest ancestor method in a superclass or superinterface that method overrides
+   *
+   * @param method the subclass method
+   * @param types the types data structure from javac
+   * @return closest overridden ancestor method, or <code>null</code> if method does not override
+   *     anything
+   */
+  @Nullable
+  public static Symbol.MethodSymbol getClosestOverriddenMethod(
+      Symbol.MethodSymbol method, Types types) {
+    // taken from Error Prone MethodOverrides check
+    Symbol.ClassSymbol owner = method.enclClass();
+    for (Type s : types.closure(owner.type)) {
+      if (types.isSameType(s, owner.type)) {
+        continue;
+      }
+      for (Symbol m : s.tsym.members().getSymbolsByName(method.name)) {
+        if (!(m instanceof Symbol.MethodSymbol)) {
+          continue;
+        }
+        Symbol.MethodSymbol msym = (Symbol.MethodSymbol) m;
+        if (msym.isStatic()) {
+          continue;
+        }
+        if (method.overrides(msym, owner, types, /*checkReturn*/ false)) {
+          return msym;
+        }
+      }
+    }
+    return null;
+  }
   /**
    * finds the symbol for the top-level class containing the given symbol
    *
@@ -180,6 +214,34 @@ public class NullabilityUtil {
   }
 
   /**
+   * Retrieve the {@code value} attribute of a method annotation of some type where the {@code
+   * value} is an array.
+   *
+   * @param methodSymbol A method to check for the annotation.
+   * @param annotName The qualified name or simple name of the annotation depending on the value of
+   *     {@code exactMatch}.
+   * @param exactMatch If true, the annotation name must match the full qualified name given in
+   *     {@code annotName}, otherwise, simple names will be checked.
+   * @return The {@code value} attribute of the annotation as a {@code Set}, or {@code null} if the
+   *     annotation is not present.
+   */
+  public static @Nullable Set<String> getAnnotationValueArray(
+      Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
+    AnnotationMirror annot = null;
+    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
+      String name = AnnotationUtils.annotationName(annotationMirror);
+      if ((exactMatch && name.equals(annotName)) || (!exactMatch && name.endsWith(annotName))) {
+        annot = annotationMirror;
+        break;
+      }
+    }
+    if (annot == null) {
+      return null;
+    }
+    return new HashSet<>(AnnotationUtils.getElementValueArray(annot, "value", String.class, true));
+  }
+
+  /**
    * Works for method parameters defined either in source or in class files
    *
    * @param symbol the method symbol
@@ -225,6 +287,27 @@ public class NullabilityUtil {
             || symbol.isEnum()
             || isUnannotated(symbol, config))
         && Nullness.hasNullableAnnotation(symbol, config);
+  }
+
+  /**
+   * Converts a {@link Nullness} to a {@code bool} value.
+   *
+   * @param nullness The nullness value.
+   * @return true if the nullness value represents a {@code Nullable} value. To be more specific, it
+   *     returns true if the nullness value is either {@link Nullness#NULL} or {@link
+   *     Nullness#NULLABLE}.
+   */
+  public static boolean nullnessToBool(Nullness nullness) {
+    switch (nullness) {
+      case BOTTOM:
+      case NONNULL:
+        return false;
+      case NULL:
+      case NULLABLE:
+        return true;
+      default:
+        throw new AssertionError("Impossible: " + nullness);
+    }
   }
 
   /**

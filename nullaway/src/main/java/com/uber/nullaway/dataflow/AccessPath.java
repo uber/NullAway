@@ -32,9 +32,11 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.VariableElement;
 import org.checkerframework.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.dataflow.cfg.node.IntegerLiteralNode;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
@@ -43,6 +45,7 @@ import org.checkerframework.dataflow.cfg.node.MethodAccessNode;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 import org.checkerframework.dataflow.cfg.node.StringLiteralNode;
+import org.checkerframework.dataflow.cfg.node.SuperNode;
 import org.checkerframework.dataflow.cfg.node.ThisLiteralNode;
 import org.checkerframework.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.dataflow.cfg.node.WideningConversionNode;
@@ -255,6 +258,21 @@ public final class AccessPath implements MapKey {
     }
   }
 
+  /**
+   * Constructs an access path ending with the class field element in the argument. The receiver is
+   * the method receiver itself.
+   *
+   * @param element the receiver element.
+   * @return access path representing the class field
+   */
+  public static AccessPath fromFieldElement(VariableElement element) {
+    Preconditions.checkArgument(
+        element.getKind().isField(),
+        "element must be of type: FIELD but received: " + element.getKind());
+    Root root = new Root();
+    return new AccessPath(root, Collections.singletonList(new AccessPathElement(element)));
+  }
+
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
     return methodSymbol.isStatic()
         && methodSymbol.getSimpleName().contentEquals("valueOf")
@@ -317,6 +335,8 @@ public final class AccessPath implements MapKey {
     } else if (node instanceof LocalVariableNode) {
       result = new Root(((LocalVariableNode) node).getElement());
     } else if (node instanceof ThisLiteralNode) {
+      result = new Root();
+    } else if (node instanceof SuperNode) {
       result = new Root();
     } else {
       // don't handle any other cases
