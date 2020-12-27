@@ -461,6 +461,18 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
             .put(methodRef("com.google.common.base.Strings", "isNullOrEmpty(java.lang.String)"), 0)
             .put(methodRef("java.util.Objects", "isNull(java.lang.Object)"), 0)
+            .put(
+                methodRef("org.springframework.util.ObjectUtils", "isEmpty(java.lang.Object[])"), 0)
+            .put(
+                methodRef(
+                    "org.springframework.util.CollectionUtils", "isEmpty(java.util.Collection<?>)"),
+                0)
+            .put(methodRef("org.springframework.util.StringUtils", "isEmpty(java.lang.Object)"), 0)
+            .put(methodRef("org.springframework.util.ObjectUtils", "isEmpty(java.lang.Object)"), 0)
+            .put(methodRef("spark.utils.ObjectUtils", "isEmpty(java.lang.Object[])"), 0)
+            .put(methodRef("spark.utils.CollectionUtils", "isEmpty(java.util.Collection<?>)"), 0)
+            .put(methodRef("spark.utils.StringUtils", "isEmpty(java.lang.Object)"), 0)
+            .put(methodRef("spark.utils.StringUtils", "isBlank(java.lang.CharSequence)"), 0)
             .put(methodRef("android.text.TextUtils", "isEmpty(java.lang.CharSequence)"), 0)
             .put(methodRef("org.apache.commons.lang.StringUtils", "isEmpty(java.lang.String)"), 0)
             .put(
@@ -472,11 +484,39 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 methodRef(
                     "org.apache.commons.lang3.StringUtils", "isBlank(java.lang.CharSequence)"),
                 0)
+            .put(methodRef("org.apache.commons.lang3.ObjectUtils", "isEmpty(java.lang.Object)"), 0)
             .build();
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_FALSE_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
             .put(methodRef("java.util.Objects", "nonNull(java.lang.Object)"), 0)
+            .put(
+                methodRef("org.springframework.util.StringUtils", "hasLength(java.lang.String)"), 0)
+            .put(methodRef("org.springframework.util.StringUtils", "hasText(java.lang.String)"), 0)
+            .put(
+                methodRef(
+                    "org.springframework.util.StringUtils", "hasText(java.lang.CharSequence)"),
+                0)
+            .put(methodRef("spark.utils.CollectionUtils", "isNotEmpty(java.util.Collection<?>)"), 0)
+            .put(methodRef("spark.utils.StringUtils", "isNotEmpty(java.lang.String)"), 0)
+            .put(methodRef("spark.utils.StringUtils", "isNotBlank(java.lang.CharSequence)"), 0)
+            .put(methodRef("spark.utils.StringUtils", "hasLength(java.lang.String)"), 0)
+            .put(methodRef("spark.utils.StringUtils", "hasLength(java.lang.CharSequence)"), 0)
+            .put(
+                methodRef("org.apache.commons.lang.StringUtils", "isNotEmpty(java.lang.String)"), 0)
+            .put(
+                methodRef(
+                    "org.apache.commons.lang3.StringUtils", "isNotEmpty(java.lang.CharSequence)"),
+                0)
+            .put(
+                methodRef("org.apache.commons.lang.StringUtils", "isNotBlank(java.lang.String)"), 0)
+            .put(
+                methodRef(
+                    "org.apache.commons.lang3.StringUtils", "isNotBlank(java.lang.CharSequence)"),
+                0)
+            .put(
+                methodRef("org.apache.commons.lang3.ObjectUtils", "isNotEmpty(java.lang.Object)"),
+                0)
             .build();
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_NULL_PARAMETERS =
