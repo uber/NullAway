@@ -46,6 +46,7 @@ dependencies {
     testCompile deps.test.cfCompatQual
     testCompile project(":test-java-lib")
     testCompile deps.test.inferAnnotations
+    testCompile deps.apt.jakartaInject
     testCompile deps.apt.javaxInject
     testCompile deps.test.rxjava2
     testCompile deps.test.commonsLang

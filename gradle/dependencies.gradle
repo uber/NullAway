@@ -26,9 +26,10 @@ def versions = [
 ]
 
 def apt = [
-    autoValue   : ["com.google.auto.value:auto-value:${versions.autoValue}", "com.google.auto.value:auto-value-annotations:${versions.autoValue}"],
-    autoService : "com.google.auto.service:auto-service:1.0-rc3",
-    javaxInject : "javax.inject:javax.inject:1",
+    autoValue     : ["com.google.auto.value:auto-value:${versions.autoValue}", "com.google.auto.value:auto-value-annotations:${versions.autoValue}"],
+    autoService   : "com.google.auto.service:auto-service:1.0-rc3",
+    jakartaInject : "jakarta.inject:jakarta.inject-api:2.0.0",
+    javaxInject   : "javax.inject:javax.inject:1",
 ]
 
 def build = [
