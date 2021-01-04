@@ -35,8 +35,6 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java }}
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
       - name: Build and test using Gradle and Java 8
         run: ./gradlew verGJF build
         if: matrix.java == '8'
