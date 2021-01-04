@@ -24,7 +24,6 @@ package com.uber.nullaway.testdata;
 
 import com.facebook.infer.annotation.Initializer;
 import com.google.errorprone.annotations.concurrent.LazyInit;
-import javax.inject.Inject;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
 import org.junit.BeforeClass;
@@ -46,7 +45,9 @@ public class CheckFieldInitNegativeCases {
 
     Object k;
 
-    @Inject Object m;
+    @jakarta.inject.Inject Object m;
+
+    @javax.inject.Inject Object n;
 
     @LazyInit Object lazy;
 
