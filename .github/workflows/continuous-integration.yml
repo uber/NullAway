@@ -2,6 +2,9 @@ name: Continuous integration
 on:
   - pull_request
   - push
+    branches:
+      - master
+      - main
 jobs:
   build:
     name: "JDK ${{ matrix.java }} on ${{ matrix.os }}"
@@ -45,7 +48,7 @@ jobs:
         run: ./gradlew jacocoTestReport coveralls
         if: runner.os == 'Linux' && matrix.java == '8'
       - name: Check that Git tree is clean after build and test
-        run: ./buildscript/check-git-clean.sh
+        run: ./buildscript/check_git_clean.sh
   publish_snapshot:
     name: 'Publish snapshot'
     needs: [build]
