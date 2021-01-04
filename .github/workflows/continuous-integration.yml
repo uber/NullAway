@@ -1,0 +1,81 @@
+name: Continuous integration
+on:
+  - pull_request
+  - push
+jobs:
+  build:
+    name: "JDK ${{ matrix.java }} on ${{ matrix.os }}"
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            java: 8
+          - os: ubuntu-latest
+            java: 8
+          - os: ubuntu-latest
+            java: 11
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out NullAway sources
+        uses: actions/checkout@v2
+      - name: Cache Gradle caches
+        uses: actions/cache@v1
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-caches-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle-caches-
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v1
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradlew-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradlew-wrapper-
+      - name: 'Set up JDK ${{ matrix.java }}'
+        uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+      - name: Build and test using Gradle and Java 8
+        run: ./gradlew verGJF build
+        if: matrix.java == '8'
+      - name: Build and test using Gradle and Java 11
+        run: ./gradlew :nullaway:test
+        if: matrix.java == '11'
+      - name: Report jacoco coverage
+        run: ./gradlew jacocoTestReport coveralls
+        if: runner.os == 'Linux' && matrix.java == '8'
+      - name: Check that Git tree is clean after build and test
+        run: ./buildscript/check-git-clean.sh
+  publish_snapshot:
+    name: 'Publish snapshot'
+    needs: [build]
+    if: github.event_name == 'push' && github.repository == 'uber/NullAway' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 'Check out repository'
+        uses: actions/checkout@v2
+      - name: Cache Gradle caches
+        uses: actions/cache@v1
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-caches-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle-caches-
+      - name: Cache Gradle wrapper
+        uses: actions/cache@v1
+        with:
+          path: ~/.gradle/wrapper
+          key: ${{ runner.os }}-gradlew-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: ${{ runner.os }}-gradlew-wrapper-
+      - name: 'Set up JDK 8'
+        uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+      - name: 'Publish'
+        env:
+          SONATYPE_NEXUS_USERNAME: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
+          SONATYPE_NEXUS_PASSWORD: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
+        run: ./gradlew clean uploadArchives
