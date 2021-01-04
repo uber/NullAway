@@ -48,7 +48,7 @@ jobs:
   publish_snapshot:
     name: 'Publish snapshot'
     needs: [build]
-    if: github.event_name == 'push' && github.repository == 'uber/NullAway' && github.ref == 'refs/heads/lazaro_ci_to_github_actions'
+    if: github.event_name == 'push' && github.repository == 'uber/NullAway' && github.ref == 'refs/heads/master'
     runs-on: ubuntu-latest
     steps:
       - name: 'Check out repository'
