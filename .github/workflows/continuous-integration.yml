@@ -43,7 +43,10 @@ jobs:
           COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
         with:
           arguments: jacocoTestReport coverallsJacoco
+<<<<<<< HEAD
         continue-on-error: true
+=======
+>>>>>>> 6b4ab7d (GitHub Actions: Run CI on external PRs.)
         if: runner.os == 'Linux' && matrix.java == '8' && github.repository == 'uber/NullAway'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
