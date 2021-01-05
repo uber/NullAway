@@ -13,24 +13,15 @@ android:
   components:
     - tools
     - platform-tools
-    - build-tools-28.0.3
-    - android-28
+    - build-tools-30.0.3
+    - android-30
 
 before_install:
-  - if [[ "$TRAVIS_JDK_VERSION" == "oraclejdk8" ]]; then yes | sdkmanager "platforms;android-28"; fi
+  - if [[ "$TRAVIS_JDK_VERSION" == "oraclejdk8" ]]; then yes | sdkmanager "platforms;android-30"; fi
 
 script:
   - if [[ "$TRAVIS_JDK_VERSION" == "oraclejdk8" ]]; then ./gradlew verGJF build; fi
   - if [[ "$TRAVIS_JDK_VERSION" == "openjdk11" ]]; then ./gradlew :nullaway:test; fi
-
-after_success:
-  - .buildscript/deploy_snapshot.sh
-  - ./gradlew jacocoTestReport coveralls
-
-env:
-  global:
-    - secure: Gmj9s887BQhPfGA2IRGBm0gusqS8L9ED8HnCUOge32fbL1huIjUx9xDfi9vsmecoIDQQOzRga33EcQCy1Yuba3KVuk2I8pk2z5OsMBf+1iR/qRO7/QNSCEqo9pTA8AVdNfpQqM6QLGpO064a1b7c35i/aRenUYDuIZlrVUhzr9v0QQ7QURjBsnQJkRd2Xb5AEDqlFQoaIRpnFlPl/B8sXQTiOratgnBp1kDm5tOZDZ6TqWdyLn0p3u4Qf6u8h6bJ3LUG0C7i48oS8qGwelZd0v1+GmivGI7bjbQw9ghBRjEIti9nW9bGkcYna1Q1EjkUJymJ4ilpKiSNEDwLtztEBiI3pSQ3NX1DJAdWsiA+XFQtId+Xi6b/u0R6VM4hCH0bWAtIASVafrY5Ad3tGbU0QMQENYoDI7odFoMwaWLMAJ3VtmfHrrDoqtBxFm2U37Lk3pDhulC9cx+elIwsQKY0s8p2V9UbWuXGgbIlcthqhST/+3CU+apwb2/Eq2DRF/gu05SnzEQnyjiL+XY8caF/qnVChD5j8LdoMaNCbzWG2qfHIxUtgIvGd/683pzshDbKW4CYST10Q5FFtsaCv6pMkCV+aLK53OQQY5PnfHPeIJQCqijcWFv+dS8mnx0WwvKhaVzGg97QX6p+Ok+9HAzkyovRwDLeGqcSlQQKyCXSW/A=
-    - secure: SiG/TzM0GQiwUrsW6Zq+5HirIxtiOOa/bjeBR50uzN2yOccK7ysqeLYNxgmO9Iu+76mMMccWfdSaP78YgjbY6aGoxGP3rOwt469AdUhXK+hslupKpnJI2UX0sYFl39mXmnHiRe/3W17aZA9NfinJyKJVBy2Bzm2aglN6kvHtS6qcBVGU35P0PIc6IwJQrJz17CcCEa7BVmKTGQPLXLQN8NrcCAjjiT5Egu3jJ6zEBzhk75xg63RM/SAV4gdRHJqo6JOZuGL9wIrvVZzc9s3jBB7BfJnSNw3W2A28JA5snfddyn+h+GTRFVhOywUToBNxplyPIiEwAkWsiAx1tpm1JPtI7tUN+TgLEj/qZgu0VIlC8jKuZ9JwtFUaprUaEGqQwiI/XjRuQYgFxiXqhqI2DVhNgBvQp1fUvEf5UD+gWr5Edh2tX6LsdzraXRgn13tULZ08aO+tTvTZUeSYpagrC9g6gQ6wq7gucmikOK/otw7+IPtOxR7DZ6qik60bvooqpaf439O2bVQh/cIwd6i8Afsf5sCAK+p54DfNBnED+03sIKcJD64IUiTFOFxjDGhwivsv/rf7/x3iyEZawWuQTP1rciDYlk9WvQjC3UkMFmT7zywa3PcFQjyn6yjNTy8plDaZ6ILXSyZTC6cW4rxy4iG3FKB+NnOfTC9tV/Z0/78=
 
 notifications:
   email: false
