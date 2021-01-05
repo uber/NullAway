@@ -184,8 +184,6 @@ public class NullAway extends BugChecker
 
   private final ErrorBuilder errorBuilder;
 
-  private final Invalid invalid;
-
   /**
    * The handler passed to our analysis (usually a {@code CompositeHandler} including handlers for
    * various APIs.
