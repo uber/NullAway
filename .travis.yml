@@ -13,11 +13,11 @@ android:
   components:
     - tools
     - platform-tools
-    - build-tools-28.0.3
-    - android-28
+    - build-tools-30.0.3
+    - android-30
 
 before_install:
-  - if [[ "$TRAVIS_JDK_VERSION" == "oraclejdk8" ]]; then yes | sdkmanager "platforms;android-28"; fi
+  - if [[ "$TRAVIS_JDK_VERSION" == "oraclejdk8" ]]; then yes | sdkmanager "platforms;android-30"; fi
 
 script:
   - if [[ "$TRAVIS_JDK_VERSION" == "oraclejdk8" ]]; then ./gradlew verGJF build; fi
