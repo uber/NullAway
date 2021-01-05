@@ -18,30 +18,26 @@ jobs:
     steps:
       - name: Check out NullAway sources
         uses: actions/checkout@v2
-      - name: Cache Gradle caches
-        uses: actions/cache@v1
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-caches-${{ hashFiles('**/*.gradle') }}
-          restore-keys: ${{ runner.os }}-gradle-caches-
-      - name: Cache Gradle wrapper
-        uses: actions/cache@v1
-        with:
-          path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradlew-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: ${{ runner.os }}-gradlew-wrapper-
       - name: 'Set up JDK ${{ matrix.java }}'
         uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java }}
       - name: Build and test using Gradle and Java 8
-        run: ./gradlew verGJF build
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: verGJF build
         if: matrix.java == '8'
       - name: Build and test using Gradle and Java 11
-        run: ./gradlew :nullaway:test
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: :nullaway:test
         if: matrix.java == '11'
       - name: Report jacoco coverage
-        run: ./gradlew jacocoTestReport coveralls
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: test jacocoTestReport coverallsJacoco
         if: runner.os == 'Linux' && matrix.java == '8'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
