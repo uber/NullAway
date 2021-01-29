@@ -1,9 +1,9 @@
 name: Continuous integration
 on:
-  - pull_request:
-  - push:
-      branches:
-        - master
+  pull_request:
+  push:
+    branches:
+      - master
 jobs:
   build:
     name: "JDK ${{ matrix.java }} on ${{ matrix.os }}"
