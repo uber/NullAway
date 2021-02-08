@@ -1,6 +1,5 @@
 package com.uber.nullaway.fixer;
 
-import com.sun.source.tree.Tree;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 
@@ -10,19 +9,17 @@ public class PreliminaryFixer extends Fixer {
   }
 
   @Override
-  protected Fix buildFix(ErrorMessage errorMessage, Location location, Tree cause) {
+  protected Fix buildFix(ErrorMessage errorMessage, Location location) {
     Fix fix;
-    if (cause == null) return null;
-    if (cause.getKind() != Tree.Kind.NULL_LITERAL) return null;
     switch (errorMessage.getMessageType()) {
       case RETURN_NULLABLE:
-        fix = addReturnNullableFix(location, cause);
+        fix = addReturnNullableFix(location);
         break;
       case PASS_NULLABLE:
-        fix = addParamPassNullableFix(location, cause);
+        fix = addParamPassNullableFix(location);
         break;
       case ASSIGN_FIELD_NULLABLE:
-        fix = addFieldNullableFix(location, cause);
+        fix = addFieldNullableFix(location);
         break;
       default:
         return null;

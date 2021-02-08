@@ -442,8 +442,7 @@ public class ErrorBuilder {
               .build();
       fixer.fix(
           new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),
-          location,
-          null);
+          location);
     }
 
     if (symbol.isStatic()) {

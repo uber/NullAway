@@ -5,7 +5,6 @@ import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ModifiersTree;
-import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
@@ -49,30 +48,30 @@ public class Fixer {
 
   private void fillMessageTypeLocationMap() {}
 
-  public void fix(ErrorMessage errorMessage, Location location, Tree cause) {
+  public void fix(ErrorMessage errorMessage, Location location) {
     // todo: remove this condition later, for now we are not supporting anonymous classes
     if (!config.autofixIsEnabled()) return;
     if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
-    Fix fix = buildFix(errorMessage, location, cause);
+    Fix fix = buildFix(errorMessage, location);
     if (fix != null) writerUtils.saveFix(fix);
   }
 
-  protected Fix buildFix(ErrorMessage errorMessage, Location location, Tree cause) {
+  protected Fix buildFix(ErrorMessage errorMessage, Location location) {
     Fix fix;
     switch (errorMessage.getMessageType()) {
       case RETURN_NULLABLE:
       case WRONG_OVERRIDE_RETURN:
-        fix = addReturnNullableFix(location, cause);
+        fix = addReturnNullableFix(location);
         break;
       case WRONG_OVERRIDE_PARAM:
-        fix = addParamNullableFix(location, cause);
+        fix = addParamNullableFix(location);
         break;
       case PASS_NULLABLE:
-        fix = addParamPassNullableFix(location, cause);
+        fix = addParamPassNullableFix(location);
         break;
       case FIELD_NO_INIT:
       case ASSIGN_FIELD_NULLABLE:
-        fix = addFieldNullableFix(location, cause);
+        fix = addFieldNullableFix(location);
         break;
       default:
         suggestSuppressWarning(errorMessage, location);
@@ -81,7 +80,7 @@ public class Fixer {
     return fix;
   }
 
-  protected Fix addFieldNullableFix(Location location, Tree cause) {
+  protected Fix addFieldNullableFix(Location location) {
     final Fix fix = new Fix();
     fix.location = location;
     Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) location.variableSymbol;
@@ -92,7 +91,7 @@ public class Fixer {
     return fix;
   }
 
-  protected Fix addParamPassNullableFix(Location location, Tree cause) {
+  protected Fix addParamPassNullableFix(Location location) {
     AnnotationFactory.Annotation nonNull = config.getAnnotationFactory().getNonNull();
     VariableTree variableTree =
         LocationUtils.getVariableTree(
@@ -113,7 +112,7 @@ public class Fixer {
     return null;
   }
 
-  protected Fix addParamNullableFix(Location location, Tree cause) {
+  protected Fix addParamNullableFix(Location location) {
     if (!location.kind.equals(Location.Kind.METHOD_PARAM)) {
       throw new RuntimeException(
           "Incompatible Fix Call: Cannot fix location type: "
@@ -127,7 +126,7 @@ public class Fixer {
     return fix;
   }
 
-  protected Fix addReturnNullableFix(Location location, Tree cause) {
+  protected Fix addReturnNullableFix(Location location) {
     AnnotationFactory.Annotation nonNull = config.getAnnotationFactory().getNonNull();
 
     if (!location.kind.equals(Location.Kind.METHOD_RETURN)) {
