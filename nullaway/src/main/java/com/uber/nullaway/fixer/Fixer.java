@@ -53,7 +53,9 @@ public class Fixer {
     if (!config.autofixIsEnabled()) return;
     if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
     Fix fix = buildFix(errorMessage, location);
-    if (fix != null) writerUtils.saveFix(fix);
+    if (fix != null) {
+      writerUtils.saveFix(fix);
+    }
   }
 
   protected Fix buildFix(ErrorMessage errorMessage, Location location) {
@@ -76,6 +78,9 @@ public class Fixer {
       default:
         suggestSuppressWarning(errorMessage, location);
         return null;
+    }
+    if (fix != null) {
+      fix.reason = errorMessage.getMessageType().toString();
     }
     return fix;
   }

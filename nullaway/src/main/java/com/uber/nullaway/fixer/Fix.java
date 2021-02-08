@@ -10,10 +10,12 @@ import org.json.simple.JSONObject;
 public class Fix implements Serializable {
   Location location;
   AnnotationFactory.Annotation annotation;
+  String reason;
   boolean inject;
 
   public JSONObject getJson() {
     JSONObject res = location.getJson();
+    res.put(KEYS.REASON.label, (reason == null) ? "Undefined" : reason);
     res.put(KEYS.INJECT.label, "" + inject);
     res.put(KEYS.ANNOTATION.label, annotation.fullName.replace(";", ""));
     return res;

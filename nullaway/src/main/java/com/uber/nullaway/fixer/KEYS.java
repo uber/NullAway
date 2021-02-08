@@ -8,7 +8,8 @@ public enum KEYS {
   PKG("pkg"),
   URI("uri"),
   INJECT("inject"),
-  ANNOTATION("annotation");
+  ANNOTATION("annotation"),
+  REASON("reason");
   public final String label;
 
   KEYS(String label) {
