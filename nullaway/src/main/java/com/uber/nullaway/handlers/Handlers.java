@@ -60,9 +60,9 @@ public class Handlers {
     handlerListBuilder.add(StreamNullabilityPropagatorFactory.getJavaStreamNullabilityPropagator());
     handlerListBuilder.add(new ContractHandler());
     handlerListBuilder.add(new ApacheThriftIsSetHandler());
-    handlerListBuilder.add(new EnsuresNonNullHandler());
-    handlerListBuilder.add(new RequiresNonNullHandler());
 
+    handlerListBuilder.add(new RequiresNonNullHandler());
+    handlerListBuilder.add(new EnsuresNonNullHandler());
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }

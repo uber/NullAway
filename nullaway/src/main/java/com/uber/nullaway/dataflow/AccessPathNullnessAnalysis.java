@@ -18,8 +18,10 @@
 
 package com.uber.nullaway.dataflow;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
+import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
@@ -34,6 +36,8 @@ import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
+import org.checkerframework.dataflow.analysis.AnalysisResult;
+import org.checkerframework.dataflow.cfg.node.MethodAccessNode;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 
@@ -221,19 +225,52 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
-   * Gets the {@link Nullness} value of an access path leads to at a specific program point.
+   * Get the {@link Nullness} value of an access path ending in a field at some program point.
    *
    * @param path Tree path to the specific program point.
    * @param context Javac context.
-   * @param accessPath The access path.
-   * @return The {@link Nullness} value of the access path.
+   * @param baseExpr The base expression {@code expr} for the access path {@code expr . f}
+   * @param field The field {@code f} for the access path {@code expr . f}
+   * @param trimReceiver if {@code true}, {@code baseExpr} will be trimmed to extract only the
+   *     receiver if the node associated to {@code baseExpr} is of type {@link MethodAccessNode}.
+   *     (e.g. {@code t.f()} will be converted to {@code t})
+   * @return The {@link Nullness} value of the access path at the program point. If the baseExpr and
+   *     field cannot be represented as an {@link AccessPath}, or if the dataflow analysis has no
+   *     result for the program point before {@code path}, conservatively returns {@link
+   *     Nullness#NULLABLE}
    */
-  public Nullness getNullnessOfAccessPath(TreePath path, Context context, AccessPath accessPath) {
-    NullnessStore store = dataFlow.resultBeforeExpr(path, context, nullnessPropagation);
-    if (store == null) {
+  public Nullness getNullnessOfFieldForReceiverTree(
+      TreePath path, Context context, Tree baseExpr, VariableElement field, boolean trimReceiver) {
+    Preconditions.checkArgument(field.getKind().equals(ElementKind.FIELD));
+    AnalysisResult<Nullness, NullnessStore> result =
+        dataFlow.resultForExpr(path, context, nullnessPropagation);
+    if (result == null) {
       return Nullness.NULLABLE;
     }
-    return store.getNullnessOfAccessPath(accessPath);
+    NullnessStore store = result.getStoreBefore(path.getLeaf());
+    // used set of nodes, a tree can have multiple nodes.
+    Set<Node> baseNodes = result.getNodesForTree(baseExpr);
+    if (store == null || baseNodes == null) {
+      return Nullness.NULLABLE;
+    }
+    // look for all possible access paths might exist in store.
+    for (Node baseNode : baseNodes) {
+      // it trims the baseExpr to process only the receiver. (e.g. a.f() is trimmed to a)
+      if (trimReceiver && baseNode instanceof MethodAccessNode) {
+        baseNode = ((MethodAccessNode) baseNode).getReceiver();
+      }
+      AccessPath accessPath = AccessPath.fromBaseAndElement(baseNode, field);
+      if (accessPath == null) {
+        continue;
+      }
+      Nullness nullness = store.getNullnessOfAccessPath(accessPath);
+      // field is non-null if at least one access path referring to it exists with non-null
+      // nullness.
+      if (!nullness.equals(Nullness.NULLABLE)) {
+        return nullness;
+      }
+    }
+    return Nullness.NULLABLE;
   }
 
   /**

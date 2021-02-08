@@ -25,9 +25,7 @@ package com.uber.nullaway.dataflow;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LiteralTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
@@ -36,9 +34,9 @@ import com.sun.tools.javac.code.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.VariableElement;
 import org.checkerframework.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.dataflow.cfg.node.IntegerLiteralNode;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
@@ -47,6 +45,7 @@ import org.checkerframework.dataflow.cfg.node.MethodAccessNode;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.dataflow.cfg.node.Node;
 import org.checkerframework.dataflow.cfg.node.StringLiteralNode;
+import org.checkerframework.dataflow.cfg.node.SuperNode;
 import org.checkerframework.dataflow.cfg.node.ThisLiteralNode;
 import org.checkerframework.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.dataflow.cfg.node.WideningConversionNode;
@@ -266,68 +265,12 @@ public final class AccessPath implements MapKey {
    * @param element the receiver element.
    * @return access path representing the class field
    */
-  public static AccessPath fromElement(Element element) {
-    assert element.getKind().isField()
-        : "element must be of type: FIELD but received: " + element.getKind();
+  public static AccessPath fromFieldElement(VariableElement element) {
+    Preconditions.checkArgument(
+        element.getKind().isField(),
+        "element must be of type: FIELD but received: " + element.getKind());
     Root root = new Root();
     return new AccessPath(root, Collections.singletonList(new AccessPathElement(element)));
-  }
-
-  /**
-   * Extends an access path with a class field element.
-   *
-   * @param receiverNode the receiver node
-   * @param field element of the class field
-   * @return the extended access path
-   */
-  public static @Nullable AccessPath extendReceiverNodeAccessPathWithField(
-      @Nonnull Node receiverNode, Element field) {
-    if (receiverNode.getTree() == null) {
-      // "this" is the receiver.
-      return fromElement(field);
-    }
-    return extendReceiverTreeAccessPathWithField(receiverNode.getTree(), field);
-  }
-
-  /**
-   * Extends an access path with a class field element.
-   *
-   * @param receiverTree the receiver tree
-   * @param field element of the class field
-   * @return the extended access path
-   */
-  public static AccessPath extendReceiverTreeAccessPathWithField(Tree receiverTree, Element field) {
-    if (receiverTree.getKind().equals(Tree.Kind.CONDITIONAL_EXPRESSION)) {
-      // since we can't reason which branch executes, we cannot create an access path for the
-      // expression.
-      return null;
-    }
-    List<AccessPathElement> receivers = getReceiverAccessPathElementChain(receiverTree);
-    receivers.add(new AccessPathElement(field));
-    Root root = new Root(receivers.get(0).getJavaElement());
-    return new AccessPath(root, receivers.subList(1, receivers.size()));
-  }
-
-  /**
-   * Extracts the chain of all receivers comprising an access path, e.g., If we pass c in a.b.c we
-   * will get [a, b, c] in result.
-   *
-   * @param receiver The receiver tree.
-   * @return A list of {@link AccessPathElement} elements extracted from the argument's receivers.
-   */
-  private static List<AccessPathElement> getReceiverAccessPathElementChain(Tree receiver) {
-    List<AccessPathElement> elements = new ArrayList<>();
-    if (receiver == null) {
-      return elements;
-    }
-    elements.add(new AccessPathElement(ASTHelpers.getSymbol(receiver)));
-    while (receiver instanceof MemberSelectTree) {
-      ExpressionTree expression = ((MemberSelectTree) receiver).getExpression();
-      elements.add(new AccessPathElement(ASTHelpers.getSymbol(expression)));
-      receiver = expression;
-    }
-    Collections.reverse(elements);
-    return elements;
   }
 
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
@@ -392,6 +335,8 @@ public final class AccessPath implements MapKey {
     } else if (node instanceof LocalVariableNode) {
       result = new Root(((LocalVariableNode) node).getElement());
     } else if (node instanceof ThisLiteralNode) {
+      result = new Root();
+    } else if (node instanceof SuperNode) {
       result = new Root();
     } else {
       // don't handle any other cases

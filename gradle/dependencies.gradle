@@ -26,9 +26,10 @@ def versions = [
 ]
 
 def apt = [
-    autoValue   : ["com.google.auto.value:auto-value:${versions.autoValue}", "com.google.auto.value:auto-value-annotations:${versions.autoValue}"],
-    autoService : "com.google.auto.service:auto-service:1.0-rc3",
-    javaxInject : "javax.inject:javax.inject:1",
+    autoValue     : ["com.google.auto.value:auto-value:${versions.autoValue}", "com.google.auto.value:auto-value-annotations:${versions.autoValue}"],
+    autoService   : "com.google.auto.service:auto-service:1.0-rc3",
+    jakartaInject : "jakarta.inject:jakarta.inject-api:2.0.0",
+    javaxInject   : "javax.inject:javax.inject:1",
 ]
 
 def build = [
@@ -50,11 +51,11 @@ def build = [
     commonscli              : "commons-cli:commons-cli:${versions.commonscli}",
 
     // android stuff
-    buildToolsVersion: "28.0.3",
-    compileSdkVersion: 28,
+    buildToolsVersion: "30.0.3",
+    compileSdkVersion: 30,
     ci: "true" == System.getenv("CI"),
     minSdkVersion: 16,
-    targetSdkVersion: 28,
+    targetSdkVersion: 30,
 
 ]
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Uber Technologies, Inc.
+ * Copyright (c) 2017-2020 Uber Technologies, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,11 +22,14 @@
 
 package com.uber.nullaway.handlers.contract.fieldcontract;
 
+import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+import static com.uber.nullaway.NullabilityUtil.getAnnotationValueArray;
+
+import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.tools.javac.code.Symbol;
@@ -34,6 +37,7 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.annotations.RequiresNonNull;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
@@ -42,7 +46,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import javax.lang.model.element.Element;
+import javax.lang.model.element.VariableElement;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 
@@ -61,10 +65,8 @@ import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
  */
 public class RequiresNonNullHandler extends AbstractFieldContractHandler {
 
-  @Override
-  public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
-    annotName = "RequiresNonNull";
+  public RequiresNonNullHandler() {
+    super("RequiresNonNull");
   }
 
   /** All methods can add the precondition of {@code RequiresNonNull}. */
@@ -89,8 +91,8 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     if (overridingFieldNames == null) {
       return;
     }
-    Set<String> overriddenFieldNames =
-        ContractUtils.getFieldNamesFromAnnotation(overriddenMethod, annotName);
+
+    Set<String> overriddenFieldNames = getAnnotationValueArray(overriddenMethod, annotName, false);
     if (overriddenFieldNames == null) {
       overriddenFieldNames = Collections.emptySet();
     }
@@ -110,12 +112,16 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       }
     }
     errorMessage.append("] makes this method precondition stricter");
-    ContractUtils.reportMatch(
-        tree,
-        errorMessage.toString(),
-        analysis,
-        state,
-        ErrorMessage.MessageTypes.WRONG_OVERRIDE_PRECONDITION);
+
+    state.reportMatch(
+        analysis
+            .getErrorBuilder()
+            .createErrorDescription(
+                new ErrorMessage(
+                    ErrorMessage.MessageTypes.WRONG_OVERRIDE_PRECONDITION, errorMessage.toString()),
+                tree,
+                buildDescriptionFromChecker(tree, analysis),
+                state));
   }
 
   /**
@@ -128,7 +134,8 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       MethodInvocationTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
-    Set<String> fieldNames = ContractUtils.getFieldNamesFromAnnotation(methodSymbol, annotName);
+
+    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames == null) {
       super.onMatchMethodInvocation(analysis, tree, state, methodSymbol);
       return;
@@ -136,39 +143,39 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
-      assert classSymbol != null
-          : "can not find the enclosing class for method symbol: " + methodSymbol;
-      Element field = getFieldFromClass(classSymbol, fieldName);
-      assert field != null
-          : "Could not find field: [" + fieldName + "]" + "for class: " + classSymbol;
-      ExpressionTree methodSelectTree = tree.getMethodSelect();
-      AccessPath accessPath;
-      if (methodSelectTree instanceof MemberSelectTree) {
-        accessPath =
-            AccessPath.extendReceiverTreeAccessPathWithField(
-                ((MemberSelectTree) methodSelectTree).getExpression(), field);
-      } else {
-        accessPath = AccessPath.fromElement(field);
-      }
-      if (accessPath == null) {
+
+      Preconditions.checkNotNull(
+          classSymbol, "Could not find the enclosing class for method symbol: " + methodSymbol);
+      VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
+      if (field == null) {
+        // we will report an error on the method declaration
         continue;
       }
+      ExpressionTree methodSelectTree = tree.getMethodSelect();
       Nullness nullness =
           analysis
               .getNullnessAnalysis(state)
-              .getNullnessOfAccessPath(state.getPath(), state.context, accessPath);
+              .getNullnessOfFieldForReceiverTree(
+                  state.getPath(), state.context, methodSelectTree, field, true);
       if (NullabilityUtil.nullnessToBool(nullness)) {
-        String message = "expected field [" + fieldName + "] is not non-null at call site";
-        ContractUtils.reportMatch(
-            tree, message, analysis, state, ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED);
+        String message = "Expected field " + fieldName + " to be non-null at call site";
+
+        state.reportMatch(
+            analysis
+                .getErrorBuilder()
+                .createErrorDescription(
+                    new ErrorMessage(ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED, message),
+                    tree,
+                    buildDescriptionFromChecker(tree, analysis),
+                    state));
       }
     }
   }
 
   /**
-   * On every method annotated with {@link com.uber.nullaway.qual.RequiresNonNull}, this method,
-   * injects the {@code Nonnull} value for the class field given in the {@code @RequiresNonNull}
-   * parameter to the dataflow analysis.
+   * On every method annotated with {@link RequiresNonNull}, this method, injects the {@code
+   * Nonnull} value for the class field given in the {@code @RequiresNonNull} parameter to the
+   * dataflow analysis.
    */
   @Override
   public NullnessStore.Builder onDataflowInitialStore(
@@ -181,16 +188,19 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
     ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
     Set<String> fieldNames =
-        ContractUtils.getFieldNamesFromAnnotation(ASTHelpers.getSymbol(methodTree), annotName);
+        getAnnotationValueArray(ASTHelpers.getSymbol(methodTree), annotName, false);
     if (fieldNames == null) {
       return result;
     }
     fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
-      Element field = getFieldFromClass(ASTHelpers.getSymbol(classTree), fieldName);
-      assert field != null
-          : "Could not find field: [" + fieldName + "]" + "for class: " + classTree.getSimpleName();
-      AccessPath accessPath = AccessPath.fromElement(field);
+
+      VariableElement field = getInstanceFieldOfClass(ASTHelpers.getSymbol(classTree), fieldName);
+      if (field == null) {
+        // Invalid annotation, will result in an error during validation. For now, skip field.
+        continue;
+      }
+      AccessPath accessPath = AccessPath.fromFieldElement(field);
       result.setInformation(accessPath, Nullness.NONNULL);
     }
     return result;

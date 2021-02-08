@@ -20,7 +20,7 @@ plugins {
   id "java"
   // For code coverage:
   id 'jacoco'
-  id 'com.github.kt3k.coveralls'
+  id 'com.github.nbaztec.coveralls-jacoco'
 }
 
 sourceCompatibility = "1.8"
@@ -46,6 +46,7 @@ dependencies {
     testCompile deps.test.cfCompatQual
     testCompile project(":test-java-lib")
     testCompile deps.test.inferAnnotations
+    testCompile deps.apt.jakartaInject
     testCompile deps.apt.javaxInject
     testCompile deps.test.rxjava2
     testCompile deps.test.commonsLang
@@ -114,10 +115,13 @@ jacoco {
   toolVersion = "0.8.2"
 }
 
-// From https://github.com/kt3k/coveralls-gradle-plugin
 jacocoTestReport {
     reports {
         xml.enabled = true // coveralls plugin depends on xml format report
         html.enabled = true
     }
+}
+
+coverallsJacoco {
+    reportPath = "nullaway/build/reports/jacoco/test/jacocoTestReport.xml"
 }

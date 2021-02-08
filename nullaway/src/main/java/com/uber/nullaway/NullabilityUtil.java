@@ -41,9 +41,12 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
+import org.checkerframework.javacutil.AnnotationUtils;
 
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
@@ -193,6 +196,52 @@ public class NullabilityUtil {
   }
 
   /**
+   * Retrieve the {@code value} attribute of a method annotation of some type.
+   *
+   * @param methodSymbol A method to check for the annotation.
+   * @param annotName The qualified name of the annotation.
+   * @return The {@code value} attribute of the annotation, or {@code null} if the annotation is not
+   *     present.
+   */
+  public static @Nullable String getAnnotationValue(
+      Symbol.MethodSymbol methodSymbol, String annotName) {
+    AnnotationMirror annot =
+        AnnotationUtils.getAnnotationByName(methodSymbol.getAnnotationMirrors(), annotName);
+    if (annot == null) {
+      return null;
+    }
+    return AnnotationUtils.getElementValue(annot, "value", String.class, true);
+  }
+
+  /**
+   * Retrieve the {@code value} attribute of a method annotation of some type where the {@code
+   * value} is an array.
+   *
+   * @param methodSymbol A method to check for the annotation.
+   * @param annotName The qualified name or simple name of the annotation depending on the value of
+   *     {@code exactMatch}.
+   * @param exactMatch If true, the annotation name must match the full qualified name given in
+   *     {@code annotName}, otherwise, simple names will be checked.
+   * @return The {@code value} attribute of the annotation as a {@code Set}, or {@code null} if the
+   *     annotation is not present.
+   */
+  public static @Nullable Set<String> getAnnotationValueArray(
+      Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
+    AnnotationMirror annot = null;
+    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
+      String name = AnnotationUtils.annotationName(annotationMirror);
+      if ((exactMatch && name.equals(annotName)) || (!exactMatch && name.endsWith(annotName))) {
+        annot = annotationMirror;
+        break;
+      }
+    }
+    if (annot == null) {
+      return null;
+    }
+    return new HashSet<>(AnnotationUtils.getElementValueArray(annot, "value", String.class, true));
+  }
+
+  /**
    * Works for method parameters defined either in source or in class files
    *
    * @param symbol the method symbol
@@ -241,9 +290,9 @@ public class NullabilityUtil {
   }
 
   /**
-   * Coverts a {@link Nullness} value to {@code bool} value.
+   * Converts a {@link Nullness} to a {@code bool} value.
    *
-   * @param nullness nullness value.
+   * @param nullness The nullness value.
    * @return true if the nullness value represents a {@code Nullable} value. To be more specific, it
    *     returns true if the nullness value is either {@link Nullness#NULL} or {@link
    *     Nullness#NULLABLE}.

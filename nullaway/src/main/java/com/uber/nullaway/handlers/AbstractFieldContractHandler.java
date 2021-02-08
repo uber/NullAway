@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2017 Uber Technologies, Inc.
+ * Copyright (c) 2017-2020 Uber Technologies, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
+
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -33,8 +35,10 @@ import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.VariableElement;
 
 /**
  * Abstract base class for handlers that process pre- and post-condition annotations for fields.
@@ -45,21 +49,25 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
 
   protected static final String THIS_NOTATION = "this.";
   /** Simple name of the annotation in {@code String} */
-  protected String annotName;
+  protected final String annotName;
+
+  protected AbstractFieldContractHandler(String annotName) {
+    this.annotName = annotName;
+  }
 
   /**
-   * Verifies that the processing method adheres to the annotation specifications.
+   * Verifies that the method being processed adheres to the annotation specifications.
    *
    * @param analysis NullAway instance.
-   * @param tree Processing method tree.
-   * @param state Javac {@link VisitorState}.
+   * @param tree Method tree under processing.
+   * @param state Error Prone {@link VisitorState}.
    * @param methodSymbol Processing method symbol.
    */
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
     Set<String> annotationContent =
-        ContractUtils.getFieldNamesFromAnnotation(methodSymbol, annotName);
+        NullabilityUtil.getAnnotationValueArray(methodSymbol, annotName, false);
     boolean isAnnotated = annotationContent != null;
     boolean isValid =
         isAnnotated
@@ -92,7 +100,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    *     if the annotation is not present.
    * @param analysis NullAway instance.
    * @param tree Processing method tree.
-   * @param state Javac {@link VisitorState}.
+   * @param state Error Prone's {@link VisitorState}.
    * @param overriddenMethod Processing method symbol.
    */
   protected abstract void validateOverridingRules(
@@ -112,9 +120,18 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
 
   /**
    * Validates whether the parameter inside annotation conforms to the syntax rules. Parameters must
-   * conform to the following rules: 1. Cannot annotate a method with empty param set. 2. The
-   * receiver of selected fields in annotation can only be the receiver of the method. 3. All
-   * parameters given in the annotation must be one of the fields of the class or its super classes.
+   * conform to the following rules:
+   *
+   * <p>
+   *
+   * <ul>
+   *   <li>Cannot annotate a method with empty param set.
+   *   <li>The receiver of selected fields in annotation can only be the receiver of the method.
+   *   <li>All parameters given in the annotation must be one of the fields of the class or its
+   *       super classes.
+   * </ul>
+   *
+   * <p>
    *
    * @return Returns true, if the annotation conforms to the syntax rules.
    */
@@ -124,60 +141,66 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
       MethodTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
-    if (content == null) {
-      return true;
-    } else {
-      String message;
-      if (content.isEmpty()) {
-        // we should not allow useless annotations.
-        message =
-            "empty @"
-                + annotName
-                + " is the default precondition for every method, please remove it.";
-        ContractUtils.reportMatch(
-            tree, message, analysis, state, ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
-        return false;
-      } else {
-        for (String fieldName : content) {
-          if (fieldName.contains(".")) {
-            if (!fieldName.startsWith(THIS_NOTATION)) {
-              message =
-                  "currently @"
-                      + annotName
-                      + " supports only class fields of the method receiver: "
-                      + fieldName
-                      + " is not supported";
-              ContractUtils.reportMatch(
+    String message;
+    if (content.isEmpty()) {
+      // we should not allow useless annotations.
+      message =
+          "empty @"
+              + annotName
+              + " is the default precondition for every method, please remove it.";
+      state.reportMatch(
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                   tree,
-                  message,
-                  analysis,
-                  state,
-                  ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
-              return false;
-            } else {
-              fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
-            }
-          }
-          Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
-          Element field = getFieldFromClass(classSymbol, fieldName);
-          if (field == null) {
+                  buildDescriptionFromChecker(tree, analysis),
+                  state));
+      return false;
+    } else {
+      for (String fieldName : content) {
+        if (fieldName.contains(".")) {
+          if (!fieldName.startsWith(THIS_NOTATION)) {
             message =
-                "cannot find field [" + fieldName + "] in class: " + classSymbol.getSimpleName();
-            ContractUtils.reportMatch(
-                tree, message, analysis, state, ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
-            return false;
-          }
-          if (field.getModifiers().contains(Modifier.STATIC)) {
-            message =
-                "cannot accept static field: ["
-                    + fieldName
-                    + "] as a parameter in @"
+                "currently @"
                     + annotName
-                    + " annotation";
-            ContractUtils.reportMatch(
-                tree, message, analysis, state, ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
+                    + " supports only class fields of the method receiver: "
+                    + fieldName
+                    + " is not supported";
+
+            state.reportMatch(
+                analysis
+                    .getErrorBuilder()
+                    .createErrorDescription(
+                        new ErrorMessage(
+                            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                        tree,
+                        buildDescriptionFromChecker(tree, analysis),
+                        state));
             return false;
+          } else {
+            fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
           }
+        }
+        Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
+        VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
+        if (field == null) {
+          message =
+              "For @"
+                  + annotName
+                  + " annotation, cannot find instance field "
+                  + fieldName
+                  + " in class "
+                  + classSymbol.getSimpleName();
+          state.reportMatch(
+              analysis
+                  .getErrorBuilder()
+                  .createErrorDescription(
+                      new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                      tree,
+                      buildDescriptionFromChecker(tree, analysis),
+                      state));
+          return false;
         }
       }
     }
@@ -185,24 +208,25 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   }
 
   /**
-   * Finds a specific field of a class
+   * Finds a specific instance field of a class or its superclasses
    *
    * @param classSymbol A class symbol.
    * @param name Name of the field.
-   * @return The class field with the given name.
+   * @return The field with the given name, or {@code null} if the field cannot be found
    */
-  public static Element getFieldFromClass(Symbol.ClassSymbol classSymbol, String name) {
+  public static @Nullable VariableElement getInstanceFieldOfClass(
+      Symbol.ClassSymbol classSymbol, String name) {
     Preconditions.checkNotNull(classSymbol);
     for (Element member : classSymbol.getEnclosedElements()) {
-      if (member.getKind().isField()) {
+      if (member.getKind().isField() && !member.getModifiers().contains(Modifier.STATIC)) {
         if (member.getSimpleName().toString().equals(name)) {
-          return member;
+          return (VariableElement) member;
         }
       }
     }
     Symbol.ClassSymbol superClass = (Symbol.ClassSymbol) classSymbol.getSuperclass().tsym;
     if (superClass != null) {
-      return getFieldFromClass(superClass, name);
+      return getInstanceFieldOfClass(superClass, name);
     }
     return null;
   }

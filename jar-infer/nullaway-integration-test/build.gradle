@@ -15,9 +15,6 @@
  */
 plugins {
   id "java"
-  // For code coverage:
-  id 'jacoco'
-  id 'com.github.kt3k.coveralls'
 }
 
 sourceCompatibility = "1.8"
@@ -37,12 +34,4 @@ dependencies {
 test {
   maxHeapSize = "1024m"
   jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
-}
-
-// From https://github.com/kt3k/coveralls-gradle-plugin
-jacocoTestReport {
-    reports {
-        xml.enabled = true // coveralls plugin depends on xml format report
-        html.enabled = true
-    }
 }

@@ -123,6 +123,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
 
   static final ImmutableSet<String> DEFAULT_EXCLUDED_FIELD_ANNOT =
       ImmutableSet.of(
+          "jakarta.inject.Inject", // no explicit initialization when there is dependency injection
           "javax.inject.Inject", // no explicit initialization when there is dependency injection
           "com.google.errorprone.annotations.concurrent.LazyInit",
           "org.checkerframework.checker.nullness.qual.MonotonicNonNull");

@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.handlers.contract;
 
+import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 
@@ -34,18 +35,12 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
-import java.util.Map;
 import javax.annotation.Nullable;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.TypeElement;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
 
 /**
@@ -81,6 +76,8 @@ import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
  */
 public class ContractHandler extends BaseNoOpHandler {
 
+  static final String CONTRACT_ANNOTATION_NAME = "org.jetbrains.annotations.Contract";
+
   private @Nullable NullAway analysis;
   private @Nullable VisitorState state;
 
@@ -103,7 +100,7 @@ public class ContractHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
-    String contractString = getContractFromAnnotation(callee);
+    String contractString = NullabilityUtil.getAnnotationValue(callee, CONTRACT_ANNOTATION_NAME);
     if (contractString != null) {
       // Found a contract, lets parse it.
       String[] clauses = contractString.split(";");
@@ -145,7 +142,10 @@ public class ContractHandler extends BaseNoOpHandler {
             argAntecedentNullness =
                 valueConstraint.equals("null") ? Nullness.NULLABLE : Nullness.NONNULL;
           } else {
-            String message =
+
+            Preconditions.checkNotNull(state);
+            Preconditions.checkNotNull(analysis);
+            String errorMessage =
                 "Invalid @Contract annotation detected for method "
                     + callee
                     + ". It contains the following uparseable clause: "
@@ -153,12 +153,16 @@ public class ContractHandler extends BaseNoOpHandler {
                     + " (unknown value constraint: "
                     + valueConstraint
                     + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).";
-            ContractUtils.reportMatch(
-                node.getTree(),
-                message,
-                analysis,
-                state,
-                ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID);
+
+            state.reportMatch(
+                analysis
+                    .getErrorBuilder()
+                    .createErrorDescription(
+                        new ErrorMessage(
+                            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
+                        node.getTree(),
+                        buildDescriptionFromChecker(node.getTree(), analysis),
+                        state));
             supported = false;
             break;
           }
@@ -204,34 +208,5 @@ public class ContractHandler extends BaseNoOpHandler {
       }
     }
     return NullnessHint.UNKNOWN;
-  }
-
-  /**
-   * Retrieve the string value inside an @Contract annotation without statically depending on the
-   * type.
-   *
-   * @param sym A method which has an @Contract annotation.
-   * @return The string value spec inside the annotation.
-   */
-  private static @Nullable String getContractFromAnnotation(Symbol.MethodSymbol sym) {
-    for (AnnotationMirror annotation : sym.getAnnotationMirrors()) {
-      Element element = annotation.getAnnotationType().asElement();
-      assert element.getKind().equals(ElementKind.ANNOTATION_TYPE);
-      if (((TypeElement) element)
-          .getQualifiedName()
-          .contentEquals("org.jetbrains.annotations.Contract")) {
-        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e :
-            annotation.getElementValues().entrySet()) {
-          if (e.getKey().getSimpleName().contentEquals("value")) {
-            String value = e.getValue().toString();
-            if (value.startsWith("\"") && value.endsWith("\"")) {
-              value = value.substring(1, value.length() - 1);
-            }
-            return value;
-          }
-        }
-      }
-    }
-    return null;
   }
 }
