@@ -38,9 +38,11 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.ArrayList;
@@ -63,12 +65,14 @@ import org.checkerframework.dataflow.cfg.node.Node;
  */
 public class LibraryModelsHandler extends BaseNoOpHandler {
 
+  private final Config config;
   private final LibraryModels libraryModels;
 
   @Nullable private OptimizedLibraryModels optLibraryModels;
 
-  public LibraryModelsHandler() {
+  public LibraryModelsHandler(Config config) {
     super();
+    this.config = config;
     libraryModels = loadLibraryModels();
   }
 
@@ -103,7 +107,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION) {
       OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
       Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr);
-      if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes())
+      if (!NullabilityUtil.isUnannotated(methodSymbol, this.config)) {
+        // We only look at library models for unannotated (i.e. third-party) code.
+        return exprMayBeNull;
+      } else if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes())
           || !optLibraryModels.nullImpliesNullParameters(methodSymbol).isEmpty()) {
         // These mean the method might be null, depending on dataflow and arguments. We force
         // dataflow to run.
@@ -127,6 +134,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
+    if (!NullabilityUtil.isUnannotated(callee, this.config)) {
+      // Ignore annotated methods, library models should only apply to "unannotated" code.
+      return NullnessHint.UNKNOWN;
+    }
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, context);
     setConditionalArgumentNullness(thenUpdates, elseUpdates, node.getArguments(), callee, context);
     ImmutableSet<Integer> nullImpliesNullIndexes =
