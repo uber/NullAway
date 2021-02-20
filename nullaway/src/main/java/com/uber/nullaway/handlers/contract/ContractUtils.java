@@ -1,7 +1,5 @@
 package com.uber.nullaway.handlers.contract;
 
-import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
-
 import com.google.common.base.Function;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
@@ -54,7 +52,7 @@ public class ContractUtils {
               .createErrorDescription(
                   new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                   tree,
-                  buildDescriptionFromChecker(tree, analysis),
+                  analysis.buildDescription(tree),
                   state));
     }
     return parts[1].trim();
@@ -101,7 +99,7 @@ public class ContractUtils {
               .createErrorDescription(
                   new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                   tree,
-                  buildDescriptionFromChecker(tree, analysis),
+                  analysis.buildDescription(tree),
                   state));
     }
     return antecedent;
