@@ -147,7 +147,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
                         new ErrorMessage(
                             ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
                         returnTree,
-                        analysis.buildDescription(tree),
+                        analysis.buildDescription(returnTree),
                         returnState));
           }
           return super.visitReturn(returnTree, unused);
