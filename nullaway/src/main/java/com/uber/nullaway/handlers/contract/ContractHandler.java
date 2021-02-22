@@ -101,7 +101,7 @@ public class ContractHandler extends BaseNoOpHandler {
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
     String contractString = NullabilityUtil.getAnnotationValue(callee, CONTRACT_ANNOTATION_NAME);
-    if (contractString != null) {
+    if (contractString != null && contractString.trim().length() > 0) {
       // Found a contract, lets parse it.
       String[] clauses = contractString.split(";");
       for (String clause : clauses) {

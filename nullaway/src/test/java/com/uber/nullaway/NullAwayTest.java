@@ -567,6 +567,46 @@ public class NullAwayTest {
   }
 
   @Test
+  public void contractPureOnlyIgnored() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "PureLibrary.java",
+            "package com.example.library;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class PureLibrary {",
+            "  @Contract(",
+            "    pure = true",
+            "  )",
+            "  public static String pi() {",
+            "    // Meh, close enough...",
+            "    return Double.toString(3.14);",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.library.PureLibrary;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String piValue() {",
+            "    String pi = PureLibrary.pi();",
+            "    // Note: we must trigger dataflow to ensure that",
+            "    // ContractHandler.onDataflowVisitMethodInvocation is called",
+            "    if (pi != null) {",
+            "       return pi;",
+            "    }",
+            "    return Integer.toString(3);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testEnumInit() {
     compilationHelper
         .addSourceLines(
