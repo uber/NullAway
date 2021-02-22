@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.handlers.contract;
 
-import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 import static com.uber.nullaway.NullabilityUtil.getAnnotationValue;
 import static com.uber.nullaway.handlers.contract.ContractHandler.CONTRACT_ANNOTATION_NAME;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
@@ -148,7 +147,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
                         new ErrorMessage(
                             ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
                         returnTree,
-                        buildDescriptionFromChecker(returnTree, analysis),
+                        analysis.buildDescription(returnTree),
                         returnState));
           }
           return super.visitReturn(returnTree, unused);

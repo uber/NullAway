@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.handlers.contract;
 
-import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 
@@ -159,7 +158,7 @@ public class ContractHandler extends BaseNoOpHandler {
                         new ErrorMessage(
                             ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
                         node.getTree(),
-                        buildDescriptionFromChecker(node.getTree(), analysis),
+                        analysis.buildDescription(node.getTree()),
                         state));
             supported = false;
             break;
