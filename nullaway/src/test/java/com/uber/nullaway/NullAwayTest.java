@@ -2986,4 +2986,26 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void overridingNativeModelsInAnnotatedCodeDoesNotGenerateSafetyHoles() {
+    // See https://github.com/uber/NullAway/issues/445
+    compilationHelper
+        .addSourceLines(
+            "NonNullGetMessage.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "class NonNullGetMessage extends RuntimeException {",
+            "  NonNullGetMessage(@Nullable String message) {",
+            "     super(message);",
+            "  }",
+            "  @Override",
+            "  public String getMessage() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    return super.getMessage();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
