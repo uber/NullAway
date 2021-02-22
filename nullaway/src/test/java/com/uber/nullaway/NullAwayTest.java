@@ -582,9 +582,9 @@ public class NullAwayTest {
             "  @Contract(",
             "    pure = true",
             "  )",
-            "  public static int pi() {",
+            "  public static String pi() {",
             "    // Meh, close enough...",
-            "    return 3;",
+            "    return Double.toString(3.14);",
             "  }",
             "}")
         .addSourceLines(
@@ -593,8 +593,14 @@ public class NullAwayTest {
             "import com.example.library.PureLibrary;",
             "import javax.annotation.Nullable;",
             "class Test {",
-            "  void test() {",
-            "    System.out.println(Integer.toString(PureLibrary.pi()));",
+            "  String piValue() {",
+            "    String pi = PureLibrary.pi();",
+            "    // Note: we must trigger dataflow to ensure that",
+            "    // ContractHandler.onDataflowVisitMethodInvocation is called",
+            "    if (pi != null) {",
+            "       return pi;",
+            "    }",
+            "    return Integer.toString(3);",
             "  }",
             "}")
         .doTest();
