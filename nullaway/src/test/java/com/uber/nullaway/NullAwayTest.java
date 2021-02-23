@@ -2959,4 +2959,53 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void overridingNativeModelsInAnnotatedCodeDoesNotPropagateTheModel() {
+    // See https://github.com/uber/NullAway/issues/445
+    compilationHelper
+        .addSourceLines(
+            "NonNullGetMessage.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "class NonNullGetMessage extends RuntimeException {",
+            "  NonNullGetMessage(final String message) {",
+            "     super(message);",
+            "  }",
+            "  @Override",
+            "  public String getMessage() {",
+            "    return Objects.requireNonNull(super.getMessage());",
+            "  }",
+            "  public static void foo(NonNullGetMessage e) {",
+            "    expectsNonNull(e.getMessage());",
+            "  }",
+            "  public static void expectsNonNull(String str) {",
+            "    System.out.println(str);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void overridingNativeModelsInAnnotatedCodeDoesNotGenerateSafetyHoles() {
+    // See https://github.com/uber/NullAway/issues/445
+    compilationHelper
+        .addSourceLines(
+            "NonNullGetMessage.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "class NonNullGetMessage extends RuntimeException {",
+            "  NonNullGetMessage(@Nullable String message) {",
+            "     super(message);",
+            "  }",
+            "  @Override",
+            "  public String getMessage() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    return super.getMessage();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
