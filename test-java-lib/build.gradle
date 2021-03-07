@@ -17,7 +17,7 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
-  id "java"
+  id "java-library"
 }
 
 sourceCompatibility = "1.8"

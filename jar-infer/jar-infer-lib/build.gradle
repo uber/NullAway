@@ -1,5 +1,5 @@
 plugins {
-    id "java"
+    id "java-library"
 }
 
 sourceCompatibility = 1.8
@@ -11,21 +11,21 @@ repositories {
 }
 
 dependencies {
-    compile deps.build.asm
-    compile deps.build.asmTree
-    compile deps.build.wala
-    compile deps.build.guava
-    compile deps.build.commonsIO
+    api deps.build.asm
+    api deps.build.asmTree
+    api deps.build.wala
+    api deps.build.guava
+    api deps.build.commonsIO
     compileOnly deps.build.errorProneCheckApi
 
-    testCompile deps.test.junit4
-    testCompile(deps.build.errorProneTestHelpers) {
+    testImplementation deps.test.junit4
+    testImplementation(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
-    testCompile project(":jar-infer:test-java-lib-jarinfer")
-    testCompile project(path: ":jar-infer:test-android-lib-jarinfer", configuration: "default")
-    testCompile files("${System.properties['java.home']}/../lib/tools.jar") // is there a better way?
-    testRuntime deps.build.errorProneCheckApi
+    testImplementation project(":jar-infer:test-java-lib-jarinfer")
+    testImplementation project(path: ":jar-infer:test-android-lib-jarinfer", configuration: "default")
+    testImplementation files("${System.properties['java.home']}/../lib/tools.jar") // is there a better way?
+    testRuntimeOnly deps.build.errorProneCheckApi
 }
 
 test {

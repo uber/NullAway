@@ -15,7 +15,7 @@
  */
 
 plugins {
-  id "java"
+  id "java-library"
 }
 
 evaluationDependsOn(":jar-infer:jar-infer-cli")
@@ -40,7 +40,7 @@ jar.doLast {
     javaexec {
         classpath = files("${rootProject.projectDir}/jar-infer/jar-infer-cli/build/libs/jar-infer-cli-${VERSION_NAME}.jar")
         main = "com.uber.nullaway.jarinfer.JarInfer"
-        args = ["-i", jar.archivePath, "-o", "${jar.destinationDir}/${astubxPath}"]
+        args = ["-i", jar.archiveFile, "-o", "${jar.destinationDirectory}/${astubxPath}"]
     }
     exec {
         workingDir "./build/libs"
