@@ -16,7 +16,7 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
-  id "java"
+  id 'java-library'
   // For code coverage:
   id 'jacoco'
   id 'com.github.nbaztec.coveralls-jacoco'
@@ -26,32 +26,32 @@ sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
 dependencies {
-    compileOnly deps.apt.autoValue
+    compileOnly deps.apt.autoValueAnnot
     annotationProcessor deps.apt.autoValue
-    compileOnly deps.apt.autoService
+    compileOnly deps.apt.autoServiceAnnot
     annotationProcessor deps.apt.autoService
 
     compileOnly deps.build.errorProneCheckApi
-    compile deps.build.checkerDataflow
-    compile deps.build.guava
+    implementation deps.build.checkerDataflow
+    implementation deps.build.guava
 
-    testCompile deps.test.junit4
-    testCompile(deps.build.errorProneTestHelpers) {
+    testImplementation deps.test.junit4
+    testImplementation(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
-    testCompile deps.test.jetbrainsAnnotations
-    testCompile deps.test.junit5Jupiter
-    testCompile deps.test.cfQual
-    testCompile deps.test.cfCompatQual
-    testCompile project(":test-java-lib")
-    testCompile deps.test.inferAnnotations
-    testCompile deps.apt.jakartaInject
-    testCompile deps.apt.javaxInject
-    testCompile deps.test.rxjava2
-    testCompile deps.test.commonsLang
-    testCompile deps.test.commonsLang3
-    testCompile project(":test-library-models")
-    testCompile deps.test.lombok
+    testImplementation deps.test.jetbrainsAnnotations
+    testImplementation deps.test.junit5Jupiter
+    testImplementation deps.test.cfQual
+    testImplementation deps.test.cfCompatQual
+    testImplementation project(":test-java-lib")
+    testImplementation deps.test.inferAnnotations
+    testImplementation deps.apt.jakartaInject
+    testImplementation deps.apt.javaxInject
+    testImplementation deps.test.rxjava2
+    testImplementation deps.test.commonsLang
+    testImplementation deps.test.commonsLang3
+    testImplementation project(":test-library-models")
+    testImplementation deps.test.lombok
 }
 
 javadoc {

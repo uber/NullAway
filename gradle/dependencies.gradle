@@ -23,13 +23,16 @@ def versions = [
     wala                   : "1.5.4",
     commonscli             : "1.4",
     autoValue              : "1.6.2",
+    autoService            : "1.0-rc7",
 ]
 
 def apt = [
-    autoValue     : ["com.google.auto.value:auto-value:${versions.autoValue}", "com.google.auto.value:auto-value-annotations:${versions.autoValue}"],
-    autoService   : "com.google.auto.service:auto-service:1.0-rc3",
-    jakartaInject : "jakarta.inject:jakarta.inject-api:2.0.0",
-    javaxInject   : "javax.inject:javax.inject:1",
+    autoValue        : "com.google.auto.value:auto-value:${versions.autoValue}",
+    autoValueAnnot   : "com.google.auto.value:auto-value-annotations:${versions.autoValue}",
+    autoService      : "com.google.auto.service:auto-service:${versions.autoService}",
+    autoServiceAnnot : "com.google.auto.service:auto-service-annotations:${versions.autoService}",
+    jakartaInject    : "jakarta.inject:jakarta.inject-api:2.0.0",
+    javaxInject      : "javax.inject:javax.inject:1",
 ]
 
 def build = [

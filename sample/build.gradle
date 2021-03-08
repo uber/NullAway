@@ -17,7 +17,7 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
-  id "java"
+  id "java-library"
 }
 
 sourceCompatibility = "1.8"
@@ -28,7 +28,7 @@ dependencies {
     annotationProcessor project(path: ":sample-library-model")
 
     compileOnly deps.build.jsr305Annotations
-    testCompile deps.test.junit4
+    testImplementation deps.test.junit4
 }
 
 tasks.withType(JavaCompile) {
