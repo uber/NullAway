@@ -494,13 +494,14 @@ public class NullAway extends BugChecker
       }
     }
 
-    if (config.autofixIsEnabled()) {
-      AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-      Set<Element> elements =
-          nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
-              getTreesInstance(state).getPath(methodSymbol), state.context);
-      fixer.getWriter().saveMethodInfo(methodSymbol, elements);
-    }
+    //    if (config.autofixIsEnabled()) {
+    //      AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
+    //      Set<Element> elements =
+    //          nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
+    //              getTreesInstance(state).getPath(methodSymbol), state.context);
+    // todo: check for abstract ones here.
+    //      fixer.getWriter().saveMethodInfo(methodSymbol, elements);
+    //    }
 
     return Description.NO_MATCH;
   }
