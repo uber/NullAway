@@ -1298,9 +1298,9 @@ public class NullAway extends BugChecker
     if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
-    if (config.autofixIsEnabled()) {
-      fixer.exploreNullableFieldClass(this, tree, state);
-    }
+    //    if (config.autofixIsEnabled()) {
+    //      fixer.exploreNullableFieldClass(this, tree, state);
+    //    }
     return doUnboxingCheck(state, tree.getCondition());
   }
 
