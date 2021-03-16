@@ -812,7 +812,8 @@ public class NullAway extends BugChecker
               : getTreesInstance(state).getTree(overridingMethod);
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature + message);
-      if (config.canFixElement(getTreesInstance(state), overriddenMethod)) {
+      if (config.canFixElement(getTreesInstance(state), overriddenMethod)
+          && superTree instanceof MethodTree) {
         CompilationUnitTree c =
             getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
         Location location =
