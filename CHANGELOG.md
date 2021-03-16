@@ -1,6 +1,27 @@
 Changelog
 =========
 
+Version 0.9.0
+--------------
+* IMPORTANT: Error Prone minimum version moved to 2.4.0 (#447)
+  - This allows compatibility with Error Prone 2.5.1 by
+    moving to updated APIs.
+  - Remove Checker Framework shadow config from nullaway module (#449)
+* `@Contract` annotations are now checked (#312) (#428) (#450)
+* Add support for @RequiresNonnull/@EnsuresNonnull annotations (#423)
+* [Fix] Handle WideningConversionNode in Map key specifiers (#415)
+* [Fix] Try to handle lombok.Builder without crashing. (#414)
+* [Fix] Ignore library models return nullability on first-party code (#446)
+* Update to Checker Dataflow dependency to 3.6.0 (#416)
+* Library Models:
+  - Add library model for TextView.getLayout() (#418)
+  - Add library model for Service.onStartCommand (#419)
+  - Models for common Spring/Spark/Apache utility classes (#436)
+  - Add support for jakarta.inject-api (#439)
+* Build / CI tooling for NullAway itself:
+  - Update to Gradle 6.6.1 (#420)
+  - Switch CI to GitHub Actions (#440) (#442) (#450)
+
 Version 0.8.0
 --------------
 * Improve suppression of subcheckers, using full AST path (#392)

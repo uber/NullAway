@@ -17,14 +17,14 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
-  id "java"
+  id "java-library"
 }
 
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
 dependencies {
-    annotationProcessor project(path: ":nullaway", configuration: "shadow")
+    annotationProcessor project(":nullaway")
 
     compileOnly deps.build.jsr305Annotations
     compileOnly deps.build.javaxValidation

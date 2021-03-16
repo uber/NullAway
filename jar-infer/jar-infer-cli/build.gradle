@@ -17,8 +17,8 @@ dependencies {
 
     compile project(":jar-infer:jar-infer-lib")
 
-    testCompile deps.test.junit4
-    testCompile(deps.build.errorProneTestHelpers) {
+    testImplementation deps.test.junit4
+    testImplementation(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
 }

@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.handlers.contract.fieldcontract;
 
-import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
 import static com.uber.nullaway.NullabilityUtil.getAnnotationValueArray;
 
 import com.google.common.base.Preconditions;
@@ -107,7 +106,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
               .createErrorDescription(
                   new ErrorMessage(ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED, message),
                   tree,
-                  buildDescriptionFromChecker(tree, analysis),
+                  analysis.buildDescription(tree),
                   state));
       return false;
     }
@@ -165,7 +164,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
                     ErrorMessage.MessageTypes.WRONG_OVERRIDE_POSTCONDITION,
                     errorMessage.toString()),
                 tree,
-                buildDescriptionFromChecker(tree, analysis),
+                analysis.buildDescription(tree),
                 state));
   }
 

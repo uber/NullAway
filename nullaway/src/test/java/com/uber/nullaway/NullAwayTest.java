@@ -571,6 +571,46 @@ public class NullAwayTest {
   }
 
   @Test
+  public void contractPureOnlyIgnored() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "PureLibrary.java",
+            "package com.example.library;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class PureLibrary {",
+            "  @Contract(",
+            "    pure = true",
+            "  )",
+            "  public static String pi() {",
+            "    // Meh, close enough...",
+            "    return Double.toString(3.14);",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.library.PureLibrary;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String piValue() {",
+            "    String pi = PureLibrary.pi();",
+            "    // Note: we must trigger dataflow to ensure that",
+            "    // ContractHandler.onDataflowVisitMethodInvocation is called",
+            "    if (pi != null) {",
+            "       return pi;",
+            "    }",
+            "    return Integer.toString(3);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testEnumInit() {
     compilationHelper
         .addSourceLines(
@@ -2919,6 +2959,55 @@ public class NullAwayTest {
             "    (b ? office1.box.content : office1.box.content).init();",
             "    // BUG: Diagnostic contains: Expected field nullItem to be non-null at call site",
             "    office1.box.content.run();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void overridingNativeModelsInAnnotatedCodeDoesNotPropagateTheModel() {
+    // See https://github.com/uber/NullAway/issues/445
+    compilationHelper
+        .addSourceLines(
+            "NonNullGetMessage.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "class NonNullGetMessage extends RuntimeException {",
+            "  NonNullGetMessage(final String message) {",
+            "     super(message);",
+            "  }",
+            "  @Override",
+            "  public String getMessage() {",
+            "    return Objects.requireNonNull(super.getMessage());",
+            "  }",
+            "  public static void foo(NonNullGetMessage e) {",
+            "    expectsNonNull(e.getMessage());",
+            "  }",
+            "  public static void expectsNonNull(String str) {",
+            "    System.out.println(str);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void overridingNativeModelsInAnnotatedCodeDoesNotGenerateSafetyHoles() {
+    // See https://github.com/uber/NullAway/issues/445
+    compilationHelper
+        .addSourceLines(
+            "NonNullGetMessage.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "class NonNullGetMessage extends RuntimeException {",
+            "  NonNullGetMessage(@Nullable String message) {",
+            "     super(message);",
+            "  }",
+            "  @Override",
+            "  public String getMessage() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    return super.getMessage();",
             "  }",
             "}")
         .doTest();

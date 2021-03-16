@@ -15,7 +15,7 @@
  */
 
 plugins {
-  id "java"
+  id "java-library"
 }
 
 evaluationDependsOn(":jar-infer:jar-infer-cli")

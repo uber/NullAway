@@ -22,8 +22,6 @@
 
 package com.uber.nullaway.handlers;
 
-import static com.google.errorprone.BugCheckerInfo.buildDescriptionFromChecker;
-
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -154,7 +152,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
               .createErrorDescription(
                   new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                   tree,
-                  buildDescriptionFromChecker(tree, analysis),
+                  analysis.buildDescription(tree),
                   state));
       return false;
     } else {
@@ -175,7 +173,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                         new ErrorMessage(
                             ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                         tree,
-                        buildDescriptionFromChecker(tree, analysis),
+                        analysis.buildDescription(tree),
                         state));
             return false;
           } else {
@@ -198,7 +196,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                   .createErrorDescription(
                       new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                       tree,
-                      buildDescriptionFromChecker(tree, analysis),
+                      analysis.buildDescription(tree),
                       state));
           return false;
         }

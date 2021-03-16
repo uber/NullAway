@@ -17,7 +17,7 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
-  id "java"
+  id "java-library"
 }
 
 sourceCompatibility = "1.8"
@@ -26,8 +26,8 @@ targetCompatibility = "1.8"
 dependencies {
     compileOnly deps.apt.autoService
     annotationProcessor deps.apt.autoService
-    compileOnly project(path: ":nullaway", configuration: "shadow")
-    annotationProcessor project(path: ":nullaway", configuration: "shadow")
+    compileOnly project(":nullaway")
+    annotationProcessor project(":nullaway")
     compileOnly deps.build.guava
 }
 
