@@ -433,6 +433,42 @@ public class ExplorerTest {
   }
 
   @Test
+  public void detect_must_be_nullable_field() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/Base.java",
+            "package com.uber;",
+            "import java.util.ArrayList;",
+            "public class Base {",
+            "   Object mustBeNullable = new Object();",
+            "   public boolean perform_if_check() {",
+            "     mustBeNullable = new Object();",
+            "     if(mustBeNullable == null) return true; else return false;",
+            "   }",
+            "}")
+        .addFixes(
+            new Fix(
+                "javax.annotation.Nullable",
+                "",
+                "mustBeNullable",
+                "CLASS_FIELD",
+                "com.uber.Base",
+                "com.uber",
+                "com/uber/Base.java",
+                "true"))
+        .doTest();
+  }
+
+  @Test
   public void fix_annotation_flag_test() {
     String outputPath = "/tmp/NullAwayFix/fixes.json";
     String fixAnnotations =

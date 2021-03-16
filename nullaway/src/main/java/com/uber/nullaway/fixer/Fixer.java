@@ -2,24 +2,29 @@ package com.uber.nullaway.fixer;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
+import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
+import com.sun.source.tree.BinaryTree;
+import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.IfTree;
 import com.sun.source.tree.ModifiersTree;
+import com.sun.source.tree.ParenthesizedTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.NullAway;
+import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import java.io.File;
-import java.io.IOException;
-import java.io.Writer;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import javax.lang.model.element.Modifier;
-import org.json.simple.JSONObject;
 
 @SuppressWarnings({
   "UnusedVariable",
@@ -29,12 +34,12 @@ import org.json.simple.JSONObject;
 public class Fixer {
 
   protected final Config config;
-  protected final WriterUtils writerUtils;
+  protected final Writer writer;
   protected final HashMap<ErrorMessage.MessageTypes, List<Location.Kind>> messageTypeLocationMap;
 
   public Fixer(Config config) {
     this.config = config;
-    this.writerUtils = new WriterUtils(config);
+    this.writer = new Writer(config);
     messageTypeLocationMap = new HashMap<>();
     fillMessageTypeLocationMap();
     cleanFixOutPutFolder();
@@ -54,7 +59,7 @@ public class Fixer {
     if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
     Fix fix = buildFix(errorMessage, location);
     if (fix != null) {
-      writerUtils.saveFix(fix);
+      writer.saveFix(fix);
     }
   }
 
@@ -155,28 +160,56 @@ public class Fixer {
 
   protected void suggestSuppressWarning(ErrorMessage errorMessage, Location location) {}
 
-  @SuppressWarnings("unchecked")
-  static class WriterUtils {
-
-    private final List<JSONObject> fixes = new ArrayList<>();
-    private final Config config;
-
-    WriterUtils(Config config) {
-      this.config = config;
-    }
-
-    void saveFix(Fix fix) {
-      fixes.add(fix.getJson());
-      JSONObject toWrite = new JSONObject();
-      toWrite.put("fixes", fixes);
-      try (Writer writer =
-          Files.newBufferedWriter(
-              Paths.get(config.getJsonFileWriterPath()), Charset.defaultCharset())) {
-        writer.write(toWrite.toJSONString().replace("\\/", "/").replace("\\\\\\", "\\"));
-        writer.flush();
-      } catch (IOException e) {
-        throw new RuntimeException("Could not create the fix json file");
+  public void exploreNullableFieldClass(NullAway nullAway, IfTree tree, VisitorState state) {
+    ExpressionTree condition = tree.getCondition();
+    if (condition == null) return;
+    if (condition instanceof ParenthesizedTree) {
+      ExpressionTree conditionExpression = ((ParenthesizedTree) condition).getExpression();
+      if (conditionExpression.getKind().equals(Tree.Kind.EQUAL_TO)) {
+        BinaryTree binaryTree = (BinaryTree) conditionExpression;
+        ExpressionTree forceNullableField = null;
+        if (binaryTree.getLeftOperand().getKind().equals(Tree.Kind.NULL_LITERAL)
+            && isFieldClass(binaryTree.getRightOperand())) {
+          forceNullableField = binaryTree.getRightOperand();
+        } else {
+          if (binaryTree.getRightOperand().getKind().equals(Tree.Kind.NULL_LITERAL)
+              && isFieldClass(binaryTree.getLeftOperand())) {
+            forceNullableField = binaryTree.getLeftOperand();
+          }
+        }
+        if (forceNullableField != null) {
+          Symbol symbol = ASTHelpers.getSymbol(forceNullableField);
+          CompilationUnitTree c =
+              Trees.instance(JavacProcessingEnvironment.instance(state.context))
+                  .getPath(symbol)
+                  .getCompilationUnit();
+          Location location =
+              Location.Builder()
+                  .setCompilationUnitTree(c)
+                  .setClassTree(LocationUtils.getClassTree(forceNullableField, state))
+                  .setVariableSymbol(symbol)
+                  .setKind(Location.Kind.CLASS_FIELD)
+                  .build();
+          fix(
+              new ErrorMessage(ErrorMessage.MessageTypes.FIELD_NO_INIT, "Must be nullable"),
+              location);
+        }
       }
     }
+  }
+
+  private boolean isFieldClass(ExpressionTree expr) {
+    Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(ASTHelpers.getSymbol(expr));
+    if (expr instanceof IdentifierTree) {
+      IdentifierTree identifierTree = (IdentifierTree) expr;
+      return AbstractFieldContractHandler.getInstanceFieldOfClass(
+              classSymbol, identifierTree.getName().toString())
+          != null;
+    }
+    return false;
+  }
+
+  public Writer getWriter() {
+    return writer;
   }
 }

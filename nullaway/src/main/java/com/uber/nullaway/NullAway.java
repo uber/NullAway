@@ -493,6 +493,15 @@ public class NullAway extends BugChecker
         return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
       }
     }
+
+    if (config.autofixIsEnabled()) {
+      AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
+      Set<Element> elements =
+          nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
+              getTreesInstance(state).getPath(methodSymbol), state.context);
+      fixer.getWriter().saveMethodInfo(methodSymbol, elements);
+    }
+
     return Description.NO_MATCH;
   }
 
@@ -649,7 +658,7 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
-  static Trees getTreesInstance(VisitorState state) {
+  public static Trees getTreesInstance(VisitorState state) {
     return Trees.instance(JavacProcessingEnvironment.instance(state.context));
   }
 
@@ -1288,6 +1297,9 @@ public class NullAway extends BugChecker
   public Description matchIf(IfTree tree, VisitorState state) {
     if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
+    }
+    if (config.autofixIsEnabled()) {
+      fixer.exploreNullableFieldClass(this, tree, state);
     }
     return doUnboxingCheck(state, tree.getCondition());
   }
