@@ -37,17 +37,13 @@ shadowJar {
     classifier = null
 }
 shadowJar.dependsOn jar
-assemble.dependsOn shadowJar
 
 apply plugin: 'com.vanniktech.maven.publish'
 
-def configurePomForShadow(pom) {
-    pom.scopeMappings.mappings.remove(project.configurations.compile)
-    pom.scopeMappings.mappings.remove(project.configurations.runtime)
-    pom.scopeMappings.addMapping(MavenPlugin.COMPILE_PRIORITY, project.configurations.shadow, Conf2ScopeMappingContainer.COMPILE)
-}
-
-artifacts {
-  runtime(shadowJar)
-  archives(shadowJar)
+publishing {
+    publications {
+        shadow(MavenPublication) { publication ->
+            project.shadow.component(publication)
+        }
+    }
 }
