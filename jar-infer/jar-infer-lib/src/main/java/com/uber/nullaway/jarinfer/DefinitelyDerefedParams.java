@@ -35,7 +35,6 @@ import com.ibm.wala.util.graph.GraphUtil;
 import com.ibm.wala.util.graph.dominators.Dominators;
 import com.ibm.wala.util.graph.impl.GraphInverter;
 import com.ibm.wala.util.graph.traverse.DFS;
-import com.sun.istack.internal.NotNull;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -127,7 +126,6 @@ public class DefinitelyDerefedParams {
     return derefedParamList;
   }
 
-  @NotNull
   private Set<Integer> computeDerefParamList(int numParam, int firstParamIndex) {
     Set<Integer> derefedParamList = new HashSet<>();
     Map<ISSABasicBlock, Set<Integer>> blockToDerefSetMap = new HashMap<>();
@@ -156,7 +154,6 @@ public class DefinitelyDerefedParams {
     return derefedParamList;
   }
 
-  @NotNull
   private Set<Integer> computeDerefParamListUsingPDom(int numParam, int firstParamIndex) {
     Set<Integer> derefedParamList = new HashSet<>();
     // Get Dominator Tree

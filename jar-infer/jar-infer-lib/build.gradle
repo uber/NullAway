@@ -33,4 +33,4 @@ test {
     jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
 }
 
-apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
+apply plugin: 'com.vanniktech.maven.publish'

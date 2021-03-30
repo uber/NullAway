@@ -17,11 +17,13 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 buildscript {
     repositories {
+        mavenCentral()
         google() // For Gradle 4.0+
     }
 
     dependencies {
         classpath 'com.android.tools.build:gradle:3.5.0'
+        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.14.2'
     }
 }
 plugins {
