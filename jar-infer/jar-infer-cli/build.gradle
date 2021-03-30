@@ -37,6 +37,7 @@ shadowJar {
     classifier = null
 }
 shadowJar.dependsOn jar
+assemble.dependsOn shadowJar
 
 apply plugin: 'com.vanniktech.maven.publish'
 
