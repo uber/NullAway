@@ -95,6 +95,7 @@ import com.uber.nullaway.fixer.Location;
 import com.uber.nullaway.fixer.LocationUtils;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -232,6 +233,9 @@ public class NullAway extends BugChecker
   private final Fixer fixer;
   private final String fixMessageSignature = "(Covered) ";
 
+  private final boolean captureMethodInfo;
+  private String methodInfoPath;
+
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
@@ -243,6 +247,7 @@ public class NullAway extends BugChecker
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
     fixer = new Fixer(config);
+    captureMethodInfo = false;
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), fixer);
   }
 
@@ -252,6 +257,7 @@ public class NullAway extends BugChecker
     nonAnnotatedMethod = this::isMethodUnannotated;
     fixer = new Fixer(config);
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames(), fixer);
+    captureMethodInfo = shouldCaptureMethodinfo();
   }
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
@@ -263,6 +269,14 @@ public class NullAway extends BugChecker
   public String linkUrl() {
     // add a space to make it clickable from iTerm
     return config.getErrorURL() + " ";
+  }
+
+  private boolean shouldCaptureMethodinfo() {
+    String fixFilePath = config.getJsonFileWriterPath();
+    String methodInfoDir =
+        fixFilePath.contains("/") ? fixFilePath.substring(0, fixFilePath.lastIndexOf("/")) : "/";
+    methodInfoPath = methodInfoDir + "/method_info.json";
+    return !new File(methodInfoPath).exists();
   }
 
   /**
@@ -494,15 +508,21 @@ public class NullAway extends BugChecker
       }
     }
 
-    //    if (config.autofixIsEnabled()) {
-    //      AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-    //      Set<Element> elements =
-    //          nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
-    //              getTreesInstance(state).getPath(methodSymbol), state.context);
-    // todo: check for abstract ones here.
-    //      fixer.getWriter().saveMethodInfo(methodSymbol, elements);
-    //    }
-
+    try {
+      if (tree.getBody() != null && config.autofixIsEnabled() && captureMethodInfo) {
+        AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
+        Set<Element> elements =
+            nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
+                getTreesInstance(state).getPath(methodSymbol), state.context);
+        if (elements.size() > 0) {
+          CompilationUnitTree c =
+              getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
+          fixer.getWriter().saveMethodInfo(methodSymbol, elements, methodInfoPath, c);
+        }
+      }
+    } catch (Exception e) {
+      System.out.println("Could not save method info: " + methodSymbol);
+    }
     return Description.NO_MATCH;
   }
 
