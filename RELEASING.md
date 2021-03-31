@@ -21,7 +21,7 @@ Releasing
  3. Update the `README.md` with the new version.
  4. `git commit -am "Prepare for release X.Y.Z."` (where X.Y.Z is the new version)
  5. `git tag -a vX.Y.Z -m "Version X.Y.Z"` (where X.Y.Z is the new version)
- 6. `./gradlew clean uploadArchives`
+ 6. `./gradlew clean publish --no-daemon --no-parallel`
  7. Update the `gradle.properties` to the next SNAPSHOT version.
  8. `git commit -am "Prepare next development version."`
  9. `git push && git push --tags`

@@ -39,25 +39,12 @@ shadowJar {
 shadowJar.dependsOn jar
 assemble.dependsOn shadowJar
 
-apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
+apply plugin: 'com.vanniktech.maven.publish'
 
-def configurePomForShadow(pom) {
-    pom.scopeMappings.mappings.remove(project.configurations.compile)
-    pom.scopeMappings.mappings.remove(project.configurations.runtime)
-    pom.scopeMappings.addMapping(MavenPlugin.COMPILE_PRIORITY, project.configurations.shadow, Conf2ScopeMappingContainer.COMPILE)
-}
-
-install {
-    repositories.mavenInstaller {
-        configurePomForShadow(pom)
+publishing {
+    publications {
+        shadow(MavenPublication) { publication ->
+            project.shadow.component(publication)
+        }
     }
 }
-install.dependsOn shadowJar
-
-uploadArchives {
-    repositories.mavenDeployer {
-        configurePomForShadow(pom)
-    }
-}
-uploadArchives.dependsOn shadowJar
-
