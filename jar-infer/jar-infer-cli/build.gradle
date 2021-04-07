@@ -1,6 +1,7 @@
 plugins {
-    id "com.github.johnrengelman.shadow"
     id "java"
+    id "com.vanniktech.maven.publish"
+    id "com.github.johnrengelman.shadow"
 }
 
 sourceCompatibility = "1.8"
@@ -39,12 +40,53 @@ shadowJar {
 shadowJar.dependsOn jar
 assemble.dependsOn shadowJar
 
-apply plugin: 'com.vanniktech.maven.publish'
+tasks.withType(PublishToMavenRepository) {
+    onlyIf {
+        publication == publishing.publications.shadow
+    }
+}
+tasks.withType(PublishToMavenLocal) {
+    onlyIf {
+        publication == publishing.publications.shadow
+    }
+}
 
 publishing {
     publications {
         shadow(MavenPublication) { publication ->
             project.shadow.component(publication)
+            afterEvaluate {
+                artifact project.sourcesJar {
+                    classifier "sources"
+                }
+                artifact project.javadocsJar {
+                    classifier "javadoc"
+                }
+            }
+            pom {
+                name = 'JarInfer'
+                description = 'A JVM bytecode null auto-annotation tool for use with NullAway'
+                url = project.property('POM_URL')
+                licenses {
+                    license {
+                        name = project.property('POM_LICENCE_NAME')
+                        url = project.property('POM_LICENCE_URL')
+                        distribution = project.property('POM_LICENCE_DIST')
+                    }
+                }
+                developers {
+                    developer {
+                        id = project.property('POM_DEVELOPER_ID')
+                        name = project.property('POM_DEVELOPER_NAME')
+                        url = project.property('POM_DEVELOPER_URL')
+                    }
+                }
+                scm {
+                    connection = project.property('POM_SCM_CONNECTION')
+                    developerConnection = project.property('POM_SCM_DEV_CONNECTION')
+                    url = project.property('POM_SCM_URL')
+                }
+            }
         }
     }
 }
