@@ -1,6 +1,16 @@
 Changelog
 =========
 
+Version 0.9.1
+--------------
+* Add baseline support for (Java 15) records (#377)
+* Multiple build tooling fixed:
+  - Update Gradle to 6.8.3 (#451)
+  - Gradle: switch to java-library plugin where possible (#455)
+  - Switch from mvn-push script to gradle-maven-publish-plugin (#457)
+  - Fix publication of fat jar for jar-infer-cli. (#461)
+* Add JarInfer models for Android 11 (SDK 30) (#460)
+
 Version 0.9.0
 --------------
 * IMPORTANT: Error Prone minimum version moved to 2.4.0 (#447)

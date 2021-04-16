@@ -114,6 +114,8 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.NestingKind;
 import javax.lang.model.type.TypeKind;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.javacutil.ElementUtils;
+import org.checkerframework.javacutil.TreeUtils;
 
 /**
  * Checker for nullability errors. It assumes that any field, method parameter, or return type that
@@ -1558,6 +1560,12 @@ public class NullAway extends BugChecker
       constructorInitInfo = checkConstructorInitialization(entities, state);
       notInitializedInConstructors = ImmutableSet.copyOf(constructorInitInfo.values());
     }
+    // Filter out final fields, since javac will already check initialization
+    notInitializedInConstructors =
+        ImmutableSet.copyOf(
+            Sets.filter(
+                notInitializedInConstructors,
+                symbol -> !symbol.getModifiers().contains(Modifier.FINAL)));
     class2ConstructorUninit.putAll(classSymbol, notInitializedInConstructors);
     Set<Symbol> notInitializedAtAll =
         notAssignedInAnyInitializer(entities, notInitializedInConstructors, state);
@@ -1898,6 +1906,10 @@ public class NullAway extends BugChecker
 
     // we assume getMembers() returns members in the same order as the declarations
     for (Tree memberTree : tree.getMembers()) {
+      if (TreeUtils.isClassTree(memberTree)) {
+        // do nothing
+        continue;
+      }
       switch (memberTree.getKind()) {
         case METHOD:
           // check if it is a constructor or an @Initializer method
@@ -1939,12 +1951,6 @@ public class NullAway extends BugChecker
           } else {
             instanceInitializerBlocks.add(blockTree);
           }
-          break;
-        case ENUM:
-        case CLASS:
-        case INTERFACE:
-        case ANNOTATION_TYPE:
-          // do nothing
           break;
         default:
           throw new RuntimeException(
@@ -2145,30 +2151,13 @@ public class NullAway extends BugChecker
     return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
   }
 
-  /**
-   * @param kind an element kind.
-   * @return <code>true</code> if a deference of the kind might dereference null, <code>false</code>
-   *     otherwise
-   */
-  private boolean kindMayDeferenceNull(ElementKind kind) {
-    switch (kind) {
-      case CLASS:
-      case PACKAGE:
-      case ENUM:
-      case INTERFACE:
-      case ANNOTATION_TYPE:
-        return false;
-      default:
-        return true;
-    }
-  }
-
   private Description matchDereference(
       ExpressionTree baseExpression, ExpressionTree derefExpression, VisitorState state) {
     Symbol dereferenced = ASTHelpers.getSymbol(baseExpression);
     if (dereferenced == null
         || dereferenced.type.isPrimitive()
-        || !kindMayDeferenceNull(dereferenced.getKind())) {
+        || dereferenced.getKind() == ElementKind.PACKAGE
+        || ElementUtils.isClassElement(dereferenced)) {
       // we know we don't have a null dereference here
       return Description.NO_MATCH;
     }

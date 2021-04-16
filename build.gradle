@@ -17,17 +17,19 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 buildscript {
     repositories {
+        mavenCentral()
         google() // For Gradle 4.0+
     }
 
     dependencies {
         classpath 'com.android.tools.build:gradle:3.5.0'
+        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.14.2'
     }
 }
 plugins {
   id "com.github.sherter.google-java-format" version "0.8"
   id "net.ltgt.errorprone" version "0.7" apply false
-  id "com.github.johnrengelman.shadow" version "2.0.4" apply false
+  id "com.github.johnrengelman.shadow" version "6.1.0" apply false
   id "com.github.nbaztec.coveralls-jacoco" version "1.2.5" apply false
   id "com.android.application" version "3.5.0" apply false
 }

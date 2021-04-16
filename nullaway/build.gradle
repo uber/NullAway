@@ -68,7 +68,7 @@ test {
   }
 }
 
-apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
+apply plugin: 'com.vanniktech.maven.publish'
 
 jacoco {
   toolVersion = "0.8.2"

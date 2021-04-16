@@ -1,6 +1,7 @@
 plugins {
-    id "com.github.johnrengelman.shadow"
     id "java"
+    id "com.vanniktech.maven.publish"
+    id "com.github.johnrengelman.shadow"
 }
 
 sourceCompatibility = "1.8"
@@ -39,25 +40,66 @@ shadowJar {
 shadowJar.dependsOn jar
 assemble.dependsOn shadowJar
 
-apply from: rootProject.file("gradle/gradle-mvn-push.gradle")
-
-def configurePomForShadow(pom) {
-    pom.scopeMappings.mappings.remove(project.configurations.compile)
-    pom.scopeMappings.mappings.remove(project.configurations.runtime)
-    pom.scopeMappings.addMapping(MavenPlugin.COMPILE_PRIORITY, project.configurations.shadow, Conf2ScopeMappingContainer.COMPILE)
-}
-
-install {
-    repositories.mavenInstaller {
-        configurePomForShadow(pom)
+// We disable the default maven publications to make sure only
+// our custom shadow publication is used. Since we use the empty
+// classifier for our fat jar, it would otherwise clash with the
+// default maven publication (Also, this seems to be the only way
+// to get a pom.xml with no dependencies for our fat jar, as using
+// a classifier would result on both fat and thin jar sharing the
+// same pom.xml. Instead, we skip publishing the thin jar
+// altogether)
+tasks.withType(PublishToMavenRepository) {
+    onlyIf {
+        publication == publishing.publications.shadow
     }
 }
-install.dependsOn shadowJar
-
-uploadArchives {
-    repositories.mavenDeployer {
-        configurePomForShadow(pom)
+tasks.withType(PublishToMavenLocal) {
+    onlyIf {
+        publication == publishing.publications.shadow
     }
 }
-uploadArchives.dependsOn shadowJar
 
+publishing {
+    publications {
+        shadow(MavenPublication) { publication ->
+            project.shadow.component(publication)
+            // Since we are skipping the default maven publication, we append the `:sources` and
+            // `:javadoc` artifacts here. They are also required for Maven Central validation.
+            afterEvaluate {
+                artifact project.sourcesJar {
+                    classifier "sources"
+                }
+                artifact project.javadocsJar {
+                    classifier "javadoc"
+                }
+            }
+            // The shadow publication does not auto-configure the pom.xml file for us, so we need to
+            // set it up manually. We use the opportunity to change the name and description from
+            // the generic NullAway values to ones specific for the JarInfer tool.
+            pom {
+                name = 'JarInfer'
+                description = 'A JVM bytecode null auto-annotation tool for use with NullAway'
+                url = project.property('POM_URL')
+                licenses {
+                    license {
+                        name = project.property('POM_LICENCE_NAME')
+                        url = project.property('POM_LICENCE_URL')
+                        distribution = project.property('POM_LICENCE_DIST')
+                    }
+                }
+                developers {
+                    developer {
+                        id = project.property('POM_DEVELOPER_ID')
+                        name = project.property('POM_DEVELOPER_NAME')
+                        url = project.property('POM_DEVELOPER_URL')
+                    }
+                }
+                scm {
+                    connection = project.property('POM_SCM_CONNECTION')
+                    developerConnection = project.property('POM_SCM_DEV_CONNECTION')
+                    url = project.property('POM_SCM_URL')
+                }
+            }
+        }
+    }
+}
