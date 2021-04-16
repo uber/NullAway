@@ -4,6 +4,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.ErrorMessage;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -18,9 +19,10 @@ import org.json.simple.JSONObject;
 public class Writer {
   private final List<JSONObject> fixes = new ArrayList<>();
   private final List<JSONObject> methodInfo = new ArrayList<>();
+  private final List<JSONObject> errors = new ArrayList<>();
   private final Config config;
 
-  Writer(Config config) {
+  public Writer(Config config) {
     this.config = config;
   }
 
@@ -32,6 +34,24 @@ public class Writer {
     try (java.io.Writer writer =
         Files.newBufferedWriter(
             Paths.get(config.getJsonFileWriterPath()), Charset.defaultCharset())) {
+      writer.write(toWrite.toJSONString().replace("\\/", "/").replace("\\\\\\", "\\"));
+      writer.flush();
+    } catch (IOException e) {
+      throw new RuntimeException("Could not create the fix json file");
+    }
+  }
+
+  @SuppressWarnings("unchecked")
+  public void saveError(ErrorMessage error) {
+    JSONObject errorObject = new JSONObject();
+    errorObject.put("type", error.getMessageType().toString());
+    errorObject.put("message", error.getMessage());
+    errors.add(errorObject);
+    JSONObject toWrite = new JSONObject();
+    toWrite.put("errors", errors);
+    try (java.io.Writer writer =
+        Files.newBufferedWriter(
+            Paths.get("/tmp/NullAwayFix/errors.json"), Charset.defaultCharset())) {
       writer.write(toWrite.toJSONString().replace("\\/", "/").replace("\\\\\\", "\\"));
       writer.flush();
     } catch (IOException e) {

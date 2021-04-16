@@ -49,6 +49,8 @@ public class Fixer {
   private void cleanFixOutPutFolder() {
     File file = new File(config.getJsonFileWriterPath());
     file.delete();
+    file = new File("/tmp/NullAwayFix/errors.json");
+    file.delete();
   }
 
   private void fillMessageTypeLocationMap() {}

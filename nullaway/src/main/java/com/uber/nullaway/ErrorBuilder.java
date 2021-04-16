@@ -55,6 +55,7 @@ import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.fixer.Fixer;
 import com.uber.nullaway.fixer.Location;
 import com.uber.nullaway.fixer.LocationUtils;
+import com.uber.nullaway.fixer.Writer;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -78,11 +79,14 @@ public class ErrorBuilder {
 
   static final String fixMessageSignature = "(Covered) ";
 
+  final Writer errorWriter;
+
   ErrorBuilder(Config config, String suppressionName, Set<String> allNames, Fixer fixer) {
     this.config = config;
     this.suppressionName = suppressionName;
     this.allNames = allNames;
     this.fixer = fixer;
+    errorWriter = new Writer(config);
   }
 
   /**
@@ -108,6 +112,7 @@ public class ErrorBuilder {
    * @param state the visitor state (used for e.g. suppression finding).
    * @return the error description
    */
+  @SuppressWarnings("InvalidBlockTag")
   public Description createErrorDescription(
       ErrorMessage errorMessage,
       @Nullable Tree suggestTree,
@@ -133,6 +138,9 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
     }
     // #letbuildersbuild
+    if (config.autofixIsEnabled()) {
+      errorWriter.saveError(errorMessage);
+    }
     return builder.build();
   }
 
