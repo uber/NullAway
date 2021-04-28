@@ -2576,6 +2576,28 @@ public class NullAwayTest {
   }
 
   @Test
+  public void testJDKPathGetParentModel() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import java.nio.file.Files;",
+            "import java.nio.file.Path;",
+            "public class Test {",
+            " Optional<Path> findConfig(Path searchDir) {",
+            "    Path configFile = searchDir.resolve(\"foo.yml\");",
+            "    if (Files.exists(configFile)) {",
+            "      return Optional.of(configFile);",
+            "    }",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'searchDir.getParent()' where @NonNull",
+            "    return this.findConfig(searchDir.getParent());",
+            " }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void defaultLibraryModelsObjectNonNull() {
     compilationHelper
         .addSourceLines(
