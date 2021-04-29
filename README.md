@@ -23,15 +23,17 @@ plugins {
 }
 
 dependencies {
-  annotationProcessor "com.uber.nullaway:nullaway:0.9.1"
+  errorprone("com.uber.nullaway:nullaway:0.9.1")
 
   // Optional, some source of nullability annotations.
   // Not required on Android if you use the support 
   // library nullability annotations.
-  compileOnly "com.google.code.findbugs:jsr305:3.0.2"
+  compileOnly("com.google.code.findbugs:jsr305:3.0.2")
 
-  errorprone "com.google.errorprone:error_prone_core:2.4.0"
-  errorproneJavac "com.google.errorprone:javac:9+181-r4173-1"
+  errorprone("com.google.errorprone:error_prone_core:2.4.0")
+  
+  // if using java 8 or less
+  // errorproneJavac("com.google.errorprone:javac:9+181-r4173-1")
 }
 
 import net.ltgt.gradle.errorprone.CheckSeverity
@@ -73,7 +75,7 @@ Snapshots of the development version are available in [Sonatype's snapshots repo
 
 The configuration for an Android project is very similar to the Java case, with one key difference: The `com.google.code.findbugs:jsr305:3.0.2` dependency can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library.
 
-```gradle
+```
 dependencies {
   annotationProcessor "com.uber.nullaway:nullaway:0.9.1"
   errorprone "com.google.errorprone:error_prone_core:2.4.0"
