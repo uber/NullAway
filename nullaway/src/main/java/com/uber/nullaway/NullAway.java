@@ -1993,7 +1993,7 @@ public class NullAway extends BugChecker
     if (dereferenced == null
         || dereferenced.type.isPrimitive()
         || dereferenced.getKind() == ElementKind.PACKAGE
-        || ElementUtils.isClassElement(dereferenced)) {
+        || ElementUtils.isTypeElement(dereferenced)) {
       // we know we don't have a null dereference here
       return Description.NO_MATCH;
     }

@@ -46,9 +46,9 @@ import org.checkerframework.dataflow.analysis.ForwardAnalysisImpl;
 import org.checkerframework.dataflow.analysis.ForwardTransferFunction;
 import org.checkerframework.dataflow.analysis.Store;
 import org.checkerframework.dataflow.analysis.TransferFunction;
-import org.checkerframework.dataflow.cfg.CFGBuilder;
 import org.checkerframework.dataflow.cfg.ControlFlowGraph;
 import org.checkerframework.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.dataflow.cfg.builder.CFGBuilder;
 
 /**
  * Provides a wrapper around {@link org.checkerframework.dataflow.analysis.Analysis}.

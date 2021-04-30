@@ -65,7 +65,7 @@ import org.checkerframework.dataflow.cfg.node.ConditionalNotNode;
 import org.checkerframework.dataflow.cfg.node.ConditionalOrNode;
 import org.checkerframework.dataflow.cfg.node.DoubleLiteralNode;
 import org.checkerframework.dataflow.cfg.node.EqualToNode;
-import org.checkerframework.dataflow.cfg.node.ExplicitThisLiteralNode;
+import org.checkerframework.dataflow.cfg.node.ExplicitThisNode;
 import org.checkerframework.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.dataflow.cfg.node.FloatLiteralNode;
 import org.checkerframework.dataflow.cfg.node.FloatingDivisionNode;
@@ -73,7 +73,7 @@ import org.checkerframework.dataflow.cfg.node.FloatingRemainderNode;
 import org.checkerframework.dataflow.cfg.node.FunctionalInterfaceNode;
 import org.checkerframework.dataflow.cfg.node.GreaterThanNode;
 import org.checkerframework.dataflow.cfg.node.GreaterThanOrEqualNode;
-import org.checkerframework.dataflow.cfg.node.ImplicitThisLiteralNode;
+import org.checkerframework.dataflow.cfg.node.ImplicitThisNode;
 import org.checkerframework.dataflow.cfg.node.InstanceOfNode;
 import org.checkerframework.dataflow.cfg.node.IntegerDivisionNode;
 import org.checkerframework.dataflow.cfg.node.IntegerLiteralNode;
@@ -111,7 +111,7 @@ import org.checkerframework.dataflow.cfg.node.StringLiteralNode;
 import org.checkerframework.dataflow.cfg.node.SuperNode;
 import org.checkerframework.dataflow.cfg.node.SynchronizedNode;
 import org.checkerframework.dataflow.cfg.node.TernaryExpressionNode;
-import org.checkerframework.dataflow.cfg.node.ThisLiteralNode;
+import org.checkerframework.dataflow.cfg.node.ThisNode;
 import org.checkerframework.dataflow.cfg.node.ThrowNode;
 import org.checkerframework.dataflow.cfg.node.TypeCastNode;
 import org.checkerframework.dataflow.cfg.node.UnsignedRightShiftNode;
@@ -504,7 +504,7 @@ public class AccessPathNullnessPropagation
       // here we still require an access of a field of this, or a static field
       FieldAccessNode fieldAccessNode = (FieldAccessNode) target;
       Node receiver = fieldAccessNode.getReceiver();
-      if ((receiver instanceof ThisLiteralNode || fieldAccessNode.isStatic())
+      if ((receiver instanceof ThisNode || fieldAccessNode.isStatic())
           && fieldAccessNode.getElement().getKind().equals(ElementKind.FIELD)) {
         updates.set(fieldAccessNode, value);
       }
@@ -610,16 +610,14 @@ public class AccessPathNullnessPropagation
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore> visitImplicitThisLiteral(
-      ImplicitThisLiteralNode implicitThisLiteralNode,
-      TransferInput<Nullness, NullnessStore> input) {
+  public TransferResult<Nullness, NullnessStore> visitImplicitThis(
+      ImplicitThisNode implicitThisNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 
   @Override
-  public TransferResult<Nullness, NullnessStore> visitExplicitThisLiteral(
-      ExplicitThisLiteralNode explicitThisLiteralNode,
-      TransferInput<Nullness, NullnessStore> input) {
+  public TransferResult<Nullness, NullnessStore> visitExplicitThis(
+      ExplicitThisNode explicitThisLiteralNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
   }
 

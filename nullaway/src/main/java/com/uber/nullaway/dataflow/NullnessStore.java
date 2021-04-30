@@ -29,12 +29,12 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
-import org.checkerframework.dataflow.analysis.FlowExpressions;
 import org.checkerframework.dataflow.analysis.Store;
-import org.checkerframework.dataflow.cfg.CFGVisualizer;
 import org.checkerframework.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.dataflow.cfg.visualize.CFGVisualizer;
+import org.checkerframework.dataflow.expression.JavaExpression;
 
 /**
  * Highly based on {@link com.google.errorprone.dataflow.LocalStore}, but for {@link AccessPath}s.
@@ -180,12 +180,12 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   @Override
-  public boolean canAlias(FlowExpressions.Receiver receiver, FlowExpressions.Receiver receiver1) {
+  public boolean canAlias(JavaExpression a, JavaExpression b) {
     return true;
   }
 
   @Override
-  public String visualize(CFGVisualizer<?, NullnessStore, ?> cfgVisualizer) {
+  public String visualize(CFGVisualizer<?, NullnessStore, ?> viz) {
     throw new UnsupportedOperationException();
   }
 

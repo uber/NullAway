@@ -122,7 +122,7 @@ public class NullAwayTryFinallyCases {
       }
       System.out.println(o.toString()); // Safe
     } finally {
-      /// ToDo: This should be an error, but isn't.
+      // BUG: Diagnostic contains: dereferenced expression
       System.out.println(o.toString());
     }
   }

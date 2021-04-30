@@ -41,11 +41,15 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
-import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.ExecutableElement;
 import org.checkerframework.javacutil.AnnotationUtils;
 
 /** Helpful utility methods for nullability analysis. */
@@ -210,7 +214,18 @@ public class NullabilityUtil {
     if (annot == null) {
       return null;
     }
-    return AnnotationUtils.getElementValue(annot, "value", String.class, true);
+
+    Map<? extends ExecutableElement, ? extends AnnotationValue> elementValues =
+        annot.getElementValues();
+    for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
+        elementValues.entrySet()) {
+      ExecutableElement elem = entry.getKey();
+      if (elem.getSimpleName().contentEquals("value")) {
+        return (String) entry.getValue().getValue();
+      }
+    }
+    // not found
+    return null;
   }
 
   /**
@@ -238,7 +253,18 @@ public class NullabilityUtil {
     if (annot == null) {
       return null;
     }
-    return new HashSet<>(AnnotationUtils.getElementValueArray(annot, "value", String.class, true));
+    Map<? extends ExecutableElement, ? extends AnnotationValue> elementValues =
+        annot.getElementValues();
+    for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
+        elementValues.entrySet()) {
+      ExecutableElement elem = entry.getKey();
+      if (elem.getSimpleName().contentEquals("value")) {
+        @SuppressWarnings("unchecked")
+        List<AnnotationValue> values = (List<AnnotationValue>) entry.getValue().getValue();
+        return values.stream().map((av) -> ((String) av.getValue())).collect(Collectors.toSet());
+      }
+    }
+    return null;
   }
 
   /**
