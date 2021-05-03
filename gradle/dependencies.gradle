@@ -41,7 +41,7 @@ def build = [
     errorProneCheckApi      : "com.google.errorprone:error_prone_check_api:${versions.errorProneApi}",
     errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProne}",
     errorProneJavac         : "com.google.errorprone:javac:9+181-r4173-1",
-    errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProne}",
+    errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProneApi}",
     checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFramework}",
                                "org.checkerframework:javacutil:${versions.checkerFramework}"],
     guava                   : "com.google.guava:guava:22.0",
