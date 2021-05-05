@@ -59,6 +59,10 @@ public class JarInferTest {
       name = "DummyChecker",
       summary = "Dummy checker to use CompilationTestHelper",
       severity = WARNING)
+  /**
+   * A dummy checker to allow us to use {@link CompilationTestHelper} to compile Java code for
+   * testing, as it requires a {@link BugChecker} to run.
+   */
   public static class DummyChecker extends BugChecker {
     public DummyChecker() {}
   }
