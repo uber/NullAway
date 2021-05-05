@@ -23,8 +23,6 @@
 package com.uber.nullaway;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
-import com.google.errorprone.ErrorProneFlags;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -36,31 +34,28 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private ErrorProneFlags flags;
+  private BugCheckerRefactoringTestHelper makeTestHelper() {
+    return BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
+        .setArgs(
+            "-d",
+            temporaryFolder.getRoot().getAbsolutePath(),
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
+            "-XepOpt:NullAway:SuggestSuppressions=true",
+            "-XepOpt:NullAway:AutoFixSuppressionComment=PR #000000");
+  }
 
-  private ErrorProneFlags flagsNoAutoFixSuppressionComment;
-
-  @Before
-  public void setup() {
-    // With AutoFixSuppressionComment
-    ErrorProneFlags.Builder b = ErrorProneFlags.builder();
-    b.putFlag("NullAway:AnnotatedPackages", "com.uber,com.ubercab,io.reactivex");
-    b.putFlag("NullAway:SuggestSuppressions", "true");
-    b.putFlag("NullAway:AutoFixSuppressionComment", "PR #000000");
-    flags = b.build();
-    // Without AutoFixSuppressionComment
-    b = ErrorProneFlags.builder();
-    b.putFlag("NullAway:AnnotatedPackages", "com.uber,com.ubercab,io.reactivex");
-    b.putFlag("NullAway:SuggestSuppressions", "true");
-    flagsNoAutoFixSuppressionComment = b.build();
+  private BugCheckerRefactoringTestHelper makeTestHelperNoSuppressionComment() {
+    return BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
+        .setArgs(
+            "-d",
+            temporaryFolder.getRoot().getAbsolutePath(),
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
+            "-XepOpt:NullAway:SuggestSuppressions=true");
   }
 
   @Test
   public void suggestSuppressionWithComment() {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -82,11 +77,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suggestSuppressionWithoutComment() {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(
-            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelperNoSuppressionComment()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -108,11 +99,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suggestSuppressionFieldLambdaDeref() {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(
-            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelperNoSuppressionComment()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -141,11 +128,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suggestSuppressionFieldLambdaUnbox() {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(
-            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelperNoSuppressionComment()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -176,11 +159,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suggestSuppressionFieldLambdaAssignment() {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(
-            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelperNoSuppressionComment()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -211,11 +190,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suggestLambdaAssignInMethod() {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(
-            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelperNoSuppressionComment()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -251,11 +226,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suppressMethodRefOverrideParam() {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(
-            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelperNoSuppressionComment()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -290,11 +261,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suppressMethodRefOverrideReturn() {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(
-            new NullAway(flagsNoAutoFixSuppressionComment), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelperNoSuppressionComment()
         .addInputLines(
             "Test.java",
             "package com.uber;",

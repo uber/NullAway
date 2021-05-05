@@ -23,9 +23,7 @@
 package com.uber.nullaway;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
-import com.google.errorprone.ErrorProneFlags;
 import java.io.IOException;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -37,23 +35,19 @@ public class NullAwayAutoSuggestTest {
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private ErrorProneFlags flags;
-
-  @Before
-  public void setup() {
-    ErrorProneFlags.Builder b = ErrorProneFlags.builder();
-    b.putFlag("NullAway:AnnotatedPackages", "com.uber,com.ubercab,io.reactivex");
-    b.putFlag("NullAway:CastToNonNullMethod", "com.uber.nullaway.testdata.Util.castToNonNull");
-    b.putFlag("NullAway:SuggestSuppressions", "true");
-    flags = b.build();
+  private BugCheckerRefactoringTestHelper makeTestHelper() {
+    return BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
+        .setArgs(
+            "-d",
+            temporaryFolder.getRoot().getAbsolutePath(),
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
+            "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
+            "-XepOpt:NullAway:SuggestSuppressions=true");
   }
 
   @Test
   public void correctCastToNonNull() throws IOException {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -70,10 +64,7 @@ public class NullAwayAutoSuggestTest {
 
   @Test
   public void suggestCastToNonNull() throws IOException {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -98,10 +89,7 @@ public class NullAwayAutoSuggestTest {
 
   @Test
   public void removeUnnecessaryCastToNonNull() throws IOException {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -127,10 +115,7 @@ public class NullAwayAutoSuggestTest {
 
   @Test
   public void suggestSuppressionOnMethodRef() throws IOException {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
