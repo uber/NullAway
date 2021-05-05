@@ -6,20 +6,28 @@ on:
       - master
 jobs:
   build:
-    name: "JDK ${{ matrix.java }} on ${{ matrix.os }}"
+    name: "JDK ${{ matrix.java }} on ${{ matrix.os }} with Error Prone ${{ matrix.epVersion }}"
     strategy:
       matrix:
         include:
           - os: macos-latest
             java: 8
+            epVersion: 2.4.0
           - os: macos-latest
             java: 11
+            epVersion: 2.4.0
           - os: ubuntu-latest
             java: 8
+            epVersion: 2.4.0
+          - os: ubuntu-latest
+            java: 8
+            epVersion: 2.6.0
           - os: ubuntu-latest
             java: 11
+            epVersion: 2.4.0
           - os: windows-latest
             java: 8
+            epVersion: 2.4.0
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -29,7 +37,9 @@ jobs:
         uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java }}
-      - name: Build and test using Gradle and Java 8
+      - name: Build and test using Gradle, Java 8, and Error Prone ${{ matrix.epVersion }}
+        env:
+          ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: eskatos/gradle-command-action@v1
         with:
           arguments: verGJF build
