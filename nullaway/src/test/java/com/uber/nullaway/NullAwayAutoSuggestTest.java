@@ -36,7 +36,7 @@ public class NullAwayAutoSuggestTest {
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private BugCheckerRefactoringTestHelper makeTestHelper() {
-    return BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
+    return BugCheckerRefactoringTestHelper.newInstance(new NullAway(), getClass())
         .setArgs(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),

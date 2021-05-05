@@ -35,7 +35,7 @@ public class NullAwayAutoSuggestNoCastTest {
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private BugCheckerRefactoringTestHelper makeTestHelper() {
-    return BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
+    return BugCheckerRefactoringTestHelper.newInstance(new NullAway(), getClass())
         .setArgs(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),
@@ -45,7 +45,7 @@ public class NullAwayAutoSuggestNoCastTest {
   }
 
   private BugCheckerRefactoringTestHelper makeTestHelperNoSuppressionComment() {
-    return BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
+    return BugCheckerRefactoringTestHelper.newInstance(new NullAway(), getClass())
         .setArgs(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),
