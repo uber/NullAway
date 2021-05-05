@@ -1,3 +1,5 @@
+import org.gradle.util.VersionNumber
+
 /*
  * Copyright (C) 2017. Uber Technologies
  *
@@ -17,6 +19,17 @@
 // The oldest version of Error Prone that we support running on
 def oldestErrorProneApi = "2.4.0"
 
+if (project.hasProperty("epApiVersion")) {
+    def epApiVNum = VersionNumber.parse(epApiVersion)
+    if (epApiVNum.equals(VersionNumber.UNKNOWN)) {
+        throw new IllegalArgumentException("Invalid Error Prone API version " + epApiVersion)
+    }
+    if (epApiVNum.compareTo(VersionNumber.parse(oldestErrorProneApi)) < 0) {
+        throw new IllegalArgumentException(
+                "Error Prone API version " + epApiVersion + " is too old; "
+                + oldestErrorProneApi + " is the oldest supported version")
+    }
+}
 def versions = [
     asm                    : "7.1",
     checkerFramework       : "3.6.0",
