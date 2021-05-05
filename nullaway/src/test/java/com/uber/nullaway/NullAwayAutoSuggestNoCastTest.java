@@ -64,6 +64,8 @@ public class NullAwayAutoSuggestNoCastTest {
         .setArgs(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),
+            // the remaining args are not needed right now, but they will be necessary when we
+            // switch to the more modern newInstance() API
             "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
             "-XepOpt:NullAway:SuggestSuppressions=true",
             "-XepOpt:NullAway:AutoFixSuppressionComment=PR #000000");
@@ -79,6 +81,8 @@ public class NullAwayAutoSuggestNoCastTest {
         .setArgs(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),
+            // the remaining args are not needed right now, but they will be necessary when we
+            // switch to the more modern newInstance() API
             "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
             "-XepOpt:NullAway:SuggestSuppressions=true");
   }

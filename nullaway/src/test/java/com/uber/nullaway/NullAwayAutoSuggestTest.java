@@ -57,6 +57,8 @@ public class NullAwayAutoSuggestTest {
         .setArgs(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),
+            // the remaining args are not needed right now, but they will be necessary when we
+            // switch to the more modern newInstance() API
             "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
             "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
             "-XepOpt:NullAway:SuggestSuppressions=true");
