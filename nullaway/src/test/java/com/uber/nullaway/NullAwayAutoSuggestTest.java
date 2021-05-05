@@ -23,7 +23,9 @@
 package com.uber.nullaway;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
+import com.google.errorprone.ErrorProneFlags;
 import java.io.IOException;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -35,8 +37,23 @@ public class NullAwayAutoSuggestTest {
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
+  private ErrorProneFlags flags;
+
+  @Before
+  public void setup() {
+    ErrorProneFlags.Builder b = ErrorProneFlags.builder();
+    b.putFlag("NullAway:AnnotatedPackages", "com.uber,com.ubercab,io.reactivex");
+    b.putFlag("NullAway:CastToNonNullMethod", "com.uber.nullaway.testdata.Util.castToNonNull");
+    b.putFlag("NullAway:SuggestSuppressions", "true");
+    flags = b.build();
+  }
+
+  // In EP 2.6.0 the newInstance() method we use below is deprecated.  We cannot currently address
+  // the warning since the replacement method was only added in EP 2.5.1, and we still want to
+  // support EP 2.4.0.  So, we suppress the warning for now
+  @SuppressWarnings("deprecation")
   private BugCheckerRefactoringTestHelper makeTestHelper() {
-    return BugCheckerRefactoringTestHelper.newInstance(new NullAway(), getClass())
+    return BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass())
         .setArgs(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),

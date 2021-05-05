@@ -23,6 +23,8 @@
 package com.uber.nullaway;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
+import com.google.errorprone.ErrorProneFlags;
+import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -34,8 +36,31 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
+  private ErrorProneFlags flags;
+
+  private ErrorProneFlags flagsNoAutoFixSuppressionComment;
+
+  @Before
+  public void setup() {
+    // With AutoFixSuppressionComment
+    ErrorProneFlags.Builder b = ErrorProneFlags.builder();
+    b.putFlag("NullAway:AnnotatedPackages", "com.uber,com.ubercab,io.reactivex");
+    b.putFlag("NullAway:SuggestSuppressions", "true");
+    b.putFlag("NullAway:AutoFixSuppressionComment", "PR #000000");
+    flags = b.build();
+    // Without AutoFixSuppressionComment
+    b = ErrorProneFlags.builder();
+    b.putFlag("NullAway:AnnotatedPackages", "com.uber,com.ubercab,io.reactivex");
+    b.putFlag("NullAway:SuggestSuppressions", "true");
+    flagsNoAutoFixSuppressionComment = b.build();
+  }
+
+  // In EP 2.6.0 the newInstance() method we use below is deprecated.  We cannot currently address
+  // the warning since the replacement method was only added in EP 2.5.1, and we still want to
+  // support EP 2.4.0.  So, we suppress the warning for now
+  @SuppressWarnings("deprecation")
   private BugCheckerRefactoringTestHelper makeTestHelper() {
-    return BugCheckerRefactoringTestHelper.newInstance(new NullAway(), getClass())
+    return BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass())
         .setArgs(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),
@@ -44,8 +69,13 @@ public class NullAwayAutoSuggestNoCastTest {
             "-XepOpt:NullAway:AutoFixSuppressionComment=PR #000000");
   }
 
+  // In EP 2.6.0 the newInstance() method we use below is deprecated.  We cannot currently address
+  // the warning since the replacement method was only added in EP 2.5.1, and we still want to
+  // support EP 2.4.0.  So, we suppress the warning for now
+  @SuppressWarnings("deprecation")
   private BugCheckerRefactoringTestHelper makeTestHelperNoSuppressionComment() {
-    return BugCheckerRefactoringTestHelper.newInstance(new NullAway(), getClass())
+    return BugCheckerRefactoringTestHelper.newInstance(
+            new NullAway(flagsNoAutoFixSuppressionComment), getClass())
         .setArgs(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),
