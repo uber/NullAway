@@ -36,7 +36,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private ErrorProneFlags flags;
+  private ErrorProneFlags flagsWithAutoFixSuppressionComment;
 
   private ErrorProneFlags flagsNoAutoFixSuppressionComment;
 
@@ -47,7 +47,7 @@ public class NullAwayAutoSuggestNoCastTest {
     b.putFlag("NullAway:AnnotatedPackages", "com.uber,com.ubercab,io.reactivex");
     b.putFlag("NullAway:SuggestSuppressions", "true");
     b.putFlag("NullAway:AutoFixSuppressionComment", "PR #000000");
-    flags = b.build();
+    flagsWithAutoFixSuppressionComment = b.build();
     // Without AutoFixSuppressionComment
     b = ErrorProneFlags.builder();
     b.putFlag("NullAway:AnnotatedPackages", "com.uber,com.ubercab,io.reactivex");
@@ -59,8 +59,9 @@ public class NullAwayAutoSuggestNoCastTest {
   // the warning since the replacement method was only added in EP 2.5.1, and we still want to
   // support EP 2.4.0.  So, we suppress the warning for now
   @SuppressWarnings("deprecation")
-  private BugCheckerRefactoringTestHelper makeTestHelper() {
-    return BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass())
+  private BugCheckerRefactoringTestHelper makeTestHelperWithSuppressionComment() {
+    return BugCheckerRefactoringTestHelper.newInstance(
+            new NullAway(flagsWithAutoFixSuppressionComment), getClass())
         .setArgs(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),
@@ -75,7 +76,7 @@ public class NullAwayAutoSuggestNoCastTest {
   // the warning since the replacement method was only added in EP 2.5.1, and we still want to
   // support EP 2.4.0.  So, we suppress the warning for now
   @SuppressWarnings("deprecation")
-  private BugCheckerRefactoringTestHelper makeTestHelperNoSuppressionComment() {
+  private BugCheckerRefactoringTestHelper makeTestHelper() {
     return BugCheckerRefactoringTestHelper.newInstance(
             new NullAway(flagsNoAutoFixSuppressionComment), getClass())
         .setArgs(
@@ -89,7 +90,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suggestSuppressionWithComment() {
-    makeTestHelper()
+    makeTestHelperWithSuppressionComment()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -111,7 +112,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suggestSuppressionWithoutComment() {
-    makeTestHelperNoSuppressionComment()
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -133,7 +134,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suggestSuppressionFieldLambdaDeref() {
-    makeTestHelperNoSuppressionComment()
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -162,7 +163,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suggestSuppressionFieldLambdaUnbox() {
-    makeTestHelperNoSuppressionComment()
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -193,7 +194,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suggestSuppressionFieldLambdaAssignment() {
-    makeTestHelperNoSuppressionComment()
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -224,7 +225,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suggestLambdaAssignInMethod() {
-    makeTestHelperNoSuppressionComment()
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -260,7 +261,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suppressMethodRefOverrideParam() {
-    makeTestHelperNoSuppressionComment()
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -295,7 +296,7 @@ public class NullAwayAutoSuggestNoCastTest {
 
   @Test
   public void suppressMethodRefOverrideReturn() {
-    makeTestHelperNoSuppressionComment()
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
