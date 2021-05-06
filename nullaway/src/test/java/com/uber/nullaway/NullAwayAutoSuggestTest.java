@@ -48,12 +48,25 @@ public class NullAwayAutoSuggestTest {
     flags = b.build();
   }
 
+  // In EP 2.6.0 the newInstance() method we use below is deprecated.  We cannot currently address
+  // the warning since the replacement method was only added in EP 2.5.1, and we still want to
+  // support EP 2.4.0.  So, we suppress the warning for now
+  @SuppressWarnings("deprecation")
+  private BugCheckerRefactoringTestHelper makeTestHelper() {
+    return BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass())
+        .setArgs(
+            "-d",
+            temporaryFolder.getRoot().getAbsolutePath(),
+            // the remaining args are not needed right now, but they will be necessary when we
+            // switch to the more modern newInstance() API
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
+            "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
+            "-XepOpt:NullAway:SuggestSuppressions=true");
+  }
+
   @Test
   public void correctCastToNonNull() throws IOException {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -70,10 +83,7 @@ public class NullAwayAutoSuggestTest {
 
   @Test
   public void suggestCastToNonNull() throws IOException {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -98,10 +108,7 @@ public class NullAwayAutoSuggestTest {
 
   @Test
   public void removeUnnecessaryCastToNonNull() throws IOException {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
@@ -127,10 +134,7 @@ public class NullAwayAutoSuggestTest {
 
   @Test
   public void suggestSuppressionOnMethodRef() throws IOException {
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
+    makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
