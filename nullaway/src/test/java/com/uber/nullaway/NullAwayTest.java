@@ -2999,4 +2999,33 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void springAutowiredTest() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "@Component",
+            "public class Foo {",
+            "  String bar;",
+            "  public void setBar(String s) {",
+            "    bar = s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            //"import org.springframework.beans.factory.annotation;",
+            //"import org.springframework.beans.factory.annotation.Autowired;",
+            "@Service",
+            "public class Test {",
+            "  @Autowired",
+            "  Foo f;",
+            "  public void Fun() {",
+            "    f.setBar(\"hello\");",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

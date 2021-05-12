@@ -109,7 +109,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "org.junit.Before",
           "org.junit.BeforeClass",
           "org.junit.jupiter.api.BeforeAll",
-          "org.junit.jupiter.api.BeforeEach"); // + Anything with @Initializer as its "simple name"
+          "org.junit.jupiter.api.BeforeEach",
+          "org.springframework.beans.factory.annotation.Autowired"); // + Anything with @Initializer as its "simple name"
 
   static final ImmutableSet<String> DEFAULT_EXTERNAL_INIT_ANNOT = ImmutableSet.of("lombok.Builder");
 
@@ -118,7 +119,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "jakarta.inject.Inject", // no explicit initialization when there is dependency injection
           "javax.inject.Inject", // no explicit initialization when there is dependency injection
           "com.google.errorprone.annotations.concurrent.LazyInit",
-          "org.checkerframework.checker.nullness.qual.MonotonicNonNull");
+          "org.checkerframework.checker.nullness.qual.MonotonicNonNull",
+          "org.springframework.beans.factory.annotation.Autowired");
 
   private static final String DEFAULT_URL = "http://t.uber.com/nullaway";
 

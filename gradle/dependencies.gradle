@@ -51,6 +51,7 @@ def apt = [
     autoServiceAnnot : "com.google.auto.service:auto-service-annotations:${versions.autoService}",
     jakartaInject    : "jakarta.inject:jakarta.inject-api:2.0.0",
     javaxInject      : "javax.inject:javax.inject:1",
+    springBoot       : "org.springframework.boot:spring-boot-gradle-plugin:2.4.5",
 ]
 
 def build = [
