@@ -231,6 +231,19 @@ public class NullAwayTest {
   }
 
   @Test
+  public void checkCustomContractCases() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CustomContractAnnotations=com.uber.nullaway.testdata.CustomContract",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceFile("CheckCustomContractCases.java")
+        .doTest();
+  }
+
+  @Test
   public void java8PositiveCases() {
     defaultCompilationHelper.addSourceFile("NullAwayJava8PositiveCases.java").doTest();
   }

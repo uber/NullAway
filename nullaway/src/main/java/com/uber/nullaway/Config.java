@@ -109,6 +109,17 @@ public interface Config {
   boolean isExternalInitClassAnnotation(String annotationName);
 
   /**
+   * Returns the value of a Contract annotation if present. A Contract annotation is either the one
+   * provided by Jetbrains or one specified by the user, but the value must always follow the format
+   * of Jetbrains Contract.
+   *
+   * @param methodSymbol the method
+   * @return the value of the Contract annotation if present, or {@code null} otherwise
+   */
+  @Nullable
+  String getContractString(Symbol.MethodSymbol methodSymbol);
+
+  /**
    * Checks if the checker should suggest adding warning suppressions instead of fixes.
    *
    * @return true if the null checker should suggest adding warning suppressions. Only useful for

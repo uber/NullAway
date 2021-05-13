@@ -32,6 +32,8 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
+import javax.lang.model.element.AnnotationMirror;
+import org.checkerframework.javacutil.AnnotationUtils;
 
 /** abstract base class for null checker {@link Config} implementations */
 public abstract class AbstractConfig implements Config {
@@ -93,6 +95,8 @@ public abstract class AbstractConfig implements Config {
   protected Set<String> initializerAnnotations;
 
   protected Set<String> externalInitAnnotations;
+
+  protected Set<String> contractAnnotations;
 
   @Nullable protected String castToNonNullMethod;
 
@@ -235,6 +239,18 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean isExternalInitClassAnnotation(String annotationName) {
     return externalInitAnnotations.contains(annotationName);
+  }
+
+  @Override
+  @Nullable
+  public String getContractString(Symbol.MethodSymbol methodSymbol) {
+    for (AnnotationMirror annotation : methodSymbol.getAnnotationMirrors()) {
+      String name = AnnotationUtils.annotationName(annotation);
+      if (contractAnnotations.contains(name)) {
+        return NullabilityUtil.getAnnotationValue(methodSymbol, name);
+      }
+    }
+    return null;
   }
 
   protected Set<MethodClassAndName> getKnownInitializers(Set<String> qualifiedNames) {
