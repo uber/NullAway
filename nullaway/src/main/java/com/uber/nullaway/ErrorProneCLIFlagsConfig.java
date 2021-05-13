@@ -110,7 +110,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "org.junit.BeforeClass",
           "org.junit.jupiter.api.BeforeAll",
           "org.junit.jupiter.api.BeforeEach",
-          "org.springframework.beans.factory.annotation.Autowired"); // + Anything with @Initializer as its "simple name"
+          "org.springframework.beans.factory.annotation.Autowired");
+  // + Anything with @Initializer as its "simple name"
 
   static final ImmutableSet<String> DEFAULT_EXTERNAL_INIT_ANNOT = ImmutableSet.of("lombok.Builder");
 
