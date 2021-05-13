@@ -3001,14 +3001,16 @@ public class NullAwayTest {
   }
 
   @Test
-  public void springAutowiredTest() {
+  public void springAutowiredFieldTest() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.springframework.stereotype.Component;",
             "@Component",
             "public class Foo {",
-            "  String bar;",
+            "  @Nullable String bar;",
             "  public void setBar(String s) {",
             "    bar = s;",
             "  }",
@@ -3016,12 +3018,46 @@ public class NullAwayTest {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            //"import org.springframework.beans.factory.annotation;",
-            //"import org.springframework.beans.factory.annotation.Autowired;",
+            "import org.springframework.beans.factory.annotation.Autowired;",
+            "import org.springframework.stereotype.Service;",
             "@Service",
             "public class Test {",
             "  @Autowired",
-            "  Foo f;",
+            "  Foo f;", // Initialized by spring.
+            "  public void Fun() {",
+            "    f.setBar(\"hello\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void springAutowiredConstructorTest() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.springframework.stereotype.Component;",
+            "@Component",
+            "public class Foo {",
+            "  @Nullable String bar;",
+            "  public void setBar(String s) {",
+            "    bar = s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.springframework.beans.factory.annotation.Autowired;",
+            "import org.springframework.stereotype.Service;",
+            "@Service",
+            "public class Test {",
+            "  Foo f;", // Initialized by spring.
+            "  @Autowired",
+            "  public void init() {",
+            "     f = new Foo();",
+            "  }",
             "  public void Fun() {",
             "    f.setBar(\"hello\");",
             "  }",

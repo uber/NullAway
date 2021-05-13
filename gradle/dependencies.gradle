@@ -51,7 +51,6 @@ def apt = [
     autoServiceAnnot : "com.google.auto.service:auto-service-annotations:${versions.autoService}",
     jakartaInject    : "jakarta.inject:jakarta.inject-api:2.0.0",
     javaxInject      : "javax.inject:javax.inject:1",
-    springBoot       : "org.springframework.boot:spring-boot-gradle-plugin:2.4.5",
 ]
 
 def build = [
@@ -97,6 +96,8 @@ def test = [
     commonsLang3            : "org.apache.commons:commons-lang3:3.8.1",
     commonsLang             : "commons-lang:commons-lang:2.6",
     lombok                  : "org.projectlombok:lombok:1.18.12",
+    springBeans             : "org.springframework:spring-beans:5.3.7",
+    springContext           : "org.springframework:spring-context:5.3.7",
 ]
 
 ext.deps = [
