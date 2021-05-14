@@ -89,7 +89,7 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public String getContractString(Symbol.MethodSymbol methodSymbol) {
+  public boolean isContractAnnotation(String annotationName) {
     throw new IllegalStateException(error_msg);
   }
 

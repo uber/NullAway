@@ -103,7 +103,7 @@ public class ContractHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
-    String contractString = config.getContractString(callee);
+    String contractString = ContractUtils.getContractString(callee, config);
     if (contractString != null && contractString.trim().length() > 0) {
       // Found a contract, lets parse it.
       String[] clauses = contractString.split(";");

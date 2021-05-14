@@ -39,7 +39,7 @@ public class ContractNullnessStoreInitializer extends NullnessStoreInitializer {
     final MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
     final ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
     final Symbol.MethodSymbol callee = ASTHelpers.getSymbol(methodTree);
-    final String contractString = config.getContractString(callee);
+    final String contractString = ContractUtils.getContractString(callee, config);
 
     assert contractString != null;
 
