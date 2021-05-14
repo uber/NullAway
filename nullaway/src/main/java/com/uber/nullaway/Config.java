@@ -109,6 +109,15 @@ public interface Config {
   boolean isExternalInitClassAnnotation(String annotationName);
 
   /**
+   * Checks if annotation is a "Contract". A Contract annotation has a String value following the
+   * format of Jetbrains Contract annotations to define nullability properties of the method.
+   *
+   * @param annotationName fully-qualified annotation name
+   * @return true if the annotation is a Contract
+   */
+  boolean isContractAnnotation(String annotationName);
+
+  /**
    * Checks if the checker should suggest adding warning suppressions instead of fixes.
    *
    * @return true if the null checker should suggest adding warning suppressions. Only useful for

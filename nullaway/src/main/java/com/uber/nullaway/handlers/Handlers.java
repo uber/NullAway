@@ -58,7 +58,7 @@ public class Handlers {
     handlerListBuilder.add(new LibraryModelsHandler(config));
     handlerListBuilder.add(StreamNullabilityPropagatorFactory.getRxStreamNullabilityPropagator());
     handlerListBuilder.add(StreamNullabilityPropagatorFactory.getJavaStreamNullabilityPropagator());
-    handlerListBuilder.add(new ContractHandler());
+    handlerListBuilder.add(new ContractHandler(config));
     handlerListBuilder.add(new ApacheThriftIsSetHandler());
     handlerListBuilder.add(new RequiresNonNullHandler());
     handlerListBuilder.add(new EnsuresNonNullHandler());
@@ -66,7 +66,7 @@ public class Handlers {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }
     if (config.checkContracts()) {
-      handlerListBuilder.add(new ContractCheckHandler());
+      handlerListBuilder.add(new ContractCheckHandler(config));
     }
 
     return new CompositeHandler(handlerListBuilder.build());

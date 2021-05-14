@@ -609,6 +609,65 @@ public class NullAwayTest {
   }
 
   @Test
+  public void customContractAnnotation() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CustomContractAnnotations=com.example.library.CustomContract",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceLines(
+            "CustomContract.java",
+            "package com.example.library;",
+            "import static java.lang.annotation.RetentionPolicy.CLASS;",
+            "import java.lang.annotation.Retention;",
+            "@Retention(CLASS)",
+            "public @interface CustomContract {",
+            "  String value();",
+            "}")
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.example.library.CustomContract;",
+            "public class NullnessChecker {",
+            "  @CustomContract(\"_, !null -> !null\")",
+            "  @Nullable",
+            "  static Object bad(Object a, @Nullable Object b) {",
+            "    if (a.hashCode() % 2 == 0) {",
+            "      // BUG: Diagnostic contains: Method bad has @Contract",
+            "      return null;",
+            "    }",
+            "    return new Object();",
+            "  }",
+            "",
+            "  @CustomContract(\"_, !null -> !null\")",
+            "  @Nullable",
+            "  static Object good(Object a, @Nullable Object b) {",
+            "    if (a.hashCode() % 2 == 0) {",
+            "      return b;",
+            "    }",
+            "    return new Object();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test1() {",
+            "    return NullnessChecker.good(\"bar\", \"foo\").toString();",
+            "  }",
+            "  String test2() {",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    return NullnessChecker.good(\"bar\", null).toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testEnumInit() {
     defaultCompilationHelper
         .addSourceLines(
