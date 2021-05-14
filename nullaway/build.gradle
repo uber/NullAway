@@ -52,6 +52,8 @@ dependencies {
     testImplementation deps.test.commonsLang3
     testImplementation project(":test-library-models")
     testImplementation deps.test.lombok
+    testImplementation deps.test.springBeans
+    testImplementation deps.test.springContext
 }
 
 javadoc {

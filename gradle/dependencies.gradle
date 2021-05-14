@@ -97,6 +97,8 @@ def test = [
     commonsLang3            : "org.apache.commons:commons-lang3:3.8.1",
     commonsLang             : "commons-lang:commons-lang:2.6",
     lombok                  : "org.projectlombok:lombok:1.18.12",
+    springBeans             : "org.springframework:spring-beans:5.3.7",
+    springContext           : "org.springframework:spring-context:5.3.7",
 ]
 
 ext.deps = [
