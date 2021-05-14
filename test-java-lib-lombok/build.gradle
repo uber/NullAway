@@ -38,7 +38,6 @@ tasks.withType(JavaCompile) {
     options.errorprone {
       check("NullAway", CheckSeverity.ERROR)
       check("UnusedVariable", CheckSeverity.OFF) // We are not the only checker that fails on Lombok
-      check("SameNameButDifferent", CheckSeverity.OFF) // Crashes on use of Lombok Builder
       option("NullAway:AnnotatedPackages", "com.uber")
       option("NullAway:UnannotatedSubPackages", "com.uber.lib.unannotated")
     }

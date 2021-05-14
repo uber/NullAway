@@ -28,6 +28,7 @@ import lombok.Data;
 
 @Builder
 @Data
+@SuppressWarnings("SameNameButDifferent") // check crashes with EP 2.6.0
 public class LombokBuilderInit {
   private String field;
   @Builder.Default private String fieldWithDefault = "Default";
