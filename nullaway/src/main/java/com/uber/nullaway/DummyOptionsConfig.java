@@ -89,6 +89,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public boolean isContractAnnotation(String annotationName) {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
   public boolean isExcludedFieldAnnotation(String annotationName) {
     throw new IllegalStateException(error_msg);
   }
