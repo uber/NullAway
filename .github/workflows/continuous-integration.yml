@@ -23,6 +23,9 @@ jobs:
             java: 8
             epVersion: 2.6.0
           - os: ubuntu-latest
+            java: 8
+            epVersion: 2.7.1
+          - os: ubuntu-latest
             java: 11
             epVersion: 2.4.0
           - os: windows-latest
