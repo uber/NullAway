@@ -351,6 +351,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 0)
             .put(methodRef("java.util.Objects", "<T>requireNonNull(T)"), 0)
             .put(methodRef("java.util.Objects", "<T>requireNonNull(T,java.lang.String)"), 0)
+            .put(
+                methodRef(
+                    "java.util.Objects",
+                    "<T>requireNonNull(T,java.util.function.Supplier<java.lang.String>)"),
+                0)
             .put(methodRef("org.junit.Assert", "assertNotNull(java.lang.Object)"), 0)
             .put(
                 methodRef("org.junit.Assert", "assertNotNull(java.lang.String,java.lang.Object)"),
