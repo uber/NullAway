@@ -56,7 +56,8 @@ public class ExplorerTest {
                 "com.uber.SubClass",
                 "com.uber",
                 "com/uber/SubClass.java",
-                "true"))
+                "true",
+                "false"))
         .doTest();
   }
 
@@ -104,7 +105,8 @@ public class ExplorerTest {
                 "com.uber.Super",
                 "com.uber",
                 "com/uber/android/Super.java",
-                "true"))
+                "true",
+                "false"))
         .doTest();
   }
 
@@ -152,7 +154,8 @@ public class ExplorerTest {
                 "com.uber.SubClass",
                 "com.uber",
                 "com/uber/test/SubClass.java",
-                "true"))
+                "true",
+                "false"))
         .doTest();
   }
 
@@ -190,7 +193,8 @@ public class ExplorerTest {
                 "com.uber.Super",
                 "com.uber",
                 "com/uber/android/Super.java",
-                "true"))
+                "true",
+                "false"))
         .doTest();
   }
 
@@ -254,7 +258,8 @@ public class ExplorerTest {
                 "com.uber.Super",
                 "com.uber",
                 "com/uber/android/Super.java",
-                "true"))
+                "true",
+                "false"))
         .doTest();
   }
 
@@ -317,7 +322,8 @@ public class ExplorerTest {
                 "com.uber.Super",
                 "com.uber",
                 "com/uber/android/Super.java",
-                "true"))
+                "true",
+                "false"))
         .doTest();
   }
 
@@ -353,7 +359,8 @@ public class ExplorerTest {
                 "com.uber.Super",
                 "com.uber",
                 "com/uber/android/Super.java",
-                "true"))
+                "true",
+                "false"))
         .doTest();
   }
 
@@ -384,7 +391,8 @@ public class ExplorerTest {
                 "com.uber.Super",
                 "com.uber",
                 "com/uber/android/Super.java",
-                "true"))
+                "true",
+                "false"))
         .doTest();
   }
 
@@ -428,7 +436,8 @@ public class ExplorerTest {
                 "com.uber.Super",
                 "com.uber",
                 "com/uber/Super.java",
-                "true"))
+                "true",
+                "false"))
         .doTest();
   }
 
@@ -464,7 +473,8 @@ public class ExplorerTest {
   //                "com.uber.Base",
   //                "com.uber",
   //                "com/uber/Base.java",
-  //                "true"))
+  //                "true",
+  //                "false"))
   //        .doTest();
   //  }
 
@@ -511,7 +521,8 @@ public class ExplorerTest {
                 "com.uber.Super",
                 "com.uber",
                 "com/uber/Super.java",
-                "true"))
+                "true",
+                "false"))
         .doTest();
   }
 }

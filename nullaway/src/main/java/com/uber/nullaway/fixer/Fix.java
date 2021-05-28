@@ -12,12 +12,14 @@ public class Fix implements Serializable {
   AnnotationFactory.Annotation annotation;
   String reason;
   boolean inject;
+  boolean compulsory;
 
   public JSONObject getJson() {
     JSONObject res = location.getJson();
     res.put(KEYS.REASON.label, (reason == null) ? "Undefined" : reason);
     res.put(KEYS.INJECT.label, "" + inject);
     res.put(KEYS.ANNOTATION.label, annotation.fullName.replace(";", ""));
+    res.put(KEYS.COMPULSORY.label, "" + compulsory);
     return res;
   }
 
@@ -29,6 +31,10 @@ public class Fix implements Serializable {
         + ", annotation="
         + annotation
         + ", inject="
+        + reason
+        + ", reason="
+        + compulsory
+        + ", compulsory="
         + inject
         + '}';
   }

@@ -12,6 +12,7 @@ public class Fix {
   final String className;
   final String pkg;
   final String inject;
+  final String compulsory;
   String uri;
 
   public Fix(
@@ -22,7 +23,8 @@ public class Fix {
       String className,
       String pkg,
       String uri,
-      String inject) {
+      String inject,
+      String compulsory) {
     this.annotation = annotation;
     this.method = method;
     this.param = param;
@@ -31,6 +33,7 @@ public class Fix {
     this.pkg = pkg;
     this.uri = uri;
     this.inject = inject;
+    this.compulsory = compulsory;
   }
 
   static Fix createFromJson(JSONObject fix) {
@@ -42,7 +45,8 @@ public class Fix {
         fix.get(KEYS.CLASS.label).toString(),
         fix.get(KEYS.PKG.label).toString(),
         fix.get(KEYS.URI.label).toString(),
-        fix.get(KEYS.INJECT.label).toString());
+        fix.get(KEYS.INJECT.label).toString(),
+        fix.get(KEYS.COMPULSORY.label).toString());
   }
 
   @Override
@@ -72,6 +76,9 @@ public class Fix {
         + ", \n\turi='"
         + uri
         + '\''
+        + ", \n\tcompulsory='"
+        + compulsory
+        + '\''
         + "\n  }\n";
   }
 
@@ -87,11 +94,13 @@ public class Fix {
         && Objects.equals(className, fix.className)
         && Objects.equals(pkg, fix.pkg)
         && Objects.equals(inject, fix.inject)
-        && Objects.equals(uri, fix.uri);
+        && Objects.equals(uri, fix.uri)
+        && Objects.equals(compulsory, fix.compulsory);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(annotation, method, param, location, className, pkg, inject, uri);
+    return Objects.hash(
+        annotation, method, param, location, className, pkg, inject, uri, compulsory);
   }
 }

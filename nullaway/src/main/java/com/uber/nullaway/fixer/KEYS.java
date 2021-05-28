@@ -9,7 +9,8 @@ public enum KEYS {
   URI("uri"),
   INJECT("inject"),
   ANNOTATION("annotation"),
-  REASON("reason");
+  REASON("reason"),
+  COMPULSORY("compulsory");
   public final String label;
 
   KEYS(String label) {
