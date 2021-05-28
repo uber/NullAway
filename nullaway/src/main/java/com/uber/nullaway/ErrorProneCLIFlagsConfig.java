@@ -162,7 +162,6 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     customNullableAnnotation = flags.get(FL_CUSTOM_NULLABLE_ANNOT).orElse(null);
     initializerAnnotations =
         getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);
-
     externalInitAnnotations =
         getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT, DEFAULT_EXTERNAL_INIT_ANNOT);
     contractAnnotations = getFlagStringSet(flags, FL_CONTRACT_ANNOT, DEFAULT_CONTRACT_ANNOT);
