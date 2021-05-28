@@ -97,6 +97,8 @@ public abstract class AbstractConfig implements Config {
 
   protected Set<String> externalInitAnnotations;
 
+  protected Set<String> contractAnnotations;
+
   @Nullable protected String castToNonNullMethod;
 
   protected String autofixSuppressionComment;
@@ -254,6 +256,11 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean autofixIsEnabled() {
     return autofix;
+  }
+
+  @Override
+  public boolean isContractAnnotation(String annotationName) {
+    return contractAnnotations.contains(annotationName);
   }
 
   protected Set<MethodClassAndName> getKnownInitializers(Set<String> qualifiedNames) {

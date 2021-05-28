@@ -4,10 +4,15 @@ import com.google.common.base.Function;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+import javax.lang.model.element.AnnotationMirror;
+import org.checkerframework.javacutil.AnnotationUtils;
 
 /** An utility class for {@link ContractHandler} and {@link ContractCheckHandler}. */
 public class ContractUtils {
@@ -104,5 +109,23 @@ public class ContractUtils {
                   state));
     }
     return antecedent;
+  }
+
+  /**
+   * Returns the value of a Contract annotation if present on the method.
+   *
+   * @param methodSymbol the method to check for a Contract annotation
+   * @param config the NullAway config
+   * @return the value of a Contract annotation if present, or {@code null} if not present.
+   */
+  @Nullable
+  static String getContractString(Symbol.MethodSymbol methodSymbol, Config config) {
+    for (AnnotationMirror annotation : methodSymbol.getAnnotationMirrors()) {
+      String name = AnnotationUtils.annotationName(annotation);
+      if (config.isContractAnnotation(name)) {
+        return NullabilityUtil.getAnnotationValue(methodSymbol, name);
+      }
+    }
+    return null;
   }
 }

@@ -57,6 +57,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
   static final String FL_EXTERNAL_INIT_ANNOT = EP_FL_NAMESPACE + ":ExternalInitAnnotations";
+  static final String FL_CONTRACT_ANNOT = EP_FL_NAMESPACE + ":CustomContractAnnotations";
   static final String FL_UNANNOTATED_CLASSES = EP_FL_NAMESPACE + ":UnannotatedClasses";
   static final String FL_ACKNOWLEDGE_RESTRICTIVE =
       EP_FL_NAMESPACE + ":AcknowledgeRestrictiveAnnotations";
@@ -117,16 +118,22 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "org.junit.Before",
           "org.junit.BeforeClass",
           "org.junit.jupiter.api.BeforeAll",
-          "org.junit.jupiter.api.BeforeEach"); // + Anything with @Initializer as its "simple name"
+          "org.junit.jupiter.api.BeforeEach",
+          "org.springframework.beans.factory.annotation.Autowired");
+  // + Anything with @Initializer as its "simple name"
 
   static final ImmutableSet<String> DEFAULT_EXTERNAL_INIT_ANNOT = ImmutableSet.of("lombok.Builder");
+
+  static final ImmutableSet<String> DEFAULT_CONTRACT_ANNOT =
+      ImmutableSet.of("org.jetbrains.annotations.Contract");
 
   static final ImmutableSet<String> DEFAULT_EXCLUDED_FIELD_ANNOT =
       ImmutableSet.of(
           "jakarta.inject.Inject", // no explicit initialization when there is dependency injection
           "javax.inject.Inject", // no explicit initialization when there is dependency injection
           "com.google.errorprone.annotations.concurrent.LazyInit",
-          "org.checkerframework.checker.nullness.qual.MonotonicNonNull");
+          "org.checkerframework.checker.nullness.qual.MonotonicNonNull",
+          "org.springframework.beans.factory.annotation.Autowired");
 
   private static final String DEFAULT_URL = "http://t.uber.com/nullaway";
 
@@ -155,6 +162,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
         getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);
     externalInitAnnotations =
         getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT, DEFAULT_EXTERNAL_INIT_ANNOT);
+    contractAnnotations = getFlagStringSet(flags, FL_CONTRACT_ANNOT, DEFAULT_CONTRACT_ANNOT);
     isExhaustiveOverride = flags.getBoolean(FL_EXHAUSTIVE_OVERRIDE).orElse(false);
     isSuggestSuppressions = flags.getBoolean(FL_SUGGEST_SUPPRESSIONS).orElse(false);
     isAcknowledgeRestrictive = flags.getBoolean(FL_ACKNOWLEDGE_RESTRICTIVE).orElse(false);

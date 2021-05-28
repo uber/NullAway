@@ -16,9 +16,15 @@
 
 package com.uber.nullaway.jarinfer;
 
+import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
+
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ObjectArrays;
 import com.google.common.collect.Sets;
+import com.google.errorprone.BugPattern;
+import com.google.errorprone.CompilationTestHelper;
+import com.google.errorprone.bugpatterns.BugChecker;
+import com.sun.tools.javac.main.Main;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
@@ -47,12 +53,25 @@ public class JarInferTest {
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
   @Rule public TemporaryFolder outputFolder = new TemporaryFolder();
 
-  private CompilerUtil compilerUtil;
+  private CompilationTestHelper compilationTestHelper;
+
+  @BugPattern(
+      name = "DummyChecker",
+      summary = "Dummy checker to use CompilationTestHelper",
+      severity = WARNING)
+  /**
+   * A dummy checker to allow us to use {@link CompilationTestHelper} to compile Java code for
+   * testing, as it requires a {@link BugChecker} to run.
+   */
+  public static class DummyChecker extends BugChecker {
+    public DummyChecker() {}
+  }
 
   @Before
   public void setup() {
-    compilerUtil = new CompilerUtil(getClass());
-    compilerUtil.setArgs(Arrays.asList("-d", temporaryFolder.getRoot().getAbsolutePath()));
+    compilationTestHelper =
+        CompilationTestHelper.newInstance(DummyChecker.class, getClass())
+            .setArgs(Arrays.asList("-d", temporaryFolder.getRoot().getAbsolutePath()));
   }
 
   /**
@@ -71,12 +90,10 @@ public class JarInferTest {
       Map<String, Set<Integer>> expected,
       String... lines)
       throws Exception {
-    boolean compileSucceeded =
-        compilerUtil
-            .addSourceLines(cls + ".java", ObjectArrays.concat("package " + pkg + ";\n", lines))
-            .run();
-    Assert.assertTrue(
-        testName + ": test compilation failed!\n" + compilerUtil.getOutput(), compileSucceeded);
+    compilationTestHelper
+        .addSourceLines(cls + ".java", ObjectArrays.concat("package " + pkg + ";\n", lines))
+        .expectResult(Main.Result.OK)
+        .doTest();
     DefinitelyDerefedParamsDriver driver = new DefinitelyDerefedParamsDriver();
     Map<String, Set<Integer>> result =
         driver.run(

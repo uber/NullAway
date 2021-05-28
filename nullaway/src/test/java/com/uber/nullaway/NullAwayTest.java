@@ -25,6 +25,7 @@ package com.uber.nullaway;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -39,45 +40,58 @@ public class NullAwayTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private CompilationTestHelper compilationHelper;
+  private CompilationTestHelper defaultCompilationHelper;
 
   @SuppressWarnings("CheckReturnValue")
   @Before
   public void setup() {
-    compilationHelper = CompilationTestHelper.newInstance(NullAway.class, getClass());
-    compilationHelper.setArgs(
-        Arrays.asList(
-            "-d",
-            temporaryFolder.getRoot().getAbsolutePath(),
-            "-XepOpt:NullAway:KnownInitializers="
-                + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases.Super.doInit,"
-                + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases"
-                + ".SuperInterface.doInit2",
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
-            // We give the following in Regexp format to test that support
-            "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
-            "-XepOpt:NullAway:ExcludedClasses="
-                + "com.uber.nullaway.testdata.Shape_Stuff,"
-                + "com.uber.nullaway.testdata.excluded",
-            "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.nullaway.testdata.TestAnnot",
-            "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
-            "-XepOpt:NullAway:ExternalInitAnnotations=com.uber.ExternalInit",
-            "-XepOpt:NullAway:ExcludedFieldAnnotations=com.uber.ExternalFieldInit"));
+    defaultCompilationHelper =
+        makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:KnownInitializers="
+                    + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases.Super.doInit,"
+                    + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases"
+                    + ".SuperInterface.doInit2",
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
+                // We give the following in Regexp format to test that support
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
+                "-XepOpt:NullAway:ExcludedClasses="
+                    + "com.uber.nullaway.testdata.Shape_Stuff,"
+                    + "com.uber.nullaway.testdata.excluded",
+                "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.nullaway.testdata.TestAnnot",
+                "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
+                "-XepOpt:NullAway:ExternalInitAnnotations=com.uber.ExternalInit",
+                "-XepOpt:NullAway:ExcludedFieldAnnotations=com.uber.ExternalFieldInit"));
+  }
+
+  /**
+   * Creates a new {@link CompilationTestHelper} with a list of javac arguments. As of Error Prone
+   * 2.5.1, {@link CompilationTestHelper#setArgs(List)} can only be invoked once per object. So,
+   * this method must be used to create a test helper when a different set of javac arguments is
+   * required than those used for {@link #defaultCompilationHelper}.
+   *
+   * @param args the javac arguments
+   * @return the test helper
+   */
+  private CompilationTestHelper makeTestHelperWithArgs(List<String> args) {
+    return CompilationTestHelper.newInstance(NullAway.class, getClass()).setArgs(args);
   }
 
   @Test
   public void coreNullabilityPositiveCases() {
-    compilationHelper.addSourceFile("NullAwayPositiveCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("NullAwayPositiveCases.java").doTest();
   }
 
   @Test
   public void nullabilityAnonymousClass() {
-    compilationHelper.addSourceFile("NullAwayAnonymousClass.java").doTest();
+    defaultCompilationHelper.addSourceFile("NullAwayAnonymousClass.java").doTest();
   }
 
   @Test
   public void coreNullabilityNegativeCases() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceFile("NullAwayNegativeCases.java")
         .addSourceFile("OtherStuff.java")
         .addSourceFile("TestAnnot.java")
@@ -87,7 +101,7 @@ public class NullAwayTest {
 
   @Test
   public void coreNullabilitySkipClass() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceFile("Shape_Stuff.java")
         .addSourceFile("excluded/Shape_Stuff2.java")
         .addSourceFile("AnnotatedClass.java")
@@ -97,13 +111,12 @@ public class NullAwayTest {
 
   @Test
   public void lombokSupportTesting() {
-    compilationHelper.addSourceFile("lombok/LombokBuilderInit.java").doTest();
+    defaultCompilationHelper.addSourceFile("lombok/LombokBuilderInit.java").doTest();
   }
 
   @Test
   public void skipClass() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -125,8 +138,7 @@ public class NullAwayTest {
 
   @Test
   public void skipNestedClass() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -155,12 +167,12 @@ public class NullAwayTest {
 
   @Test
   public void coreNullabilitySkipPackage() {
-    compilationHelper.addSourceFile("unannotated/UnannotatedClass.java").doTest();
+    defaultCompilationHelper.addSourceFile("unannotated/UnannotatedClass.java").doTest();
   }
 
   @Test
   public void coreNullabilityNativeModels() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceFile("NullAwayNativeModels.java")
         .addSourceFile("androidstubs/WebView.java")
         .addSourceFile("androidstubs/TextUtils.java")
@@ -169,23 +181,22 @@ public class NullAwayTest {
 
   @Test
   public void initFieldPositiveCases() {
-    compilationHelper.addSourceFile("CheckFieldInitPositiveCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("CheckFieldInitPositiveCases.java").doTest();
   }
 
   @Test
   public void initFieldNegativeCases() {
-    compilationHelper.addSourceFile("CheckFieldInitNegativeCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("CheckFieldInitNegativeCases.java").doTest();
   }
 
   @Test
   public void assertSupportPositiveCases() {
-    compilationHelper.addSourceFile("CheckAssertSupportPositiveCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("CheckAssertSupportPositiveCases.java").doTest();
   }
 
   @Test
   public void assertSupportNegativeCases() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -197,8 +208,7 @@ public class NullAwayTest {
 
   @Test
   public void checkContractPositiveCases() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -210,8 +220,7 @@ public class NullAwayTest {
 
   @Test
   public void checkContractNegativeCases() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -223,47 +232,47 @@ public class NullAwayTest {
 
   @Test
   public void java8PositiveCases() {
-    compilationHelper.addSourceFile("NullAwayJava8PositiveCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("NullAwayJava8PositiveCases.java").doTest();
   }
 
   @Test
   public void java8NegativeCases() {
-    compilationHelper.addSourceFile("NullAwayJava8NegativeCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("NullAwayJava8NegativeCases.java").doTest();
   }
 
   @Test
   public void rxSupportPositiveCases() {
-    compilationHelper.addSourceFile("NullAwayRxSupportPositiveCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("NullAwayRxSupportPositiveCases.java").doTest();
   }
 
   @Test
   public void rxSupportNegativeCases() {
-    compilationHelper.addSourceFile("NullAwayRxSupportNegativeCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("NullAwayRxSupportNegativeCases.java").doTest();
   }
 
   @Test
   public void streamSupportNegativeCases() {
-    compilationHelper.addSourceFile("NullAwayStreamSupportNegativeCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("NullAwayStreamSupportNegativeCases.java").doTest();
   }
 
   @Test
   public void streamSupportPositiveCases() {
-    compilationHelper.addSourceFile("NullAwayStreamSupportPositiveCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("NullAwayStreamSupportPositiveCases.java").doTest();
   }
 
   @Test
   public void functionalMethodSuperInterface() {
-    compilationHelper.addSourceFile("NullAwaySuperFunctionalInterface.java").doTest();
+    defaultCompilationHelper.addSourceFile("NullAwaySuperFunctionalInterface.java").doTest();
   }
 
   @Test
   public void functionalMethodOverrideSuperInterface() {
-    compilationHelper.addSourceFile("NullAwayOverrideFunctionalInterfaces.java").doTest();
+    defaultCompilationHelper.addSourceFile("NullAwayOverrideFunctionalInterfaces.java").doTest();
   }
 
   @Test
   public void readBeforeInitPositiveCases() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceFile("ReadBeforeInitPositiveCases.java")
         .addSourceFile("Util.java")
         .doTest();
@@ -271,7 +280,7 @@ public class NullAwayTest {
 
   @Test
   public void readBeforeInitNegativeCases() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceFile("ReadBeforeInitNegativeCases.java")
         .addSourceFile("Util.java")
         .doTest();
@@ -279,12 +288,12 @@ public class NullAwayTest {
 
   @Test
   public void tryFinallySupport() {
-    compilationHelper.addSourceFile("NullAwayTryFinallyCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("NullAwayTryFinallyCases.java").doTest();
   }
 
   @Test
   public void externalInitSupport() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "ExternalInit.java",
             "package com.uber;",
@@ -323,7 +332,7 @@ public class NullAwayTest {
 
   @Test
   public void externalInitexternalInitSupportFields() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "ExternalFieldInit.java",
             "package com.uber;",
@@ -367,8 +376,7 @@ public class NullAwayTest {
         (Double.parseDouble(System.getProperty("java.specification.version")) >= 11)
             ? "@javax.annotation.processing.Generated"
             : "@javax.annotation.Generated";
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -394,8 +402,7 @@ public class NullAwayTest {
         (Double.parseDouble(System.getProperty("java.specification.version")) >= 11)
             ? "@javax.annotation.processing.Generated"
             : "@javax.annotation.Generated";
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -423,8 +430,7 @@ public class NullAwayTest {
 
   @Test
   public void basicContractAnnotation() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -467,8 +473,7 @@ public class NullAwayTest {
 
   @Test
   public void impliesNonNullContractAnnotation() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -504,8 +509,7 @@ public class NullAwayTest {
 
   @Test
   public void malformedContractAnnotations() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -543,8 +547,7 @@ public class NullAwayTest {
 
   @Test
   public void contractNonVarArg() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -572,8 +575,7 @@ public class NullAwayTest {
 
   @Test
   public void contractPureOnlyIgnored() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -611,8 +613,67 @@ public class NullAwayTest {
   }
 
   @Test
+  public void customContractAnnotation() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CustomContractAnnotations=com.example.library.CustomContract",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceLines(
+            "CustomContract.java",
+            "package com.example.library;",
+            "import static java.lang.annotation.RetentionPolicy.CLASS;",
+            "import java.lang.annotation.Retention;",
+            "@Retention(CLASS)",
+            "public @interface CustomContract {",
+            "  String value();",
+            "}")
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.example.library.CustomContract;",
+            "public class NullnessChecker {",
+            "  @CustomContract(\"_, !null -> !null\")",
+            "  @Nullable",
+            "  static Object bad(Object a, @Nullable Object b) {",
+            "    if (a.hashCode() % 2 == 0) {",
+            "      // BUG: Diagnostic contains: Method bad has @Contract",
+            "      return null;",
+            "    }",
+            "    return new Object();",
+            "  }",
+            "",
+            "  @CustomContract(\"_, !null -> !null\")",
+            "  @Nullable",
+            "  static Object good(Object a, @Nullable Object b) {",
+            "    if (a.hashCode() % 2 == 0) {",
+            "      return b;",
+            "    }",
+            "    return new Object();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test1() {",
+            "    return NullnessChecker.good(\"bar\", \"foo\").toString();",
+            "  }",
+            "  String test2() {",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    return NullnessChecker.good(\"bar\", null).toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testEnumInit() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "SomeEnum.java",
             "package com.uber;",
@@ -632,7 +693,7 @@ public class NullAwayTest {
 
   @Test
   public void testGenericAnonymousInner() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "GenericSuper.java",
             "package com.uber;",
@@ -661,7 +722,7 @@ public class NullAwayTest {
 
   @Test
   public void testThriftIsSet() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines("TBase.java", "package org.apache.thrift;", "public interface TBase {}")
         .addSourceLines(
             "Generated.java",
@@ -709,7 +770,7 @@ public class NullAwayTest {
 
   @Test
   public void testThriftIsSetWithGenerics() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "TBase.java", "package org.apache.thrift;", "public interface TBase<T, F> {}")
         .addSourceLines(
@@ -740,7 +801,7 @@ public class NullAwayTest {
 
   @Test
   public void testThriftIsSetWithArg() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "TBase.java",
             "package org.apache.thrift;",
@@ -763,7 +824,7 @@ public class NullAwayTest {
   /** we do not have proper support for Thrift unions yet; just checks that we don't crash */
   @Test
   public void testThriftUnion() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "TBase.java", "package org.apache.thrift;", "public interface TBase<T, F> {}")
         .addSourceLines(
@@ -801,7 +862,7 @@ public class NullAwayTest {
   @Test
   public void erasedIterator() {
     // just checking for crash
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -832,7 +893,7 @@ public class NullAwayTest {
 
   @Test
   public void compoundAssignment() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -854,7 +915,7 @@ public class NullAwayTest {
 
   @Test
   public void arrayIndexUnbox() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -870,8 +931,7 @@ public class NullAwayTest {
 
   @Test
   public void unannotatedClass() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -903,7 +963,7 @@ public class NullAwayTest {
 
   @Test
   public void cfNullableArrayField() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "CFNullable.java",
             "package com.uber;",
@@ -917,7 +977,7 @@ public class NullAwayTest {
 
   @Test
   public void typeUseJarReturn() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -933,7 +993,7 @@ public class NullAwayTest {
 
   @Test
   public void typeUseJarParam() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -951,7 +1011,7 @@ public class NullAwayTest {
 
   @Test
   public void typeUseJarField() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -967,7 +1027,7 @@ public class NullAwayTest {
 
   @Test
   public void typeUseJarOverride() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -993,7 +1053,7 @@ public class NullAwayTest {
 
   @Test
   public void tryWithResourcesSupport() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -1017,7 +1077,7 @@ public class NullAwayTest {
 
   @Test
   public void tryWithResourcesSupportInit() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -1040,7 +1100,7 @@ public class NullAwayTest {
 
   @Test
   public void tryFinallySupportInit() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -1066,7 +1126,7 @@ public class NullAwayTest {
 
   @Test
   public void supportObjectsIsNull() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -1084,8 +1144,7 @@ public class NullAwayTest {
 
   @Test
   public void supportTruthAssertThatIsNotNull_Object() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1109,8 +1168,7 @@ public class NullAwayTest {
 
   @Test
   public void supportTruthAssertThatIsNotNull_String() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1133,8 +1191,7 @@ public class NullAwayTest {
 
   @Test
   public void doNotSupportTruthAssertThatWhenDisabled() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1159,8 +1216,7 @@ public class NullAwayTest {
 
   @Test
   public void supportHamcrestAssertThatMatchersIsNotNull() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1187,8 +1243,7 @@ public class NullAwayTest {
 
   @Test
   public void doNotSupportHamcrestAssertThatWhenDisabled() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1214,8 +1269,7 @@ public class NullAwayTest {
 
   @Test
   public void supportHamcrestAssertThatCoreMatchersIsNotNull() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1242,8 +1296,7 @@ public class NullAwayTest {
 
   @Test
   public void supportHamcrestAssertThatCoreIsNotNull() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1271,8 +1324,7 @@ public class NullAwayTest {
 
   @Test
   public void supportJunitAssertThatIsNotNull_Object() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1299,8 +1351,7 @@ public class NullAwayTest {
 
   @Test
   public void doNotSupportJunitAssertThatWhenDisabled() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1326,7 +1377,7 @@ public class NullAwayTest {
 
   @Test
   public void supportSwitchExpression() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "TestPositive.java",
             "package com.uber;",
@@ -1377,8 +1428,7 @@ public class NullAwayTest {
 
   @Test
   public void defaultPermissiveOnUnannotated() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1404,8 +1454,7 @@ public class NullAwayTest {
 
   @Test
   public void acknowledgeRestrictiveAnnotationsWhenFlagSet() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1433,8 +1482,7 @@ public class NullAwayTest {
 
   @Test
   public void defaultPermissiveOnRecently() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1461,8 +1509,7 @@ public class NullAwayTest {
 
   @Test
   public void acknowledgeRecentlyAnnotationsWhenFlagSet() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1489,8 +1536,7 @@ public class NullAwayTest {
 
   @Test
   public void restrictivelyAnnotatedMethodsWorkWithNullnessFromDataflow() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1521,8 +1567,7 @@ public class NullAwayTest {
 
   @Test
   public void restrictivelyAnnotatedMethodsWorkWithNullnessFromDataflow2() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1546,9 +1591,8 @@ public class NullAwayTest {
   }
 
   @Test
-  public void OverridingRestrictivelyAnnotatedMethod() {
-    compilationHelper
-        .setArgs(
+  public void overridingRestrictivelyAnnotatedMethod() {
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1588,8 +1632,7 @@ public class NullAwayTest {
 
   @Test
   public void lambdaPlusRestrictivePositive() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1615,8 +1658,7 @@ public class NullAwayTest {
 
   @Test
   public void lambdaPlusRestrictiveNegative() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1641,8 +1683,7 @@ public class NullAwayTest {
 
   @Test
   public void optionalEmptinessHandlerTest() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1717,8 +1758,7 @@ public class NullAwayTest {
 
   @Test
   public void optionalEmptinessHandlerWithSingleCustomPathTest() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1799,8 +1839,7 @@ public class NullAwayTest {
 
   @Test
   public void optionalEmptinessHandlerWithTwoCustomPathsTest() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1879,8 +1918,7 @@ public class NullAwayTest {
 
   @Test
   public void optionalEmptinessUncheckedTest() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1914,8 +1952,7 @@ public class NullAwayTest {
 
   @Test
   public void optionalEmptinessRxPositiveTest() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1946,8 +1983,7 @@ public class NullAwayTest {
 
   @Test
   public void optionalEmptinessRxNegativeTest() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -1978,8 +2014,7 @@ public class NullAwayTest {
 
   @Test
   public void optionalEmptinessHandleAssertionLibraryTest() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -2014,8 +2049,7 @@ public class NullAwayTest {
 
   @Test
   public void optionalEmptinessAssignmentCheckNegativeTest() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -2049,8 +2083,7 @@ public class NullAwayTest {
 
   @Test
   public void optionalEmptinessAssignmentCheckPositiveTest() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -2084,8 +2117,7 @@ public class NullAwayTest {
 
   @Test
   public void optionalEmptinessContextualSuppressionTest() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -2152,7 +2184,7 @@ public class NullAwayTest {
 
   @Test
   public void testCastToNonNull() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceFile("Util.java")
         .addSourceLines(
             "Test.java",
@@ -2173,7 +2205,7 @@ public class NullAwayTest {
 
   @Test
   public void testReadStaticInConstructor() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -2193,8 +2225,7 @@ public class NullAwayTest {
 
   @Test
   public void customErrorURL() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -2214,8 +2245,7 @@ public class NullAwayTest {
 
   @Test
   public void defaultURL() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -2234,7 +2264,7 @@ public class NullAwayTest {
 
   @Test
   public void invokeNativeFromInitializer() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -2251,7 +2281,7 @@ public class NullAwayTest {
 
   @Test
   public void overrideFailsOnExplicitlyNullableLibraryModelParam() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines( // Dummy android.view.GestureDetector.OnGestureListener interface
             "GestureDetector.java",
             "package android.view;",
@@ -2294,12 +2324,12 @@ public class NullAwayTest {
 
   @Test
   public void testCapturingScopes() {
-    compilationHelper.addSourceFile("CapturingScopes.java").doTest();
+    defaultCompilationHelper.addSourceFile("CapturingScopes.java").doTest();
   }
 
   @Test
   public void testEnhancedFor() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -2316,7 +2346,7 @@ public class NullAwayTest {
 
   @Test
   public void testConstantsInAccessPathsNegative() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "NullableContainer.java",
             "package com.uber;",
@@ -2350,7 +2380,7 @@ public class NullAwayTest {
 
   @Test
   public void testConstantsInAccessPathsPositive() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "NullableContainer.java",
             "package com.uber;",
@@ -2375,7 +2405,7 @@ public class NullAwayTest {
 
   @Test
   public void testVariablesInAccessPathsPositive() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "NullableContainer.java",
             "package com.uber;",
@@ -2401,7 +2431,7 @@ public class NullAwayTest {
 
   @Test
   public void testNonNullVarargs() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
@@ -2432,7 +2462,7 @@ public class NullAwayTest {
 
   @Test
   public void testNullableVarargs() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
@@ -2456,8 +2486,7 @@ public class NullAwayTest {
         (Double.parseDouble(System.getProperty("java.specification.version")) >= 11)
             ? "@javax.annotation.processing.Generated"
             : "@javax.annotation.Generated";
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
@@ -2495,8 +2524,7 @@ public class NullAwayTest {
 
   @Test
   public void libraryModelsOverrideRestrictiveAnnotations() {
-    compilationHelper
-        .setArgs(
+    makeTestHelperWithArgs(
             Arrays.asList(
                 "-processorpath",
                 TestLibraryModels.class
@@ -2536,7 +2564,7 @@ public class NullAwayTest {
 
   @Test
   public void testMapWithCustomPut() { // See https://github.com/uber/NullAway/issues/389
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Item.java",
             "package com.uber.lib.unannotated.collections;",
@@ -2580,8 +2608,30 @@ public class NullAwayTest {
   }
 
   @Test
+  public void testJDKPathGetParentModel() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import java.nio.file.Files;",
+            "import java.nio.file.Path;",
+            "public class Test {",
+            " Optional<Path> findConfig(Path searchDir) {",
+            "    Path configFile = searchDir.resolve(\"foo.yml\");",
+            "    if (Files.exists(configFile)) {",
+            "      return Optional.of(configFile);",
+            "    }",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'searchDir.getParent()' where @NonNull",
+            "    return this.findConfig(searchDir.getParent());",
+            " }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void defaultLibraryModelsObjectNonNull() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -2600,7 +2650,7 @@ public class NullAwayTest {
 
   @Test
   public void checkForNullSupport() {
-    compilationHelper
+    defaultCompilationHelper
         // This is just to check the behavior is the same between @Nullable and @CheckForNull
         .addSourceLines(
             "TestNullable.java",
@@ -2631,7 +2681,7 @@ public class NullAwayTest {
   public void orElseLibraryModelSupport() {
     // Checks both Optional.orElse(...) support itself and the general nullImpliesNullParameters
     // Library Models mechanism for encoding @Contract(!null -> !null) as a library model.
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "TestOptionalOrElseNegative.java",
             "package com.uber;",
@@ -2664,7 +2714,7 @@ public class NullAwayTest {
 
   @Test
   public void requiresNonNullInterpretation() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
@@ -2696,7 +2746,7 @@ public class NullAwayTest {
    */
   @Test
   public void requiresEnsuresNonNullStaticFields() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
@@ -2731,7 +2781,7 @@ public class NullAwayTest {
 
   @Test
   public void supportRequiresNonNullOverridingTest() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "SuperClass.java",
             "package com.uber;",
@@ -2793,7 +2843,7 @@ public class NullAwayTest {
 
   @Test
   public void ensuresNonNullInterpretation() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
@@ -2836,7 +2886,7 @@ public class NullAwayTest {
 
   @Test
   public void supportEnsuresNonNullOverridingTest() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "SuperClass.java",
             "package com.uber;",
@@ -2885,7 +2935,7 @@ public class NullAwayTest {
 
   @Test
   public void supportEnsuresAndRequiresNonNullContract() {
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "Content.java",
             "package com.uber;",
@@ -2967,7 +3017,7 @@ public class NullAwayTest {
   @Test
   public void overridingNativeModelsInAnnotatedCodeDoesNotPropagateTheModel() {
     // See https://github.com/uber/NullAway/issues/445
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "NonNullGetMessage.java",
             "package com.uber;",
@@ -2994,7 +3044,7 @@ public class NullAwayTest {
   @Test
   public void overridingNativeModelsInAnnotatedCodeDoesNotGenerateSafetyHoles() {
     // See https://github.com/uber/NullAway/issues/445
-    compilationHelper
+    defaultCompilationHelper
         .addSourceLines(
             "NonNullGetMessage.java",
             "package com.uber;",
@@ -3008,6 +3058,71 @@ public class NullAwayTest {
             "  public String getMessage() {",
             "    // BUG: Diagnostic contains: returning @Nullable expression",
             "    return super.getMessage();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void springAutowiredFieldTest() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.springframework.stereotype.Component;",
+            "@Component",
+            "public class Foo {",
+            "  @Nullable String bar;",
+            "  public void setBar(String s) {",
+            "    bar = s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.springframework.beans.factory.annotation.Autowired;",
+            "import org.springframework.stereotype.Service;",
+            "@Service",
+            "public class Test {",
+            "  @Autowired",
+            "  Foo f;", // Initialized by spring.
+            "  public void Fun() {",
+            "    f.setBar(\"hello\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void springAutowiredConstructorTest() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.springframework.stereotype.Component;",
+            "@Component",
+            "public class Foo {",
+            "  @Nullable String bar;",
+            "  public void setBar(String s) {",
+            "    bar = s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.springframework.beans.factory.annotation.Autowired;",
+            "import org.springframework.stereotype.Service;",
+            "@Service",
+            "public class Test {",
+            "  Foo f;", // Initialized by spring.
+            "  @Autowired",
+            "  public void init() {",
+            "     f = new Foo();",
+            "  }",
+            "  public void Fun() {",
+            "    f.setBar(\"hello\");",
             "  }",
             "}")
         .doTest();

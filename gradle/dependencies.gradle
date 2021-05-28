@@ -1,3 +1,5 @@
+import org.gradle.util.VersionNumber
+
 /*
  * Copyright (C) 2017. Uber Technologies
  *
@@ -14,11 +16,27 @@
  * limitations under the License.
  */
 
+// The oldest version of Error Prone that we support running on
+def oldestErrorProneApi = "2.4.0"
+
+if (project.hasProperty("epApiVersion")) {
+    def epApiVNum = VersionNumber.parse(epApiVersion)
+    if (epApiVNum.equals(VersionNumber.UNKNOWN)) {
+        throw new IllegalArgumentException("Invalid Error Prone API version " + epApiVersion)
+    }
+    if (epApiVNum.compareTo(VersionNumber.parse(oldestErrorProneApi)) < 0) {
+        throw new IllegalArgumentException(
+                "Error Prone API version " + epApiVersion + " is too old; "
+                + oldestErrorProneApi + " is the oldest supported version")
+    }
+}
 def versions = [
     asm                    : "7.1",
     checkerFramework       : "3.6.0",
-    errorProne             : "2.4.0", // The version of error prone running on this project
-    errorProneApi          : "2.4.0", // The version of error prone built against and shipped
+    // The version of Error Prone used to check NullAway's code
+    errorProne             : "2.7.1",
+    // The version of Error Prone that NullAway is compiled and tested against
+    errorProneApi          : project.hasProperty("epApiVersion") ? epApiVersion : oldestErrorProneApi,
     support                : "27.1.1",
     wala                   : "1.5.4",
     commonscli             : "1.4",
@@ -41,7 +59,7 @@ def build = [
     errorProneCheckApi      : "com.google.errorprone:error_prone_check_api:${versions.errorProneApi}",
     errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProne}",
     errorProneJavac         : "com.google.errorprone:javac:9+181-r4173-1",
-    errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProne}",
+    errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProneApi}",
     checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFramework}",
                                "org.checkerframework:javacutil:${versions.checkerFramework}"],
     guava                   : "com.google.guava:guava:22.0",
@@ -78,6 +96,8 @@ def test = [
     commonsLang3            : "org.apache.commons:commons-lang3:3.8.1",
     commonsLang             : "commons-lang:commons-lang:2.6",
     lombok                  : "org.projectlombok:lombok:1.18.12",
+    springBeans             : "org.springframework:spring-beans:5.3.7",
+    springContext           : "org.springframework:spring-context:5.3.7",
 ]
 
 ext.deps = [

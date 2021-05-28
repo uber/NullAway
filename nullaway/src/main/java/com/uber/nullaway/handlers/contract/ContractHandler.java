@@ -32,9 +32,9 @@ import com.sun.source.tree.ClassTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
@@ -75,10 +75,14 @@ import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
  */
 public class ContractHandler extends BaseNoOpHandler {
 
-  static final String CONTRACT_ANNOTATION_NAME = "org.jetbrains.annotations.Contract";
+  private final Config config;
 
   private @Nullable NullAway analysis;
   private @Nullable VisitorState state;
+
+  public ContractHandler(Config config) {
+    this.config = config;
+  }
 
   @Override
   public void onMatchTopLevelClass(
@@ -99,7 +103,7 @@ public class ContractHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
-    String contractString = NullabilityUtil.getAnnotationValue(callee, CONTRACT_ANNOTATION_NAME);
+    String contractString = ContractUtils.getContractString(callee, config);
     if (contractString != null && contractString.trim().length() > 0) {
       // Found a contract, lets parse it.
       String[] clauses = contractString.split(";");

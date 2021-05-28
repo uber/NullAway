@@ -22,8 +22,6 @@
 
 package com.uber.nullaway.handlers.contract;
 
-import static com.uber.nullaway.NullabilityUtil.getAnnotationValue;
-import static com.uber.nullaway.handlers.contract.ContractHandler.CONTRACT_ANNOTATION_NAME;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 
@@ -35,6 +33,7 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -52,13 +51,19 @@ import com.uber.nullaway.handlers.BaseNoOpHandler;
  */
 public class ContractCheckHandler extends BaseNoOpHandler {
 
+  private final Config config;
+
+  public ContractCheckHandler(Config config) {
+    this.config = config;
+  }
+
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
-    String contractString = getAnnotationValue(callee, CONTRACT_ANNOTATION_NAME);
+    String contractString = ContractUtils.getContractString(callee, config);
     if (contractString != null) {
       // Found a contract, lets parse it.
       String[] clauses = contractString.split(";");

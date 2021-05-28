@@ -54,6 +54,8 @@ dependencies {
     testImplementation project(":test-library-models")
     testImplementation deps.test.lombok
     implementation 'com.googlecode.json-simple:json-simple:1.1.1'
+    testImplementation deps.test.springBeans
+    testImplementation deps.test.springContext
 }
 
 javadoc {
