@@ -77,6 +77,14 @@ public interface Config {
   ImmutableSet<String> getExcludedClassAnnotations();
 
   /**
+   * Gets the fully qualified name of the <code>Nullable</code> annotation, if any.
+   *
+   * @return the fully qualified name of a annotation that denotes Nullability.
+   */
+  @Nullable
+  String getCustomNullableAnnotation();
+
+  /**
    * Checks if the annotation is an @Initializer annotation.
    *
    * @param annotationName fully-qualified annotation name

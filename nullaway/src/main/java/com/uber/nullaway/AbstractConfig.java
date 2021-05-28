@@ -101,6 +101,8 @@ public abstract class AbstractConfig implements Config {
 
   @Nullable protected String castToNonNullMethod;
 
+  @Nullable protected String customNullableAnnotation;
+
   protected String autofixSuppressionComment;
 
   /** --- JarInfer configs --- */
@@ -230,6 +232,12 @@ public abstract class AbstractConfig implements Config {
   @Nullable
   public String getCastToNonNullMethod() {
     return castToNonNullMethod;
+  }
+
+  @Override
+  @Nullable
+  public String getCustomNullableAnnotation() {
+    return customNullableAnnotation;
   }
 
   @Override

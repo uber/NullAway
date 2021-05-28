@@ -125,6 +125,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public String getCustomNullableAnnotation() {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
   public boolean suggestSuppressions() {
     throw new IllegalStateException(error_msg);
   }

@@ -157,7 +157,8 @@ public enum Nullness implements AbstractValue<Nullness> {
         // matches javax.annotation.CheckForNull and edu.umd.cs.findbugs.annotations.CheckForNull
         || annotName.endsWith(".CheckForNull")
         || (config.acknowledgeAndroidRecent()
-            && annotName.equals("androidx.annotation.RecentlyNullable"));
+            && annotName.equals("androidx.annotation.RecentlyNullable"))
+        || annotName.equals(config.getCustomNullableAnnotation());
   }
 
   /**

@@ -3127,4 +3127,39 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testCustomNullableAnnotation() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CustomNullableAnnotation=com.uber.Null"))
+        .addSourceLines(
+            "Null.java",
+            "package com.uber;",
+            "import java.lang.annotation.Documented;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "@Documented",
+            "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE})",
+            "public @interface Null {",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;" + "import com.uber.Null;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  Object bar = new Object();",
+            "  void foo(@Null Object bar) {",
+            "    // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "    this.bar = bar;",
+            "  }",
+            "  @Null Object nullableReturn() {",
+            "     return null;",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
