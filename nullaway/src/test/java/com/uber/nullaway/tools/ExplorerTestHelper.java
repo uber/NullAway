@@ -59,7 +59,7 @@ public class ExplorerTestHelper {
   private final List<JavaFileObject> sources = new ArrayList<>();
   private ImmutableList<String> extraArgs = ImmutableList.of();
   private boolean run = false;
-  private final List<Fix> fixes = new ArrayList<>();
+  private final List<Batch> batches = new ArrayList<>();
   private String outputPath;
 
   private ExplorerTestHelper(ScannerSupplier scannerSupplier, String checkName, Class<?> clazz) {
@@ -98,12 +98,12 @@ public class ExplorerTestHelper {
     return this;
   }
 
-  public ExplorerTestHelper addFixes(Fix... fixes) {
+  public ExplorerTestHelper addBatches(Batch... batches) {
     Path p = fileManager.fileSystem().getRootDirectories().iterator().next();
-    for (Fix f : fixes) {
-      f.uri = p.toAbsolutePath().toUri().toASCIIString().concat(f.uri);
+    for (Batch batch : batches) {
+      batch.setRootForUri(p);
     }
-    this.fixes.addAll(Arrays.asList(fixes));
+    this.batches.addAll(Arrays.asList(batches));
     return this;
   }
 
@@ -123,9 +123,8 @@ public class ExplorerTestHelper {
         fail(diagnostic.getMessage(Locale.ENGLISH));
       }
     }
-
-    Fix[] outputFixes = readOutputFixes();
-    compareFixes(outputFixes);
+    Batch[] outputBatches = readOutputBatches();
+    compareBatches(outputBatches);
   }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")
@@ -133,10 +132,10 @@ public class ExplorerTestHelper {
     new File(outputPath).delete();
   }
 
-  private void compareFixes(Fix[] outputFixes) {
-    ArrayList<Fix> notFound = new ArrayList<>();
-    ArrayList<Fix> output = new ArrayList<>(Arrays.asList(outputFixes));
-    for (Fix f : fixes) {
+  private void compareBatches(Batch[] outputBatches) {
+    ArrayList<Batch> notFound = new ArrayList<>();
+    ArrayList<Batch> output = new ArrayList<>(Arrays.asList(outputBatches));
+    for (Batch f : batches) {
       if (!output.contains(f)) notFound.add(f);
       else output.remove(f);
     }
@@ -145,21 +144,21 @@ public class ExplorerTestHelper {
       fail(
           ""
               + output.size()
-              + " redundant fix(s) were found: "
+              + " redundant batch(s) were found: "
               + "\n"
               + Arrays.deepToString(output.toArray())
               + "\n"
-              + "Fixer did not found any fix!"
+              + "Fixer did not found any batch!"
               + "\n");
     }
     fail(
         ""
             + notFound.size()
-            + " fix(s) were not found: "
+            + " batch(s) were not found: "
             + "\n"
             + Arrays.deepToString(notFound.toArray())
             + "\n"
-            + "redundant fixes list:"
+            + "redundant batches list:"
             + "\n"
             + "================="
             + "\n"
@@ -169,28 +168,28 @@ public class ExplorerTestHelper {
             + "\n");
   }
 
-  private Fix[] readOutputFixes() {
+  private Batch[] readOutputBatches() {
     try {
       BufferedReader bufferedReader =
           Files.newBufferedReader(Paths.get(this.outputPath), Charset.defaultCharset());
       JSONObject obj = (JSONObject) new JSONParser().parse(bufferedReader);
-      JSONArray fixesJson = (JSONArray) obj.get("fixes");
+      JSONArray batchesJson = (JSONArray) obj.get("batches");
       bufferedReader.close();
-      return extractFixesFromJson(fixesJson);
+      return extractBatchesFromJson(batchesJson);
     } catch (IOException ex) {
-      return new Fix[0];
+      return new Batch[0];
     } catch (ParseException e) {
       throw new RuntimeException("Error in parsing object: " + e);
     }
   }
 
-  private Fix[] extractFixesFromJson(JSONArray fixesJson) {
-    Fix[] fixes = new Fix[fixesJson.size()];
-    for (int i = 0; i < fixesJson.size(); i++) {
-      JSONObject fix = (JSONObject) fixesJson.get(i);
-      fixes[i] = Fix.createFromJson(fix);
+  private Batch[] extractBatchesFromJson(JSONArray batchesJson) {
+    Batch[] batches = new Batch[batchesJson.size()];
+    for (int i = 0; i < batchesJson.size(); i++) {
+      JSONObject batch = (JSONObject) batchesJson.get(i);
+      batches[i] = Batch.createFromJson(batch);
     }
-    return fixes;
+    return batches;
   }
 
   private Main.Result compile() {

@@ -22,7 +22,6 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import java.io.File;
-import java.util.HashMap;
 import java.util.List;
 import javax.lang.model.element.Modifier;
 
@@ -35,13 +34,10 @@ public class Fixer {
 
   protected final Config config;
   protected final Writer writer;
-  protected final HashMap<ErrorMessage.MessageTypes, List<Location.Kind>> messageTypeLocationMap;
 
   public Fixer(Config config) {
     this.config = config;
     this.writer = new Writer(config);
-    messageTypeLocationMap = new HashMap<>();
-    fillMessageTypeLocationMap();
     cleanFixOutPutFolder();
   }
 
@@ -53,15 +49,15 @@ public class Fixer {
     file.delete();
   }
 
-  private void fillMessageTypeLocationMap() {}
-
-  public void fix(ErrorMessage errorMessage, Location location) {
+  public void fix(ErrorMessage errorMessage, Location location, VisitorState state) {
     // todo: remove this condition later, for now we are not supporting anonymous classes
     if (!config.autofixIsEnabled()) return;
     if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
     Fix fix = buildFix(errorMessage, location);
     if (fix != null) {
-      writer.saveFix(fix);
+      Batch batch = new Batch(fix);
+      batch.fillInheritanceChain(state);
+      writer.saveBatch(batch);
     }
   }
 
@@ -194,7 +190,8 @@ public class Fixer {
                   .build();
           fix(
               new ErrorMessage(ErrorMessage.MessageTypes.FIELD_NO_INIT, "Must be nullable"),
-              location);
+              location,
+              state);
         }
       }
     }

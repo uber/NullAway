@@ -430,7 +430,7 @@ public class NullAway extends BugChecker
                 .setVariableSymbol(ASTHelpers.getSymbol(tree.getVariable()))
                 .setKind(Location.Kind.CLASS_FIELD)
                 .build();
-        fixer.fix(errorMessage, location);
+        fixer.fix(errorMessage, location, state);
       }
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, expression, buildDescription(tree), state);
@@ -672,7 +672,7 @@ public class NullAway extends BugChecker
                   .setKind(Location.Kind.METHOD_PARAM)
                   .setVariableSymbol(paramSymbol)
                   .build();
-          fixer.fix(errorMessage, location);
+          fixer.fix(errorMessage, location, state);
         }
         return errorBuilder.createErrorDescription(
             errorMessage, buildDescription(errorTree), state);
@@ -717,7 +717,7 @@ public class NullAway extends BugChecker
                 .setCompilationUnitTree(c)
                 .setKind(Location.Kind.METHOD_RETURN)
                 .build();
-        fixer.fix(errorMessage, location);
+        fixer.fix(errorMessage, location, state);
       }
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, retExpr, buildDescription(tree), state);
@@ -845,7 +845,7 @@ public class NullAway extends BugChecker
                 .setCompilationUnitTree(c)
                 .setKind(Location.Kind.METHOD_RETURN)
                 .build();
-        fixer.fix(errorMessage, location);
+        fixer.fix(errorMessage, location, state);
       }
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(errorTree), state);
     }
@@ -1226,7 +1226,7 @@ public class NullAway extends BugChecker
                     .setVariableSymbol(ASTHelpers.getSymbol(tree))
                     .setKind(Location.Kind.CLASS_FIELD)
                     .build();
-            fixer.fix(errorMessage, location);
+            fixer.fix(errorMessage, location, state);
           }
           return errorBuilder.createErrorDescriptionForNullAssignment(
               errorMessage, initializer, buildDescription(tree), state);
@@ -1485,7 +1485,7 @@ public class NullAway extends BugChecker
                   .setVariableSymbol(LocationUtils.getParamSymbol(methodSymbol, argPos))
                   .setKind(Location.Kind.METHOD_PARAM)
                   .build();
-          fixer.fix(errorMessage, location);
+          fixer.fix(errorMessage, location, state);
         }
         return errorBuilder.createErrorDescriptionForNullAssignment(
             errorMessage, actual, buildDescription(actual), state);
@@ -1641,7 +1641,7 @@ public class NullAway extends BugChecker
               new ErrorMessage(
                   MessageTypes.FIELD_NO_INIT,
                   fixMessageSignature + "initializer method does not guarantee @NonNull fields");
-          fixer.fix(errorMessage, location);
+          fixer.fix(errorMessage, location, state);
         }
       }
     }

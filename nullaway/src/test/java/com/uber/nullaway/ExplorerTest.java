@@ -1,5 +1,6 @@
 package com.uber.nullaway;
 
+import com.uber.nullaway.tools.Batch;
 import com.uber.nullaway.tools.ExplorerTestHelper;
 import com.uber.nullaway.tools.Fix;
 import java.util.Arrays;
@@ -47,17 +48,18 @@ public class ExplorerTest {
             "       else return null;",
             "   }",
             "}")
-        .addFixes(
-            new Fix(
-                "javax.annotation.Nullable",
-                "test(boolean)",
-                "",
-                "METHOD_RETURN",
-                "com.uber.SubClass",
-                "com.uber",
-                "com/uber/SubClass.java",
-                "true",
-                "false"))
+        .addBatches(
+            new Batch(
+                new Fix(
+                    "javax.annotation.Nullable",
+                    "test(boolean)",
+                    "",
+                    "METHOD_RETURN",
+                    "com.uber.SubClass",
+                    "com.uber",
+                    "com/uber/SubClass.java",
+                    "true",
+                    "false")))
         .doTest();
   }
 
@@ -96,17 +98,18 @@ public class ExplorerTest {
             "       else return null;",
             "   }",
             "}")
-        .addFixes(
-            new Fix(
-                "javax.annotation.Nullable",
-                "test(boolean)",
-                "",
-                "METHOD_RETURN",
-                "com.uber.Super",
-                "com.uber",
-                "com/uber/android/Super.java",
-                "true",
-                "false"))
+        .addBatches(
+            new Batch(
+                new Fix(
+                    "javax.annotation.Nullable",
+                    "test(boolean)",
+                    "",
+                    "METHOD_RETURN",
+                    "com.uber.Super",
+                    "com.uber",
+                    "com/uber/android/Super.java",
+                    "true",
+                    "false")))
         .doTest();
   }
 
@@ -145,17 +148,18 @@ public class ExplorerTest {
             "     return o.toString();",
             "   }",
             "}")
-        .addFixes(
-            new Fix(
-                "javax.annotation.Nullable",
-                "test(java.lang.Object)",
-                "o",
-                "METHOD_PARAM",
-                "com.uber.SubClass",
-                "com.uber",
-                "com/uber/test/SubClass.java",
-                "true",
-                "false"))
+        .addBatches(
+            new Batch(
+                new Fix(
+                    "javax.annotation.Nullable",
+                    "test(java.lang.Object)",
+                    "o",
+                    "METHOD_PARAM",
+                    "com.uber.SubClass",
+                    "com.uber",
+                    "com/uber/test/SubClass.java",
+                    "true",
+                    "false")))
         .doTest();
   }
 
@@ -184,17 +188,18 @@ public class ExplorerTest {
             "     return test(0, o);",
             "   }",
             "}")
-        .addFixes(
-            new Fix(
-                "javax.annotation.Nullable",
-                "test(int,java.lang.Object)",
-                "h",
-                "METHOD_PARAM",
-                "com.uber.Super",
-                "com.uber",
-                "com/uber/android/Super.java",
-                "true",
-                "false"))
+        .addBatches(
+            new Batch(
+                new Fix(
+                    "javax.annotation.Nullable",
+                    "test(int,java.lang.Object)",
+                    "h",
+                    "METHOD_PARAM",
+                    "com.uber.Super",
+                    "com.uber",
+                    "com/uber/android/Super.java",
+                    "true",
+                    "false")))
         .doTest();
   }
 
@@ -249,17 +254,18 @@ public class ExplorerTest {
             "      h = f;",
             "   }",
             "}")
-        .addFixes(
-            new Fix(
-                "javax.annotation.Nullable",
-                "",
-                "h",
-                "CLASS_FIELD",
-                "com.uber.Super",
-                "com.uber",
-                "com/uber/android/Super.java",
-                "true",
-                "false"))
+        .addBatches(
+            new Batch(
+                new Fix(
+                    "javax.annotation.Nullable",
+                    "",
+                    "h",
+                    "CLASS_FIELD",
+                    "com.uber.Super",
+                    "com.uber",
+                    "com/uber/android/Super.java",
+                    "true",
+                    "false")))
         .doTest();
   }
 
@@ -313,17 +319,18 @@ public class ExplorerTest {
             "     return null;",
             "   }",
             "}")
-        .addFixes(
-            new Fix(
-                "javax.annotation.Nullable",
-                "",
-                "f",
-                "CLASS_FIELD",
-                "com.uber.Super",
-                "com.uber",
-                "com/uber/android/Super.java",
-                "true",
-                "false"))
+        .addBatches(
+            new Batch(
+                new Fix(
+                    "javax.annotation.Nullable",
+                    "",
+                    "f",
+                    "CLASS_FIELD",
+                    "com.uber.Super",
+                    "com.uber",
+                    "com/uber/android/Super.java",
+                    "true",
+                    "false")))
         .doTest();
   }
 
@@ -350,17 +357,18 @@ public class ExplorerTest {
             "      if(b) h = new Object();",
             "   }",
             "}")
-        .addFixes(
-            new Fix(
-                "javax.annotation.Nullable",
-                "",
-                "h",
-                "CLASS_FIELD",
-                "com.uber.Super",
-                "com.uber",
-                "com/uber/android/Super.java",
-                "true",
-                "false"))
+        .addBatches(
+            new Batch(
+                new Fix(
+                    "javax.annotation.Nullable",
+                    "",
+                    "h",
+                    "CLASS_FIELD",
+                    "com.uber.Super",
+                    "com.uber",
+                    "com/uber/android/Super.java",
+                    "true",
+                    "false")))
         .doTest();
   }
 
@@ -382,101 +390,20 @@ public class ExplorerTest {
             "public class Super {",
             "   Object f;",
             "}")
-        .addFixes(
-            new Fix(
-                "javax.annotation.Nullable",
-                "",
-                "f",
-                "CLASS_FIELD",
-                "com.uber.Super",
-                "com.uber",
-                "com/uber/android/Super.java",
-                "true",
-                "false"))
+        .addBatches(
+            new Batch(
+                new Fix(
+                    "javax.annotation.Nullable",
+                    "",
+                    "f",
+                    "CLASS_FIELD",
+                    "com.uber.Super",
+                    "com.uber",
+                    "com/uber/android/Super.java",
+                    "true",
+                    "false")))
         .doTest();
   }
-
-  @Test
-  public void add_nullable_pass_param_generics() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
-    explorerTestHelper
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
-        .setOutputPath(outputPath)
-        .addSourceLines(
-            "com/uber/Base.java",
-            "package com.uber;",
-            "import java.util.ArrayList;",
-            "public class Base extends Super<String>{",
-            "   public void newSideEffect(ArrayList<String> op) {",
-            "     newStatement(null, op, true, true);",
-            "   }",
-            "}")
-        .addSourceLines(
-            "com/uber/Super.java",
-            "package com.uber;",
-            "import java.util.ArrayList;",
-            "class Super<T extends Object> {",
-            "   public boolean newStatement(",
-            "     T lhs, ArrayList<T> operator, boolean toWorkList, boolean eager) {",
-            "       return false;",
-            "   }",
-            "}")
-        .addFixes(
-            new Fix(
-                "javax.annotation.Nullable",
-                "newStatement(T,java.util.ArrayList<T>,boolean,boolean)",
-                "lhs",
-                "METHOD_PARAM",
-                "com.uber.Super",
-                "com.uber",
-                "com/uber/Super.java",
-                "true",
-                "false"))
-        .doTest();
-  }
-
-  //  @Test
-  //  public void detect_must_be_nullable_field() {
-  //    String outputPath = "/tmp/NullAwayFix/fixes.json";
-  //    explorerTestHelper
-  //        .setArgs(
-  //            Arrays.asList(
-  //                "-d",
-  //                temporaryFolder.getRoot().getAbsolutePath(),
-  //                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-  //                "-XepOpt:NullAway:AutoFix=true",
-  //                "-XepOpt:NullAway:FixFilePath=" + outputPath))
-  //        .setOutputPath(outputPath)
-  //        .addSourceLines(
-  //            "com/uber/Base.java",
-  //            "package com.uber;",
-  //            "import java.util.ArrayList;",
-  //            "public class Base {",
-  //            "   Object mustBeNullable = new Object();",
-  //            "   public boolean perform_if_check() {",
-  //            "     mustBeNullable = new Object();",
-  //            "     if(mustBeNullable == null) return true; else return false;",
-  //            "   }",
-  //            "}")
-  //        .addFixes(
-  //            new Fix(
-  //                "javax.annotation.Nullable",
-  //                "",
-  //                "mustBeNullable",
-  //                "CLASS_FIELD",
-  //                "com.uber.Base",
-  //                "com.uber",
-  //                "com/uber/Base.java",
-  //                "true",
-  //                "false"))
-  //        .doTest();
-  //  }
 
   @Test
   public void fix_annotation_flag_test() {
@@ -512,17 +439,18 @@ public class ExplorerTest {
             "       return false;",
             "   }",
             "}")
-        .addFixes(
-            new Fix(
-                "org.checkerframework.checker.nullness.qual.Nullable",
-                "newStatement(T,java.util.ArrayList<T>,boolean,boolean)",
-                "lhs",
-                "METHOD_PARAM",
-                "com.uber.Super",
-                "com.uber",
-                "com/uber/Super.java",
-                "true",
-                "false"))
+        .addBatches(
+            new Batch(
+                new Fix(
+                    "org.checkerframework.checker.nullness.qual.Nullable",
+                    "newStatement(T,java.util.ArrayList<T>,boolean,boolean)",
+                    "lhs",
+                    "METHOD_PARAM",
+                    "com.uber.Super",
+                    "com.uber",
+                    "com/uber/Super.java",
+                    "true",
+                    "false")))
         .doTest();
   }
 }

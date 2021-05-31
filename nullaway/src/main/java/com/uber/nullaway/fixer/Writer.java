@@ -17,7 +17,7 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 public class Writer {
-  private final List<JSONObject> fixes = new ArrayList<>();
+  private final List<JSONObject> batches = new ArrayList<>();
   private final List<JSONObject> methodInfo = new ArrayList<>();
   private final List<JSONObject> errors = new ArrayList<>();
   private final Config config;
@@ -27,10 +27,10 @@ public class Writer {
   }
 
   @SuppressWarnings("unchecked")
-  public void saveFix(Fix fix) {
-    fixes.add(fix.getJson());
+  public void saveBatch(Batch batch) {
+    batches.add(batch.getJson());
     JSONObject toWrite = new JSONObject();
-    toWrite.put("fixes", fixes);
+    toWrite.put("batches", batches);
     try (java.io.Writer writer =
         Files.newBufferedWriter(
             Paths.get(config.getJsonFileWriterPath()), Charset.defaultCharset())) {
