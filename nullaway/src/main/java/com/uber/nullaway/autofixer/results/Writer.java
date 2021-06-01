@@ -66,11 +66,14 @@ public class Writer {
       String path,
       CompilationUnitTree c,
       VisitorState state) {
+
     String method = methodSymbol.toString();
     String clazz = ASTHelpers.enclosingClass(methodSymbol).toString();
-    String uri = c.getSourceFile().toUri().toASCIIString();
+    MethodInfo methodInfo = MethodInfo.findOrCreate(method, clazz);
+    methodInfo.setUri(c);
+    methodInfo.setNonnullFieldsElements(nonnullFieldsAtExit);
+    methodInfo.setParent(methodSymbol, state);
 
-    MethodInfo methodInfo = MethodInfo.findOrCreate(method, clazz, uri);
     JSONObject toWrite = new JSONObject();
     methodInfos.put(methodInfo.id, methodInfo.getJSON());
     toWrite.put("infos", methodInfos);

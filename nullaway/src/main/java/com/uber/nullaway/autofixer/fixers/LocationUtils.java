@@ -8,10 +8,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree;
-import com.uber.nullaway.NullabilityUtil;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 @SuppressWarnings("ALL")
 public class LocationUtils extends ASTHelpers {
@@ -43,17 +40,5 @@ public class LocationUtils extends ASTHelpers {
     if (position < 0 || position >= params.size())
       throw new RuntimeException("Wrong position: " + position + " for method: " + methodSymbol);
     return params.get(position);
-  }
-
-  public static Set<Symbol.MethodSymbol> getAllSuperMethods(
-      Symbol.MethodSymbol methodSymbol, VisitorState state) {
-    Set<Symbol.MethodSymbol> methods = new HashSet<>();
-    do {
-      methodSymbol = NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
-      if (methodSymbol != null) {
-        methods.add(methodSymbol);
-      }
-    } while (methodSymbol != null);
-    return methods;
   }
 }

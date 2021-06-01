@@ -511,7 +511,6 @@ public class NullAway extends BugChecker
     }
 
     try {
-      System.out.println(captureMethodInfo);
       if (tree.getBody() != null && config.autofixIsEnabled() && captureMethodInfo) {
         AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
         Set<Element> nonnullFieldsOfReceiverAtExit =
@@ -527,7 +526,7 @@ public class NullAway extends BugChecker
         }
       }
     } catch (Exception e) {
-      System.out.println("Could not save method info: " + methodSymbol);
+      System.err.println("Could not save method info: " + methodSymbol);
     }
     return Description.NO_MATCH;
   }
