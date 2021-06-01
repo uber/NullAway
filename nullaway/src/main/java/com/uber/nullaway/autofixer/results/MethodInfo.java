@@ -26,7 +26,7 @@ public class MethodInfo implements Serializable {
   int parent = -1;
 
   private static int LAST_ID = 0;
-  private static final HashSet<MethodInfo> discovered = new HashSet<>();
+  static final HashSet<MethodInfo> discovered = new HashSet<>();
 
   private MethodInfo(String method, String clazz) {
     this.method = method;
@@ -75,6 +75,9 @@ public class MethodInfo implements Serializable {
   }
 
   public void setNonnullFieldsElements(Set<Element> nonnullFieldsAtExit) {
+    if (nonnullFieldsAtExit == null) {
+      nonnullFieldsAtExit = Collections.EMPTY_SET;
+    }
     List<String> fields = new ArrayList<>();
     for (Element element : nonnullFieldsAtExit) {
       fields.add(element.getSimpleName().toString());

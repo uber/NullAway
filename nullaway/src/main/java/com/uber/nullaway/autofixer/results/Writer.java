@@ -18,7 +18,6 @@ import org.json.simple.JSONObject;
 
 public class Writer {
   private final List<JSONObject> batches = new ArrayList<>();
-  private final JSONObject methodInfos = new JSONObject();
   private final List<JSONObject> errors = new ArrayList<>();
   private final Config config;
 
@@ -74,9 +73,12 @@ public class Writer {
     methodInfo.setNonnullFieldsElements(nonnullFieldsAtExit);
     methodInfo.setParent(methodSymbol, state);
 
+    JSONObject methods = new JSONObject();
+    for (MethodInfo info : MethodInfo.discovered) {
+      methods.put(info.id, info.getJSON());
+    }
     JSONObject toWrite = new JSONObject();
-    methodInfos.put(methodInfo.id, methodInfo.getJSON());
-    toWrite.put("infos", methodInfos);
+    toWrite.put("methods", methods);
     try (java.io.Writer writer =
         Files.newBufferedWriter(Paths.get(path), Charset.defaultCharset())) {
       writer.write(toWrite.toJSONString().replace("\\/", "/").replace("\\\\\\", "\\"));

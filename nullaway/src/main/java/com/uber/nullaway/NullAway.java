@@ -491,27 +491,25 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
-      return Description.NO_MATCH;
-    }
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     try {
+      Set<Element> nonnullFieldsOfReceiverAtExit = null;
+      CompilationUnitTree c = getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
       if (tree.getBody() != null && config.autofixIsEnabled() && captureMethodInfo) {
         AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-        Set<Element> nonnullFieldsOfReceiverAtExit =
+        nonnullFieldsOfReceiverAtExit =
             nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
                 getTreesInstance(state).getPath(methodSymbol), state.context);
-        if (nonnullFieldsOfReceiverAtExit.size() > 0) {
-          CompilationUnitTree c =
-              getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
-          fixer
-              .getWriter()
-              .saveMethodInfo(
-                  methodSymbol, nonnullFieldsOfReceiverAtExit, methodInfoPath, c, state);
-        }
       }
+      fixer
+          .getWriter()
+          .saveMethodInfo(methodSymbol, nonnullFieldsOfReceiverAtExit, methodInfoPath, c, state);
     } catch (Exception e) {
       System.err.println("Could not save method info: " + methodSymbol);
+    }
+
+    if (!matchWithinTopLevelClass) {
+      return Description.NO_MATCH;
     }
     // if the method is overriding some other method,
     // check that nullability annotations are consistent with
