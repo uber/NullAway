@@ -1,6 +1,6 @@
-package com.uber.nullaway.fixer;
+package com.uber.nullaway.autofixer.results;
 
-public enum KEYS {
+public enum Keys {
   PARAM("param"),
   METHOD("method"),
   LOCATION("location"),
@@ -13,7 +13,7 @@ public enum KEYS {
   COMPULSORY("compulsory");
   public final String label;
 
-  KEYS(String label) {
+  Keys(String label) {
     this.label = label;
   }
 

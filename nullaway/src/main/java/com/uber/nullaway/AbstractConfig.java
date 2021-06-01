@@ -29,7 +29,7 @@ import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.fixer.AnnotationFactory;
+import com.uber.nullaway.autofixer.qual.AnnotationFactory;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;

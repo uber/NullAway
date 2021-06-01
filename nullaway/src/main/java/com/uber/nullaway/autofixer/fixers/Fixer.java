@@ -1,4 +1,4 @@
-package com.uber.nullaway.fixer;
+package com.uber.nullaway.autofixer.fixers;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
@@ -20,6 +20,10 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.autofixer.qual.AnnotationFactory;
+import com.uber.nullaway.autofixer.results.Batch;
+import com.uber.nullaway.autofixer.results.Fix;
+import com.uber.nullaway.autofixer.results.Writer;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import java.io.File;
 import java.util.List;
@@ -56,7 +60,6 @@ public class Fixer {
     Fix fix = buildFix(errorMessage, location);
     if (fix != null) {
       Batch batch = new Batch(fix);
-      batch.fillInheritanceChain(state);
       writer.saveBatch(batch);
     }
   }

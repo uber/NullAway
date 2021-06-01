@@ -1,8 +1,5 @@
-package com.uber.nullaway.fixer;
+package com.uber.nullaway.autofixer.results;
 
-import com.google.errorprone.VisitorState;
-import com.google.errorprone.util.ASTHelpers;
-import com.sun.tools.javac.code.Symbol;
 import java.io.Serializable;
 import java.util.Set;
 import org.json.simple.JSONArray;
@@ -21,18 +18,6 @@ public class Batch implements Serializable {
 
   public Batch(Fix core) {
     this.core = core;
-  }
-
-  public void fillInheritanceChain(VisitorState state) {
-    if (!(core.location.kind.equals(Location.Kind.METHOD_PARAM)
-        || core.location.kind.equals(Location.Kind.METHOD_RETURN))) {
-      return;
-    }
-    Set<Symbol.MethodSymbol> overriddenMethods =
-        LocationUtils.getAllSuperMethods(ASTHelpers.getSymbol(core.location.methodTree), state);
-    for (Symbol.MethodSymbol symbol : overriddenMethods) {
-      System.out.println(symbol);
-    }
   }
 
   public void setBatch(Set<Fix> fixes) {

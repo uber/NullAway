@@ -28,7 +28,7 @@ import static com.uber.nullaway.ErrorProneCLIFlagsConfig.FL_ANNOTATED_PACKAGES;
 import com.google.common.collect.ImmutableSet;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.fixer.AnnotationFactory;
+import com.uber.nullaway.autofixer.qual.AnnotationFactory;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
@@ -65,7 +65,7 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public com.uber.nullaway.fixer.AnnotationFactory getAnnotationFactory() {
+  public AnnotationFactory getAnnotationFactory() {
     return new AnnotationFactory();
   }
 

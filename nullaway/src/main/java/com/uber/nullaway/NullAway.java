@@ -88,11 +88,11 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
+import com.uber.nullaway.autofixer.fixers.Fixer;
+import com.uber.nullaway.autofixer.fixers.Location;
+import com.uber.nullaway.autofixer.fixers.LocationUtils;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
-import com.uber.nullaway.fixer.Fixer;
-import com.uber.nullaway.fixer.Location;
-import com.uber.nullaway.fixer.LocationUtils;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import java.io.File;
@@ -511,15 +511,19 @@ public class NullAway extends BugChecker
     }
 
     try {
+      System.out.println(captureMethodInfo);
       if (tree.getBody() != null && config.autofixIsEnabled() && captureMethodInfo) {
         AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-        Set<Element> elements =
+        Set<Element> nonnullFieldsOfReceiverAtExit =
             nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
                 getTreesInstance(state).getPath(methodSymbol), state.context);
-        if (elements.size() > 0) {
+        if (nonnullFieldsOfReceiverAtExit.size() > 0) {
           CompilationUnitTree c =
               getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
-          fixer.getWriter().saveMethodInfo(methodSymbol, elements, methodInfoPath, c);
+          fixer
+              .getWriter()
+              .saveMethodInfo(
+                  methodSymbol, nonnullFieldsOfReceiverAtExit, methodInfoPath, c, state);
         }
       }
     } catch (Exception e) {

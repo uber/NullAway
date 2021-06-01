@@ -1,4 +1,4 @@
-package com.uber.nullaway.fixer;
+package com.uber.nullaway.autofixer.qual;
 
 public class AnnotationFactory {
 

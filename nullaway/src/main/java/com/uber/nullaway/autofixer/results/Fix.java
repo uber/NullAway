@@ -1,5 +1,7 @@
-package com.uber.nullaway.fixer;
+package com.uber.nullaway.autofixer.results;
 
+import com.uber.nullaway.autofixer.fixers.Location;
+import com.uber.nullaway.autofixer.qual.AnnotationFactory;
 import java.io.Serializable;
 import org.json.simple.JSONObject;
 
@@ -8,18 +10,18 @@ import org.json.simple.JSONObject;
   "unchecked"
 }) // TODO: remove this later, this class is still under construction on 'AutoFix' branch
 public class Fix implements Serializable {
-  Location location;
-  AnnotationFactory.Annotation annotation;
-  String reason;
-  boolean inject;
-  boolean compulsory;
+  public Location location;
+  public AnnotationFactory.Annotation annotation;
+  public String reason;
+  public boolean inject;
+  public boolean compulsory;
 
   public JSONObject getJson() {
     JSONObject res = location.getJson();
-    res.put(KEYS.REASON.label, (reason == null) ? "Undefined" : reason);
-    res.put(KEYS.INJECT.label, "" + inject);
-    res.put(KEYS.ANNOTATION.label, annotation.fullName.replace(";", ""));
-    res.put(KEYS.COMPULSORY.label, "" + compulsory);
+    res.put(Keys.REASON.label, (reason == null) ? "Undefined" : reason);
+    res.put(Keys.INJECT.label, "" + inject);
+    res.put(Keys.ANNOTATION.label, annotation.fullName.replace(";", ""));
+    res.put(Keys.COMPULSORY.label, "" + compulsory);
     return res;
   }
 

@@ -24,7 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.ErrorProneFlags;
-import com.uber.nullaway.fixer.AnnotationFactory;
+import com.uber.nullaway.autofixer.qual.AnnotationFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -253,7 +253,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   }
 
   @Override
-  public com.uber.nullaway.fixer.AnnotationFactory getAnnotationFactory() {
+  public AnnotationFactory getAnnotationFactory() {
     if (annotationFactory == null) return new AnnotationFactory();
     else return annotationFactory;
   }

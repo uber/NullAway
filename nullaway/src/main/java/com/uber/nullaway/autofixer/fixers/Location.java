@@ -1,4 +1,4 @@
-package com.uber.nullaway.fixer;
+package com.uber.nullaway.autofixer.fixers;
 
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -6,6 +6,7 @@ import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.autofixer.results.Keys;
 import java.io.Serializable;
 import org.json.simple.JSONObject;
 
@@ -51,15 +52,15 @@ public class Location implements Serializable {
         methodTree != null ? escapeQuotationMark(ASTHelpers.getSymbol(methodTree).toString()) : "";
     String paramSymbolRep = variableSymbol != null ? variableSymbol.toString() : "";
     String pkg = compilationUnitTree != null ? compilationUnitTree.getPackageName().toString() : "";
-    res.put(KEYS.CLASS.label, classSymbolRep);
-    res.put(KEYS.METHOD.label, methodSymbolRep);
-    res.put(KEYS.PARAM.label, paramSymbolRep);
-    res.put(KEYS.LOCATION.label, kind.label);
-    res.put(KEYS.PKG.label, pkg);
+    res.put(Keys.CLASS.label, classSymbolRep);
+    res.put(Keys.METHOD.label, methodSymbolRep);
+    res.put(Keys.PARAM.label, paramSymbolRep);
+    res.put(Keys.LOCATION.label, kind.label);
+    res.put(Keys.PKG.label, pkg);
     if (compilationUnitTree != null) {
-      res.put(KEYS.URI.label, compilationUnitTree.getSourceFile().toUri().toASCIIString());
+      res.put(Keys.URI.label, compilationUnitTree.getSourceFile().toUri().toASCIIString());
     } else {
-      res.put(KEYS.URI.label, "");
+      res.put(Keys.URI.label, "");
     }
     return res;
   }

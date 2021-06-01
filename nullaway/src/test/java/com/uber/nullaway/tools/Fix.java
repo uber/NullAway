@@ -1,6 +1,6 @@
 package com.uber.nullaway.tools;
 
-import com.uber.nullaway.fixer.KEYS;
+import com.uber.nullaway.autofixer.results.Keys;
 import java.util.Objects;
 import org.json.simple.JSONObject;
 
@@ -38,15 +38,15 @@ public class Fix {
 
   static Fix createFromJson(JSONObject fix) {
     return new Fix(
-        fix.get(KEYS.ANNOTATION.label).toString(),
-        fix.get(KEYS.METHOD.label).toString(),
-        fix.get(KEYS.PARAM.label).toString(),
-        fix.get(KEYS.LOCATION.label).toString(),
-        fix.get(KEYS.CLASS.label).toString(),
-        fix.get(KEYS.PKG.label).toString(),
-        fix.get(KEYS.URI.label).toString(),
-        fix.get(KEYS.INJECT.label).toString(),
-        fix.get(KEYS.COMPULSORY.label).toString());
+        fix.get(Keys.ANNOTATION.label).toString(),
+        fix.get(Keys.METHOD.label).toString(),
+        fix.get(Keys.PARAM.label).toString(),
+        fix.get(Keys.LOCATION.label).toString(),
+        fix.get(Keys.CLASS.label).toString(),
+        fix.get(Keys.PKG.label).toString(),
+        fix.get(Keys.URI.label).toString(),
+        fix.get(Keys.INJECT.label).toString(),
+        fix.get(Keys.COMPULSORY.label).toString());
   }
 
   @Override

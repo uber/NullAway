@@ -1,5 +1,6 @@
-package com.uber.nullaway.fixer;
+package com.uber.nullaway.autofixer.results;
 
+import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.tools.javac.code.Symbol;
@@ -13,12 +14,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.Element;
-import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 public class Writer {
   private final List<JSONObject> batches = new ArrayList<>();
-  private final List<JSONObject> methodInfo = new ArrayList<>();
+  private final JSONObject methodInfos = new JSONObject();
   private final List<JSONObject> errors = new ArrayList<>();
   private final Config config;
 
@@ -61,22 +61,19 @@ public class Writer {
 
   @SuppressWarnings("unchecked")
   public void saveMethodInfo(
-      Symbol.MethodSymbol methodSymbol, Set<Element> elements, String path, CompilationUnitTree c) {
-    JSONObject info = new JSONObject();
-    info.put("method", methodSymbol.toString());
-    info.put("class", ASTHelpers.enclosingClass(methodSymbol).toString());
-    info.put("uri", c.getSourceFile().toUri().toASCIIString());
-    JSONArray fields = new JSONArray();
-    for (Element element : elements) {
-      fields.add(element.getSimpleName().toString());
-    }
-    info.put("fields", fields);
-    if (fields.size() < 1) {
-      return;
-    }
-    methodInfo.add(info);
+      Symbol.MethodSymbol methodSymbol,
+      Set<Element> nonnullFieldsAtExit,
+      String path,
+      CompilationUnitTree c,
+      VisitorState state) {
+    String method = methodSymbol.toString();
+    String clazz = ASTHelpers.enclosingClass(methodSymbol).toString();
+    String uri = c.getSourceFile().toUri().toASCIIString();
+
+    MethodInfo methodInfo = MethodInfo.findOrCreate(method, clazz, uri);
     JSONObject toWrite = new JSONObject();
-    toWrite.put("infos", methodInfo);
+    methodInfos.put(methodInfo.id, methodInfo.getJSON());
+    toWrite.put("infos", methodInfos);
     try (java.io.Writer writer =
         Files.newBufferedWriter(Paths.get(path), Charset.defaultCharset())) {
       writer.write(toWrite.toJSONString().replace("\\/", "/").replace("\\\\\\", "\\"));
