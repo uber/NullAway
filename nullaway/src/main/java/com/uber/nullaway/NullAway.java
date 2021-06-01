@@ -494,22 +494,7 @@ public class NullAway extends BugChecker
     if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
-    // if the method is overriding some other method,
-    // check that nullability annotations are consistent with
-    // overridden method (if overridden method is in an annotated
-    // package)
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
-    handler.onMatchMethod(this, tree, state, methodSymbol);
-    boolean isOverriding = ASTHelpers.hasAnnotation(methodSymbol, Override.class, state);
-    boolean exhaustiveOverride = config.exhaustiveOverride();
-    if (isOverriding || !exhaustiveOverride) {
-      Symbol.MethodSymbol closestOverriddenMethod =
-          NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
-      if (closestOverriddenMethod != null) {
-        return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
-      }
-    }
-
     try {
       if (tree.getBody() != null && config.autofixIsEnabled() && captureMethodInfo) {
         AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
@@ -527,6 +512,20 @@ public class NullAway extends BugChecker
       }
     } catch (Exception e) {
       System.err.println("Could not save method info: " + methodSymbol);
+    }
+    // if the method is overriding some other method,
+    // check that nullability annotations are consistent with
+    // overridden method (if overridden method is in an annotated
+    // package)
+    handler.onMatchMethod(this, tree, state, methodSymbol);
+    boolean isOverriding = ASTHelpers.hasAnnotation(methodSymbol, Override.class, state);
+    boolean exhaustiveOverride = config.exhaustiveOverride();
+    if (isOverriding || !exhaustiveOverride) {
+      Symbol.MethodSymbol closestOverriddenMethod =
+          NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
+      if (closestOverriddenMethod != null) {
+        return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
+      }
     }
     return Description.NO_MATCH;
   }

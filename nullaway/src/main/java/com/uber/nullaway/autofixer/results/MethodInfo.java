@@ -85,7 +85,6 @@ public class MethodInfo implements Serializable {
   public void setParent(Symbol.MethodSymbol methodSymbol, VisitorState state) {
     Symbol.MethodSymbol superMethod =
         NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
-    System.out.println("SUPER: " + superMethod);
     if (superMethod == null) {
       return;
     }
