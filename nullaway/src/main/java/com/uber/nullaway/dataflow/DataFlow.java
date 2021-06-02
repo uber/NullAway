@@ -51,7 +51,7 @@ import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.builder.CFGBuilder;
 
 /**
- * Provides a wrapper around {@link org.checkerframework.dataflow.analysis.Analysis}.
+ * Provides a wrapper around {@link org.checkerframework.nullaway.dataflow.analysis.Analysis}.
  *
  * <p>Modified from Error Prone code for more aggressive caching, and to avoid static state. See
  * {@link com.google.errorprone.dataflow.DataFlow}

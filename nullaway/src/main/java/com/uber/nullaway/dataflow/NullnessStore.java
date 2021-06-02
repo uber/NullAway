@@ -251,8 +251,8 @@ public class NullnessStore implements Store<NullnessStore> {
     /**
      * Sets the value for the given variable. {@code element} must come from a call to {@link
      * LocalVariableNode#getElement()} or {@link
-     * org.checkerframework.javacutil.TreeUtils#elementFromDeclaration} ({@link
-     * org.checkerframework.dataflow.cfg.node.VariableDeclarationNode#getTree()}).
+     * org.checkerframework.nullaway.javacutil.TreeUtils#elementFromDeclaration} ({@link
+     * org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode#getTree()}).
      *
      * @param ap relevant access path
      * @param value fact for access path
