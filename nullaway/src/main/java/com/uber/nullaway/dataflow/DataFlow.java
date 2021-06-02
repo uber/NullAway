@@ -46,12 +46,12 @@ import org.checkerframework.nullaway.dataflow.analysis.ForwardAnalysisImpl;
 import org.checkerframework.nullaway.dataflow.analysis.ForwardTransferFunction;
 import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.analysis.TransferFunction;
-import org.checkerframework.nullaway.dataflow.cfg.CFGBuilder;
 import org.checkerframework.nullaway.dataflow.cfg.ControlFlowGraph;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.cfg.builder.CFGBuilder;
 
 /**
- * Provides a wrapper around {@link org.checkerframework.nullaway.dataflow.analysis.Analysis}.
+ * Provides a wrapper around {@link org.checkerframework.dataflow.analysis.Analysis}.
  *
  * <p>Modified from Error Prone code for more aggressive caching, and to avoid static state. See
  * {@link com.google.errorprone.dataflow.DataFlow}

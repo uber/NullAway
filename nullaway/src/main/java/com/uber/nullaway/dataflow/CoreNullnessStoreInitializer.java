@@ -30,7 +30,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       Context context,
       Types types,
       Config config) {
-    if (parameters == null) {
+    if (underlyingAST.getKind().equals(UnderlyingAST.Kind.ARBITRARY_CODE)) {
       // not a method or a lambda; an initializer expression or block
       UnderlyingAST.CFGStatement ast = (UnderlyingAST.CFGStatement) underlyingAST;
       return getEnvNullnessStoreForClass(ast.getClassTree(), context);
