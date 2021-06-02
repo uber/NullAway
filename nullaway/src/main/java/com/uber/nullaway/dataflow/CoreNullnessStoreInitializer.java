@@ -17,8 +17,8 @@ import com.uber.nullaway.handlers.Handler;
 import java.util.List;
 import java.util.Objects;
 import javax.lang.model.element.Element;
-import org.checkerframework.dataflow.cfg.UnderlyingAST;
-import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
+import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 
 class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
 

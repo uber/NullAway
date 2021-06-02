@@ -29,12 +29,12 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
-import org.checkerframework.dataflow.analysis.FlowExpressions;
-import org.checkerframework.dataflow.analysis.Store;
-import org.checkerframework.dataflow.cfg.CFGVisualizer;
-import org.checkerframework.dataflow.cfg.node.FieldAccessNode;
-import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
-import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.nullaway.dataflow.analysis.FlowExpressions;
+import org.checkerframework.nullaway.dataflow.analysis.Store;
+import org.checkerframework.nullaway.dataflow.cfg.CFGVisualizer;
+import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 /**
  * Highly based on {@link com.google.errorprone.dataflow.LocalStore}, but for {@link AccessPath}s.
@@ -251,8 +251,8 @@ public class NullnessStore implements Store<NullnessStore> {
     /**
      * Sets the value for the given variable. {@code element} must come from a call to {@link
      * LocalVariableNode#getElement()} or {@link
-     * org.checkerframework.javacutil.TreeUtils#elementFromDeclaration} ({@link
-     * org.checkerframework.dataflow.cfg.node.VariableDeclarationNode#getTree()}).
+     * org.checkerframework.nullaway.javacutil.TreeUtils#elementFromDeclaration} ({@link
+     * org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode#getTree()}).
      *
      * @param ap relevant access path
      * @param value fact for access path

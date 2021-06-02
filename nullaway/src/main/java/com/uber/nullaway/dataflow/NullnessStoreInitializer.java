@@ -13,8 +13,8 @@ import java.util.List;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.lang.model.element.NestingKind;
-import org.checkerframework.dataflow.cfg.UnderlyingAST;
-import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
+import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 
 /**
  * An abstract class that allows overriding initialization of nullness store in dataflow. Currently,

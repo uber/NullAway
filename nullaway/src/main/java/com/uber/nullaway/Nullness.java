@@ -21,7 +21,7 @@ package com.uber.nullaway;
 import com.sun.tools.javac.code.Symbol;
 import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
-import org.checkerframework.dataflow.analysis.AbstractValue;
+import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
 
 /**
  * Represents one of the possible nullness values in our nullness analysis.

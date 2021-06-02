@@ -17,8 +17,8 @@ import com.uber.nullaway.dataflow.NullnessStoreInitializer;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
 import javax.lang.model.element.Element;
-import org.checkerframework.dataflow.cfg.UnderlyingAST;
-import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
+import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 
 /**
  * Nullness Store initializer in case of dataflow for contract check. The nullability of parameters

@@ -53,7 +53,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeKind;
-import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 /** This handler loads inferred nullability model from stubs for methods in unannotated packages. */
 public class InferredJARModelsHandler extends BaseNoOpHandler {

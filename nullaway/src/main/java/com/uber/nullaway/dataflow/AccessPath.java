@@ -37,19 +37,19 @@ import java.util.List;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.VariableElement;
-import org.checkerframework.dataflow.cfg.node.FieldAccessNode;
-import org.checkerframework.dataflow.cfg.node.IntegerLiteralNode;
-import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
-import org.checkerframework.dataflow.cfg.node.LongLiteralNode;
-import org.checkerframework.dataflow.cfg.node.MethodAccessNode;
-import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
-import org.checkerframework.dataflow.cfg.node.Node;
-import org.checkerframework.dataflow.cfg.node.StringLiteralNode;
-import org.checkerframework.dataflow.cfg.node.SuperNode;
-import org.checkerframework.dataflow.cfg.node.ThisLiteralNode;
-import org.checkerframework.dataflow.cfg.node.VariableDeclarationNode;
-import org.checkerframework.dataflow.cfg.node.WideningConversionNode;
-import org.checkerframework.javacutil.TreeUtils;
+import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.IntegerLiteralNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.LongLiteralNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodAccessNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.Node;
+import org.checkerframework.nullaway.dataflow.cfg.node.StringLiteralNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.SuperNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.ThisLiteralNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode;
+import org.checkerframework.nullaway.javacutil.TreeUtils;
 
 /**
  * Represents an extended notion of an access path, which we track for nullness.
