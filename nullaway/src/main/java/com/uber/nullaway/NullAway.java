@@ -277,7 +277,7 @@ public class NullAway extends BugChecker
     String fixFilePath = config.getJsonFileWriterPath();
     String methodInfoDir =
         fixFilePath.contains("/") ? fixFilePath.substring(0, fixFilePath.lastIndexOf("/")) : "/";
-    methodInfoPath = methodInfoDir + "/method_info.json";
+    methodInfoPath = methodInfoDir + "/method_info.csv";
     return !new File(methodInfoPath).exists();
   }
 
