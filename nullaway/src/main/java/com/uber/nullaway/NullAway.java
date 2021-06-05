@@ -491,26 +491,30 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
-    try {
-      Set<Element> nonnullFieldsOfReceiverAtExit = null;
-      CompilationUnitTree c = getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
-      if (tree.getBody() != null && config.autofixIsEnabled() && captureMethodInfo) {
-        AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-        nonnullFieldsOfReceiverAtExit =
-            nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
-                getTreesInstance(state).getPath(methodSymbol), state.context);
-      }
-      fixer
-          .getWriter()
-          .saveMethodInfo(methodSymbol, nonnullFieldsOfReceiverAtExit, methodInfoPath, c, state);
-    } catch (Exception e) {
-      System.err.println("Could not save method info: " + methodSymbol);
-    }
 
     if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
+
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
+    if (captureMethodInfo) {
+      try {
+        Set<Element> nonnullFieldsOfReceiverAtExit = null;
+        CompilationUnitTree c = getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
+        if (tree.getBody() != null && config.autofixIsEnabled()) {
+          AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
+          nonnullFieldsOfReceiverAtExit =
+              nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
+                  getTreesInstance(state).getPath(methodSymbol), state.context);
+        }
+        fixer
+            .getWriter()
+            .saveMethodInfo(methodSymbol, nonnullFieldsOfReceiverAtExit, methodInfoPath, c, state);
+      } catch (Exception e) {
+        System.err.println("Could not save method info: " + methodSymbol);
+      }
+    }
+
     // if the method is overriding some other method,
     // check that nullability annotations are consistent with
     // overridden method (if overridden method is in an annotated

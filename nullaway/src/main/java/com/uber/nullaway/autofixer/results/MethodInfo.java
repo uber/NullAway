@@ -7,6 +7,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullabilityUtil;
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -98,5 +99,21 @@ public class MethodInfo implements Serializable {
 
   public void setUri(CompilationUnitTree c) {
     this.uri = c.getSourceFile().toUri().toASCIIString();
+  }
+
+  @Override
+  public String toString() {
+    return id
+        + ","
+        + clazz
+        + ","
+        + method
+        + ","
+        + parent
+        + ","
+        + Arrays.toString(nonnullFields)
+        + ",\""
+        + uri
+        + "\"";
   }
 }

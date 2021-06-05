@@ -6,7 +6,9 @@ import com.sun.source.tree.CompilationUnitTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -72,19 +74,27 @@ public class Writer {
     methodInfo.setUri(c);
     methodInfo.setNonnullFieldsElements(nonnullFieldsAtExit);
     methodInfo.setParent(methodSymbol, state);
-
-    JSONObject methods = new JSONObject();
-    for (MethodInfo info : MethodInfo.discovered) {
-      methods.put(info.id, info.getJSON());
+    String toWrite = methodInfo + "\n";
+    OutputStream os;
+    try {
+      os = new FileOutputStream(path, true);
+      os.write(toWrite.getBytes(Charset.defaultCharset()), 0, toWrite.length());
+      os.close();
+    } catch (Exception e) {
+      System.out.println("Error happened");
     }
-    JSONObject toWrite = new JSONObject();
-    toWrite.put("methods", methods);
-    try (java.io.Writer writer =
-        Files.newBufferedWriter(Paths.get(path), Charset.defaultCharset())) {
-      writer.write(toWrite.toJSONString().replace("\\/", "/").replace("\\\\\\", "\\"));
-      writer.flush();
-    } catch (IOException e) {
-      throw new RuntimeException("Could not create the method info json file");
-    }
+    //    JSONObject methods = new JSONObject();
+    //    for (MethodInfo info : MethodInfo.discovered) {
+    //      methods.put(info.id, info.getJSON());
+    //    }
+    //    JSONObject toWrite = new JSONObject();
+    //    toWrite.put("methods", methods);
+    //    try (java.io.Writer writer =
+    //        Files.newBufferedWriter(Paths.get(path), Charset.defaultCharset())) {
+    //      writer.write(toWrite.toJSONString().replace("\\/", "/").replace("\\\\\\", "\\"));
+    //      writer.flush();
+    //    } catch (IOException e) {
+    //      throw new RuntimeException("Could not create the method info json file");
+    //    }
   }
 }
