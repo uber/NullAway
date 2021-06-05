@@ -21,7 +21,6 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.autofixer.qual.AnnotationFactory;
-import com.uber.nullaway.autofixer.results.Batch;
 import com.uber.nullaway.autofixer.results.Fix;
 import com.uber.nullaway.autofixer.results.Writer;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
@@ -59,8 +58,7 @@ public class Fixer {
     if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
     Fix fix = buildFix(errorMessage, location);
     if (fix != null) {
-      Batch batch = new Batch(fix);
-      writer.saveBatch(batch);
+      writer.saveBatch(fix);
     }
   }
 
