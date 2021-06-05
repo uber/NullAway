@@ -103,17 +103,17 @@ public class MethodInfo implements Serializable {
 
   @Override
   public String toString() {
+    String delimiter = "%*%";
     return id
-        + ","
+        + delimiter
         + clazz
-        + ","
+        + delimiter
         + method
-        + ","
+        + delimiter
         + parent
-        + ","
+        + delimiter
         + Arrays.toString(nonnullFields)
-        + ",\""
-        + uri
-        + "\"";
+        + delimiter
+        + uri;
   }
 }

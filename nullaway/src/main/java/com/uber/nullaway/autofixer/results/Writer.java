@@ -83,18 +83,5 @@ public class Writer {
     } catch (Exception e) {
       System.out.println("Error happened");
     }
-    //    JSONObject methods = new JSONObject();
-    //    for (MethodInfo info : MethodInfo.discovered) {
-    //      methods.put(info.id, info.getJSON());
-    //    }
-    //    JSONObject toWrite = new JSONObject();
-    //    toWrite.put("methods", methods);
-    //    try (java.io.Writer writer =
-    //        Files.newBufferedWriter(Paths.get(path), Charset.defaultCharset())) {
-    //      writer.write(toWrite.toJSONString().replace("\\/", "/").replace("\\\\\\", "\\"));
-    //      writer.flush();
-    //    } catch (IOException e) {
-    //      throw new RuntimeException("Could not create the method info json file");
-    //    }
   }
 }
