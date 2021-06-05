@@ -19,7 +19,7 @@ import javax.lang.model.element.Element;
 import org.json.simple.JSONObject;
 
 public class Writer {
-  private final List<JSONObject> batches = new ArrayList<>();
+  private final List<JSONObject> fixes = new ArrayList<>();
   private final List<JSONObject> errors = new ArrayList<>();
   private final Config config;
 
@@ -28,10 +28,10 @@ public class Writer {
   }
 
   @SuppressWarnings("unchecked")
-  public void saveBatch(Batch batch) {
-    batches.add(batch.getJson());
+  public void saveFix(Fix fix) {
+    fixes.add(fix.getJson());
     JSONObject toWrite = new JSONObject();
-    toWrite.put("batches", batches);
+    toWrite.put("fixes", fixes);
     try (java.io.Writer writer =
         Files.newBufferedWriter(
             Paths.get(config.getJsonFileWriterPath()), Charset.defaultCharset())) {
@@ -67,7 +67,6 @@ public class Writer {
       String path,
       CompilationUnitTree c,
       VisitorState state) {
-
     String method = methodSymbol.toString();
     String clazz = ASTHelpers.enclosingClass(methodSymbol).toString();
     MethodInfo methodInfo = MethodInfo.findOrCreate(method, clazz);
