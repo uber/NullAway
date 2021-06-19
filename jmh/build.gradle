@@ -1,0 +1,9 @@
+plugins {
+    id 'java-library'
+    id "me.champeau.jmh" version "0.6.5"
+}
+
+dependencies {
+    implementation project(':nullaway')
+    implementation deps.build.errorProneCore
+}
