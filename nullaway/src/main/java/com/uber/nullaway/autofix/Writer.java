@@ -45,7 +45,6 @@ public class Writer {
     }
   }
 
-  @SuppressWarnings("unchecked")
   public void saveError(ErrorMessage error, VisitorState state) {
     StringBuilder newLine = new StringBuilder();
     final String delimiter = "%*%";
@@ -63,7 +62,6 @@ public class Writer {
     appendToFile(newLine.toString(), "/tmp/NullAwayFix/errors.csv");
   }
 
-  @SuppressWarnings("unchecked")
   public void saveMethodInfo(
       Symbol.MethodSymbol methodSymbol,
       Set<Element> nonnullFieldsAtExit,
