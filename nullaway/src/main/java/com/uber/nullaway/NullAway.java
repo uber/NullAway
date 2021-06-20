@@ -489,7 +489,7 @@ public class NullAway extends BugChecker
       try {
         Set<Element> nonnullFieldsOfReceiverAtExit = null;
         CompilationUnitTree c = getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
-        if (tree.getBody() != null && config.autofixIsEnabled()) {
+        if (tree.getBody() != null) {
           AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
           nonnullFieldsOfReceiverAtExit =
               nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
@@ -1312,9 +1312,6 @@ public class NullAway extends BugChecker
     if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
-    //    if (config.autofixIsEnabled()) {
-    //      fixer.exploreNullableFieldClass(this, tree, state);
-    //    }
     return doUnboxingCheck(state, tree.getCondition());
   }
 
