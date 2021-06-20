@@ -31,8 +31,8 @@ public class MethodParameterNullableByIndex extends BaseNoOpHandler {
       int index = (int) config.PARAM_INDEX;
       MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
       if (index < methodTree.getParameters().size()) {
-        Element sym = TreeUtils.elementFromTree(methodTree.getParameters().get(index));
-        AccessPath accessPath = AccessPath.fromMethodParameter(sym);
+        Element element = TreeUtils.elementFromTree(methodTree.getParameters().get(index));
+        AccessPath accessPath = AccessPath.fromMethodParameter(element);
         result.setInformation(accessPath, Nullness.NULLABLE);
       }
     }
