@@ -52,10 +52,10 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
-import com.uber.nullaway.autofixer.Writer;
-import com.uber.nullaway.autofixer.fixers.Fixer;
-import com.uber.nullaway.autofixer.fixers.Location;
-import com.uber.nullaway.autofixer.fixers.LocationUtils;
+import com.uber.nullaway.autofix.Writer;
+import com.uber.nullaway.autofix.fixer.Fixer;
+import com.uber.nullaway.autofix.fixer.Location;
+import com.uber.nullaway.autofix.fixer.LocationUtils;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -138,7 +138,7 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
     }
     // #letbuildersbuild
-    if (config.autofixIsEnabled() && config.getAutoFixerConfig().LOG_ERROR_ENABLED) {
+    if (config.autofixIsEnabled() && config.getAutoFixConfig().LOG_ERROR_ENABLED) {
       errorWriter.saveError(errorMessage);
     }
     return builder.build();
@@ -439,7 +439,7 @@ public class ErrorBuilder {
       fieldName = flatName.substring(index) + "." + fieldName;
     }
 
-    if (config.getAutoFixerConfig().canFixElement(getTreesInstance(state), symbol)) {
+    if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), symbol)) {
       CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
       Location location =
           Location.Builder()

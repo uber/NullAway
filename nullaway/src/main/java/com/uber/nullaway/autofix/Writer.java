@@ -1,12 +1,12 @@
-package com.uber.nullaway.autofixer;
+package com.uber.nullaway.autofix;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.autofixer.results.Fix;
-import com.uber.nullaway.autofixer.results.MethodInfo;
+import com.uber.nullaway.autofix.explorer.MethodInfo;
+import com.uber.nullaway.autofix.fixer.Fix;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;

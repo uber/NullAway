@@ -1,4 +1,4 @@
-package com.uber.nullaway.autofixer.fixers;
+package com.uber.nullaway.autofix.fixer;
 
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -6,7 +6,7 @@ import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.autofixer.results.Keys;
+import com.uber.nullaway.autofix.fixer.Fix.Keys;
 import java.io.Serializable;
 import org.json.simple.JSONObject;
 

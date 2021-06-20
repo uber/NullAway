@@ -1,8 +1,7 @@
-package com.uber.nullaway.autofixer.fixers;
+package com.uber.nullaway.autofix.fixer;
 
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.autofixer.results.Fix;
 
 public class PreliminaryFixer extends Fixer {
   public PreliminaryFixer(Config config) {

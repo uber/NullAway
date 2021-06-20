@@ -1,8 +1,8 @@
-package com.uber.nullaway.autofixer;
+package com.uber.nullaway.autofix;
 
 import com.google.common.base.Preconditions;
 import com.sun.source.util.Trees;
-import com.uber.nullaway.autofixer.qual.AnnotationFactory;
+import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -13,7 +13,7 @@ import javax.lang.model.element.Element;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
-public class AutoFixerConfig {
+public class AutoFixConfig {
 
   public final boolean MAKE_METHOD_TREE_INHERITANCE_ENABLED;
   public final boolean SUGGEST_ENABLED;
@@ -23,7 +23,7 @@ public class AutoFixerConfig {
   public final long PARAM_INDEX;
   public final AnnotationFactory ANNOTATION_FACTORY;
 
-  public AutoFixerConfig() {
+  public AutoFixConfig() {
     MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
     SUGGEST_ENABLED = false;
     PARAM_TEST_ENABLED = false;
@@ -33,7 +33,7 @@ public class AutoFixerConfig {
     ANNOTATION_FACTORY = new AnnotationFactory();
   }
 
-  public AutoFixerConfig(boolean autofixEnabled, String filePath) {
+  public AutoFixConfig(boolean autofixEnabled, String filePath) {
     Preconditions.checkNotNull(filePath);
     JSONObject jsonObject;
     try {

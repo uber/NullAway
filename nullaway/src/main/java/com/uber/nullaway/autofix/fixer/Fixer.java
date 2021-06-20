@@ -1,4 +1,4 @@
-package com.uber.nullaway.autofixer.fixers;
+package com.uber.nullaway.autofix.fixer;
 
 import com.google.common.base.Optional;
 import com.google.common.collect.Iterables;
@@ -20,10 +20,9 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.autofixer.AutoFixerConfig;
-import com.uber.nullaway.autofixer.Writer;
-import com.uber.nullaway.autofixer.qual.AnnotationFactory;
-import com.uber.nullaway.autofixer.results.Fix;
+import com.uber.nullaway.autofix.AutoFixConfig;
+import com.uber.nullaway.autofix.Writer;
+import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import java.io.File;
 import java.util.List;
@@ -36,11 +35,11 @@ import javax.lang.model.element.Modifier;
 }) // This class is still under construction
 public class Fixer {
 
-  protected final AutoFixerConfig config;
+  protected final AutoFixConfig config;
   protected final Writer writer;
 
   public Fixer(Config config) {
-    this.config = config.getAutoFixerConfig();
+    this.config = config.getAutoFixConfig();
     this.writer = new Writer();
     cleanFixOutPutFolder();
   }

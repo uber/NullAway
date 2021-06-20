@@ -1,4 +1,4 @@
-package com.uber.nullaway.autofixer.fixers;
+package com.uber.nullaway.autofix.fixer;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;

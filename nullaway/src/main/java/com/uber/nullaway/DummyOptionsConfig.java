@@ -27,7 +27,7 @@ import static com.uber.nullaway.ErrorProneCLIFlagsConfig.FL_ANNOTATED_PACKAGES;
 
 import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.autofixer.AutoFixerConfig;
+import com.uber.nullaway.autofix.AutoFixConfig;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -58,8 +58,8 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public AutoFixerConfig getAutoFixerConfig() {
-    return new AutoFixerConfig();
+  public AutoFixConfig getAutoFixConfig() {
+    return new AutoFixConfig();
   }
 
   @Override
