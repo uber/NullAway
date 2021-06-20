@@ -24,7 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.autofixer.ExplorerConfig;
+import com.uber.nullaway.autofixer.AutoFixerConfig;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -33,7 +33,7 @@ public interface Config {
 
   boolean autofixIsEnabled();
 
-  ExplorerConfig getExplorerConfig();
+  AutoFixerConfig getAutoFixerConfig();
 
   /**
    * Checks if a symbol comes from an annotated package.

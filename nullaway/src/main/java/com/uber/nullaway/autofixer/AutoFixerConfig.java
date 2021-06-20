@@ -13,7 +13,7 @@ import javax.lang.model.element.Element;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
-public class ExplorerConfig {
+public class AutoFixerConfig {
 
   public final boolean MAKE_METHOD_TREE_INHERITANCE_ENABLED;
   public final boolean SUGGEST_ENABLED;
@@ -23,7 +23,7 @@ public class ExplorerConfig {
   public final long PARAM_INDEX;
   public final AnnotationFactory ANNOTATION_FACTORY;
 
-  public ExplorerConfig() {
+  public AutoFixerConfig() {
     MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
     SUGGEST_ENABLED = false;
     PARAM_TEST_ENABLED = false;
@@ -33,7 +33,7 @@ public class ExplorerConfig {
     ANNOTATION_FACTORY = new AnnotationFactory();
   }
 
-  public ExplorerConfig(boolean autofixEnabled, String filePath) {
+  public AutoFixerConfig(boolean autofixEnabled, String filePath) {
     Preconditions.checkNotNull(filePath);
     JSONObject jsonObject;
     try {

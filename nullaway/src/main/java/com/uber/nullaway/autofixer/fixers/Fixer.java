@@ -20,10 +20,10 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.autofixer.ExplorerConfig;
+import com.uber.nullaway.autofixer.AutoFixerConfig;
+import com.uber.nullaway.autofixer.Writer;
 import com.uber.nullaway.autofixer.qual.AnnotationFactory;
 import com.uber.nullaway.autofixer.results.Fix;
-import com.uber.nullaway.autofixer.results.Writer;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import java.io.File;
 import java.util.List;
@@ -36,11 +36,11 @@ import javax.lang.model.element.Modifier;
 }) // This class is still under construction
 public class Fixer {
 
-  protected final ExplorerConfig config;
+  protected final AutoFixerConfig config;
   protected final Writer writer;
 
   public Fixer(Config config) {
-    this.config = config.getExplorerConfig();
+    this.config = config.getAutoFixerConfig();
     this.writer = new Writer();
     cleanFixOutPutFolder();
   }

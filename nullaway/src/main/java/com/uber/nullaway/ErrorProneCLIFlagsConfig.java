@@ -24,7 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.ErrorProneFlags;
-import com.uber.nullaway.autofixer.ExplorerConfig;
+import com.uber.nullaway.autofixer.AutoFixerConfig;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -203,9 +203,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     }
     autofix = flags.getBoolean(AUTO_FIX).orElse(false);
     if (autofix) {
-      explorerConfig = new ExplorerConfig(autofix, "/tmp/NullAwayFix/explorer.config");
+      autoFixerConfig = new AutoFixerConfig(autofix, "/tmp/NullAwayFix/explorer.config");
     } else {
-      explorerConfig = new ExplorerConfig();
+      autoFixerConfig = new AutoFixerConfig();
     }
     if (autofix && isSuggestSuppressions)
       throw new IllegalStateException(
@@ -235,7 +235,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   }
 
   @Override
-  public ExplorerConfig getExplorerConfig() {
-    return explorerConfig;
+  public AutoFixerConfig getAutoFixerConfig() {
+    return autoFixerConfig;
   }
 }

@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.autofixer.ExplorerConfig;
+import com.uber.nullaway.autofixer.AutoFixerConfig;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -114,7 +114,7 @@ public abstract class AbstractConfig implements Config {
   protected String errorURL;
 
   protected boolean autofix;
-  protected ExplorerConfig explorerConfig;
+  protected AutoFixerConfig autoFixerConfig;
 
   @Override
   public boolean autofixIsEnabled() {
@@ -122,8 +122,8 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public ExplorerConfig getExplorerConfig() {
-    return explorerConfig;
+  public AutoFixerConfig getAutoFixerConfig() {
+    return autoFixerConfig;
   }
 
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
