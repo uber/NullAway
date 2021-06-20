@@ -86,7 +86,7 @@ public class ErrorBuilder {
     this.suppressionName = suppressionName;
     this.allNames = allNames;
     this.fixer = fixer;
-    errorWriter = new Writer();
+    errorWriter = new Writer(config);
   }
 
   /**
@@ -138,8 +138,8 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
     }
     // #letbuildersbuild
-    if (config.autofixIsEnabled() && config.getAutoFixConfig().LOG_ERROR_ENABLED) {
-      errorWriter.saveError(errorMessage);
+    if (config.getAutoFixConfig().LOG_ERROR_ENABLED) {
+      errorWriter.saveError(errorMessage, state);
     }
     return builder.build();
   }

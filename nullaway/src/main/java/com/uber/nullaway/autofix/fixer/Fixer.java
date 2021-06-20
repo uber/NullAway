@@ -24,7 +24,6 @@ import com.uber.nullaway.autofix.AutoFixConfig;
 import com.uber.nullaway.autofix.Writer;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
-import java.io.File;
 import java.util.List;
 import javax.lang.model.element.Modifier;
 
@@ -40,16 +39,7 @@ public class Fixer {
 
   public Fixer(Config config) {
     this.config = config.getAutoFixConfig();
-    this.writer = new Writer();
-    cleanFixOutPutFolder();
-  }
-
-  @SuppressWarnings("ResultOfMethodCallIgnored")
-  private void cleanFixOutPutFolder() {
-    File file = new File("/tmp/NullAwayFix/fixes.json");
-    file.delete();
-    file = new File("/tmp/NullAwayFix/errors.json");
-    file.delete();
+    this.writer = new Writer(config);
   }
 
   public void fix(ErrorMessage errorMessage, Location location, VisitorState state) {

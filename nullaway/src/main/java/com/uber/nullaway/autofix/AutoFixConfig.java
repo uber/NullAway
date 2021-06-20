@@ -3,6 +3,7 @@ package com.uber.nullaway.autofix;
 import com.google.common.base.Preconditions;
 import com.sun.source.util.Trees;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -19,6 +20,7 @@ public class AutoFixConfig {
   public final boolean SUGGEST_ENABLED;
   public final boolean PARAM_TEST_ENABLED;
   public final boolean LOG_ERROR_ENABLED;
+  public final boolean LOG_ERROR_DEEP;
   public final boolean OPTIMIZED;
   public final long PARAM_INDEX;
   public final AnnotationFactory ANNOTATION_FACTORY;
@@ -28,6 +30,7 @@ public class AutoFixConfig {
     SUGGEST_ENABLED = false;
     PARAM_TEST_ENABLED = false;
     LOG_ERROR_ENABLED = false;
+    LOG_ERROR_DEEP = false;
     OPTIMIZED = false;
     PARAM_INDEX = 0L;
     ANNOTATION_FACTORY = new AnnotationFactory();
@@ -54,7 +57,11 @@ public class AutoFixConfig {
         getValueFromKey(jsonObject, "METHOD_PARAM_TEST:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
     LOG_ERROR_ENABLED =
-        getValueFromKey(jsonObject, "LOG_ERROR", Boolean.class).orElse(false) && autofixEnabled;
+        getValueFromKey(jsonObject, "LOG_ERROR:ACTIVE", Boolean.class).orElse(false)
+            && autofixEnabled;
+    LOG_ERROR_DEEP =
+        getValueFromKey(jsonObject, "LOG_ERROR:DEEP", Boolean.class).orElse(false)
+            && autofixEnabled;
     OPTIMIZED =
         getValueFromKey(jsonObject, "OPTIMIZED", Boolean.class).orElse(false) && autofixEnabled;
     PARAM_INDEX = getValueFromKey(jsonObject, "METHOD_PARAM_TEST:INDEX", Long.class).orElse(0L);
@@ -65,14 +72,21 @@ public class AutoFixConfig {
         getValueFromKey(jsonObject, "ANNOTATION:NONNULL", String.class)
             .orElse("javax.annotation.Nonnull");
     this.ANNOTATION_FACTORY = new AnnotationFactory(nullableAnnot, nonnullAnnot);
-    if (SUGGEST_ENABLED) {
-      makeDirectories();
-    }
+    cleanUp();
   }
 
-  private void makeDirectories() {
+  private void cleanUp() {
     try {
       Files.createDirectories(Paths.get("/tmp/NullAwayFix/"));
+      if (SUGGEST_ENABLED) {
+        new File("/tmp/NullAwayFix/fixes.json").delete();
+      }
+      if (LOG_ERROR_ENABLED) {
+        new File("/tmp/NullAwayFix/errors.csv").delete();
+      }
+      if (MAKE_METHOD_TREE_INHERITANCE_ENABLED) {
+        new File("/tmp/NullAwayFix/method_info.csv").delete();
+      }
     } catch (IOException e) {
       throw new RuntimeException("Could not create the directories for fix json file");
     }
