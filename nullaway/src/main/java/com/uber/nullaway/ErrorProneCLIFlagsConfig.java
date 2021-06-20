@@ -202,6 +202,11 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + " is also set");
     }
     autofix = flags.getBoolean(AUTO_FIX).orElse(false);
+    if (autofix) {
+      explorerConfig = new ExplorerConfig(autofix, "/tmp/NullAwayFix/explorer.config");
+    } else {
+      explorerConfig = new ExplorerConfig();
+    }
     if (autofix && isSuggestSuppressions)
       throw new IllegalStateException(
           "In order to activate autoFix mode ("
@@ -231,6 +236,6 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
 
   @Override
   public ExplorerConfig getExplorerConfig() {
-    return new ExplorerConfig("/tmp/NullAwayFix/explorer.config");
+    return explorerConfig;
   }
 }

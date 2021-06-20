@@ -33,7 +33,7 @@ public class ExplorerConfig {
     ANNOTATION_FACTORY = new AnnotationFactory();
   }
 
-  public ExplorerConfig(String filePath) {
+  public ExplorerConfig(boolean autofixEnabled, String filePath) {
     Preconditions.checkNotNull(filePath);
     JSONObject jsonObject;
     try {
@@ -46,12 +46,17 @@ public class ExplorerConfig {
       throw new RuntimeException("Error in reading/parsing config at path: " + filePath);
     }
     MAKE_METHOD_TREE_INHERITANCE_ENABLED =
-        getValueFromKey(jsonObject, "MAKE_METHOD_INHERITANCE_TREE", Boolean.class).orElse(false);
-    SUGGEST_ENABLED = getValueFromKey(jsonObject, "SUGGEST", Boolean.class).orElse(false);
+        getValueFromKey(jsonObject, "MAKE_METHOD_INHERITANCE_TREE", Boolean.class).orElse(false)
+            && autofixEnabled;
+    SUGGEST_ENABLED =
+        getValueFromKey(jsonObject, "SUGGEST", Boolean.class).orElse(false) && autofixEnabled;
     PARAM_TEST_ENABLED =
-        getValueFromKey(jsonObject, "METHOD_PARAM_TEST:ACTIVE", Boolean.class).orElse(false);
-    LOG_ERROR_ENABLED = getValueFromKey(jsonObject, "LOG_ERROR", Boolean.class).orElse(false);
-    OPTIMIZED = getValueFromKey(jsonObject, "OPTIMIZED", Boolean.class).orElse(false);
+        getValueFromKey(jsonObject, "METHOD_PARAM_TEST:ACTIVE", Boolean.class).orElse(false)
+            && autofixEnabled;
+    LOG_ERROR_ENABLED =
+        getValueFromKey(jsonObject, "LOG_ERROR", Boolean.class).orElse(false) && autofixEnabled;
+    OPTIMIZED =
+        getValueFromKey(jsonObject, "OPTIMIZED", Boolean.class).orElse(false) && autofixEnabled;
     PARAM_INDEX = getValueFromKey(jsonObject, "METHOD_PARAM_TEST:INDEX", Long.class).orElse(0L);
     String nullableAnnot =
         getValueFromKey(jsonObject, "ANNOTATION:NULLABLE", String.class)
