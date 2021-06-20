@@ -46,8 +46,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.VariableElement;
-import org.checkerframework.dataflow.cfg.UnderlyingAST;
-import org.checkerframework.dataflow.cfg.node.LocalVariableNode;
+import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 
 /**
  * This Handler parses {@code @RequiresNonNull} annotation and when the annotated method is invoked,

@@ -39,19 +39,19 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullabilityUtil;
 import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
-import org.checkerframework.dataflow.analysis.AbstractValue;
-import org.checkerframework.dataflow.analysis.Analysis;
-import org.checkerframework.dataflow.analysis.AnalysisResult;
-import org.checkerframework.dataflow.analysis.ForwardAnalysisImpl;
-import org.checkerframework.dataflow.analysis.ForwardTransferFunction;
-import org.checkerframework.dataflow.analysis.Store;
-import org.checkerframework.dataflow.analysis.TransferFunction;
-import org.checkerframework.dataflow.cfg.CFGBuilder;
-import org.checkerframework.dataflow.cfg.ControlFlowGraph;
-import org.checkerframework.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
+import org.checkerframework.nullaway.dataflow.analysis.Analysis;
+import org.checkerframework.nullaway.dataflow.analysis.AnalysisResult;
+import org.checkerframework.nullaway.dataflow.analysis.ForwardAnalysisImpl;
+import org.checkerframework.nullaway.dataflow.analysis.ForwardTransferFunction;
+import org.checkerframework.nullaway.dataflow.analysis.Store;
+import org.checkerframework.nullaway.dataflow.analysis.TransferFunction;
+import org.checkerframework.nullaway.dataflow.cfg.ControlFlowGraph;
+import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.cfg.builder.CFGBuilder;
 
 /**
- * Provides a wrapper around {@link org.checkerframework.dataflow.analysis.Analysis}.
+ * Provides a wrapper around {@link org.checkerframework.nullaway.dataflow.analysis.Analysis}.
  *
  * <p>Modified from Error Prone code for more aggressive caching, and to avoid static state. See
  * {@link com.google.errorprone.dataflow.DataFlow}

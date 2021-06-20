@@ -40,7 +40,7 @@ import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
 import javax.annotation.Nullable;
-import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 /**
  * This Handler parses the jetbrains @Contract annotation and honors the nullness spec defined there

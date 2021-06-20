@@ -32,7 +32,7 @@ if (project.hasProperty("epApiVersion")) {
 }
 def versions = [
     asm                    : "7.1",
-    checkerFramework       : "3.6.0",
+    checkerFramework       : "3.14.0",
     // The version of Error Prone used to check NullAway's code
     errorProne             : "2.7.1",
     // The version of Error Prone that NullAway is compiled and tested against
@@ -60,8 +60,7 @@ def build = [
     errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProne}",
     errorProneJavac         : "com.google.errorprone:javac:9+181-r4173-1",
     errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProneApi}",
-    checkerDataflow         : ["org.checkerframework:dataflow:${versions.checkerFramework}",
-                               "org.checkerframework:javacutil:${versions.checkerFramework}"],
+    checkerDataflow         : "org.checkerframework:dataflow-nullaway:${versions.checkerFramework}",
     guava                   : "com.google.guava:guava:22.0",
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",

@@ -12,7 +12,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
-import org.checkerframework.javacutil.AnnotationUtils;
+import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 
 /** An utility class for {@link ContractHandler} and {@link ContractCheckHandler}. */
 public class ContractUtils {

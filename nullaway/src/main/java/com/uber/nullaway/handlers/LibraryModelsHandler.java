@@ -53,8 +53,8 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nullable;
-import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
-import org.checkerframework.dataflow.cfg.node.Node;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 
 /**
  * This Handler deals with any methods from unannotated packages for which we need a nullability

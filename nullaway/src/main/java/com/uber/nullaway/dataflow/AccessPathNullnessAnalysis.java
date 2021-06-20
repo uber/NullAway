@@ -36,10 +36,10 @@ import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
-import org.checkerframework.dataflow.analysis.AnalysisResult;
-import org.checkerframework.dataflow.cfg.node.MethodAccessNode;
-import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
-import org.checkerframework.dataflow.cfg.node.Node;
+import org.checkerframework.nullaway.dataflow.analysis.AnalysisResult;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodAccessNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 
 /**
  * API to our nullness dataflow analysis for access paths.

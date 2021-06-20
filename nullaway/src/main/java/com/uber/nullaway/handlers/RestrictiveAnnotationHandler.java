@@ -38,7 +38,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.HashSet;
 import java.util.List;
-import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
 

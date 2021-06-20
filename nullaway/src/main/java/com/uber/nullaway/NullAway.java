@@ -112,9 +112,9 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.NestingKind;
 import javax.lang.model.type.TypeKind;
-import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
-import org.checkerframework.javacutil.ElementUtils;
-import org.checkerframework.javacutil.TreeUtils;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.nullaway.javacutil.ElementUtils;
+import org.checkerframework.nullaway.javacutil.TreeUtils;
 
 /**
  * Checker for nullability errors. It assumes that any field, method parameter, or return type that
@@ -2147,7 +2147,7 @@ public class NullAway extends BugChecker
     if (dereferenced == null
         || dereferenced.type.isPrimitive()
         || dereferenced.getKind() == ElementKind.PACKAGE
-        || ElementUtils.isClassElement(dereferenced)) {
+        || ElementUtils.isTypeElement(dereferenced)) {
       // we know we don't have a null dereference here
       return Description.NO_MATCH;
     }

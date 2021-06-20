@@ -45,7 +45,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.VariableElement;
-import org.checkerframework.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 /**
  * This Handler parses {@code @EnsuresNonNull} annotation and when the annotated method is invoked,
