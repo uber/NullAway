@@ -138,7 +138,7 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
     }
     // #letbuildersbuild
-    if (config.autofixIsEnabled()) {
+    if (config.autofixIsEnabled() && config.getExplorerConfig().LOG_ERROR_ENABLED) {
       errorWriter.saveError(errorMessage);
     }
     return builder.build();
