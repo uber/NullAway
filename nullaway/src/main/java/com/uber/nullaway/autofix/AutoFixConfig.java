@@ -65,6 +65,9 @@ public class AutoFixConfig {
     OPTIMIZED =
         getValueFromKey(jsonObject, "OPTIMIZED", Boolean.class).orElse(false) && autofixEnabled;
     PARAM_INDEX = getValueFromKey(jsonObject, "METHOD_PARAM_TEST:INDEX", Long.class).orElse(0L);
+    Preconditions.checkArgument(
+        !(PARAM_TEST_ENABLED && PARAM_INDEX < 0),
+        "In Param Test mode, Param Index cannot be less than 0.");
     String nullableAnnot =
         getValueFromKey(jsonObject, "ANNOTATION:NULLABLE", String.class)
             .orElse("javax.annotation.Nullable");

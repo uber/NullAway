@@ -63,13 +63,13 @@ public class Handlers {
 
     handlerListBuilder.add(new RequiresNonNullHandler());
     handlerListBuilder.add(new EnsuresNonNullHandler());
+    handlerListBuilder.add(new MethodParameterNullableByIndex(config.getAutoFixConfig()));
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }
     if (config.checkContracts()) {
       handlerListBuilder.add(new ContractCheckHandler(config));
     }
-
     return new CompositeHandler(handlerListBuilder.build());
   }
 
