@@ -20,11 +20,10 @@ public class AnnotationFactory {
     setFullNames("javax.annotation.Nonnull", "javax.annotation.Nullable");
   }
 
-  public AnnotationFactory(String annotations) {
+  public AnnotationFactory(String nullable, String nonNull) {
     this();
-    if (annotations == null || annotations.equals("") || !annotations.contains(",")) return;
-    String[] annots = annotations.split(",");
-    setFullNames(annots[0], annots[1]);
+    if (nullable == null || nullable.equals("") || nonNull == null || nonNull.equals("")) return;
+    setFullNames(nonNull, nullable);
   }
 
   public void setFullNames(String nonnullFullName, String nullableFullName) {

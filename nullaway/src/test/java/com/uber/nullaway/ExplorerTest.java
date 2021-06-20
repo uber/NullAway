@@ -33,8 +33,7 @@ public class ExplorerTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+                "-XepOpt:NullAway:AutoFix=true"))
         .setOutputPath(outputPath)
         .addSourceLines(
             "com/uber/SubClass.java",
@@ -477,52 +476,4 @@ public class ExplorerTest {
   //                "false"))
   //        .doTest();
   //  }
-
-  @Test
-  public void fix_annotation_flag_test() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
-    String fixAnnotations =
-        "org.checkerframework.checker.nullness.qual.NonNull,org.checkerframework.checker.nullness.qual.Nullable";
-    explorerTestHelper
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath,
-                "-XepOpt:NullAway:FixAnnotations=" + fixAnnotations))
-        .setOutputPath(outputPath)
-        .addSourceLines(
-            "com/uber/Base.java",
-            "package com.uber;",
-            "import java.util.ArrayList;",
-            "public class Base extends Super<String>{",
-            "   public void newSideEffect(ArrayList<String> op) {",
-            "     newStatement(null, op, true, true);",
-            "   }",
-            "}")
-        .addSourceLines(
-            "com/uber/Super.java",
-            "package com.uber;",
-            "import java.util.ArrayList;",
-            "class Super<T extends Object> {",
-            "   public boolean newStatement(",
-            "     T lhs, ArrayList<T> operator, boolean toWorkList, boolean eager) {",
-            "       return false;",
-            "   }",
-            "}")
-        .addFixes(
-            new Fix(
-                "org.checkerframework.checker.nullness.qual.Nullable",
-                "newStatement(T,java.util.ArrayList<T>,boolean,boolean)",
-                "lhs",
-                "METHOD_PARAM",
-                "com.uber.Super",
-                "com.uber",
-                "com/uber/Super.java",
-                "true",
-                "false"))
-        .doTest();
-  }
 }

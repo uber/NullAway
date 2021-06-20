@@ -86,7 +86,7 @@ public class ErrorBuilder {
     this.suppressionName = suppressionName;
     this.allNames = allNames;
     this.fixer = fixer;
-    errorWriter = new Writer(config);
+    errorWriter = new Writer();
   }
 
   /**
@@ -439,7 +439,7 @@ public class ErrorBuilder {
       fieldName = flatName.substring(index) + "." + fieldName;
     }
 
-    if (config.canFixElement(getTreesInstance(state), symbol)) {
+    if (config.getExplorerConfig().canFixElement(getTreesInstance(state), symbol)) {
       CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
       Location location =
           Location.Builder()

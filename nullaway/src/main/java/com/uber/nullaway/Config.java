@@ -23,23 +23,17 @@
 package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
-import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.autofixer.qual.AnnotationFactory;
+import com.uber.nullaway.autofixer.ExplorerConfig;
 import java.util.Set;
 import javax.annotation.Nullable;
-import javax.lang.model.element.Element;
 
 /** Provides configuration parameters for the nullability checker. */
 public interface Config {
 
-  boolean canFixElement(Trees trees, Element symbol);
-
   boolean autofixIsEnabled();
 
-  AnnotationFactory getAnnotationFactory();
-
-  String getJsonFileWriterPath();
+  ExplorerConfig getExplorerConfig();
 
   /**
    * Checks if a symbol comes from an annotated package.

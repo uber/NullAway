@@ -4,7 +4,6 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -21,11 +20,6 @@ import org.json.simple.JSONObject;
 public class Writer {
   private final List<JSONObject> fixes = new ArrayList<>();
   private final List<JSONObject> errors = new ArrayList<>();
-  private final Config config;
-
-  public Writer(Config config) {
-    this.config = config;
-  }
 
   @SuppressWarnings("unchecked")
   public void saveFix(Fix fix) {
@@ -34,7 +28,7 @@ public class Writer {
     toWrite.put("fixes", fixes);
     try (java.io.Writer writer =
         Files.newBufferedWriter(
-            Paths.get(config.getJsonFileWriterPath()), Charset.defaultCharset())) {
+            Paths.get("/tmp/NullAwayFix/fixes.json"), Charset.defaultCharset())) {
       writer.write(toWrite.toJSONString().replace("\\/", "/").replace("\\\\\\", "\\"));
       writer.flush();
     } catch (IOException e) {
@@ -64,7 +58,6 @@ public class Writer {
   public void saveMethodInfo(
       Symbol.MethodSymbol methodSymbol,
       Set<Element> nonnullFieldsAtExit,
-      String path,
       CompilationUnitTree c,
       VisitorState state) {
     String method = methodSymbol.toString();
@@ -76,7 +69,7 @@ public class Writer {
     String toWrite = methodInfo + "\n";
     OutputStream os;
     try {
-      os = new FileOutputStream(path, true);
+      os = new FileOutputStream("/tmp/NullAwayFix/method_info.csv", true);
       os.write(toWrite.getBytes(Charset.defaultCharset()), 0, toWrite.length());
       os.close();
     } catch (Exception e) {

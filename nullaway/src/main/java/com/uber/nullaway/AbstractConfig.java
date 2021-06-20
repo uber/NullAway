@@ -27,14 +27,11 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.autofixer.qual.AnnotationFactory;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
-import javax.lang.model.element.Element;
 
 /** abstract base class for null checker {@link Config} implementations */
 public abstract class AbstractConfig implements Config {
@@ -116,8 +113,11 @@ public abstract class AbstractConfig implements Config {
   protected String errorURL;
 
   protected boolean autofix;
-  protected String fixFilePath;
-  protected AnnotationFactory annotationFactory;
+
+  @Override
+  public boolean autofixIsEnabled() {
+    return autofix;
+  }
 
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
     // noinspection ConstantConditions
@@ -252,18 +252,6 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean isExternalInitClassAnnotation(String annotationName) {
     return externalInitAnnotations.contains(annotationName);
-  }
-
-  @Override
-  public boolean canFixElement(Trees trees, Element symbol) {
-    if (!autofix) return false;
-    if (trees == null || symbol == null) return false;
-    return trees.getPath(symbol) != null;
-  }
-
-  @Override
-  public boolean autofixIsEnabled() {
-    return autofix;
   }
 
   @Override

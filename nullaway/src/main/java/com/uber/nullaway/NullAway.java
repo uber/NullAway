@@ -95,7 +95,6 @@ import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -235,9 +234,6 @@ public class NullAway extends BugChecker
   private final Fixer fixer;
   private final String fixMessageSignature = "(Covered) ";
 
-  private final boolean captureMethodInfo;
-  private String methodInfoPath;
-
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
@@ -249,7 +245,6 @@ public class NullAway extends BugChecker
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
     fixer = new Fixer(config);
-    captureMethodInfo = false;
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), fixer);
   }
 
@@ -259,7 +254,6 @@ public class NullAway extends BugChecker
     nonAnnotatedMethod = this::isMethodUnannotated;
     fixer = new Fixer(config);
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames(), fixer);
-    captureMethodInfo = shouldCaptureMethodinfo();
   }
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
@@ -271,14 +265,6 @@ public class NullAway extends BugChecker
   public String linkUrl() {
     // add a space to make it clickable from iTerm
     return config.getErrorURL() + " ";
-  }
-
-  private boolean shouldCaptureMethodinfo() {
-    String fixFilePath = config.getJsonFileWriterPath();
-    String methodInfoDir =
-        fixFilePath.contains("/") ? fixFilePath.substring(0, fixFilePath.lastIndexOf("/")) : "/";
-    methodInfoPath = methodInfoDir + "/method_info.csv";
-    return !new File(methodInfoPath).exists();
   }
 
   /**
@@ -418,7 +404,9 @@ public class NullAway extends BugChecker
       String message = "assigning @Nullable expression to @NonNull field";
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, fixMessageSignature + message);
-      if (config.canFixElement(getTreesInstance(state), ASTHelpers.getSymbol(tree.getVariable()))) {
+      if (config
+          .getExplorerConfig()
+          .canFixElement(getTreesInstance(state), ASTHelpers.getSymbol(tree.getVariable()))) {
         CompilationUnitTree c =
             getTreesInstance(state)
                 .getPath(ASTHelpers.getSymbol(tree.getVariable()))
@@ -497,7 +485,7 @@ public class NullAway extends BugChecker
     }
 
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
-    if (captureMethodInfo) {
+    if (config.getExplorerConfig().MAKE_METHOD_TREE_INHERITANCE_ENABLED) {
       try {
         Set<Element> nonnullFieldsOfReceiverAtExit = null;
         CompilationUnitTree c = getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
@@ -507,9 +495,7 @@ public class NullAway extends BugChecker
               nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
                   getTreesInstance(state).getPath(methodSymbol), state.context);
         }
-        fixer
-            .getWriter()
-            .saveMethodInfo(methodSymbol, nonnullFieldsOfReceiverAtExit, methodInfoPath, c, state);
+        fixer.getWriter().saveMethodInfo(methodSymbol, nonnullFieldsOfReceiverAtExit, c, state);
       } catch (Exception e) {
         System.err.println("Could not save method info: " + methodSymbol);
       }
@@ -665,7 +651,7 @@ public class NullAway extends BugChecker
 
         ErrorMessage errorMessage =
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, fixMessageSignature + message);
-        if (config.canFixElement(getTreesInstance(state), overridingnMethod)) {
+        if (config.getExplorerConfig().canFixElement(getTreesInstance(state), overridingnMethod)) {
           CompilationUnitTree c =
               getTreesInstance(state).getPath(overridingnMethod).getCompilationUnit();
           Location location =
@@ -709,7 +695,7 @@ public class NullAway extends BugChecker
               MessageTypes.RETURN_NULLABLE,
               fixMessageSignature
                   + "returning @Nullable expression from method with @NonNull return type");
-      if (config.canFixElement(getTreesInstance(state), methodSymbol)) {
+      if (config.getExplorerConfig().canFixElement(getTreesInstance(state), methodSymbol)) {
         MethodTree methodTree = ASTHelpers.findMethod(methodSymbol, state);
         if (methodTree == null)
           throw new RuntimeException("AutoFix cannot find the method with symbol: " + methodSymbol);
@@ -838,7 +824,7 @@ public class NullAway extends BugChecker
               : getTreesInstance(state).getTree(overridingMethod);
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature + message);
-      if (config.canFixElement(getTreesInstance(state), overriddenMethod)
+      if (config.getExplorerConfig().canFixElement(getTreesInstance(state), overriddenMethod)
           && superTree instanceof MethodTree) {
         CompilationUnitTree c =
             getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
@@ -1221,7 +1207,7 @@ public class NullAway extends BugChecker
               new ErrorMessage(
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
                   fixMessageSignature + "assigning @Nullable expression to @NonNull field");
-          if (config.canFixElement(getTreesInstance(state), symbol)) {
+          if (config.getExplorerConfig().canFixElement(getTreesInstance(state), symbol)) {
             CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
             Location location =
                 Location.Builder()
@@ -1478,7 +1464,7 @@ public class NullAway extends BugChecker
                 + "' where @NonNull is required";
         ErrorMessage errorMessage =
             new ErrorMessage(MessageTypes.PASS_NULLABLE, fixMessageSignature + message);
-        if (config.canFixElement(getTreesInstance(state), methodSymbol)) {
+        if (config.getExplorerConfig().canFixElement(getTreesInstance(state), methodSymbol)) {
           CompilationUnitTree c =
               getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
           Location location =
@@ -1630,7 +1616,7 @@ public class NullAway extends BugChecker
       VisitorState state, SetMultimap<Element, Element> errorFieldsForInitializer) {
     for (Element constructorElement : errorFieldsForInitializer.keySet()) {
       for (Element element : errorFieldsForInitializer.get(constructorElement)) {
-        if (config.canFixElement(getTreesInstance(state), element)) {
+        if (config.getExplorerConfig().canFixElement(getTreesInstance(state), element)) {
           Tree tree = getTreesInstance(state).getTree(element);
           Symbol symbol = ASTHelpers.getSymbol(tree);
           CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();

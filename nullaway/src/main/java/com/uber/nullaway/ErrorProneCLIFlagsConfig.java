@@ -24,10 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.ErrorProneFlags;
-import com.uber.nullaway.autofixer.qual.AnnotationFactory;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import com.uber.nullaway.autofixer.ExplorerConfig;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -79,8 +76,6 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
 
   static final String AUTO_FIX = EP_FL_NAMESPACE + ":AutoFix";
-  static final String FIX_FILE_PATH = EP_FL_NAMESPACE + ":FixFilePath";
-  static final String FIX_ANNOTATIONS = EP_FL_NAMESPACE + ":FixAnnotations";
 
   private static final String DELIMITER = ",";
 
@@ -214,24 +209,6 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + "), Suggest Suppression mode must be deactivated ("
               + FL_SUGGEST_SUPPRESSIONS
               + ")");
-    fixFilePath = flags.get(FIX_FILE_PATH).orElse("/tmp/NullAwayFix/fixes.json");
-    String fixAnnotations = flags.get(FIX_ANNOTATIONS).orElse("");
-    if (autofix) {
-      makeDirectoriesForFixFile(fixFilePath);
-      annotationFactory = new AnnotationFactory(fixAnnotations);
-    }
-  }
-
-  private void makeDirectoriesForFixFile(String fixFilePath) {
-    String pathToDirectory = fixFilePath.substring(0, fixFilePath.lastIndexOf("/"));
-    try {
-      Files.createDirectories(Paths.get(pathToDirectory + "/"));
-      /*File file = new File(fixFilePath);
-      if (!file.createNewFile() && !file.delete())
-        throw new RuntimeException("Could not clear the existing fix.json file at: " + fixFilePath);*/
-    } catch (IOException e) {
-      throw new RuntimeException("Could not create the directories for fix json file");
-    }
   }
 
   private static ImmutableSet<String> getFlagStringSet(ErrorProneFlags flags, String flagName) {
@@ -253,13 +230,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   }
 
   @Override
-  public AnnotationFactory getAnnotationFactory() {
-    if (annotationFactory == null) return new AnnotationFactory();
-    else return annotationFactory;
-  }
-
-  @Override
-  public String getJsonFileWriterPath() {
-    return fixFilePath;
+  public ExplorerConfig getExplorerConfig() {
+    return new ExplorerConfig("/tmp/NullAwayFix/explorer.config");
   }
 }

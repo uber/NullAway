@@ -20,6 +20,7 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.autofixer.ExplorerConfig;
 import com.uber.nullaway.autofixer.qual.AnnotationFactory;
 import com.uber.nullaway.autofixer.results.Fix;
 import com.uber.nullaway.autofixer.results.Writer;
@@ -35,18 +36,18 @@ import javax.lang.model.element.Modifier;
 }) // This class is still under construction
 public class Fixer {
 
-  protected final Config config;
+  protected final ExplorerConfig config;
   protected final Writer writer;
 
   public Fixer(Config config) {
-    this.config = config;
-    this.writer = new Writer(config);
+    this.config = config.getExplorerConfig();
+    this.writer = new Writer();
     cleanFixOutPutFolder();
   }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")
   private void cleanFixOutPutFolder() {
-    File file = new File(config.getJsonFileWriterPath());
+    File file = new File("/tmp/NullAwayFix/fixes.json");
     file.delete();
     file = new File("/tmp/NullAwayFix/errors.json");
     file.delete();
@@ -54,7 +55,7 @@ public class Fixer {
 
   public void fix(ErrorMessage errorMessage, Location location, VisitorState state) {
     // todo: remove this condition later, for now we are not supporting anonymous classes
-    if (!config.autofixIsEnabled()) return;
+    if (!config.SUGGEST_ENABLED) return;
     if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
     Fix fix = buildFix(errorMessage, location);
     if (fix != null) {
@@ -95,13 +96,13 @@ public class Fixer {
     Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) location.variableSymbol;
     // skip final properties
     if (varSymbol.getModifiers().contains(Modifier.FINAL)) return null;
-    fix.annotation = config.getAnnotationFactory().getNullable();
+    fix.annotation = config.ANNOTATION_FACTORY.getNullable();
     fix.inject = true;
     return fix;
   }
 
   protected Fix addParamPassNullableFix(Location location) {
-    AnnotationFactory.Annotation nonNull = config.getAnnotationFactory().getNonNull();
+    AnnotationFactory.Annotation nonNull = config.ANNOTATION_FACTORY.getNonNull();
     VariableTree variableTree =
         LocationUtils.getVariableTree(
             location.methodTree, (Symbol.VarSymbol) location.variableSymbol);
@@ -114,7 +115,7 @@ public class Fixer {
       if (nonNullAnnot.isPresent()) return null;
       final Fix fix = new Fix();
       fix.location = location;
-      fix.annotation = config.getAnnotationFactory().getNullable();
+      fix.annotation = config.ANNOTATION_FACTORY.getNullable();
       fix.inject = true;
       return fix;
     }
@@ -130,13 +131,13 @@ public class Fixer {
     }
     final Fix fix = new Fix();
     fix.location = location;
-    fix.annotation = config.getAnnotationFactory().getNullable();
+    fix.annotation = config.ANNOTATION_FACTORY.getNullable();
     fix.inject = true;
     return fix;
   }
 
   protected Fix addReturnNullableFix(Location location) {
-    AnnotationFactory.Annotation nonNull = config.getAnnotationFactory().getNonNull();
+    AnnotationFactory.Annotation nonNull = config.ANNOTATION_FACTORY.getNonNull();
 
     if (!location.kind.equals(Location.Kind.METHOD_RETURN)) {
       throw new RuntimeException(
@@ -152,7 +153,7 @@ public class Fixer {
         Iterables.tryFind(
             annotations, annot -> annot.getAnnotationType().toString().endsWith(nonNull.name));
     fix.location = location;
-    fix.annotation = config.getAnnotationFactory().getNullable();
+    fix.annotation = config.ANNOTATION_FACTORY.getNullable();
     fix.inject = !nonNullAnnot.isPresent();
     return fix;
   }
