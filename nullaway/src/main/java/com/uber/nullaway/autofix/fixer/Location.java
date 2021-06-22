@@ -8,6 +8,7 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.autofix.fixer.Fix.Keys;
 import java.io.Serializable;
+import java.util.Objects;
 import org.json.simple.JSONObject;
 
 @SuppressWarnings("ALL") // TODO: Remove this later, This class is still under construction
@@ -79,6 +80,23 @@ public class Location implements Serializable {
         + "\n\tkind="
         + kind
         + "\n}";
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof Location)) return false;
+    Location location = (Location) o;
+    return compilationUnitTree.equals(location.compilationUnitTree)
+        && classTree.equals(location.classTree)
+        && methodTree.equals(location.methodTree)
+        && variableSymbol.equals(location.variableSymbol)
+        && kind == location.kind;
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(compilationUnitTree, classTree, methodTree, variableSymbol, kind);
   }
 
   public static LocationBuilder Builder() {

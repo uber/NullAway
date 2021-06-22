@@ -2,6 +2,7 @@ package com.uber.nullaway.autofix.fixer;
 
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import java.io.Serializable;
+import java.util.Objects;
 import org.json.simple.JSONObject;
 
 @SuppressWarnings({
@@ -45,6 +46,23 @@ public class Fix implements Serializable {
     res.put(Keys.ANNOTATION.label, annotation.fullName.replace(";", ""));
     res.put(Keys.COMPULSORY.label, "" + compulsory);
     return res;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) return true;
+    if (!(o instanceof Fix)) return false;
+    Fix fix = (Fix) o;
+    return inject == fix.inject
+        && compulsory == fix.compulsory
+        && Objects.equals(location, fix.location)
+        && Objects.equals(annotation, fix.annotation)
+        && Objects.equals(reason, fix.reason);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(location, annotation, reason, inject, compulsory);
   }
 
   @Override
