@@ -1,13 +1,11 @@
 package com.uber.nullaway.jmh;
 
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
-import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 
@@ -43,26 +41,26 @@ public class NullawayJavac {
     System.out.println("SUCCESS");
   }
 
-  private List<JavaSourceFromString> compilationUnits;
+  private List<JavaFileObject> compilationUnits;
   private JavaCompiler compiler;
   private DiagnosticListener<JavaFileObject> diagnosticListener;
   private StandardJavaFileManager fileManager;
   private List<String> options;
 
   public void prepare() {
-    String testClass =
-        "package com.uber;\n"
-            + "import java.util.*;\n"
-            + "class Test {   \n"
-            + "  public static void main(String args[]) {\n"
-            + "    Set<Short> s = null;\n"
-            + "    for (short i = 0; i < 100; i++) {\n"
-            + "      s.add(i);\n"
-            + "      s.remove(i - 1);\n"
-            + "    }\n"
-            + "    System.out.println(s.size());"
-            + "  }\n"
-            + "}\n";
+    //    String testClass =
+    //        "package com.uber;\n"
+    //            + "import java.util.*;\n"
+    //            + "class Test {   \n"
+    //            + "  public static void main(String args[]) {\n"
+    //            + "    Set<Short> s = null;\n"
+    //            + "    for (short i = 0; i < 100; i++) {\n"
+    //            + "      s.add(i);\n"
+    //            + "      s.remove(i - 1);\n"
+    //            + "    }\n"
+    //            + "    System.out.println(s.size());"
+    //            + "  }\n"
+    //            + "}\n";
 
     compiler = ToolProvider.getSystemJavaCompiler();
     diagnosticListener =
@@ -72,7 +70,13 @@ public class NullawayJavac {
     // diagnosticListener = null;
     fileManager = compiler.getStandardFileManager(diagnosticListener, null, null);
     compilationUnits = new ArrayList<>();
-    compilationUnits.add(new JavaSourceFromString("Test", testClass));
+    // compilationUnits.add(new JavaSourceFromString("Test", testClass));
+    Iterable<? extends JavaFileObject> javaFileObjects =
+        fileManager.getJavaFileObjects(
+            "/Users/msridhar/git-repos/NullAway/nullaway/src/test/resources/com/uber/nullaway/testdata/NullAwayPositiveCases.java");
+    for (JavaFileObject f : javaFileObjects) {
+      compilationUnits.add(f);
+    }
     options =
         Arrays.asList(
             "-processorpath",
@@ -93,17 +97,18 @@ public class NullawayJavac {
    * <p>Based on code in Apache Pig; see <a
    * href="https://github.com/apache/pig/blob/59ec4a326079c9f937a052194405415b1e3a2b06/src/org/apache/pig/impl/util/JavaCompilerHelper.java#L42-L58">here</a>.
    */
-  private static class JavaSourceFromString extends SimpleJavaFileObject {
-    final String code;
-
-    JavaSourceFromString(String name, String code) {
-      super(URI.create("string:///" + name.replace('.', '/') + Kind.SOURCE.extension), Kind.SOURCE);
-      this.code = code;
-    }
-
-    @Override
-    public CharSequence getCharContent(boolean ignoreEncodingErrors) {
-      return code;
-    }
-  }
+  //  private static class JavaSourceFromString extends SimpleJavaFileObject {
+  //    final String code;
+  //
+  //    JavaSourceFromString(String name, String code) {
+  //      super(URI.create("string:///" + name.replace('.', '/') + Kind.SOURCE.extension),
+  // Kind.SOURCE);
+  //      this.code = code;
+  //    }
+  //
+  //    @Override
+  //    public CharSequence getCharContent(boolean ignoreEncodingErrors) {
+  //      return code;
+  //    }
+  //  }
 }
