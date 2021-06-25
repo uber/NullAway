@@ -11,7 +11,9 @@ dependencies {
     // Depend on NullAway and Error Prone Core.  This allows us to use our classpath as the processor path
     // for the javac instance that needs to run NullAway
     implementation project(':nullaway')
-    implementation deps.build.errorProneCore
+    // use the same version of Error Prone Core that we are compiling NullAway against, so we can
+    // benchmark against different versions of Error Prone
+    implementation deps.build.errorProneCoreForApi
 
     // Source jars for our desired benchmarks
     benchmarkSources('com.github.ben-manes.caffeine:caffeine:3.0.2:sources') {

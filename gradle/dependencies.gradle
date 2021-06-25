@@ -58,6 +58,7 @@ def build = [
     asmTree                 : "org.ow2.asm:asm-tree:${versions.asm}",
     errorProneCheckApi      : "com.google.errorprone:error_prone_check_api:${versions.errorProneApi}",
     errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProne}",
+    errorProneCoreForApi    : "com.google.errorprone:error_prone_core:${versions.errorProneApi}",
     errorProneJavac         : "com.google.errorprone:javac:9+181-r4173-1",
     errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProneApi}",
     checkerDataflow         : "org.checkerframework:dataflow-nullaway:${versions.checkerFramework}",
