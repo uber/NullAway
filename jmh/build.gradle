@@ -34,10 +34,11 @@ task extractBenchmarkSources(type: Copy) {
 compileJava.dependsOn(extractBenchmarkSources)
 
 jmh {
-//    profilers = ["stack:lines=3"]
-//    warmupIterations = 8
-//    iterations = 1
-//    fork = 1
+    // commented-out examples of how to tweak certain jmh parameters; they show the default values
+    // for more examples see https://github.com/melix/jmh-gradle-plugin/blob/master/README.adoc#configuration-options
+    // warmupIterations = 5
+    // iterations = 5
+    // fork = 5
     jvmArgsAppend = ["-Dnullaway.benchmark.sources=" + benchSourceDir.get()]
 
 }
