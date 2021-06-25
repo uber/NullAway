@@ -19,6 +19,8 @@ dependencies {
     benchmarkSources('com.github.ben-manes.caffeine:caffeine:3.0.2:sources') {
         transitive = false
     }
+
+    testImplementation deps.test.junit4
 }
 
 def benchSourceDir = project.layout.buildDirectory.dir('benchmarkSources')
