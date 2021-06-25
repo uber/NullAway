@@ -3,7 +3,37 @@ plugins {
     id "me.champeau.jmh" version "0.6.5"
 }
 
+configurations {
+    benchmarkSources
+}
 dependencies {
+
+    // Depend on NullAway and Error Prone Core.  This allows us to use our classpath as the processor path
+    // for the javac instance that needs to run NullAway
     implementation project(':nullaway')
     implementation deps.build.errorProneCore
+
+    // Source jars for our desired benchmarks
+    benchmarkSources('com.github.ben-manes.caffeine:caffeine:3.0.2:sources') {
+        transitive = false
+    }
+}
+
+def benchSourceDir = project.layout.buildDirectory.dir('benchmarkSources')
+
+task extractBenchmarkSources(type: Copy) {
+    // TODO update this to work with multiple benchmarks
+    from zipTree(configurations.benchmarkSources.singleFile)
+    into benchSourceDir
+}
+
+compileJava.dependsOn(extractBenchmarkSources)
+
+jmh {
+//    profilers = ["stack:lines=3"]
+//    warmupIterations = 8
+//    iterations = 1
+//    fork = 1
+    jvmArgsAppend = ["-Dnullaway.benchmark.sources=" + benchSourceDir.get()]
+
 }
