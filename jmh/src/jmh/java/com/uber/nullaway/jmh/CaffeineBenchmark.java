@@ -92,18 +92,17 @@ public class CaffeineBenchmark {
 
   @Setup
   public void setup() throws IOException {
-    nullawayJavac = new NullawayJavac();
     String benchSourceDir = System.getProperty("nullaway.benchmark.sources");
     List<String> realSourceFileNames =
         SOURCE_FILE_NAMES
             .stream()
             .map(s -> benchSourceDir + File.separator + s.replaceAll("/", File.separator))
             .collect(Collectors.toList());
-    nullawayJavac.prepare(realSourceFileNames, "com.github.benmanes.caffeine");
+    nullawayJavac = NullawayJavac.create(realSourceFileNames, "com.github.benmanes.caffeine");
   }
 
   @Benchmark
   public void compile(Blackhole bh) throws Exception {
-    bh.consume(nullawayJavac.testCompile());
+    bh.consume(nullawayJavac.compile());
   }
 }

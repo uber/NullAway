@@ -33,6 +33,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import javax.annotation.Nullable;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
@@ -40,29 +41,30 @@ import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 
-/** Code to run Javac with NullAway enabled. */
+/**
+ * Code to run Javac with NullAway enabled, designed to aid benchmarking. Construction of {@code
+ * NullawayJavac} objects performs one-time operations whose cost we do not care to benchmark, so
+ * that {@link #compile()} can be run repeatedly to measure performance in the steady state.
+ */
 public class NullawayJavac {
 
-  private static int getJavaRuntimeVersion() {
-    String version = System.getProperty("java.version");
-    if (version.startsWith("1.")) {
-      version = version.substring(2, 3);
-    } else {
-      int dot = version.indexOf(".");
-      if (dot != -1) {
-        version = version.substring(0, dot);
-      }
-    }
-    return Integer.parseInt(version);
-  }
-
+  //////////////////////
+  // state required to run javac via the standard APIs
+  //////////////////////
   private List<JavaFileObject> compilationUnits;
   private JavaCompiler compiler;
-  private DiagnosticListener<JavaFileObject> diagnosticListener;
+  @Nullable private DiagnosticListener<JavaFileObject> diagnosticListener;
   private StandardJavaFileManager fileManager;
   private List<String> options;
 
-  public void prepareForSimpleTest() throws IOException {
+  /**
+   * Sets up compilation for a simple single source file, for testing / sanity checking purposes.
+   * Running {@link #compile()} on the resulting object will return {@code false}, as the sample
+   * input source has NullAway errors.
+   *
+   * @throws IOException if output temporary directory cannot be created
+   */
+  public static NullawayJavac createSimpleTest() throws IOException {
     String testClass =
         "package com.uber;\n"
             + "import java.util.*;\n"
@@ -76,13 +78,23 @@ public class NullawayJavac {
             + "    System.out.println(s.size());"
             + "  }\n"
             + "}\n";
-    compilationUnits = Collections.singletonList(new JavaSourceFromString("Test", testClass));
-    finishSetup("com.uber");
+    return new NullawayJavac(
+        Collections.singletonList(new JavaSourceFromString("Test", testClass)), "com.uber");
   }
 
-  public void prepare(List<String> sourceFileNames, String annotatedPackages) throws IOException {
-    compilationUnits = new ArrayList<>();
+  /**
+   * Creates a NullawayJavac object to compile a set of source files.
+   *
+   * @param sourceFileNames absolute paths to the source files to be compiled
+   * @param annotatedPackages argument to pass for "-XepOpt:NullAway:AnnotatedPackages" option
+   * @throws IOException if a temporary output directory cannot be created
+   */
+  public static NullawayJavac create(List<String> sourceFileNames, String annotatedPackages)
+      throws IOException {
+    List<JavaFileObject> compilationUnits = new ArrayList<>();
     for (String sourceFileName : sourceFileNames) {
+      // we read every source file into memory in the prepare phase, to avoid some I/O during
+      // compilations
       String content = readFile(sourceFileName);
       String classname =
           sourceFileName.substring(
@@ -90,12 +102,11 @@ public class NullawayJavac {
       compilationUnits.add(new JavaSourceFromString(classname, content));
     }
 
-    finishSetup(annotatedPackages);
+    return new NullawayJavac(compilationUnits, annotatedPackages);
   }
 
   /**
-   * Finishes setup of options and state for running javac, assuming that {@link #compilationUnits}
-   * has already been set up.
+   * Configures compilation with javac and NullAway.
    *
    * <p>To pass the appropriate {@code -processorpath} argument to the spawned javac, we make this
    * project depend on NullAway and Error Prone Core, and then pass our own classpath as the
@@ -108,19 +119,21 @@ public class NullawayJavac {
    * @param annotatedPackages argument to pass for "-XepOpt:NullAway:AnnotatedPackages" option
    * @throws IOException if a temporary output directory cannot be created
    */
-  private void finishSetup(String annotatedPackages) throws IOException {
-    compiler = ToolProvider.getSystemJavaCompiler();
-    diagnosticListener =
+  private NullawayJavac(List<JavaFileObject> compilationUnits, String annotatedPackages)
+      throws IOException {
+    this.compilationUnits = compilationUnits;
+    this.compiler = ToolProvider.getSystemJavaCompiler();
+    this.diagnosticListener =
         diagnostic -> {
           // do nothing
         };
     // uncomment this if you want to see compile errors get printed out
-    // diagnosticListener = null;
-    fileManager = compiler.getStandardFileManager(diagnosticListener, null, null);
+    // this.diagnosticListener = null;
+    this.fileManager = compiler.getStandardFileManager(diagnosticListener, null, null);
     Path outputDir = Files.createTempDirectory("classes");
     outputDir.toFile().deleteOnExit();
     // TODO support passing additional benchmark dependencies as the -classpath argument
-    options =
+    this.options =
         Arrays.asList(
             "-processorpath",
             System.getProperty("java.class.path"),
@@ -131,13 +144,18 @@ public class NullawayJavac {
                 + annotatedPackages);
   }
 
-  public Boolean testCompile() {
+  /**
+   * Runs the compilation.
+   *
+   * @return true if the input files compile without error; false otherwise
+   */
+  public boolean compile() {
     JavaCompiler.CompilationTask task =
         compiler.getTask(null, fileManager, diagnosticListener, options, null, compilationUnits);
     return task.call();
   }
 
-  static String readFile(String path) throws IOException {
+  private static String readFile(String path) throws IOException {
     byte[] encoded = Files.readAllBytes(Paths.get(path));
     return new String(encoded, StandardCharsets.UTF_8);
   }

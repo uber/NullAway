@@ -29,8 +29,11 @@ public class NullawayJavacTest {
 
   @Test
   public void simpleTest() throws IOException {
-    NullawayJavac n = new NullawayJavac();
-    n.prepareForSimpleTest();
-    org.junit.Assert.assertTrue(!n.testCompile());
+    NullawayJavac n = NullawayJavac.createSimpleTest();
+    // run compile in a loop to make sure that works
+    for (int i = 0; i < 5; i++) {
+      // we do not expect the simple test to compile
+      org.junit.Assert.assertTrue(!n.compile());
+    }
   }
 }
