@@ -56,22 +56,6 @@ public class NullawayJavac {
     return Integer.parseInt(version);
   }
 
-  public static void main(String[] args) throws Exception {
-    // Check at runtime for appropriate Java version.  For convenience we keep the code building
-    // with Java 8.
-    if (getJavaRuntimeVersion() < 11) {
-      throw new RuntimeException(
-          "Must be run on JDK 11 or greater; version is " + System.getProperty("java.version"));
-    }
-    NullawayJavac nb = new NullawayJavac();
-    nb.prepareForSimpleTest();
-    for (int i = 0; i < 5; i++) {
-      System.out.println(i);
-      nb.testCompile();
-    }
-    System.out.println("SUCCESS");
-  }
-
   private List<JavaFileObject> compilationUnits;
   private JavaCompiler compiler;
   private DiagnosticListener<JavaFileObject> diagnosticListener;
