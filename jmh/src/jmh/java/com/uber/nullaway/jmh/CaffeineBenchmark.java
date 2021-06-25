@@ -66,7 +66,7 @@ public class CaffeineBenchmark {
           "com/github/benmanes/caffeine/cache/stats/GuardedStatsCounter.java",
           "com/github/benmanes/caffeine/cache/stats/StatsCounter.java");
 
-  NullawayJavac nullawayJavac;
+  private NullawayJavac nullawayJavac;
 
   @Setup
   public void setup() throws IOException {

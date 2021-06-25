@@ -89,7 +89,15 @@ public class NullawayJavac {
 
   /**
    * Finishes setup of options and state for running javac, assuming that {@link #compilationUnits}
-   * has already been set up
+   * has already been set up.
+   *
+   * <p>To pass the appropriate {@code -processorpath} argument to the spawned javac, we make this
+   * project depend on NullAway and Error Prone Core, and then pass our own classpath as the
+   * processorpath. Note that this makes (dependencies of) NullAway and Error Prone visible on the
+   * <emph>classpath</emph> for the spawned javac instance as well. So, if a benchmark depends on
+   * some library that NullAway depends on (e.g., Guava), the dependence will be magically
+   * satisfied. Note that this could lead to problems for benchmarks that depend on a conflicting
+   * version of a library.
    *
    * @param annotatedPackages argument to pass for "-XepOpt:NullAway:AnnotatedPackages" option
    * @throws IOException if a temporary output directory cannot be created
@@ -105,6 +113,7 @@ public class NullawayJavac {
     fileManager = compiler.getStandardFileManager(diagnosticListener, null, null);
     Path outputDir = Files.createTempDirectory("classes");
     outputDir.toFile().deleteOnExit();
+    // TODO support passing additional benchmark dependencies as the -classpath argument
     options =
         Arrays.asList(
             "-processorpath",
@@ -126,6 +135,7 @@ public class NullawayJavac {
     byte[] encoded = Files.readAllBytes(Paths.get(path));
     return new String(encoded, StandardCharsets.UTF_8);
   }
+
   /**
    * This class allows code to be generated directly from a String, instead of having to be on disk.
    *
