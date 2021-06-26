@@ -95,7 +95,8 @@ public class CaffeineBenchmark {
     String caffeineSourceDir = System.getProperty("nullaway.caffeine.sources");
     String caffeineClasspath = System.getProperty("nullaway.caffeine.classpath");
     List<String> realSourceFileNames =
-        SOURCE_FILE_NAMES.stream()
+        SOURCE_FILE_NAMES
+            .stream()
             .map(s -> caffeineSourceDir + File.separator + s.replaceAll("/", File.separator))
             .collect(Collectors.toList());
     nullawayJavac =
