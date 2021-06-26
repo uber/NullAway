@@ -92,13 +92,15 @@ public class CaffeineBenchmark {
 
   @Setup
   public void setup() throws IOException {
-    String benchSourceDir = System.getProperty("nullaway.benchmark.sources");
+    String caffeineSourceDir = System.getProperty("nullaway.caffeine.sources");
+    String caffeineClasspath = System.getProperty("nullaway.caffeine.classpath");
     List<String> realSourceFileNames =
-        SOURCE_FILE_NAMES
-            .stream()
-            .map(s -> benchSourceDir + File.separator + s.replaceAll("/", File.separator))
+        SOURCE_FILE_NAMES.stream()
+            .map(s -> caffeineSourceDir + File.separator + s.replaceAll("/", File.separator))
             .collect(Collectors.toList());
-    nullawayJavac = NullawayJavac.create(realSourceFileNames, "com.github.benmanes.caffeine");
+    nullawayJavac =
+        NullawayJavac.create(
+            realSourceFileNames, "com.github.benmanes.caffeine", caffeineClasspath);
   }
 
   @Benchmark

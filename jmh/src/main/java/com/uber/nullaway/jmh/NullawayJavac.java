@@ -79,7 +79,7 @@ public class NullawayJavac {
             + "  }\n"
             + "}\n";
     return new NullawayJavac(
-        Collections.singletonList(new JavaSourceFromString("Test", testClass)), "com.uber");
+        Collections.singletonList(new JavaSourceFromString("Test", testClass)), "com.uber", null);
   }
 
   /**
@@ -87,10 +87,11 @@ public class NullawayJavac {
    *
    * @param sourceFileNames absolute paths to the source files to be compiled
    * @param annotatedPackages argument to pass for "-XepOpt:NullAway:AnnotatedPackages" option
+   * @param classpath classpath for the benchmark
    * @throws IOException if a temporary output directory cannot be created
    */
-  public static NullawayJavac create(List<String> sourceFileNames, String annotatedPackages)
-      throws IOException {
+  public static NullawayJavac create(
+      List<String> sourceFileNames, String annotatedPackages, String classpath) throws IOException {
     List<JavaFileObject> compilationUnits = new ArrayList<>();
     for (String sourceFileName : sourceFileNames) {
       // we read every source file into memory in the prepare phase, to avoid some I/O during
@@ -102,7 +103,7 @@ public class NullawayJavac {
       compilationUnits.add(new JavaSourceFromString(classname, content));
     }
 
-    return new NullawayJavac(compilationUnits, annotatedPackages);
+    return new NullawayJavac(compilationUnits, annotatedPackages, classpath);
   }
 
   /**
@@ -116,10 +117,13 @@ public class NullawayJavac {
    * satisfied. Note that this could lead to problems for benchmarks that depend on a conflicting
    * version of a library.
    *
+   * @param compilationUnits input sources to be compiled
    * @param annotatedPackages argument to pass for "-XepOpt:NullAway:AnnotatedPackages" option
+   * @param classpath classpath for the program to be compiled
    * @throws IOException if a temporary output directory cannot be created
    */
-  private NullawayJavac(List<JavaFileObject> compilationUnits, String annotatedPackages)
+  private NullawayJavac(
+      List<JavaFileObject> compilationUnits, String annotatedPackages, @Nullable String classpath)
       throws IOException {
     this.compilationUnits = compilationUnits;
     this.compiler = ToolProvider.getSystemJavaCompiler();
@@ -132,8 +136,11 @@ public class NullawayJavac {
     this.fileManager = compiler.getStandardFileManager(diagnosticListener, null, null);
     Path outputDir = Files.createTempDirectory("classes");
     outputDir.toFile().deleteOnExit();
-    // TODO support passing additional benchmark dependencies as the -classpath argument
-    this.options =
+    this.options = new ArrayList<>();
+    if (classpath != null) {
+      options.addAll(Arrays.asList("-classpath", classpath));
+    }
+    options.addAll(
         Arrays.asList(
             "-processorpath",
             System.getProperty("java.class.path"),
@@ -141,7 +148,7 @@ public class NullawayJavac {
             outputDir.toAbsolutePath().toString(),
             "-XDcompilePolicy=simple",
             "-Xplugin:ErrorProne -XepDisableAllChecks -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages="
-                + annotatedPackages);
+                + annotatedPackages));
   }
 
   /**
