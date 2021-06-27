@@ -513,4 +513,42 @@ public class ExplorerTest {
   //                "false"))
   //        .doTest();
   //  }
+
+  @Test
+  public void check() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true"))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/SubClass.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class SubClass {",
+            "   Object field = new Object();",
+            "   Object test() {",
+            "       Base b = new Base();",
+            "       field = b.call(true);",
+            "       return b.call(false);",
+            "   }",
+            "}",
+            "class Base { @Nullable Object call(boolean b) { return null; } }")
+        .addFixes(
+            new Fix(
+                "javax.annotation.Nullable",
+                "test(boolean)",
+                "",
+                "METHOD_RETURN",
+                "com.uber.SubClass",
+                "com.uber",
+                "com/uber/SubClass.java",
+                "true",
+                "false"))
+        .doTest();
+  }
 }

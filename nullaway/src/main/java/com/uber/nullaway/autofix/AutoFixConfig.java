@@ -17,6 +17,7 @@ import org.json.simple.parser.JSONParser;
 public class AutoFixConfig {
 
   public final boolean MAKE_METHOD_TREE_INHERITANCE_ENABLED;
+  public final boolean MAKE_CALL_GRAPH_ENABLED;
   public final boolean SUGGEST_ENABLED;
   public final boolean PARAM_TEST_ENABLED;
   public final boolean LOG_ERROR_ENABLED;
@@ -26,12 +27,14 @@ public class AutoFixConfig {
   public final AnnotationFactory ANNOTATION_FACTORY;
 
   public AutoFixConfig() {
+    System.out.println("I was called");
     MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
     SUGGEST_ENABLED = false;
     PARAM_TEST_ENABLED = false;
     LOG_ERROR_ENABLED = false;
     LOG_ERROR_DEEP = false;
     OPTIMIZED = false;
+    MAKE_CALL_GRAPH_ENABLED = false;
     PARAM_INDEX = 0L;
     ANNOTATION_FACTORY = new AnnotationFactory();
   }
@@ -50,6 +53,9 @@ public class AutoFixConfig {
     }
     MAKE_METHOD_TREE_INHERITANCE_ENABLED =
         getValueFromKey(jsonObject, "MAKE_METHOD_INHERITANCE_TREE", Boolean.class).orElse(false)
+            && autofixEnabled;
+    MAKE_CALL_GRAPH_ENABLED =
+        getValueFromKey(jsonObject, "MAKE_CALL_GRAPH", Boolean.class).orElse(false)
             && autofixEnabled;
     SUGGEST_ENABLED =
         getValueFromKey(jsonObject, "SUGGEST", Boolean.class).orElse(false) && autofixEnabled;

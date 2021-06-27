@@ -88,6 +88,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
+import com.uber.nullaway.autofix.Writer;
 import com.uber.nullaway.autofix.fixer.Fixer;
 import com.uber.nullaway.autofix.fixer.Location;
 import com.uber.nullaway.autofix.fixer.LocationUtils;
@@ -318,6 +319,9 @@ public class NullAway extends BugChecker
     }
     handler.onMatchMethodInvocation(this, tree, state, methodSymbol);
     // assuming this list does not include the receiver
+
+    if (config.getAutoFixConfig().MAKE_CALL_GRAPH_ENABLED) {}
+
     List<? extends ExpressionTree> actualParams = tree.getArguments();
     return handleInvocation(tree, state, methodSymbol, actualParams);
   }
@@ -401,6 +405,7 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expression = tree.getExpression();
     if (mayBeNullExpr(state, expression)) {
+      System.out.println("HERE: EXP: " + expression);
       String message = "assigning @Nullable expression to @NonNull field";
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, fixMessageSignature + message);
@@ -495,7 +500,7 @@ public class NullAway extends BugChecker
               nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
                   getTreesInstance(state).getPath(methodSymbol), state.context);
         }
-        fixer.getWriter().saveMethodInfo(methodSymbol, nonnullFieldsOfReceiverAtExit, c, state);
+        Writer.saveMethodInfo(methodSymbol, nonnullFieldsOfReceiverAtExit, c, state);
       } catch (Exception e) {
         System.err.println("Could not save method info: " + methodSymbol);
       }

@@ -22,6 +22,7 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.autofix.AutoFixConfig;
 import com.uber.nullaway.autofix.Writer;
+import com.uber.nullaway.autofix.out.Fix;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import java.util.List;
@@ -35,11 +36,9 @@ import javax.lang.model.element.Modifier;
 public class Fixer {
 
   protected final AutoFixConfig config;
-  protected final Writer writer;
 
   public Fixer(Config config) {
     this.config = config.getAutoFixConfig();
-    this.writer = new Writer(config);
   }
 
   public void fix(ErrorMessage errorMessage, Location location, VisitorState state) {
@@ -48,7 +47,7 @@ public class Fixer {
     if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
     Fix fix = buildFix(errorMessage, location);
     if (fix != null) {
-      writer.saveFix(fix);
+      Writer.saveFix(fix);
     }
   }
 
@@ -197,9 +196,5 @@ public class Fixer {
           != null;
     }
     return false;
-  }
-
-  public Writer getWriter() {
-    return writer;
   }
 }

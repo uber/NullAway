@@ -1,6 +1,6 @@
 package com.uber.nullaway.tools;
 
-import com.uber.nullaway.autofix.fixer.Fix.Keys;
+import com.uber.nullaway.autofix.out.Fix.Keys;
 import java.util.Objects;
 import org.json.simple.JSONObject;
 

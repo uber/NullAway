@@ -1,68 +1,41 @@
 package com.uber.nullaway.autofix;
 
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.matchers.MethodInvocation;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.MethodTree;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.autofix.explorer.MethodInfo;
-import com.uber.nullaway.autofix.fixer.Fix;
+import com.uber.nullaway.autofix.out.Error;
+import com.uber.nullaway.autofix.out.Fix;
+import com.uber.nullaway.autofix.out.MethodInfo;
+import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
 import java.io.FileOutputStream;
-import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.Element;
-import org.json.simple.JSONObject;
 
 public class Writer {
-  private final List<JSONObject> fixes = new ArrayList<>();
-  private final AutoFixConfig config;
+  private static final String ERROR = "/tmp/NullAwayFix/errors.csv";
+  private static final String METHOD_INFO = "/tmp/NullAwayFix/method_info.csv";
+  //  private static final String CALL_GRAPH = "/tmp/NullAwayFix/errors.csv";
+  private static final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.json";
+  private static final String DELIMITER = "%*%";
 
-  public Writer(Config config) {
-    this.config = config.getAutoFixConfig();
+  public static void saveFix(Fix fix) {
+    appendToFile(fix, SUGGEST_FIX);
   }
 
-  @SuppressWarnings("unchecked")
-  public void saveFix(Fix fix) {
-    fixes.add(fix.getJson());
-    JSONObject toWrite = new JSONObject();
-    toWrite.put("fixes", fixes);
-    try (java.io.Writer writer =
-        Files.newBufferedWriter(
-            Paths.get("/tmp/NullAwayFix/fixes.json"), Charset.defaultCharset())) {
-      writer.write(toWrite.toJSONString().replace("\\/", "/").replace("\\\\\\", "\\"));
-      writer.flush();
-    } catch (IOException e) {
-      throw new RuntimeException("Could not create the fix json file");
+  public static void saveError(ErrorMessage errorMessage, VisitorState state, boolean deep) {
+    Error error = new Error(errorMessage);
+    if (deep) {
+      error.findEnclosing(state);
     }
+    appendToFile(error, ERROR);
   }
 
-  public void saveError(ErrorMessage error, VisitorState state) {
-    StringBuilder newLine = new StringBuilder();
-    final String delimiter = "%*%";
-    newLine.append(error.getMessageType().toString()).append(delimiter).append(error.getMessage());
-    if (config.LOG_ERROR_DEEP) {
-      MethodTree enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
-      ClassTree enclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
-      if (enclosingClass != null && enclosingMethod != null) {
-        Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
-        Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
-        newLine.append(delimiter).append(classSymbol).append(delimiter).append(methodSymbol);
-      }
-    }
-    newLine.append("\n");
-    appendToFile(newLine.toString(), "/tmp/NullAwayFix/errors.csv");
-  }
-
-  public void saveMethodInfo(
+  public static void saveMethodInfo(
       Symbol.MethodSymbol methodSymbol,
       Set<Element> nonnullFieldsAtExit,
       CompilationUnitTree c,
@@ -73,12 +46,14 @@ public class Writer {
     methodInfo.setUri(c);
     methodInfo.setNonnullFieldsElements(nonnullFieldsAtExit);
     methodInfo.setParent(methodSymbol, state);
-    String toWrite = methodInfo + "\n";
-    appendToFile(toWrite, "/tmp/NullAwayFix/method_info.csv");
+    appendToFile(methodInfo, METHOD_INFO);
   }
 
-  private void appendToFile(String toWrite, String filePath) {
+  public static void saveMethodInvocation(MethodInvocation inv, VisitorState state) {}
+
+  private static void appendToFile(SeperatedValueDisplay value, String filePath) {
     OutputStream os;
+    String toWrite = value.display(DELIMITER) + "\n";
     try {
       os = new FileOutputStream(filePath, true);
       os.write(toWrite.getBytes(Charset.defaultCharset()), 0, toWrite.length());

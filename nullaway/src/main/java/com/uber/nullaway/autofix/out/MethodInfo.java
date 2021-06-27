@@ -1,11 +1,10 @@
-package com.uber.nullaway.autofix.explorer;
+package com.uber.nullaway.autofix.out;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullabilityUtil;
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -18,7 +17,7 @@ import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 
 @SuppressWarnings({"unchecked", "EqualsGetClass"})
-public class MethodInfo implements Serializable {
+public class MethodInfo implements SeperatedValueDisplay {
   int id;
   String method;
   String clazz;
@@ -103,7 +102,27 @@ public class MethodInfo implements Serializable {
 
   @Override
   public String toString() {
-    String delimiter = "%*%";
+    return "MethodInfo{"
+        + "id="
+        + id
+        + ", method='"
+        + method
+        + '\''
+        + ", clazz='"
+        + clazz
+        + '\''
+        + ", uri='"
+        + uri
+        + '\''
+        + ", nonnullFields="
+        + Arrays.toString(nonnullFields)
+        + ", parent="
+        + parent
+        + '}';
+  }
+
+  @Override
+  public String display(String delimiter) {
     return id
         + delimiter
         + clazz

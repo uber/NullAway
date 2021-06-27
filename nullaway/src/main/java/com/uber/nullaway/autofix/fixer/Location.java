@@ -6,13 +6,11 @@ import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.autofix.fixer.Fix.Keys;
-import java.io.Serializable;
+import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
 import java.util.Objects;
-import org.json.simple.JSONObject;
 
 @SuppressWarnings("ALL") // TODO: Remove this later, This class is still under construction
-public class Location implements Serializable {
+public class Location implements SeperatedValueDisplay {
   CompilationUnitTree compilationUnitTree;
   ClassTree classTree;
   MethodTree methodTree;
@@ -43,27 +41,6 @@ public class Location implements Serializable {
       ans.append(text.charAt(i));
     }
     return ans.toString();
-  }
-
-  @SuppressWarnings("unchecked")
-  public JSONObject getJson() {
-    JSONObject res = new JSONObject();
-    String classSymbolRep = classTree != null ? ASTHelpers.getSymbol(classTree).toString() : "";
-    String methodSymbolRep =
-        methodTree != null ? escapeQuotationMark(ASTHelpers.getSymbol(methodTree).toString()) : "";
-    String paramSymbolRep = variableSymbol != null ? variableSymbol.toString() : "";
-    String pkg = compilationUnitTree != null ? compilationUnitTree.getPackageName().toString() : "";
-    res.put(Keys.CLASS.label, classSymbolRep);
-    res.put(Keys.METHOD.label, methodSymbolRep);
-    res.put(Keys.PARAM.label, paramSymbolRep);
-    res.put(Keys.LOCATION.label, kind.label);
-    res.put(Keys.PKG.label, pkg);
-    if (compilationUnitTree != null) {
-      res.put(Keys.URI.label, compilationUnitTree.getSourceFile().toUri().toASCIIString());
-    } else {
-      res.put(Keys.URI.label, "");
-    }
-    return res;
   }
 
   @Override
@@ -146,5 +123,17 @@ public class Location implements Serializable {
       }
       return location;
     }
+  }
+
+  @Override
+  public String display(String delimiter) {
+    return kind + delimiter + classTree != null
+        ? ASTHelpers.getSymbol(classTree).toString()
+        : "null"
+            + delimiter
+            + (methodTree != null ? ASTHelpers.getSymbol(methodTree).toString() : "null")
+            + delimiter
+            + variableSymbol
+            + compilationUnitTree.getSourceFile().toUri().toASCIIString();
   }
 }

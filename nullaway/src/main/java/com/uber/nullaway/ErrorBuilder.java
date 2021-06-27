@@ -79,14 +79,11 @@ public class ErrorBuilder {
 
   static final String fixMessageSignature = "(Covered) ";
 
-  final Writer errorWriter;
-
   ErrorBuilder(Config config, String suppressionName, Set<String> allNames, Fixer fixer) {
     this.config = config;
     this.suppressionName = suppressionName;
     this.allNames = allNames;
     this.fixer = fixer;
-    errorWriter = new Writer(config);
   }
 
   /**
@@ -139,7 +136,7 @@ public class ErrorBuilder {
     }
     // #letbuildersbuild
     if (config.getAutoFixConfig().LOG_ERROR_ENABLED) {
-      errorWriter.saveError(errorMessage, state);
+      Writer.saveError(errorMessage, state, config.getAutoFixConfig().LOG_ERROR_DEEP);
     }
     return builder.build();
   }
