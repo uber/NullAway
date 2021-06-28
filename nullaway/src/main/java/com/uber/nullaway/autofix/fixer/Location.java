@@ -51,7 +51,12 @@ public class Location implements SeperatedValueDisplay {
         + "\n\tClass Symbol="
         + (classTree != null ? ASTHelpers.getSymbol(classTree).toString() : "null")
         + "\n\tMethod Symbol="
-        + (methodTree != null ? ASTHelpers.getSymbol(methodTree).toString() : "null")
+        + (methodTree != null
+            ? escapeQuotationMark(ASTHelpers.getSymbol(methodTree).toString())
+            : "null")
+        + (methodTree != null
+            ? escapeQuotationMark(ASTHelpers.getSymbol(methodTree).toString())
+            : "null")
         + "\n\tvariable Symbol="
         + variableSymbol
         + "\n\tkind="
@@ -129,11 +134,12 @@ public class Location implements SeperatedValueDisplay {
   public String display(String delimiter) {
     return kind + delimiter + classTree != null
         ? ASTHelpers.getSymbol(classTree).toString()
-        : "null"
-            + delimiter
-            + (methodTree != null ? ASTHelpers.getSymbol(methodTree).toString() : "null")
-            + delimiter
-            + variableSymbol
-            + compilationUnitTree.getSourceFile().toUri().toASCIIString();
+        : "null" + delimiter + methodTree != null
+            ? ASTHelpers.getSymbol(methodTree).toString()
+            : "null" + delimiter + variableSymbol != null
+                ? variableSymbol.toString()
+                : "" + delimiter + compilationUnitTree != null
+                    ? compilationUnitTree.getPackageName().toString()
+                    : "" + delimiter + compilationUnitTree.getSourceFile().toUri().toASCIIString();
   }
 }

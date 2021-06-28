@@ -6,7 +6,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.autofix.out.Error;
+import com.uber.nullaway.autofix.out.ErrorNode;
 import com.uber.nullaway.autofix.out.Fix;
 import com.uber.nullaway.autofix.out.MethodInfo;
 import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
@@ -17,18 +17,18 @@ import java.util.Set;
 import javax.lang.model.element.Element;
 
 public class Writer {
-  private static final String ERROR = "/tmp/NullAwayFix/errors.csv";
-  private static final String METHOD_INFO = "/tmp/NullAwayFix/method_info.csv";
-  //  private static final String CALL_GRAPH = "/tmp/NullAwayFix/errors.csv";
-  private static final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.json";
-  private static final String DELIMITER = "%*%";
+  public static final String ERROR = "/tmp/NullAwayFix/errors.csv";
+  public static final String METHOD_INFO = "/tmp/NullAwayFix/method_info.csv";
+  //  public static final String CALL_GRAPH = "/tmp/NullAwayFix/errors.csv";
+  public static final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.json";
+  public static final String DELIMITER = "%*%";
 
   public static void saveFix(Fix fix) {
     appendToFile(fix, SUGGEST_FIX);
   }
 
   public static void saveError(ErrorMessage errorMessage, VisitorState state, boolean deep) {
-    Error error = new Error(errorMessage);
+    ErrorNode error = new ErrorNode(errorMessage);
     if (deep) {
       error.findEnclosing(state);
     }

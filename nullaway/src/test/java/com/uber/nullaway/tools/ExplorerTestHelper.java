@@ -15,10 +15,12 @@ import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.scanner.ScannerSupplier;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.main.Main;
+import com.uber.nullaway.autofix.Writer;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -170,9 +172,30 @@ public class ExplorerTestHelper {
   }
 
   private Fix[] readOutputFixes() {
+    final String delimiter = Writer.DELIMITER;
+    ArrayList<Fix> fixes = new ArrayList<>();
     try {
       BufferedReader bufferedReader =
           Files.newBufferedReader(Paths.get(this.outputPath), Charset.defaultCharset());
+
+      BufferedReader reader;
+      try {
+        reader = new BufferedReader(new FileReader(this.outputPath));
+        String line = reader.readLine();
+        while (line != null) {
+          String[] infos = line.split(delimiter);
+          Fix fix =
+              new Fix(
+                  infos[6], infos[2], infos[3], infos[0], infos[1], infos[1], infos[1], infos[1],
+                  infos[1]);
+          System.out.println(line);
+          // read next line
+          line = reader.readLine();
+        }
+        reader.close();
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
       JSONObject obj = (JSONObject) new JSONParser().parse(bufferedReader);
       JSONArray fixesJson = (JSONArray) obj.get("fixes");
       bufferedReader.close();

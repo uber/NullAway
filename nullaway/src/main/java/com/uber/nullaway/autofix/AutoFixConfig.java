@@ -27,7 +27,6 @@ public class AutoFixConfig {
   public final AnnotationFactory ANNOTATION_FACTORY;
 
   public AutoFixConfig() {
-    System.out.println("I was called");
     MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
     SUGGEST_ENABLED = false;
     PARAM_TEST_ENABLED = false;
