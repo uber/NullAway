@@ -136,7 +136,7 @@ public class ErrorBuilder {
     }
     // #letbuildersbuild
     if (config.getAutoFixConfig().LOG_ERROR_ENABLED) {
-      Writer.saveError(errorMessage, state, config.getAutoFixConfig().LOG_ERROR_DEEP);
+      Writer.saveErrorNode(errorMessage, state, config.getAutoFixConfig().LOG_ERROR_DEEP);
     }
     return builder.build();
   }

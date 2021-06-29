@@ -96,6 +96,9 @@ public class AutoFixConfig {
       if (MAKE_METHOD_TREE_INHERITANCE_ENABLED) {
         new File("/tmp/NullAwayFix/method_info.csv").delete();
       }
+      if (MAKE_CALL_GRAPH_ENABLED) {
+        new File("/tmp/NullAwayFix/call_graph.csv").delete();
+      }
     } catch (IOException e) {
       throw new RuntimeException("Could not create the directories for fix json file");
     }
@@ -180,7 +183,7 @@ public class AutoFixConfig {
       paramTest.put("ACTIVE", PARAM_TEST_ENABLED);
       paramTest.put("INDEX", PARAM_INDEX);
       res.put("METHOD_PARAM_TEST", paramTest);
-      res.put("CALL_GRAPH", MAKE_CALL_GRAPH_ENABLED);
+      res.put("MAKE_CALL_GRAPH", MAKE_CALL_GRAPH_ENABLED);
       try {
         BufferedWriter file = Files.newBufferedWriter(Paths.get(path), Charset.defaultCharset());
         file.write(res.toJSONString());

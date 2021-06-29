@@ -1,11 +1,11 @@
 package com.uber.nullaway.autofix;
 
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.matchers.MethodInvocation;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.autofix.out.CallGraphNode;
 import com.uber.nullaway.autofix.out.ErrorNode;
 import com.uber.nullaway.autofix.out.Fix;
 import com.uber.nullaway.autofix.out.MethodInfo;
@@ -19,10 +19,9 @@ import javax.lang.model.element.Element;
 public class Writer {
   public static final String ERROR = "/tmp/NullAwayFix/errors.csv";
   public static final String METHOD_INFO = "/tmp/NullAwayFix/method_info.csv";
-  //  public static final String CALL_GRAPH = "/tmp/NullAwayFix/errors.csv";
+  public static final String CALL_GRAPH = "/tmp/NullAwayFix/call_graph.csv";
   public static final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.json";
   public static final String DELIMITER = "$*$";
-  public static final String DELIMITER_REGEX = "(\\$\\*\\$)";
 
   public static String getDelimiterRegex() {
     StringBuilder ans = new StringBuilder("(");
@@ -37,7 +36,7 @@ public class Writer {
     appendToFile(fix, SUGGEST_FIX);
   }
 
-  public static void saveError(ErrorMessage errorMessage, VisitorState state, boolean deep) {
+  public static void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
     ErrorNode error = new ErrorNode(errorMessage);
     if (deep) {
       error.findEnclosing(state);
@@ -59,7 +58,9 @@ public class Writer {
     appendToFile(methodInfo, METHOD_INFO);
   }
 
-  public static void saveMethodInvocation(MethodInvocation inv, VisitorState state) {}
+  public static void saveCallGraphNode(CallGraphNode node) {
+    appendToFile(node, CALL_GRAPH);
+  }
 
   private static void appendToFile(SeperatedValueDisplay value, String filePath) {
     OutputStream os;
