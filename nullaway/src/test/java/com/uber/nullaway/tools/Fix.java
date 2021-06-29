@@ -1,7 +1,6 @@
 package com.uber.nullaway.tools;
 
 import java.util.Objects;
-import org.json.simple.JSONObject;
 
 public class Fix {
   final String annotation;
@@ -33,19 +32,6 @@ public class Fix {
     this.uri = uri;
     this.inject = inject;
     this.compulsory = compulsory;
-  }
-
-  static Fix createFromJson(JSONObject fix) {
-    return new Fix(
-        fix.get(Keys.ANNOTATION.label).toString(),
-        fix.get(Keys.METHOD.label).toString(),
-        fix.get(Keys.PARAM.label).toString(),
-        fix.get(Keys.LOCATION.label).toString(),
-        fix.get(Keys.CLASS.label).toString(),
-        fix.get(Keys.PKG.label).toString(),
-        fix.get(Keys.URI.label).toString(),
-        fix.get(Keys.INJECT.label).toString(),
-        fix.get(Keys.COMPULSORY.label).toString());
   }
 
   @Override

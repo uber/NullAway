@@ -21,7 +21,17 @@ public class Writer {
   public static final String METHOD_INFO = "/tmp/NullAwayFix/method_info.csv";
   //  public static final String CALL_GRAPH = "/tmp/NullAwayFix/errors.csv";
   public static final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.json";
-  public static final String DELIMITER = "%*%";
+  public static final String DELIMITER = "$*$";
+  public static final String DELIMITER_REGEX = "(\\$\\*\\$)";
+
+  public static String getDelimiterRegex() {
+    StringBuilder ans = new StringBuilder("(");
+    for (int i = 0; i < DELIMITER.length(); i++) {
+      ans.append("\\").append(DELIMITER.charAt(i));
+    }
+    ans.append(")");
+    return ans.toString();
+  }
 
   public static void saveFix(Fix fix) {
     appendToFile(fix, SUGGEST_FIX);
@@ -59,7 +69,7 @@ public class Writer {
       os.write(toWrite.getBytes(Charset.defaultCharset()), 0, toWrite.length());
       os.close();
     } catch (Exception e) {
-      System.out.println("Error happened for writing at file: " + filePath);
+      System.err.println("Error happened for writing at file: " + filePath);
     }
   }
 }

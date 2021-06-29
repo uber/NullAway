@@ -3,6 +3,7 @@ package com.uber.nullaway.autofix;
 import com.google.common.base.Preconditions;
 import com.sun.source.util.Trees;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -133,5 +134,112 @@ public class AutoFixConfig {
     if (!SUGGEST_ENABLED) return false;
     if (trees == null || symbol == null) return false;
     return trees.getPath(symbol) != null;
+  }
+
+  public static class AutoFixConfigWriter {
+
+    private boolean MAKE_METHOD_TREE_INHERITANCE_ENABLED;
+    private boolean MAKE_CALL_GRAPH_ENABLED;
+    private boolean SUGGEST_ENABLED;
+    private boolean PARAM_TEST_ENABLED;
+    private boolean LOG_ERROR_ENABLED;
+    private boolean LOG_ERROR_DEEP;
+    private boolean OPTIMIZED;
+    private long PARAM_INDEX;
+    private String NULLABLE;
+    private String NONNULL;
+
+    public AutoFixConfigWriter() {
+      MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
+      MAKE_CALL_GRAPH_ENABLED = false;
+      SUGGEST_ENABLED = false;
+      PARAM_TEST_ENABLED = false;
+      LOG_ERROR_ENABLED = false;
+      LOG_ERROR_DEEP = false;
+      OPTIMIZED = false;
+      PARAM_INDEX = 0;
+      NULLABLE = "javax.annotation.Nullable";
+      NONNULL = "javax.annotation.Nonnull";
+    }
+
+    @SuppressWarnings("unchecked")
+    public void writeInJson(String path) {
+      JSONObject res = new JSONObject();
+      res.put("SUGGEST", SUGGEST_ENABLED);
+      res.put("MAKE_METHOD_INHERITANCE_TREE", MAKE_METHOD_TREE_INHERITANCE_ENABLED);
+      res.put("OPTIMIZED", OPTIMIZED);
+      JSONObject annotation = new JSONObject();
+      annotation.put("NULLABLE", NULLABLE);
+      annotation.put("NONNULL", NONNULL);
+      res.put("ANNOTATION", annotation);
+      JSONObject logError = new JSONObject();
+      logError.put("ACTIVE", LOG_ERROR_ENABLED);
+      logError.put("DEEP", LOG_ERROR_DEEP);
+      res.put("LOG_ERROR", logError);
+      JSONObject paramTest = new JSONObject();
+      paramTest.put("ACTIVE", PARAM_TEST_ENABLED);
+      paramTest.put("INDEX", PARAM_INDEX);
+      res.put("METHOD_PARAM_TEST", paramTest);
+      res.put("CALL_GRAPH", MAKE_CALL_GRAPH_ENABLED);
+      try {
+        BufferedWriter file = Files.newBufferedWriter(Paths.get(path), Charset.defaultCharset());
+        file.write(res.toJSONString());
+        file.flush();
+      } catch (IOException e) {
+        System.err.println("Error happened in writing config.");
+      }
+    }
+
+    public AutoFixConfigWriter setSuggest(boolean value) {
+      SUGGEST_ENABLED = value;
+      return this;
+    }
+
+    public AutoFixConfigWriter setSuggest(boolean suggest, String NULLABLE, String NONNULL) {
+      SUGGEST_ENABLED = suggest;
+      if (!suggest) {
+        throw new RuntimeException("SUGGEST must be activated");
+      }
+      this.NULLABLE = NULLABLE;
+      this.NONNULL = NONNULL;
+      return this;
+    }
+
+    public AutoFixConfigWriter setLogError(boolean value, boolean isDeep) {
+      LOG_ERROR_ENABLED = value;
+      if (!value && isDeep) {
+        throw new RuntimeException("Log error must be enabled to activate deep log error");
+      }
+      LOG_ERROR_DEEP = isDeep;
+      return this;
+    }
+
+    public AutoFixConfigWriter setMethodInheritanceTree(boolean value) {
+      MAKE_METHOD_TREE_INHERITANCE_ENABLED = value;
+      return this;
+    }
+
+    public AutoFixConfigWriter setMethodParamTest(boolean value, long index) {
+      PARAM_TEST_ENABLED = value;
+      if (value && index < 0) {
+        throw new RuntimeException("Index cannot be less than zero");
+      }
+      PARAM_INDEX = index;
+      return this;
+    }
+
+    public AutoFixConfigWriter setOptimized(boolean value) {
+      OPTIMIZED = value;
+      return this;
+    }
+
+    public AutoFixConfigWriter setMakeCallGraph(boolean value) {
+      MAKE_CALL_GRAPH_ENABLED = value;
+      return this;
+    }
+
+    public void write(String path) {
+      writeInJson(path);
+    }
   }
 }

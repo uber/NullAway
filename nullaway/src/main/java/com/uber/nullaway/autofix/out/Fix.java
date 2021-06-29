@@ -49,16 +49,14 @@ public class Fix implements SeperatedValueDisplay {
 
   @Override
   public String display(String delimiter) {
-
     return location.display(delimiter)
         + delimiter
         + ((reason == null) ? "Undefined" : reason)
         + delimiter
-        + annotation
+        + annotation.display(delimiter)
         + delimiter
         + compulsory
         + delimiter
-        + inject
-        + delimiter;
+        + inject;
   }
 }

@@ -20,7 +20,6 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
@@ -39,10 +38,6 @@ import javax.tools.Diagnostic;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
 
 @SuppressWarnings({
   "UnusedVariable",
@@ -63,6 +58,7 @@ public class ExplorerTestHelper {
   private boolean run = false;
   private final List<Fix> fixes = new ArrayList<>();
   private String outputPath;
+  private boolean haveFixes = true;
 
   private ExplorerTestHelper(ScannerSupplier scannerSupplier, String checkName, Class<?> clazz) {
     this.fileManager = new NullAwayInMemoryFileManager(clazz);
@@ -109,6 +105,11 @@ public class ExplorerTestHelper {
     return this;
   }
 
+  public ExplorerTestHelper setNoFix() {
+    this.haveFixes = false;
+    return this;
+  }
+
   public ExplorerTestHelper setArgs(List<String> args) {
     this.extraArgs = ImmutableList.copyOf(args);
     return this;
@@ -125,8 +126,12 @@ public class ExplorerTestHelper {
         fail(diagnostic.getMessage(Locale.ENGLISH));
       }
     }
-
-    Fix[] outputFixes = readOutputFixes();
+    Fix[] outputFixes;
+    if (haveFixes) {
+      outputFixes = readOutputFixes();
+    } else {
+      outputFixes = new Fix[0];
+    }
     compareFixes(outputFixes);
   }
 
@@ -172,48 +177,47 @@ public class ExplorerTestHelper {
   }
 
   private Fix[] readOutputFixes() {
-    final String delimiter = Writer.DELIMITER;
+    final String delimiter = Writer.getDelimiterRegex();
     ArrayList<Fix> fixes = new ArrayList<>();
+    BufferedReader reader;
     try {
-      BufferedReader bufferedReader =
-          Files.newBufferedReader(Paths.get(this.outputPath), Charset.defaultCharset());
+      reader = Files.newBufferedReader(Paths.get(this.outputPath), Charset.defaultCharset());
+      String line = reader.readLine();
+      while (line != null) {
+        String[] infos = line.split(delimiter);
+        //          0 kind
+        //          1 pkg
+        //          2 classTree
+        //          3 methodTree
+        //          4 variableSymbol
+        //          5 URI
+        //          6 reason
+        //          7 annotation
+        //          8 compulsory
+        //          9 inject
 
-      BufferedReader reader;
-      try {
-        reader = new BufferedReader(new FileReader(this.outputPath));
-        String line = reader.readLine();
-        while (line != null) {
-          String[] infos = line.split(delimiter);
-          Fix fix =
-              new Fix(
-                  infos[6], infos[2], infos[3], infos[0], infos[1], infos[1], infos[1], infos[1],
-                  infos[1]);
-          System.out.println(line);
-          // read next line
-          line = reader.readLine();
-        }
-        reader.close();
-      } catch (IOException e) {
-        e.printStackTrace();
+        //          String annotation, 7
+        //          String method, 3
+        //          String param, 4
+        //          String location, 0
+        //          String className, 2
+        //          String pkg, 1
+        //          String uri, 5
+        //          String inject, 9
+        //          String compulsory 8
+        Fix fix =
+            new Fix(
+                infos[7], infos[3], infos[4], infos[0], infos[2], infos[1], infos[5], infos[9],
+                infos[8]);
+
+        fixes.add(fix);
+        line = reader.readLine();
       }
-      JSONObject obj = (JSONObject) new JSONParser().parse(bufferedReader);
-      JSONArray fixesJson = (JSONArray) obj.get("fixes");
-      bufferedReader.close();
-      return extractFixesFromJson(fixesJson);
-    } catch (IOException ex) {
-      return new Fix[0];
-    } catch (ParseException e) {
-      throw new RuntimeException("Error in parsing object: " + e);
+      reader.close();
+    } catch (IOException e) {
+      System.err.println("Error happened in reading the fixes!!!!!");
     }
-  }
-
-  private Fix[] extractFixesFromJson(JSONArray fixesJson) {
-    Fix[] fixes = new Fix[fixesJson.size()];
-    for (int i = 0; i < fixesJson.size(); i++) {
-      JSONObject fix = (JSONObject) fixesJson.get(i);
-      fixes[i] = Fix.createFromJson(fix);
-    }
-    return fixes;
+    return fixes.toArray(new Fix[0]);
   }
 
   private Main.Result compile() {

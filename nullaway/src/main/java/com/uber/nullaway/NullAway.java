@@ -405,7 +405,6 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expression = tree.getExpression();
     if (mayBeNullExpr(state, expression)) {
-      System.out.println("HERE: EXP: " + expression);
       String message = "assigning @Nullable expression to @NonNull field";
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, fixMessageSignature + message);

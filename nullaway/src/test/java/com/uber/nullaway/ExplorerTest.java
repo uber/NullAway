@@ -1,5 +1,6 @@
 package com.uber.nullaway;
 
+import com.uber.nullaway.autofix.AutoFixConfig;
 import com.uber.nullaway.tools.ExplorerTestHelper;
 import com.uber.nullaway.tools.Fix;
 import java.util.Arrays;
@@ -24,8 +25,15 @@ public class ExplorerTest {
     explorerTestHelper = ExplorerTestHelper.newInstance(NullAway.class, getClass());
   }
 
+  private void makeDefaultConfig() {
+    AutoFixConfig.AutoFixConfigWriter writer =
+        new AutoFixConfig.AutoFixConfigWriter().setSuggest(true);
+    writer.write("/tmp/NullAwayFix/explorer.config");
+  }
+
   @Test
   public void add_nullable_returnType_simple() {
+    makeDefaultConfig();
     String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
@@ -50,7 +58,7 @@ public class ExplorerTest {
             new Fix(
                 "javax.annotation.Nullable",
                 "test(boolean)",
-                "",
+                "null",
                 "METHOD_RETURN",
                 "com.uber.SubClass",
                 "com.uber",
@@ -62,6 +70,7 @@ public class ExplorerTest {
 
   @Test
   public void add_nullable_returnType_superClass() {
+    makeDefaultConfig();
     String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
@@ -99,7 +108,7 @@ public class ExplorerTest {
             new Fix(
                 "javax.annotation.Nullable",
                 "test(boolean)",
-                "",
+                "null",
                 "METHOD_RETURN",
                 "com.uber.Super",
                 "com.uber",
@@ -222,6 +231,7 @@ public class ExplorerTest {
             "     return test(0, o);",
             "   }",
             "}")
+        .setNoFix()
         .doTest();
   }
 
@@ -251,7 +261,7 @@ public class ExplorerTest {
         .addFixes(
             new Fix(
                 "javax.annotation.Nullable",
-                "",
+                "null",
                 "h",
                 "CLASS_FIELD",
                 "com.uber.Super",
@@ -284,6 +294,7 @@ public class ExplorerTest {
             "      h = f;",
             "   }",
             "}")
+        .setNoFix()
         .doTest();
   }
 
@@ -315,7 +326,7 @@ public class ExplorerTest {
         .addFixes(
             new Fix(
                 "javax.annotation.Nullable",
-                "",
+                "null",
                 "f",
                 "CLASS_FIELD",
                 "com.uber.Super",
@@ -352,7 +363,7 @@ public class ExplorerTest {
         .addFixes(
             new Fix(
                 "javax.annotation.Nullable",
-                "",
+                "null",
                 "h",
                 "CLASS_FIELD",
                 "com.uber.Super",
@@ -384,7 +395,7 @@ public class ExplorerTest {
         .addFixes(
             new Fix(
                 "javax.annotation.Nullable",
-                "",
+                "null",
                 "f",
                 "CLASS_FIELD",
                 "com.uber.Super",
@@ -514,41 +525,41 @@ public class ExplorerTest {
   //        .doTest();
   //  }
 
-  @Test
-  public void check() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
-    explorerTestHelper
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AutoFix=true"))
-        .setOutputPath(outputPath)
-        .addSourceLines(
-            "com/uber/SubClass.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class SubClass {",
-            "   Object field = new Object();",
-            "   Object test() {",
-            "       Base b = new Base();",
-            "       field = b.call(true);",
-            "       return b.call(false);",
-            "   }",
-            "}",
-            "class Base { @Nullable Object call(boolean b) { return null; } }")
-        .addFixes(
-            new Fix(
-                "javax.annotation.Nullable",
-                "test(boolean)",
-                "",
-                "METHOD_RETURN",
-                "com.uber.SubClass",
-                "com.uber",
-                "com/uber/SubClass.java",
-                "true",
-                "false"))
-        .doTest();
-  }
+  //  @Test
+  //  public void check() {
+  //    String outputPath = "/tmp/NullAwayFix/fixes.json";
+  //    explorerTestHelper
+  //        .setArgs(
+  //            Arrays.asList(
+  //                "-d",
+  //                temporaryFolder.getRoot().getAbsolutePath(),
+  //                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+  //                "-XepOpt:NullAway:AutoFix=true"))
+  //        .setOutputPath(outputPath)
+  //        .addSourceLines(
+  //            "com/uber/SubClass.java",
+  //            "package com.uber;",
+  //            "import javax.annotation.Nullable;",
+  //            "public class SubClass {",
+  //            "   Object field = new Object();",
+  //            "   Object test() {",
+  //            "       Base b = new Base();",
+  //            "       field = b.call(true);",
+  //            "       return b.call(false);",
+  //            "   }",
+  //            "}",
+  //            "class Base { @Nullable Object call(boolean b) { return null; } }")
+  //        .addFixes(
+  //            new Fix(
+  //                "javax.annotation.Nullable",
+  //                "test(boolean)",
+  //                "",
+  //                "METHOD_RETURN",
+  //                "com.uber.SubClass",
+  //                "com.uber",
+  //                "com/uber/SubClass.java",
+  //                "true",
+  //                "false"))
+  //        .doTest();
+  //  }
 }

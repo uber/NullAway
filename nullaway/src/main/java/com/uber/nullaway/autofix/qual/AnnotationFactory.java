@@ -1,11 +1,13 @@
 package com.uber.nullaway.autofix.qual;
 
+import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
+
 public class AnnotationFactory {
 
   private Annotation nonNull;
   private Annotation nullable;
 
-  public static class Annotation {
+  public static class Annotation implements SeperatedValueDisplay {
     public String name;
     public String fullName;
 
@@ -13,6 +15,11 @@ public class AnnotationFactory {
       this.fullName = fullName;
       String[] paths = fullName.split("\\.");
       this.name = paths[paths.length - 1];
+    }
+
+    @Override
+    public String display(String delimiter) {
+      return fullName;
     }
   }
 
