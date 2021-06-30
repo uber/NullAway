@@ -1,8 +1,8 @@
 package com.uber.nullaway;
 
 import com.uber.nullaway.autofix.AutoFixConfig;
+import com.uber.nullaway.autofix.out.display.FixDisplay;
 import com.uber.nullaway.tools.ExplorerTestHelper;
-import com.uber.nullaway.tools.Fix;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
@@ -55,7 +55,7 @@ public class ExplorerTest {
             "   }",
             "}")
         .addFixes(
-            new Fix(
+            new FixDisplay(
                 "javax.annotation.Nullable",
                 "test(boolean)",
                 "null",
@@ -105,7 +105,7 @@ public class ExplorerTest {
             "   }",
             "}")
         .addFixes(
-            new Fix(
+            new FixDisplay(
                 "javax.annotation.Nullable",
                 "test(boolean)",
                 "null",
@@ -154,7 +154,7 @@ public class ExplorerTest {
             "   }",
             "}")
         .addFixes(
-            new Fix(
+            new FixDisplay(
                 "javax.annotation.Nullable",
                 "test(java.lang.Object)",
                 "o",
@@ -193,7 +193,7 @@ public class ExplorerTest {
             "   }",
             "}")
         .addFixes(
-            new Fix(
+            new FixDisplay(
                 "javax.annotation.Nullable",
                 "test(int,java.lang.Object)",
                 "h",
@@ -259,7 +259,7 @@ public class ExplorerTest {
             "   }",
             "}")
         .addFixes(
-            new Fix(
+            new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
                 "h",
@@ -324,7 +324,7 @@ public class ExplorerTest {
             "   }",
             "}")
         .addFixes(
-            new Fix(
+            new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
                 "f",
@@ -361,7 +361,7 @@ public class ExplorerTest {
             "   }",
             "}")
         .addFixes(
-            new Fix(
+            new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
                 "h",
@@ -393,7 +393,7 @@ public class ExplorerTest {
             "   Object f;",
             "}")
         .addFixes(
-            new Fix(
+            new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
                 "f",
@@ -438,7 +438,7 @@ public class ExplorerTest {
             "   }",
             "}")
         .addFixes(
-            new Fix(
+            new FixDisplay(
                 "javax.annotation.Nullable",
                 "newStatement(T,java.util.ArrayList<T>,boolean,boolean)",
                 "lhs",
@@ -475,7 +475,7 @@ public class ExplorerTest {
   //                    "   }",
   //                    "}")
   //            .addFixes(
-  //                    new Fix(
+  //                    new FixDisplay(
   //                            "javax.annotation.Nullable",
   //                            "test(java.lang.Object)",
   //                            "",
@@ -512,7 +512,7 @@ public class ExplorerTest {
   //            "   }",
   //            "}")
   //        .addFixes(
-  //            new Fix(
+  //            new FixDisplay(
   //                "javax.annotation.Nullable",
   //                "",
   //                "mustBeNullable",
@@ -551,7 +551,7 @@ public class ExplorerTest {
   //              "}",
   //              "class Base { @Nullable Object call(boolean b) { return null; } }")
   //          .addFixes(
-  //              new Fix(
+  //              new FixDisplay(
   //                  "javax.annotation.Nullable",
   //                  "test()",
   //                  "null",

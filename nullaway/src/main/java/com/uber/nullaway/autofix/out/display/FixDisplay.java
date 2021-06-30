@@ -1,19 +1,20 @@
-package com.uber.nullaway.tools;
+package com.uber.nullaway.autofix.out.display;
 
+import com.uber.nullaway.autofix.Writer;
 import java.util.Objects;
 
-public class Fix {
-  final String annotation;
-  final String method;
-  final String param;
-  final String location;
-  final String className;
-  final String pkg;
-  final String inject;
-  final String compulsory;
-  String uri;
+public class FixDisplay {
+  public final String annotation;
+  public final String method;
+  public final String param;
+  public final String location;
+  public final String className;
+  public final String pkg;
+  public final String inject;
+  public final String compulsory;
+  public String uri;
 
-  public Fix(
+  public FixDisplay(
       String annotation,
       String method,
       String param,
@@ -70,8 +71,8 @@ public class Fix {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (!(o instanceof Fix)) return false;
-    Fix fix = (Fix) o;
+    if (!(o instanceof FixDisplay)) return false;
+    FixDisplay fix = (FixDisplay) o;
     return Objects.equals(annotation, fix.annotation)
         && Objects.equals(method, fix.method)
         && Objects.equals(param, fix.param)
@@ -87,5 +88,11 @@ public class Fix {
   public int hashCode() {
     return Objects.hash(
         annotation, method, param, location, className, pkg, inject, uri, compulsory);
+  }
+
+  public static FixDisplay fromCSVLine(String line) {
+    String[] infos = line.split(Writer.getDelimiterRegex());
+    return new FixDisplay(
+        infos[7], infos[3], infos[4], infos[0], infos[2], infos[1], infos[5], infos[9], infos[8]);
   }
 }

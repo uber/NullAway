@@ -15,7 +15,7 @@ import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.scanner.ScannerSupplier;
 import com.sun.tools.javac.api.JavacTool;
 import com.sun.tools.javac.main.Main;
-import com.uber.nullaway.autofix.Writer;
+import com.uber.nullaway.autofix.out.display.FixDisplay;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
@@ -56,7 +56,7 @@ public class ExplorerTestHelper {
   private final List<JavaFileObject> sources = new ArrayList<>();
   private ImmutableList<String> extraArgs = ImmutableList.of();
   private boolean run = false;
-  private final List<Fix> fixes = new ArrayList<>();
+  private final List<FixDisplay> fixDisplays = new ArrayList<>();
   private String outputPath;
   private boolean haveFixes = true;
 
@@ -96,12 +96,12 @@ public class ExplorerTestHelper {
     return this;
   }
 
-  public ExplorerTestHelper addFixes(Fix... fixes) {
+  public ExplorerTestHelper addFixes(FixDisplay... fixDisplays) {
     Path p = fileManager.fileSystem().getRootDirectories().iterator().next();
-    for (Fix f : fixes) {
+    for (FixDisplay f : fixDisplays) {
       f.uri = p.toAbsolutePath().toUri().toASCIIString().concat(f.uri);
     }
-    this.fixes.addAll(Arrays.asList(fixes));
+    this.fixDisplays.addAll(Arrays.asList(fixDisplays));
     return this;
   }
 
@@ -126,13 +126,13 @@ public class ExplorerTestHelper {
         fail(diagnostic.getMessage(Locale.ENGLISH));
       }
     }
-    Fix[] outputFixes;
+    FixDisplay[] outputFixDisplays;
     if (haveFixes) {
-      outputFixes = readOutputFixes();
+      outputFixDisplays = readOutputFixes();
     } else {
-      outputFixes = new Fix[0];
+      outputFixDisplays = new FixDisplay[0];
     }
-    compareFixes(outputFixes);
+    compareFixes(outputFixDisplays);
   }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")
@@ -140,10 +140,10 @@ public class ExplorerTestHelper {
     new File(outputPath).delete();
   }
 
-  private void compareFixes(Fix[] outputFixes) {
-    ArrayList<Fix> notFound = new ArrayList<>();
-    ArrayList<Fix> output = new ArrayList<>(Arrays.asList(outputFixes));
-    for (Fix f : fixes) {
+  private void compareFixes(FixDisplay[] outputFixDisplays) {
+    ArrayList<FixDisplay> notFound = new ArrayList<>();
+    ArrayList<FixDisplay> output = new ArrayList<>(Arrays.asList(outputFixDisplays));
+    for (FixDisplay f : fixDisplays) {
       if (!output.contains(f)) notFound.add(f);
       else output.remove(f);
     }
@@ -166,7 +166,7 @@ public class ExplorerTestHelper {
             + "\n"
             + Arrays.deepToString(notFound.toArray())
             + "\n"
-            + "redundant fixes list:"
+            + "redundant fixDisplays list:"
             + "\n"
             + "================="
             + "\n"
@@ -176,48 +176,21 @@ public class ExplorerTestHelper {
             + "\n");
   }
 
-  private Fix[] readOutputFixes() {
-    final String delimiter = Writer.getDelimiterRegex();
-    ArrayList<Fix> fixes = new ArrayList<>();
+  private FixDisplay[] readOutputFixes() {
+    ArrayList<FixDisplay> fixDisplays = new ArrayList<>();
     BufferedReader reader;
     try {
       reader = Files.newBufferedReader(Paths.get(this.outputPath), Charset.defaultCharset());
       String line = reader.readLine();
       while (line != null) {
-        String[] infos = line.split(delimiter);
-        //          0 kind
-        //          1 pkg
-        //          2 classTree
-        //          3 methodTree
-        //          4 variableSymbol
-        //          5 URI
-        //          6 reason
-        //          7 annotation
-        //          8 compulsory
-        //          9 inject
-
-        //          String annotation, 7
-        //          String method, 3
-        //          String param, 4
-        //          String location, 0
-        //          String className, 2
-        //          String pkg, 1
-        //          String uri, 5
-        //          String inject, 9
-        //          String compulsory 8
-        Fix fix =
-            new Fix(
-                infos[7], infos[3], infos[4], infos[0], infos[2], infos[1], infos[5], infos[9],
-                infos[8]);
-
-        fixes.add(fix);
+        fixDisplays.add(FixDisplay.fromCSVLine(line));
         line = reader.readLine();
       }
       reader.close();
     } catch (IOException e) {
-      System.err.println("Error happened in reading the fixes!!!!!");
+      System.err.println("Error happened in reading the fixDisplays!!!!!");
     }
-    return fixes.toArray(new Fix[0]);
+    return fixDisplays.toArray(new FixDisplay[0]);
   }
 
   private Main.Result compile() {
