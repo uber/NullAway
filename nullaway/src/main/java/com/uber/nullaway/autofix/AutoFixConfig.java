@@ -90,7 +90,7 @@ public class AutoFixConfig {
     try {
       Files.createDirectories(Paths.get("/tmp/NullAwayFix/"));
       if (SUGGEST_ENABLED) {
-        new File("/tmp/NullAwayFix/fixes.json").delete();
+        new File("/tmp/NullAwayFix/fixes.csv").delete();
       }
       if (LOG_ERROR_ENABLED) {
         new File("/tmp/NullAwayFix/errors.csv").delete();
