@@ -20,7 +20,7 @@ public class Writer {
   public static final String ERROR = "/tmp/NullAwayFix/errors.csv";
   public static final String METHOD_INFO = "/tmp/NullAwayFix/method_info.csv";
   public static final String CALL_GRAPH = "/tmp/NullAwayFix/call_graph.csv";
-  public static final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.json";
+  public static final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.csv";
   public static final String DELIMITER = "$*$";
 
   public static String getDelimiterRegex() {
