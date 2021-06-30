@@ -39,6 +39,9 @@ task extractCaffeineSources(type: Copy) {
 
 compileJava.dependsOn(extractCaffeineSources)
 
+// always run jmh
+tasks.getByName('jmh').outputs.upToDateWhen { false }
+
 jmh {
     // seems we need more iterations to fully warm up the JIT
     warmupIterations = 10
