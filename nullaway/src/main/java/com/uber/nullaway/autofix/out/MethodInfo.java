@@ -135,4 +135,19 @@ public class MethodInfo implements SeperatedValueDisplay {
         + delimiter
         + uri;
   }
+
+  @Override
+  public String header(String delimiter) {
+    return "ID"
+        + delimiter
+        + "CLASS"
+        + delimiter
+        + "METHOD"
+        + delimiter
+        + "PARENT"
+        + delimiter
+        + "NONNULL_FIELDS"
+        + delimiter
+        + "URI";
+  }
 }

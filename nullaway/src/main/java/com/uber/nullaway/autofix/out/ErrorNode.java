@@ -17,6 +17,11 @@ public class ErrorNode implements SeperatedValueDisplay {
     this.errorMessage = errorMessage;
   }
 
+  public void findEnclosing(VisitorState state) {
+    enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
+    enclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+  }
+
   @Override
   public String display(String delimiter) {
     StringBuilder newLine = new StringBuilder();
@@ -28,12 +33,14 @@ public class ErrorNode implements SeperatedValueDisplay {
       Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
       newLine.append(delimiter).append(classSymbol).append(delimiter).append(methodSymbol);
+    } else {
+      newLine.append(delimiter).append("null").append(delimiter).append("null");
     }
     return newLine.toString();
   }
 
-  public void findEnclosing(VisitorState state) {
-    enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
-    enclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+  @Override
+  public String header(String delimiter) {
+    return "MESSAGE_TYPE" + delimiter + "MESSAGE" + delimiter + "CLASS" + delimiter + "METHOD";
   }
 }

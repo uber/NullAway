@@ -21,6 +21,11 @@ public class AnnotationFactory {
     public String display(String delimiter) {
       return fullName;
     }
+
+    @Override
+    public String header(String delimiter) {
+      return "FULL_NAME";
+    }
   }
 
   public AnnotationFactory() {

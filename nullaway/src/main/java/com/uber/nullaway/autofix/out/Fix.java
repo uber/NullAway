@@ -59,4 +59,17 @@ public class Fix implements SeperatedValueDisplay {
         + delimiter
         + inject;
   }
+
+  @Override
+  public String header(String delimiter) {
+    return location.header(delimiter)
+        + delimiter
+        + "REASON"
+        + delimiter
+        + "ANNOTATION"
+        + delimiter
+        + "COMPULSORY"
+        + delimiter
+        + "INJECT";
+  }
 }

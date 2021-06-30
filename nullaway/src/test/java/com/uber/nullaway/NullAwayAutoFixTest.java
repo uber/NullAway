@@ -4,7 +4,7 @@ import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.ErrorProneFlags;
 import com.uber.nullaway.autofix.AutoFixConfig;
 import com.uber.nullaway.autofix.out.display.FixDisplay;
-import com.uber.nullaway.tools.ExplorerTestHelper;
+import com.uber.nullaway.tools.AutoFixTestHelper;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
@@ -18,11 +18,12 @@ public class NullAwayAutoFixTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private ExplorerTestHelper explorerTestHelper;
+  private AutoFixTestHelper explorerTestHelper;
+  private final String outputPath = "/tmp/NullAwayFix/fixes.csv";
 
   @Before
   public void setup() {
-    explorerTestHelper = ExplorerTestHelper.newInstance(NullAway.class, getClass());
+    explorerTestHelper = AutoFixTestHelper.newInstance(NullAway.class, getClass());
     makeDefaultConfig();
   }
 
@@ -57,7 +58,6 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_returnType_simple() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
             Arrays.asList(
@@ -93,7 +93,6 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_returnType_superClass() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
             Arrays.asList(
@@ -142,7 +141,6 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_paramType_subclass() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
             Arrays.asList(
@@ -191,7 +189,6 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_pass_param_simple() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
             Arrays.asList(
@@ -230,7 +227,6 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_pass_param_simple_no_fix() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
             Arrays.asList(
@@ -259,7 +255,6 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_field_simple() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
             Arrays.asList(
@@ -296,7 +291,6 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_field_skip_final() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
             Arrays.asList(
@@ -322,7 +316,6 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_field_initialization() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
             Arrays.asList(
@@ -361,7 +354,6 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_field_control_flow() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
             Arrays.asList(
@@ -398,7 +390,6 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_no_initialization_field() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
             Arrays.asList(
@@ -430,7 +421,6 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_pass_param_generics() {
-    String outputPath = "/tmp/NullAwayFix/fixes.json";
     explorerTestHelper
         .setArgs(
             Arrays.asList(
@@ -472,10 +462,9 @@ public class NullAwayAutoFixTest {
                 "false"))
         .doTest();
   }
-
   //  @Test
   //  public void param_test_mode_simple() {
-  //    String outputPath = "/tmp/NullAwayFix/fixes.json";
+  //    String outputPath = "/tmp/NullAwayFix/fixes.csv";
   //    explorerTestHelper
   //            .setArgs(
   //                    Arrays.asList(
@@ -512,7 +501,7 @@ public class NullAwayAutoFixTest {
 
   //  @Test
   //  public void detect_must_be_nullable_field() {
-  //    String outputPath = "/tmp/NullAwayFix/fixes.json";
+  //    String outputPath = "/tmp/NullAwayFix/fixes.csv";
   //    explorerTestHelper
   //        .setArgs(
   //            Arrays.asList(
@@ -550,7 +539,7 @@ public class NullAwayAutoFixTest {
   //    @Test
   //    public void check() {
   //      makeDefaultConfig();
-  //      String outputPath = "/tmp/NullAwayFix/fixes.json";
+  //      String outputPath = "/tmp/NullAwayFix/fixes.csv";
   //      explorerTestHelper
   //          .setArgs(
   //              Arrays.asList(

@@ -21,4 +21,9 @@ public class CallGraphNode implements SeperatedValueDisplay {
         + delimiter
         + ASTHelpers.enclosingClass(methodSymbol);
   }
+
+  @Override
+  public String header(String delimiter) {
+    return "CLASS_USER" + delimiter + "METHOD" + "CLASS";
+  }
 }

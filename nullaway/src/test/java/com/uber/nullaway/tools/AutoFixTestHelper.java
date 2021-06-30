@@ -44,7 +44,7 @@ import javax.tools.StandardLocation;
   "UnusedMethod"
 }) // TODO: remove this later, this class is still under construction on
 // 'AutoFix' branch
-public class ExplorerTestHelper {
+public class AutoFixTestHelper {
 
   private static final ImmutableList<String> DEFAULT_ARGS =
       ImmutableList.of("-encoding", "UTF-8", "-XDdev", "-parameters", "-XDcompilePolicy=simple");
@@ -60,7 +60,7 @@ public class ExplorerTestHelper {
   private String outputPath;
   private boolean haveFixes = true;
 
-  private ExplorerTestHelper(ScannerSupplier scannerSupplier, String checkName, Class<?> clazz) {
+  private AutoFixTestHelper(ScannerSupplier scannerSupplier, String checkName, Class<?> clazz) {
     this.fileManager = new NullAwayInMemoryFileManager(clazz);
     try {
       fileManager.setLocation(StandardLocation.SOURCE_PATH, Collections.emptyList());
@@ -72,11 +72,10 @@ public class ExplorerTestHelper {
     this.compiler = new BaseErrorProneJavaCompiler(scannerSupplier);
   }
 
-  public static ExplorerTestHelper newInstance(
-      Class<? extends BugChecker> checker, Class<?> clazz) {
+  public static AutoFixTestHelper newInstance(Class<? extends BugChecker> checker, Class<?> clazz) {
     ScannerSupplier scannerSupplier = ScannerSupplier.fromBugCheckerClasses(checker);
     String checkName = checker.getAnnotation(BugPattern.class).name();
-    return new ExplorerTestHelper(scannerSupplier, checkName, clazz);
+    return new AutoFixTestHelper(scannerSupplier, checkName, clazz);
   }
 
   static List<String> disableImplicitProcessing(List<String> args) {
@@ -91,12 +90,12 @@ public class ExplorerTestHelper {
     return result.addAll(disableImplicitProcessing(extraArgs)).build();
   }
 
-  public ExplorerTestHelper addSourceLines(String path, String... lines) {
+  public AutoFixTestHelper addSourceLines(String path, String... lines) {
     this.sources.add(fileManager.forSourceLines(path, lines));
     return this;
   }
 
-  public ExplorerTestHelper addFixes(FixDisplay... fixDisplays) {
+  public AutoFixTestHelper addFixes(FixDisplay... fixDisplays) {
     Path p = fileManager.fileSystem().getRootDirectories().iterator().next();
     for (FixDisplay f : fixDisplays) {
       f.uri = p.toAbsolutePath().toUri().toASCIIString().concat(f.uri);
@@ -105,12 +104,12 @@ public class ExplorerTestHelper {
     return this;
   }
 
-  public ExplorerTestHelper setNoFix() {
+  public AutoFixTestHelper setNoFix() {
     this.haveFixes = false;
     return this;
   }
 
-  public ExplorerTestHelper setArgs(List<String> args) {
+  public AutoFixTestHelper setArgs(List<String> args) {
     this.extraArgs = ImmutableList.copyOf(args);
     return this;
   }
@@ -188,7 +187,7 @@ public class ExplorerTestHelper {
       }
       reader.close();
     } catch (IOException e) {
-      System.err.println("Error happened in reading the fixDisplays!!!!!");
+      System.err.println("Error happened in reading the fixDisplays!" + e);
     }
     return fixDisplays.toArray(new FixDisplay[0]);
   }
@@ -239,7 +238,7 @@ public class ExplorerTestHelper {
         .isTrue();
   }
 
-  public ExplorerTestHelper setOutputPath(String outputPath) {
+  public AutoFixTestHelper setOutputPath(String outputPath) {
     this.outputPath = outputPath;
     return this;
   }

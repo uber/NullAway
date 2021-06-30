@@ -150,4 +150,10 @@ public class Location implements SeperatedValueDisplay {
                 : "null");
     return ans.toString();
   }
+
+  @Override
+  public String header(String delimiter) {
+    return "KIND" + delimiter + "PACKAGE" + delimiter + "CLASS" + delimiter + "METHOD" + delimiter
+        + "PARAM" + delimiter + "URI";
+  }
 }
