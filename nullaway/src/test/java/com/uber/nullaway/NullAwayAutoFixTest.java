@@ -1,29 +1,11 @@
 package com.uber.nullaway;
 
-/*
- * Copyright (c) 2017 Uber Technologies, Inc.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a copy
- * of this software and associated documentation files (the "Software"), to deal
- * in the Software without restriction, including without limitation the rights
- * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
- * copies of the Software, and to permit persons to whom the Software is
- * furnished to do so, subject to the following conditions:
- *
- * The above copyright notice and this permission notice shall be included in
- * all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
- * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
- * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
- * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
- * THE SOFTWARE.
- */
-
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.ErrorProneFlags;
+import com.uber.nullaway.autofix.AutoFixConfig;
+import com.uber.nullaway.autofix.out.display.FixDisplay;
+import com.uber.nullaway.tools.ExplorerTestHelper;
+import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -34,47 +16,28 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class NullAwayAutoFixTest {
 
-  @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
+  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private ErrorProneFlags flags;
+  private ExplorerTestHelper explorerTestHelper;
 
   @Before
   public void setup() {
-    ErrorProneFlags.Builder b = ErrorProneFlags.builder();
-    b.putFlag("NullAway:AnnotatedPackages", "com.uber,com.ubercab,io.reactivex");
-    b.putFlag("NullAway:AutoFix", "true");
-    flags = b.build();
+    explorerTestHelper = ExplorerTestHelper.newInstance(NullAway.class, getClass());
+    makeDefaultConfig();
   }
 
-  //  @Test
-  //  public void seeNullAwayResponse() {
-  //    CompilationTestHelper compilationHelper =
-  //        CompilationTestHelper.newInstance(NullAway.class, getClass());
-  //    compilationHelper
-  //        .setArgs(
-  //            Arrays.asList(
-  //                "-d",
-  //                temporaryFolder.getRoot().getAbsolutePath(),
-  //                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
-  //        .addSourceLines(
-  //            "com/uber/android/Super.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "import javax.annotation.Nonnull;",
-  //            "public class Super {",
-  //            "   Object f;",
-  //            "   Object c = new Object();",
-  //            "   Object d;",
-  //            "   Super(boolean b) {",
-  //            "     if(b) f = new Object();",
-  //            "     else d = new Object();",
-  //            "   }",
-  //            "}")
-  //        .doTest();
-  //  }
+  private void makeDefaultConfig() {
+    AutoFixConfig.AutoFixConfigWriter writer =
+        new AutoFixConfig.AutoFixConfigWriter().setSuggest(true);
+    writer.write("/tmp/NullAwayFix/explorer.config");
+  }
 
   @Test
-  public void correctCode() {
+  public void autofixFlagEnclosingTest() {
+    ErrorProneFlags.Builder b = ErrorProneFlags.builder();
+    b.putFlag("NullAway:AnnotatedPackages", "com.uber");
+    b.putFlag("NullAway:AutoFix", "true");
+    ErrorProneFlags flags = b.build();
     BugCheckerRefactoringTestHelper bcr =
         BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
 
@@ -92,472 +55,534 @@ public class NullAwayAutoFixTest {
         .doTest();
   }
 
-  // TODO: make the following tests compatible with the new explorer/patcher mode
+  @Test
+  public void add_nullable_returnType_simple() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true"))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/SubClass.java",
+            "package com.uber;",
+            "public class SubClass {",
+            "   Object test(boolean flag) {",
+            "       if(flag) {",
+            "           return new Object();",
+            "       } ",
+            "       else return null;",
+            "   }",
+            "}")
+        .addFixes(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "test(boolean)",
+                "null",
+                "METHOD_RETURN",
+                "com.uber.SubClass",
+                "com.uber",
+                "com/uber/SubClass.java",
+                "true",
+                "false"))
+        .doTest();
+  }
+
+  @Test
+  public void add_nullable_returnType_superClass() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class Super {",
+            "   Object test(boolean flag) {",
+            "     return new Object();",
+            "   }",
+            "}")
+        .addSourceLines(
+            "com/uber/test/SubClass.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class SubClass extends Super {",
+            "   @Nullable Object test(boolean flag) {",
+            "       if(flag) {",
+            "           return new Object();",
+            "       } ",
+            "       else return null;",
+            "   }",
+            "}")
+        .addFixes(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "test(boolean)",
+                "null",
+                "METHOD_RETURN",
+                "com.uber.Super",
+                "com.uber",
+                "com/uber/android/Super.java",
+                "true",
+                "false"))
+        .doTest();
+  }
+
+  @Test
+  public void add_nullable_paramType_subclass() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class Super {",
+            "   @Nullable String test(@Nullable Object o) {",
+            "     if(o != null) {",
+            "       return o.toString();",
+            "     }",
+            "     return null;",
+            "   }",
+            "}")
+        .addSourceLines(
+            "com/uber/test/SubClass.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class SubClass extends Super {",
+            "   @Nullable String test(Object o) {",
+            "     return o.toString();",
+            "   }",
+            "}")
+        .addFixes(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "test(java.lang.Object)",
+                "o",
+                "METHOD_PARAM",
+                "com.uber.SubClass",
+                "com.uber",
+                "com/uber/test/SubClass.java",
+                "true",
+                "false"))
+        .doTest();
+  }
+
+  @Test
+  public void add_nullable_pass_param_simple() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class Super {",
+            "   Object test(int i, Object h) {",
+            "     return h;",
+            "   }",
+            "   Object test_param(@Nullable String o) {",
+            "     return test(0, o);",
+            "   }",
+            "}")
+        .addFixes(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "test(int,java.lang.Object)",
+                "h",
+                "METHOD_PARAM",
+                "com.uber.Super",
+                "com.uber",
+                "com/uber/android/Super.java",
+                "true",
+                "false"))
+        .doTest();
+  }
+
+  @Test
+  public void add_nullable_pass_param_simple_no_fix() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class Super {",
+            "   Object test(int i, @Nonnull Object h) {",
+            "     return h;",
+            "   }",
+            "   Object test_param(@Nullable String o) {",
+            "     return test(0, o);",
+            "   }",
+            "}")
+        .setNoFix()
+        .doTest();
+  }
+
+  @Test
+  public void add_nullable_field_simple() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class Super {",
+            "   Object h = new Object();",
+            "   public void test(@Nullable Object f) {",
+            "      h = f;",
+            "   }",
+            "}")
+        .addFixes(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "null",
+                "h",
+                "CLASS_FIELD",
+                "com.uber.Super",
+                "com.uber",
+                "com/uber/android/Super.java",
+                "true",
+                "false"))
+        .doTest();
+  }
+
+  @Test
+  public void add_nullable_field_skip_final() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Super {",
+            "   final Object h;",
+            "   public Super(@Nullable Object f) {",
+            "      h = f;",
+            "   }",
+            "}")
+        .setNoFix()
+        .doTest();
+  }
+
+  @Test
+  public void add_nullable_field_initialization() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Super {",
+            "   Object f = foo();",
+            "   void test() {",
+            "     System.out.println(f.toString());",
+            "   }",
+            "   @Nullable Object foo() {",
+            "     return null;",
+            "   }",
+            "}")
+        .addFixes(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "null",
+                "f",
+                "CLASS_FIELD",
+                "com.uber.Super",
+                "com.uber",
+                "com/uber/android/Super.java",
+                "true",
+                "false"))
+        .doTest();
+  }
+
+  @Test
+  public void add_nullable_field_control_flow() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class Super {",
+            "   Object h;",
+            "   public Super(boolean b) {",
+            "      if(b) h = new Object();",
+            "   }",
+            "}")
+        .addFixes(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "null",
+                "h",
+                "CLASS_FIELD",
+                "com.uber.Super",
+                "com.uber",
+                "com/uber/android/Super.java",
+                "true",
+                "false"))
+        .doTest();
+  }
+
+  @Test
+  public void add_nullable_no_initialization_field() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "public class Super {",
+            "   Object f;",
+            "}")
+        .addFixes(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "null",
+                "f",
+                "CLASS_FIELD",
+                "com.uber.Super",
+                "com.uber",
+                "com/uber/android/Super.java",
+                "true",
+                "false"))
+        .doTest();
+  }
+
+  @Test
+  public void add_nullable_pass_param_generics() {
+    String outputPath = "/tmp/NullAwayFix/fixes.json";
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/Base.java",
+            "package com.uber;",
+            "import java.util.ArrayList;",
+            "public class Base extends Super<String>{",
+            "   public void newSideEffect(ArrayList<String> op) {",
+            "     newStatement(null, op, true, true);",
+            "   }",
+            "}")
+        .addSourceLines(
+            "com/uber/Super.java",
+            "package com.uber;",
+            "import java.util.ArrayList;",
+            "class Super<T extends Object> {",
+            "   public boolean newStatement(",
+            "     T lhs, ArrayList<T> operator, boolean toWorkList, boolean eager) {",
+            "       return false;",
+            "   }",
+            "}")
+        .addFixes(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "newStatement(T,java.util.ArrayList<T>,boolean,boolean)",
+                "lhs",
+                "METHOD_PARAM",
+                "com.uber.Super",
+                "com.uber",
+                "com/uber/Super.java",
+                "true",
+                "false"))
+        .doTest();
+  }
 
   //  @Test
-  //  public void assignmentNullableToNonnull_Local_Simple() {
-  //    BugCheckerRefactoringTestHelper bcr =
-  //        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-  //
-  //    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
-  //        .addInputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Test {",
-  //            "   void test(@Nullable Object other) {",
-  //            "       Object t = new Object();",
-  //            "       t = other;",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Test {",
-  //            "   void test(@Nullable Object other) {",
-  //            "       @Nullable Object t = new Object();",
-  //            "       t = other;",
-  //            "   }",
-  //            "}")
-  //        .doTest();
+  //  public void param_test_mode_simple() {
+  //    String outputPath = "/tmp/NullAwayFix/fixes.json";
+  //    explorerTestHelper
+  //            .setArgs(
+  //                    Arrays.asList(
+  //                            "-d",
+  //                            temporaryFolder.getRoot().getAbsolutePath(),
+  //                            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+  //                            "-XepOpt:NullAway:AutoFix=true",
+  //                            "-XepOpt:NullAway:FixFilePath=" + outputPath))
+  //            .setOutputPath(outputPath)
+  //            .addSourceLines(
+  //                    "com/uber/android/Super.java",
+  //                    "package com.uber;",
+  //                    "import javax.annotation.Nullable;",
+  //                    "import javax.annotation.Nonnull;",
+  //                    "public class Super {",
+  //                    "   Object test(Object h) {",
+  //                    "     if(h == null) return new Object();",
+  //                    "     return h;",
+  //                    "   }",
+  //                    "}")
+  //            .addFixes(
+  //                    new FixDisplay(
+  //                            "javax.annotation.Nullable",
+  //                            "test(java.lang.Object)",
+  //                            "",
+  //                            "METHOD_RETURN",
+  //                            "com.uber.Super",
+  //                            "com.uber",
+  //                            "com/uber/android/Super.java",
+  //                            "true",
+  //                            "false"))
+  //            .doTest();
   //  }
-  //
+
   //  @Test
-  //  public void assignmentNullableToNonnull_Field_Simple() {
-  //    BugCheckerRefactoringTestHelper bcr =
-  //        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-  //
-  //    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
-  //        .addInputLines(
-  //            "Test.java",
+  //  public void detect_must_be_nullable_field() {
+  //    String outputPath = "/tmp/NullAwayFix/fixes.json";
+  //    explorerTestHelper
+  //        .setArgs(
+  //            Arrays.asList(
+  //                "-d",
+  //                temporaryFolder.getRoot().getAbsolutePath(),
+  //                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+  //                "-XepOpt:NullAway:AutoFix=true",
+  //                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+  //        .setOutputPath(outputPath)
+  //        .addSourceLines(
+  //            "com/uber/Base.java",
   //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Test {",
-  //            "   Object t1 = new Object();",
-  //            "   Object test(Object o) {",
-  //            "     return o;",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Test {",
-  //            "   @Nullable Object t1 = new Object();",
-  //            "   void test(@Nullable Object other) {",
-  //            "       t1 = other;",
-  //            "   }",
-  //            "}")
-  //        .doTest();
-  //  }
-  //
-  //  @Test
-  //  public void assignmentNullableToNonnull_Field_FromOtherClass() {
-  //    BugCheckerRefactoringTestHelper bcr =
-  //        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-  //
-  //    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
-  //        .addInputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Test {",
-  //            "   Other other = new Other();",
-  //            "   void test(@Nullable Object o) {",
-  //            "     this.other.t = o;",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Test {",
-  //            "   Other other = new Other();",
-  //            "   void test(@Nullable Object o) {",
-  //            "     this.other.t = o;",
-  //            "   }",
-  //            "}")
-  //        .addInputLines(
-  //            "Other.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Other {",
-  //            "   Object t = new Object();",
-  //            "}")
-  //        .addOutputLines(
-  //            "Other.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Other {",
-  //            "   @Nullable Object t = new Object();",
-  //            "}")
-  //        .doTest();
-  //  }
-  //
-  //  @Test
-  //  public void assignmentNullableToNonnull_Field_FromSuperClass() {
-  //    BugCheckerRefactoringTestHelper bcr =
-  //        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-  //
-  //    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
-  //        .addInputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Test {",
-  //            "   Other other = new Other();",
-  //            "   void test(@Nullable Object o) {",
-  //            "     this.other.t = o;",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Test {",
-  //            "   Other other = new Other();",
-  //            "   void test(@Nullable Object o) {",
-  //            "     this.other.t = o;",
-  //            "   }",
-  //            "}")
-  //        .addInputLines(
-  //            "Base.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Base {",
-  //            "   Object t = new Object();",
-  //            "}")
-  //        .addOutputLines(
-  //            "Base.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Base {",
-  //            "   @Nullable Object t = new Object();",
-  //            "}")
-  //        .addInputLines(
-  //            "Other.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Other extends Base {",
-  //            "   Object t1 = new Object();",
-  //            "}")
-  //        .addOutputLines(
-  //            "Other.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Other extends Base {",
-  //            "   Object t1 = new Object();",
-  //            "}")
-  //        .doTest();
-  //  }
-  //
-  //  @Test
-  //  public void assignmentNullableToNonnull_Field_FromSuperClassOverride() {
-  //    BugCheckerRefactoringTestHelper bcr =
-  //        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-  //
-  //    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
-  //        .addInputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Test {",
-  //            "   Other other = new Other();",
-  //            "   void test(@Nullable Object o) {",
-  //            "     this.other.t = o;",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Test {",
-  //            "   Other other = new Other();",
-  //            "   void test(@Nullable Object o) {",
-  //            "     this.other.t = o;",
-  //            "   }",
-  //            "}")
-  //        .addInputLines(
-  //            "Base.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Base {",
-  //            "   Object t = new Object();",
-  //            "}")
-  //        .addOutputLines(
-  //            "Base.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Base {",
-  //            "   @Nullable Object t = new Object();",
-  //            "}")
-  //        .addInputLines(
-  //            "Other.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Other extends Base {",
-  //            "   Object t = new Object();",
-  //            "}")
-  //        .addOutputLines(
-  //            "Other.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Other extends Base {",
-  //            "   @Nullable Object t = new Object();",
-  //            "}")
-  //        .doTest();
-  //  }
-  //
-  //  @Test
-  //  public void addReturnNullable_Simple() {
-  //    BugCheckerRefactoringTestHelper bcr =
-  //        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-  //
-  //    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
-  //        .addInputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Test {",
-  //            "   Object test1(@Nullable Object o) {",
-  //            "     return o;",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Test {",
-  //            "   @Nullable Object test1(@Nullable Object o) {",
-  //            "     return o;",
-  //            "   }",
-  //            "}")
-  //        .doTest();
-  //  }
-  //
-  //  @Test
-  //  public void addReturnNullable_SuperClass_Simple() {
-  //    BugCheckerRefactoringTestHelper bcr =
-  //        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-  //
-  //    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
-  //        .addInputLines(
-  //            "Super.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Super {",
-  //            "   Object test(boolean flag) {",
-  //            "     return new Object();",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Super.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Super {",
-  //            "   @Nullable Object test(boolean flag) {",
-  //            "     return new Object();",
-  //            "   }",
-  //            "}")
-  //        .addInputLines(
-  //            "SubClass.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class SubClass extends Super {",
-  //            "   @Nullable Object test(boolean flag) {",
-  //            "       if(flag) {",
-  //            "           return new Object();",
-  //            "       } ",
-  //            "       else return null;",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "SubClass.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class SubClass extends Super {",
-  //            "   @Nullable Object test(boolean flag) {",
-  //            "       if(flag) {",
-  //            "           return new Object();",
-  //            "       } ",
-  //            "       else return null;",
-  //            "   }",
-  //            "}")
-  //        .doTest();
-  //  }
-  //
-  //  @Test
-  //  public void addReturnNullable_SuperClass() {
-  //    BugCheckerRefactoringTestHelper bcr =
-  //        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-  //
-  //    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
-  //        .addInputLines(
-  //            "Super.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Super {",
-  //            "   Object test(boolean flag) {",
-  //            "     return new Object();",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Super.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Super {",
-  //            "   @Nullable Object test(boolean flag) {",
-  //            "     return new Object();",
-  //            "   }",
-  //            "}")
-  //        .addInputLines(
-  //            "SubClass.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class SubClass extends Super {",
-  //            "   Object test(boolean flag) {",
-  //            "       if(flag) {",
-  //            "           return new Object();",
-  //            "       } ",
-  //            "       else return null;",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "SubClass.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class SubClass extends Super {",
-  //            "   @Nullable Object test(boolean flag) {",
-  //            "       if(flag) {",
-  //            "           return new Object();",
-  //            "       } ",
-  //            "       else return null;",
-  //            "   }",
-  //            "}")
-  //        .doTest();
-  //  }
-  //
-  //  @Test
-  //  public void passNullableToNonnull_Simple() {
-  //    BugCheckerRefactoringTestHelper bcr =
-  //        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-  //
-  //    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
-  //        .addInputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Test {",
-  //            "   void test(Object o) {",
-  //            "     System.out.println(o);",
-  //            "   }",
-  //            "   void callTest(@Nullable Object o) {",
-  //            "       test(o);",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Test.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Test {",
-  //            "   void test(@Nullable Object o) {",
-  //            "     System.out.println(o);",
-  //            "   }",
-  //            "   void callTest(@Nullable Object o) {",
-  //            "       test(o);",
-  //            "   }",
-  //            "}")
-  //        .doTest();
-  //  }
-  //
-  //  @Test
-  //  public void passNullableToNonnull_ToSuperClass() {
-  //    BugCheckerRefactoringTestHelper bcr =
-  //        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-  //
-  //    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
-  //        .addInputLines(
-  //            "Base.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
+  //            "import java.util.ArrayList;",
   //            "public class Base {",
-  //            "   void test(Object o) {",
-  //            "       System.out.println(o);",
+  //            "   Object mustBeNullable = new Object();",
+  //            "   public boolean perform_if_check() {",
+  //            "     mustBeNullable = new Object();",
+  //            "     if(mustBeNullable == null) return true; else return false;",
   //            "   }",
   //            "}")
-  //        .addOutputLines(
-  //            "Base.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Base {",
-  //            "   void test(@Nullable Object o) {",
-  //            "       System.out.println(o);",
-  //            "   }",
-  //            "}")
-  //        .addInputLines(
-  //            "Child.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Child extends Base{",
-  //            "   void callTest(@Nullable Object o) {",
-  //            "       test(o);",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Child.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Child extends Base{",
-  //            "   void callTest(@Nullable Object o) {",
-  //            "       test(o);",
-  //            "   }",
-  //            "}")
+  //        .addFixes(
+  //            new FixDisplay(
+  //                "javax.annotation.Nullable",
+  //                "",
+  //                "mustBeNullable",
+  //                "CLASS_FIELD",
+  //                "com.uber.Base",
+  //                "com.uber",
+  //                "com/uber/Base.java",
+  //                "true",
+  //                "false"))
   //        .doTest();
   //  }
-  //
-  //  @Test
-  //  public void paramNullableDefinition_Simple() {
-  //    BugCheckerRefactoringTestHelper bcr =
-  //        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-  //
-  //    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
-  //        .addInputLines(
-  //            "Base.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Base {",
-  //            "   void test(Object o) {",
-  //            "       System.out.println(o);",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Base.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "public class Base {",
-  //            "   void test(@Nullable Object o) {",
-  //            "       System.out.println(o);",
-  //            "   }",
-  //            "}")
-  //        .addInputLines(
-  //            "Child.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Child extends Base{",
-  //            "   void test(@Nullable Object o) {",
-  //            "       System.out.println(o);",
-  //            "   }",
-  //            "}")
-  //        .addOutputLines(
-  //            "Child.java",
-  //            "package com.uber;",
-  //            "import javax.annotation.Nullable;",
-  //            "class Child extends Base{",
-  //            "   void test(@Nullable Object o) {",
-  //            "       System.out.println(o);",
-  //            "   }",
-  //            "}")
-  //        .doTest();
-  //  }
+
+  //    @Test
+  //    public void check() {
+  //      makeDefaultConfig();
+  //      String outputPath = "/tmp/NullAwayFix/fixes.json";
+  //      explorerTestHelper
+  //          .setArgs(
+  //              Arrays.asList(
+  //                  "-d",
+  //                  temporaryFolder.getRoot().getAbsolutePath(),
+  //                  "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+  //                  "-XepOpt:NullAway:AutoFix=true"))
+  //          .setOutputPath(outputPath)
+  //          .addSourceLines(
+  //              "com/uber/SubClass.java",
+  //              "package com.uber;",
+  //              "import javax.annotation.Nullable;",
+  //              "public class SubClass {",
+  //              "   Object field = new Object();",
+  //              "   Object test() {",
+  //              "       Base b = new Base();",
+  //              "       field = b.call(true);",
+  //              "       return b.call(false);",
+  //              "   }",
+  //              "}",
+  //              "class Base { @Nullable Object call(boolean b) { return null; } }")
+  //          .addFixes(
+  //              new FixDisplay(
+  //                  "javax.annotation.Nullable",
+  //                  "test()",
+  //                  "null",
+  //                  "METHOD_RETURN",
+  //                  "com.uber.SubClass",
+  //                  "com.uber",
+  //                  "com/uber/SubClass.java",
+  //                  "true",
+  //                  "false"))
+  //          .doTest();
+  //    }
 }
