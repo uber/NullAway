@@ -23,6 +23,11 @@ public class Writer {
   public static final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.csv";
   public static final String DELIMITER = "$*$";
 
+  private static boolean firstFix = true;
+  private static boolean firstErrorNode = true;
+  private static boolean firstMethodInfo = true;
+  private static boolean firstCallGraphNode = true;
+
   public static String getDelimiterRegex() {
     StringBuilder ans = new StringBuilder("(");
     for (int i = 0; i < DELIMITER.length(); i++) {
@@ -33,7 +38,8 @@ public class Writer {
   }
 
   public static void saveFix(Fix fix) {
-    appendToFile(fix, SUGGEST_FIX);
+    appendToFile(fix, SUGGEST_FIX, firstFix);
+    firstFix = false;
   }
 
   public static void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
@@ -41,7 +47,8 @@ public class Writer {
     if (deep) {
       error.findEnclosing(state);
     }
-    appendToFile(error, ERROR);
+    appendToFile(error, ERROR, firstErrorNode);
+    firstErrorNode = false;
   }
 
   public static void saveMethodInfo(
@@ -55,16 +62,30 @@ public class Writer {
     methodInfo.setUri(c);
     methodInfo.setNonnullFieldsElements(nonnullFieldsAtExit);
     methodInfo.setParent(methodSymbol, state);
-    appendToFile(methodInfo, METHOD_INFO);
+    appendToFile(methodInfo, METHOD_INFO, firstMethodInfo);
+    firstMethodInfo = false;
   }
 
   public static void saveCallGraphNode(CallGraphNode node) {
-    appendToFile(node, CALL_GRAPH);
+    appendToFile(node, CALL_GRAPH, firstCallGraphNode);
+    firstCallGraphNode = false;
   }
 
-  private static void appendToFile(SeperatedValueDisplay value, String filePath) {
+  public static void reset() {
+    firstFix = true;
+    firstErrorNode = true;
+    firstMethodInfo = true;
+    firstCallGraphNode = true;
+  }
+
+  private static void appendToFile(
+      SeperatedValueDisplay value, String filePath, boolean withHeader) {
     OutputStream os;
-    String toWrite = value.display(DELIMITER) + "\n";
+    String toWrite = "";
+    if (withHeader) {
+      toWrite = value.header(DELIMITER) + "\n";
+    }
+    toWrite += value.display(DELIMITER) + "\n";
     try {
       os = new FileOutputStream(filePath, true);
       os.write(toWrite.getBytes(Charset.defaultCharset()), 0, toWrite.length());

@@ -37,6 +37,7 @@ public class AutoFixConfig {
     MAKE_CALL_GRAPH_ENABLED = false;
     PARAM_INDEX = 0L;
     ANNOTATION_FACTORY = new AnnotationFactory();
+    Writer.reset();
   }
 
   public AutoFixConfig(boolean autofixEnabled, String filePath) {
@@ -82,6 +83,7 @@ public class AutoFixConfig {
             .orElse("javax.annotation.Nonnull");
     this.ANNOTATION_FACTORY = new AnnotationFactory(nullableAnnot, nonnullAnnot);
     cleanUp();
+    Writer.reset();
   }
 
   private void cleanUp() {

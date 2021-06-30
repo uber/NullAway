@@ -64,12 +64,12 @@ public class Fix implements SeperatedValueDisplay {
   public String header(String delimiter) {
     return location.header(delimiter)
         + delimiter
-        + "REASON"
+        + "reason"
         + delimiter
-        + "ANNOTATION"
+        + "annotation"
         + delimiter
-        + "COMPULSORY"
+        + "compulsory"
         + delimiter
-        + "INJECT";
+        + "inject";
   }
 }

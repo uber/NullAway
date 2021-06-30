@@ -153,7 +153,16 @@ public class Location implements SeperatedValueDisplay {
 
   @Override
   public String header(String delimiter) {
-    return "KIND" + delimiter + "PACKAGE" + delimiter + "CLASS" + delimiter + "METHOD" + delimiter
-        + "PARAM" + delimiter + "URI";
+    return "location"
+        + delimiter
+        + "pkg"
+        + delimiter
+        + "className"
+        + delimiter
+        + "method"
+        + delimiter
+        + "param"
+        + delimiter
+        + "uri";
   }
 }

@@ -181,6 +181,7 @@ public class AutoFixTestHelper {
     try {
       reader = Files.newBufferedReader(Paths.get(this.outputPath), Charset.defaultCharset());
       String line = reader.readLine();
+      if (line != null) line = reader.readLine();
       while (line != null) {
         fixDisplays.add(FixDisplay.fromCSVLine(line));
         line = reader.readLine();
