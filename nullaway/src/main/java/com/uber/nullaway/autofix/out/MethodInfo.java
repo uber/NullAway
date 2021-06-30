@@ -13,8 +13,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import javax.lang.model.element.Element;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
 
 @SuppressWarnings({"unchecked", "EqualsGetClass"})
 public class MethodInfo implements SeperatedValueDisplay {
@@ -60,18 +58,6 @@ public class MethodInfo implements SeperatedValueDisplay {
   @Override
   public int hashCode() {
     return Objects.hash(method, clazz);
-  }
-
-  public JSONObject getJSON() {
-    JSONObject info = new JSONObject();
-    info.put("method", this.method);
-    info.put("class", this.clazz);
-    info.put("uri", this.uri);
-    info.put("parent", this.parent);
-    JSONArray nonNullFields = new JSONArray();
-    Collections.addAll(nonNullFields, this.nonnullFields);
-    info.put("fields", nonNullFields);
-    return info;
   }
 
   public void setNonnullFieldsElements(Set<Element> nonnullFieldsAtExit) {
@@ -138,16 +124,7 @@ public class MethodInfo implements SeperatedValueDisplay {
 
   @Override
   public String header(String delimiter) {
-    return "ID"
-        + delimiter
-        + "CLASS"
-        + delimiter
-        + "METHOD"
-        + delimiter
-        + "PARENT"
-        + delimiter
-        + "NONNULL_FIELDS"
-        + delimiter
-        + "URI";
+    return "id" + delimiter + "class" + delimiter + "method" + delimiter + "parent" + delimiter
+        + "fields" + delimiter + "uri";
   }
 }

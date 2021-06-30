@@ -157,7 +157,7 @@ public class Location implements SeperatedValueDisplay {
         + delimiter
         + "pkg"
         + delimiter
-        + "className"
+        + "class"
         + delimiter
         + "method"
         + delimiter
