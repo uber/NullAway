@@ -4,9 +4,6 @@ import com.uber.nullaway.autofix.fixer.Location;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import java.util.Objects;
 
-@SuppressWarnings({
-  "UnusedVariable"
-}) // TODO: remove this later, this class is still under construction on 'AutoFix' branch
 public class Fix implements SeperatedValueDisplay {
   public Location location;
   public AnnotationFactory.Annotation annotation;

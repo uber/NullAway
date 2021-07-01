@@ -78,16 +78,16 @@ public class Writer {
     try {
       Files.createDirectories(Paths.get("/tmp/NullAwayFix/"));
       if (config.SUGGEST_ENABLED) {
-        Files.delete(Paths.get(SUGGEST_FIX));
+        Files.deleteIfExists(Paths.get(SUGGEST_FIX));
       }
       if (config.LOG_ERROR_ENABLED) {
-        Files.delete(Paths.get(ERROR));
+        Files.deleteIfExists(Paths.get(ERROR));
       }
       if (config.MAKE_METHOD_TREE_INHERITANCE_ENABLED) {
-        Files.delete(Paths.get(METHOD_INFO));
+        Files.deleteIfExists(Paths.get(METHOD_INFO));
       }
       if (config.MAKE_CALL_GRAPH_ENABLED) {
-        Files.delete(Paths.get(CALL_GRAPH));
+        Files.deleteIfExists(Paths.get(CALL_GRAPH));
       }
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting writer: " + e);

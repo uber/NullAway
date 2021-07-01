@@ -9,7 +9,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
 import java.util.Objects;
 
-@SuppressWarnings("ALL") // TODO: Remove this later, This class is still under construction
 public class Location implements SeperatedValueDisplay {
   CompilationUnitTree compilationUnitTree;
   ClassTree classTree;
@@ -132,23 +131,19 @@ public class Location implements SeperatedValueDisplay {
 
   @Override
   public String display(String delimiter) {
-    StringBuilder ans = new StringBuilder();
-    ans.append(kind.label)
-        .append(delimiter)
-        .append(
-            compilationUnitTree != null ? compilationUnitTree.getPackageName().toString() : "null")
-        .append(delimiter)
-        .append(classTree != null ? ASTHelpers.getSymbol(classTree).toString() : "null")
-        .append(delimiter)
-        .append(methodTree != null ? ASTHelpers.getSymbol(methodTree).toString() : "null")
-        .append(delimiter)
-        .append(variableSymbol != null ? variableSymbol.toString() : "null")
-        .append(delimiter)
-        .append(
-            compilationUnitTree != null
-                ? compilationUnitTree.getSourceFile().toUri().toASCIIString()
-                : "null");
-    return ans.toString();
+    return kind.label
+        + delimiter
+        + (compilationUnitTree != null ? compilationUnitTree.getPackageName().toString() : "null")
+        + delimiter
+        + (classTree != null ? ASTHelpers.getSymbol(classTree).toString() : "null")
+        + delimiter
+        + (methodTree != null ? ASTHelpers.getSymbol(methodTree).toString() : "null")
+        + delimiter
+        + (variableSymbol != null ? variableSymbol.toString() : "null")
+        + delimiter
+        + (compilationUnitTree != null
+            ? compilationUnitTree.getSourceFile().toUri().toASCIIString()
+            : "null");
   }
 
   @Override

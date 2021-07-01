@@ -7,15 +7,9 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.tree.JCTree;
 import java.util.List;
 
-@SuppressWarnings("ALL")
 public class LocationUtils extends ASTHelpers {
-
-  public static JCTree.JCCompilationUnit getCompilationUnit(VisitorState state) {
-    return (JCTree.JCCompilationUnit) state.getPath().getCompilationUnit();
-  }
 
   public static ClassTree getClassTree(Symbol symbol, VisitorState state) {
     return findClass(enclosingClass(symbol), state);

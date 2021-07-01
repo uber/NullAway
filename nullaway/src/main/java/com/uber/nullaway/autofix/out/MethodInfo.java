@@ -14,7 +14,6 @@ import java.util.Objects;
 import java.util.Set;
 import javax.lang.model.element.Element;
 
-@SuppressWarnings({"unchecked", "EqualsGetClass"})
 public class MethodInfo implements SeperatedValueDisplay {
   int id;
   String method;
@@ -50,7 +49,7 @@ public class MethodInfo implements SeperatedValueDisplay {
   @Override
   public boolean equals(Object o) {
     if (this == o) return true;
-    if (o == null || getClass() != o.getClass()) return false;
+    if (!(o instanceof MethodInfo)) return false;
     MethodInfo that = (MethodInfo) o;
     return method.equals(that.method) && clazz.equals(that.clazz);
   }
@@ -62,7 +61,7 @@ public class MethodInfo implements SeperatedValueDisplay {
 
   public void setNonnullFieldsElements(Set<Element> nonnullFieldsAtExit) {
     if (nonnullFieldsAtExit == null) {
-      nonnullFieldsAtExit = Collections.EMPTY_SET;
+      nonnullFieldsAtExit = Collections.emptySet();
     }
     List<String> fields = new ArrayList<>();
     for (Element element : nonnullFieldsAtExit) {

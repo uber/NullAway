@@ -28,11 +28,7 @@ import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import java.util.List;
 import javax.lang.model.element.Modifier;
 
-@SuppressWarnings({
-  "UnusedVariable",
-  "PackageAccessibility",
-  "UnusedMethod"
-}) // This class is still under construction
+@SuppressWarnings("ALL")
 public class Fixer {
 
   protected final AutoFixConfig config;
@@ -136,7 +132,6 @@ public class Fixer {
     final Fix fix = new Fix();
     final ModifiersTree modifiers = location.methodTree.getModifiers();
     final List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
-    // noinspection ConstantConditions
     com.google.common.base.Optional<? extends AnnotationTree> nonNullAnnot =
         Iterables.tryFind(
             annotations, annot -> annot.getAnnotationType().toString().endsWith(nonNull.name));
