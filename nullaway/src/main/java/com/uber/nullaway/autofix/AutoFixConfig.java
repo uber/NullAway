@@ -10,6 +10,9 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import javax.lang.model.element.Element;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -25,6 +28,7 @@ public class AutoFixConfig {
   public final boolean OPTIMIZED;
   public final long PARAM_INDEX;
   public final AnnotationFactory ANNOTATION_FACTORY;
+  public final Set<String> WORK_LIST;
 
   public AutoFixConfig() {
     MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
@@ -36,6 +40,7 @@ public class AutoFixConfig {
     MAKE_CALL_GRAPH_ENABLED = false;
     PARAM_INDEX = 0L;
     ANNOTATION_FACTORY = new AnnotationFactory();
+    WORK_LIST = Collections.singleton("*");
     Writer.reset(this);
   }
 
@@ -81,6 +86,13 @@ public class AutoFixConfig {
         getValueFromKey(jsonObject, "ANNOTATION:NONNULL", String.class)
             .orElse("javax.annotation.Nonnull");
     this.ANNOTATION_FACTORY = new AnnotationFactory(nullableAnnot, nonnullAnnot);
+    String WORK_LIST_VALUE = getValueFromKey(jsonObject, "WORK_LIST", String.class).orElse("*");
+    if (!WORK_LIST_VALUE.equals("*")) {
+      this.WORK_LIST = new HashSet<>(Arrays.asList(WORK_LIST_VALUE.split(",")));
+    } else {
+      this.WORK_LIST = Collections.singleton("*");
+      ;
+    }
     Writer.reset(this);
   }
 
@@ -119,6 +131,13 @@ public class AutoFixConfig {
     return trees.getPath(symbol) != null;
   }
 
+  public boolean isOutOfScope(String clazz) {
+    if (WORK_LIST.size() == 1 && WORK_LIST.contains("*")) {
+      return false;
+    }
+    return !WORK_LIST.contains(clazz);
+  }
+
   public static class AutoFixConfigWriter {
 
     private boolean MAKE_METHOD_TREE_INHERITANCE_ENABLED;
@@ -131,6 +150,7 @@ public class AutoFixConfig {
     private long PARAM_INDEX;
     private String NULLABLE;
     private String NONNULL;
+    private Set<String> WORK_LIST;
 
     public AutoFixConfigWriter() {
       MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
@@ -143,6 +163,12 @@ public class AutoFixConfig {
       PARAM_INDEX = 0;
       NULLABLE = "javax.annotation.Nullable";
       NONNULL = "javax.annotation.Nonnull";
+      WORK_LIST = Collections.singleton("*");
+    }
+
+    private String workListDisplay() {
+      String display = WORK_LIST.toString();
+      return display.substring(1, display.length() - 1);
     }
 
     @SuppressWarnings("unchecked")
@@ -164,6 +190,7 @@ public class AutoFixConfig {
       paramTest.put("INDEX", PARAM_INDEX);
       res.put("METHOD_PARAM_TEST", paramTest);
       res.put("MAKE_CALL_GRAPH", MAKE_CALL_GRAPH_ENABLED);
+      res.put("WORK_LIST", workListDisplay());
       try {
         BufferedWriter file = Files.newBufferedWriter(Paths.get(path), Charset.defaultCharset());
         file.write(res.toJSONString());
@@ -218,6 +245,11 @@ public class AutoFixConfig {
 
     public AutoFixConfigWriter setMakeCallGraph(boolean value) {
       MAKE_CALL_GRAPH_ENABLED = value;
+      return this;
+    }
+
+    public AutoFixConfigWriter setWorkList(Set<String> workList) {
+      WORK_LIST = workList;
       return this;
     }
 

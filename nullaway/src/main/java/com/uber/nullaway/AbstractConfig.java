@@ -145,13 +145,18 @@ public abstract class AbstractConfig implements Config {
 
   @Override
   public boolean isExcludedClass(String className) {
-    if (sourceClassesToExclude == null) {
-      return false;
-    }
-    for (String classPrefix : sourceClassesToExclude) {
-      if (className.startsWith(classPrefix)) {
-        return true;
+    boolean nullAwayDefaultAnswer = false;
+    if (sourceClassesToExclude != null) {
+      for (String classPrefix : sourceClassesToExclude) {
+        if (className.startsWith(classPrefix)) {
+          nullAwayDefaultAnswer = true;
+          break;
+        }
       }
+    }
+    if (nullAwayDefaultAnswer) return true;
+    if (autofix) {
+      return autoFixConfig.isOutOfScope(className);
     }
     return false;
   }

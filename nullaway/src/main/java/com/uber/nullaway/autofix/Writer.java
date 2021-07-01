@@ -26,10 +26,10 @@ public class Writer {
   public static final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.csv";
   public static final String DELIMITER = "$*$";
 
-  private static boolean firstFix = true;
-  private static boolean firstErrorNode = true;
-  private static boolean firstMethodInfo = true;
-  private static boolean firstCallGraphNode = true;
+  private static boolean firstFix;
+  private static boolean firstErrorNode;
+  private static boolean firstMethodInfo;
+  private static boolean firstCallGraphNode;
 
   public static String getDelimiterRegex() {
     StringBuilder ans = new StringBuilder("(");
@@ -84,6 +84,7 @@ public class Writer {
         Files.deleteIfExists(Paths.get(ERROR));
       }
       if (config.MAKE_METHOD_TREE_INHERITANCE_ENABLED) {
+        Files.deleteIfExists(Paths.get(METHOD_INFO));
         Files.deleteIfExists(Paths.get(METHOD_INFO));
       }
       if (config.MAKE_CALL_GRAPH_ENABLED) {
