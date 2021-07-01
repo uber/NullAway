@@ -11,8 +11,11 @@ import com.uber.nullaway.autofix.out.Fix;
 import com.uber.nullaway.autofix.out.MethodInfo;
 import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Set;
 import javax.lang.model.element.Element;
 
@@ -71,7 +74,24 @@ public class Writer {
     firstCallGraphNode = false;
   }
 
-  public static void reset() {
+  public static void reset(AutoFixConfig config) {
+    try {
+      Files.createDirectories(Paths.get("/tmp/NullAwayFix/"));
+      if (config.SUGGEST_ENABLED) {
+        Files.delete(Paths.get(SUGGEST_FIX));
+      }
+      if (config.LOG_ERROR_ENABLED) {
+        Files.delete(Paths.get(ERROR));
+      }
+      if (config.MAKE_METHOD_TREE_INHERITANCE_ENABLED) {
+        Files.delete(Paths.get(METHOD_INFO));
+      }
+      if (config.MAKE_CALL_GRAPH_ENABLED) {
+        Files.delete(Paths.get(CALL_GRAPH));
+      }
+    } catch (IOException e) {
+      throw new RuntimeException("Could not finish resetting writer: " + e);
+    }
     firstFix = true;
     firstErrorNode = true;
     firstMethodInfo = true;

@@ -4,7 +4,6 @@ import com.google.common.base.Preconditions;
 import com.sun.source.util.Trees;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import java.io.BufferedWriter;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -37,7 +36,7 @@ public class AutoFixConfig {
     MAKE_CALL_GRAPH_ENABLED = false;
     PARAM_INDEX = 0L;
     ANNOTATION_FACTORY = new AnnotationFactory();
-    Writer.reset();
+    Writer.reset(this);
   }
 
   public AutoFixConfig(boolean autofixEnabled, String filePath) {
@@ -82,28 +81,7 @@ public class AutoFixConfig {
         getValueFromKey(jsonObject, "ANNOTATION:NONNULL", String.class)
             .orElse("javax.annotation.Nonnull");
     this.ANNOTATION_FACTORY = new AnnotationFactory(nullableAnnot, nonnullAnnot);
-    cleanUp();
-    Writer.reset();
-  }
-
-  private void cleanUp() {
-    try {
-      Files.createDirectories(Paths.get("/tmp/NullAwayFix/"));
-      if (SUGGEST_ENABLED) {
-        new File("/tmp/NullAwayFix/fixes.csv").delete();
-      }
-      if (LOG_ERROR_ENABLED) {
-        new File("/tmp/NullAwayFix/errors.csv").delete();
-      }
-      if (MAKE_METHOD_TREE_INHERITANCE_ENABLED) {
-        new File("/tmp/NullAwayFix/method_info.csv").delete();
-      }
-      if (MAKE_CALL_GRAPH_ENABLED) {
-        new File("/tmp/NullAwayFix/call_graph.csv").delete();
-      }
-    } catch (IOException e) {
-      throw new RuntimeException("Could not create the directories for fix json file");
-    }
+    Writer.reset(this);
   }
 
   static class OrElse<T> {
