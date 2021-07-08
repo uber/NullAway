@@ -321,11 +321,12 @@ public class NullAway extends BugChecker
     handler.onMatchMethodInvocation(this, tree, state, methodSymbol);
     // assuming this list does not include the receiver
     if (config.getAutoFixConfig().MAKE_CALL_GRAPH_ENABLED) {
-      Symbol callee = (Symbol.MethodSymbol) ASTHelpers.getSymbol(tree.getMethodSelect());
-      ClassTree classTree = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
-      if (callee instanceof Symbol.MethodSymbol && classTree != null) {
+      Symbol calleeMethod = (Symbol.MethodSymbol) ASTHelpers.getSymbol(tree.getMethodSelect());
+      ClassTree callerClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+      if (calleeMethod instanceof Symbol.MethodSymbol && callerClass != null) {
         CallGraphNode node =
-            new CallGraphNode((Symbol.MethodSymbol) callee, ASTHelpers.getSymbol(classTree));
+            new CallGraphNode(
+                (Symbol.MethodSymbol) calleeMethod, ASTHelpers.getSymbol(callerClass));
         Writer.saveCallGraphNode(node);
       }
     }

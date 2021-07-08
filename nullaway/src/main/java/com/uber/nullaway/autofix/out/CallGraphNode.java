@@ -5,25 +5,25 @@ import com.sun.tools.javac.code.Symbol;
 
 public class CallGraphNode implements SeperatedValueDisplay {
 
-  private final Symbol.MethodSymbol methodSymbol;
-  private final Symbol.ClassSymbol classSymbol;
+  private final Symbol.MethodSymbol calleeMethod;
+  private final Symbol.ClassSymbol callerClass;
 
-  public CallGraphNode(Symbol.MethodSymbol methodSymbol, Symbol.ClassSymbol classSymbol) {
-    this.methodSymbol = methodSymbol;
-    this.classSymbol = classSymbol;
+  public CallGraphNode(Symbol.MethodSymbol calleeMethod, Symbol.ClassSymbol callerClass) {
+    this.calleeMethod = calleeMethod;
+    this.callerClass = callerClass;
   }
 
   @Override
   public String display(String delimiter) {
-    return classSymbol
+    return callerClass
         + delimiter
-        + methodSymbol
+        + calleeMethod
         + delimiter
-        + ASTHelpers.enclosingClass(methodSymbol);
+        + ASTHelpers.enclosingClass(calleeMethod);
   }
 
   @Override
   public String header(String delimiter) {
-    return "CLASS_USER" + delimiter + "METHOD" + "CLASS";
+    return "CALLER_CLASS" + delimiter + "CALLEE_METHOD" + "CALLEE_CLASS";
   }
 }
