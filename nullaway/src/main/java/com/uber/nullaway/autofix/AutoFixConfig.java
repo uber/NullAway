@@ -91,7 +91,6 @@ public class AutoFixConfig {
       this.WORK_LIST = new HashSet<>(Arrays.asList(WORK_LIST_VALUE.split(",")));
     } else {
       this.WORK_LIST = Collections.singleton("*");
-      ;
     }
     Writer.reset(this);
   }
