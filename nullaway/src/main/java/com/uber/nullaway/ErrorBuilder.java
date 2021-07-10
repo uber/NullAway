@@ -440,10 +440,10 @@ public class ErrorBuilder {
       CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
       Location location =
           Location.Builder()
+              .setKind(Location.Kind.CLASS_FIELD)
               .setClassTree(LocationUtils.getClassTree(tree, state))
               .setCompilationUnitTree(c)
               .setVariableSymbol(ASTHelpers.getSymbol(tree))
-              .setKind(Location.Kind.CLASS_FIELD)
               .build();
       fixer.fix(
           new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),

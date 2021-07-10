@@ -4,7 +4,9 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.autofix.out.CallGraphNode;
 import com.uber.nullaway.autofix.out.ErrorNode;
 import com.uber.nullaway.autofix.out.Fix;
@@ -16,6 +18,8 @@ import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.Element;
 
@@ -58,13 +62,20 @@ public class Writer {
       Symbol.MethodSymbol methodSymbol,
       Set<Element> nonnullFieldsAtExit,
       CompilationUnitTree c,
-      VisitorState state) {
+      VisitorState state,
+      Config config) {
     String method = methodSymbol.toString();
     String clazz = ASTHelpers.enclosingClass(methodSymbol).toString();
     MethodInfo methodInfo = MethodInfo.findOrCreate(method, clazz);
     methodInfo.setUri(c);
     methodInfo.setNonnullFieldsElements(nonnullFieldsAtExit);
     methodInfo.setParent(methodSymbol, state);
+    methodInfo.setParamNumber(methodSymbol.getParameters().size());
+    List<Boolean> paramAnnotations = new ArrayList<>();
+    for (Symbol.VarSymbol var : methodSymbol.getParameters()) {
+      paramAnnotations.add(Nullness.hasNullableAnnotation(var, config));
+    }
+    methodInfo.setParamAnnotations(paramAnnotations);
     appendToFile(methodInfo, METHOD_INFO, firstMethodInfo);
     firstMethodInfo = false;
   }

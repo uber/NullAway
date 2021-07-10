@@ -1,5 +1,6 @@
 package com.uber.nullaway.autofix.fixer;
 
+import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
@@ -14,6 +15,7 @@ public class Location implements SeperatedValueDisplay {
   ClassTree classTree;
   MethodTree methodTree;
   Symbol variableSymbol;
+  int index;
   Kind kind;
 
   public enum Kind {
@@ -58,6 +60,8 @@ public class Location implements SeperatedValueDisplay {
             : "null")
         + "\n\tvariable Symbol="
         + variableSymbol
+        + "\n\tindex="
+        + index
         + "\n\tkind="
         + kind
         + "\n}";
@@ -112,7 +116,18 @@ public class Location implements SeperatedValueDisplay {
     }
 
     public LocationBuilder setVariableSymbol(Symbol s) {
+      Preconditions.checkNotNull(location.kind);
       location.variableSymbol = s;
+      if (location.kind.equals(Kind.METHOD_PARAM)) {
+        Preconditions.checkNotNull(location.methodTree);
+        Symbol.MethodSymbol methodSym = ASTHelpers.getSymbol(location.methodTree);
+        for (int i = 0; i < methodSym.getParameters().size(); i++) {
+          if (methodSym.getParameters().get(i).equals(s)) {
+            location.index = i;
+            break;
+          }
+        }
+      }
       return this;
     }
 
@@ -141,6 +156,8 @@ public class Location implements SeperatedValueDisplay {
         + delimiter
         + (variableSymbol != null ? variableSymbol.toString() : "null")
         + delimiter
+        + index
+        + delimiter
         + (compilationUnitTree != null
             ? compilationUnitTree.getSourceFile().toUri().toASCIIString()
             : "null");
@@ -157,6 +174,8 @@ public class Location implements SeperatedValueDisplay {
         + "method"
         + delimiter
         + "param"
+        + delimiter
+        + "index"
         + delimiter
         + "uri";
   }

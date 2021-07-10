@@ -20,6 +20,8 @@ public class MethodInfo implements SeperatedValueDisplay {
   String clazz;
   String uri;
   String[] nonnullFields = {};
+  Boolean[] annotFlags;
+  int paramNumber = 0;
   int parent = -1;
 
   private static int LAST_ID = 0;
@@ -118,12 +120,28 @@ public class MethodInfo implements SeperatedValueDisplay {
         + delimiter
         + Arrays.toString(nonnullFields)
         + delimiter
-        + uri;
+        + uri
+        + delimiter
+        + paramNumber
+        + delimiter
+        + Arrays.toString(annotFlags);
   }
 
   @Override
   public String header(String delimiter) {
     return "id" + delimiter + "class" + delimiter + "method" + delimiter + "parent" + delimiter
-        + "fields" + delimiter + "uri";
+        + "fields" + delimiter + "uri" + delimiter + "size" + delimiter + "flags";
+  }
+
+  public void setParamNumber(int size) {
+    this.paramNumber = size;
+  }
+
+  public void setParamAnnotations(List<Boolean> annotFlags) {
+    if (annotFlags == null) {
+      annotFlags = Collections.emptyList();
+    }
+    this.annotFlags = new Boolean[annotFlags.size()];
+    this.annotFlags = annotFlags.toArray(this.annotFlags);
   }
 }

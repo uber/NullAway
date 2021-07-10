@@ -425,10 +425,10 @@ public class NullAway extends BugChecker
                 .getCompilationUnit();
         Location location =
             Location.Builder()
+                .setKind(Location.Kind.CLASS_FIELD)
                 .setClassTree(LocationUtils.getClassTree(tree.getVariable(), state))
                 .setCompilationUnitTree(c)
                 .setVariableSymbol(ASTHelpers.getSymbol(tree.getVariable()))
-                .setKind(Location.Kind.CLASS_FIELD)
                 .build();
         fixer.fix(errorMessage, location, state);
       }
@@ -507,7 +507,7 @@ public class NullAway extends BugChecker
               nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
                   getTreesInstance(state).getPath(methodSymbol), state.context);
         }
-        Writer.saveMethodInfo(methodSymbol, nonnullFieldsOfReceiverAtExit, c, state);
+        Writer.saveMethodInfo(methodSymbol, nonnullFieldsOfReceiverAtExit, c, state, config);
       } catch (Exception e) {
         System.err.println("Could not save method info: " + methodSymbol);
       }
@@ -1223,10 +1223,10 @@ public class NullAway extends BugChecker
             CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
             Location location =
                 Location.Builder()
+                    .setKind(Location.Kind.CLASS_FIELD)
                     .setClassTree(LocationUtils.getClassTree(tree, state))
                     .setCompilationUnitTree(c)
                     .setVariableSymbol(ASTHelpers.getSymbol(tree))
-                    .setKind(Location.Kind.CLASS_FIELD)
                     .build();
             fixer.fix(errorMessage, location, state);
           }
@@ -1478,11 +1478,11 @@ public class NullAway extends BugChecker
               getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
           Location location =
               Location.Builder()
+                  .setKind(Location.Kind.METHOD_PARAM)
                   .setCompilationUnitTree(c)
                   .setClassTree(LocationUtils.getClassTree(methodSymbol, state))
                   .setMethodTree(ASTHelpers.findMethod(methodSymbol, state))
                   .setVariableSymbol(LocationUtils.getParamSymbol(methodSymbol, argPos))
-                  .setKind(Location.Kind.METHOD_PARAM)
                   .build();
           fixer.fix(errorMessage, location, state);
         }
@@ -1631,10 +1631,10 @@ public class NullAway extends BugChecker
           CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
           Location location =
               Location.Builder()
+                  .setKind(Location.Kind.CLASS_FIELD)
                   .setClassTree(LocationUtils.getClassTree(tree, state))
                   .setCompilationUnitTree(c)
                   .setVariableSymbol(symbol)
-                  .setKind(Location.Kind.CLASS_FIELD)
                   .build();
           ErrorMessage errorMessage =
               new ErrorMessage(

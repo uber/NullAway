@@ -169,9 +169,9 @@ public class Fixer {
           Location location =
               Location.Builder()
                   .setCompilationUnitTree(c)
+                  .setKind(Location.Kind.CLASS_FIELD)
                   .setClassTree(LocationUtils.getClassTree(forceNullableField, state))
                   .setVariableSymbol(symbol)
-                  .setKind(Location.Kind.CLASS_FIELD)
                   .build();
           fix(
               new ErrorMessage(ErrorMessage.MessageTypes.FIELD_NO_INIT, "Must be nullable"),
