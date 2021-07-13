@@ -115,6 +115,56 @@ public class NullAwayTest {
   }
 
   @Test
+  public void generalRun() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Super {",
+            "  void bar(@Nullable Object a) {",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Child.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Child extends Super {",
+            "  void bar(@Nullable Object a) {",
+            "  }",
+            "}")
+        .addSourceLines(
+            "BabyOne.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class BabyOne extends Child {",
+            "  void bar(@Nullable Object a) {",
+            "  }",
+            "}")
+        .addSourceLines(
+            "BabyTwo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class BabyTwo extends Child {",
+            "  void bar(Object a) {",
+            "  }",
+            "}")
+        .addSourceLines(
+            "BabyThree.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class BabyThree extends Child {",
+            "  void bar(Object a) {",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void skipClass() {
     makeTestHelperWithArgs(
             Arrays.asList(
