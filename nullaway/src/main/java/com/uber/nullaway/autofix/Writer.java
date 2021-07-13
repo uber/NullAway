@@ -66,7 +66,7 @@ public class Writer {
     FieldGraphNode node =
         new FieldGraphNode((MemberSelectTree) tree, ASTHelpers.getSymbol(classTree));
     appendToFile(node, FIELD_GRAPH, firstFieldGraph);
-    firstFieldGraph = true;
+    firstFieldGraph = false;
   }
 
   public static void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
