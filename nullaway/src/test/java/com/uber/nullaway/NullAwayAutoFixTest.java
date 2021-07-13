@@ -57,6 +57,41 @@ public class NullAwayAutoFixTest {
   }
 
   @Test
+  public void check() {
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true"))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/A.java",
+            "package com.uber;",
+            "public class A {",
+            "   Object field;",
+            "}",
+            "class B {",
+            "  Object foo(A a) {",
+            "      return a.field;",
+            "  }",
+            "}")
+        .addFixes(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "test(boolean)",
+                "null",
+                "METHOD_RETURN",
+                "com.uber.SubClass",
+                "com.uber",
+                "com/uber/SubClass.java",
+                "true",
+                "false"))
+        .doTest();
+  }
+
+  @Test
   public void add_nullable_returnType_simple() {
     explorerTestHelper
         .setArgs(

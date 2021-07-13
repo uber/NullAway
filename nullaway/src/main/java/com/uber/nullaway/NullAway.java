@@ -2143,6 +2143,7 @@ public class NullAway extends BugChecker
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
     boolean exprMayBeNull = true;
+    Writer.saveFieldGraphNode(expr, state);
     if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config)) {
       exprMayBeNull = false;
     }

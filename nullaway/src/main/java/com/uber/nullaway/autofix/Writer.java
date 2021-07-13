@@ -2,13 +2,17 @@ package com.uber.nullaway.autofix;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.autofix.out.CallGraphNode;
 import com.uber.nullaway.autofix.out.ErrorNode;
+import com.uber.nullaway.autofix.out.FieldGraphNode;
 import com.uber.nullaway.autofix.out.Fix;
 import com.uber.nullaway.autofix.out.MethodInfo;
 import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
@@ -28,12 +32,14 @@ public class Writer {
   public static final String METHOD_INFO = "/tmp/NullAwayFix/method_info.csv";
   public static final String CALL_GRAPH = "/tmp/NullAwayFix/call_graph.csv";
   public static final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.csv";
+  public static final String FIELD_GRAPH = "/tmp/NullAwayFix/field_graph.csv";
   public static final String DELIMITER = "$*$";
 
   private static boolean firstFix;
   private static boolean firstErrorNode;
   private static boolean firstMethodInfo;
   private static boolean firstCallGraphNode;
+  private static boolean firstFieldGraph;
 
   public static String getDelimiterRegex() {
     StringBuilder ans = new StringBuilder("(");
@@ -47,6 +53,20 @@ public class Writer {
   public static void saveFix(Fix fix) {
     appendToFile(fix, SUGGEST_FIX, firstFix);
     firstFix = false;
+  }
+
+  public static void saveFieldGraphNode(ExpressionTree tree, VisitorState state) {
+    if (!(tree instanceof MemberSelectTree)) {
+      return;
+    }
+    ClassTree classTree = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+    if (classTree == null) {
+      return;
+    }
+    FieldGraphNode node =
+        new FieldGraphNode((MemberSelectTree) tree, ASTHelpers.getSymbol(classTree));
+    appendToFile(node, FIELD_GRAPH, firstFieldGraph);
+    firstFieldGraph = true;
   }
 
   public static void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
@@ -101,6 +121,9 @@ public class Writer {
       if (config.MAKE_CALL_GRAPH_ENABLED) {
         Files.deleteIfExists(Paths.get(CALL_GRAPH));
       }
+      if (config.MAKE_FIELD_GRAPH_ENABLED) {
+        Files.deleteIfExists(Paths.get(FIELD_GRAPH));
+      }
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting writer: " + e);
     }
@@ -108,6 +131,7 @@ public class Writer {
     firstErrorNode = true;
     firstMethodInfo = true;
     firstCallGraphNode = true;
+    firstFieldGraph = true;
   }
 
   private static void appendToFile(
