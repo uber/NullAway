@@ -116,7 +116,6 @@ public class Writer {
       }
       if (config.MAKE_METHOD_TREE_INHERITANCE_ENABLED) {
         Files.deleteIfExists(Paths.get(METHOD_INFO));
-        Files.deleteIfExists(Paths.get(METHOD_INFO));
       }
       if (config.MAKE_CALL_GRAPH_ENABLED) {
         Files.deleteIfExists(Paths.get(CALL_GRAPH));

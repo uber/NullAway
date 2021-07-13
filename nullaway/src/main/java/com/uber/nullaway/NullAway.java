@@ -573,6 +573,9 @@ public class NullAway extends BugChecker
       @Nullable LambdaExpressionTree lambdaExpressionTree,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
+    if (config.getAutoFixConfig().PARAM_TEST_ENABLED) {
+      return Description.NO_MATCH;
+    }
     com.sun.tools.javac.util.List<VarSymbol> superParamSymbols = overriddenMethod.getParameters();
     boolean unboundMemberRef =
         (memberReferenceTree != null)
