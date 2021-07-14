@@ -140,7 +140,7 @@ public class Writer {
     if (withHeader) {
       toWrite = value.header(DELIMITER) + "\n";
     }
-    toWrite += value.display(DELIMITER) + "\n";
+    toWrite += value.display(DELIMITER).replaceAll("\n", "") + "\n";
     try {
       os = new FileOutputStream(filePath, true);
       os.write(toWrite.getBytes(Charset.defaultCharset()), 0, toWrite.length());

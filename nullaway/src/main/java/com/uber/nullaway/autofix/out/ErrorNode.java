@@ -29,12 +29,19 @@ public class ErrorNode implements SeperatedValueDisplay {
         .append(errorMessage.getMessageType().toString())
         .append(delimiter)
         .append(errorMessage.getMessage());
-    if (enclosingClass != null && enclosingMethod != null) {
+    newLine.append(delimiter);
+    if (enclosingClass != null) {
       Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
-      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
-      newLine.append(delimiter).append(classSymbol).append(delimiter).append(methodSymbol);
+      newLine.append(classSymbol);
     } else {
-      newLine.append(delimiter).append("null").append(delimiter).append("null");
+      newLine.append("null");
+    }
+    newLine.append(delimiter);
+    if (enclosingMethod != null) {
+      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
+      newLine.append(methodSymbol);
+    } else {
+      newLine.append("null");
     }
     return newLine.toString();
   }
