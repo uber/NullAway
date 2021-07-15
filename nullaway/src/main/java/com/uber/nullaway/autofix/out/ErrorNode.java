@@ -20,6 +20,9 @@ public class ErrorNode implements SeperatedValueDisplay {
   public void findEnclosing(VisitorState state) {
     enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
     enclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+    if (enclosingClass == null && state.getPath().getLeaf() instanceof ClassTree) {
+      enclosingClass = (ClassTree) state.getPath().getLeaf();
+    }
   }
 
   @Override
