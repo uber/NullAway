@@ -21,7 +21,12 @@ public class ErrorNode implements SeperatedValueDisplay {
     enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
     enclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
     if (enclosingClass == null && state.getPath().getLeaf() instanceof ClassTree) {
-      enclosingClass = (ClassTree) state.getPath().getLeaf();
+      ErrorMessage.MessageTypes messageTypes = errorMessage.getMessageType();
+      if (messageTypes.equals(ErrorMessage.MessageTypes.ASSIGN_FIELD_NULLABLE)
+          || messageTypes.equals(ErrorMessage.MessageTypes.FIELD_NO_INIT)
+          || messageTypes.equals(ErrorMessage.MessageTypes.METHOD_NO_INIT)) {
+        enclosingClass = (ClassTree) state.getPath().getLeaf();
+      }
     }
   }
 
