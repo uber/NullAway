@@ -5,7 +5,6 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
@@ -56,15 +55,11 @@ public class Writer {
   }
 
   public static void saveFieldGraphNode(ExpressionTree tree, VisitorState state) {
-    if (!(tree instanceof MemberSelectTree)) {
-      return;
-    }
     ClassTree classTree = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
     if (classTree == null) {
       return;
     }
-    FieldGraphNode node =
-        new FieldGraphNode((MemberSelectTree) tree, ASTHelpers.getSymbol(classTree));
+    FieldGraphNode node = new FieldGraphNode(tree, ASTHelpers.getSymbol(classTree));
     appendToFile(node, FIELD_GRAPH, firstFieldGraph);
     firstFieldGraph = false;
   }
@@ -140,7 +135,11 @@ public class Writer {
     if (withHeader) {
       toWrite = value.header(DELIMITER) + "\n";
     }
-    toWrite += value.display(DELIMITER).replaceAll("\n", "") + "\n";
+    String display = value.display(DELIMITER);
+    if (display == null) {
+      return;
+    }
+    toWrite += display.replaceAll("\n", "") + "\n";
     try {
       os = new FileOutputStream(filePath, true);
       os.write(toWrite.getBytes(Charset.defaultCharset()), 0, toWrite.length());

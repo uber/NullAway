@@ -412,6 +412,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     ExpressionTree expression = tree.getExpression();
+    Writer.saveFieldGraphNode(tree.getVariable(), state);
     if (mayBeNullExpr(state, expression)) {
       String message = "assigning @Nullable expression to @NonNull field";
       ErrorMessage errorMessage =
