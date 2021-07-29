@@ -2,7 +2,6 @@ package com.uber.nullaway.autofix;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.tools.javac.code.Symbol;
@@ -55,11 +54,7 @@ public class Writer {
   }
 
   public static void saveFieldGraphNode(ExpressionTree tree, VisitorState state) {
-    ClassTree classTree = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
-    if (classTree == null) {
-      return;
-    }
-    FieldGraphNode node = new FieldGraphNode(tree, ASTHelpers.getSymbol(classTree));
+    FieldGraphNode node = new FieldGraphNode(tree, state.getPath());
     appendToFile(node, FIELD_GRAPH, firstFieldGraph);
     firstFieldGraph = false;
   }

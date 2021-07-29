@@ -321,14 +321,9 @@ public class NullAway extends BugChecker
     handler.onMatchMethodInvocation(this, tree, state, methodSymbol);
     // assuming this list does not include the receiver
     if (config.getAutoFixConfig().MAKE_CALL_GRAPH_ENABLED) {
-      Symbol calleeMethod = (Symbol.MethodSymbol) ASTHelpers.getSymbol(tree.getMethodSelect());
-      ClassTree callerClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
-      if (calleeMethod instanceof Symbol.MethodSymbol && callerClass != null) {
-        CallGraphNode node =
-            new CallGraphNode(
-                (Symbol.MethodSymbol) calleeMethod, ASTHelpers.getSymbol(callerClass));
-        Writer.saveCallGraphNode(node);
-      }
+      Symbol calleeMethod = ASTHelpers.getSymbol(tree.getMethodSelect());
+      CallGraphNode node = new CallGraphNode((Symbol.MethodSymbol) calleeMethod, state.getPath());
+      Writer.saveCallGraphNode(node);
     }
     List<? extends ExpressionTree> actualParams = tree.getArguments();
     return handleInvocation(tree, state, methodSymbol, actualParams);
@@ -412,7 +407,9 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     ExpressionTree expression = tree.getExpression();
-    Writer.saveFieldGraphNode(tree.getVariable(), state);
+    if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED) {
+      Writer.saveFieldGraphNode(tree.getVariable(), state);
+    }
     if (mayBeNullExpr(state, expression)) {
       String message = "assigning @Nullable expression to @NonNull field";
       ErrorMessage errorMessage =
@@ -2147,7 +2144,9 @@ public class NullAway extends BugChecker
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
     boolean exprMayBeNull = true;
-    Writer.saveFieldGraphNode(expr, state);
+    if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED) {
+      Writer.saveFieldGraphNode(expr, state);
+    }
     if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config)) {
       exprMayBeNull = false;
     }
