@@ -41,6 +41,7 @@ public class CallGraphNode implements SeperatedValueDisplay {
         + "CALLER_METHOD"
         + delimiter
         + "CALLEE_METHOD"
+        + delimiter
         + "CALLEE_CLASS";
   }
 }
