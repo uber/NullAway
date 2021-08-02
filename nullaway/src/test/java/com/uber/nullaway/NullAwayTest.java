@@ -3123,4 +3123,41 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void jspecifyNullMarkedBasicSupport() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "package-info.java",
+            "@NullMarked package com.example.thirdparty;",
+            "import org.jspecify.nullness.NullMarked;")
+        .addSourceLines(
+            "ThirdPartyAnnotatedUtils.java",
+            "package com.example.thirdparty;",
+            "import org.jspecify.nullness.Nullable;",
+            "public class ThirdPartyAnnotatedUtils {",
+            "  public static String toStringOrDefault(@Nullable Object o1, String s) {",
+            "    if (o1 != null) {",
+            "      return o1.toString();",
+            "    }",
+            "    return s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.thirdparty.ThirdPartyAnnotatedUtils;",
+            "public class Test {",
+            "  public static void test(Object o) {",
+            "    // Safe: passing @NonNull on both args",
+            "    ThirdPartyAnnotatedUtils.toStringOrDefault(o, \"default\");",
+            "    // Safe: first arg is @Nullable",
+            "    ThirdPartyAnnotatedUtils.toStringOrDefault(null, \"default\");",
+            "    // Unsafe: @NullMarked means the second arg is @NonNull by default, not @Nullable",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    ThirdPartyAnnotatedUtils.toStringOrDefault(o, null);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

@@ -337,6 +337,24 @@ public class NullabilityUtil {
   }
 
   /**
+   * Checks if a symbol comes from an annotated package, as determined by either configuration flags
+   * (e.g. {@code -XepOpt:NullAway::AnnotatedPackages}) or package level annotations (e.g. {@code
+   * org.jspecify.nullness.NullMarked}).
+   *
+   * @param outermostClassSymbol symbol for class (must be an outermost class)
+   * @param config NullAway config
+   * @return true if the class is from a package that should be treated as properly annotated
+   *     according to our convention (every possibly null parameter / return / field
+   *     annotated @Nullable), false otherwise
+   */
+  public static boolean fromAnnotatedPackage(
+      Symbol.ClassSymbol outermostClassSymbol, Config config) {
+    return config.fromAnnotatedPackage(outermostClassSymbol)
+        || (outermostClassSymbol.packge().getAnnotation(org.jspecify.nullness.NullMarked.class)
+            != null);
+  }
+
+  /**
    * Check if a symbol comes from unannotated code.
    *
    * @param symbol symbol for entity
@@ -345,7 +363,7 @@ public class NullabilityUtil {
    */
   public static boolean isUnannotated(Symbol symbol, Config config) {
     Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
-    return !config.fromAnnotatedPackage(outermostClassSymbol)
+    return !fromAnnotatedPackage(outermostClassSymbol, config)
         || config.isUnannotatedClass(outermostClassSymbol);
   }
 
