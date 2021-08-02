@@ -39,6 +39,14 @@ public class Writer {
   private static boolean firstCallGraphNode;
   private static boolean firstFieldGraph;
 
+  static {
+    firstFix = true;
+    firstErrorNode = true;
+    firstMethodInfo = true;
+    firstCallGraphNode = true;
+    firstFieldGraph = true;
+  }
+
   public static String getDelimiterRegex() {
     StringBuilder ans = new StringBuilder("(");
     for (int i = 0; i < DELIMITER.length(); i++) {
@@ -131,10 +139,14 @@ public class Writer {
       toWrite = value.header(DELIMITER) + "\n";
     }
     String display = value.display(DELIMITER);
-    if (display == null) {
+    if (display != null) {
+      display = display.replaceAll("\\R+", " ");
+      display = display.replaceAll("\t", "");
+      toWrite += display + "\n";
+    }
+    if ((display == null || display.equals("")) && !withHeader) {
       return;
     }
-    toWrite += display.replaceAll("\n", "") + "\n";
     try {
       os = new FileOutputStream(filePath, true);
       os.write(toWrite.getBytes(Charset.defaultCharset()), 0, toWrite.length());
