@@ -28,12 +28,16 @@ public class MethodParameterNullableByIndex extends BaseNoOpHandler {
       if (!(underlyingAST instanceof UnderlyingAST.CFGMethod)) {
         return super.onDataflowInitialStore(underlyingAST, parameters, result);
       }
-      int index = (int) config.PARAM_INDEX;
-      MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
-      if (index < methodTree.getParameters().size()) {
-        Element element = TreeUtils.elementFromTree(methodTree.getParameters().get(index));
-        AccessPath accessPath = AccessPath.fromMethodParameter(element);
-        result.setInformation(accessPath, Nullness.NULLABLE);
+      try {
+        int index = (int) config.PARAM_INDEX;
+        MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
+        if (index < methodTree.getParameters().size()) {
+          Element element = TreeUtils.elementFromTree(methodTree.getParameters().get(index));
+          AccessPath accessPath = AccessPath.fromMethodParameter(element);
+          result.setInformation(accessPath, Nullness.NULLABLE);
+        }
+      } catch (Exception e) {
+        return super.onDataflowInitialStore(underlyingAST, parameters, result);
       }
     }
     return result;
