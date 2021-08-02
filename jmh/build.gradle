@@ -61,3 +61,6 @@ jmh {
     // iterations = 5
     // fork = 5
 }
+
+// don't run test task on pre-JDK-11 VMs
+test.onlyIf { JavaVersion.current() >= JavaVersion.VERSION_11 }
