@@ -63,7 +63,6 @@ public class Handlers {
 
     handlerListBuilder.add(new RequiresNonNullHandler());
     handlerListBuilder.add(new EnsuresNonNullHandler());
-    handlerListBuilder.add(new MethodParameterNullableByIndex(config.getAutoFixConfig()));
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }

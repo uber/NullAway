@@ -27,7 +27,6 @@ public class AutoFixConfig {
   public final boolean LOG_ERROR_ENABLED;
   public final boolean LOG_ERROR_DEEP;
   public final boolean OPTIMIZED;
-  public final long PARAM_INDEX;
   public final AnnotationFactory ANNOTATION_FACTORY;
   public final Set<String> WORK_LIST;
 
@@ -40,7 +39,6 @@ public class AutoFixConfig {
     OPTIMIZED = false;
     MAKE_CALL_GRAPH_ENABLED = false;
     MAKE_FIELD_GRAPH_ENABLED = false;
-    PARAM_INDEX = 0L;
     ANNOTATION_FACTORY = new AnnotationFactory();
     WORK_LIST = Collections.singleton("*");
     Writer.reset(this);
@@ -70,7 +68,7 @@ public class AutoFixConfig {
     SUGGEST_ENABLED =
         getValueFromKey(jsonObject, "SUGGEST", Boolean.class).orElse(false) && autofixEnabled;
     PARAM_TEST_ENABLED =
-        getValueFromKey(jsonObject, "METHOD_PARAM_TEST:ACTIVE", Boolean.class).orElse(false)
+        getValueFromKey(jsonObject, "METHOD_PARAM_TEST", Boolean.class).orElse(false)
             && autofixEnabled;
     LOG_ERROR_ENABLED =
         getValueFromKey(jsonObject, "LOG_ERROR:ACTIVE", Boolean.class).orElse(false)
@@ -80,10 +78,6 @@ public class AutoFixConfig {
             && autofixEnabled;
     OPTIMIZED =
         getValueFromKey(jsonObject, "OPTIMIZED", Boolean.class).orElse(false) && autofixEnabled;
-    PARAM_INDEX = getValueFromKey(jsonObject, "METHOD_PARAM_TEST:INDEX", Long.class).orElse(0L);
-    Preconditions.checkArgument(
-        !(PARAM_TEST_ENABLED && PARAM_INDEX < 0),
-        "In Param Test mode, Param Index cannot be less than 0.");
     String nullableAnnot =
         getValueFromKey(jsonObject, "ANNOTATION:NULLABLE", String.class)
             .orElse("javax.annotation.Nullable");
@@ -152,7 +146,6 @@ public class AutoFixConfig {
     private boolean LOG_ERROR_ENABLED;
     private boolean LOG_ERROR_DEEP;
     private boolean OPTIMIZED;
-    private long PARAM_INDEX;
     private String NULLABLE;
     private String NONNULL;
     private Set<String> WORK_LIST;
@@ -166,7 +159,6 @@ public class AutoFixConfig {
       LOG_ERROR_DEEP = false;
       OPTIMIZED = false;
       MAKE_FIELD_GRAPH_ENABLED = false;
-      PARAM_INDEX = 0;
       NULLABLE = "javax.annotation.Nullable";
       NONNULL = "javax.annotation.Nonnull";
       WORK_LIST = Collections.singleton("*");
@@ -191,10 +183,7 @@ public class AutoFixConfig {
       logError.put("ACTIVE", LOG_ERROR_ENABLED);
       logError.put("DEEP", LOG_ERROR_DEEP);
       res.put("LOG_ERROR", logError);
-      JSONObject paramTest = new JSONObject();
-      paramTest.put("ACTIVE", PARAM_TEST_ENABLED);
-      paramTest.put("INDEX", PARAM_INDEX);
-      res.put("METHOD_PARAM_TEST", paramTest);
+      res.put("METHOD_PARAM_TEST", PARAM_TEST_ENABLED);
       res.put("MAKE_CALL_GRAPH", MAKE_CALL_GRAPH_ENABLED);
       res.put("MAKE_FIELD_GRAPH", MAKE_FIELD_GRAPH_ENABLED);
       res.put("WORK_LIST", workListDisplay());
@@ -236,12 +225,8 @@ public class AutoFixConfig {
       return this;
     }
 
-    public AutoFixConfigWriter setMethodParamTest(boolean value, long index) {
+    public AutoFixConfigWriter setMethodParamTest(boolean value) {
       PARAM_TEST_ENABLED = value;
-      if (value && index < 0) {
-        throw new RuntimeException("Index cannot be less than zero");
-      }
-      PARAM_INDEX = index;
       return this;
     }
 
