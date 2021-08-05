@@ -3160,4 +3160,38 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void jspecifyConfigUnannotatedOverridesNullMarked() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.example"))
+        .addSourceLines(
+            "package-info.java",
+            "@NullMarked package com.example.thirdparty;",
+            "import org.jspecify.nullness.NullMarked;")
+        .addSourceLines(
+            "Foo.java",
+            "package com.example.thirdparty;",
+            "import org.jspecify.nullness.Nullable;",
+            "public class Foo {",
+            "  public static String foo(String s) {",
+            "    return s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.thirdparty.Foo;",
+            "public class Test {",
+            "  public static void test(Object o) {",
+            "    // Safe: Foo is treated as unannotated",
+            "    Foo.foo(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

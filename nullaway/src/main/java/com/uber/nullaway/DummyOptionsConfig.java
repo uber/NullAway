@@ -54,7 +54,17 @@ public class DummyOptionsConfig implements Config {
   public DummyOptionsConfig() {}
 
   @Override
-  public boolean fromAnnotatedPackage(Symbol.ClassSymbol symbol) {
+  public boolean fromExplicitlyAnnotatedPackage(String className) {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
+  public boolean fromExplicitlyUnannotatedPackage(String className) {
+    throw new IllegalStateException(error_msg);
+  }
+
+  @Override
+  public boolean shouldTreatGeneratedAsUnannoatated() {
     throw new IllegalStateException(error_msg);
   }
 

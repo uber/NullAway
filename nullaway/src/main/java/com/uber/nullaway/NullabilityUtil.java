@@ -349,9 +349,31 @@ public class NullabilityUtil {
    */
   public static boolean fromAnnotatedPackage(
       Symbol.ClassSymbol outermostClassSymbol, Config config) {
-    return config.fromAnnotatedPackage(outermostClassSymbol)
-        || (outermostClassSymbol.packge().getAnnotation(org.jspecify.nullness.NullMarked.class)
-            != null);
+    final String className = outermostClassSymbol.getQualifiedName().toString();
+    if (!config.fromExplicitlyAnnotatedPackage(className)
+        && (outermostClassSymbol.packge().getAnnotation(org.jspecify.nullness.NullMarked.class)
+            == null)) {
+      // By default, unknown code is unannotated unless @NullMarked or configured as annotated by
+      // package name
+      return false;
+    }
+    if (config.fromExplicitlyUnannotatedPackage(className)) {
+      // Any code explicitly marked as unannotated in our configuration is unannotated, no matter
+      // what.
+      return false;
+    }
+    if (config.shouldTreatGeneratedAsUnannoatated()
+        && ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated")) {
+      // Generated code is or isn't excluded, depending on configuration
+      // Note: In the future, we might want finer grain controls to distinguish code that is
+      // generated with nullability
+      // info and without.
+      return false;
+    }
+    // Finally, if we are here, the code was marked as annotated (either by configuration or
+    // @NullMarked) and
+    // nothing overrides it.
+    return true;
   }
 
   /**
