@@ -1,5 +1,23 @@
 Changelog
 =========
+Version 0.9.2
+-------------
+* Allow specifying custom names for Contract annotations (#476)
+* Use shaded Checker Framework dataflow artifact made for NullAway (#485)
+* Bump Checker dataflow to 3.16.0 (#490)
+* Library Models:
+  - Add library model for java.nio.file.Path.getParent() (#464)
+  - Default models support for Spring's Autowired (#477)
+  - Models for `Objects.requireNonNull()` with `Supplier` (#483)
+* Build / CI tooling for NullAway itself:
+  - Small Gradle build cleanup (#469)
+  - Allow Error Prone API version to be configured via a property (#470)
+  - Also test NullAway on Error Prone 2.6.0 (#471)
+  - Check our code with Error Prone 2.6.0 (#472) [temporary, see below]
+  - Check code with Error Prone 2.7.1 (#480)
+  - Update to Gradle 7.0.2 (#481) then 7.1 (#486)
+  - Add a jmh module for benchmarking (#487, #489)
+  - Test on CI with Error Prone 2.8.0 (#491)
 
 Version 0.9.1
 --------------

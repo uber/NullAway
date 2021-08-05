@@ -21,7 +21,7 @@ jobs:
             epVersion: 2.4.0
           - os: ubuntu-latest
             java: 8
-            epVersion: 2.7.1
+            epVersion: 2.8.1
           - os: ubuntu-latest
             java: 11
             epVersion: 2.4.0
@@ -47,7 +47,7 @@ jobs:
       - name: Build and test using Gradle and Java 11
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: :nullaway:test
+          arguments: :nullaway:test :jmh:test
         if: matrix.java == '11'
       - name: Report jacoco coverage
         uses: eskatos/gradle-command-action@v1
