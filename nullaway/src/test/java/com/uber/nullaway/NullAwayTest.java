@@ -3162,6 +3162,62 @@ public class NullAwayTest {
   }
 
   @Test
+  public void jspecifyNullMarkedClassLevel() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.example.thirdparty;",
+            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.nullness.NullMarked;",
+            "@NullMarked",
+            "public class Foo {",
+            "  public static String foo( String s) {",
+            "    return s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.thirdparty.Foo;",
+            "public class Test {",
+            "  public static void test(Object o) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    Foo.foo(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void jspecifyNullMarkedClassLevelOuter() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Bar.java",
+            "package com.example.thirdparty;",
+            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.nullness.NullMarked;",
+            "@NullMarked",
+            "public class Bar {",
+            "  public static class Foo {",
+            "    public static String foo( String s) {",
+            "      return s;",
+            "    }",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.thirdparty.Bar;",
+            "public class Test {",
+            "  public static void test(Object o) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    Bar.Foo.foo(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void jspecifyConfigUnannotatedOverridesNullMarked() {
     makeTestHelperWithArgs(
             Arrays.asList(

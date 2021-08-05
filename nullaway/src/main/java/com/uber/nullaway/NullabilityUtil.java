@@ -128,7 +128,7 @@ public class NullabilityUtil {
     // the case of anonymous classes
     Symbol.ClassSymbol outermostClassSymbol = ASTHelpers.enclosingClass(symbol);
     while (outermostClassSymbol.getNestingKind().isNested()) {
-      Symbol.ClassSymbol enclosingSymbol = ASTHelpers.enclosingClass(outermostClassSymbol.owner);
+      Symbol.ClassSymbol enclosingSymbol = ASTHelpers.enclosingClass(outermostClassSymbol);
       if (enclosingSymbol != null) {
         outermostClassSymbol = enclosingSymbol;
       } else {
@@ -351,8 +351,8 @@ public class NullabilityUtil {
       Symbol.ClassSymbol outermostClassSymbol, Config config) {
     final String className = outermostClassSymbol.getQualifiedName().toString();
     if (!config.fromExplicitlyAnnotatedPackage(className)
-        && (outermostClassSymbol.packge().getAnnotation(org.jspecify.nullness.NullMarked.class)
-            == null)) {
+        && outermostClassSymbol.packge().getAnnotation(org.jspecify.nullness.NullMarked.class)
+            == null) {
       // By default, unknown code is unannotated unless @NullMarked or configured as annotated by
       // package name
       return false;
@@ -385,8 +385,12 @@ public class NullabilityUtil {
    */
   public static boolean isUnannotated(Symbol symbol, Config config) {
     Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
-    return !fromAnnotatedPackage(outermostClassSymbol, config)
-        || config.isUnannotatedClass(outermostClassSymbol);
+    if (outermostClassSymbol.getAnnotation(org.jspecify.nullness.NullMarked.class) == null
+        && !fromAnnotatedPackage(outermostClassSymbol, config)) {
+      return true;
+    } else {
+      return config.isUnannotatedClass(outermostClassSymbol);
+    }
   }
 
   /**

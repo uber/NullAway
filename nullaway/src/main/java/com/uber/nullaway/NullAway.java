@@ -1835,6 +1835,7 @@ public class NullAway extends BugChecker
         .anyMatch(config::isExcludedFieldAnnotation);
   }
 
+  // classSymbol must be a top-level class
   private boolean isExcludedClass(Symbol.ClassSymbol classSymbol) {
     String className = classSymbol.getQualifiedName().toString();
     if (config.isExcludedClass(className)) {
