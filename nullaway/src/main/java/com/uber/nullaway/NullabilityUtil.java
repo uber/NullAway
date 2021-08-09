@@ -41,6 +41,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
+import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -54,6 +55,10 @@ import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
+  public static final Class<? extends Annotation> NULLMARKED =
+      org.jspecify.nullness.NullMarked.class;
+
+  private static final NullMarkedCache nullMarkedCache = new NullMarkedCache();
 
   private NullabilityUtil() {}
 
@@ -126,17 +131,7 @@ public class NullabilityUtil {
   public static Symbol.ClassSymbol getOutermostClassSymbol(Symbol symbol) {
     // get the symbol for the outermost enclosing class.  this handles
     // the case of anonymous classes
-    Symbol.ClassSymbol outermostClassSymbol = ASTHelpers.enclosingClass(symbol);
-    while (outermostClassSymbol.getNestingKind().isNested()) {
-      Symbol.ClassSymbol enclosingSymbol = ASTHelpers.enclosingClass(outermostClassSymbol);
-      if (enclosingSymbol != null) {
-        outermostClassSymbol = enclosingSymbol;
-      } else {
-        // enclosingSymbol can be null in weird cases like for array methods
-        break;
-      }
-    }
-    return outermostClassSymbol;
+    return nullMarkedCache.get(ASTHelpers.enclosingClass(symbol)).outermostClassSymbol;
   }
 
   /**
@@ -351,8 +346,7 @@ public class NullabilityUtil {
       Symbol.ClassSymbol outermostClassSymbol, Config config) {
     final String className = outermostClassSymbol.getQualifiedName().toString();
     if (!config.fromExplicitlyAnnotatedPackage(className)
-        && outermostClassSymbol.packge().getAnnotation(org.jspecify.nullness.NullMarked.class)
-            == null) {
+        && outermostClassSymbol.packge().getAnnotation(NULLMARKED) == null) {
       // By default, unknown code is unannotated unless @NullMarked or configured as annotated by
       // package name
       return false;
@@ -377,6 +371,32 @@ public class NullabilityUtil {
   }
 
   /**
+   * Check whether a class or any of its enclosing classes are explicitly marked @NullMarked
+   *
+   * <p>Important: This method ignores package-level annotations and annotated packages and classes
+   * passed as configuration options. For proper resolution of whether code should be considered
+   * null-annotated, use {@link #isUnannotated(Symbol, Config)} or {@link #isAnnotated(Symbol,
+   * Config)} instead.
+   *
+   * @param classSymbol The class to be checked
+   * @return Whether this class or any of its enclosing classes are explicitly marked @NullMarked
+   */
+  public static boolean isClassAnnotatedNullMarked(Symbol.ClassSymbol classSymbol) {
+    return nullMarkedCache.get(classSymbol).isNullMarked;
+  }
+
+  /**
+   * Check if a symbol comes from annotated code.
+   *
+   * @param symbol symbol for entity
+   * @param config NullAway config
+   * @return true if symbol represents an entity from a class that is annotated; false otherwise
+   */
+  public static boolean isAnnotated(Symbol symbol, Config config) {
+    return !isUnannotated(symbol, config);
+  }
+
+  /**
    * Check if a symbol comes from unannotated code.
    *
    * @param symbol symbol for entity
@@ -384,12 +404,11 @@ public class NullabilityUtil {
    * @return true if symbol represents an entity from a class that is unannotated; false otherwise
    */
   public static boolean isUnannotated(Symbol symbol, Config config) {
-    Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
-    if (outermostClassSymbol.getAnnotation(org.jspecify.nullness.NullMarked.class) == null
-        && !fromAnnotatedPackage(outermostClassSymbol, config)) {
-      return true;
+    NullMarkedCache.Record record = nullMarkedCache.get(ASTHelpers.enclosingClass(symbol));
+    if (record.isNullMarked || fromAnnotatedPackage(record.outermostClassSymbol, config)) {
+      return config.isUnannotatedClass(record.outermostClassSymbol);
     } else {
-      return config.isUnannotatedClass(outermostClassSymbol);
+      return true;
     }
   }
 

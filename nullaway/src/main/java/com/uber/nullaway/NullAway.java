@@ -246,6 +246,33 @@ public class NullAway extends BugChecker
         || NullabilityUtil.isUnannotated(ASTHelpers.getSymbol(invocationNode.getTree()), config);
   }
 
+  private boolean withinAnnotatedCode(VisitorState state) {
+    if (matchWithinTopLevelClass) {
+      return true;
+    }
+    ClassTree enclosingClass;
+    Tree currentTree = state.getPath().getLeaf();
+    // We use instanceof, since there are multiple Kind's which represent ClassTree's: ENUM,
+    // INTERFACE, etc, and
+    // we are actually interested in all of them.
+    if (currentTree instanceof ClassTree) {
+      // For the purposes of determining whether we are inside annotated code or not, when matching
+      // a
+      // class its enclosing class is itself (otherwise we might not process initialization for
+      // top-level
+      // classes in general, or @NullMarked inner classes).
+      enclosingClass = (ClassTree) currentTree;
+    } else {
+      enclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+    }
+    if (enclosingClass == null) {
+      // e.g. an import statement
+      return false;
+    }
+    Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
+    return NullabilityUtil.isClassAnnotatedNullMarked(classSymbol);
+  }
+
   @Override
   public String linkUrl() {
     // add a space to make it clickable from iTerm
@@ -258,7 +285,7 @@ public class NullAway extends BugChecker
    */
   @Override
   public Description matchReturn(ReturnTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     handler.onMatchReturn(this, tree, state);
@@ -294,7 +321,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchMethodInvocation(MethodInvocationTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     final Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
@@ -309,7 +336,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchNewClass(NewClassTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
@@ -367,7 +394,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchAssignment(AssignmentTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     Type lhsType = ASTHelpers.getType(tree.getVariable());
@@ -398,7 +425,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchCompoundAssignment(CompoundAssignmentTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     Type lhsType = ASTHelpers.getType(tree.getVariable());
@@ -412,7 +439,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchArrayAccess(ArrayAccessTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     Description description = matchDereference(tree.getExpression(), tree, state);
@@ -425,7 +452,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchMemberSelect(MemberSelectTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     Symbol symbol = ASTHelpers.getSymbol(tree);
@@ -449,7 +476,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     // if the method is overriding some other method,
@@ -472,7 +499,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchSwitch(SwitchTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
 
@@ -640,7 +667,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchLambdaExpression(LambdaExpressionTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     Symbol.MethodSymbol funcInterfaceMethod =
@@ -678,7 +705,7 @@ public class NullAway extends BugChecker
    */
   @Override
   public Description matchMemberReference(MemberReferenceTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(tree);
@@ -752,7 +779,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchIdentifier(IdentifierTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     return checkForReadBeforeInit(tree, state);
@@ -1089,7 +1116,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchVariable(VariableTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
@@ -1145,7 +1172,7 @@ public class NullAway extends BugChecker
       computedNullnessMap.clear();
       EnclosingEnvironmentNullness.instance(state.context).clear();
     }
-    if (matchWithinTopLevelClass) {
+    if (withinAnnotatedCode(state)) {
       // we need to update the environment before checking field initialization, as the latter
       // may run dataflow analysis
       if (nestingKind.equals(NestingKind.LOCAL) || nestingKind.equals(NestingKind.ANONYMOUS)) {
@@ -1160,7 +1187,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchBinary(BinaryTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     ExpressionTree leftOperand = tree.getLeftOperand();
@@ -1181,7 +1208,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchUnary(UnaryTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     return doUnboxingCheck(state, tree.getExpression());
@@ -1190,7 +1217,7 @@ public class NullAway extends BugChecker
   @Override
   public Description matchConditionalExpression(
       ConditionalExpressionTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     return doUnboxingCheck(state, tree.getCondition());
@@ -1198,7 +1225,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchIf(IfTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     return doUnboxingCheck(state, tree.getCondition());
@@ -1206,7 +1233,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchWhileLoop(WhileLoopTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     return doUnboxingCheck(state, tree.getCondition());
@@ -1214,7 +1241,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchForLoop(ForLoopTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     if (tree.getCondition() != null) {
@@ -1225,7 +1252,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchEnhancedForLoop(EnhancedForLoopTree tree, VisitorState state) {
-    if (!matchWithinTopLevelClass) {
+    if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
     ExpressionTree expr = tree.getExpression();
