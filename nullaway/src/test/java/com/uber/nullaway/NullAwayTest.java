@@ -3162,6 +3162,29 @@ public class NullAwayTest {
   }
 
   @Test
+  public void jspecifyNullMarkedPackageEnablesChecking() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "package-info.java",
+            "@NullMarked package com.example.thirdparty;",
+            "import org.jspecify.nullness.NullMarked;")
+        .addSourceLines(
+            "Foo.java",
+            "package com.example.thirdparty;",
+            "import org.jspecify.nullness.Nullable;",
+            "public class Foo {",
+            "  public static String foo(String s) {",
+            "    return s;",
+            "  }",
+            "  public static void test() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    foo(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void jspecifyNullMarkedClassLevel() {
     defaultCompilationHelper
         .addSourceLines(
@@ -3183,6 +3206,27 @@ public class NullAwayTest {
             "  public static void test(Object o) {",
             "    // BUG: Diagnostic contains: passing @Nullable parameter",
             "    Foo.foo(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void jspecifyNullMarkedClassLevelEnablesChecking() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.example.thirdparty;",
+            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.nullness.NullMarked;",
+            "@NullMarked",
+            "public class Foo {",
+            "  public static String foo( String s) {",
+            "    return s;",
+            "  }",
+            "  public static void test(Object o) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    foo(null);",
             "  }",
             "}")
         .doTest();

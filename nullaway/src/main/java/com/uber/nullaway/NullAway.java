@@ -1868,7 +1868,8 @@ public class NullAway extends BugChecker
     if (config.isExcludedClass(className)) {
       return true;
     }
-    if (!NullabilityUtil.fromAnnotatedPackage(classSymbol, config)) {
+    if (!NullabilityUtil.fromAnnotatedPackage(classSymbol, config)
+        && !NullabilityUtil.isClassAnnotatedNullMarked(classSymbol)) {
       return true;
     }
     // check annotations
