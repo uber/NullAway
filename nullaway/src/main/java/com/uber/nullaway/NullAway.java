@@ -469,7 +469,9 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Symbol symbol = ASTHelpers.getSymbol(tree);
-    if (symbol != null && symbol.getKind().equals(ElementKind.FIELD)) {
+    if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED
+        && symbol != null
+        && symbol.getKind().equals(ElementKind.FIELD)) {
       Writer.saveFieldGraphNode(tree, state);
     }
     // some checks for cases where we know it is not
