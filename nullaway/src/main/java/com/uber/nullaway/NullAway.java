@@ -469,17 +469,15 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Symbol symbol = ASTHelpers.getSymbol(tree);
-    if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED
-        && symbol != null
-        && symbol.getKind().equals(ElementKind.FIELD)) {
-      Writer.saveFieldGraphNode(tree, state);
-    }
     // some checks for cases where we know it is not
     // a null dereference
     if (symbol == null || symbol.getSimpleName().toString().equals("class") || symbol.isEnum()) {
       return Description.NO_MATCH;
     }
-
+    if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED
+        && symbol.getKind().equals(ElementKind.FIELD)) {
+      Writer.saveFieldGraphNode(tree, state);
+    }
     Description badDeref = matchDereference(tree.getExpression(), tree, state);
     if (!badDeref.equals(Description.NO_MATCH)) {
       return badDeref;
