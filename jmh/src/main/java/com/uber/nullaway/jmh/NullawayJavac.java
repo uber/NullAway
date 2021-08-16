@@ -131,7 +131,7 @@ public class NullawayJavac {
           // do nothing
         };
     // uncomment this if you want to see compile errors get printed out
-    // this.diagnosticListener = null;
+    this.diagnosticListener = null;
     this.fileManager = compiler.getStandardFileManager(diagnosticListener, null, null);
     Path outputDir = Files.createTempDirectory("classes");
     outputDir.toFile().deleteOnExit();
