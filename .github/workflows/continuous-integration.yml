@@ -21,7 +21,7 @@ jobs:
             epVersion: 2.4.0
           - os: ubuntu-latest
             java: 8
-            epVersion: 2.8.1
+            epVersion: 2.9.0
           - os: ubuntu-latest
             java: 11
             epVersion: 2.4.0
