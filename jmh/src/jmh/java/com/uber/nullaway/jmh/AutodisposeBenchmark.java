@@ -49,9 +49,7 @@ public class AutodisposeBenchmark {
             Paths.get(sourceDir), 100, (p, bfa) -> p.getFileName().toString().endsWith(".java"))) {
       List<String> sourceFileNames =
           stream.map(p -> p.toFile().getAbsolutePath()).collect(Collectors.toList());
-      nullawayJavac =
-          NullawayJavac.create(
-              sourceFileNames, "autodispose2,org.reactivestreams,io.reactivex.rxjava3", classpath);
+      nullawayJavac = NullawayJavac.create(sourceFileNames, "autodispose2", classpath);
     }
   }
 
