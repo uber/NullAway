@@ -22,13 +22,11 @@ public class MethodParamTestHandler extends BaseNoOpHandler {
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
       NullnessStore.Builder result) {
-    if (config.PARAM_INDEX > parameters.size()
-        || !(underlyingAST instanceof UnderlyingAST.CFGMethod)) {
+    int index = Math.toIntExact(config.PARAM_INDEX);
+    if (index >= parameters.size() || !(underlyingAST instanceof UnderlyingAST.CFGMethod)) {
       return super.onDataflowInitialStore(underlyingAST, parameters, result);
     }
-    for (LocalVariableNode node : parameters) {
-      result.setInformation(AccessPath.fromLocal(node), Nullness.NULLABLE);
-    }
+    result.setInformation(AccessPath.fromLocal(parameters.get(index)), Nullness.NULLABLE);
     return result;
   }
 }
