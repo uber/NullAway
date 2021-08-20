@@ -140,6 +140,39 @@ public class NullAwayAutoFixTest {
   }
 
   @Test
+  public void make_param_nullable_test() {
+    explorerTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+        .setOutputPath(outputPath)
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "public class Super {",
+            "   Object test(Object f) {",
+            "     return f;",
+            "   }",
+            "}")
+        .addFixes(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "test(java.lang.Object)",
+                "null",
+                "METHOD_RETURN",
+                "com.uber.Super",
+                "com.uber",
+                "com/uber/android/Super.java",
+                "true",
+                "false"))
+        .doTest();
+  }
+
+  @Test
   public void add_nullable_paramType_subclass() {
     explorerTestHelper
         .setArgs(

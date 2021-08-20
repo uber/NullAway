@@ -63,6 +63,7 @@ public class Handlers {
 
     handlerListBuilder.add(new RequiresNonNullHandler());
     handlerListBuilder.add(new EnsuresNonNullHandler());
+    handlerListBuilder.add(new MethodParamTestHandler(config));
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }

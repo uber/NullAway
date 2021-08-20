@@ -27,6 +27,7 @@ public class AutoFixConfig {
   public final boolean LOG_ERROR_ENABLED;
   public final boolean LOG_ERROR_DEEP;
   public final boolean OPTIMIZED;
+  public final Integer PARAM_INDEX;
   public final AnnotationFactory ANNOTATION_FACTORY;
   public final Set<String> WORK_LIST;
 
@@ -41,6 +42,7 @@ public class AutoFixConfig {
     MAKE_FIELD_GRAPH_ENABLED = false;
     ANNOTATION_FACTORY = new AnnotationFactory();
     WORK_LIST = Collections.singleton("*");
+    PARAM_INDEX = Integer.MAX_VALUE;
     Writer.reset(this);
   }
 
@@ -68,8 +70,11 @@ public class AutoFixConfig {
     SUGGEST_ENABLED =
         getValueFromKey(jsonObject, "SUGGEST", Boolean.class).orElse(false) && autofixEnabled;
     PARAM_TEST_ENABLED =
-        getValueFromKey(jsonObject, "METHOD_PARAM_TEST", Boolean.class).orElse(false)
+        getValueFromKey(jsonObject, "METHOD_PARAM_TEST:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
+    PARAM_INDEX =
+        getValueFromKey(jsonObject, "METHOD_PARAM_TEST:INDEX", Integer.class)
+            .orElse(Integer.MAX_VALUE);
     LOG_ERROR_ENABLED =
         getValueFromKey(jsonObject, "LOG_ERROR:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
