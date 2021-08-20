@@ -55,8 +55,6 @@ public class AutodisposeBenchmark {
 
   @Benchmark
   public void compile(Blackhole bh) throws Exception {
-    boolean compile = nullawayJavac.compile();
-    if (!compile) throw new RuntimeException("failed to compile!");
-    bh.consume(compile);
+    bh.consume(nullawayJavac.compile());
   }
 }
