@@ -141,6 +141,11 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void make_param_nullable_test() {
+    AutoFixConfig.AutoFixConfigWriter writer =
+        new AutoFixConfig.AutoFixConfigWriter()
+            .setSuggest(true, false)
+            .setMethodParamTest(true, 0L);
+    writer.write("/tmp/NullAwayFix/explorer.config");
     explorerTestHelper
         .setArgs(
             Arrays.asList(

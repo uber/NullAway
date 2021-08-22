@@ -73,8 +73,7 @@ public class AutoFixConfig {
         getValueFromKey(jsonObject, "SUGGEST:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
     SUGGEST_DEEP =
-        getValueFromKey(jsonObject, "SUGGEST:ACTIVE", Boolean.class).orElse(false)
-            && autofixEnabled;
+        getValueFromKey(jsonObject, "SUGGEST:DEEP", Boolean.class).orElse(false) && autofixEnabled;
     PARAM_TEST_ENABLED =
         getValueFromKey(jsonObject, "METHOD_PARAM_TEST:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
@@ -159,6 +158,7 @@ public class AutoFixConfig {
     private boolean LOG_ERROR_ENABLED;
     private boolean LOG_ERROR_DEEP;
     private boolean OPTIMIZED;
+    private Long PARAM_INDEX;
     private String NULLABLE;
     private String NONNULL;
     private Set<String> WORK_LIST;
@@ -176,6 +176,7 @@ public class AutoFixConfig {
       NULLABLE = "javax.annotation.Nullable";
       NONNULL = "javax.annotation.Nonnull";
       WORK_LIST = Collections.singleton("*");
+      PARAM_INDEX = 10000L;
     }
 
     private String workListDisplay() {
@@ -200,7 +201,10 @@ public class AutoFixConfig {
       logError.put("ACTIVE", LOG_ERROR_ENABLED);
       logError.put("DEEP", LOG_ERROR_DEEP);
       res.put("LOG_ERROR", logError);
-      res.put("METHOD_PARAM_TEST", PARAM_TEST_ENABLED);
+      JSONObject paramTest = new JSONObject();
+      paramTest.put("ACTIVE", PARAM_TEST_ENABLED);
+      paramTest.put("INDEX", PARAM_INDEX);
+      res.put("METHOD_PARAM_TEST", paramTest);
       res.put("MAKE_CALL_GRAPH", MAKE_CALL_GRAPH_ENABLED);
       res.put("MAKE_FIELD_GRAPH", MAKE_FIELD_GRAPH_ENABLED);
       res.put("WORK_LIST", workListDisplay());
@@ -245,8 +249,11 @@ public class AutoFixConfig {
       return this;
     }
 
-    public AutoFixConfigWriter setMethodParamTest(boolean value) {
+    public AutoFixConfigWriter setMethodParamTest(boolean value, Long index) {
       PARAM_TEST_ENABLED = value;
+      if (PARAM_TEST_ENABLED) {
+        PARAM_INDEX = index;
+      }
       return this;
     }
 
