@@ -29,7 +29,7 @@ public class NullAwayAutoFixTest {
 
   private void makeDefaultConfig() {
     AutoFixConfig.AutoFixConfigWriter writer =
-        new AutoFixConfig.AutoFixConfigWriter().setSuggest(true);
+        new AutoFixConfig.AutoFixConfigWriter().setSuggest(true, false);
     writer.write("/tmp/NullAwayFix/explorer.config");
   }
 

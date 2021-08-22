@@ -23,6 +23,7 @@ public class AutoFixConfig {
   public final boolean MAKE_CALL_GRAPH_ENABLED;
   public final boolean MAKE_FIELD_GRAPH_ENABLED;
   public final boolean SUGGEST_ENABLED;
+  public final boolean SUGGEST_DEEP;
   public final boolean PARAM_TEST_ENABLED;
   public final boolean LOG_ERROR_ENABLED;
   public final boolean LOG_ERROR_DEEP;
@@ -34,6 +35,7 @@ public class AutoFixConfig {
   public AutoFixConfig() {
     MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
     SUGGEST_ENABLED = false;
+    SUGGEST_DEEP = false;
     PARAM_TEST_ENABLED = false;
     LOG_ERROR_ENABLED = false;
     LOG_ERROR_DEEP = false;
@@ -68,7 +70,11 @@ public class AutoFixConfig {
         getValueFromKey(jsonObject, "MAKE_FIELD_GRAPH", Boolean.class).orElse(false)
             && autofixEnabled;
     SUGGEST_ENABLED =
-        getValueFromKey(jsonObject, "SUGGEST", Boolean.class).orElse(false) && autofixEnabled;
+        getValueFromKey(jsonObject, "SUGGEST:ACTIVE", Boolean.class).orElse(false)
+            && autofixEnabled;
+    SUGGEST_DEEP =
+        getValueFromKey(jsonObject, "SUGGEST:ACTIVE", Boolean.class).orElse(false)
+            && autofixEnabled;
     PARAM_TEST_ENABLED =
         getValueFromKey(jsonObject, "METHOD_PARAM_TEST:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
@@ -148,6 +154,7 @@ public class AutoFixConfig {
     private boolean MAKE_CALL_GRAPH_ENABLED;
     private boolean MAKE_FIELD_GRAPH_ENABLED;
     private boolean SUGGEST_ENABLED;
+    private boolean SUGGEST_DEEP;
     private boolean PARAM_TEST_ENABLED;
     private boolean LOG_ERROR_ENABLED;
     private boolean LOG_ERROR_DEEP;
@@ -160,6 +167,7 @@ public class AutoFixConfig {
       MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
       MAKE_CALL_GRAPH_ENABLED = false;
       SUGGEST_ENABLED = false;
+      SUGGEST_DEEP = false;
       PARAM_TEST_ENABLED = false;
       LOG_ERROR_ENABLED = false;
       LOG_ERROR_DEEP = false;
@@ -178,7 +186,10 @@ public class AutoFixConfig {
     @SuppressWarnings("unchecked")
     public void writeInJson(String path) {
       JSONObject res = new JSONObject();
-      res.put("SUGGEST", SUGGEST_ENABLED);
+      JSONObject suggest = new JSONObject();
+      suggest.put("ACTIVE", SUGGEST_ENABLED);
+      suggest.put("DEEP", SUGGEST_DEEP);
+      res.put("SUGGEST", suggest);
       res.put("MAKE_METHOD_INHERITANCE_TREE", MAKE_METHOD_TREE_INHERITANCE_ENABLED);
       res.put("OPTIMIZED", OPTIMIZED);
       JSONObject annotation = new JSONObject();
@@ -202,8 +213,11 @@ public class AutoFixConfig {
       }
     }
 
-    public AutoFixConfigWriter setSuggest(boolean value) {
+    public AutoFixConfigWriter setSuggest(boolean value, boolean isDeep) {
       SUGGEST_ENABLED = value;
+      if (SUGGEST_ENABLED) {
+        SUGGEST_DEEP = isDeep;
+      }
       return this;
     }
 
