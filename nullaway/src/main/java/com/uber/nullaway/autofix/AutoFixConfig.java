@@ -73,7 +73,7 @@ public class AutoFixConfig {
         getValueFromKey(jsonObject, "SUGGEST:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
     SUGGEST_DEEP =
-        getValueFromKey(jsonObject, "SUGGEST:DEEP", Boolean.class).orElse(false) && autofixEnabled;
+        getValueFromKey(jsonObject, "SUGGEST:DEEP", Boolean.class).orElse(false) && SUGGEST_ENABLED;
     PARAM_TEST_ENABLED =
         getValueFromKey(jsonObject, "METHOD_PARAM_TEST:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;

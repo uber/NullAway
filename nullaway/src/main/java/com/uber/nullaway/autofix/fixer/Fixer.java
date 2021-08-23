@@ -43,6 +43,9 @@ public class Fixer {
     if (ASTHelpers.getSymbol(location.classTree).toString().startsWith("<anonymous")) return;
     Fix fix = buildFix(errorMessage, location);
     if (fix != null) {
+      if (config.SUGGEST_DEEP) {
+        fix.setRoots(state);
+      }
       Writer.saveFix(fix);
     }
   }

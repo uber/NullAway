@@ -1,5 +1,10 @@
 package com.uber.nullaway.autofix.out;
 
+import com.google.errorprone.VisitorState;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.autofix.fixer.Location;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import java.util.Objects;
@@ -10,6 +15,8 @@ public class Fix implements SeperatedValueDisplay {
   public String reason;
   public boolean inject;
   public boolean compulsory;
+  private Symbol.ClassSymbol rootClass;
+  private Symbol.MethodSymbol rootMethod;
 
   @Override
   public boolean equals(Object o) {
@@ -54,7 +61,11 @@ public class Fix implements SeperatedValueDisplay {
         + delimiter
         + compulsory
         + delimiter
-        + inject;
+        + inject
+        + delimiter
+        + rootClass
+        + delimiter
+        + rootMethod;
   }
 
   @Override
@@ -67,6 +78,17 @@ public class Fix implements SeperatedValueDisplay {
         + delimiter
         + "compulsory"
         + delimiter
-        + "inject";
+        + "inject"
+        + delimiter
+        + "rootClass"
+        + delimiter
+        + "rootMethod";
+  }
+
+  public void setRoots(VisitorState state) {
+    ClassTree classTree = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+    MethodTree methodTree = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
+    this.rootClass = (classTree == null) ? null : ASTHelpers.getSymbol(classTree);
+    this.rootMethod = (methodTree == null) ? null : ASTHelpers.getSymbol(methodTree);
   }
 }
