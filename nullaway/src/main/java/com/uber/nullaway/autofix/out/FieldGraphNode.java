@@ -23,17 +23,13 @@ public class FieldGraphNode implements SeperatedValueDisplay {
 
   @Override
   public String display(String delimiter) {
-    Symbol enclosing = ASTHelpers.enclosingClass(member);
-    if (callerClass.equals(enclosing)) {
-      return null;
-    }
     return callerClass
         + delimiter
         + ((callerMethod == null) ? "null" : callerMethod)
         + delimiter
         + member
         + delimiter
-        + enclosing;
+        + ASTHelpers.enclosingClass(member);
   }
 
   @Override
