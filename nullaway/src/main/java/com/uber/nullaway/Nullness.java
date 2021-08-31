@@ -194,7 +194,9 @@ public enum Nullness implements AbstractValue<Nullness> {
    * Config)}
    */
   public static boolean hasNullableAnnotation(Symbol symbol, Config config) {
-    return hasNullableAnnotation(NullabilityUtil.getAllAnnotations(symbol), config);
+    return hasNullableAnnotation(NullabilityUtil.getAllAnnotations(symbol), config)
+        || (config.getAutoFixConfig().VIRTUAL_ANNOT_ENABLED
+            && config.getAutoFixConfig().hasNullableAnnotation(symbol));
   }
 
   /**
@@ -204,7 +206,9 @@ public enum Nullness implements AbstractValue<Nullness> {
   public static boolean paramHasNullableAnnotation(
       Symbol.MethodSymbol symbol, int paramInd, Config config) {
     return hasNullableAnnotation(
-        NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd), config);
+            NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd), config)
+        || (config.getAutoFixConfig().VIRTUAL_ANNOT_ENABLED
+            && config.getAutoFixConfig().hasNullableAnnotation(symbol, paramInd));
   }
 
   /**

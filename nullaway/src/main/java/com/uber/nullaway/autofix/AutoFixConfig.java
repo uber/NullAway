@@ -2,6 +2,7 @@ package com.uber.nullaway.autofix;
 
 import com.google.common.base.Preconditions;
 import com.sun.source.util.Trees;
+import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -31,6 +32,8 @@ public class AutoFixConfig {
   public final int PARAM_INDEX;
   public final AnnotationFactory ANNOTATION_FACTORY;
   public final Set<String> WORK_LIST;
+  public final boolean VIRTUAL_ANNOT_ENABLED;
+  public final String VIRTUAL_ANNOT_PATH;
 
   public AutoFixConfig() {
     MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
@@ -45,6 +48,8 @@ public class AutoFixConfig {
     ANNOTATION_FACTORY = new AnnotationFactory();
     WORK_LIST = Collections.singleton("*");
     PARAM_INDEX = Integer.MAX_VALUE;
+    VIRTUAL_ANNOT_ENABLED = false;
+    VIRTUAL_ANNOT_PATH = "";
     Writer.reset(this);
   }
 
@@ -102,7 +107,19 @@ public class AutoFixConfig {
     } else {
       this.WORK_LIST = Collections.singleton("*");
     }
+    VIRTUAL_ANNOT_ENABLED =
+        getValueFromKey(jsonObject, "VIRTUAL:ACTIVE", Boolean.class).orElse(false)
+            && autofixEnabled;
+    VIRTUAL_ANNOT_PATH = getValueFromKey(jsonObject, "VIRTUAL:PATH", String.class).orElse("");
     Writer.reset(this);
+  }
+
+  public boolean hasNullableAnnotation(Symbol symbol) {
+    return false;
+  }
+
+  public boolean hasNullableAnnotation(Symbol.MethodSymbol symbol, int paramInd) {
+    return false;
   }
 
   static class OrElse<T> {
@@ -158,6 +175,8 @@ public class AutoFixConfig {
     private boolean LOG_ERROR_ENABLED;
     private boolean LOG_ERROR_DEEP;
     private boolean OPTIMIZED;
+    private boolean VIRTUAL_ANNOT_ENABLED;
+    private String VIRTUAL_ANNOT_PATH;
     private Long PARAM_INDEX;
     private String NULLABLE;
     private String NONNULL;
@@ -177,6 +196,8 @@ public class AutoFixConfig {
       NONNULL = "javax.annotation.Nonnull";
       WORK_LIST = Collections.singleton("*");
       PARAM_INDEX = 10000L;
+      VIRTUAL_ANNOT_ENABLED = false;
+      VIRTUAL_ANNOT_PATH = "";
     }
 
     private String workListDisplay() {
@@ -205,6 +226,10 @@ public class AutoFixConfig {
       paramTest.put("ACTIVE", PARAM_TEST_ENABLED);
       paramTest.put("INDEX", PARAM_INDEX);
       res.put("METHOD_PARAM_TEST", paramTest);
+      JSONObject virtualAnnot = new JSONObject();
+      virtualAnnot.put("ACTIVE", VIRTUAL_ANNOT_ENABLED);
+      virtualAnnot.put("PATH", VIRTUAL_ANNOT_PATH);
+      res.put("VIRTUAL", virtualAnnot);
       res.put("MAKE_CALL_GRAPH", MAKE_CALL_GRAPH_ENABLED);
       res.put("MAKE_FIELD_GRAPH", MAKE_FIELD_GRAPH_ENABLED);
       res.put("WORK_LIST", workListDisplay());
@@ -274,6 +299,14 @@ public class AutoFixConfig {
 
     public AutoFixConfigWriter setWorkList(Set<String> workList) {
       WORK_LIST = workList;
+      return this;
+    }
+
+    public AutoFixConfigWriter setVirtualization(boolean active, String path) {
+      VIRTUAL_ANNOT_ENABLED = active;
+      if (VIRTUAL_ANNOT_ENABLED) {
+        VIRTUAL_ANNOT_PATH = path;
+      }
       return this;
     }
 
