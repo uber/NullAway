@@ -34,6 +34,24 @@ public class AutoFixConfig {
   public final Set<String> WORK_LIST;
   public final boolean VIRTUAL_ANNOT_ENABLED;
   public final String VIRTUAL_ANNOT_PATH;
+  public final Set<VirtualAnnotation> VIRTUAL_ANNOTS = new HashSet<>();
+
+  static class VirtualAnnotation {
+    final String location;
+    final String method;
+    final String param;
+    final String index;
+    final String clazz;
+
+    public VirtualAnnotation(
+        String location, String clazz, String method, String param, String index) {
+      this.location = location;
+      this.method = method;
+      this.param = param;
+      this.index = index;
+      this.clazz = clazz;
+    }
+  }
 
   public AutoFixConfig() {
     MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
@@ -111,10 +129,17 @@ public class AutoFixConfig {
         getValueFromKey(jsonObject, "VIRTUAL:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
     VIRTUAL_ANNOT_PATH = getValueFromKey(jsonObject, "VIRTUAL:PATH", String.class).orElse("");
+    if (VIRTUAL_ANNOT_ENABLED) {
+      readVirtualAnnotations(VIRTUAL_ANNOT_PATH);
+    }
     Writer.reset(this);
   }
 
+  private void readVirtualAnnotations(String path) {}
+
   public boolean hasNullableAnnotation(Symbol symbol) {
+    String location = "";
+
     return false;
   }
 
