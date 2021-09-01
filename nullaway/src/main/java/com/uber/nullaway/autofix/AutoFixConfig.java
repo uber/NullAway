@@ -129,17 +129,10 @@ public class AutoFixConfig {
         getValueFromKey(jsonObject, "VIRTUAL:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
     VIRTUAL_ANNOT_PATH = getValueFromKey(jsonObject, "VIRTUAL:PATH", String.class).orElse("");
-    if (VIRTUAL_ANNOT_ENABLED) {
-      readVirtualAnnotations(VIRTUAL_ANNOT_PATH);
-    }
     Writer.reset(this);
   }
 
-  private void readVirtualAnnotations(String path) {}
-
   public boolean hasNullableAnnotation(Symbol symbol) {
-    String location = "";
-
     return false;
   }
 
@@ -162,18 +155,22 @@ public class AutoFixConfig {
   }
 
   private <T> OrElse<T> getValueFromKey(JSONObject json, String key, Class<T> klass) {
-    ArrayList<String> keys = new ArrayList<>(Arrays.asList(key.split(":")));
-    while (keys.size() != 1) {
-      if (json.containsKey(keys.get(0))) {
-        json = (JSONObject) json.get(keys.get(0));
-        keys.remove(0);
-      } else {
-        return new OrElse<>(null, klass);
+    try {
+      ArrayList<String> keys = new ArrayList<>(Arrays.asList(key.split(":")));
+      while (keys.size() != 1) {
+        if (json.containsKey(keys.get(0))) {
+          json = (JSONObject) json.get(keys.get(0));
+          keys.remove(0);
+        } else {
+          return new OrElse<>(null, klass);
+        }
       }
+      return json.containsKey(keys.get(0))
+          ? new OrElse<>(json.get(keys.get(0)), klass)
+          : new OrElse<>(null, klass);
+    } catch (Exception e) {
+      return new OrElse<>(null, klass);
     }
-    return json.containsKey(keys.get(0))
-        ? new OrElse<>(json.get(keys.get(0)), klass)
-        : new OrElse<>(null, klass);
   }
 
   public boolean canFixElement(Trees trees, Element symbol) {
