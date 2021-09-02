@@ -26,6 +26,11 @@ public class AnnotationFactory {
     public String header(String delimiter) {
       return "FULL_NAME";
     }
+
+    @Override
+    public String toString() {
+      return "Annotation{" + "name='" + name + '\'' + ", fullName='" + fullName + '\'' + '}';
+    }
   }
 
   public AnnotationFactory() {
@@ -49,5 +54,10 @@ public class AnnotationFactory {
 
   public Annotation getNullable() {
     return nullable;
+  }
+
+  @Override
+  public String toString() {
+    return "AnnotationFactory{" + "nonNull=" + nonNull + ", nullable=" + nullable + '}';
   }
 }
