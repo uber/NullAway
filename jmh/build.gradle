@@ -1,6 +1,6 @@
 plugins {
     id 'java-library'
-    id "me.champeau.jmh" version "0.6.5"
+    id "me.champeau.jmh" version "0.6.6"
 }
 
 configurations {
@@ -65,13 +65,11 @@ jmh {
     def caffeineClasspath = configurations.caffeineDeps.filter({f -> !f.toString().contains("caffeine-3.0.2")}).asPath
     def autodisposeClasspath = configurations.autodisposeDeps.filter({f -> !f.toString().contains("autodispose-2.1.0")}).asPath
 
-    // pass source directories and classpaths for benchmarks as JVM arguments
-    // though jvmArgsAppend is a list, it just gets converted to a single string (probably a plugin bug)
     jvmArgsAppend = [
-            "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()} " +
-            "-Dnullaway.caffeine.classpath=$caffeineClasspath " +
-            "-Dnullaway.autodispose.sources=${autodisposeSourceDir.get()} " +
-            "-Dnullaway.autodispose.classpath=$autodisposeClasspath"
+            "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()}",
+            "-Dnullaway.caffeine.classpath=$caffeineClasspath",
+            "-Dnullaway.autodispose.sources=${autodisposeSourceDir.get()}",
+            "-Dnullaway.autodispose.classpath=$autodisposeClasspath",
     ]
 
     // commented-out examples of how to tweak other jmh parameters; they show the default values
