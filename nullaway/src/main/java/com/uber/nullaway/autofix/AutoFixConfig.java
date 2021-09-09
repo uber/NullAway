@@ -8,6 +8,7 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -71,14 +72,12 @@ public class AutoFixConfig {
     Writer.reset(this);
   }
 
-  public AutoFixConfig(boolean autofixEnabled, String filePath) {
+  public AutoFixConfig(boolean autofixEnabled, Path filePath) {
     Preconditions.checkNotNull(filePath);
     JSONObject jsonObject;
     try {
       Object obj =
-          new JSONParser()
-              .parse(Files.newBufferedReader(Paths.get(filePath), Charset.defaultCharset()));
-      ;
+          new JSONParser().parse(Files.newBufferedReader(filePath, Charset.defaultCharset()));
       jsonObject = (JSONObject) obj;
     } catch (Exception e) {
       throw new RuntimeException("Error in reading/parsing config at path: " + filePath);
