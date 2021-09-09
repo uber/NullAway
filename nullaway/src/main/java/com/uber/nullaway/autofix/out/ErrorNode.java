@@ -4,6 +4,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 
@@ -26,6 +27,13 @@ public class ErrorNode implements SeperatedValueDisplay {
           || messageTypes.equals(ErrorMessage.MessageTypes.FIELD_NO_INIT)
           || messageTypes.equals(ErrorMessage.MessageTypes.METHOD_NO_INIT)) {
         enclosingClass = (ClassTree) state.getPath().getLeaf();
+      }
+    }
+    if (enclosingMethod == null
+        && errorMessage.getMessageType().equals(ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN)) {
+      Tree methodTree = state.getPath().getLeaf();
+      if (methodTree instanceof MethodTree) {
+        enclosingMethod = (MethodTree) methodTree;
       }
     }
   }
