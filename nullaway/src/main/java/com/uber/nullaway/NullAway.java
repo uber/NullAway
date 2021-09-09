@@ -396,6 +396,14 @@ public class NullAway extends BugChecker
     if (lhsType != null && lhsType.isPrimitive()) {
       return doUnboxingCheck(state, tree.getExpression());
     }
+
+    if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED) {
+      Symbol expressionSym = ASTHelpers.getSymbol(tree.getExpression());
+      if (expressionSym != null && expressionSym.getKind() == ElementKind.FIELD) {
+        Writer.saveFieldGraphNode(tree.getExpression(), state);
+      }
+    }
+
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
     if (assigned == null || assigned.getKind() != ElementKind.FIELD) {
       // not a field of nullable type
