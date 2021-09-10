@@ -150,6 +150,7 @@ public class Writer {
     try {
       os = new FileOutputStream(filePath, true);
       os.write(toWrite.getBytes(Charset.defaultCharset()), 0, toWrite.length());
+      os.flush();
       os.close();
     } catch (Exception e) {
       System.err.println("Error happened for writing at file: " + filePath);
