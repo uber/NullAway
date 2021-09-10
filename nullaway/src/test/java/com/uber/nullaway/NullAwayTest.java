@@ -3123,4 +3123,32 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void multipleNullableParamPassTest() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  void foo(Object f1, Object f2, Object f3) { }",
+            "  void bar(@Nullable Object param) {",
+            "     // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull",
+            "     this.foo(null, new Object(), param);",
+            "  }",
+            "}")
+        .addSourceLines(
+            "TestC.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class TestC {",
+            "  void foo(Object f1, Object f2, Object f3) { }",
+            "  void bar(@Nullable Object param) {",
+            "     // BUG: Diagnostic contains: passing @Nullable parameter 'param' where @NonNull",
+            "     this.foo(null, new Object(), param);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

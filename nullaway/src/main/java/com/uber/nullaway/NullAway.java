@@ -92,6 +92,7 @@ import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -1321,6 +1322,7 @@ public class NullAway extends BugChecker
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
+    Set<Description> passNullableDescriptionSet = new HashSet<>();
     for (int argPos : nonNullPositions) {
       ExpressionTree actual = null;
       boolean mayActualBeNull = false;
@@ -1348,13 +1350,15 @@ public class NullAway extends BugChecker
             "passing @Nullable parameter '"
                 + state.getSourceForNode(actual)
                 + "' where @NonNull is required";
-        return errorBuilder.createErrorDescriptionForNullAssignment(
-            new ErrorMessage(MessageTypes.PASS_NULLABLE, message),
-            actual,
-            buildDescription(actual),
-            state);
+        passNullableDescriptionSet.add(
+            errorBuilder.createErrorDescriptionForNullAssignment(
+                new ErrorMessage(MessageTypes.PASS_NULLABLE, message),
+                actual,
+                buildDescription(actual),
+                state));
       }
     }
+    passNullableDescriptionSet.forEach(state::reportMatch);
     // Check for @NonNull being passed to castToNonNull (if configured)
     return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
   }
