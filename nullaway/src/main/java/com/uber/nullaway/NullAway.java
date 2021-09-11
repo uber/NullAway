@@ -1498,8 +1498,9 @@ public class NullAway extends BugChecker
                   .build();
           fixer.fix(errorMessage, location, state);
         }
-        return errorBuilder.createErrorDescriptionForNullAssignment(
-            errorMessage, actual, buildDescription(actual), state);
+        state.reportMatch(
+            errorBuilder.createErrorDescriptionForNullAssignment(
+                errorMessage, actual, buildDescription(actual), state));
       }
     }
     // Check for @NonNull being passed to castToNonNull (if configured)
