@@ -30,6 +30,7 @@ public class AutoFixConfig {
   public final boolean LOG_ERROR_ENABLED;
   public final boolean LOG_ERROR_DEEP;
   public final boolean OPTIMIZED;
+  public final boolean INHERITANCE_CHECK_DISABLED;
   public final int PARAM_INDEX;
   public final AnnotationFactory ANNOTATION_FACTORY;
   public final Set<String> WORK_LIST;
@@ -69,6 +70,7 @@ public class AutoFixConfig {
     PARAM_INDEX = Integer.MAX_VALUE;
     VIRTUAL_ANNOT_ENABLED = false;
     VIRTUAL_ANNOT_PATH = "";
+    INHERITANCE_CHECK_DISABLED = false;
     Writer.reset(this);
   }
 
@@ -109,6 +111,10 @@ public class AutoFixConfig {
     LOG_ERROR_DEEP =
         getValueFromKey(jsonObject, "LOG_ERROR:DEEP", Boolean.class).orElse(false)
             && autofixEnabled;
+    INHERITANCE_CHECK_DISABLED =
+        (getValueFromKey(jsonObject, "INHERITANCE_CHECK_DISABLED", Boolean.class).orElse(false)
+                && autofixEnabled)
+            || PARAM_TEST_ENABLED;
     OPTIMIZED =
         getValueFromKey(jsonObject, "OPTIMIZED", Boolean.class).orElse(false) && autofixEnabled;
     String nullableAnnot =
@@ -197,6 +203,7 @@ public class AutoFixConfig {
     private boolean LOG_ERROR_DEEP;
     private boolean OPTIMIZED;
     private boolean VIRTUAL_ANNOT_ENABLED;
+    private boolean INHERITANCE_CHECK_DISABLED;
     private String VIRTUAL_ANNOT_PATH;
     private Long PARAM_INDEX;
     private String NULLABLE;
@@ -213,6 +220,7 @@ public class AutoFixConfig {
       LOG_ERROR_DEEP = false;
       OPTIMIZED = false;
       MAKE_FIELD_GRAPH_ENABLED = false;
+      INHERITANCE_CHECK_DISABLED = false;
       NULLABLE = "javax.annotation.Nullable";
       NONNULL = "javax.annotation.Nonnull";
       WORK_LIST = Collections.singleton("*");
@@ -253,6 +261,7 @@ public class AutoFixConfig {
       res.put("VIRTUAL", virtualAnnot);
       res.put("MAKE_CALL_GRAPH", MAKE_CALL_GRAPH_ENABLED);
       res.put("MAKE_FIELD_GRAPH", MAKE_FIELD_GRAPH_ENABLED);
+      res.put("INHERITANCE_CHECK_DISABLED", INHERITANCE_CHECK_DISABLED);
       res.put("WORK_LIST", workListDisplay());
       try {
         BufferedWriter file = Files.newBufferedWriter(Paths.get(path), Charset.defaultCharset());
@@ -328,6 +337,11 @@ public class AutoFixConfig {
       if (VIRTUAL_ANNOT_ENABLED) {
         VIRTUAL_ANNOT_PATH = path;
       }
+      return this;
+    }
+
+    public AutoFixConfigWriter setInheritanceCheck(boolean active) {
+      INHERITANCE_CHECK_DISABLED = active;
       return this;
     }
 
