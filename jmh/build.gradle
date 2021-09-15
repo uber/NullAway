@@ -1,12 +1,15 @@
 plugins {
     id 'java-library'
-    id "me.champeau.jmh" version "0.6.5"
+    id "me.champeau.jmh" version "0.6.6"
 }
 
 configurations {
     // create a configuration for the sources and dependencies of each benchmark
     caffeineSources
     caffeineDeps
+
+    autodisposeSources
+    autodisposeDeps
 }
 dependencies {
 
@@ -24,20 +27,31 @@ dependencies {
     caffeineSources('com.github.ben-manes.caffeine:caffeine:3.0.2:sources') {
         transitive = false
     }
+    autodisposeSources('com.uber.autodispose2:autodispose:2.1.0:sources') {
+        transitive = false
+    }
 
     caffeineDeps 'com.github.ben-manes.caffeine:caffeine:3.0.2'
+    autodisposeDeps 'com.uber.autodispose2:autodispose:2.1.0'
 
     testImplementation deps.test.junit4
 }
 
 def caffeineSourceDir = project.layout.buildDirectory.dir('caffeineSources')
+def autodisposeSourceDir = project.layout.buildDirectory.dir('autodisposeSources')
 
 task extractCaffeineSources(type: Copy) {
     from zipTree(configurations.caffeineSources.singleFile)
     into caffeineSourceDir
 }
 
+task extractAutodisposeSources(type: Copy) {
+    from zipTree(configurations.autodisposeSources.singleFile)
+    into autodisposeSourceDir
+}
+
 compileJava.dependsOn(extractCaffeineSources)
+compileJava.dependsOn(extractAutodisposeSources)
 
 // always run jmh
 tasks.getByName('jmh').outputs.upToDateWhen { false }
@@ -49,11 +63,13 @@ jmh {
     // a trick: to get the classpath for a benchmark, create a configuration that depends on the benchmark, and
     // then filter out the benchmark itself
     def caffeineClasspath = configurations.caffeineDeps.filter({f -> !f.toString().contains("caffeine-3.0.2")}).asPath
-    // pass source directories and classpaths for benchmarks as JVM arguments
-    // though jvmArgsAppend is a list, it just gets converted to a single string (probably a plugin bug)
+    def autodisposeClasspath = configurations.autodisposeDeps.filter({f -> !f.toString().contains("autodispose-2.1.0")}).asPath
+
     jvmArgsAppend = [
-            "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()} " +
-            "-Dnullaway.caffeine.classpath=$caffeineClasspath"
+            "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()}",
+            "-Dnullaway.caffeine.classpath=$caffeineClasspath",
+            "-Dnullaway.autodispose.sources=${autodisposeSourceDir.get()}",
+            "-Dnullaway.autodispose.classpath=$autodisposeClasspath",
     ]
 
     // commented-out examples of how to tweak other jmh parameters; they show the default values
