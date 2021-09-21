@@ -7,13 +7,13 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.uber.nullaway.ErrorMessage;
 
-public class ErrorNode implements SeperatedValueDisplay {
+public class Error implements SeperatedValueDisplay {
 
   private final ErrorMessage errorMessage;
   private MethodTree enclosingMethod;
   private ClassTree enclosingClass;
 
-  public ErrorNode(ErrorMessage errorMessage) {
+  public Error(ErrorMessage errorMessage) {
     this.errorMessage = errorMessage;
   }
 

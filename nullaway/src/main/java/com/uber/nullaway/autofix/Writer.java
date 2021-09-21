@@ -8,9 +8,9 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.Nullness;
-import com.uber.nullaway.autofix.out.CallGraphNode;
-import com.uber.nullaway.autofix.out.ErrorNode;
-import com.uber.nullaway.autofix.out.FieldGraphNode;
+import com.uber.nullaway.autofix.out.CallGraphInfo;
+import com.uber.nullaway.autofix.out.Error;
+import com.uber.nullaway.autofix.out.FieldGraphInfo;
 import com.uber.nullaway.autofix.out.Fix;
 import com.uber.nullaway.autofix.out.MethodInfo;
 import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
@@ -62,13 +62,13 @@ public class Writer {
   }
 
   public static void saveFieldGraphNode(ExpressionTree tree, VisitorState state) {
-    FieldGraphNode node = new FieldGraphNode(tree, state.getPath());
+    FieldGraphInfo node = new FieldGraphInfo(tree, state.getPath());
     appendToFile(node, FIELD_GRAPH, firstFieldGraph);
     firstFieldGraph = false;
   }
 
   public static void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
-    ErrorNode error = new ErrorNode(errorMessage);
+    Error error = new Error(errorMessage);
     if (deep) {
       error.findEnclosing(state);
     }
@@ -98,7 +98,7 @@ public class Writer {
     firstMethodInfo = false;
   }
 
-  public static void saveCallGraphNode(CallGraphNode node) {
+  public static void saveCallGraphNode(CallGraphInfo node) {
     appendToFile(node, CALL_GRAPH, firstCallGraphNode);
     firstCallGraphNode = false;
   }

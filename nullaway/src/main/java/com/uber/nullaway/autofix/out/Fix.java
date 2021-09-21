@@ -87,22 +87,21 @@ public class Fix implements SeperatedValueDisplay {
   }
 
   public void findEnclosing(VisitorState state, ErrorMessage errorMessage) {
-
-    this.enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
-    this.enclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+    enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
+    enclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
     if (enclosingClass == null && state.getPath().getLeaf() instanceof ClassTree) {
       ErrorMessage.MessageTypes messageTypes = errorMessage.getMessageType();
       if (messageTypes.equals(ErrorMessage.MessageTypes.ASSIGN_FIELD_NULLABLE)
           || messageTypes.equals(ErrorMessage.MessageTypes.FIELD_NO_INIT)
           || messageTypes.equals(ErrorMessage.MessageTypes.METHOD_NO_INIT)) {
-        this.enclosingClass = (ClassTree) state.getPath().getLeaf();
+        enclosingClass = (ClassTree) state.getPath().getLeaf();
       }
     }
     if (enclosingMethod == null
         && errorMessage.getMessageType().equals(ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN)) {
       Tree methodTree = state.getPath().getLeaf();
       if (methodTree instanceof MethodTree) {
-        this.enclosingMethod = (MethodTree) methodTree;
+        enclosingMethod = (MethodTree) methodTree;
       }
     }
   }
