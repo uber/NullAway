@@ -9,7 +9,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.autofix.out.CallGraphInfo;
-import com.uber.nullaway.autofix.out.Error;
+import com.uber.nullaway.autofix.out.ErrorInfo;
 import com.uber.nullaway.autofix.out.FieldGraphInfo;
 import com.uber.nullaway.autofix.out.Fix;
 import com.uber.nullaway.autofix.out.MethodInfo;
@@ -68,7 +68,7 @@ public class Writer {
   }
 
   public static void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
-    Error error = new Error(errorMessage);
+    ErrorInfo error = new ErrorInfo(errorMessage);
     if (deep) {
       error.findEnclosing(state);
     }
