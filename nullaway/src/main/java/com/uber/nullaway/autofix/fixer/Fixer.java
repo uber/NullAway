@@ -44,7 +44,7 @@ public class Fixer {
     Fix fix = buildFix(errorMessage, location);
     if (fix != null) {
       if (config.SUGGEST_DEEP) {
-        fix.setRoots(state);
+        fix.findEnclosing(state, errorMessage);
       }
       Writer.saveFix(fix);
     }

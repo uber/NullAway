@@ -4,7 +4,8 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
-import com.sun.tools.javac.code.Symbol;
+import com.sun.source.tree.Tree;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.autofix.fixer.Location;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import java.util.Objects;
@@ -15,8 +16,8 @@ public class Fix implements SeperatedValueDisplay {
   public String reason;
   public boolean inject;
   public boolean compulsory;
-  private Symbol.ClassSymbol rootClass;
-  private Symbol.MethodSymbol rootMethod;
+  private MethodTree enclosingMethod;
+  private ClassTree enclosingClass;
 
   @Override
   public boolean equals(Object o) {
@@ -55,7 +56,7 @@ public class Fix implements SeperatedValueDisplay {
   public String display(String delimiter) {
     return location.display(delimiter)
         + delimiter
-        + ((reason == null) ? "Undefined" : reason)
+        + (reason == null ? "Undefined" : reason)
         + delimiter
         + annotation.display(delimiter)
         + delimiter
@@ -63,9 +64,9 @@ public class Fix implements SeperatedValueDisplay {
         + delimiter
         + inject
         + delimiter
-        + rootClass
+        + (enclosingClass == null ? "null" : ASTHelpers.getSymbol(enclosingClass))
         + delimiter
-        + rootMethod;
+        + (enclosingMethod == null ? "null" : ASTHelpers.getSymbol(enclosingMethod));
   }
 
   @Override
@@ -85,10 +86,24 @@ public class Fix implements SeperatedValueDisplay {
         + "rootMethod";
   }
 
-  public void setRoots(VisitorState state) {
-    ClassTree classTree = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
-    MethodTree methodTree = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
-    this.rootClass = (classTree == null) ? null : ASTHelpers.getSymbol(classTree);
-    this.rootMethod = (methodTree == null) ? null : ASTHelpers.getSymbol(methodTree);
+  public void findEnclosing(VisitorState state, ErrorMessage errorMessage) {
+
+    this.enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
+    this.enclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+    if (enclosingClass == null && state.getPath().getLeaf() instanceof ClassTree) {
+      ErrorMessage.MessageTypes messageTypes = errorMessage.getMessageType();
+      if (messageTypes.equals(ErrorMessage.MessageTypes.ASSIGN_FIELD_NULLABLE)
+          || messageTypes.equals(ErrorMessage.MessageTypes.FIELD_NO_INIT)
+          || messageTypes.equals(ErrorMessage.MessageTypes.METHOD_NO_INIT)) {
+        this.enclosingClass = (ClassTree) state.getPath().getLeaf();
+      }
+    }
+    if (enclosingMethod == null
+        && errorMessage.getMessageType().equals(ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN)) {
+      Tree methodTree = state.getPath().getLeaf();
+      if (methodTree instanceof MethodTree) {
+        this.enclosingMethod = (MethodTree) methodTree;
+      }
+    }
   }
 }

@@ -5,7 +5,6 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
-import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 
 public class ErrorNode implements SeperatedValueDisplay {
@@ -40,26 +39,13 @@ public class ErrorNode implements SeperatedValueDisplay {
 
   @Override
   public String display(String delimiter) {
-    StringBuilder newLine = new StringBuilder();
-    newLine
-        .append(errorMessage.getMessageType().toString())
-        .append(delimiter)
-        .append(errorMessage.getMessage());
-    newLine.append(delimiter);
-    if (enclosingClass != null) {
-      Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
-      newLine.append(classSymbol);
-    } else {
-      newLine.append("null");
-    }
-    newLine.append(delimiter);
-    if (enclosingMethod != null) {
-      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
-      newLine.append(methodSymbol);
-    } else {
-      newLine.append("null");
-    }
-    return newLine.toString();
+    return errorMessage.getMessageType().toString()
+        + delimiter
+        + errorMessage.getMessage()
+        + delimiter
+        + (enclosingClass != null ? ASTHelpers.getSymbol(enclosingClass) : "null")
+        + delimiter
+        + (enclosingMethod != null ? ASTHelpers.getSymbol(enclosingMethod) : "null");
   }
 
   @Override
