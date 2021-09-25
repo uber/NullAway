@@ -11,13 +11,14 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import javax.lang.model.element.Element;
 
 public class MethodInfo implements SeperatedValueDisplay {
-  int id;
-  String method;
-  String clazz;
+  final int id;
+  final String method;
+  final String clazz;
   String uri;
   String[] nonnullFields = {};
   Boolean[] annotFlags;
@@ -25,26 +26,27 @@ public class MethodInfo implements SeperatedValueDisplay {
   int parent = -1;
 
   private static int LAST_ID = 0;
-  static final HashSet<MethodInfo> discovered = new HashSet<>();
+  static final Set<MethodInfo> discovered = new HashSet<>();
+  private static final MethodInfo top = new MethodInfo("null", "null");
 
   private MethodInfo(String method, String clazz) {
+    this.id = LAST_ID++;
     this.method = method;
     this.clazz = clazz;
   }
 
   public static MethodInfo findOrCreate(String method, String clazz) {
-    MethodInfo methodInfo = new MethodInfo(method, clazz);
-    if (discovered.contains(methodInfo)) {
-      for (MethodInfo info : discovered) {
-        if (info.equals(methodInfo)) {
-          methodInfo = info;
-          break;
-        }
-      }
-    } else {
-      methodInfo.id = LAST_ID++;
-      discovered.add(methodInfo);
+    Optional<MethodInfo> optionalMethodInfo =
+        discovered
+            .stream()
+            .filter(
+                methodInfo -> methodInfo.method.equals(method) && methodInfo.clazz.equals(clazz))
+            .findAny();
+    if (optionalMethodInfo.isPresent()) {
+      return optionalMethodInfo.get();
     }
+    MethodInfo methodInfo = new MethodInfo(method, clazz);
+    discovered.add(methodInfo);
     return methodInfo;
   }
 
@@ -75,7 +77,8 @@ public class MethodInfo implements SeperatedValueDisplay {
   public void setParent(Symbol.MethodSymbol methodSymbol, VisitorState state) {
     Symbol.MethodSymbol superMethod =
         NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
-    if (superMethod == null) {
+    if (superMethod == null || superMethod.toString().equals("null")) {
+      this.parent = top.id;
       return;
     }
     Symbol.ClassSymbol enclosingClass = ASTHelpers.enclosingClass(superMethod);
