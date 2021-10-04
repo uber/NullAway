@@ -15,14 +15,13 @@ public class Location implements SeperatedValueDisplay {
   ClassTree classTree;
   MethodTree methodTree;
   Symbol variableSymbol;
-  int index;
   Kind kind;
+  int index;
 
   public enum Kind {
     CLASS_FIELD("CLASS_FIELD"),
     METHOD_PARAM("METHOD_PARAM"),
-    METHOD_RETURN("METHOD_RETURN"),
-    METHOD_LOCAL_VAR("METHOD_LOCAL_VAR");
+    METHOD_RETURN("METHOD_RETURN");
     public final String label;
 
     Kind(String label) {
