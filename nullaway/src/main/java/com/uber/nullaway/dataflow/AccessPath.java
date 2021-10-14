@@ -36,6 +36,7 @@ import java.util.Collections;
 import java.util.List;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.IntegerLiteralNode;
@@ -323,7 +324,31 @@ public final class AccessPath implements MapKey {
               constantArgumentValues.add(((LiteralTree) tree).getValue().toString());
               break;
             case NULL_LITERAL:
-              // Um, probably not? Cascade to default for now.
+              // Um, probably not? Return null for now.
+              return null; // Not an AP
+            case MEMBER_SELECT: // check for Foo.CONST
+            case IDENTIFIER: // check for CONST
+              // Check for a constant field (static final)
+              Symbol symbol = ASTHelpers.getSymbol(tree);
+              if (symbol.getKind().equals(ElementKind.FIELD)) {
+                Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) symbol;
+                // From docs: getConstantValue() returns the value of this variable if this is a
+                // static final field initialized to a compile-time constant. Returns null
+                // otherwise.
+                // This means that foo(FOUR) will match foo(4) iff FOUR=4 is a compile time
+                // constant :)
+                // The above will not work for static final fields of reference type, since they are
+                // initialized at class-initialization time, not compile time. Properly handling
+                // such fields would further require proving deep immutability for the object type
+                // itself.
+                Object constantValue = varSymbol.getConstantValue();
+                if (constantValue != null) {
+                  constantArgumentValues.add(constantValue.toString());
+                  break;
+                }
+              }
+              // Cascade to default, symbol is not a constant field
+              // fall through
             default:
               return null; // Not an AP
           }
