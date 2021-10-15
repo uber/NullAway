@@ -2400,6 +2400,33 @@ public class NullAwayTest {
   }
 
   @Test
+  public void testVariablesInAccessPathsNegative() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "NullableContainer.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public interface NullableContainer<K, V> {",
+            " @Nullable public V get(K k);",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  private static final int INT_KEY = 42;", // Guaranteed constant!
+            "  public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {",
+            "    if (c.get(\"KEY_STR\") != null && c.get(\"KEY_STR\").get(INT_KEY) != null) {",
+            "      c.get(\"KEY_STR\").get(INT_KEY).toString();",
+            "      c.get(\"KEY_STR\").get(Test.INT_KEY).toString();",
+            "      c.get(\"KEY_STR\").get(42).toString();", // Extra magic!
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testVariablesInAccessPathsPositive() {
     defaultCompilationHelper
         .addSourceLines(
