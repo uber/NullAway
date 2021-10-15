@@ -98,6 +98,7 @@ def test = [
     lombok                  : "org.projectlombok:lombok:1.18.12",
     springBeans             : "org.springframework:spring-beans:5.3.7",
     springContext           : "org.springframework:spring-context:5.3.7",
+    grpcCore                : "io.grpc:grpc-core:1.15.1", // Should upgrade, but this matches our guava version
 ]
 
 ext.deps = [
