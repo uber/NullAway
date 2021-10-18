@@ -221,6 +221,8 @@ public interface Handler {
    *
    * @param node The AST node for the method callsite.
    * @param types {@link Types} for the current compilation
+   * @param apContext the current access path context information (see {@link
+   *     AccessPath.APContext}).
    * @param inputs NullnessStore information known before the method invocation.
    * @param thenUpdates NullnessStore updates to be added along the then path, handlers can add via
    *     the set() method.
@@ -236,6 +238,7 @@ public interface Handler {
       MethodInvocationNode node,
       Types types,
       Context context,
+      AccessPath.APContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -296,6 +299,20 @@ public interface Handler {
    *     the surrounding context when processing a lambda expression or anonymous class declaration.
    */
   boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state);
+
+  /**
+   * Called during dataflow analysis initialization to register structurally immutable types.
+   *
+   * <p>Handlers declare structurally immutable types, requesting that they be treated as constants
+   * when they appear as arguments of method inside an AccessPath. Whenever a static final field of
+   * one of these types appears as an argument to a method in an access path (e.g. get(Foo.f) where
+   * Foo.f is a static final field of an immutable type T returned by this method), it is treated
+   * the same as a String or primitive type compile-time constant for the purposes of tracking the
+   * nullability of that access path.
+   *
+   * @return A set of fully qualified immutable type names.
+   */
+  ImmutableSet<String> onRegisterImmutableTypes();
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate

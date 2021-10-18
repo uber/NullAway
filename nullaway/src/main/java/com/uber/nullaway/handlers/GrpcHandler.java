@@ -22,6 +22,7 @@
 package com.uber.nullaway.handlers;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -71,6 +72,7 @@ public class GrpcHandler extends BaseNoOpHandler {
       MethodInvocationNode node,
       Types types,
       Context context,
+      AccessPath.APContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -90,13 +92,19 @@ public class GrpcHandler extends BaseNoOpHandler {
         String keyStr = AccessPath.immutableFieldNameAsConstantArgument(immutableFieldFQN);
         List<String> constantArgs = new ArrayList<>(1);
         constantArgs.add(keyStr);
-        AccessPath ap = AccessPath.fromBaseMethodAndConstantArgs(base, getter, constantArgs);
+        AccessPath ap =
+            AccessPath.fromBaseMethodAndConstantArgs(base, getter, constantArgs, apContext);
         if (ap != null) {
           thenUpdates.set(ap, Nullness.NONNULL);
         }
       }
     }
     return NullnessHint.UNKNOWN;
+  }
+
+  @Override
+  public ImmutableSet<String> onRegisterImmutableTypes() {
+    return ImmutableSet.of(GRPC_METADATA_KEY_TNAME);
   }
 
   @Nullable
