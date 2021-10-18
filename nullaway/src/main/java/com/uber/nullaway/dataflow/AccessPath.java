@@ -34,9 +34,11 @@ import com.sun.tools.javac.code.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.IntegerLiteralNode;
@@ -63,6 +65,33 @@ import org.checkerframework.nullaway.javacutil.TreeUtils;
  * <p>We do not allow array accesses in access paths for the moment.
  */
 public final class AccessPath implements MapKey {
+
+  /**
+   * A prefix added for elements appearing in method invocation APs which represent fields that can
+   * be proven to be class-initialization time constants (i.e. static final fields of a type known
+   * to be structurally immutable, such as io.grpc.Metadata.Key).
+   *
+   * <p>This prefix helps avoid collisions between common field names and common strings, e.g.
+   * "KEY_1" and the field KEY_1.
+   */
+  private static final String IMMUTABLE_FIELD_PREFIX = "static final [immutable] field: ";
+
+  /**
+   * Encode a static final field as a constant argument on a method's AccessPathElement
+   *
+   * <p>The field must be of a type known to be structurally immutable, in addition to being
+   * declared static and final for this encoding to make any sense. We do not verify this here, and
+   * rather operate only on the field's fully qualified name, as this is intended to be a quick
+   * utility method.
+   *
+   * @param fieldFQN the field's Fully Qualified Name
+   * @return a string suitable to be included as part of the constant arguments of an
+   *     AccessPathElement, assuming the field is indeed static final and of an structurally
+   *     immutable type
+   */
+  public static String immutableFieldNameAsConstantArgument(String fieldFQN) {
+    return IMMUTABLE_FIELD_PREFIX + fieldFQN;
+  }
 
   private final Root root;
 
@@ -155,6 +184,32 @@ public final class AccessPath implements MapKey {
       return null;
     }
     elements.add(new AccessPathElement(element));
+    return new AccessPath(root, elements);
+  }
+
+  /**
+   * Construct the access path given a {@code base.method(CONS)} structure.
+   *
+   * <p>IMPORTANT: Be careful with this method, the argument list is not the variable names of the
+   * method arguments, but rather the string representation of primitive-type compile-time constants
+   * or the name of static final fields of structurally immutable types (see {@link
+   * #populateElementsRec(Node, List)}). This is used by a few specialized Handlers to set
+   * nullability around particular paths involving constants.
+   *
+   * @param base the base expression for the access path
+   * @param method the last method call in the access path
+   * @param constantArguments a list of <b>constant</b> arguments passed to the method call
+   * @return the {@link AccessPath} {@code base.method(CONS)}
+   */
+  @Nullable
+  public static AccessPath fromBaseMethodAndConstantArgs(
+      Node base, Element method, List<String> constantArguments) {
+    List<AccessPathElement> elements = new ArrayList<>();
+    Root root = populateElementsRec(base, elements);
+    if (root == null) {
+      return null;
+    }
+    elements.add(new AccessPathElement(method, constantArguments));
     return new AccessPath(root, elements);
   }
 
@@ -337,13 +392,25 @@ public final class AccessPath implements MapKey {
                 // otherwise.
                 // This means that foo(FOUR) will match foo(4) iff FOUR=4 is a compile time
                 // constant :)
-                // The above will not work for static final fields of reference type, since they are
-                // initialized at class-initialization time, not compile time. Properly handling
-                // such fields would further require proving deep immutability for the object type
-                // itself.
                 Object constantValue = varSymbol.getConstantValue();
                 if (constantValue != null) {
                   constantArgumentValues.add(constantValue.toString());
+                  break;
+                }
+                // The above will not work for static final fields of reference type, since they are
+                // initialized at class-initialization time, not compile time. Properly handling
+                // such fields would further require proving deep immutability for the object type
+                // itself. We use a handler-augment list of safe types:
+                Set<Modifier> modifiersSet = varSymbol.getModifiers();
+                if (modifiersSet.contains(Modifier.STATIC)
+                    && modifiersSet.contains(Modifier.FINAL)
+                    && varSymbol.type.tsym.toString().equals("io.grpc.Metadata.Key")) {
+                  String immutableFieldFQN =
+                      varSymbol.enclClass().flatName().toString()
+                          + "."
+                          + varSymbol.flatName().toString();
+                  constantArgumentValues.add(
+                      immutableFieldNameAsConstantArgument(immutableFieldFQN));
                   break;
                 }
               }

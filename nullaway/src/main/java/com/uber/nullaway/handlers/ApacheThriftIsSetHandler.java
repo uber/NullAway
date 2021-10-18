@@ -48,7 +48,7 @@ import org.checkerframework.nullaway.javacutil.Pair;
  */
 public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
 
-  private static String TBASE_NAME = "org.apache.thrift.TBase";
+  private static final String TBASE_NAME = "org.apache.thrift.TBase";
 
   @Nullable private Optional<Type> tbaseType;
 
