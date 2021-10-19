@@ -1,4 +1,4 @@
-package com.uber.nullaway.autofix.out.display;
+package com.uber.nullaway.tools;
 
 import com.uber.nullaway.autofix.Writer;
 import java.util.Objects;
