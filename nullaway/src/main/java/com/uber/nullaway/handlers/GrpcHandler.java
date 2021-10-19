@@ -72,7 +72,7 @@ public class GrpcHandler extends BaseNoOpHandler {
       MethodInvocationNode node,
       Types types,
       Context context,
-      AccessPath.APContext apContext,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,

@@ -222,7 +222,7 @@ public interface Handler {
    * @param node The AST node for the method callsite.
    * @param types {@link Types} for the current compilation
    * @param apContext the current access path context information (see {@link
-   *     AccessPath.APContext}).
+   *     AccessPath.AccessPathContext}).
    * @param inputs NullnessStore information known before the method invocation.
    * @param thenUpdates NullnessStore updates to be added along the then path, handlers can add via
    *     the set() method.
@@ -238,7 +238,7 @@ public interface Handler {
       MethodInvocationNode node,
       Types types,
       Context context,
-      AccessPath.APContext apContext,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,

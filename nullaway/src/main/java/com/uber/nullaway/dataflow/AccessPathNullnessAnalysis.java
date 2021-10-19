@@ -51,7 +51,7 @@ public final class AccessPathNullnessAnalysis {
   private static final Context.Key<AccessPathNullnessAnalysis> FIELD_NULLNESS_ANALYSIS_KEY =
       new Context.Key<>();
 
-  private final AccessPath.APContext apContext;
+  private final AccessPath.AccessPathContext apContext;
 
   private final AccessPathNullnessPropagation nullnessPropagation;
 
@@ -66,7 +66,7 @@ public final class AccessPathNullnessAnalysis {
       Config config,
       Handler handler) {
     apContext =
-        AccessPath.APContext.builder()
+        AccessPath.AccessPathContext.builder()
             .setImmutableTypes(handler.onRegisterImmutableTypes())
             .build();
     this.nullnessPropagation =

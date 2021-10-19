@@ -66,7 +66,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       MethodInvocationNode node,
       Types types,
       Context context,
-      AccessPath.APContext apContext,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -92,7 +92,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates updates,
       @Nullable Element elem,
       Node base,
-      AccessPath.APContext apContext) {
+      AccessPath.AccessPathContext apContext) {
     if (elem != null) {
       AccessPath ap = AccessPath.fromBaseAndElement(base, elem, apContext);
       if (ap != null) {

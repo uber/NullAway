@@ -106,7 +106,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
       MethodInvocationNode node,
       Types types,
       Context context,
-      AccessPath.APContext apContext,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -160,7 +160,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   private void updateIfAssertIsPresentTrueOnOptional(
       MethodInvocationNode node,
       Types types,
-      AccessPath.APContext apContext,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Node receiver = node.getTarget().getReceiver();
     if (receiver instanceof MethodInvocationNode) {
@@ -188,7 +188,9 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   private void updateNonNullAPsForOptionalContent(
-      AccessPathNullnessPropagation.Updates updates, Node base, AccessPath.APContext apContext) {
+      AccessPathNullnessPropagation.Updates updates,
+      Node base,
+      AccessPath.AccessPathContext apContext) {
     AccessPath ap = AccessPath.fromBaseAndElement(base, OPTIONAL_CONTENT, apContext);
     if (ap != null && base.getTree() != null) {
       updates.set(ap, Nullness.NONNULL);

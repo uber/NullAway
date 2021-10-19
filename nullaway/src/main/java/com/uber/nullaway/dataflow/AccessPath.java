@@ -141,11 +141,11 @@ public final class AccessPath implements MapKey {
    *
    * @param node the field access
    * @param apContext the current access path context information (see {@link
-   *     AccessPath.APContext}).
+   *     AccessPath.AccessPathContext}).
    * @return access path for the field access, or <code>null</code> if it cannot be represented
    */
   @Nullable
-  static AccessPath fromFieldAccess(FieldAccessNode node, APContext apContext) {
+  static AccessPath fromFieldAccess(FieldAccessNode node, AccessPathContext apContext) {
     List<AccessPathElement> elements = new ArrayList<>();
     Root root = populateElementsRec(node, elements, apContext);
     return (root != null) ? new AccessPath(root, elements) : null;
@@ -156,12 +156,12 @@ public final class AccessPath implements MapKey {
    *
    * @param node the method call
    * @param apContext the current access path context information (see {@link
-   *     AccessPath.APContext}).
+   *     AccessPath.AccessPathContext}).
    * @return access path for the method call, or <code>null</code> if it cannot be represented
    */
   @Nullable
   static AccessPath fromMethodCall(
-      MethodInvocationNode node, @Nullable Types types, APContext apContext) {
+      MethodInvocationNode node, @Nullable Types types, AccessPathContext apContext) {
     if (types != null && isMapGet(ASTHelpers.getSymbol(node.getTree()), types)) {
       return fromMapGetCall(node, apContext);
     }
@@ -169,7 +169,8 @@ public final class AccessPath implements MapKey {
   }
 
   @Nullable
-  private static AccessPath fromVanillaMethodCall(MethodInvocationNode node, APContext apContext) {
+  private static AccessPath fromVanillaMethodCall(
+      MethodInvocationNode node, AccessPathContext apContext) {
     List<AccessPathElement> elements = new ArrayList<>();
     Root root = populateElementsRec(node, elements, apContext);
     return (root != null) ? new AccessPath(root, elements) : null;
@@ -181,11 +182,12 @@ public final class AccessPath implements MapKey {
    * @param base the base expression for the access path
    * @param element the final element of the access path (a field or method)
    * @param apContext the current access path context information (see {@link
-   *     AccessPath.APContext}).
+   *     AccessPath.AccessPathContext}).
    * @return the {@link AccessPath} {@code base.element}
    */
   @Nullable
-  public static AccessPath fromBaseAndElement(Node base, Element element, APContext apContext) {
+  public static AccessPath fromBaseAndElement(
+      Node base, Element element, AccessPathContext apContext) {
     List<AccessPathElement> elements = new ArrayList<>();
     Root root = populateElementsRec(base, elements, apContext);
     if (root == null) {
@@ -201,7 +203,7 @@ public final class AccessPath implements MapKey {
    * <p>IMPORTANT: Be careful with this method, the argument list is not the variable names of the
    * method arguments, but rather the string representation of primitive-type compile-time constants
    * or the name of static final fields of structurally immutable types (see {@link
-   * #populateElementsRec(Node, List, APContext)}).
+   * #populateElementsRec(Node, List, AccessPathContext)}).
    *
    * <p>This is used by a few specialized Handlers to set nullability around particular paths
    * involving constants.
@@ -210,12 +212,12 @@ public final class AccessPath implements MapKey {
    * @param method the last method call in the access path
    * @param constantArguments a list of <b>constant</b> arguments passed to the method call
    * @param apContext the current access path context information (see {@link
-   *     AccessPath.APContext}).
+   *     AccessPath.AccessPathContext}).
    * @return the {@link AccessPath} {@code base.method(CONS)}
    */
   @Nullable
   public static AccessPath fromBaseMethodAndConstantArgs(
-      Node base, Element method, List<String> constantArguments, APContext apContext) {
+      Node base, Element method, List<String> constantArguments, AccessPathContext apContext) {
     List<AccessPathElement> elements = new ArrayList<>();
     Root root = populateElementsRec(base, elements, apContext);
     if (root == null) {
@@ -231,12 +233,13 @@ public final class AccessPath implements MapKey {
    *
    * @param node a node invoking containsKey() or put() on a map
    * @param apContext the current access path context information (see {@link
-   *     AccessPath.APContext}).
+   *     AccessPath.AccessPathContext}).
    * @return an AccessPath representing invoking get() on the same type of map as from node, passing
    *     the same first argument as is passed in node
    */
   @Nullable
-  public static AccessPath getForMapInvocation(MethodInvocationNode node, APContext apContext) {
+  public static AccessPath getForMapInvocation(
+      MethodInvocationNode node, AccessPathContext apContext) {
     // For the receiver type for get, use the declared type of the receiver of the containsKey()
     // call.
     // Note that this may differ from the containing class of the resolved containsKey() method,
@@ -247,7 +250,7 @@ public final class AccessPath implements MapKey {
   }
 
   @Nullable
-  private static MapKey argumentToMapKeySpecifier(Node argument, APContext apContext) {
+  private static MapKey argumentToMapKeySpecifier(Node argument, AccessPathContext apContext) {
     // Required to have Node type match Tree type in some instances.
     if (argument instanceof WideningConversionNode) {
       argument = ((WideningConversionNode) argument).getOperand();
@@ -279,7 +282,7 @@ public final class AccessPath implements MapKey {
   }
 
   @Nullable
-  private static AccessPath fromMapGetCall(MethodInvocationNode node, APContext apContext) {
+  private static AccessPath fromMapGetCall(MethodInvocationNode node, AccessPathContext apContext) {
     Node argument = node.getArgument(0);
     MapKey mapKey = argumentToMapKeySpecifier(argument, apContext);
     if (mapKey == null) {
@@ -301,11 +304,11 @@ public final class AccessPath implements MapKey {
    *
    * @param node AST node
    * @param apContext the current access path context information (see {@link
-   *     AccessPath.APContext}).
+   *     AccessPath.AccessPathContext}).
    * @return corresponding AccessPath if it exists; <code>null</code> otherwise
    */
   @Nullable
-  public static AccessPath getAccessPathForNodeNoMapGet(Node node, APContext apContext) {
+  public static AccessPath getAccessPathForNodeNoMapGet(Node node, AccessPathContext apContext) {
     return getAccessPathForNodeWithMapGet(node, null, apContext);
   }
 
@@ -316,12 +319,12 @@ public final class AccessPath implements MapKey {
    * @param node AST node
    * @param types javac {@link Types}
    * @param apContext the current access path context information (see {@link
-   *     AccessPath.APContext}).
+   *     AccessPath.AccessPathContext}).
    * @return corresponding AccessPath if it exists; <code>null</code> otherwise
    */
   @Nullable
   public static AccessPath getAccessPathForNodeWithMapGet(
-      Node node, @Nullable Types types, APContext apContext) {
+      Node node, @Nullable Types types, AccessPathContext apContext) {
     if (node instanceof LocalVariableNode) {
       return fromLocal((LocalVariableNode) node);
     } else if (node instanceof FieldAccessNode) {
@@ -356,7 +359,7 @@ public final class AccessPath implements MapKey {
 
   @Nullable
   private static Root populateElementsRec(
-      Node node, List<AccessPathElement> elements, APContext apContext) {
+      Node node, List<AccessPathElement> elements, AccessPathContext apContext) {
     Root result;
     if (node instanceof FieldAccessNode) {
       FieldAccessNode fieldAccess = (FieldAccessNode) node;
@@ -652,11 +655,11 @@ public final class AccessPath implements MapKey {
    *
    * <p>This includes, for example, data on known structurally immutable types.
    */
-  public static final class APContext {
+  public static final class AccessPathContext {
 
     private final ImmutableSet<String> immutableTypes;
 
-    private APContext(ImmutableSet<String> immutableTypes) {
+    private AccessPathContext(ImmutableSet<String> immutableTypes) {
       this.immutableTypes = immutableTypes;
     }
 
@@ -665,10 +668,10 @@ public final class AccessPath implements MapKey {
     }
 
     public static Builder builder() {
-      return new APContext.Builder();
+      return new AccessPathContext.Builder();
     }
 
-    /** class for building up instances of the APContext. */
+    /** class for building up instances of the AccessPathContext. */
     public static final class Builder {
 
       @Nullable private ImmutableSet<String> immutableTypes;
@@ -676,7 +679,7 @@ public final class AccessPath implements MapKey {
       Builder() {}
 
       /**
-       * Passes the set of structurally immutable types registered into this APContext.
+       * Passes the set of structurally immutable types registered into this AccessPathContext.
        *
        * <p>See {@link com.uber.nullaway.handlers.Handler.onRegisterImmutableTypes} for more info.
        *
@@ -688,12 +691,12 @@ public final class AccessPath implements MapKey {
       }
 
       /**
-       * Construct the immutable APContext instance.
+       * Construct the immutable AccessPathContext instance.
        *
        * @return an access path context constructed from everything added to the builder
        */
-      public APContext build() {
-        return new APContext(immutableTypes);
+      public AccessPathContext build() {
+        return new AccessPathContext(immutableTypes);
       }
     }
   }

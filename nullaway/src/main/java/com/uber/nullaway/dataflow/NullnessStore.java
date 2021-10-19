@@ -77,7 +77,7 @@ public class NullnessStore implements Store<NullnessStore> {
    * @return fact associated with field access
    */
   public Nullness valueOfField(
-      FieldAccessNode node, Nullness defaultValue, AccessPath.APContext apContext) {
+      FieldAccessNode node, Nullness defaultValue, AccessPath.AccessPathContext apContext) {
     AccessPath path = AccessPath.fromFieldAccess(node, apContext);
     if (path == null) {
       return defaultValue;
@@ -97,7 +97,7 @@ public class NullnessStore implements Store<NullnessStore> {
       MethodInvocationNode node,
       Types types,
       Nullness defaultValue,
-      AccessPath.APContext apContext) {
+      AccessPath.AccessPathContext apContext) {
     AccessPath accessPath = AccessPath.fromMethodCall(node, types, apContext);
     if (accessPath == null) {
       return defaultValue;

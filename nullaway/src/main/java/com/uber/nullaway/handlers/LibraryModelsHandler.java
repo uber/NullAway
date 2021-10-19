@@ -128,7 +128,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       MethodInvocationNode node,
       Types types,
       Context context,
-      AccessPath.APContext apContext,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -172,7 +172,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       List<Node> arguments,
       Symbol.MethodSymbol callee,
       Context context,
-      AccessPath.APContext apContext) {
+      AccessPath.AccessPathContext apContext) {
     Set<Integer> nullImpliesTrueParameters =
         getOptLibraryModels(context).nullImpliesTrueParameters(callee);
     Set<Integer> nullImpliesFalseParameters =
@@ -188,7 +188,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   private static Iterable<AccessPath> accessPathsAtIndexes(
-      Set<Integer> indexes, List<Node> arguments, AccessPath.APContext apContext) {
+      Set<Integer> indexes, List<Node> arguments, AccessPath.AccessPathContext apContext) {
     List<AccessPath> result = new ArrayList<>();
     for (Integer i : indexes) {
       Preconditions.checkArgument(i >= 0 && i < arguments.size(), "Invalid argument index: " + i);
@@ -215,7 +215,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       List<Node> arguments,
       Symbol.MethodSymbol callee,
       Context context,
-      AccessPath.APContext apContext) {
+      AccessPath.AccessPathContext apContext) {
     Set<Integer> requiredNonNullParameters =
         getOptLibraryModels(context).failIfNullParameters(callee);
     for (AccessPath accessPath :

@@ -136,7 +136,7 @@ public class AccessPathNullnessPropagation
 
   private final Context context;
 
-  private final AccessPath.APContext apContext;
+  private final AccessPath.AccessPathContext apContext;
 
   private final Types types;
 
@@ -150,7 +150,7 @@ public class AccessPathNullnessPropagation
       Nullness defaultAssumption,
       Predicate<MethodInvocationNode> methodReturnsNonNull,
       Context context,
-      AccessPath.APContext apContext,
+      AccessPath.AccessPathContext apContext,
       Config config,
       Handler handler,
       NullnessStoreInitializer nullnessStoreInitializer) {
