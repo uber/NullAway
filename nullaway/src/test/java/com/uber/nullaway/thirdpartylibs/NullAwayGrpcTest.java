@@ -51,8 +51,13 @@ public class NullAwayGrpcTest {
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
                     "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                    // IMPORTANT: We rely on the fact that io.grpc.Metadata.get(...) is annotated
-                    // @Nullable
+                    // IMPORTANT:
+                    // These tests use the fact that io.grpc.Metadata.get(...) is annotated
+                    // @Nullable. Without the flag above (or a corresponding library model),
+                    // the gRPC libraries themseves would need to be part of  AnnotatedPackages
+                    // for the true positives in the tests below to manifest. Using the
+                    // default optimistic-nullness assumptions for third-party code, results
+                    // in assuming that all calls to Metadata.get(...) return non-null.
                     "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"));
   }
 
