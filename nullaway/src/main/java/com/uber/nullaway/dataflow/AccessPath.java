@@ -24,6 +24,7 @@ package com.uber.nullaway.dataflow;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
@@ -34,9 +35,11 @@ import com.sun.tools.javac.code.Types;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.IntegerLiteralNode;
@@ -63,6 +66,33 @@ import org.checkerframework.nullaway.javacutil.TreeUtils;
  * <p>We do not allow array accesses in access paths for the moment.
  */
 public final class AccessPath implements MapKey {
+
+  /**
+   * A prefix added for elements appearing in method invocation APs which represent fields that can
+   * be proven to be class-initialization time constants (i.e. static final fields of a type known
+   * to be structurally immutable, such as io.grpc.Metadata.Key).
+   *
+   * <p>This prefix helps avoid collisions between common field names and common strings, e.g.
+   * "KEY_1" and the field KEY_1.
+   */
+  private static final String IMMUTABLE_FIELD_PREFIX = "static final [immutable] field: ";
+
+  /**
+   * Encode a static final field as a constant argument on a method's AccessPathElement
+   *
+   * <p>The field must be of a type known to be structurally immutable, in addition to being
+   * declared static and final for this encoding to make any sense. We do not verify this here, and
+   * rather operate only on the field's fully qualified name, as this is intended to be a quick
+   * utility method.
+   *
+   * @param fieldFQN the field's Fully Qualified Name
+   * @return a string suitable to be included as part of the constant arguments of an
+   *     AccessPathElement, assuming the field is indeed static final and of an structurally
+   *     immutable type
+   */
+  public static String immutableFieldNameAsConstantArgument(String fieldFQN) {
+    return IMMUTABLE_FIELD_PREFIX + fieldFQN;
+  }
 
   private final Root root;
 
@@ -110,12 +140,14 @@ public final class AccessPath implements MapKey {
    * Construct the access path of a field access.
    *
    * @param node the field access
+   * @param apContext the current access path context information (see {@link
+   *     AccessPath.AccessPathContext}).
    * @return access path for the field access, or <code>null</code> if it cannot be represented
    */
   @Nullable
-  static AccessPath fromFieldAccess(FieldAccessNode node) {
+  static AccessPath fromFieldAccess(FieldAccessNode node, AccessPathContext apContext) {
     List<AccessPathElement> elements = new ArrayList<>();
-    Root root = populateElementsRec(node, elements);
+    Root root = populateElementsRec(node, elements, apContext);
     return (root != null) ? new AccessPath(root, elements) : null;
   }
 
@@ -123,20 +155,24 @@ public final class AccessPath implements MapKey {
    * Construct the access path of a method call.
    *
    * @param node the method call
+   * @param apContext the current access path context information (see {@link
+   *     AccessPath.AccessPathContext}).
    * @return access path for the method call, or <code>null</code> if it cannot be represented
    */
   @Nullable
-  static AccessPath fromMethodCall(MethodInvocationNode node, @Nullable Types types) {
+  static AccessPath fromMethodCall(
+      MethodInvocationNode node, @Nullable Types types, AccessPathContext apContext) {
     if (types != null && isMapGet(ASTHelpers.getSymbol(node.getTree()), types)) {
-      return fromMapGetCall(node);
+      return fromMapGetCall(node, apContext);
     }
-    return fromVanillaMethodCall(node);
+    return fromVanillaMethodCall(node, apContext);
   }
 
   @Nullable
-  private static AccessPath fromVanillaMethodCall(MethodInvocationNode node) {
+  private static AccessPath fromVanillaMethodCall(
+      MethodInvocationNode node, AccessPathContext apContext) {
     List<AccessPathElement> elements = new ArrayList<>();
-    Root root = populateElementsRec(node, elements);
+    Root root = populateElementsRec(node, elements, apContext);
     return (root != null) ? new AccessPath(root, elements) : null;
   }
 
@@ -145,12 +181,15 @@ public final class AccessPath implements MapKey {
    *
    * @param base the base expression for the access path
    * @param element the final element of the access path (a field or method)
+   * @param apContext the current access path context information (see {@link
+   *     AccessPath.AccessPathContext}).
    * @return the {@link AccessPath} {@code base.element}
    */
   @Nullable
-  public static AccessPath fromBaseAndElement(Node base, Element element) {
+  public static AccessPath fromBaseAndElement(
+      Node base, Element element, AccessPathContext apContext) {
     List<AccessPathElement> elements = new ArrayList<>();
-    Root root = populateElementsRec(base, elements);
+    Root root = populateElementsRec(base, elements, apContext);
     if (root == null) {
       return null;
     }
@@ -159,26 +198,59 @@ public final class AccessPath implements MapKey {
   }
 
   /**
+   * Construct the access path given a {@code base.method(CONS)} structure.
+   *
+   * <p>IMPORTANT: Be careful with this method, the argument list is not the variable names of the
+   * method arguments, but rather the string representation of primitive-type compile-time constants
+   * or the name of static final fields of structurally immutable types (see {@link
+   * #populateElementsRec(Node, List, AccessPathContext)}).
+   *
+   * <p>This is used by a few specialized Handlers to set nullability around particular paths
+   * involving constants.
+   *
+   * @param base the base expression for the access path
+   * @param method the last method call in the access path
+   * @param constantArguments a list of <b>constant</b> arguments passed to the method call
+   * @param apContext the current access path context information (see {@link
+   *     AccessPath.AccessPathContext}).
+   * @return the {@link AccessPath} {@code base.method(CONS)}
+   */
+  @Nullable
+  public static AccessPath fromBaseMethodAndConstantArgs(
+      Node base, Element method, List<String> constantArguments, AccessPathContext apContext) {
+    List<AccessPathElement> elements = new ArrayList<>();
+    Root root = populateElementsRec(base, elements, apContext);
+    if (root == null) {
+      return null;
+    }
+    elements.add(new AccessPathElement(method, constantArguments));
+    return new AccessPath(root, elements);
+  }
+
+  /**
    * Construct the access path for <code>map.get(x)</code> from an invocation of <code>put(x)</code>
    * or <code>containsKey(x)</code>.
    *
    * @param node a node invoking containsKey() or put() on a map
+   * @param apContext the current access path context information (see {@link
+   *     AccessPath.AccessPathContext}).
    * @return an AccessPath representing invoking get() on the same type of map as from node, passing
    *     the same first argument as is passed in node
    */
   @Nullable
-  public static AccessPath getForMapInvocation(MethodInvocationNode node) {
+  public static AccessPath getForMapInvocation(
+      MethodInvocationNode node, AccessPathContext apContext) {
     // For the receiver type for get, use the declared type of the receiver of the containsKey()
     // call.
     // Note that this may differ from the containing class of the resolved containsKey() method,
     // which
     // can be in a superclass (e.g., LinkedHashMap does not override containsKey())
     // assumption: map type will not both override containsKey() and inherit get()
-    return fromMapGetCall(node);
+    return fromMapGetCall(node, apContext);
   }
 
   @Nullable
-  private static MapKey argumentToMapKeySpecifier(Node argument) {
+  private static MapKey argumentToMapKeySpecifier(Node argument, AccessPathContext apContext) {
     // Required to have Node type match Tree type in some instances.
     if (argument instanceof WideningConversionNode) {
       argument = ((WideningConversionNode) argument).getOperand();
@@ -200,26 +272,26 @@ public final class AccessPath implements MapKey {
             && target.getReceiver().getTree().getKind().equals(Tree.Kind.IDENTIFIER)
             && (target.getReceiver().toString().equals("Integer")
                 || target.getReceiver().toString().equals("Long"))) {
-          return argumentToMapKeySpecifier(arguments.get(0));
+          return argumentToMapKeySpecifier(arguments.get(0), apContext);
         }
         // Fine to fallthrough:
       default:
         // Every other type of expression, including variables, field accesses, new A(...), etc.
-        return getAccessPathForNodeNoMapGet(argument); // Every AP is a MapKey too
+        return getAccessPathForNodeNoMapGet(argument, apContext); // Every AP is a MapKey too
     }
   }
 
   @Nullable
-  private static AccessPath fromMapGetCall(MethodInvocationNode node) {
+  private static AccessPath fromMapGetCall(MethodInvocationNode node, AccessPathContext apContext) {
     Node argument = node.getArgument(0);
-    MapKey mapKey = argumentToMapKeySpecifier(argument);
+    MapKey mapKey = argumentToMapKeySpecifier(argument, apContext);
     if (mapKey == null) {
       return null;
     }
     MethodAccessNode target = node.getTarget();
     Node receiver = target.getReceiver();
     List<AccessPathElement> elements = new ArrayList<>();
-    Root root = populateElementsRec(receiver, elements);
+    Root root = populateElementsRec(receiver, elements, apContext);
     if (root == null) {
       return null;
     }
@@ -231,11 +303,13 @@ public final class AccessPath implements MapKey {
    * <code>Map.get()</code>
    *
    * @param node AST node
+   * @param apContext the current access path context information (see {@link
+   *     AccessPath.AccessPathContext}).
    * @return corresponding AccessPath if it exists; <code>null</code> otherwise
    */
   @Nullable
-  public static AccessPath getAccessPathForNodeNoMapGet(Node node) {
-    return getAccessPathForNodeWithMapGet(node, null);
+  public static AccessPath getAccessPathForNodeNoMapGet(Node node, AccessPathContext apContext) {
+    return getAccessPathForNodeWithMapGet(node, null, apContext);
   }
 
   /**
@@ -244,16 +318,19 @@ public final class AccessPath implements MapKey {
    *
    * @param node AST node
    * @param types javac {@link Types}
+   * @param apContext the current access path context information (see {@link
+   *     AccessPath.AccessPathContext}).
    * @return corresponding AccessPath if it exists; <code>null</code> otherwise
    */
   @Nullable
-  public static AccessPath getAccessPathForNodeWithMapGet(Node node, @Nullable Types types) {
+  public static AccessPath getAccessPathForNodeWithMapGet(
+      Node node, @Nullable Types types, AccessPathContext apContext) {
     if (node instanceof LocalVariableNode) {
       return fromLocal((LocalVariableNode) node);
     } else if (node instanceof FieldAccessNode) {
-      return fromFieldAccess((FieldAccessNode) node);
+      return fromFieldAccess((FieldAccessNode) node, apContext);
     } else if (node instanceof MethodInvocationNode) {
-      return fromMethodCall((MethodInvocationNode) node, types);
+      return fromMethodCall((MethodInvocationNode) node, types, apContext);
     } else {
       return null;
     }
@@ -281,7 +358,8 @@ public final class AccessPath implements MapKey {
   }
 
   @Nullable
-  private static Root populateElementsRec(Node node, List<AccessPathElement> elements) {
+  private static Root populateElementsRec(
+      Node node, List<AccessPathElement> elements, AccessPathContext apContext) {
     Root result;
     if (node instanceof FieldAccessNode) {
       FieldAccessNode fieldAccess = (FieldAccessNode) node;
@@ -290,7 +368,7 @@ public final class AccessPath implements MapKey {
         result = new Root(fieldAccess.getElement());
       } else {
         // instance field access
-        result = populateElementsRec(fieldAccess.getReceiver(), elements);
+        result = populateElementsRec(fieldAccess.getReceiver(), elements, apContext);
         elements.add(new AccessPathElement(fieldAccess.getElement()));
       }
     } else if (node instanceof MethodInvocationNode) {
@@ -337,13 +415,25 @@ public final class AccessPath implements MapKey {
                 // otherwise.
                 // This means that foo(FOUR) will match foo(4) iff FOUR=4 is a compile time
                 // constant :)
-                // The above will not work for static final fields of reference type, since they are
-                // initialized at class-initialization time, not compile time. Properly handling
-                // such fields would further require proving deep immutability for the object type
-                // itself.
                 Object constantValue = varSymbol.getConstantValue();
                 if (constantValue != null) {
                   constantArgumentValues.add(constantValue.toString());
+                  break;
+                }
+                // The above will not work for static final fields of reference type, since they are
+                // initialized at class-initialization time, not compile time. Properly handling
+                // such fields would further require proving deep immutability for the object type
+                // itself. We use a handler-augment list of safe types:
+                Set<Modifier> modifiersSet = varSymbol.getModifiers();
+                if (modifiersSet.contains(Modifier.STATIC)
+                    && modifiersSet.contains(Modifier.FINAL)
+                    && apContext.isStructurallyImmutableType(varSymbol.type)) {
+                  String immutableFieldFQN =
+                      varSymbol.enclClass().flatName().toString()
+                          + "."
+                          + varSymbol.flatName().toString();
+                  constantArgumentValues.add(
+                      immutableFieldNameAsConstantArgument(immutableFieldFQN));
                   break;
                 }
               }
@@ -355,7 +445,7 @@ public final class AccessPath implements MapKey {
         }
         accessPathElement = new AccessPathElement(accessNode.getMethod(), constantArgumentValues);
       }
-      result = populateElementsRec(accessNode.getReceiver(), elements);
+      result = populateElementsRec(accessNode.getReceiver(), elements, apContext);
       elements.add(accessPathElement);
     } else if (node instanceof LocalVariableNode) {
       result = new Root(((LocalVariableNode) node).getElement());
@@ -557,6 +647,57 @@ public final class AccessPath implements MapKey {
         return this.key == ((NumericMapKey) obj).key;
       }
       return false;
+    }
+  }
+
+  /**
+   * Represents a per-javac instance of an AccessPath context options.
+   *
+   * <p>This includes, for example, data on known structurally immutable types.
+   */
+  public static final class AccessPathContext {
+
+    private final ImmutableSet<String> immutableTypes;
+
+    private AccessPathContext(ImmutableSet<String> immutableTypes) {
+      this.immutableTypes = immutableTypes;
+    }
+
+    public boolean isStructurallyImmutableType(Type type) {
+      return immutableTypes.contains(type.tsym.toString());
+    }
+
+    public static Builder builder() {
+      return new AccessPathContext.Builder();
+    }
+
+    /** class for building up instances of the AccessPathContext. */
+    public static final class Builder {
+
+      @Nullable private ImmutableSet<String> immutableTypes;
+
+      Builder() {}
+
+      /**
+       * Passes the set of structurally immutable types registered into this AccessPathContext.
+       *
+       * <p>See {@link com.uber.nullaway.handlers.Handler.onRegisterImmutableTypes} for more info.
+       *
+       * @param immutableTypes the immutable types known to our dataflow analysis.
+       */
+      public Builder setImmutableTypes(ImmutableSet<String> immutableTypes) {
+        this.immutableTypes = immutableTypes;
+        return this;
+      }
+
+      /**
+       * Construct the immutable AccessPathContext instance.
+       *
+       * @return an access path context constructed from everything added to the builder
+       */
+      public AccessPathContext build() {
+        return new AccessPathContext(immutableTypes);
+      }
     }
   }
 }

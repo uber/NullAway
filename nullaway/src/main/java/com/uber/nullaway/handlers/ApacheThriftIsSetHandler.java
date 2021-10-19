@@ -48,7 +48,7 @@ import org.checkerframework.nullaway.javacutil.Pair;
  */
 public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
 
-  private static String TBASE_NAME = "org.apache.thrift.TBase";
+  private static final String TBASE_NAME = "org.apache.thrift.TBase";
 
   @Nullable private Optional<Type> tbaseType;
 
@@ -66,6 +66,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       MethodInvocationNode node,
       Types types,
       Context context,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -80,17 +81,20 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
         // make them nonnull in the thenUpdates
         Pair<Element, Element> fieldAndGetter = getFieldAndSetterForProperty(symbol, capPropName);
         Node base = node.getTarget().getReceiver();
-        updateNonNullAPsForElement(thenUpdates, fieldAndGetter.first, base);
-        updateNonNullAPsForElement(thenUpdates, fieldAndGetter.second, base);
+        updateNonNullAPsForElement(thenUpdates, fieldAndGetter.first, base, apContext);
+        updateNonNullAPsForElement(thenUpdates, fieldAndGetter.second, base, apContext);
       }
     }
     return NullnessHint.UNKNOWN;
   }
 
   private void updateNonNullAPsForElement(
-      AccessPathNullnessPropagation.Updates updates, @Nullable Element elem, Node base) {
+      AccessPathNullnessPropagation.Updates updates,
+      @Nullable Element elem,
+      Node base,
+      AccessPath.AccessPathContext apContext) {
     if (elem != null) {
-      AccessPath ap = AccessPath.fromBaseAndElement(base, elem);
+      AccessPath ap = AccessPath.fromBaseAndElement(base, elem, apContext);
       if (ap != null) {
         updates.set(ap, Nullness.NONNULL);
       }

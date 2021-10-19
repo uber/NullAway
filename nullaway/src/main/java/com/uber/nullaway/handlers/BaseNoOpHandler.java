@@ -150,6 +150,7 @@ public abstract class BaseNoOpHandler implements Handler {
       MethodInvocationNode node,
       Types types,
       Context context,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -179,5 +180,10 @@ public abstract class BaseNoOpHandler implements Handler {
   @Override
   public boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state) {
     return false;
+  }
+
+  @Override
+  public ImmutableSet<String> onRegisterImmutableTypes() {
+    return ImmutableSet.of();
   }
 }

@@ -54,6 +54,7 @@ dependencies {
     testImplementation deps.test.lombok
     testImplementation deps.test.springBeans
     testImplementation deps.test.springContext
+    testImplementation deps.test.grpcCore
 }
 
 javadoc {

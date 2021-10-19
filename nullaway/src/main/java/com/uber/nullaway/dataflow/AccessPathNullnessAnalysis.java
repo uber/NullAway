@@ -51,6 +51,8 @@ public final class AccessPathNullnessAnalysis {
   private static final Context.Key<AccessPathNullnessAnalysis> FIELD_NULLNESS_ANALYSIS_KEY =
       new Context.Key<>();
 
+  private final AccessPath.AccessPathContext apContext;
+
   private final AccessPathNullnessPropagation nullnessPropagation;
 
   private final DataFlow dataFlow;
@@ -63,11 +65,16 @@ public final class AccessPathNullnessAnalysis {
       Context context,
       Config config,
       Handler handler) {
+    apContext =
+        AccessPath.AccessPathContext.builder()
+            .setImmutableTypes(handler.onRegisterImmutableTypes())
+            .build();
     this.nullnessPropagation =
         new AccessPathNullnessPropagation(
             Nullness.NONNULL,
             methodReturnsNonNull,
             context,
+            apContext,
             config,
             handler,
             new CoreNullnessStoreInitializer());
@@ -79,6 +86,7 @@ public final class AccessPathNullnessAnalysis {
               Nullness.NONNULL,
               methodReturnsNonNull,
               context,
+              apContext,
               config,
               handler,
               new ContractNullnessStoreInitializer());
@@ -259,7 +267,7 @@ public final class AccessPathNullnessAnalysis {
       if (trimReceiver && baseNode instanceof MethodAccessNode) {
         baseNode = ((MethodAccessNode) baseNode).getReceiver();
       }
-      AccessPath accessPath = AccessPath.fromBaseAndElement(baseNode, field);
+      AccessPath accessPath = AccessPath.fromBaseAndElement(baseNode, field, apContext);
       if (accessPath == null) {
         continue;
       }
@@ -344,7 +352,8 @@ public final class AccessPathNullnessAnalysis {
       return Nullness.NULLABLE;
     }
 
-    AccessPath ap = AccessPath.fromBaseAndElement(exprNodes.iterator().next(), variableElement);
+    AccessPath ap =
+        AccessPath.fromBaseAndElement(exprNodes.iterator().next(), variableElement, apContext);
 
     if (store != null && ap != null) {
       if (store
