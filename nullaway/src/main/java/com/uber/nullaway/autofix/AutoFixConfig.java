@@ -36,7 +36,6 @@ public class AutoFixConfig {
   public final Set<String> WORK_LIST;
   public final boolean VIRTUAL_ANNOT_ENABLED;
   public final String VIRTUAL_ANNOT_PATH;
-  public final Set<VirtualAnnotation> VIRTUAL_ANNOTS = new HashSet<>();
 
   static class VirtualAnnotation {
     final String location;

@@ -48,8 +48,7 @@ public class ErrorInfo implements SeperatedValueDisplay {
         + (enclosingMethod != null ? ASTHelpers.getSymbol(enclosingMethod) : "null");
   }
 
-  @Override
-  public String header(String delimiter) {
+  public static String header(String delimiter) {
     return "MESSAGE_TYPE" + delimiter + "MESSAGE" + delimiter + "CLASS" + delimiter + "METHOD";
   }
 }

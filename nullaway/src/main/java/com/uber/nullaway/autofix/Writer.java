@@ -33,20 +33,6 @@ public class Writer {
   public static final String FIELD_GRAPH = "/tmp/NullAwayFix/field_graph.csv";
   public static final String DELIMITER = "$*$";
 
-  private static boolean firstFix;
-  private static boolean firstErrorNode;
-  private static boolean firstMethodInfo;
-  private static boolean firstCallGraphNode;
-  private static boolean firstFieldGraph;
-
-  static {
-    firstFix = true;
-    firstErrorNode = true;
-    firstMethodInfo = true;
-    firstCallGraphNode = true;
-    firstFieldGraph = true;
-  }
-
   public static String getDelimiterRegex() {
     StringBuilder ans = new StringBuilder("(");
     for (int i = 0; i < DELIMITER.length(); i++) {
@@ -57,14 +43,12 @@ public class Writer {
   }
 
   public static void saveFix(Fix fix) {
-    appendToFile(fix, SUGGEST_FIX, firstFix);
-    firstFix = false;
+    appendToFile(fix, SUGGEST_FIX);
   }
 
   public static void saveFieldGraphNode(ExpressionTree tree, VisitorState state) {
     FieldGraphInfo node = new FieldGraphInfo(tree, state.getPath());
-    appendToFile(node, FIELD_GRAPH, firstFieldGraph);
-    firstFieldGraph = false;
+    appendToFile(node, FIELD_GRAPH);
   }
 
   public static void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
@@ -72,8 +56,7 @@ public class Writer {
     if (deep) {
       error.findEnclosing(state);
     }
-    appendToFile(error, ERROR, firstErrorNode);
-    firstErrorNode = false;
+    appendToFile(error, ERROR);
   }
 
   public static void saveMethodInfo(
@@ -94,62 +77,60 @@ public class Writer {
       paramAnnotations.add(Nullness.hasNullableAnnotation(var, config));
     }
     methodInfo.setParamAnnotations(paramAnnotations);
-    appendToFile(methodInfo, METHOD_INFO, firstMethodInfo);
-    firstMethodInfo = false;
+    appendToFile(methodInfo, METHOD_INFO);
   }
 
   public static void saveCallGraphNode(CallGraphInfo node) {
-    appendToFile(node, CALL_GRAPH, firstCallGraphNode);
-    firstCallGraphNode = false;
+    appendToFile(node, CALL_GRAPH);
+  }
+
+  private static void resetFile(String path, String header) {
+    try {
+      Files.deleteIfExists(Paths.get(path));
+      OutputStream os = new FileOutputStream(path);
+      header += "\n";
+      os.write(header.getBytes(Charset.defaultCharset()), 0, header.length());
+      os.flush();
+      os.close();
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Could not finish resetting File at Path: " + path + ", Exception: " + e);
+    }
   }
 
   public static void reset(AutoFixConfig config) {
     try {
       Files.createDirectories(Paths.get("/tmp/NullAwayFix/"));
       if (config.SUGGEST_ENABLED) {
-        Files.deleteIfExists(Paths.get(SUGGEST_FIX));
+        resetFile(SUGGEST_FIX, Fix.header(DELIMITER));
       }
       if (config.LOG_ERROR_ENABLED) {
-        Files.deleteIfExists(Paths.get(ERROR));
+        resetFile(ERROR, ErrorInfo.header(DELIMITER));
       }
       if (config.MAKE_METHOD_TREE_INHERITANCE_ENABLED) {
-        Files.deleteIfExists(Paths.get(METHOD_INFO));
+        resetFile(METHOD_INFO, MethodInfo.header(DELIMITER));
       }
       if (config.MAKE_CALL_GRAPH_ENABLED) {
-        Files.deleteIfExists(Paths.get(CALL_GRAPH));
+        resetFile(CALL_GRAPH, CallGraphInfo.header(DELIMITER));
       }
       if (config.MAKE_FIELD_GRAPH_ENABLED) {
-        Files.deleteIfExists(Paths.get(FIELD_GRAPH));
+        resetFile(FIELD_GRAPH, FieldGraphInfo.header(DELIMITER));
       }
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting writer: " + e);
     }
-    firstFix = true;
-    firstErrorNode = true;
-    firstMethodInfo = true;
-    firstCallGraphNode = true;
-    firstFieldGraph = true;
   }
 
-  private static void appendToFile(
-      SeperatedValueDisplay value, String filePath, boolean withHeader) {
+  private static void appendToFile(SeperatedValueDisplay value, String filePath) {
     OutputStream os;
-    String toWrite = "";
-    if (withHeader) {
-      toWrite = value.header(DELIMITER) + "\n";
-    }
     String display = value.display(DELIMITER);
-    if (display != null) {
-      display = display.replaceAll("\\R+", " ");
-      display = display.replaceAll("\t", "");
-      toWrite += display + "\n";
-    }
-    if ((display == null || display.equals("")) && !withHeader) {
+    if (display == null || display.equals("")) {
       return;
     }
+    display = display.replaceAll("\\R+", " ").replaceAll("\t", "") + "\n";
     try {
       os = new FileOutputStream(filePath, true);
-      os.write(toWrite.getBytes(Charset.defaultCharset()), 0, toWrite.length());
+      os.write(display.getBytes(Charset.defaultCharset()), 0, display.length());
       os.flush();
       os.close();
     } catch (Exception e) {

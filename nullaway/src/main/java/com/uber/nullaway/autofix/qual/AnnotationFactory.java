@@ -22,7 +22,6 @@ public class AnnotationFactory {
       return fullName;
     }
 
-    @Override
     public String header(String delimiter) {
       return "FULL_NAME";
     }

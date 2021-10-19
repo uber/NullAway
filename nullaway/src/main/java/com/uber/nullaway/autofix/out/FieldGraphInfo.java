@@ -32,8 +32,7 @@ public class FieldGraphInfo implements SeperatedValueDisplay {
         + ASTHelpers.enclosingClass(member);
   }
 
-  @Override
-  public String header(String delimiter) {
+  public static String header(String delimiter) {
     return "CALLER_CLASS"
         + delimiter
         + "CALLER_METHOD"

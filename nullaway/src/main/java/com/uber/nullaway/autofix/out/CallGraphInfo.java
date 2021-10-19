@@ -34,8 +34,7 @@ public class CallGraphInfo implements SeperatedValueDisplay {
         + ASTHelpers.enclosingClass(calleeMethod);
   }
 
-  @Override
-  public String header(String delimiter) {
+  public static String header(String delimiter) {
     return "CALLER_CLASS"
         + delimiter
         + "CALLER_METHOD"

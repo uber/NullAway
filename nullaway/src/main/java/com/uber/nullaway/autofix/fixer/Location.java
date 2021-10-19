@@ -162,8 +162,7 @@ public class Location implements SeperatedValueDisplay {
             : "null");
   }
 
-  @Override
-  public String header(String delimiter) {
+  public static String header(String delimiter) {
     return "location"
         + delimiter
         + "pkg"

@@ -69,9 +69,8 @@ public class Fix implements SeperatedValueDisplay {
         + (enclosingMethod == null ? "null" : ASTHelpers.getSymbol(enclosingMethod));
   }
 
-  @Override
-  public String header(String delimiter) {
-    return location.header(delimiter)
+  public static String header(String delimiter) {
+    return Location.header(delimiter)
         + delimiter
         + "reason"
         + delimiter

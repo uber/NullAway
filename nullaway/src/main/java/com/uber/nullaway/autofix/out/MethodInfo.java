@@ -130,8 +130,7 @@ public class MethodInfo implements SeperatedValueDisplay {
         + Arrays.toString(annotFlags);
   }
 
-  @Override
-  public String header(String delimiter) {
+  public static String header(String delimiter) {
     return "id" + delimiter + "class" + delimiter + "method" + delimiter + "parent" + delimiter
         + "fields" + delimiter + "uri" + delimiter + "size" + delimiter + "flags";
   }
