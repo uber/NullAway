@@ -61,7 +61,7 @@ public class Fixer {
         return null;
     }
     if (fix != null) {
-      fix.reason = errorMessage.getMessageType().toString();
+      fix.errorMessage = errorMessage;
     }
     return fix;
   }

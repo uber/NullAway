@@ -1,23 +1,15 @@
 package com.uber.nullaway.autofix.out;
 
-import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
-import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.autofix.fixer.Location;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import java.util.Objects;
 
-public class Fix implements SeperatedValueDisplay {
+public class Fix extends EnclosingNode implements SeperatedValueDisplay {
   public Location location;
   public AnnotationFactory.Annotation annotation;
-  public String reason;
   public boolean inject;
   public boolean compulsory;
-  private MethodTree enclosingMethod;
-  private ClassTree enclosingClass;
 
   @Override
   public boolean equals(Object o) {
@@ -28,12 +20,14 @@ public class Fix implements SeperatedValueDisplay {
         && compulsory == fix.compulsory
         && Objects.equals(location, fix.location)
         && Objects.equals(annotation, fix.annotation)
-        && Objects.equals(reason, fix.reason);
+        && Objects.equals(
+            errorMessage.getMessageType().toString(), fix.errorMessage.getMessageType().toString());
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(location, annotation, reason, inject, compulsory);
+    return Objects.hash(
+        location, annotation, errorMessage.getMessageType().toString(), inject, compulsory);
   }
 
   @Override
@@ -43,11 +37,9 @@ public class Fix implements SeperatedValueDisplay {
         + location
         + ", annotation="
         + annotation
-        + ", inject="
-        + reason
         + ", reason="
-        + compulsory
-        + ", compulsory="
+        + errorMessage.getMessageType().toString()
+        + ", inject="
         + inject
         + '}';
   }
@@ -56,7 +48,7 @@ public class Fix implements SeperatedValueDisplay {
   public String display(String delimiter) {
     return location.display(delimiter)
         + delimiter
-        + (reason == null ? "Undefined" : reason)
+        + (errorMessage == null ? "Undefined" : errorMessage.getMessageType().toString())
         + delimiter
         + annotation.display(delimiter)
         + delimiter
@@ -83,25 +75,5 @@ public class Fix implements SeperatedValueDisplay {
         + "rootClass"
         + delimiter
         + "rootMethod";
-  }
-
-  public void findEnclosing(VisitorState state, ErrorMessage errorMessage) {
-    enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
-    enclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
-    if (enclosingClass == null && state.getPath().getLeaf() instanceof ClassTree) {
-      ErrorMessage.MessageTypes messageTypes = errorMessage.getMessageType();
-      if (messageTypes.equals(ErrorMessage.MessageTypes.ASSIGN_FIELD_NULLABLE)
-          || messageTypes.equals(ErrorMessage.MessageTypes.FIELD_NO_INIT)
-          || messageTypes.equals(ErrorMessage.MessageTypes.METHOD_NO_INIT)) {
-        enclosingClass = (ClassTree) state.getPath().getLeaf();
-      }
-    }
-    if (enclosingMethod == null
-        && errorMessage.getMessageType().equals(ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN)) {
-      Tree methodTree = state.getPath().getLeaf();
-      if (methodTree instanceof MethodTree) {
-        enclosingMethod = (MethodTree) methodTree;
-      }
-    }
   }
 }
