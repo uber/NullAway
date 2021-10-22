@@ -77,8 +77,6 @@ public class ErrorBuilder {
 
   private final Fixer fixer;
 
-  static final String fixMessageSignature = "(Covered) ";
-
   ErrorBuilder(Config config, String suppressionName, Set<String> allNames, Fixer fixer) {
     this.config = config;
     this.suppressionName = suppressionName;
@@ -339,7 +337,10 @@ public class ErrorBuilder {
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
     state.reportMatch(
         createErrorDescription(
-            new ErrorMessage(METHOD_NO_INIT, message), methodTree, descriptionBuilder, state));
+            new ErrorMessage(METHOD_NO_INIT, message, true),
+            methodTree,
+            descriptionBuilder,
+            state));
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
@@ -390,8 +391,7 @@ public class ErrorBuilder {
    * @return the error message for uninitialized fields with line numbers.
    */
   static String errMsgForInitializer(Set<Element> uninitFields, VisitorState state) {
-    StringBuilder message =
-        new StringBuilder(fixMessageSignature + "initializer method does not guarantee @NonNull ");
+    StringBuilder message = new StringBuilder("initializer method does not guarantee @NonNull ");
     Element uninitField;
     if (uninitFields.size() == 1) {
       uninitField = uninitFields.iterator().next();
@@ -405,8 +405,11 @@ public class ErrorBuilder {
       Iterator<Element> it = uninitFields.iterator();
       while (it.hasNext()) {
         uninitField = it.next();
-        message.append(
-            uninitField.toString() + " (line " + getLineNumForElement(uninitField, state) + ")");
+        message
+            .append(uninitField.toString())
+            .append(" (line ")
+            .append(getLineNumForElement(uninitField, state))
+            .append(")");
         if (it.hasNext()) {
           message.append(", ");
         } else {
@@ -455,8 +458,7 @@ public class ErrorBuilder {
       state.reportMatch(
           createErrorDescription(
               new ErrorMessage(
-                  FIELD_NO_INIT,
-                  fixMessageSignature + "@NonNull static field " + fieldName + " not initialized"),
+                  FIELD_NO_INIT, "@NonNull static field " + fieldName + " not initialized", true),
               tree,
               builder,
               state));
@@ -464,8 +466,7 @@ public class ErrorBuilder {
       state.reportMatch(
           createErrorDescription(
               new ErrorMessage(
-                  FIELD_NO_INIT,
-                  fixMessageSignature + "@NonNull field " + fieldName + " not initialized"),
+                  FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized", true),
               tree,
               builder,
               state));

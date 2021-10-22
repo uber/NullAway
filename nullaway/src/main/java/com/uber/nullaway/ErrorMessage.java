@@ -24,12 +24,21 @@ package com.uber.nullaway;
 
 /** Contains error message string to be displayed and the message type from {@link MessageTypes}. */
 public class ErrorMessage {
+
+  static final String COVERED = "(Covered) ";
+
   MessageTypes messageType;
   String message;
+  public final boolean covered;
+
+  public ErrorMessage(MessageTypes messageType, String message, boolean covered) {
+    this.messageType = messageType;
+    this.covered = covered;
+    this.message = this.covered ? COVERED + message : message;
+  }
 
   public ErrorMessage(MessageTypes messageType, String message) {
-    this.messageType = messageType;
-    this.message = message;
+    this(messageType, message, false);
   }
 
   public enum MessageTypes {

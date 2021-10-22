@@ -18,11 +18,21 @@ public class ErrorInfo extends EnclosingNode implements SeperatedValueDisplay {
         + delimiter
         + (enclosingClass != null ? ASTHelpers.getSymbol(enclosingClass) : "null")
         + delimiter
-        + (enclosingMethod != null ? ASTHelpers.getSymbol(enclosingMethod) : "null");
+        + (enclosingMethod != null ? ASTHelpers.getSymbol(enclosingMethod) : "null")
+        + delimiter
+        + errorMessage.covered;
   }
 
   public static String header(String delimiter) {
-    return "MESSAGE_TYPE" + delimiter + "MESSAGE" + delimiter + "CLASS" + delimiter + "METHOD";
+    return "MESSAGE_TYPE"
+        + delimiter
+        + "MESSAGE"
+        + delimiter
+        + "CLASS"
+        + delimiter
+        + "METHOD"
+        + delimiter
+        + "COVERED";
   }
 
   public void findEnclosing(VisitorState state) {

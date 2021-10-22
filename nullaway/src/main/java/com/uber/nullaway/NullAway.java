@@ -234,7 +234,6 @@ public class NullAway extends BugChecker
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
   private final Fixer fixer;
-  private final String fixMessageSignature = "(Covered) ";
 
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
@@ -421,7 +420,7 @@ public class NullAway extends BugChecker
     if (mayBeNullExpr(state, expression)) {
       String message = "assigning @Nullable expression to @NonNull field";
       ErrorMessage errorMessage =
-          new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, fixMessageSignature + message);
+          new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message, true);
       if (config
           .getAutoFixConfig()
           .canFixElement(getTreesInstance(state), ASTHelpers.getSymbol(tree.getVariable()))) {
@@ -674,7 +673,7 @@ public class NullAway extends BugChecker
         }
 
         ErrorMessage errorMessage =
-            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, fixMessageSignature + message);
+            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message, true);
         if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), overridingnMethod)) {
           CompilationUnitTree c =
               getTreesInstance(state).getPath(overridingnMethod).getCompilationUnit();
@@ -717,8 +716,8 @@ public class NullAway extends BugChecker
       final ErrorMessage errorMessage =
           new ErrorMessage(
               MessageTypes.RETURN_NULLABLE,
-              fixMessageSignature
-                  + "returning @Nullable expression from method with @NonNull return type");
+              "returning @Nullable expression from method with @NonNull return type",
+              true);
       if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), methodSymbol)) {
         MethodTree methodTree = ASTHelpers.findMethod(methodSymbol, state);
         if (methodTree == null)
@@ -847,7 +846,7 @@ public class NullAway extends BugChecker
               ? memberReferenceTree
               : getTreesInstance(state).getTree(overridingMethod);
       ErrorMessage errorMessage =
-          new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, fixMessageSignature + message);
+          new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message, true);
       if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), overriddenMethod)
           && superTree instanceof MethodTree) {
         CompilationUnitTree c =
@@ -1230,7 +1229,8 @@ public class NullAway extends BugChecker
           final ErrorMessage errorMessage =
               new ErrorMessage(
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
-                  fixMessageSignature + "assigning @Nullable expression to @NonNull field");
+                  "assigning @Nullable expression to @NonNull field",
+                  true);
           if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), symbol)) {
             CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
             Location location =
@@ -1483,8 +1483,7 @@ public class NullAway extends BugChecker
             "passing @Nullable parameter '"
                 + state.getSourceForNode(actual)
                 + "' where @NonNull is required";
-        ErrorMessage errorMessage =
-            new ErrorMessage(MessageTypes.PASS_NULLABLE, fixMessageSignature + message);
+        ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message, true);
         if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), methodSymbol)) {
           CompilationUnitTree c =
               getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
@@ -1652,7 +1651,8 @@ public class NullAway extends BugChecker
           ErrorMessage errorMessage =
               new ErrorMessage(
                   MessageTypes.FIELD_NO_INIT,
-                  fixMessageSignature + "initializer method does not guarantee @NonNull fields");
+                  "initializer method does not guarantee @NonNull fields",
+                  true);
           fixer.fix(errorMessage, location, state);
         }
       }
