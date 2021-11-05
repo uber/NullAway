@@ -24,6 +24,8 @@ package com.uber.nullaway.handlers;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodInvocationTree;
@@ -51,6 +53,12 @@ public class GrpcHandler extends BaseNoOpHandler {
   private static final String GRPC_CONTAINSKEY_MNAME = "containsKey";
   private static final String GRPC_GETTER_MNAME = "get";
 
+  private static final Supplier<Type> GRPC_METADATA_TYPE_SUPPLIER =
+      Suppliers.typeFromString(GRPC_METADATA_TNAME);
+
+  private static final Supplier<Type> GRPC_METADATA_KEY_TYPE_SUPPLIER =
+      Suppliers.typeFromString(GRPC_METADATA_KEY_TNAME);
+
   @Nullable private Optional<Type> grpcMetadataType;
   @Nullable private Optional<Type> grpcKeyType;
 
@@ -59,10 +67,10 @@ public class GrpcHandler extends BaseNoOpHandler {
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     if (grpcMetadataType == null || grpcKeyType == null) {
       grpcMetadataType =
-          Optional.ofNullable(state.getTypeFromString(GRPC_METADATA_TNAME))
+          Optional.ofNullable(GRPC_METADATA_TYPE_SUPPLIER.get(state))
               .map(state.getTypes()::erasure);
       grpcKeyType =
-          Optional.ofNullable(state.getTypeFromString(GRPC_METADATA_KEY_TNAME))
+          Optional.ofNullable(GRPC_METADATA_KEY_TYPE_SUPPLIER.get(state))
               .map(state.getTypes()::erasure);
     }
   }
