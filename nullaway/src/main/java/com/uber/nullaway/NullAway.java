@@ -48,7 +48,6 @@ import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.matchers.Matcher;
 import com.google.errorprone.matchers.Matchers;
-import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
@@ -171,9 +170,6 @@ public class NullAway extends BugChecker
         BugChecker.MemberReferenceTreeMatcher,
         BugChecker.CompoundAssignmentTreeMatcher,
         BugChecker.SwitchTreeMatcher {
-
-  private static final Supplier<Type> JAVA_LANG_STRING_TYPE =
-      Suppliers.typeFromString("java.lang.String");
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
   static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
@@ -407,7 +403,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Type lhsType = ASTHelpers.getType(tree.getVariable());
-    Type stringType = JAVA_LANG_STRING_TYPE.get(state);
+    Type stringType = Suppliers.STRING_TYPE.get(state);
     if (lhsType != null && !state.getTypes().isSameType(lhsType, stringType)) {
       // both LHS and RHS could get unboxed
       return doUnboxingCheck(state, tree.getVariable(), tree.getExpression());
