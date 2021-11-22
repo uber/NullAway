@@ -23,6 +23,8 @@ package com.uber.nullaway.handlers;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.tools.javac.code.Symbol;
@@ -50,6 +52,8 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
 
   private static final String TBASE_NAME = "org.apache.thrift.TBase";
 
+  private static final Supplier<Type> TBASE_TYPE_SUPPLIER = Suppliers.typeFromString(TBASE_NAME);
+
   @Nullable private Optional<Type> tbaseType;
 
   @Override
@@ -57,7 +61,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     if (tbaseType == null) {
       tbaseType =
-          Optional.ofNullable(state.getTypeFromString(TBASE_NAME)).map(state.getTypes()::erasure);
+          Optional.ofNullable(TBASE_TYPE_SUPPLIER.get(state)).map(state.getTypes()::erasure);
     }
   }
 
