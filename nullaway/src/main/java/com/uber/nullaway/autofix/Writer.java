@@ -3,17 +3,16 @@ package com.uber.nullaway.autofix;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.CompilationUnitTree;
-import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.Nullness;
-import com.uber.nullaway.autofix.out.CallGraphInfo;
 import com.uber.nullaway.autofix.out.ErrorInfo;
-import com.uber.nullaway.autofix.out.FieldGraphInfo;
 import com.uber.nullaway.autofix.out.Fix;
 import com.uber.nullaway.autofix.out.MethodInfo;
 import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
+import com.uber.nullaway.autofix.out.TrackerNode;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -46,9 +45,14 @@ public class Writer {
     appendToFile(fix, SUGGEST_FIX);
   }
 
-  public static void saveFieldGraphNode(ExpressionTree tree, VisitorState state) {
-    FieldGraphInfo node = new FieldGraphInfo(tree, state.getPath());
+  public static void saveFieldGraphNode(Tree tree, VisitorState state) {
+    TrackerNode node = new TrackerNode(ASTHelpers.getSymbol(tree), state.getPath());
     appendToFile(node, FIELD_GRAPH);
+  }
+
+  public static void saveCallGraphNode(Tree tree, VisitorState state) {
+    TrackerNode node = new TrackerNode(ASTHelpers.getSymbol(tree), state.getPath());
+    appendToFile(node, CALL_GRAPH);
   }
 
   public static void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
@@ -80,10 +84,6 @@ public class Writer {
     appendToFile(methodInfo, METHOD_INFO);
   }
 
-  public static void saveCallGraphNode(CallGraphInfo node) {
-    appendToFile(node, CALL_GRAPH);
-  }
-
   private static void resetFile(String path, String header) {
     try {
       Files.deleteIfExists(Paths.get(path));
@@ -111,10 +111,10 @@ public class Writer {
         resetFile(METHOD_INFO, MethodInfo.header(DELIMITER));
       }
       if (config.MAKE_CALL_GRAPH_ENABLED) {
-        resetFile(CALL_GRAPH, CallGraphInfo.header(DELIMITER));
+        resetFile(CALL_GRAPH, TrackerNode.header(DELIMITER));
       }
       if (config.MAKE_FIELD_GRAPH_ENABLED) {
-        resetFile(FIELD_GRAPH, FieldGraphInfo.header(DELIMITER));
+        resetFile(FIELD_GRAPH, TrackerNode.header(DELIMITER));
       }
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting writer: " + e);

@@ -92,7 +92,6 @@ import com.uber.nullaway.autofix.Writer;
 import com.uber.nullaway.autofix.fixer.Fixer;
 import com.uber.nullaway.autofix.fixer.Location;
 import com.uber.nullaway.autofix.fixer.LocationUtils;
-import com.uber.nullaway.autofix.out.CallGraphInfo;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.handlers.Handler;
@@ -320,9 +319,7 @@ public class NullAway extends BugChecker
     handler.onMatchMethodInvocation(this, tree, state, methodSymbol);
     // assuming this list does not include the receiver
     if (config.getAutoFixConfig().MAKE_CALL_GRAPH_ENABLED) {
-      Symbol calleeMethod = ASTHelpers.getSymbol(tree.getMethodSelect());
-      CallGraphInfo node = new CallGraphInfo((Symbol.MethodSymbol) calleeMethod, state.getPath());
-      Writer.saveCallGraphNode(node);
+      Writer.saveCallGraphNode(tree.getMethodSelect(), state);
     }
     List<? extends ExpressionTree> actualParams = tree.getArguments();
     return handleInvocation(tree, state, methodSymbol, actualParams);
