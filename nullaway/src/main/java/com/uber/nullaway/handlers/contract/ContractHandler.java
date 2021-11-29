@@ -96,6 +96,7 @@ public class ContractHandler extends BaseNoOpHandler {
       MethodInvocationNode node,
       Types types,
       Context context,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -186,26 +187,23 @@ public class ContractHandler extends BaseNoOpHandler {
         }
         assert argAntecedentNullness != null;
         // The nullness of one argument is all that matters for the antecedent, let's negate the
-        // consequent to
-        // fix the nullness of this argument.
-        AccessPath accessPath = AccessPath.getAccessPathForNodeNoMapGet(node.getArgument(argIdx));
+        // consequent to fix the nullness of this argument.
+        AccessPath accessPath =
+            AccessPath.getAccessPathForNodeNoMapGet(node.getArgument(argIdx), apContext);
         if (accessPath == null) {
           continue;
         }
         if (consequent.equals("false") && argAntecedentNullness.equals(Nullness.NULLABLE)) {
           // If argIdx being null implies the return of the method being false, then the return
-          // being true
-          // implies argIdx is not null and we must mark it as such in the then update.
+          // being true implies argIdx is not null and we must mark it as such in the then update.
           thenUpdates.set(accessPath, Nullness.NONNULL);
         } else if (consequent.equals("true") && argAntecedentNullness.equals(Nullness.NULLABLE)) {
           // If argIdx being null implies the return of the method being true, then the return being
-          // false
-          // implies argIdx is not null and we must mark it as such in the else update.
+          // false implies argIdx is not null and we must mark it as such in the else update.
           elseUpdates.set(accessPath, Nullness.NONNULL);
         } else if (consequent.equals("fail") && argAntecedentNullness.equals(Nullness.NULLABLE)) {
           // If argIdx being null implies the method throws an exception, then we can mark it as
-          // non-null on
-          // both non-exceptional exits from the method
+          // non-null on both non-exceptional exits from the method
           bothUpdates.set(accessPath, Nullness.NONNULL);
         }
       }

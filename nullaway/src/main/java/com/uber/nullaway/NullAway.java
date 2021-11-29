@@ -48,6 +48,7 @@ import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.matchers.Matcher;
 import com.google.errorprone.matchers.Matchers;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ArrayAccessTree;
@@ -446,7 +447,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Type lhsType = ASTHelpers.getType(tree.getVariable());
-    Type stringType = state.getTypeFromString("java.lang.String");
+    Type stringType = Suppliers.STRING_TYPE.get(state);
     if (lhsType != null && !state.getTypes().isSameType(lhsType, stringType)) {
       // both LHS and RHS could get unboxed
       return doUnboxingCheck(state, tree.getVariable(), tree.getExpression());
