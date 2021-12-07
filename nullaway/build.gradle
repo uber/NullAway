@@ -72,7 +72,7 @@ test {
 apply plugin: 'com.vanniktech.maven.publish'
 
 jacoco {
-  toolVersion = "0.8.2"
+  toolVersion = "0.8.7"
 }
 
 jacocoTestReport {
