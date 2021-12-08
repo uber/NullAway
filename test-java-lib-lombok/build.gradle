@@ -42,4 +42,8 @@ tasks.withType(JavaCompile) {
       option("NullAway:UnannotatedSubPackages", "com.uber.lib.unannotated")
     }
   }
+  if (JavaVersion.current().java9Compatible) {
+    options.fork = true
+    options.forkOptions.jvmArgs += ["--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED"]
+  }
 }
