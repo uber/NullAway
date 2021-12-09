@@ -68,7 +68,7 @@ subprojects { project ->
 
     if (JavaVersion.current().java9Compatible) {
         tasks.withType(JavaCompile) {
-            options.compilerArgs += [ "--release", "8" ]
+            options.release = 8
         }
     }
 

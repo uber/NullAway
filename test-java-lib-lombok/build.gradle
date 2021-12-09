@@ -43,6 +43,7 @@ tasks.withType(JavaCompile) {
     }
   }
   if (JavaVersion.current().java9Compatible) {
+    // We need to fork on JDK 16+ since Lombok accesses internal compiler APIs
     options.fork = true
     options.forkOptions.jvmArgs += ["--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED"]
   }
