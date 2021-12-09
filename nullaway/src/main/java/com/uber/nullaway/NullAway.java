@@ -397,7 +397,7 @@ public class NullAway extends BugChecker
     if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED) {
       Symbol expressionSym = ASTHelpers.getSymbol(tree.getExpression());
       if (expressionSym != null && expressionSym.getKind() == ElementKind.FIELD) {
-        Writer.saveFieldGraphNode(tree.getExpression(), state);
+        saveFieldGraphNode(tree.getExpression(), state);
       }
     }
 

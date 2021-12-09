@@ -34,25 +34,7 @@ public class AutoFixConfig {
   public final int PARAM_INDEX;
   public final AnnotationFactory ANNOTATION_FACTORY;
   public final Set<String> WORK_LIST;
-  public final boolean VIRTUAL_ANNOT_ENABLED;
-  public final String VIRTUAL_ANNOT_PATH;
-
-  static class VirtualAnnotation {
-    final String location;
-    final String method;
-    final String param;
-    final String index;
-    final String clazz;
-
-    public VirtualAnnotation(
-        String location, String clazz, String method, String param, String index) {
-      this.location = location;
-      this.method = method;
-      this.param = param;
-      this.index = index;
-      this.clazz = clazz;
-    }
-  }
+  public final Writer writer;
 
   public AutoFixConfig() {
     MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
@@ -67,10 +49,9 @@ public class AutoFixConfig {
     ANNOTATION_FACTORY = new AnnotationFactory();
     WORK_LIST = Collections.singleton("*");
     PARAM_INDEX = Integer.MAX_VALUE;
-    VIRTUAL_ANNOT_ENABLED = false;
-    VIRTUAL_ANNOT_PATH = "";
     INHERITANCE_CHECK_DISABLED = false;
-    Writer.reset(this);
+    writer = new Writer();
+    writer.reset(this);
   }
 
   public AutoFixConfig(boolean autofixEnabled, Path filePath) {
@@ -129,11 +110,8 @@ public class AutoFixConfig {
     } else {
       this.WORK_LIST = Collections.singleton("*");
     }
-    VIRTUAL_ANNOT_ENABLED =
-        getValueFromKey(jsonObject, "VIRTUAL:ACTIVE", Boolean.class).orElse(false)
-            && autofixEnabled;
-    VIRTUAL_ANNOT_PATH = getValueFromKey(jsonObject, "VIRTUAL:PATH", String.class).orElse("");
-    Writer.reset(this);
+    writer = new Writer();
+    writer.reset(this);
   }
 
   public boolean hasNullableAnnotation(Symbol symbol) {
@@ -188,6 +166,10 @@ public class AutoFixConfig {
       return false;
     }
     return !WORK_LIST.contains(clazz);
+  }
+
+  public Writer getWriter() {
+    return writer;
   }
 
   public static class AutoFixConfigWriter {

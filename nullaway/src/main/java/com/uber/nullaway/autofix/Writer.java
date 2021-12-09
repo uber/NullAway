@@ -25,14 +25,14 @@ import java.util.Set;
 import javax.lang.model.element.Element;
 
 public class Writer {
-  public static final String ERROR = "/tmp/NullAwayFix/errors.csv";
-  public static final String METHOD_INFO = "/tmp/NullAwayFix/method_info.csv";
-  public static final String CALL_GRAPH = "/tmp/NullAwayFix/call_graph.csv";
-  public static final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.csv";
-  public static final String FIELD_GRAPH = "/tmp/NullAwayFix/field_graph.csv";
-  public static final String DELIMITER = "$*$";
+  public final String ERROR = "/tmp/NullAwayFix/errors.csv";
+  public final String METHOD_INFO = "/tmp/NullAwayFix/method_info.csv";
+  public final String CALL_GRAPH = "/tmp/NullAwayFix/call_graph.csv";
+  public final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.csv";
+  public final String FIELD_GRAPH = "/tmp/NullAwayFix/field_graph.csv";
+  public final String DELIMITER = "$*$";
 
-  public static String getDelimiterRegex() {
+  public String getDelimiterRegex() {
     StringBuilder ans = new StringBuilder("(");
     for (int i = 0; i < DELIMITER.length(); i++) {
       ans.append("\\").append(DELIMITER.charAt(i));
@@ -41,21 +41,21 @@ public class Writer {
     return ans.toString();
   }
 
-  public static void saveFix(Fix fix) {
+  public void saveFix(Fix fix) {
     appendToFile(fix, SUGGEST_FIX);
   }
 
-  public static void saveFieldGraphNode(Tree tree, VisitorState state) {
+  public void saveFieldGraphNode(Tree tree, VisitorState state) {
     TrackerNode node = new TrackerNode(ASTHelpers.getSymbol(tree), state.getPath());
     appendToFile(node, FIELD_GRAPH);
   }
 
-  public static void saveCallGraphNode(Tree tree, VisitorState state) {
+  public void saveCallGraphNode(Tree tree, VisitorState state) {
     TrackerNode node = new TrackerNode(ASTHelpers.getSymbol(tree), state.getPath());
     appendToFile(node, CALL_GRAPH);
   }
 
-  public static void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
+  public void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
     ErrorInfo error = new ErrorInfo(errorMessage);
     if (deep) {
       error.findEnclosing(state);
@@ -63,7 +63,7 @@ public class Writer {
     appendToFile(error, ERROR);
   }
 
-  public static void saveMethodInfo(
+  public void saveMethodInfo(
       Symbol.MethodSymbol methodSymbol,
       Set<Element> nonnullFieldsAtExit,
       CompilationUnitTree c,
@@ -84,7 +84,7 @@ public class Writer {
     appendToFile(methodInfo, METHOD_INFO);
   }
 
-  private static void resetFile(String path, String header) {
+  private void resetFile(String path, String header) {
     try {
       Files.deleteIfExists(Paths.get(path));
       OutputStream os = new FileOutputStream(path);
@@ -98,7 +98,7 @@ public class Writer {
     }
   }
 
-  public static void reset(AutoFixConfig config) {
+  public void reset(AutoFixConfig config) {
     try {
       Files.createDirectories(Paths.get("/tmp/NullAwayFix/"));
       if (config.SUGGEST_ENABLED) {
@@ -121,7 +121,7 @@ public class Writer {
     }
   }
 
-  private static void appendToFile(SeperatedValueDisplay value, String filePath) {
+  private void appendToFile(SeperatedValueDisplay value, String filePath) {
     OutputStream os;
     String display = value.display(DELIMITER);
     if (display == null || display.equals("")) {

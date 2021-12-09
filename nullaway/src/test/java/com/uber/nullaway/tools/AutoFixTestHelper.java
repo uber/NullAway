@@ -38,11 +38,6 @@ import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardLocation;
 
-@SuppressWarnings({
-  "UnusedVariable",
-  "UnusedMethod"
-}) // TODO: remove this later, this class is still under construction on
-// 'AutoFix' branch
 public class AutoFixTestHelper {
 
   private static final ImmutableList<String> DEFAULT_ARGS =

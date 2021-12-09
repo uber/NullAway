@@ -9,14 +9,14 @@ import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 import java.util.List;
 
-public class LocationUtils extends ASTHelpers {
+public class LocationUtils {
 
   public static ClassTree getClassTree(Symbol symbol, VisitorState state) {
-    return findClass(enclosingClass(symbol), state);
+    return ASTHelpers.findClass(ASTHelpers.enclosingClass(symbol), state);
   }
 
   public static ClassTree getClassTree(Tree tree, VisitorState state) {
-    return getClassTree(getSymbol(tree), state);
+    return getClassTree(ASTHelpers.getSymbol(tree), state);
   }
 
   public static VariableTree getVariableTree(MethodTree methodTree, Symbol.VarSymbol varSymbol) {

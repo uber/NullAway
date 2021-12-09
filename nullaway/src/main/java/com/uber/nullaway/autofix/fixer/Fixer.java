@@ -11,7 +11,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.autofix.AutoFixConfig;
-import com.uber.nullaway.autofix.Writer;
 import com.uber.nullaway.autofix.out.Fix;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import java.util.List;
@@ -35,7 +34,7 @@ public class Fixer {
       if (config.SUGGEST_DEEP) {
         fix.findEnclosing(state, errorMessage);
       }
-      Writer.saveFix(fix);
+      saveFix(fix);
     }
   }
 
