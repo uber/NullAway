@@ -51,11 +51,16 @@ jobs:
         with:
           arguments: verGJF build
         if: matrix.java == '8'
-      - name: Build and test using Gradle and Java ${{ matrix.java }}
+      - name: Build and test using Gradle and Java 11
         uses: eskatos/gradle-command-action@v1
         with:
           arguments: build -x :sample-app:build -x :jar-infer:jar-infer-lib:build -x :jar-infer:nullaway-integration-test:build
-        if: matrix.java == '11' || matrix.java == '17'
+        if: matrix.java == '11'
+      - name: Build and test using Gradle and Java 17
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: build -x :sample-app:build -x :jar-infer:jar-infer-lib:build -x :jar-infer:nullaway-integration-test:build -x :jar-infer:test-java-lib-jarinfer:build
+        if: matrix.java == '17'
       - name: Report jacoco coverage
         uses: eskatos/gradle-command-action@v1
         env:
