@@ -32,15 +32,6 @@ public class Writer {
   public final String FIELD_GRAPH = "/tmp/NullAwayFix/field_graph.csv";
   public final String DELIMITER = "$*$";
 
-  public String getDelimiterRegex() {
-    StringBuilder ans = new StringBuilder("(");
-    for (int i = 0; i < DELIMITER.length(); i++) {
-      ans.append("\\").append(DELIMITER.charAt(i));
-    }
-    ans.append(")");
-    return ans.toString();
-  }
-
   public void saveFix(Fix fix) {
     appendToFile(fix, SUGGEST_FIX);
   }

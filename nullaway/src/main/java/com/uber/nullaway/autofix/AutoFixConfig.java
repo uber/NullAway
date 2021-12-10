@@ -2,7 +2,6 @@ package com.uber.nullaway.autofix;
 
 import com.google.common.base.Preconditions;
 import com.sun.source.util.Trees;
-import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -112,14 +111,6 @@ public class AutoFixConfig {
     }
     writer = new Writer();
     writer.reset(this);
-  }
-
-  public boolean hasNullableAnnotation(Symbol symbol) {
-    return false;
-  }
-
-  public boolean hasNullableAnnotation(Symbol.MethodSymbol symbol, int paramInd) {
-    return false;
   }
 
   static class OrElse<T> {

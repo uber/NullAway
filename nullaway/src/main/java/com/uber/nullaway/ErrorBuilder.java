@@ -52,7 +52,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
-import com.uber.nullaway.autofix.Writer;
 import com.uber.nullaway.autofix.fixer.Fixer;
 import com.uber.nullaway.autofix.fixer.Location;
 import com.uber.nullaway.autofix.fixer.LocationUtils;
@@ -134,7 +133,10 @@ public class ErrorBuilder {
     }
     // #letbuildersbuild
     if (config.getAutoFixConfig().LOG_ERROR_ENABLED) {
-      Writer.saveErrorNode(errorMessage, state, config.getAutoFixConfig().LOG_ERROR_DEEP);
+      config
+          .getAutoFixConfig()
+          .getWriter()
+          .saveErrorNode(errorMessage, state, config.getAutoFixConfig().LOG_ERROR_DEEP);
     }
     return builder.build();
   }

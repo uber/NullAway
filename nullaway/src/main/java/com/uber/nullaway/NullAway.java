@@ -89,7 +89,6 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
-import com.uber.nullaway.autofix.Writer;
 import com.uber.nullaway.autofix.fixer.Fixer;
 import com.uber.nullaway.autofix.fixer.Location;
 import com.uber.nullaway.autofix.fixer.LocationUtils;
@@ -320,7 +319,7 @@ public class NullAway extends BugChecker
     handler.onMatchMethodInvocation(this, tree, state, methodSymbol);
     // assuming this list does not include the receiver
     if (config.getAutoFixConfig().MAKE_CALL_GRAPH_ENABLED) {
-      Writer.saveCallGraphNode(tree.getMethodSelect(), state);
+      config.getAutoFixConfig().getWriter().saveCallGraphNode(tree.getMethodSelect(), state);
     }
     List<? extends ExpressionTree> actualParams = tree.getArguments();
     return handleInvocation(tree, state, methodSymbol, actualParams);
@@ -397,7 +396,7 @@ public class NullAway extends BugChecker
     if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED) {
       Symbol expressionSym = ASTHelpers.getSymbol(tree.getExpression());
       if (expressionSym != null && expressionSym.getKind() == ElementKind.FIELD) {
-        saveFieldGraphNode(tree.getExpression(), state);
+        config.getAutoFixConfig().getWriter().saveFieldGraphNode(tree.getExpression(), state);
       }
     }
 
@@ -413,7 +412,7 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expression = tree.getExpression();
     if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED) {
-      Writer.saveFieldGraphNode(tree.getVariable(), state);
+      config.getAutoFixConfig().getWriter().saveFieldGraphNode(tree.getVariable(), state);
     }
     if (mayBeNullExpr(state, expression)) {
       String message = "assigning @Nullable expression to @NonNull field";
@@ -481,7 +480,7 @@ public class NullAway extends BugChecker
     }
     if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED
         && symbol.getKind().equals(ElementKind.FIELD)) {
-      Writer.saveFieldGraphNode(tree, state);
+      config.getAutoFixConfig().getWriter().saveFieldGraphNode(tree, state);
     }
     Description badDeref = matchDereference(tree.getExpression(), tree, state);
     if (!badDeref.equals(Description.NO_MATCH)) {
@@ -513,7 +512,10 @@ public class NullAway extends BugChecker
               nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
                   getTreesInstance(state).getPath(methodSymbol), state.context);
         }
-        Writer.saveMethodInfo(methodSymbol, nonnullFieldsOfReceiverAtExit, c, state, config);
+        config
+            .getAutoFixConfig()
+            .getWriter()
+            .saveMethodInfo(methodSymbol, nonnullFieldsOfReceiverAtExit, c, state, config);
       } catch (Exception e) {
         System.err.println("Could not save method info: " + methodSymbol);
       }
@@ -2155,7 +2157,7 @@ public class NullAway extends BugChecker
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
     boolean exprMayBeNull = true;
     if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED) {
-      Writer.saveFieldGraphNode(expr, state);
+      config.getAutoFixConfig().getWriter().saveFieldGraphNode(expr, state);
     }
     if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config)) {
       exprMayBeNull = false;

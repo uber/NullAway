@@ -113,7 +113,7 @@ public class AutoFixTestHelper {
     checkState(!sources.isEmpty(), "No source files to compile");
     checkState(!run, "doTest should only be called once");
     this.run = true;
-    Main.Result result = compile();
+    compile();
     for (Diagnostic<? extends JavaFileObject> diagnostic : diagnosticHelper.getDiagnostics()) {
       if (diagnostic.getCode().contains("error.prone.crash")) {
         fail(diagnostic.getMessage(Locale.ENGLISH));
@@ -177,7 +177,7 @@ public class AutoFixTestHelper {
       String line = reader.readLine();
       if (line != null) line = reader.readLine();
       while (line != null) {
-        fixDisplays.add(FixDisplay.fromCSVLine(line));
+        fixDisplays.add(FixDisplay.fromCSVLine(line, "(\\$\\*\\$)"));
         line = reader.readLine();
       }
       reader.close();

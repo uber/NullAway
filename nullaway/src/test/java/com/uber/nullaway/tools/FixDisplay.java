@@ -1,6 +1,5 @@
 package com.uber.nullaway.tools;
 
-import com.uber.nullaway.autofix.Writer;
 import java.util.Objects;
 
 public class FixDisplay {
@@ -90,8 +89,8 @@ public class FixDisplay {
         annotation, method, param, location, className, pkg, inject, uri, compulsory);
   }
 
-  public static FixDisplay fromCSVLine(String line) {
-    String[] infos = line.split(Writer.getDelimiterRegex());
+  public static FixDisplay fromCSVLine(String line, String delimiter) {
+    String[] infos = line.split(delimiter);
     return new FixDisplay(
         infos[8], infos[3], infos[4], infos[0], infos[2], infos[1], infos[6], infos[10], infos[9]);
   }

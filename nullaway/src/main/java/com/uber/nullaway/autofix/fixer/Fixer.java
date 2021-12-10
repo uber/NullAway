@@ -34,7 +34,7 @@ public class Fixer {
       if (config.SUGGEST_DEEP) {
         fix.findEnclosing(state, errorMessage);
       }
-      saveFix(fix);
+      config.getWriter().saveFix(fix);
     }
   }
 
