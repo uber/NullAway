@@ -25,9 +25,6 @@ package com.uber.nullaway;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.ErrorProneFlags;
 import com.uber.nullaway.autofix.AutoFixConfig;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -79,7 +76,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
 
   static final String AUTO_FIX = EP_FL_NAMESPACE + ":AutoFix";
-  static final String AUTO_FIX_CONFIG_PATH = "/tmp/NullAwayFix/explorer.config";
+  static final String AUTO_FIX_OUTPUT_DIRECTORY_PATH = EP_FL_NAMESPACE + ":AutoFixOutPutDirectory";
 
   private static final String DELIMITER = ",";
 
@@ -206,12 +203,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + " is also set");
     }
     autofix = flags.getBoolean(AUTO_FIX).orElse(false);
-    Path autoFixConfigPath = Paths.get(AUTO_FIX_CONFIG_PATH);
-    if (autofix && Files.exists(autoFixConfigPath)) {
-      autoFixConfig = new AutoFixConfig(true, autoFixConfigPath);
-    } else {
-      autoFixConfig = new AutoFixConfig();
-    }
+    String autoFixOutPutDir = flags.get(AUTO_FIX_OUTPUT_DIRECTORY_PATH).orElse("/tmp/NullAwayFix");
+    autoFixConfig = new AutoFixConfig(true, autoFixOutPutDir);
     if (autofix && isSuggestSuppressions)
       throw new IllegalStateException(
           "In order to activate autoFix mode ("

@@ -63,7 +63,7 @@ public class Handlers {
     handlerListBuilder.add(new GrpcHandler());
     handlerListBuilder.add(new RequiresNonNullHandler());
     handlerListBuilder.add(new EnsuresNonNullHandler());
-    if (config.getAutoFixConfig().PARAM_TEST_ENABLED) {
+    if (config.autofixIsEnabled() && config.getAutoFixConfig().PARAM_TEST_ENABLED) {
       handlerListBuilder.add(new MethodParamTestHandler(config));
     }
     if (config.checkOptionalEmptiness()) {

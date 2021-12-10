@@ -25,12 +25,20 @@ import java.util.Set;
 import javax.lang.model.element.Element;
 
 public class Writer {
-  public final String ERROR = "/tmp/NullAwayFix/errors.csv";
-  public final String METHOD_INFO = "/tmp/NullAwayFix/method_info.csv";
-  public final String CALL_GRAPH = "/tmp/NullAwayFix/call_graph.csv";
-  public final String SUGGEST_FIX = "/tmp/NullAwayFix/fixes.csv";
-  public final String FIELD_GRAPH = "/tmp/NullAwayFix/field_graph.csv";
+  public final String ERROR;
+  public final String METHOD_INFO;
+  public final String CALL_GRAPH;
+  public final String SUGGEST_FIX;
+  public final String FIELD_GRAPH;
   public final String DELIMITER = "$*$";
+
+  public Writer(String outputDirectory) {
+    this.ERROR = Paths.get(outputDirectory, "errors.csv").toString();
+    this.METHOD_INFO = Paths.get(outputDirectory, "method_info.csv").toString();
+    this.CALL_GRAPH = Paths.get(outputDirectory, "call_graph.csv").toString();
+    this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.csv").toString();
+    this.FIELD_GRAPH = Paths.get(outputDirectory, "field_graph.csv").toString();
+  }
 
   public void saveFix(Fix fix) {
     appendToFile(fix, SUGGEST_FIX);

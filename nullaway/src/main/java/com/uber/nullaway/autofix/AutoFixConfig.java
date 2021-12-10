@@ -7,7 +7,6 @@ import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,19 +48,23 @@ public class AutoFixConfig {
     WORK_LIST = Collections.singleton("*");
     PARAM_INDEX = Integer.MAX_VALUE;
     INHERITANCE_CHECK_DISABLED = false;
-    writer = new Writer();
+    writer = new Writer("/tmp/NullAwayFix");
     writer.reset(this);
   }
 
-  public AutoFixConfig(boolean autofixEnabled, Path filePath) {
-    Preconditions.checkNotNull(filePath);
+  public AutoFixConfig(boolean autofixEnabled, String outputDirectory) {
+    Preconditions.checkNotNull(outputDirectory);
     JSONObject jsonObject;
     try {
       Object obj =
-          new JSONParser().parse(Files.newBufferedReader(filePath, Charset.defaultCharset()));
+          new JSONParser()
+              .parse(
+                  Files.newBufferedReader(
+                      Paths.get(outputDirectory.toString(), "explorer.config"),
+                      Charset.defaultCharset()));
       jsonObject = (JSONObject) obj;
     } catch (Exception e) {
-      throw new RuntimeException("Error in reading/parsing config at path: " + filePath);
+      throw new RuntimeException("Error in reading/parsing config at path: " + outputDirectory);
     }
     MAKE_METHOD_TREE_INHERITANCE_ENABLED =
         getValueFromKey(jsonObject, "MAKE_METHOD_INHERITANCE_TREE", Boolean.class).orElse(false)
@@ -109,7 +112,7 @@ public class AutoFixConfig {
     } else {
       this.WORK_LIST = Collections.singleton("*");
     }
-    writer = new Writer();
+    writer = new Writer(outputDirectory);
     writer.reset(this);
   }
 
