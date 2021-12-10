@@ -51,7 +51,7 @@ jobs:
       - name: Build and test using Gradle and Java ${{ matrix.java }}
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: compileJava :nullaway:test :jmh:test
+          arguments: compileJava :nullaway:test :jdk17-unit-tests:test :jmh:test
         if: matrix.java == '11' || matrix.java == '17'
       - name: Report jacoco coverage
         uses: eskatos/gradle-command-action@v1
