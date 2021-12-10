@@ -24,7 +24,6 @@ import static org.checkerframework.nullaway.javacutil.TreeUtils.elementFromDecla
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.code.Types;
@@ -166,24 +165,7 @@ public class AccessPathNullnessPropagation
   }
 
   private static SubNodeValues values(final TransferInput<Nullness, NullnessStore> input) {
-    return new SubNodeValues() {
-      @Override
-      public Nullness valueOfSubNode(Node node) {
-        Nullness result = input.getValueOfSubNode(node);
-        // temporary special-casing for switch expressions until they are fully handled by Checker
-        // dataflow;
-        // see https://github.com/typetools/checker-framework/issues/4979
-        if (result == null) {
-          if (node instanceof MarkerNode) {
-            Tree tree = node.getTree();
-            if (tree != null && tree.getKind().name().equals("SWITCH_EXPRESSION")) {
-              return NULLABLE;
-            }
-          }
-        }
-        return result;
-      }
-    };
+    return input::getValueOfSubNode;
   }
 
   /**

@@ -1944,12 +1944,8 @@ public class NullAway extends BugChecker
         exprMayBeNull = nullnessFromDataflow(state, expr);
         break;
       default:
-        if (expr.getKind().name().equals("SWITCH_EXPRESSION")) {
-          exprMayBeNull = nullnessFromDataflow(state, expr);
-        } else {
-          throw new RuntimeException(
-              "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
-        }
+        throw new RuntimeException(
+            "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);
     return exprMayBeNull;
