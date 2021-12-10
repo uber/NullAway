@@ -46,8 +46,6 @@ test {
             "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
             "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
             "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-            // Accessed by Lombok tests
-            "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
     ]
 }
 
