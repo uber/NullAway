@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   build:
     name: "JDK ${{ matrix.java }} on ${{ matrix.os }} with Error Prone ${{ matrix.epVersion }}"
@@ -51,7 +54,7 @@ jobs:
       - name: Build and test using Gradle and Java ${{ matrix.java }}
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: compileJava :nullaway:test :jmh:test
+          arguments: build -x :sample-app:build -x :jar-infer:jar-infer-lib:build -x :jar-infer:nullaway-integration-test:build
         if: matrix.java == '11' || matrix.java == '17'
       - name: Report jacoco coverage
         uses: eskatos/gradle-command-action@v1
