@@ -28,8 +28,8 @@ public class NullAwayAutoFixTest {
   }
 
   private void makeDefaultConfig() {
-    AutoFixConfig.AutoFixConfigWriter writer =
-        new AutoFixConfig.AutoFixConfigWriter().setSuggest(true, false);
+    AutoFixConfig.AutoFixConfigBuilder writer =
+        new AutoFixConfig.AutoFixConfigBuilder().setSuggest(true, false);
     writer.write("/tmp/NullAwayFix/explorer.config");
   }
 
@@ -141,8 +141,8 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void make_param_nullable_test() {
-    AutoFixConfig.AutoFixConfigWriter writer =
-        new AutoFixConfig.AutoFixConfigWriter()
+    AutoFixConfig.AutoFixConfigBuilder writer =
+        new AutoFixConfig.AutoFixConfigBuilder()
             .setSuggest(true, false)
             .setMethodParamTest(true, 0L);
     writer.write("/tmp/NullAwayFix/explorer.config");

@@ -135,7 +135,7 @@ public class ErrorBuilder {
     if (config.getAutoFixConfig().LOG_ERROR_ENABLED) {
       config
           .getAutoFixConfig()
-          .getWriter()
+          .WRITER
           .saveErrorNode(errorMessage, state, config.getAutoFixConfig().LOG_ERROR_DEEP);
     }
     return builder.build();

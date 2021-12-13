@@ -32,12 +32,14 @@ public class Writer {
   public final String FIELD_GRAPH;
   public final String DELIMITER = "$*$";
 
-  public Writer(String outputDirectory) {
+  public Writer(AutoFixConfig config) {
+    String outputDirectory = config.OUTPUT_DIRECTORY;
     this.ERROR = Paths.get(outputDirectory, "errors.csv").toString();
     this.METHOD_INFO = Paths.get(outputDirectory, "method_info.csv").toString();
     this.CALL_GRAPH = Paths.get(outputDirectory, "call_graph.csv").toString();
     this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.csv").toString();
     this.FIELD_GRAPH = Paths.get(outputDirectory, "field_graph.csv").toString();
+    reset(config);
   }
 
   public void saveFix(Fix fix) {
@@ -97,9 +99,9 @@ public class Writer {
     }
   }
 
-  public void reset(AutoFixConfig config) {
+  private void reset(AutoFixConfig config) {
     try {
-      Files.createDirectories(Paths.get("/tmp/NullAwayFix/"));
+      Files.createDirectories(Paths.get(config.OUTPUT_DIRECTORY));
       if (config.SUGGEST_ENABLED) {
         resetFile(SUGGEST_FIX, Fix.header(DELIMITER));
       }

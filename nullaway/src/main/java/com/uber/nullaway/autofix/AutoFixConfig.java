@@ -29,10 +29,11 @@ public class AutoFixConfig {
   public final boolean LOG_ERROR_DEEP;
   public final boolean OPTIMIZED;
   public final boolean INHERITANCE_CHECK_DISABLED;
+  public final String OUTPUT_DIRECTORY;
   public final int PARAM_INDEX;
   public final AnnotationFactory ANNOTATION_FACTORY;
   public final Set<String> WORK_LIST;
-  public final Writer writer;
+  public final Writer WRITER;
 
   public AutoFixConfig() {
     MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
@@ -48,8 +49,8 @@ public class AutoFixConfig {
     WORK_LIST = Collections.singleton("*");
     PARAM_INDEX = Integer.MAX_VALUE;
     INHERITANCE_CHECK_DISABLED = false;
-    writer = new Writer("/tmp/NullAwayFix");
-    writer.reset(this);
+    OUTPUT_DIRECTORY = "/tmp/NullAwayFix";
+    WRITER = new Writer(this);
   }
 
   public AutoFixConfig(boolean autofixEnabled, String outputDirectory) {
@@ -112,8 +113,8 @@ public class AutoFixConfig {
     } else {
       this.WORK_LIST = Collections.singleton("*");
     }
-    writer = new Writer(outputDirectory);
-    writer.reset(this);
+    this.OUTPUT_DIRECTORY = outputDirectory;
+    WRITER = new Writer(this);
   }
 
   static class OrElse<T> {
@@ -162,11 +163,7 @@ public class AutoFixConfig {
     return !WORK_LIST.contains(clazz);
   }
 
-  public Writer getWriter() {
-    return writer;
-  }
-
-  public static class AutoFixConfigWriter {
+  public static class AutoFixConfigBuilder {
 
     private boolean MAKE_METHOD_TREE_INHERITANCE_ENABLED;
     private boolean MAKE_CALL_GRAPH_ENABLED;
@@ -185,7 +182,7 @@ public class AutoFixConfig {
     private String NONNULL;
     private Set<String> WORK_LIST;
 
-    public AutoFixConfigWriter() {
+    public AutoFixConfigBuilder() {
       MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
       MAKE_CALL_GRAPH_ENABLED = false;
       SUGGEST_ENABLED = false;
@@ -247,7 +244,7 @@ public class AutoFixConfig {
       }
     }
 
-    public AutoFixConfigWriter setSuggest(boolean value, boolean isDeep) {
+    public AutoFixConfigBuilder setSuggest(boolean value, boolean isDeep) {
       SUGGEST_ENABLED = value;
       if (SUGGEST_ENABLED) {
         SUGGEST_DEEP = isDeep;
@@ -255,7 +252,7 @@ public class AutoFixConfig {
       return this;
     }
 
-    public AutoFixConfigWriter setSuggest(boolean suggest, String NULLABLE, String NONNULL) {
+    public AutoFixConfigBuilder setSuggest(boolean suggest, String NULLABLE, String NONNULL) {
       SUGGEST_ENABLED = suggest;
       if (!suggest) {
         throw new RuntimeException("SUGGEST must be activated");
@@ -265,7 +262,7 @@ public class AutoFixConfig {
       return this;
     }
 
-    public AutoFixConfigWriter setLogError(boolean value, boolean isDeep) {
+    public AutoFixConfigBuilder setLogError(boolean value, boolean isDeep) {
       LOG_ERROR_ENABLED = value;
       if (!value && isDeep) {
         throw new RuntimeException("Log error must be enabled to activate deep log error");
@@ -274,12 +271,12 @@ public class AutoFixConfig {
       return this;
     }
 
-    public AutoFixConfigWriter setMethodInheritanceTree(boolean value) {
+    public AutoFixConfigBuilder setMethodInheritanceTree(boolean value) {
       MAKE_METHOD_TREE_INHERITANCE_ENABLED = value;
       return this;
     }
 
-    public AutoFixConfigWriter setMethodParamTest(boolean value, Long index) {
+    public AutoFixConfigBuilder setMethodParamTest(boolean value, Long index) {
       PARAM_TEST_ENABLED = value;
       if (PARAM_TEST_ENABLED) {
         PARAM_INDEX = index;
@@ -287,27 +284,27 @@ public class AutoFixConfig {
       return this;
     }
 
-    public AutoFixConfigWriter setOptimized(boolean value) {
+    public AutoFixConfigBuilder setOptimized(boolean value) {
       OPTIMIZED = value;
       return this;
     }
 
-    public AutoFixConfigWriter setMakeCallGraph(boolean value) {
+    public AutoFixConfigBuilder setMakeCallGraph(boolean value) {
       MAKE_CALL_GRAPH_ENABLED = value;
       return this;
     }
 
-    public AutoFixConfigWriter setMakeFieldGraph(boolean value) {
+    public AutoFixConfigBuilder setMakeFieldGraph(boolean value) {
       MAKE_FIELD_GRAPH_ENABLED = value;
       return this;
     }
 
-    public AutoFixConfigWriter setWorkList(Set<String> workList) {
+    public AutoFixConfigBuilder setWorkList(Set<String> workList) {
       WORK_LIST = workList;
       return this;
     }
 
-    public AutoFixConfigWriter setVirtualization(boolean active, String path) {
+    public AutoFixConfigBuilder setVirtualization(boolean active, String path) {
       VIRTUAL_ANNOT_ENABLED = active;
       if (VIRTUAL_ANNOT_ENABLED) {
         VIRTUAL_ANNOT_PATH = path;
@@ -315,7 +312,7 @@ public class AutoFixConfig {
       return this;
     }
 
-    public AutoFixConfigWriter setInheritanceCheck(boolean active) {
+    public AutoFixConfigBuilder setInheritanceCheck(boolean active) {
       INHERITANCE_CHECK_DISABLED = active;
       return this;
     }

@@ -14,7 +14,6 @@ import com.uber.nullaway.autofix.AutoFixConfig;
 import com.uber.nullaway.autofix.out.Fix;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import java.util.List;
-import javax.lang.model.element.Modifier;
 
 @SuppressWarnings("ALL")
 public class Fixer {
@@ -34,7 +33,7 @@ public class Fixer {
       if (config.SUGGEST_DEEP) {
         fix.findEnclosing(state, errorMessage);
       }
-      config.getWriter().saveFix(fix);
+      config.WRITER.saveFix(fix);
     }
   }
 
@@ -68,9 +67,6 @@ public class Fixer {
   protected Fix addFieldNullableFix(Location location) {
     final Fix fix = new Fix();
     fix.location = location;
-    Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) location.variableSymbol;
-    // skip final properties
-    if (varSymbol.getModifiers().contains(Modifier.FINAL)) return null;
     fix.annotation = config.ANNOTATION_FACTORY.getNullable();
     fix.inject = true;
     return fix;

@@ -22,10 +22,6 @@ public class AnnotationFactory {
       return fullName;
     }
 
-    public String header(String delimiter) {
-      return "FULL_NAME";
-    }
-
     @Override
     public String toString() {
       return "Annotation{" + "name='" + name + '\'' + ", fullName='" + fullName + '\'' + '}';
