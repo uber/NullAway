@@ -61,12 +61,11 @@ public class AutoFixConfig {
           new JSONParser()
               .parse(
                   Files.newBufferedReader(
-                      Paths.get(outputDirectory.toString(), "explorer.config"),
-                      Charset.defaultCharset()));
+                      Paths.get(outputDirectory, "explorer.config"), Charset.defaultCharset()));
       jsonObject = (JSONObject) obj;
     } catch (Exception e) {
       throw new RuntimeException(
-          "Error in reading/parsing config at path: " + outputDirectory + "\n" + e.getMessage());
+          "Error in reading/parsing config at path: " + outputDirectory + "\n" + e);
     }
     MAKE_METHOD_TREE_INHERITANCE_ENABLED =
         getValueFromKey(jsonObject, "MAKE_METHOD_INHERITANCE_TREE", Boolean.class).orElse(false)
