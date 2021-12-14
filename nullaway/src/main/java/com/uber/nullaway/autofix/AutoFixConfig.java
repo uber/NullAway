@@ -55,17 +55,19 @@ public class AutoFixConfig {
 
   public AutoFixConfig(boolean autofixEnabled, String outputDirectory) {
     Preconditions.checkNotNull(outputDirectory);
-    JSONObject jsonObject;
-    try {
-      Object obj =
-          new JSONParser()
-              .parse(
-                  Files.newBufferedReader(
-                      Paths.get(outputDirectory, "explorer.config"), Charset.defaultCharset()));
-      jsonObject = (JSONObject) obj;
-    } catch (Exception e) {
-      throw new RuntimeException(
-          "Error in reading/parsing config at path: " + outputDirectory + "\n" + e);
+    JSONObject jsonObject = null;
+    if (autofixEnabled) {
+      try {
+        Object obj =
+            new JSONParser()
+                .parse(
+                    Files.newBufferedReader(
+                        Paths.get(outputDirectory, "explorer.config"), Charset.defaultCharset()));
+        jsonObject = (JSONObject) obj;
+      } catch (Exception e) {
+        throw new RuntimeException(
+            "Error in reading/parsing config at path: " + outputDirectory + "\n" + e);
+      }
     }
     MAKE_METHOD_TREE_INHERITANCE_ENABLED =
         getValueFromKey(jsonObject, "MAKE_METHOD_INHERITANCE_TREE", Boolean.class).orElse(false)
@@ -132,6 +134,9 @@ public class AutoFixConfig {
   }
 
   private <T> OrElse<T> getValueFromKey(JSONObject json, String key, Class<T> klass) {
+    if (json == null) {
+      return new OrElse<>(null, klass);
+    }
     try {
       ArrayList<String> keys = new ArrayList<>(Arrays.asList(key.split(":")));
       while (keys.size() != 1) {
