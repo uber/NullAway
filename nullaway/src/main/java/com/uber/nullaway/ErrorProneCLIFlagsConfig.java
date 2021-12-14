@@ -204,7 +204,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     }
     autofix = flags.getBoolean(AUTO_FIX).orElse(false);
     String autoFixOutPutDir = flags.get(AUTO_FIX_OUTPUT_DIRECTORY_PATH).orElse("/tmp/NullAwayFix");
-    autoFixConfig = new AutoFixConfig(true, autoFixOutPutDir);
+    autoFixConfig = new AutoFixConfig(autofix, autoFixOutPutDir);
     if (autofix && isSuggestSuppressions)
       throw new IllegalStateException(
           "In order to activate autoFix mode ("
