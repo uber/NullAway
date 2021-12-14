@@ -47,7 +47,7 @@ public class AutoFixConfig {
     MAKE_FIELD_GRAPH_ENABLED = false;
     ANNOTATION_FACTORY = new AnnotationFactory();
     WORK_LIST = Collections.singleton("*");
-    PARAM_INDEX = Integer.MAX_VALUE;
+    PARAM_INDEX = 10000;
     INHERITANCE_CHECK_DISABLED = false;
     OUTPUT_DIRECTORY = "/tmp/NullAwayFix";
     WRITER = new Writer(this);

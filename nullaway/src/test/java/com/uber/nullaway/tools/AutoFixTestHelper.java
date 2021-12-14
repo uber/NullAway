@@ -9,12 +9,12 @@ import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BaseErrorProneJavaCompiler;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.DiagnosticTestHelper;
+import com.google.errorprone.ErrorProneInMemoryFileManager;
 import com.google.errorprone.ErrorProneOptions;
 import com.google.errorprone.InvalidCommandLineOptionException;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.scanner.ScannerSupplier;
 import com.sun.tools.javac.api.JavacTool;
-import com.sun.tools.javac.main.Main;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.ByteArrayOutputStream;
@@ -46,7 +46,7 @@ public class AutoFixTestHelper {
   private final DiagnosticTestHelper diagnosticHelper;
   private final BaseErrorProneJavaCompiler compiler;
   private final ByteArrayOutputStream outputStream;
-  private final NullAwayInMemoryFileManager fileManager;
+  private final ErrorProneInMemoryFileManager fileManager;
   private final List<JavaFileObject> sources = new ArrayList<>();
   private ImmutableList<String> extraArgs = ImmutableList.of();
   private boolean run = false;
@@ -55,7 +55,7 @@ public class AutoFixTestHelper {
   private boolean haveFixes = true;
 
   private AutoFixTestHelper(ScannerSupplier scannerSupplier, String checkName, Class<?> clazz) {
-    this.fileManager = new NullAwayInMemoryFileManager(clazz);
+    this.fileManager = new ErrorProneInMemoryFileManager(clazz);
     try {
       fileManager.setLocation(StandardLocation.SOURCE_PATH, Collections.emptyList());
     } catch (IOException e) {
@@ -187,26 +187,21 @@ public class AutoFixTestHelper {
     return fixDisplays.toArray(new FixDisplay[0]);
   }
 
-  private Main.Result compile() {
+  private void compile() {
     List<String> processedArgs = buildArguments(extraArgs);
     checkWellFormed(sources, processedArgs);
-    fileManager.createAndInstallTempFolderForOutput();
-    return compiler
-            .getTask(
-                new PrintWriter(
-                    new BufferedWriter(new OutputStreamWriter(outputStream, UTF_8)), true),
-                fileManager,
-                diagnosticHelper.collector,
-                ImmutableList.copyOf(processedArgs),
-                ImmutableList.of(),
-                sources)
-            .call()
-        ? Main.Result.OK
-        : Main.Result.ERROR;
+    compiler
+        .getTask(
+            new PrintWriter(new BufferedWriter(new OutputStreamWriter(outputStream, UTF_8)), true),
+            fileManager,
+            diagnosticHelper.collector,
+            ImmutableList.copyOf(processedArgs),
+            ImmutableList.of(),
+            sources)
+        .call();
   }
 
   private void checkWellFormed(Iterable<JavaFileObject> sources, List<String> args) {
-    fileManager.createAndInstallTempFolderForOutput();
     JavaCompiler compiler = JavacTool.create();
     OutputStream outputStream = new ByteArrayOutputStream();
     List<String> remainingArgs = null;
