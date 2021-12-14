@@ -113,12 +113,12 @@ public abstract class AbstractConfig implements Config {
 
   protected String errorURL;
 
-  protected boolean autofix;
+  protected boolean autoFixFlag;
   protected AutoFixConfig autoFixConfig;
 
   @Override
   public boolean autofixIsEnabled() {
-    return autofix;
+    return autoFixFlag;
   }
 
   @Override
@@ -155,7 +155,7 @@ public abstract class AbstractConfig implements Config {
       }
     }
     if (nullAwayDefaultAnswer) return true;
-    if (autofix) {
+    if (autoFixFlag) {
       return autoFixConfig.isOutOfScope(className);
     }
     return false;

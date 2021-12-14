@@ -88,8 +88,7 @@ public class AutoFixConfig {
             && autofixEnabled;
     PARAM_INDEX =
         Math.toIntExact(
-            getValueFromKey(jsonObject, "METHOD_PARAM_TEST:INDEX", Long.class)
-                .orElse(Long.MAX_VALUE));
+            getValueFromKey(jsonObject, "METHOD_PARAM_TEST:INDEX", Long.class).orElse(10000L));
     LOG_ERROR_ENABLED =
         getValueFromKey(jsonObject, "LOG_ERROR:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
