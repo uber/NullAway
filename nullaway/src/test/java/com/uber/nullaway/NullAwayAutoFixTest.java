@@ -18,12 +18,12 @@ public class NullAwayAutoFixTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private AutoFixTestHelper explorerTestHelper;
+  private AutoFixTestHelper autoFixTestHelper;
   private final String outputPath = "/tmp/NullAwayFix/fixes.csv";
 
   @Before
   public void setup() {
-    explorerTestHelper = AutoFixTestHelper.newInstance(NullAway.class, getClass());
+    autoFixTestHelper = new AutoFixTestHelper();
     makeDefaultConfig();
   }
 
@@ -58,7 +58,7 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_returnType_simple() {
-    explorerTestHelper
+    autoFixTestHelper
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -74,6 +74,7 @@ public class NullAwayAutoFixTest {
             "       if(flag) {",
             "           return new Object();",
             "       } ",
+            "       // BUG: Diagnostic contains: returning @Nullable",
             "       else return null;",
             "   }",
             "}")
@@ -93,7 +94,7 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_returnType_superClass() {
-    explorerTestHelper
+    autoFixTestHelper
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -118,6 +119,7 @@ public class NullAwayAutoFixTest {
             "import javax.annotation.Nullable;",
             "import javax.annotation.Nonnull;",
             "public class SubClass extends Super {",
+            "   // BUG: Diagnostic contains: returns @Nullable",
             "   @Nullable Object test(boolean flag) {",
             "       if(flag) {",
             "           return new Object();",
@@ -140,46 +142,8 @@ public class NullAwayAutoFixTest {
   }
 
   @Test
-  public void make_param_nullable_test() {
-    AutoFixConfig.AutoFixConfigBuilder writer =
-        new AutoFixConfig.AutoFixConfigBuilder()
-            .setSuggest(true, false)
-            .setMethodParamTest(true, 0L);
-    writer.write("/tmp/NullAwayFix/explorer.config");
-    explorerTestHelper
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
-        .setOutputPath(outputPath)
-        .addSourceLines(
-            "com/uber/android/Super.java",
-            "package com.uber;",
-            "public class Super {",
-            "   Object test(Object f) {",
-            "     return f;",
-            "   }",
-            "}")
-        .addFixes(
-            new FixDisplay(
-                "javax.annotation.Nullable",
-                "test(java.lang.Object)",
-                "null",
-                "METHOD_RETURN",
-                "com.uber.Super",
-                "com.uber",
-                "com/uber/android/Super.java",
-                "true",
-                "false"))
-        .doTest();
-  }
-
-  @Test
   public void add_nullable_paramType_subclass() {
-    explorerTestHelper
+    autoFixTestHelper
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -207,6 +171,7 @@ public class NullAwayAutoFixTest {
             "import javax.annotation.Nullable;",
             "import javax.annotation.Nonnull;",
             "public class SubClass extends Super {",
+            "   // BUG: Diagnostic contains: parameter o is @NonNull",
             "   @Nullable String test(Object o) {",
             "     return o.toString();",
             "   }",
@@ -227,7 +192,7 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_pass_param_simple() {
-    explorerTestHelper
+    autoFixTestHelper
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -246,6 +211,7 @@ public class NullAwayAutoFixTest {
             "     return h;",
             "   }",
             "   Object test_param(@Nullable String o) {",
+            "   // BUG: Diagnostic contains: passing @Nullable",
             "     return test(0, o);",
             "   }",
             "}")
@@ -265,7 +231,7 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_pass_param_simple_no_fix() {
-    explorerTestHelper
+    autoFixTestHelper
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -284,6 +250,7 @@ public class NullAwayAutoFixTest {
             "     return h;",
             "   }",
             "   Object test_param(@Nullable String o) {",
+            "   // BUG: Diagnostic contains: passing @Nullable",
             "     return test(0, o);",
             "   }",
             "}")
@@ -293,7 +260,7 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_field_simple() {
-    explorerTestHelper
+    autoFixTestHelper
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -310,6 +277,7 @@ public class NullAwayAutoFixTest {
             "public class Super {",
             "   Object h = new Object();",
             "   public void test(@Nullable Object f) {",
+            "   // BUG: Diagnostic contains: assigning @Nullable",
             "      h = f;",
             "   }",
             "}")
@@ -329,7 +297,7 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_field_skip_final() {
-    explorerTestHelper
+    autoFixTestHelper
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -345,6 +313,7 @@ public class NullAwayAutoFixTest {
             "public class Super {",
             "   final Object h;",
             "   public Super(@Nullable Object f) {",
+            "   // BUG: Diagnostic contains: assigning @Nullable",
             "      h = f;",
             "   }",
             "}")
@@ -354,7 +323,7 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_field_initialization() {
-    explorerTestHelper
+    autoFixTestHelper
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -368,6 +337,7 @@ public class NullAwayAutoFixTest {
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "public class Super {",
+            "   // BUG: Diagnostic contains: assigning @Nullable",
             "   Object f = foo();",
             "   void test() {",
             "     System.out.println(f.toString());",
@@ -392,7 +362,7 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_field_control_flow() {
-    explorerTestHelper
+    autoFixTestHelper
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -408,6 +378,7 @@ public class NullAwayAutoFixTest {
             "import javax.annotation.Nonnull;",
             "public class Super {",
             "   Object h;",
+            "   // BUG: Diagnostic contains: initializer method",
             "   public Super(boolean b) {",
             "      if(b) h = new Object();",
             "   }",
@@ -428,7 +399,7 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_no_initialization_field() {
-    explorerTestHelper
+    autoFixTestHelper
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -441,6 +412,7 @@ public class NullAwayAutoFixTest {
             "com/uber/android/Super.java",
             "package com.uber;",
             "public class Super {",
+            "   // BUG: Diagnostic contains: field f not initialized",
             "   Object f;",
             "}")
         .addFixes(
@@ -459,7 +431,7 @@ public class NullAwayAutoFixTest {
 
   @Test
   public void add_nullable_pass_param_generics() {
-    explorerTestHelper
+    autoFixTestHelper
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -474,6 +446,7 @@ public class NullAwayAutoFixTest {
             "import java.util.ArrayList;",
             "public class Base extends Super<String>{",
             "   public void newSideEffect(ArrayList<String> op) {",
+            "   // BUG: Diagnostic contains: passing @Nullable",
             "     newStatement(null, op, true, true);",
             "   }",
             "}")
