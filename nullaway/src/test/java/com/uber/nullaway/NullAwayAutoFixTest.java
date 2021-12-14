@@ -1,7 +1,5 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.BugCheckerRefactoringTestHelper;
-import com.google.errorprone.ErrorProneFlags;
 import com.uber.nullaway.autofix.AutoFixConfig;
 import com.uber.nullaway.tools.AutoFixTestHelper;
 import com.uber.nullaway.tools.FixDisplay;
@@ -31,29 +29,6 @@ public class NullAwayAutoFixTest {
     AutoFixConfig.AutoFixConfigBuilder writer =
         new AutoFixConfig.AutoFixConfigBuilder().setSuggest(true, false);
     writer.write("/tmp/NullAwayFix/explorer.config");
-  }
-
-  @Test
-  public void autofixFlagEnclosingTest() {
-    ErrorProneFlags.Builder b = ErrorProneFlags.builder();
-    b.putFlag("NullAway:AnnotatedPackages", "com.uber");
-    b.putFlag("NullAway:AutoFix", "true");
-    ErrorProneFlags flags = b.build();
-    BugCheckerRefactoringTestHelper bcr =
-        BugCheckerRefactoringTestHelper.newInstance(new NullAway(flags), getClass());
-
-    bcr.setArgs("-d", temporaryFolder.getRoot().getAbsolutePath())
-        .addInputLines(
-            "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  @Nullable Object test1(@Nullable Object o) {",
-            "    return o;",
-            "  }",
-            "}")
-        .expectUnchanged()
-        .doTest();
   }
 
   @Test
