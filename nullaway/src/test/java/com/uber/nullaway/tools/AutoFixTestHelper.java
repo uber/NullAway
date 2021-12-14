@@ -16,7 +16,7 @@ import java.util.List;
 
 public class AutoFixTestHelper {
   private final List<FixDisplay> fixDisplays = new ArrayList<>();
-  private String outputPath = "/tmp/NullAwayFix/fixes.csv";
+  private final String outputPath = "/tmp/NullAwayFix/fixes.csv";
   private boolean haveFixes = true;
   private CompilationTestHelper compilationTestHelper;
 
@@ -117,10 +117,5 @@ public class AutoFixTestHelper {
       System.err.println("Error happened in reading the fixDisplays!" + e);
     }
     return fixDisplays.toArray(new FixDisplay[0]);
-  }
-
-  public AutoFixTestHelper setOutputPath(String outputPath) {
-    this.outputPath = outputPath;
-    return this;
   }
 }
