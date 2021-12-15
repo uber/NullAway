@@ -447,7 +447,7 @@ public class ErrorBuilder {
           Location.Builder()
               .setKind(Location.Kind.CLASS_FIELD)
               .setClassTree(LocationUtils.getClassTree(tree, state))
-              .setCompilationUnitTree(c)
+              .setURI(c.getSourceFile().toUri())
               .setVariableSymbol(ASTHelpers.getSymbol(tree))
               .build();
       fixer.fix(

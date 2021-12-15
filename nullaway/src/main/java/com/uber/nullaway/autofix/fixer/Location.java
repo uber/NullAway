@@ -3,15 +3,15 @@ package com.uber.nullaway.autofix.fixer;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
+import java.net.URI;
 import java.util.Objects;
 
 public class Location implements SeperatedValueDisplay {
-  CompilationUnitTree compilationUnitTree;
+  URI uri;
   ClassTree classTree;
   MethodTree methodTree;
   Symbol variableSymbol;
@@ -47,7 +47,7 @@ public class Location implements SeperatedValueDisplay {
   public String toString() {
     return "Location{"
         + "\n\tURI="
-        + compilationUnitTree.getSourceFile().toUri().toASCIIString()
+        + uri.toASCIIString()
         + "\n\tClass Symbol="
         + (classTree != null ? ASTHelpers.getSymbol(classTree).toString() : "null")
         + "\n\tMethod Symbol="
@@ -71,7 +71,7 @@ public class Location implements SeperatedValueDisplay {
     if (this == o) return true;
     if (!(o instanceof Location)) return false;
     Location location = (Location) o;
-    return compilationUnitTree.equals(location.compilationUnitTree)
+    return uri.equals(location.uri)
         && classTree.equals(location.classTree)
         && methodTree.equals(location.methodTree)
         && variableSymbol.equals(location.variableSymbol)
@@ -80,7 +80,7 @@ public class Location implements SeperatedValueDisplay {
 
   @Override
   public int hashCode() {
-    return Objects.hash(compilationUnitTree, classTree, methodTree, variableSymbol, kind);
+    return Objects.hash(uri, classTree, methodTree, variableSymbol, kind);
   }
 
   public static LocationBuilder Builder() {
@@ -94,8 +94,8 @@ public class Location implements SeperatedValueDisplay {
       location = new Location();
     }
 
-    public LocationBuilder setCompilationUnitTree(CompilationUnitTree cut) {
-      location.compilationUnitTree = cut;
+    public LocationBuilder setURI(URI uri) {
+      location.uri = uri;
       return this;
     }
 
@@ -147,7 +147,7 @@ public class Location implements SeperatedValueDisplay {
   public String display(String delimiter) {
     return kind.label
         + delimiter
-        + (compilationUnitTree != null ? compilationUnitTree.getPackageName().toString() : "null")
+        + "null"
         + delimiter
         + (classTree != null ? ASTHelpers.getSymbol(classTree).toString() : "null")
         + delimiter
@@ -157,9 +157,7 @@ public class Location implements SeperatedValueDisplay {
         + delimiter
         + index
         + delimiter
-        + (compilationUnitTree != null
-            ? compilationUnitTree.getSourceFile().toUri().toASCIIString()
-            : "null");
+        + (uri != null ? uri.toASCIIString() : "null");
   }
 
   public static String header(String delimiter) {

@@ -429,7 +429,7 @@ public class NullAway extends BugChecker
             Location.Builder()
                 .setKind(Location.Kind.CLASS_FIELD)
                 .setClassTree(LocationUtils.getClassTree(tree.getVariable(), state))
-                .setCompilationUnitTree(c)
+                .setURI(c.getSourceFile().toUri())
                 .setVariableSymbol(ASTHelpers.getSymbol(tree.getVariable()))
                 .build();
         fixer.fix(errorMessage, location, state);
@@ -681,7 +681,7 @@ public class NullAway extends BugChecker
               Location.Builder()
                   .setClassTree(LocationUtils.getClassTree(overridingnMethod, state))
                   .setMethodTree(ASTHelpers.findMethod(overridingnMethod, state))
-                  .setCompilationUnitTree(c)
+                  .setURI(c.getSourceFile().toUri())
                   .setKind(Location.Kind.METHOD_PARAM)
                   .setVariableSymbol(paramSymbol)
                   .build();
@@ -727,7 +727,7 @@ public class NullAway extends BugChecker
             Location.Builder()
                 .setClassTree(LocationUtils.getClassTree(methodSymbol, state))
                 .setMethodTree(methodTree)
-                .setCompilationUnitTree(c)
+                .setURI(c.getSourceFile().toUri())
                 .setKind(Location.Kind.METHOD_RETURN)
                 .build();
         fixer.fix(errorMessage, location, state);
@@ -855,7 +855,7 @@ public class NullAway extends BugChecker
             Location.Builder()
                 .setClassTree(LocationUtils.getClassTree(overriddenMethod, state))
                 .setMethodTree(superTree)
-                .setCompilationUnitTree(c)
+                .setURI(c.getSourceFile().toUri())
                 .setKind(Location.Kind.METHOD_RETURN)
                 .build();
         fixer.fix(errorMessage, location, state);
@@ -1237,7 +1237,7 @@ public class NullAway extends BugChecker
                 Location.Builder()
                     .setKind(Location.Kind.CLASS_FIELD)
                     .setClassTree(LocationUtils.getClassTree(tree, state))
-                    .setCompilationUnitTree(c)
+                    .setURI(c.getSourceFile().toUri())
                     .setVariableSymbol(ASTHelpers.getSymbol(tree))
                     .build();
             fixer.fix(errorMessage, location, state);
@@ -1490,7 +1490,7 @@ public class NullAway extends BugChecker
           Location location =
               Location.Builder()
                   .setKind(Location.Kind.METHOD_PARAM)
-                  .setCompilationUnitTree(c)
+                  .setURI(c.getSourceFile().toUri())
                   .setClassTree(LocationUtils.getClassTree(methodSymbol, state))
                   .setMethodTree(ASTHelpers.findMethod(methodSymbol, state))
                   .setVariableSymbol(LocationUtils.getParamSymbol(methodSymbol, argPos))
@@ -1645,7 +1645,7 @@ public class NullAway extends BugChecker
               Location.Builder()
                   .setKind(Location.Kind.CLASS_FIELD)
                   .setClassTree(LocationUtils.getClassTree(tree, state))
-                  .setCompilationUnitTree(c)
+                  .setURI(c.getSourceFile().toUri())
                   .setVariableSymbol(symbol)
                   .build();
           ErrorMessage errorMessage =

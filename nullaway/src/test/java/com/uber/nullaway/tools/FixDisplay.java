@@ -77,7 +77,6 @@ public class FixDisplay {
         && Objects.equals(param, fix.param)
         && Objects.equals(location, fix.location)
         && Objects.equals(className, fix.className)
-        && Objects.equals(pkg, fix.pkg)
         && Objects.equals(inject, fix.inject)
         && Objects.equals(uri, fix.uri)
         && Objects.equals(compulsory, fix.compulsory);
@@ -85,8 +84,7 @@ public class FixDisplay {
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        annotation, method, param, location, className, pkg, inject, uri, compulsory);
+    return Objects.hash(annotation, method, param, location, className, inject, uri, compulsory);
   }
 
   public static FixDisplay fromCSVLine(String line, String delimiter) {
