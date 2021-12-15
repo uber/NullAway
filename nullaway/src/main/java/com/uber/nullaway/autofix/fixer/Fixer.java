@@ -18,7 +18,7 @@ public class Fixer {
   public void fix(ErrorMessage errorMessage, Location location, VisitorState state) {
     // todo: remove this condition later, for now we are not supporting anonymous classes
     if (!config.SUGGEST_ENABLED) return;
-    if (location.classSymbol.toString().startsWith("<anonymous")) return;
+    if (location.isInAnonymousClass()) return;
     Fix fix = buildFix(errorMessage, location);
     if (fix != null) {
       if (config.SUGGEST_DEEP) {

@@ -4,17 +4,15 @@ import com.google.common.base.Preconditions;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
 import java.net.URI;
-import java.util.Objects;
 import javax.lang.model.element.ElementKind;
 
 public class Location implements SeperatedValueDisplay {
 
-  URI uri;
-  Symbol.ClassSymbol classSymbol;
-  Symbol.MethodSymbol methodSymbol;
-  Symbol.VarSymbol variableSymbol;
-  Symbol target;
-  Kind kind;
+  private URI uri;
+  private final Symbol.ClassSymbol classSymbol;
+  private Symbol.MethodSymbol methodSymbol;
+  private Symbol.VarSymbol variableSymbol;
+  private Kind kind;
   int index = 0;
 
   public enum Kind {
@@ -25,11 +23,6 @@ public class Location implements SeperatedValueDisplay {
 
     Kind(String label) {
       this.label = label;
-    }
-
-    @Override
-    public String toString() {
-      return "Kind{" + "label='" + label + '\'' + '}';
     }
   }
 
@@ -94,50 +87,6 @@ public class Location implements SeperatedValueDisplay {
     return (Symbol.ClassSymbol) enclosingClass;
   }
 
-  private String escapeQuotationMark(String text) {
-    StringBuilder ans = new StringBuilder();
-    for (int i = 0; i < text.length(); i++) {
-      if (text.charAt(i) == '"') ans.append("\\");
-      ans.append(text.charAt(i));
-    }
-    return ans.toString();
-  }
-
-  @Override
-  public String toString() {
-    return "Location{"
-        + "\n\tURI="
-        + uri.toASCIIString()
-        + "\n\tClass Symbol="
-        + (classSymbol != null ? classSymbol.toString() : "null")
-        + "\n\tMethod Symbol="
-        + (methodSymbol != null ? escapeQuotationMark(methodSymbol.toString()) : "null")
-        + "\n\tvariable Symbol="
-        + target
-        + "\n\tindex="
-        + index
-        + "\n\tkind="
-        + kind
-        + "\n}";
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof Location)) return false;
-    Location location = (Location) o;
-    return uri.equals(location.uri)
-        && classSymbol.equals(location.classSymbol)
-        && methodSymbol.equals(location.methodSymbol)
-        && target.equals(location.target)
-        && kind == location.kind;
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(uri, classSymbol, methodSymbol, target, kind);
-  }
-
   @Override
   public String display(String delimiter) {
     return kind.label
@@ -169,5 +118,9 @@ public class Location implements SeperatedValueDisplay {
         + "index"
         + delimiter
         + "uri";
+  }
+
+  public boolean isInAnonymousClass() {
+    return classSymbol.toString().startsWith("<anonymous");
   }
 }
