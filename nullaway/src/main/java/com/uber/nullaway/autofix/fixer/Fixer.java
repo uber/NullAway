@@ -2,7 +2,6 @@ package com.uber.nullaway.autofix.fixer;
 
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.autofix.AutoFixConfig;
 import com.uber.nullaway.autofix.out.Fix;
@@ -12,8 +11,8 @@ public class Fixer {
 
   protected final AutoFixConfig config;
 
-  public Fixer(Config config) {
-    this.config = config.getAutoFixConfig();
+  public Fixer(AutoFixConfig config) {
+    this.config = config;
   }
 
   public void fix(ErrorMessage errorMessage, Symbol symbol, VisitorState state) {

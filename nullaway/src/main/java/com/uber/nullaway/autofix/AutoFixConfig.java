@@ -19,36 +19,22 @@ import org.json.simple.parser.JSONParser;
 
 public class AutoFixConfig {
 
-  public final boolean MAKE_METHOD_TREE_INHERITANCE_ENABLED;
-  public final boolean MAKE_CALL_GRAPH_ENABLED;
-  public final boolean MAKE_FIELD_GRAPH_ENABLED;
   public final boolean SUGGEST_ENABLED;
   public final boolean SUGGEST_DEEP;
-  public final boolean PARAM_TEST_ENABLED;
   public final boolean LOG_ERROR_ENABLED;
   public final boolean LOG_ERROR_DEEP;
-  public final boolean OPTIMIZED;
-  public final boolean INHERITANCE_CHECK_DISABLED;
   public final String OUTPUT_DIRECTORY;
-  public final int PARAM_INDEX;
   public final AnnotationFactory ANNOTATION_FACTORY;
   public final Set<String> WORK_LIST;
   public final Writer WRITER;
 
   public AutoFixConfig() {
-    MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
     SUGGEST_ENABLED = false;
     SUGGEST_DEEP = false;
-    PARAM_TEST_ENABLED = false;
     LOG_ERROR_ENABLED = false;
     LOG_ERROR_DEEP = false;
-    OPTIMIZED = false;
-    MAKE_CALL_GRAPH_ENABLED = false;
-    MAKE_FIELD_GRAPH_ENABLED = false;
     ANNOTATION_FACTORY = new AnnotationFactory();
     WORK_LIST = Collections.singleton("*");
-    PARAM_INDEX = 10000;
-    INHERITANCE_CHECK_DISABLED = false;
     OUTPUT_DIRECTORY = "/tmp/NullAwayFix";
     WRITER = new Writer(this);
   }
@@ -69,38 +55,17 @@ public class AutoFixConfig {
             "Error in reading/parsing config at path: " + outputDirectory + "\n" + e);
       }
     }
-    MAKE_METHOD_TREE_INHERITANCE_ENABLED =
-        getValueFromKey(jsonObject, "MAKE_METHOD_INHERITANCE_TREE", Boolean.class).orElse(false)
-            && autofixEnabled;
-    MAKE_CALL_GRAPH_ENABLED =
-        getValueFromKey(jsonObject, "MAKE_CALL_GRAPH", Boolean.class).orElse(false)
-            && autofixEnabled;
-    MAKE_FIELD_GRAPH_ENABLED =
-        getValueFromKey(jsonObject, "MAKE_FIELD_GRAPH", Boolean.class).orElse(false)
-            && autofixEnabled;
     SUGGEST_ENABLED =
         getValueFromKey(jsonObject, "SUGGEST:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
     SUGGEST_DEEP =
         getValueFromKey(jsonObject, "SUGGEST:DEEP", Boolean.class).orElse(false) && SUGGEST_ENABLED;
-    PARAM_TEST_ENABLED =
-        getValueFromKey(jsonObject, "METHOD_PARAM_TEST:ACTIVE", Boolean.class).orElse(false)
-            && autofixEnabled;
-    PARAM_INDEX =
-        Math.toIntExact(
-            getValueFromKey(jsonObject, "METHOD_PARAM_TEST:INDEX", Long.class).orElse(10000L));
     LOG_ERROR_ENABLED =
         getValueFromKey(jsonObject, "LOG_ERROR:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
     LOG_ERROR_DEEP =
         getValueFromKey(jsonObject, "LOG_ERROR:DEEP", Boolean.class).orElse(false)
             && autofixEnabled;
-    INHERITANCE_CHECK_DISABLED =
-        (getValueFromKey(jsonObject, "INHERITANCE_CHECK_DISABLED", Boolean.class).orElse(false)
-                && autofixEnabled)
-            || PARAM_TEST_ENABLED;
-    OPTIMIZED =
-        getValueFromKey(jsonObject, "OPTIMIZED", Boolean.class).orElse(false) && autofixEnabled;
     String nullableAnnot =
         getValueFromKey(jsonObject, "ANNOTATION:NULLABLE", String.class)
             .orElse("javax.annotation.Nullable");
@@ -169,40 +134,22 @@ public class AutoFixConfig {
 
   public static class AutoFixConfigBuilder {
 
-    private boolean MAKE_METHOD_TREE_INHERITANCE_ENABLED;
-    private boolean MAKE_CALL_GRAPH_ENABLED;
-    private boolean MAKE_FIELD_GRAPH_ENABLED;
     private boolean SUGGEST_ENABLED;
     private boolean SUGGEST_DEEP;
-    private boolean PARAM_TEST_ENABLED;
     private boolean LOG_ERROR_ENABLED;
     private boolean LOG_ERROR_DEEP;
-    private boolean OPTIMIZED;
-    private boolean VIRTUAL_ANNOT_ENABLED;
-    private boolean INHERITANCE_CHECK_DISABLED;
-    private String VIRTUAL_ANNOT_PATH;
-    private Long PARAM_INDEX;
     private String NULLABLE;
     private String NONNULL;
     private Set<String> WORK_LIST;
 
     public AutoFixConfigBuilder() {
-      MAKE_METHOD_TREE_INHERITANCE_ENABLED = false;
-      MAKE_CALL_GRAPH_ENABLED = false;
       SUGGEST_ENABLED = false;
       SUGGEST_DEEP = false;
-      PARAM_TEST_ENABLED = false;
       LOG_ERROR_ENABLED = false;
       LOG_ERROR_DEEP = false;
-      OPTIMIZED = false;
-      MAKE_FIELD_GRAPH_ENABLED = false;
-      INHERITANCE_CHECK_DISABLED = false;
       NULLABLE = "javax.annotation.Nullable";
       NONNULL = "javax.annotation.Nonnull";
       WORK_LIST = Collections.singleton("*");
-      PARAM_INDEX = 10000L;
-      VIRTUAL_ANNOT_ENABLED = false;
-      VIRTUAL_ANNOT_PATH = "";
     }
 
     private String workListDisplay() {
@@ -217,8 +164,6 @@ public class AutoFixConfig {
       suggest.put("ACTIVE", SUGGEST_ENABLED);
       suggest.put("DEEP", SUGGEST_DEEP);
       res.put("SUGGEST", suggest);
-      res.put("MAKE_METHOD_INHERITANCE_TREE", MAKE_METHOD_TREE_INHERITANCE_ENABLED);
-      res.put("OPTIMIZED", OPTIMIZED);
       JSONObject annotation = new JSONObject();
       annotation.put("NULLABLE", NULLABLE);
       annotation.put("NONNULL", NONNULL);
@@ -228,16 +173,9 @@ public class AutoFixConfig {
       logError.put("DEEP", LOG_ERROR_DEEP);
       res.put("LOG_ERROR", logError);
       JSONObject paramTest = new JSONObject();
-      paramTest.put("ACTIVE", PARAM_TEST_ENABLED);
-      paramTest.put("INDEX", PARAM_INDEX);
       res.put("METHOD_PARAM_TEST", paramTest);
       JSONObject virtualAnnot = new JSONObject();
-      virtualAnnot.put("ACTIVE", VIRTUAL_ANNOT_ENABLED);
-      virtualAnnot.put("PATH", VIRTUAL_ANNOT_PATH);
       res.put("VIRTUAL", virtualAnnot);
-      res.put("MAKE_CALL_GRAPH", MAKE_CALL_GRAPH_ENABLED);
-      res.put("MAKE_FIELD_GRAPH", MAKE_FIELD_GRAPH_ENABLED);
-      res.put("INHERITANCE_CHECK_DISABLED", INHERITANCE_CHECK_DISABLED);
       res.put("WORK_LIST", workListDisplay());
       try {
         BufferedWriter file = Files.newBufferedWriter(Paths.get(path), Charset.defaultCharset());
@@ -275,49 +213,8 @@ public class AutoFixConfig {
       return this;
     }
 
-    public AutoFixConfigBuilder setMethodInheritanceTree(boolean value) {
-      MAKE_METHOD_TREE_INHERITANCE_ENABLED = value;
-      return this;
-    }
-
-    public AutoFixConfigBuilder setMethodParamTest(boolean value, Long index) {
-      PARAM_TEST_ENABLED = value;
-      if (PARAM_TEST_ENABLED) {
-        PARAM_INDEX = index;
-      }
-      return this;
-    }
-
-    public AutoFixConfigBuilder setOptimized(boolean value) {
-      OPTIMIZED = value;
-      return this;
-    }
-
-    public AutoFixConfigBuilder setMakeCallGraph(boolean value) {
-      MAKE_CALL_GRAPH_ENABLED = value;
-      return this;
-    }
-
-    public AutoFixConfigBuilder setMakeFieldGraph(boolean value) {
-      MAKE_FIELD_GRAPH_ENABLED = value;
-      return this;
-    }
-
     public AutoFixConfigBuilder setWorkList(Set<String> workList) {
       WORK_LIST = workList;
-      return this;
-    }
-
-    public AutoFixConfigBuilder setVirtualization(boolean active, String path) {
-      VIRTUAL_ANNOT_ENABLED = active;
-      if (VIRTUAL_ANNOT_ENABLED) {
-        VIRTUAL_ANNOT_PATH = path;
-      }
-      return this;
-    }
-
-    public AutoFixConfigBuilder setInheritanceCheck(boolean active) {
-      INHERITANCE_CHECK_DISABLED = active;
       return this;
     }
 

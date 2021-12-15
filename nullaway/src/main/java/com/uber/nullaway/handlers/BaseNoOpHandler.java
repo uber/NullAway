@@ -186,4 +186,9 @@ public abstract class BaseNoOpHandler implements Handler {
   public ImmutableSet<String> onRegisterImmutableTypes() {
     return ImmutableSet.of();
   }
+
+  @Override
+  public void fixElement(VisitorState state, Symbol target, ErrorMessage errorMessage) {
+    // NoOp
+  }
 }

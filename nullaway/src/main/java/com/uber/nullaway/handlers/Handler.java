@@ -314,6 +314,8 @@ public interface Handler {
    */
   ImmutableSet<String> onRegisterImmutableTypes();
 
+  void fixElement(VisitorState state, Symbol target, ErrorMessage errorMessage);
+
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
    * their knowledge of the method return nullability to the the rest of NullAway.

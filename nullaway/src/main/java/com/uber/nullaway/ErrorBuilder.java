@@ -51,7 +51,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
-import com.uber.nullaway.autofix.fixer.Fixer;
+import com.uber.nullaway.handlers.Handler;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -71,13 +71,10 @@ public class ErrorBuilder {
   /** Additional identifiers for this check, to be checked for in @SuppressWarnings annotations. */
   private final Set<String> allNames;
 
-  private final Fixer fixer;
-
-  ErrorBuilder(Config config, String suppressionName, Set<String> allNames, Fixer fixer) {
+  ErrorBuilder(Config config, String suppressionName, Set<String> allNames) {
     this.config = config;
     this.suppressionName = suppressionName;
     this.allNames = allNames;
-    this.fixer = fixer;
   }
 
   /**
@@ -421,7 +418,8 @@ public class ErrorBuilder {
     return message.toString();
   }
 
-  void reportInitErrorOnField(Symbol symbol, VisitorState state, Description.Builder builder) {
+  void reportInitErrorOnField(
+      Symbol symbol, VisitorState state, Description.Builder builder, Handler handler) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
     // field itself).
@@ -438,12 +436,10 @@ public class ErrorBuilder {
       fieldName = flatName.substring(index) + "." + fieldName;
     }
 
-    if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), symbol)) {
-      fixer.fix(
-          new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),
-          ASTHelpers.getSymbol(tree),
-          state);
-    }
+    handler.fixElement(
+        state,
+        symbol,
+        new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"));
 
     if (symbol.isStatic()) {
       state.reportMatch(

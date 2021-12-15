@@ -63,14 +63,16 @@ public class Handlers {
     handlerListBuilder.add(new GrpcHandler());
     handlerListBuilder.add(new RequiresNonNullHandler());
     handlerListBuilder.add(new EnsuresNonNullHandler());
-    if (config.autofixIsEnabled() && config.getAutoFixConfig().PARAM_TEST_ENABLED) {
-      handlerListBuilder.add(new MethodParamTestHandler(config));
-    }
+
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }
     if (config.checkContracts()) {
       handlerListBuilder.add(new ContractCheckHandler(config));
+    }
+
+    if (config.autofixIsEnabled()) {
+      handlerListBuilder.add(new FixHandler(config.getAutoFixConfig()));
     }
     return new CompositeHandler(handlerListBuilder.build());
   }

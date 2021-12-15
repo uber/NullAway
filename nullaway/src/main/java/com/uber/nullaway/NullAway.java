@@ -56,7 +56,6 @@ import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.EnhancedForLoopTree;
@@ -89,7 +88,6 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
-import com.uber.nullaway.autofix.fixer.Fixer;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.handlers.Handler;
@@ -230,8 +228,6 @@ public class NullAway extends BugChecker
    */
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
-  private final Fixer fixer;
-
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
@@ -242,16 +238,14 @@ public class NullAway extends BugChecker
     config = new DummyOptionsConfig();
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
-    fixer = new Fixer(config);
-    errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), fixer);
+    errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
   }
 
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
-    fixer = new Fixer(config);
-    errorBuilder = new ErrorBuilder(config, canonicalName(), allNames(), fixer);
+    errorBuilder = new ErrorBuilder(config, canonicalName(), allNames());
   }
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
@@ -316,9 +310,6 @@ public class NullAway extends BugChecker
     }
     handler.onMatchMethodInvocation(this, tree, state, methodSymbol);
     // assuming this list does not include the receiver
-    if (config.getAutoFixConfig().MAKE_CALL_GRAPH_ENABLED) {
-      config.getAutoFixConfig().WRITER.saveCallGraphNode(tree.getMethodSelect(), state);
-    }
     List<? extends ExpressionTree> actualParams = tree.getArguments();
     return handleInvocation(tree, state, methodSymbol, actualParams);
   }
@@ -391,13 +382,6 @@ public class NullAway extends BugChecker
       return doUnboxingCheck(state, tree.getExpression());
     }
 
-    if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED) {
-      Symbol expressionSym = ASTHelpers.getSymbol(tree.getExpression());
-      if (expressionSym != null && expressionSym.getKind() == ElementKind.FIELD) {
-        config.getAutoFixConfig().WRITER.saveFieldGraphNode(tree.getExpression(), state);
-      }
-    }
-
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
     if (assigned == null || assigned.getKind() != ElementKind.FIELD) {
       // not a field of nullable type
@@ -409,18 +393,11 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     ExpressionTree expression = tree.getExpression();
-    if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED) {
-      config.getAutoFixConfig().WRITER.saveFieldGraphNode(tree.getVariable(), state);
-    }
     if (mayBeNullExpr(state, expression)) {
       String message = "assigning @Nullable expression to @NonNull field";
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message, true);
-      if (config
-          .getAutoFixConfig()
-          .canFixElement(getTreesInstance(state), ASTHelpers.getSymbol(tree.getVariable()))) {
-        fixer.fix(errorMessage, ASTHelpers.getSymbol(tree.getVariable()), state);
-      }
+      handler.fixElement(state, ASTHelpers.getSymbol(tree.getVariable()), errorMessage);
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, expression, buildDescription(tree), state);
     }
@@ -465,10 +442,7 @@ public class NullAway extends BugChecker
     if (symbol == null || symbol.getSimpleName().toString().equals("class") || symbol.isEnum()) {
       return Description.NO_MATCH;
     }
-    if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED
-        && symbol.getKind().equals(ElementKind.FIELD)) {
-      config.getAutoFixConfig().WRITER.saveFieldGraphNode(tree, state);
-    }
+
     Description badDeref = matchDereference(tree.getExpression(), tree, state);
     if (!badDeref.equals(Description.NO_MATCH)) {
       return badDeref;
@@ -489,24 +463,6 @@ public class NullAway extends BugChecker
     }
 
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
-    if (config.getAutoFixConfig().MAKE_METHOD_TREE_INHERITANCE_ENABLED) {
-      try {
-        Set<Element> nonnullFieldsOfReceiverAtExit = null;
-        CompilationUnitTree c = getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
-        if (tree.getBody() != null) {
-          AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-          nonnullFieldsOfReceiverAtExit =
-              nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(
-                  getTreesInstance(state).getPath(methodSymbol), state.context);
-        }
-        config
-            .getAutoFixConfig()
-            .WRITER
-            .saveMethodInfo(methodSymbol, nonnullFieldsOfReceiverAtExit, c, state, config);
-      } catch (Exception e) {
-        System.err.println("Could not save method info: " + methodSymbol);
-      }
-    }
 
     // if the method is overriding some other method,
     // check that nullability annotations are consistent with
@@ -568,9 +524,6 @@ public class NullAway extends BugChecker
       @Nullable LambdaExpressionTree lambdaExpressionTree,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
-    if (config.getAutoFixConfig().INHERITANCE_CHECK_DISABLED) {
-      return Description.NO_MATCH;
-    }
     com.sun.tools.javac.util.List<VarSymbol> superParamSymbols = overriddenMethod.getParameters();
     boolean unboundMemberRef =
         (memberReferenceTree != null)
@@ -661,9 +614,7 @@ public class NullAway extends BugChecker
 
         ErrorMessage errorMessage =
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message, true);
-        if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), overridingnMethod)) {
-          fixer.fix(errorMessage, paramSymbol, state);
-        }
+        handler.fixElement(state, paramSymbol, errorMessage);
         return errorBuilder.createErrorDescription(
             errorMessage, buildDescription(errorTree), state);
       }
@@ -695,12 +646,7 @@ public class NullAway extends BugChecker
               MessageTypes.RETURN_NULLABLE,
               "returning @Nullable expression from method with @NonNull return type",
               true);
-      if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), methodSymbol)) {
-        MethodTree methodTree = ASTHelpers.findMethod(methodSymbol, state);
-        if (methodTree == null)
-          throw new RuntimeException("AutoFix cannot find the method with symbol: " + methodSymbol);
-        fixer.fix(errorMessage, methodSymbol, state);
-      }
+      handler.fixElement(state, methodSymbol, errorMessage);
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, retExpr, buildDescription(tree), state);
     }
@@ -816,10 +762,7 @@ public class NullAway extends BugChecker
               : getTreesInstance(state).getTree(overridingMethod);
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message, true);
-      if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), overriddenMethod)
-          && superTree instanceof MethodTree) {
-        fixer.fix(errorMessage, ASTHelpers.getSymbol(superTree), state);
-      }
+      handler.fixElement(state, ASTHelpers.getSymbol(superTree), errorMessage);
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(errorTree), state);
     }
     // if any parameter in the super method is annotated @Nullable,
@@ -1191,9 +1134,7 @@ public class NullAway extends BugChecker
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
                   "assigning @Nullable expression to @NonNull field",
                   true);
-          if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), symbol)) {
-            fixer.fix(errorMessage, ASTHelpers.getSymbol(tree), state);
-          }
+          handler.fixElement(state, symbol, errorMessage);
           return errorBuilder.createErrorDescriptionForNullAssignment(
               errorMessage, initializer, buildDescription(tree), state);
         }
@@ -1436,9 +1377,7 @@ public class NullAway extends BugChecker
                 + state.getSourceForNode(actual)
                 + "' where @NonNull is required";
         ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message, true);
-        if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), methodSymbol)) {
-          fixer.fix(errorMessage, formalParams.get(argPos), state);
-        }
+        handler.fixElement(state, formalParams.get(argPos), errorMessage);
         state.reportMatch(
             errorBuilder.createErrorDescriptionForNullAssignment(
                 errorMessage, actual, buildDescription(actual), state));
@@ -1542,7 +1481,10 @@ public class NullAway extends BugChecker
         // we have no initializer methods
         if (!(isExternalInit(classSymbol) && entities.instanceInitializerMethods().isEmpty())) {
           errorBuilder.reportInitErrorOnField(
-              uninitField, state, buildDescription(getTreesInstance(state).getTree(uninitField)));
+              uninitField,
+              state,
+              buildDescription(getTreesInstance(state).getTree(uninitField)),
+              handler);
         }
       } else {
         // report it on each constructor that does not initialize it
@@ -1568,7 +1510,10 @@ public class NullAway extends BugChecker
       // initialization block
       // anyways).
       errorBuilder.reportInitErrorOnField(
-          uninitSField, state, buildDescription(getTreesInstance(state).getTree(uninitSField)));
+          uninitSField,
+          state,
+          buildDescription(getTreesInstance(state).getTree(uninitSField)),
+          handler);
     }
     if (config.autofixIsEnabled()) {
       fixInitializationErrorsOnControlFlowPaths(state, errorFieldsForInitializer);
@@ -1579,15 +1524,16 @@ public class NullAway extends BugChecker
       VisitorState state, SetMultimap<Element, Element> errorFieldsForInitializer) {
     for (Element constructorElement : errorFieldsForInitializer.keySet()) {
       for (Element element : errorFieldsForInitializer.get(constructorElement)) {
-        if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), element)) {
-          Tree tree = getTreesInstance(state).getTree(element);
-          ErrorMessage errorMessage =
-              new ErrorMessage(
-                  MessageTypes.FIELD_NO_INIT,
-                  "initializer method does not guarantee @NonNull fields",
-                  true);
-          fixer.fix(errorMessage, ASTHelpers.getSymbol(tree), state);
+        Tree tree = getTreesInstance(state).getTree(element);
+        if (tree == null) {
+          continue;
         }
+        ErrorMessage errorMessage =
+            new ErrorMessage(
+                MessageTypes.FIELD_NO_INIT,
+                "initializer method does not guarantee @NonNull fields",
+                true);
+        handler.fixElement(state, ASTHelpers.getSymbol(tree), errorMessage);
       }
     }
   }
@@ -2089,9 +2035,6 @@ public class NullAway extends BugChecker
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
     boolean exprMayBeNull = true;
-    if (config.getAutoFixConfig().MAKE_FIELD_GRAPH_ENABLED) {
-      config.getAutoFixConfig().WRITER.saveFieldGraphNode(expr, state);
-    }
     if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config)) {
       exprMayBeNull = false;
     }
