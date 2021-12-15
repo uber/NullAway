@@ -17,7 +17,7 @@ public class NullAwayAutoFixTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private AutoFixTestHelper autoFixTestHelper;
-  private final String outputPath = "/tmp/NullAwayFix/fixes.csv";
+  private final String outputPath = "/tmp/NullAwayFix";
 
   @Before
   public void setup() {
@@ -39,7 +39,8 @@ public class NullAwayAutoFixTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AutoFix=true"))
+                "-XepOpt:NullAway:AutoFix=true",
+                "-XepOpt:NullAway:AutoFixOutPutDirectory=" + outputPath))
         .addSourceLines(
             "com/uber/SubClass.java",
             "package com.uber;",
@@ -75,7 +76,7 @@ public class NullAwayAutoFixTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+                "-XepOpt:NullAway:AutoFixOutPutDirectory=" + outputPath))
         .addSourceLines(
             "com/uber/android/Super.java",
             "package com.uber;",
@@ -123,7 +124,7 @@ public class NullAwayAutoFixTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+                "-XepOpt:NullAway:AutoFixOutPutDirectory=" + outputPath))
         .addSourceLines(
             "com/uber/android/Super.java",
             "package com.uber;",
@@ -171,7 +172,7 @@ public class NullAwayAutoFixTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+                "-XepOpt:NullAway:AutoFixOutPutDirectory=" + outputPath))
         .addSourceLines(
             "com/uber/android/Super.java",
             "package com.uber;",
@@ -209,7 +210,7 @@ public class NullAwayAutoFixTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+                "-XepOpt:NullAway:AutoFixOutPutDirectory=" + outputPath))
         .addSourceLines(
             "com/uber/android/Super.java",
             "package com.uber;",
@@ -237,7 +238,7 @@ public class NullAwayAutoFixTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+                "-XepOpt:NullAway:AutoFixOutPutDirectory=" + outputPath))
         .addSourceLines(
             "com/uber/android/Super.java",
             "package com.uber;",
@@ -273,7 +274,7 @@ public class NullAwayAutoFixTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+                "-XepOpt:NullAway:AutoFixOutPutDirectory=" + outputPath))
         .addSourceLines(
             "com/uber/android/Super.java",
             "package com.uber;",
@@ -298,7 +299,7 @@ public class NullAwayAutoFixTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+                "-XepOpt:NullAway:AutoFixOutPutDirectory=" + outputPath))
         .addSourceLines(
             "com/uber/android/Super.java",
             "package com.uber;",
@@ -336,7 +337,7 @@ public class NullAwayAutoFixTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+                "-XepOpt:NullAway:AutoFixOutPutDirectory=" + outputPath))
         .addSourceLines(
             "com/uber/android/Super.java",
             "package com.uber;",
@@ -372,7 +373,7 @@ public class NullAwayAutoFixTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+                "-XepOpt:NullAway:AutoFixOutPutDirectory=" + outputPath))
         .addSourceLines(
             "com/uber/android/Super.java",
             "package com.uber;",
@@ -403,7 +404,7 @@ public class NullAwayAutoFixTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:AutoFix=true",
-                "-XepOpt:NullAway:FixFilePath=" + outputPath))
+                "-XepOpt:NullAway:AutoFixOutPutDirectory=" + outputPath))
         .addSourceLines(
             "com/uber/Base.java",
             "package com.uber;",

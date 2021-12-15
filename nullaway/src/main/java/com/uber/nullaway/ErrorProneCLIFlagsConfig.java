@@ -203,8 +203,19 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + " is also set");
     }
     autoFixFlag = flags.getBoolean(AUTO_FIX).orElse(false);
-    String autoFixOutPutDir = flags.get(AUTO_FIX_OUTPUT_DIRECTORY_PATH).orElse("/tmp/NullAwayFix");
-    autoFixConfig = new AutoFixConfig(autoFixFlag, autoFixOutPutDir);
+    Optional<String> autoFixOutPutDir = flags.get(AUTO_FIX_OUTPUT_DIRECTORY_PATH);
+    if (autoFixFlag && !autoFixOutPutDir.isPresent()) {
+      throw new IllegalStateException(
+          "DO NOT report an issue to Error Prone for this crash!  NullAway AutoFixer configuration is "
+              + "incorrect.  "
+              + "Must specify AutoFixer Output Directory, using the "
+              + "-XepOpt:"
+              + AUTO_FIX_OUTPUT_DIRECTORY_PATH
+              + "=[...] flag.  If you feel you have gotten this message in error report an issue"
+              + " at https://github.com/uber/NullAway/issues.");
+    }
+    autoFixConfig =
+        autoFixOutPutDir.map(s -> new AutoFixConfig(autoFixFlag, s)).orElseGet(AutoFixConfig::new);
     if (autoFixFlag && isSuggestSuppressions)
       throw new IllegalStateException(
           "In order to activate autoFix mode ("
