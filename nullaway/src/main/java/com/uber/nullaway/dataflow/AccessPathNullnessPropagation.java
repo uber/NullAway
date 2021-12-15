@@ -109,6 +109,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.StringConcatenateNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.StringConversionNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.StringLiteralNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.SuperNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.SwitchExpressionNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.SynchronizedNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.TernaryExpressionNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ThisNode;
@@ -485,6 +486,13 @@ public class AccessPathNullnessPropagation
         inputs
             .valueOfSubNode(node.getThenOperand())
             .leastUpperBound(inputs.valueOfSubNode(node.getElseOperand()));
+    return new RegularTransferResult<>(result, input.getRegularStore());
+  }
+
+  @Override
+  public TransferResult<Nullness, NullnessStore> visitSwitchExpressionNode(
+      SwitchExpressionNode node, TransferInput<Nullness, NullnessStore> input) {
+    Nullness result = values(input).valueOfSubNode(node.getSwitchExpressionVar());
     return new RegularTransferResult<>(result, input.getRegularStore());
   }
 

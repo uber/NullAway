@@ -25,7 +25,6 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.util.Arrays;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -48,7 +47,6 @@ public class NullAwayJDK17Test {
                     "-XepOpt:NullAway:AnnotatedPackages=com.uber"));
   }
 
-  @Ignore("waiting on full switch expression support in Checker Framework dataflow")
   @Test
   public void testSwitchExpression() {
     defaultCompilationHelper
@@ -64,13 +62,14 @@ public class NullAwayJDK17Test {
             "    o2.toString();",
             "  }",
             "  public void testSwitchExpr2(int i) {",
-            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    // BUG: Diagnostic contains: dereferenced expression switch",
             "    (switch (i) { case 3, 4, 5 -> new Object(); default -> null; }).toString();",
             "  }",
             "  private void takesNonNull(Object o) {}",
             "  public void testSwitchExpr3(int i) {",
             "    // BUG: Diagnostic contains: passing",
             "    takesNonNull(switch (i) { case 3, 4, 5 -> new Object(); default -> null; });",
+            "    takesNonNull(switch (i) { case 3, 4, 5 -> new Object(); default -> new Object(); });",
             "  }",
             "  public void testSwitchStmtArrowCase(int i) {",
             "    Object o = null;",
@@ -87,6 +86,12 @@ public class NullAwayJDK17Test {
             "    }",
             "    // BUG: Diagnostic contains: dereferenced expression o2 is @Nullable",
             "    o2.toString();",
+            "    Object o3 = null;",
+            "    switch (i) {",
+            "      case 3, 4, 5 -> { o3 = new Object(); }",
+            "      default -> { o3 = new Object(); }",
+            "    }",
+            "    o3.toString();",
             "  }",
             "}")
         .doTest();

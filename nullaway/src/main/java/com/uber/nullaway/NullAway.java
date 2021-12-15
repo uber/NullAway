@@ -1944,8 +1944,12 @@ public class NullAway extends BugChecker
         exprMayBeNull = nullnessFromDataflow(state, expr);
         break;
       default:
-        throw new RuntimeException(
-            "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
+        if (expr.getKind().name().equals("SWITCH_EXPRESSION")) {
+          exprMayBeNull = nullnessFromDataflow(state, expr);
+        } else {
+          throw new RuntimeException(
+              "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
+        }
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);
     return exprMayBeNull;
@@ -1991,11 +1995,13 @@ public class NullAway extends BugChecker
 
   private Description matchDereference(
       ExpressionTree baseExpression, ExpressionTree derefExpression, VisitorState state) {
+    baseExpression = stripParensAndCasts(baseExpression);
     Symbol dereferenced = ASTHelpers.getSymbol(baseExpression);
-    if (dereferenced == null
-        || dereferenced.type.isPrimitive()
-        || dereferenced.getKind() == ElementKind.PACKAGE
-        || ElementUtils.isTypeElement(dereferenced)) {
+    if (!baseExpression.getKind().name().equals("SWITCH_EXPRESSION")
+        && (dereferenced == null
+            || dereferenced.type.isPrimitive()
+            || dereferenced.getKind() == ElementKind.PACKAGE
+            || ElementUtils.isTypeElement(dereferenced))) {
       // we know we don't have a null dereference here
       return Description.NO_MATCH;
     }
