@@ -1992,10 +1992,10 @@ public class NullAway extends BugChecker
   private Description matchDereference(
       ExpressionTree baseExpression, ExpressionTree derefExpression, VisitorState state) {
     Symbol dereferenced = ASTHelpers.getSymbol(baseExpression);
-    if (dereferenced == null
-        || dereferenced.type.isPrimitive()
-        || dereferenced.getKind() == ElementKind.PACKAGE
-        || ElementUtils.isTypeElement(dereferenced)) {
+    if (dereferenced != null
+        && (dereferenced.type.isPrimitive()
+            || dereferenced.getKind() == ElementKind.PACKAGE
+            || ElementUtils.isTypeElement(dereferenced))) {
       // we know we don't have a null dereference here
       return Description.NO_MATCH;
     }
