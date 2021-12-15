@@ -93,6 +93,12 @@ public class NullAwayJDK17Test {
             "    }",
             "    o3.toString();",
             "  }",
+            "  public void testSwitchExprUnbox() {",
+            "    Integer i = null;",
+            "    // NOTE: we should report a bug here due to unboxing of i, but cannot do so until",
+            "    // Error Prone supports matching switch expressions",
+            "    Object o = switch (i) { case 3, 4, 5 -> new Object(); default -> null; };",
+            "  }",
             "}")
         .doTest();
   }

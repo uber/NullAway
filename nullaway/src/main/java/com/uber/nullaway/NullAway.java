@@ -477,10 +477,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    ExpressionTree switchExpression = tree.getExpression();
-    if (switchExpression instanceof ParenthesizedTree) {
-      switchExpression = ((ParenthesizedTree) switchExpression).getExpression();
-    }
+    ExpressionTree switchExpression = stripParensAndCasts(tree.getExpression());
 
     if (mayBeNullExpr(state, switchExpression)) {
       final String message =
