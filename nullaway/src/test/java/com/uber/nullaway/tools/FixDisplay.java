@@ -8,9 +8,7 @@ public class FixDisplay {
   public final String param;
   public final String location;
   public final String className;
-  public final String pkg;
   public final String inject;
-  public final String compulsory;
   public String uri;
 
   public FixDisplay(
@@ -19,19 +17,15 @@ public class FixDisplay {
       String param,
       String location,
       String className,
-      String pkg,
       String uri,
-      String inject,
-      String compulsory) {
+      String inject) {
     this.annotation = annotation;
     this.method = method;
     this.param = param;
     this.location = location;
     this.className = className;
-    this.pkg = pkg;
     this.uri = uri;
     this.inject = inject;
-    this.compulsory = compulsory;
   }
 
   @Override
@@ -52,17 +46,11 @@ public class FixDisplay {
         + ", \n\tclassName='"
         + className
         + '\''
-        + ", \n\tpkg='"
-        + pkg
-        + '\''
         + ", \n\tinject='"
         + inject
         + '\''
         + ", \n\turi='"
         + uri
-        + '\''
-        + ", \n\tcompulsory='"
-        + compulsory
         + '\''
         + "\n  }\n";
   }
@@ -78,18 +66,16 @@ public class FixDisplay {
         && Objects.equals(location, fix.location)
         && Objects.equals(className, fix.className)
         && Objects.equals(inject, fix.inject)
-        && Objects.equals(uri, fix.uri)
-        && Objects.equals(compulsory, fix.compulsory);
+        && Objects.equals(uri, fix.uri);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(annotation, method, param, location, className, inject, uri, compulsory);
+    return Objects.hash(annotation, method, param, location, className, inject, uri);
   }
 
   public static FixDisplay fromCSVLine(String line, String delimiter) {
     String[] infos = line.split(delimiter);
-    return new FixDisplay(
-        infos[8], infos[3], infos[4], infos[0], infos[2], infos[1], infos[6], infos[10], infos[9]);
+    return new FixDisplay(infos[7], infos[2], infos[3], infos[0], infos[1], infos[5], infos[8]);
   }
 }

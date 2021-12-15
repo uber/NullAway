@@ -1,6 +1,7 @@
 package com.uber.nullaway.autofix.fixer;
 
 import com.google.common.base.Preconditions;
+import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
 import java.net.URI;
@@ -40,7 +41,7 @@ public class Location implements SeperatedValueDisplay {
       default:
         throw new IllegalStateException("Cannot locate node: " + target);
     }
-    this.classSymbol = findEnclosingClass(target);
+    this.classSymbol = ASTHelpers.enclosingClass(target);
     this.uri = classSymbol.sourcefile.toUri();
   }
 
@@ -74,22 +75,11 @@ public class Location implements SeperatedValueDisplay {
     }
   }
 
-  private Symbol.ClassSymbol findEnclosingClass(Symbol symbol) {
-    Symbol enclosingClass = symbol;
-    while (enclosingClass != null && enclosingClass.getKind() != ElementKind.CLASS) {
-      enclosingClass = enclosingClass.owner;
-    }
-    Preconditions.checkNotNull(enclosingClass);
-    return (Symbol.ClassSymbol) enclosingClass;
-  }
-
   @Override
   public String display(String delimiter) {
     return kind.label
         + delimiter
-        + "null"
-        + delimiter
-        + (classSymbol != null ? classSymbol.toString() : "null")
+        + classSymbol.toString()
         + delimiter
         + (methodSymbol != null ? methodSymbol.toString() : "null")
         + delimiter
@@ -102,8 +92,6 @@ public class Location implements SeperatedValueDisplay {
 
   public static String header(String delimiter) {
     return "location"
-        + delimiter
-        + "pkg"
         + delimiter
         + "class"
         + delimiter

@@ -9,7 +9,6 @@ public class Fix extends EnclosingNode implements SeperatedValueDisplay {
   public Location location;
   public AnnotationFactory.Annotation annotation;
   public boolean inject;
-  public boolean compulsory;
 
   @Override
   public boolean equals(Object o) {
@@ -17,7 +16,6 @@ public class Fix extends EnclosingNode implements SeperatedValueDisplay {
     if (!(o instanceof Fix)) return false;
     Fix fix = (Fix) o;
     return inject == fix.inject
-        && compulsory == fix.compulsory
         && Objects.equals(location, fix.location)
         && Objects.equals(annotation, fix.annotation)
         && Objects.equals(
@@ -26,8 +24,7 @@ public class Fix extends EnclosingNode implements SeperatedValueDisplay {
 
   @Override
   public int hashCode() {
-    return Objects.hash(
-        location, annotation, errorMessage.getMessageType().toString(), inject, compulsory);
+    return Objects.hash(location, annotation, errorMessage.getMessageType().toString(), inject);
   }
 
   @Override
@@ -52,8 +49,6 @@ public class Fix extends EnclosingNode implements SeperatedValueDisplay {
         + delimiter
         + annotation.display(delimiter)
         + delimiter
-        + compulsory
-        + delimiter
         + inject
         + delimiter
         + (enclosingClass == null ? "null" : ASTHelpers.getSymbol(enclosingClass))
@@ -67,8 +62,6 @@ public class Fix extends EnclosingNode implements SeperatedValueDisplay {
         + "reason"
         + delimiter
         + "annotation"
-        + delimiter
-        + "compulsory"
         + delimiter
         + "inject"
         + delimiter
