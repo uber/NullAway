@@ -54,9 +54,6 @@ public class Location implements SeperatedValueDisplay {
         + (methodTree != null
             ? escapeQuotationMark(ASTHelpers.getSymbol(methodTree).toString())
             : "null")
-        + (methodTree != null
-            ? escapeQuotationMark(ASTHelpers.getSymbol(methodTree).toString())
-            : "null")
         + "\n\tvariable Symbol="
         + variableSymbol
         + "\n\tindex="
