@@ -18,6 +18,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,20 +26,20 @@ import java.util.Set;
 import javax.lang.model.element.Element;
 
 public class Writer {
-  public final String ERROR;
-  public final String METHOD_INFO;
-  public final String CALL_GRAPH;
-  public final String SUGGEST_FIX;
-  public final String FIELD_GRAPH;
+  public final Path ERROR;
+  public final Path METHOD_INFO;
+  public final Path CALL_GRAPH;
+  public final Path SUGGEST_FIX;
+  public final Path FIELD_GRAPH;
   public final String DELIMITER = "$*$";
 
   public Writer(AutoFixConfig config) {
     String outputDirectory = config.OUTPUT_DIRECTORY;
-    this.ERROR = Paths.get(outputDirectory, "errors.csv").toString();
-    this.METHOD_INFO = Paths.get(outputDirectory, "method_info.csv").toString();
-    this.CALL_GRAPH = Paths.get(outputDirectory, "call_graph.csv").toString();
-    this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.csv").toString();
-    this.FIELD_GRAPH = Paths.get(outputDirectory, "field_graph.csv").toString();
+    this.ERROR = Paths.get(outputDirectory, "errors.csv");
+    this.METHOD_INFO = Paths.get(outputDirectory, "method_info.csv");
+    this.CALL_GRAPH = Paths.get(outputDirectory, "call_graph.csv");
+    this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.csv");
+    this.FIELD_GRAPH = Paths.get(outputDirectory, "field_graph.csv");
     reset(config);
   }
 
@@ -85,10 +86,10 @@ public class Writer {
     appendToFile(methodInfo, METHOD_INFO);
   }
 
-  private void resetFile(String path, String header) {
+  private void resetFile(Path path, String header) {
     try {
-      Files.deleteIfExists(Paths.get(path));
-      OutputStream os = new FileOutputStream(path);
+      Files.deleteIfExists(path);
+      OutputStream os = new FileOutputStream(path.toFile());
       header += "\n";
       os.write(header.getBytes(Charset.defaultCharset()), 0, header.length());
       os.flush();
@@ -122,7 +123,7 @@ public class Writer {
     }
   }
 
-  private void appendToFile(SeperatedValueDisplay value, String filePath) {
+  private void appendToFile(SeperatedValueDisplay value, Path path) {
     OutputStream os;
     String display = value.display(DELIMITER);
     if (display == null || display.equals("")) {
@@ -130,12 +131,12 @@ public class Writer {
     }
     display = display.replaceAll("\\R+", " ").replaceAll("\t", "") + "\n";
     try {
-      os = new FileOutputStream(filePath, true);
+      os = new FileOutputStream(path.toFile(), true);
       os.write(display.getBytes(Charset.defaultCharset()), 0, display.length());
       os.flush();
       os.close();
     } catch (Exception e) {
-      System.err.println("Error happened for writing at file: " + filePath);
+      System.err.println("Error happened for writing at file: " + path);
     }
   }
 }
