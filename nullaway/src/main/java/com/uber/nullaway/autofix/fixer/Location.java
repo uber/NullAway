@@ -1,22 +1,21 @@
 package com.uber.nullaway.autofix.fixer;
 
 import com.google.common.base.Preconditions;
-import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
 import java.net.URI;
 import java.util.Objects;
+import javax.lang.model.element.ElementKind;
 
 public class Location implements SeperatedValueDisplay {
+
   URI uri;
-  ClassTree classTree;
-  MethodTree methodTree;
-  Symbol variableSymbol;
+  Symbol.ClassSymbol classSymbol;
+  Symbol.MethodSymbol methodSymbol;
+  Symbol.VarSymbol variableSymbol;
+  Symbol target;
   Kind kind;
-  int index;
+  int index = 0;
 
   public enum Kind {
     CLASS_FIELD("CLASS_FIELD"),
@@ -34,6 +33,67 @@ public class Location implements SeperatedValueDisplay {
     }
   }
 
+  public Location(Symbol target) {
+    switch (target.getKind()) {
+      case PARAMETER:
+        createMethodParamLocation(target);
+        break;
+      case METHOD:
+        createMethodLocation(target);
+        break;
+      case FIELD:
+        createFieldLocation(target);
+        break;
+      default:
+        throw new IllegalStateException("Cannot locate node: " + target);
+    }
+    classSymbol = findEnclosingClass(target);
+  }
+
+  public Location setUri(URI uri) {
+    this.uri = uri;
+    return this;
+  }
+
+  private void createFieldLocation(Symbol field) {
+    Preconditions.checkArgument(field.getKind() == ElementKind.FIELD);
+    variableSymbol = (Symbol.VarSymbol) field;
+    kind = Kind.CLASS_FIELD;
+  }
+
+  private void createMethodLocation(Symbol method) {
+    Preconditions.checkArgument(method.getKind() == ElementKind.METHOD);
+    kind = Kind.METHOD_RETURN;
+    methodSymbol = (Symbol.MethodSymbol) method;
+  }
+
+  private void createMethodParamLocation(Symbol parameter) {
+    Preconditions.checkArgument(parameter.getKind() == ElementKind.PARAMETER);
+    this.kind = Kind.METHOD_PARAM;
+    this.variableSymbol = (Symbol.VarSymbol) parameter;
+    Symbol enclosingMethod = parameter;
+    while (enclosingMethod != null && enclosingMethod.getKind() != ElementKind.METHOD) {
+      enclosingMethod = enclosingMethod.owner;
+    }
+    Preconditions.checkNotNull(enclosingMethod);
+    methodSymbol = (Symbol.MethodSymbol) enclosingMethod;
+    for (int i = 0; i < methodSymbol.getParameters().size(); i++) {
+      if (methodSymbol.getParameters().get(i).equals(parameter)) {
+        index = i;
+        break;
+      }
+    }
+  }
+
+  private Symbol.ClassSymbol findEnclosingClass(Symbol symbol) {
+    Symbol enclosingClass = symbol;
+    while (enclosingClass != null && enclosingClass.getKind() != ElementKind.CLASS) {
+      enclosingClass = enclosingClass.owner;
+    }
+    Preconditions.checkNotNull(enclosingClass);
+    return (Symbol.ClassSymbol) enclosingClass;
+  }
+
   private String escapeQuotationMark(String text) {
     StringBuilder ans = new StringBuilder();
     for (int i = 0; i < text.length(); i++) {
@@ -49,13 +109,11 @@ public class Location implements SeperatedValueDisplay {
         + "\n\tURI="
         + uri.toASCIIString()
         + "\n\tClass Symbol="
-        + (classTree != null ? ASTHelpers.getSymbol(classTree).toString() : "null")
+        + (classSymbol != null ? classSymbol.toString() : "null")
         + "\n\tMethod Symbol="
-        + (methodTree != null
-            ? escapeQuotationMark(ASTHelpers.getSymbol(methodTree).toString())
-            : "null")
+        + (methodSymbol != null ? escapeQuotationMark(methodSymbol.toString()) : "null")
         + "\n\tvariable Symbol="
-        + variableSymbol
+        + target
         + "\n\tindex="
         + index
         + "\n\tkind="
@@ -69,75 +127,15 @@ public class Location implements SeperatedValueDisplay {
     if (!(o instanceof Location)) return false;
     Location location = (Location) o;
     return uri.equals(location.uri)
-        && classTree.equals(location.classTree)
-        && methodTree.equals(location.methodTree)
-        && variableSymbol.equals(location.variableSymbol)
+        && classSymbol.equals(location.classSymbol)
+        && methodSymbol.equals(location.methodSymbol)
+        && target.equals(location.target)
         && kind == location.kind;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(uri, classTree, methodTree, variableSymbol, kind);
-  }
-
-  public static LocationBuilder Builder() {
-    return new LocationBuilder();
-  }
-
-  public static class LocationBuilder {
-    Location location;
-
-    public LocationBuilder() {
-      location = new Location();
-    }
-
-    public LocationBuilder setURI(URI uri) {
-      location.uri = uri;
-      return this;
-    }
-
-    public LocationBuilder setClassTree(ClassTree ct) {
-      location.classTree = ct;
-      return this;
-    }
-
-    public LocationBuilder setMethodTree(Tree tree) {
-      if (tree instanceof MethodTree) return setMethodTree((MethodTree) tree);
-      throw new RuntimeException("Tree: " + tree + " is not an instance of MethodTree");
-    }
-
-    public LocationBuilder setMethodTree(MethodTree mt) {
-      location.methodTree = mt;
-      return this;
-    }
-
-    public LocationBuilder setVariableSymbol(Symbol s) {
-      Preconditions.checkNotNull(location.kind);
-      location.variableSymbol = s;
-      if (location.kind.equals(Kind.METHOD_PARAM)) {
-        Preconditions.checkNotNull(location.methodTree);
-        Symbol.MethodSymbol methodSym = ASTHelpers.getSymbol(location.methodTree);
-        for (int i = 0; i < methodSym.getParameters().size(); i++) {
-          if (methodSym.getParameters().get(i).equals(s)) {
-            location.index = i;
-            break;
-          }
-        }
-      }
-      return this;
-    }
-
-    public LocationBuilder setKind(Kind kind) {
-      location.kind = kind;
-      return this;
-    }
-
-    public Location build() {
-      if (location.kind == null) {
-        throw new RuntimeException("Location.kind field cannot be null");
-      }
-      return location;
-    }
+    return Objects.hash(uri, classSymbol, methodSymbol, target, kind);
   }
 
   @Override
@@ -146,9 +144,9 @@ public class Location implements SeperatedValueDisplay {
         + delimiter
         + "null"
         + delimiter
-        + (classTree != null ? ASTHelpers.getSymbol(classTree).toString() : "null")
+        + (classSymbol != null ? classSymbol.toString() : "null")
         + delimiter
-        + (methodTree != null ? ASTHelpers.getSymbol(methodTree).toString() : "null")
+        + (methodSymbol != null ? methodSymbol.toString() : "null")
         + delimiter
         + (variableSymbol != null ? variableSymbol.toString() : "null")
         + delimiter

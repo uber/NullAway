@@ -54,7 +54,6 @@ import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.autofix.fixer.Fixer;
 import com.uber.nullaway.autofix.fixer.Location;
-import com.uber.nullaway.autofix.fixer.LocationUtils;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -444,12 +443,7 @@ public class ErrorBuilder {
     if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), symbol)) {
       CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
       Location location =
-          Location.Builder()
-              .setKind(Location.Kind.CLASS_FIELD)
-              .setClassTree(LocationUtils.getClassTree(tree, state))
-              .setURI(c.getSourceFile().toUri())
-              .setVariableSymbol(ASTHelpers.getSymbol(tree))
-              .build();
+          new Location(ASTHelpers.getSymbol(tree)).setUri(c.getSourceFile().toUri());
       fixer.fix(
           new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),
           location,

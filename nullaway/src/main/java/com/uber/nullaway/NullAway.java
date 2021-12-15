@@ -91,7 +91,6 @@ import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.autofix.fixer.Fixer;
 import com.uber.nullaway.autofix.fixer.Location;
-import com.uber.nullaway.autofix.fixer.LocationUtils;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.handlers.Handler;
@@ -426,12 +425,8 @@ public class NullAway extends BugChecker
                 .getPath(ASTHelpers.getSymbol(tree.getVariable()))
                 .getCompilationUnit();
         Location location =
-            Location.Builder()
-                .setKind(Location.Kind.CLASS_FIELD)
-                .setClassTree(LocationUtils.getClassTree(tree.getVariable(), state))
-                .setURI(c.getSourceFile().toUri())
-                .setVariableSymbol(ASTHelpers.getSymbol(tree.getVariable()))
-                .build();
+            new Location(ASTHelpers.getSymbol(tree.getVariable()))
+                .setUri(c.getSourceFile().toUri());
         fixer.fix(errorMessage, location, state);
       }
       return errorBuilder.createErrorDescriptionForNullAssignment(
@@ -677,14 +672,7 @@ public class NullAway extends BugChecker
         if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), overridingnMethod)) {
           CompilationUnitTree c =
               getTreesInstance(state).getPath(overridingnMethod).getCompilationUnit();
-          Location location =
-              Location.Builder()
-                  .setClassTree(LocationUtils.getClassTree(overridingnMethod, state))
-                  .setMethodTree(ASTHelpers.findMethod(overridingnMethod, state))
-                  .setURI(c.getSourceFile().toUri())
-                  .setKind(Location.Kind.METHOD_PARAM)
-                  .setVariableSymbol(paramSymbol)
-                  .build();
+          Location location = new Location(paramSymbol).setUri(c.getSourceFile().toUri());
           fixer.fix(errorMessage, location, state);
         }
         return errorBuilder.createErrorDescription(
@@ -723,13 +711,7 @@ public class NullAway extends BugChecker
         if (methodTree == null)
           throw new RuntimeException("AutoFix cannot find the method with symbol: " + methodSymbol);
         CompilationUnitTree c = getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
-        Location location =
-            Location.Builder()
-                .setClassTree(LocationUtils.getClassTree(methodSymbol, state))
-                .setMethodTree(methodTree)
-                .setURI(c.getSourceFile().toUri())
-                .setKind(Location.Kind.METHOD_RETURN)
-                .build();
+        Location location = new Location(methodSymbol).setUri(c.getSourceFile().toUri());
         fixer.fix(errorMessage, location, state);
       }
       return errorBuilder.createErrorDescriptionForNullAssignment(
@@ -852,12 +834,7 @@ public class NullAway extends BugChecker
         CompilationUnitTree c =
             getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
         Location location =
-            Location.Builder()
-                .setClassTree(LocationUtils.getClassTree(overriddenMethod, state))
-                .setMethodTree(superTree)
-                .setURI(c.getSourceFile().toUri())
-                .setKind(Location.Kind.METHOD_RETURN)
-                .build();
+            new Location(ASTHelpers.getSymbol(superTree)).setUri(c.getSourceFile().toUri());
         fixer.fix(errorMessage, location, state);
       }
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(errorTree), state);
@@ -1234,12 +1211,7 @@ public class NullAway extends BugChecker
           if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), symbol)) {
             CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
             Location location =
-                Location.Builder()
-                    .setKind(Location.Kind.CLASS_FIELD)
-                    .setClassTree(LocationUtils.getClassTree(tree, state))
-                    .setURI(c.getSourceFile().toUri())
-                    .setVariableSymbol(ASTHelpers.getSymbol(tree))
-                    .build();
+                new Location(ASTHelpers.getSymbol(tree)).setUri(c.getSourceFile().toUri());
             fixer.fix(errorMessage, location, state);
           }
           return errorBuilder.createErrorDescriptionForNullAssignment(
@@ -1488,13 +1460,7 @@ public class NullAway extends BugChecker
           CompilationUnitTree c =
               getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
           Location location =
-              Location.Builder()
-                  .setKind(Location.Kind.METHOD_PARAM)
-                  .setURI(c.getSourceFile().toUri())
-                  .setClassTree(LocationUtils.getClassTree(methodSymbol, state))
-                  .setMethodTree(ASTHelpers.findMethod(methodSymbol, state))
-                  .setVariableSymbol(LocationUtils.getParamSymbol(methodSymbol, argPos))
-                  .build();
+              new Location(formalParams.get(argPos)).setUri(c.getSourceFile().toUri());
           fixer.fix(errorMessage, location, state);
         }
         state.reportMatch(
@@ -1641,13 +1607,7 @@ public class NullAway extends BugChecker
           Tree tree = getTreesInstance(state).getTree(element);
           Symbol symbol = ASTHelpers.getSymbol(tree);
           CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
-          Location location =
-              Location.Builder()
-                  .setKind(Location.Kind.CLASS_FIELD)
-                  .setClassTree(LocationUtils.getClassTree(tree, state))
-                  .setURI(c.getSourceFile().toUri())
-                  .setVariableSymbol(symbol)
-                  .build();
+          Location location = new Location(symbol).setUri(c.getSourceFile().toUri());
           ErrorMessage errorMessage =
               new ErrorMessage(
                   MessageTypes.FIELD_NO_INIT,
