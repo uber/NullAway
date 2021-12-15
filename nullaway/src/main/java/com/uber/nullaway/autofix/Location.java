@@ -1,4 +1,4 @@
-package com.uber.nullaway.autofix.fixer;
+package com.uber.nullaway.autofix;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;

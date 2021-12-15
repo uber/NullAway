@@ -1,7 +1,7 @@
 package com.uber.nullaway.autofix.out;
 
 import com.google.errorprone.util.ASTHelpers;
-import com.uber.nullaway.autofix.fixer.Location;
+import com.uber.nullaway.autofix.Location;
 import com.uber.nullaway.autofix.qual.AnnotationFactory;
 import java.util.Objects;
 

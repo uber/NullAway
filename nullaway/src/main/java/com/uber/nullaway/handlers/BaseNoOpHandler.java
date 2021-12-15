@@ -188,7 +188,7 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public void fixElement(VisitorState state, Symbol target, ErrorMessage errorMessage) {
+  public void fix(VisitorState state, Symbol target, ErrorMessage errorMessage) {
     // NoOp
   }
 }

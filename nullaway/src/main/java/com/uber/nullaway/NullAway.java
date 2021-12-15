@@ -397,7 +397,7 @@ public class NullAway extends BugChecker
       String message = "assigning @Nullable expression to @NonNull field";
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message, true);
-      handler.fixElement(state, ASTHelpers.getSymbol(tree.getVariable()), errorMessage);
+      handler.fix(state, ASTHelpers.getSymbol(tree.getVariable()), errorMessage);
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, expression, buildDescription(tree), state);
     }
@@ -614,7 +614,7 @@ public class NullAway extends BugChecker
 
         ErrorMessage errorMessage =
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message, true);
-        handler.fixElement(state, paramSymbol, errorMessage);
+        handler.fix(state, paramSymbol, errorMessage);
         return errorBuilder.createErrorDescription(
             errorMessage, buildDescription(errorTree), state);
       }
@@ -646,7 +646,7 @@ public class NullAway extends BugChecker
               MessageTypes.RETURN_NULLABLE,
               "returning @Nullable expression from method with @NonNull return type",
               true);
-      handler.fixElement(state, methodSymbol, errorMessage);
+      handler.fix(state, methodSymbol, errorMessage);
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, retExpr, buildDescription(tree), state);
     }
@@ -762,7 +762,7 @@ public class NullAway extends BugChecker
               : getTreesInstance(state).getTree(overridingMethod);
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message, true);
-      handler.fixElement(state, ASTHelpers.getSymbol(superTree), errorMessage);
+      handler.fix(state, ASTHelpers.getSymbol(superTree), errorMessage);
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(errorTree), state);
     }
     // if any parameter in the super method is annotated @Nullable,
@@ -1134,7 +1134,7 @@ public class NullAway extends BugChecker
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
                   "assigning @Nullable expression to @NonNull field",
                   true);
-          handler.fixElement(state, symbol, errorMessage);
+          handler.fix(state, symbol, errorMessage);
           return errorBuilder.createErrorDescriptionForNullAssignment(
               errorMessage, initializer, buildDescription(tree), state);
         }
@@ -1377,7 +1377,7 @@ public class NullAway extends BugChecker
                 + state.getSourceForNode(actual)
                 + "' where @NonNull is required";
         ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message, true);
-        handler.fixElement(state, formalParams.get(argPos), errorMessage);
+        handler.fix(state, formalParams.get(argPos), errorMessage);
         state.reportMatch(
             errorBuilder.createErrorDescriptionForNullAssignment(
                 errorMessage, actual, buildDescription(actual), state));
@@ -1533,7 +1533,7 @@ public class NullAway extends BugChecker
                 MessageTypes.FIELD_NO_INIT,
                 "initializer method does not guarantee @NonNull fields",
                 true);
-        handler.fixElement(state, ASTHelpers.getSymbol(tree), errorMessage);
+        handler.fix(state, ASTHelpers.getSymbol(tree), errorMessage);
       }
     }
   }

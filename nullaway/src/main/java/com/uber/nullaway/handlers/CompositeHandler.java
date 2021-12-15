@@ -224,9 +224,9 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public void fixElement(VisitorState state, Symbol target, ErrorMessage errorMessage) {
+  public void fix(VisitorState state, Symbol target, ErrorMessage errorMessage) {
     for (Handler h : handlers) {
-      h.fixElement(state, target, errorMessage);
+      h.fix(state, target, errorMessage);
     }
   }
 

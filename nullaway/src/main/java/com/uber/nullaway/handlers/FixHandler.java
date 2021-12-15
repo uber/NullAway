@@ -28,23 +28,53 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.autofix.AutoFixConfig;
-import com.uber.nullaway.autofix.fixer.Fixer;
+import com.uber.nullaway.autofix.Location;
+import com.uber.nullaway.autofix.out.Fix;
 
 public class FixHandler extends BaseNoOpHandler {
 
   private final AutoFixConfig config;
-  private final Fixer fixer;
 
   public FixHandler(AutoFixConfig config) {
     this.config = config;
-    this.fixer = new Fixer(config);
   }
 
   @Override
-  public void fixElement(VisitorState state, Symbol target, ErrorMessage errorMessage) {
+  public void fix(VisitorState state, Symbol target, ErrorMessage errorMessage) {
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
     if (config.canFixElement(trees, target)) {
-      fixer.fix(errorMessage, target, state);
+      Location location = new Location(target);
+      if (!config.SUGGEST_ENABLED) return;
+      // todo: remove this condition later, for now we are not supporting anonymous classes
+      if (location.isInAnonymousClass()) return;
+      Fix fix = buildFix(errorMessage, location);
+      if (fix != null) {
+        if (config.SUGGEST_DEEP) {
+          fix.findEnclosing(state, errorMessage);
+        }
+        config.WRITER.saveFix(fix);
+      }
     }
+  }
+
+  protected Fix buildFix(ErrorMessage errorMessage, Location location) {
+    Fix fix;
+    switch (errorMessage.getMessageType()) {
+      case RETURN_NULLABLE:
+      case WRONG_OVERRIDE_RETURN:
+      case WRONG_OVERRIDE_PARAM:
+      case PASS_NULLABLE:
+      case FIELD_NO_INIT:
+      case ASSIGN_FIELD_NULLABLE:
+        fix = new Fix();
+        fix.location = location;
+        fix.annotation = config.ANNOTATION_FACTORY.getNullable();
+        fix.inject = true;
+        break;
+      default:
+        return null;
+    }
+    fix.errorMessage = errorMessage;
+    return fix;
   }
 }

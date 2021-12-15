@@ -436,7 +436,7 @@ public class ErrorBuilder {
       fieldName = flatName.substring(index) + "." + fieldName;
     }
 
-    handler.fixElement(
+    handler.fix(
         state,
         symbol,
         new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"));
