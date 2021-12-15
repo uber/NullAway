@@ -3162,6 +3162,8 @@ public class NullAwayTest {
             "    Object o1 = null, o2 = new Object();",
             "    // BUG: Diagnostic contains: dereferenced expression (b ? o1 : o2) is @Nullable",
             "    (b ? o1 : o2).toString();",
+            "    // this is fine",
+            "    (b ? o2 : o2).toString();",
             "  }",
             "}")
         .doTest();
