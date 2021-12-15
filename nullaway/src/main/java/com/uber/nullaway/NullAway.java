@@ -90,7 +90,6 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.autofix.fixer.Fixer;
-import com.uber.nullaway.autofix.fixer.Location;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.handlers.Handler;
@@ -420,14 +419,7 @@ public class NullAway extends BugChecker
       if (config
           .getAutoFixConfig()
           .canFixElement(getTreesInstance(state), ASTHelpers.getSymbol(tree.getVariable()))) {
-        CompilationUnitTree c =
-            getTreesInstance(state)
-                .getPath(ASTHelpers.getSymbol(tree.getVariable()))
-                .getCompilationUnit();
-        Location location =
-            new Location(ASTHelpers.getSymbol(tree.getVariable()))
-                .setUri(c.getSourceFile().toUri());
-        fixer.fix(errorMessage, location, state);
+        fixer.fix(errorMessage, ASTHelpers.getSymbol(tree.getVariable()), state);
       }
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, expression, buildDescription(tree), state);
@@ -670,10 +662,7 @@ public class NullAway extends BugChecker
         ErrorMessage errorMessage =
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message, true);
         if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), overridingnMethod)) {
-          CompilationUnitTree c =
-              getTreesInstance(state).getPath(overridingnMethod).getCompilationUnit();
-          Location location = new Location(paramSymbol).setUri(c.getSourceFile().toUri());
-          fixer.fix(errorMessage, location, state);
+          fixer.fix(errorMessage, paramSymbol, state);
         }
         return errorBuilder.createErrorDescription(
             errorMessage, buildDescription(errorTree), state);
@@ -710,9 +699,7 @@ public class NullAway extends BugChecker
         MethodTree methodTree = ASTHelpers.findMethod(methodSymbol, state);
         if (methodTree == null)
           throw new RuntimeException("AutoFix cannot find the method with symbol: " + methodSymbol);
-        CompilationUnitTree c = getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
-        Location location = new Location(methodSymbol).setUri(c.getSourceFile().toUri());
-        fixer.fix(errorMessage, location, state);
+        fixer.fix(errorMessage, methodSymbol, state);
       }
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, retExpr, buildDescription(tree), state);
@@ -831,11 +818,7 @@ public class NullAway extends BugChecker
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message, true);
       if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), overriddenMethod)
           && superTree instanceof MethodTree) {
-        CompilationUnitTree c =
-            getTreesInstance(state).getPath(overriddenMethod).getCompilationUnit();
-        Location location =
-            new Location(ASTHelpers.getSymbol(superTree)).setUri(c.getSourceFile().toUri());
-        fixer.fix(errorMessage, location, state);
+        fixer.fix(errorMessage, ASTHelpers.getSymbol(superTree), state);
       }
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(errorTree), state);
     }
@@ -1209,10 +1192,7 @@ public class NullAway extends BugChecker
                   "assigning @Nullable expression to @NonNull field",
                   true);
           if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), symbol)) {
-            CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
-            Location location =
-                new Location(ASTHelpers.getSymbol(tree)).setUri(c.getSourceFile().toUri());
-            fixer.fix(errorMessage, location, state);
+            fixer.fix(errorMessage, ASTHelpers.getSymbol(tree), state);
           }
           return errorBuilder.createErrorDescriptionForNullAssignment(
               errorMessage, initializer, buildDescription(tree), state);
@@ -1457,11 +1437,7 @@ public class NullAway extends BugChecker
                 + "' where @NonNull is required";
         ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message, true);
         if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), methodSymbol)) {
-          CompilationUnitTree c =
-              getTreesInstance(state).getPath(methodSymbol).getCompilationUnit();
-          Location location =
-              new Location(formalParams.get(argPos)).setUri(c.getSourceFile().toUri());
-          fixer.fix(errorMessage, location, state);
+          fixer.fix(errorMessage, formalParams.get(argPos), state);
         }
         state.reportMatch(
             errorBuilder.createErrorDescriptionForNullAssignment(
@@ -1605,15 +1581,12 @@ public class NullAway extends BugChecker
       for (Element element : errorFieldsForInitializer.get(constructorElement)) {
         if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), element)) {
           Tree tree = getTreesInstance(state).getTree(element);
-          Symbol symbol = ASTHelpers.getSymbol(tree);
-          CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
-          Location location = new Location(symbol).setUri(c.getSourceFile().toUri());
           ErrorMessage errorMessage =
               new ErrorMessage(
                   MessageTypes.FIELD_NO_INIT,
                   "initializer method does not guarantee @NonNull fields",
                   true);
-          fixer.fix(errorMessage, location, state);
+          fixer.fix(errorMessage, ASTHelpers.getSymbol(tree), state);
         }
       }
     }

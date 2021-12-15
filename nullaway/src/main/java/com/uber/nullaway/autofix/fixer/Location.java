@@ -8,7 +8,7 @@ import javax.lang.model.element.ElementKind;
 
 public class Location implements SeperatedValueDisplay {
 
-  private URI uri;
+  private final URI uri;
   private final Symbol.ClassSymbol classSymbol;
   private Symbol.MethodSymbol methodSymbol;
   private Symbol.VarSymbol variableSymbol;
@@ -40,12 +40,8 @@ public class Location implements SeperatedValueDisplay {
       default:
         throw new IllegalStateException("Cannot locate node: " + target);
     }
-    classSymbol = findEnclosingClass(target);
-  }
-
-  public Location setUri(URI uri) {
-    this.uri = uri;
-    return this;
+    this.classSymbol = findEnclosingClass(target);
+    this.uri = classSymbol.sourcefile.toUri();
   }
 
   private void createFieldLocation(Symbol field) {

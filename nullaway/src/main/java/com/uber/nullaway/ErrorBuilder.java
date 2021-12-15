@@ -41,7 +41,6 @@ import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
@@ -53,7 +52,6 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.autofix.fixer.Fixer;
-import com.uber.nullaway.autofix.fixer.Location;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -441,12 +439,9 @@ public class ErrorBuilder {
     }
 
     if (config.getAutoFixConfig().canFixElement(getTreesInstance(state), symbol)) {
-      CompilationUnitTree c = getTreesInstance(state).getPath(symbol).getCompilationUnit();
-      Location location =
-          new Location(ASTHelpers.getSymbol(tree)).setUri(c.getSourceFile().toUri());
       fixer.fix(
           new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),
-          location,
+          ASTHelpers.getSymbol(tree),
           state);
     }
 

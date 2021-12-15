@@ -1,6 +1,7 @@
 package com.uber.nullaway.autofix.fixer;
 
 import com.google.errorprone.VisitorState;
+import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.autofix.AutoFixConfig;
@@ -15,9 +16,10 @@ public class Fixer {
     this.config = config.getAutoFixConfig();
   }
 
-  public void fix(ErrorMessage errorMessage, Location location, VisitorState state) {
-    // todo: remove this condition later, for now we are not supporting anonymous classes
+  public void fix(ErrorMessage errorMessage, Symbol symbol, VisitorState state) {
+    Location location = new Location(symbol);
     if (!config.SUGGEST_ENABLED) return;
+    // todo: remove this condition later, for now we are not supporting anonymous classes
     if (location.isInAnonymousClass()) return;
     Fix fix = buildFix(errorMessage, location);
     if (fix != null) {
