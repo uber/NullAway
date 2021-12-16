@@ -211,7 +211,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + "Must specify AutoFixer Output Directory, using the "
               + "-XepOpt:"
               + AUTO_FIX_OUTPUT_DIRECTORY_PATH
-              + "=[...] flag.  If you feel you have gotten this message in error report an issue"
+              + " flag.  If you feel you have gotten this message in error report an issue"
               + " at https://github.com/uber/NullAway/issues.");
     }
     autoFixConfig =
