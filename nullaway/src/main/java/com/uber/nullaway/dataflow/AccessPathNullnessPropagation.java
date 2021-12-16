@@ -492,8 +492,7 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitSwitchExpressionNode(
       SwitchExpressionNode node, TransferInput<Nullness, NullnessStore> input) {
-    Nullness result = values(input).valueOfSubNode(node.getSwitchExpressionVar());
-    return new RegularTransferResult<>(result, input.getRegularStore());
+    return visitLocalVariable(node.getSwitchExpressionVar(), input);
   }
 
   @Override
