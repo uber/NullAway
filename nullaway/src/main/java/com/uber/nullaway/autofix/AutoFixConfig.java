@@ -35,8 +35,8 @@ public class AutoFixConfig {
     logErrorDeep = false;
     annotationFactory = new AnnotationFactory();
     workList = Collections.singleton("*");
-    outputDirectory = "/tmp/NullAwayFix";
-    writer = new Writer(this);
+    outputDirectory = null;
+    writer = null;
   }
 
   public AutoFixConfig(boolean autofixEnabled, String outputDirectory) {
