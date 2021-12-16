@@ -18,9 +18,7 @@ public class ErrorInfo extends EnclosingNode implements SeperatedValueDisplay {
         + delimiter
         + (enclosingClass != null ? ASTHelpers.getSymbol(enclosingClass) : "null")
         + delimiter
-        + (enclosingMethod != null ? ASTHelpers.getSymbol(enclosingMethod) : "null")
-        + delimiter
-        + errorMessage.covered;
+        + (enclosingMethod != null ? ASTHelpers.getSymbol(enclosingMethod) : "null");
   }
 
   public static String header(String delimiter) {

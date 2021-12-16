@@ -141,12 +141,6 @@ import org.checkerframework.nullaway.javacutil.TreeUtils;
  *   <li><code>f</code> is always initialized in some static initializer block
  * </ol>
  */
-@SuppressWarnings({
-  "ALL",
-  "TreeToString",
-  "UnusedVariable"
-}) // TODO: remove this later, this class is still under construction on
-// 'AutoFix' branch
 @AutoService(BugChecker.class)
 @BugPattern(
     name = "NullAway",
@@ -395,8 +389,7 @@ public class NullAway extends BugChecker
     ExpressionTree expression = tree.getExpression();
     if (mayBeNullExpr(state, expression)) {
       String message = "assigning @Nullable expression to @NonNull field";
-      ErrorMessage errorMessage =
-          new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message, true);
+      ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message);
       handler.fix(state, ASTHelpers.getSymbol(tree.getVariable()), errorMessage);
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, expression, buildDescription(tree), state);
@@ -518,7 +511,6 @@ public class NullAway extends BugChecker
    * @return discovered error, or {@link Description#NO_MATCH} if no error
    */
   private Description checkParamOverriding(
-      Symbol.MethodSymbol overridingnMethod,
       List<VarSymbol> overridingParamSymbols,
       Symbol.MethodSymbol overriddenMethod,
       @Nullable LambdaExpressionTree lambdaExpressionTree,
@@ -612,8 +604,7 @@ public class NullAway extends BugChecker
           errorTree = getTreesInstance(state).getTree(paramSymbol);
         }
 
-        ErrorMessage errorMessage =
-            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message, true);
+        ErrorMessage errorMessage = new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message);
         handler.fix(state, paramSymbol, errorMessage);
         return errorBuilder.createErrorDescription(
             errorMessage, buildDescription(errorTree), state);
@@ -644,8 +635,7 @@ public class NullAway extends BugChecker
       final ErrorMessage errorMessage =
           new ErrorMessage(
               MessageTypes.RETURN_NULLABLE,
-              "returning @Nullable expression from method with @NonNull return type",
-              true);
+              "returning @Nullable expression from method with @NonNull return type");
       handler.fix(state, methodSymbol, errorMessage);
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, retExpr, buildDescription(tree), state);
@@ -669,7 +659,6 @@ public class NullAway extends BugChecker
     }
     Description description =
         checkParamOverriding(
-            null,
             tree.getParameters().stream().map(ASTHelpers::getSymbol).collect(Collectors.toList()),
             funcInterfaceMethod,
             tree,
@@ -760,20 +749,14 @@ public class NullAway extends BugChecker
           memberReferenceTree != null
               ? memberReferenceTree
               : getTreesInstance(state).getTree(overridingMethod);
-      ErrorMessage errorMessage =
-          new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message, true);
+      ErrorMessage errorMessage = new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message);
       handler.fix(state, ASTHelpers.getSymbol(superTree), errorMessage);
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(errorTree), state);
     }
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
     return checkParamOverriding(
-        overridingMethod,
-        overridingMethod.getParameters(),
-        overriddenMethod,
-        null,
-        memberReferenceTree,
-        state);
+        overridingMethod.getParameters(), overriddenMethod, null, memberReferenceTree, state);
   }
 
   @Override
@@ -1132,8 +1115,7 @@ public class NullAway extends BugChecker
           final ErrorMessage errorMessage =
               new ErrorMessage(
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
-                  "assigning @Nullable expression to @NonNull field",
-                  true);
+                  "assigning @Nullable expression to @NonNull field");
           handler.fix(state, symbol, errorMessage);
           return errorBuilder.createErrorDescriptionForNullAssignment(
               errorMessage, initializer, buildDescription(tree), state);
@@ -1376,7 +1358,7 @@ public class NullAway extends BugChecker
             "passing @Nullable parameter '"
                 + state.getSourceForNode(actual)
                 + "' where @NonNull is required";
-        ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message, true);
+        ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message);
         handler.fix(state, formalParams.get(argPos), errorMessage);
         state.reportMatch(
             errorBuilder.createErrorDescriptionForNullAssignment(
@@ -1520,8 +1502,16 @@ public class NullAway extends BugChecker
     }
   }
 
+  /**
+   * It only gets executed when autofix is enabled. It creates a fix object for every class field
+   * that is not guaranteed to be @Nonnull at exit point.
+   *
+   * @param errorFieldsForInitializer fields that are not initialized
+   * @param state visitor state
+   */
   private void fixInitializationErrorsOnControlFlowPaths(
       VisitorState state, SetMultimap<Element, Element> errorFieldsForInitializer) {
+    Preconditions.checkArgument(config.autofixIsEnabled());
     for (Element constructorElement : errorFieldsForInitializer.keySet()) {
       for (Element element : errorFieldsForInitializer.get(constructorElement)) {
         Tree tree = getTreesInstance(state).getTree(element);
@@ -1531,8 +1521,7 @@ public class NullAway extends BugChecker
         ErrorMessage errorMessage =
             new ErrorMessage(
                 MessageTypes.FIELD_NO_INIT,
-                "initializer method does not guarantee @NonNull fields",
-                true);
+                "initializer method does not guarantee @NonNull fields");
         handler.fix(state, ASTHelpers.getSymbol(tree), errorMessage);
       }
     }

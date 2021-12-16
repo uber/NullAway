@@ -19,24 +19,24 @@ import org.json.simple.parser.JSONParser;
 
 public class AutoFixConfig {
 
-  public final boolean SUGGEST_ENABLED;
-  public final boolean SUGGEST_DEEP;
-  public final boolean LOG_ERROR_ENABLED;
-  public final boolean LOG_ERROR_DEEP;
-  public final String OUTPUT_DIRECTORY;
-  public final AnnotationFactory ANNOTATION_FACTORY;
-  public final Set<String> WORK_LIST;
-  public final Writer WRITER;
+  public final boolean suggestEnabled;
+  public final boolean suggestDeep;
+  public final boolean logErrorEnabled;
+  public final boolean logErrorDeep;
+  public final String outputDirectory;
+  public final AnnotationFactory annotationFactory;
+  public final Set<String> workList;
+  public final Writer writer;
 
   public AutoFixConfig() {
-    SUGGEST_ENABLED = false;
-    SUGGEST_DEEP = false;
-    LOG_ERROR_ENABLED = false;
-    LOG_ERROR_DEEP = false;
-    ANNOTATION_FACTORY = new AnnotationFactory();
-    WORK_LIST = Collections.singleton("*");
-    OUTPUT_DIRECTORY = "/tmp/NullAwayFix";
-    WRITER = new Writer(this);
+    suggestEnabled = false;
+    suggestDeep = false;
+    logErrorEnabled = false;
+    logErrorDeep = false;
+    annotationFactory = new AnnotationFactory();
+    workList = Collections.singleton("*");
+    outputDirectory = "/tmp/NullAwayFix";
+    writer = new Writer(this);
   }
 
   public AutoFixConfig(boolean autofixEnabled, String outputDirectory) {
@@ -55,15 +55,15 @@ public class AutoFixConfig {
             "Error in reading/parsing config at path: " + outputDirectory + "\n" + e);
       }
     }
-    SUGGEST_ENABLED =
+    suggestEnabled =
         getValueFromKey(jsonObject, "SUGGEST:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
-    SUGGEST_DEEP =
-        getValueFromKey(jsonObject, "SUGGEST:DEEP", Boolean.class).orElse(false) && SUGGEST_ENABLED;
-    LOG_ERROR_ENABLED =
+    suggestDeep =
+        getValueFromKey(jsonObject, "SUGGEST:DEEP", Boolean.class).orElse(false) && suggestEnabled;
+    logErrorEnabled =
         getValueFromKey(jsonObject, "LOG_ERROR:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
-    LOG_ERROR_DEEP =
+    logErrorDeep =
         getValueFromKey(jsonObject, "LOG_ERROR:DEEP", Boolean.class).orElse(false)
             && autofixEnabled;
     String nullableAnnot =
@@ -72,15 +72,15 @@ public class AutoFixConfig {
     String nonnullAnnot =
         getValueFromKey(jsonObject, "ANNOTATION:NONNULL", String.class)
             .orElse("javax.annotation.Nonnull");
-    this.ANNOTATION_FACTORY = new AnnotationFactory(nullableAnnot, nonnullAnnot);
+    this.annotationFactory = new AnnotationFactory(nullableAnnot, nonnullAnnot);
     String WORK_LIST_VALUE = getValueFromKey(jsonObject, "WORK_LIST", String.class).orElse("*");
     if (!WORK_LIST_VALUE.equals("*")) {
-      this.WORK_LIST = new HashSet<>(Arrays.asList(WORK_LIST_VALUE.split(",")));
+      this.workList = new HashSet<>(Arrays.asList(WORK_LIST_VALUE.split(",")));
     } else {
-      this.WORK_LIST = Collections.singleton("*");
+      this.workList = Collections.singleton("*");
     }
-    this.OUTPUT_DIRECTORY = outputDirectory;
-    WRITER = new Writer(this);
+    this.outputDirectory = outputDirectory;
+    writer = new Writer(this);
   }
 
   static class OrElse<T> {
@@ -120,40 +120,40 @@ public class AutoFixConfig {
   }
 
   public boolean canFixElement(Trees trees, Element symbol) {
-    if (!SUGGEST_ENABLED) return false;
+    if (!suggestEnabled) return false;
     if (trees == null || symbol == null) return false;
     return trees.getPath(symbol) != null;
   }
 
   public boolean isOutOfScope(String clazz) {
-    if (WORK_LIST.size() == 1 && WORK_LIST.contains("*")) {
+    if (workList.size() == 1 && workList.contains("*")) {
       return false;
     }
-    return !WORK_LIST.contains(clazz);
+    return !workList.contains(clazz);
   }
 
   public static class AutoFixConfigBuilder {
 
-    private boolean SUGGEST_ENABLED;
-    private boolean SUGGEST_DEEP;
-    private boolean LOG_ERROR_ENABLED;
-    private boolean LOG_ERROR_DEEP;
-    private String NULLABLE;
-    private String NONNULL;
-    private Set<String> WORK_LIST;
+    private boolean suggestEnabled;
+    private boolean suggestDeep;
+    private boolean logErrorEnabled;
+    private boolean logErrorDeep;
+    private String nullable;
+    private String nonnull;
+    private Set<String> workList;
 
     public AutoFixConfigBuilder() {
-      SUGGEST_ENABLED = false;
-      SUGGEST_DEEP = false;
-      LOG_ERROR_ENABLED = false;
-      LOG_ERROR_DEEP = false;
-      NULLABLE = "javax.annotation.Nullable";
-      NONNULL = "javax.annotation.Nonnull";
-      WORK_LIST = Collections.singleton("*");
+      suggestEnabled = false;
+      suggestDeep = false;
+      logErrorEnabled = false;
+      logErrorDeep = false;
+      nullable = "javax.annotation.Nullable";
+      nonnull = "javax.annotation.Nonnull";
+      workList = Collections.singleton("*");
     }
 
     private String workListDisplay() {
-      String display = WORK_LIST.toString();
+      String display = workList.toString();
       return display.substring(1, display.length() - 1);
     }
 
@@ -161,16 +161,16 @@ public class AutoFixConfig {
     public void writeInJson(String path) {
       JSONObject res = new JSONObject();
       JSONObject suggest = new JSONObject();
-      suggest.put("ACTIVE", SUGGEST_ENABLED);
-      suggest.put("DEEP", SUGGEST_DEEP);
+      suggest.put("ACTIVE", suggestEnabled);
+      suggest.put("DEEP", suggestDeep);
       res.put("SUGGEST", suggest);
       JSONObject annotation = new JSONObject();
-      annotation.put("NULLABLE", NULLABLE);
-      annotation.put("NONNULL", NONNULL);
+      annotation.put("NULLABLE", nullable);
+      annotation.put("NONNULL", nonnull);
       res.put("ANNOTATION", annotation);
       JSONObject logError = new JSONObject();
-      logError.put("ACTIVE", LOG_ERROR_ENABLED);
-      logError.put("DEEP", LOG_ERROR_DEEP);
+      logError.put("ACTIVE", logErrorEnabled);
+      logError.put("DEEP", logErrorDeep);
       res.put("LOG_ERROR", logError);
       JSONObject paramTest = new JSONObject();
       res.put("METHOD_PARAM_TEST", paramTest);
@@ -187,34 +187,34 @@ public class AutoFixConfig {
     }
 
     public AutoFixConfigBuilder setSuggest(boolean value, boolean isDeep) {
-      SUGGEST_ENABLED = value;
-      if (SUGGEST_ENABLED) {
-        SUGGEST_DEEP = isDeep;
+      suggestEnabled = value;
+      if (suggestEnabled) {
+        suggestDeep = isDeep;
       }
       return this;
     }
 
-    public AutoFixConfigBuilder setSuggest(boolean suggest, String NULLABLE, String NONNULL) {
-      SUGGEST_ENABLED = suggest;
+    public AutoFixConfigBuilder setSuggest(boolean suggest, String nullable, String nonnull) {
+      suggestEnabled = suggest;
       if (!suggest) {
         throw new RuntimeException("SUGGEST must be activated");
       }
-      this.NULLABLE = NULLABLE;
-      this.NONNULL = NONNULL;
+      this.nullable = nullable;
+      this.nonnull = nonnull;
       return this;
     }
 
     public AutoFixConfigBuilder setLogError(boolean value, boolean isDeep) {
-      LOG_ERROR_ENABLED = value;
+      logErrorEnabled = value;
       if (!value && isDeep) {
         throw new RuntimeException("Log error must be enabled to activate deep log error");
       }
-      LOG_ERROR_DEEP = isDeep;
+      logErrorDeep = isDeep;
       return this;
     }
 
     public AutoFixConfigBuilder setWorkList(Set<String> workList) {
-      WORK_LIST = workList;
+      this.workList = workList;
       return this;
     }
 

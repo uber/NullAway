@@ -100,7 +100,6 @@ public class ErrorBuilder {
    * @param state the visitor state (used for e.g. suppression finding).
    * @return the error description
    */
-  @SuppressWarnings("InvalidBlockTag")
   public Description createErrorDescription(
       ErrorMessage errorMessage,
       @Nullable Tree suggestTree,
@@ -125,13 +124,15 @@ public class ErrorBuilder {
     if (config.suggestSuppressions() && suggestTree != null) {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
     }
-    // #letbuildersbuild
-    if (config.getAutoFixConfig().LOG_ERROR_ENABLED) {
+
+    if (config.autofixIsEnabled() && config.getAutoFixConfig().logErrorEnabled) {
       config
           .getAutoFixConfig()
-          .WRITER
-          .saveErrorNode(errorMessage, state, config.getAutoFixConfig().LOG_ERROR_DEEP);
+          .writer
+          .saveErrorNode(errorMessage, state, config.getAutoFixConfig().logErrorDeep);
     }
+
+    // #letbuildersbuild
     return builder.build();
   }
 
@@ -333,10 +334,7 @@ public class ErrorBuilder {
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
     state.reportMatch(
         createErrorDescription(
-            new ErrorMessage(METHOD_NO_INIT, message, true),
-            methodTree,
-            descriptionBuilder,
-            state));
+            new ErrorMessage(METHOD_NO_INIT, message), methodTree, descriptionBuilder, state));
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
@@ -445,15 +443,14 @@ public class ErrorBuilder {
       state.reportMatch(
           createErrorDescription(
               new ErrorMessage(
-                  FIELD_NO_INIT, "@NonNull static field " + fieldName + " not initialized", true),
+                  FIELD_NO_INIT, "@NonNull static field " + fieldName + " not initialized"),
               tree,
               builder,
               state));
     } else {
       state.reportMatch(
           createErrorDescription(
-              new ErrorMessage(
-                  FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized", true),
+              new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),
               tree,
               builder,
               state));

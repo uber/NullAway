@@ -44,15 +44,15 @@ public class FixHandler extends BaseNoOpHandler {
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
     if (config.canFixElement(trees, target)) {
       Location location = new Location(target);
-      if (!config.SUGGEST_ENABLED) return;
+      if (!config.suggestEnabled) return;
       // todo: remove this condition later, for now we are not supporting anonymous classes
       if (location.isInAnonymousClass()) return;
       Fix fix = buildFix(errorMessage, location);
       if (fix != null) {
-        if (config.SUGGEST_DEEP) {
+        if (config.suggestDeep) {
           fix.findEnclosing(state, errorMessage);
         }
-        config.WRITER.saveFix(fix);
+        config.writer.saveFix(fix);
       }
     }
   }
@@ -68,7 +68,7 @@ public class FixHandler extends BaseNoOpHandler {
       case ASSIGN_FIELD_NULLABLE:
         fix = new Fix();
         fix.location = location;
-        fix.annotation = config.ANNOTATION_FACTORY.getNullable();
+        fix.annotation = config.annotationFactory.getNullable();
         fix.inject = true;
         break;
       default:

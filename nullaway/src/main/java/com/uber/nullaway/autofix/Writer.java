@@ -19,7 +19,7 @@ public class Writer {
   public final String DELIMITER = "$*$";
 
   public Writer(AutoFixConfig config) {
-    String outputDirectory = config.OUTPUT_DIRECTORY;
+    String outputDirectory = config.outputDirectory;
     this.ERROR = Paths.get(outputDirectory, "errors.csv");
     this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.csv");
     reset(config);
@@ -53,11 +53,11 @@ public class Writer {
 
   private void reset(AutoFixConfig config) {
     try {
-      Files.createDirectories(Paths.get(config.OUTPUT_DIRECTORY));
-      if (config.SUGGEST_ENABLED) {
+      Files.createDirectories(Paths.get(config.outputDirectory));
+      if (config.suggestEnabled) {
         resetFile(SUGGEST_FIX, Fix.header(DELIMITER));
       }
-      if (config.LOG_ERROR_ENABLED) {
+      if (config.logErrorEnabled) {
         resetFile(ERROR, ErrorInfo.header(DELIMITER));
       }
     } catch (IOException e) {
