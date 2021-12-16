@@ -35,8 +35,8 @@ public class AutoFixConfig {
     logErrorDeep = false;
     annotationFactory = new AnnotationFactory();
     workList = Collections.singleton("*");
-    outputDirectory = "/tmp/NullAwayFix";
-    writer = new Writer(this);
+    outputDirectory = null;
+    writer = null;
   }
 
   public AutoFixConfig(boolean autofixEnabled, String outputDirectory) {
@@ -48,7 +48,8 @@ public class AutoFixConfig {
             new JSONParser()
                 .parse(
                     Files.newBufferedReader(
-                        Paths.get(outputDirectory, "explorer.config"), Charset.defaultCharset()));
+                        Paths.get(outputDirectory).resolve("explorer.config"),
+                        Charset.defaultCharset()));
         jsonObject = (JSONObject) obj;
       } catch (Exception e) {
         throw new RuntimeException(
@@ -172,17 +173,13 @@ public class AutoFixConfig {
       logError.put("ACTIVE", logErrorEnabled);
       logError.put("DEEP", logErrorDeep);
       res.put("LOG_ERROR", logError);
-      JSONObject paramTest = new JSONObject();
-      res.put("METHOD_PARAM_TEST", paramTest);
-      JSONObject virtualAnnot = new JSONObject();
-      res.put("VIRTUAL", virtualAnnot);
       res.put("WORK_LIST", workListDisplay());
       try {
         BufferedWriter file = Files.newBufferedWriter(Paths.get(path), Charset.defaultCharset());
         file.write(res.toJSONString());
         file.flush();
       } catch (IOException e) {
-        System.err.println("Error happened in writing config.");
+        System.err.println("Error happened in writing config." + e);
       }
     }
 

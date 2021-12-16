@@ -3,13 +3,20 @@ package com.uber.nullaway;
 import com.uber.nullaway.autofix.AutoFixConfig;
 import com.uber.nullaway.tools.AutoFixTestHelper;
 import com.uber.nullaway.tools.FixDisplay;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.springframework.util.FileSystemUtils;
 
 @RunWith(JUnit4.class)
 public class NullAwayAutoFixTest {
@@ -17,18 +24,28 @@ public class NullAwayAutoFixTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   private AutoFixTestHelper autoFixTestHelper;
-  private final String outputPath = "/tmp/NullAwayFix";
+  private String outputPath;
 
   @Before
   public void setup() {
-    autoFixTestHelper = new AutoFixTestHelper();
-    makeDefaultConfig();
+    Path home = Paths.get(temporaryFolder.getRoot().getPath());
+    outputPath = home.toString();
+    try {
+      Files.createDirectories(home);
+      autoFixTestHelper = new AutoFixTestHelper(home);
+      AutoFixConfig.AutoFixConfigBuilder writer =
+          new AutoFixConfig.AutoFixConfigBuilder().setSuggest(true, false);
+      Path configPath = home.resolve("explorer.config");
+      Files.createFile(configPath);
+      writer.write(configPath.toString());
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
   }
 
-  private void makeDefaultConfig() {
-    AutoFixConfig.AutoFixConfigBuilder writer =
-        new AutoFixConfig.AutoFixConfigBuilder().setSuggest(true, false);
-    writer.write("/tmp/NullAwayFix/explorer.config");
+  @After
+  public void cleanup() {
+    FileSystemUtils.deleteRecursively(temporaryFolder.getRoot());
   }
 
   @Test

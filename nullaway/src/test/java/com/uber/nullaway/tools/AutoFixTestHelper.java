@@ -5,20 +5,23 @@ import static org.junit.Assert.fail;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
 public class AutoFixTestHelper {
   private final List<FixDisplay> fixDisplays = new ArrayList<>();
-  private final String outputPath = "/tmp/NullAwayFix/fixes.csv";
+  private final Path outputPath;
   private boolean haveFixes = true;
   private CompilationTestHelper compilationTestHelper;
+
+  public AutoFixTestHelper(Path outputPath) {
+    this.outputPath = outputPath.resolve("fixes.csv");
+  }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")
   public AutoFixTestHelper addSourceLines(String path, String... lines) {
@@ -58,9 +61,12 @@ public class AutoFixTestHelper {
     compareFixes(outputFixDisplays);
   }
 
-  @SuppressWarnings("ResultOfMethodCallIgnored")
   private void clearOutput() {
-    new File(outputPath).delete();
+    try {
+      Files.deleteIfExists(outputPath);
+    } catch (IOException ignored) {
+      throw new RuntimeException("Did not expect it");
+    }
   }
 
   private void compareFixes(FixDisplay[] outputFixDisplays) {
@@ -103,7 +109,7 @@ public class AutoFixTestHelper {
     ArrayList<FixDisplay> fixDisplays = new ArrayList<>();
     BufferedReader reader;
     try {
-      reader = Files.newBufferedReader(Paths.get(this.outputPath), Charset.defaultCharset());
+      reader = Files.newBufferedReader(this.outputPath, Charset.defaultCharset());
       String line = reader.readLine();
       if (line != null) line = reader.readLine();
       while (line != null) {
