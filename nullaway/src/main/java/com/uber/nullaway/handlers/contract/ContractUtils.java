@@ -87,7 +87,6 @@ public class ContractUtils {
     String[] antecedent = parts[0].split(",");
 
     if (antecedent.length != numOfArguments) {
-
       String message =
           "Invalid @Contract annotation detected for method "
               + callee

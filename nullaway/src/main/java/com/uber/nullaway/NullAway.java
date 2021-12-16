@@ -454,13 +454,11 @@ public class NullAway extends BugChecker
     if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
-
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
-
     // if the method is overriding some other method,
     // check that nullability annotations are consistent with
     // overridden method (if overridden method is in an annotated
     // package)
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     handler.onMatchMethod(this, tree, state, methodSymbol);
     boolean isOverriding = ASTHelpers.hasAnnotation(methodSymbol, Override.class, state);
     boolean exhaustiveOverride = config.exhaustiveOverride();
@@ -613,7 +611,7 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
-  public static Trees getTreesInstance(VisitorState state) {
+  static Trees getTreesInstance(VisitorState state) {
     return Trees.instance(JavacProcessingEnvironment.instance(state.context));
   }
 

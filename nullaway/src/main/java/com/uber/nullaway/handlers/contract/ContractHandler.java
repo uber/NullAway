@@ -146,7 +146,6 @@ public class ContractHandler extends BaseNoOpHandler {
             argAntecedentNullness =
                 valueConstraint.equals("null") ? Nullness.NULLABLE : Nullness.NONNULL;
           } else {
-
             Preconditions.checkNotNull(state);
             Preconditions.checkNotNull(analysis);
             String errorMessage =
@@ -157,7 +156,6 @@ public class ContractHandler extends BaseNoOpHandler {
                     + " (unknown value constraint: "
                     + valueConstraint
                     + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).";
-
             state.reportMatch(
                 analysis
                     .getErrorBuilder()

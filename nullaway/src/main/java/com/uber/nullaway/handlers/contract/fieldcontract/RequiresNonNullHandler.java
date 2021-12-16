@@ -90,7 +90,6 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     if (overridingFieldNames == null) {
       return;
     }
-
     Set<String> overriddenFieldNames = getAnnotationValueArray(overriddenMethod, annotName, false);
     if (overriddenFieldNames == null) {
       overriddenFieldNames = Collections.emptySet();
@@ -133,7 +132,6 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       MethodInvocationTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
-
     Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames == null) {
       super.onMatchMethodInvocation(analysis, tree, state, methodSymbol);
@@ -142,7 +140,6 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
-
       Preconditions.checkNotNull(
           classSymbol, "Could not find the enclosing class for method symbol: " + methodSymbol);
       VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
@@ -193,7 +190,6 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     }
     fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
-
       VariableElement field = getInstanceFieldOfClass(ASTHelpers.getSymbol(classTree), fieldName);
       if (field == null) {
         // Invalid annotation, will result in an error during validation. For now, skip field.

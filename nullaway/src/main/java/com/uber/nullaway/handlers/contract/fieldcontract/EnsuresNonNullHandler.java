@@ -85,7 +85,6 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
     Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
-
     if (fieldNames == null) {
       fieldNames = Collections.emptySet();
     }
@@ -125,7 +124,6 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       VisitorState state,
       MethodTree tree,
       Symbol.MethodSymbol overriddenMethod) {
-
     Set<String> overriddenFieldNames = getAnnotationValueArray(overriddenMethod, annotName, false);
     if (overriddenFieldNames == null) {
       return;
@@ -139,7 +137,6 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     overriddenFieldNames.removeAll(overridingFieldNames);
 
     StringBuilder errorMessage = new StringBuilder();
-
     errorMessage
         .append(
             "postcondition inheritance is violated, this method must guarantee that all fields written in the @EnsuresNonNull annotation of overridden method ")
