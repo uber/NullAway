@@ -3150,4 +3150,24 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void derefNullableTernary() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "public class Test {",
+            "  public void derefTernary(boolean b) {",
+            "    Object o1 = null, o2 = new Object();",
+            "    // BUG: Diagnostic contains: dereferenced expression (b ? o1 : o2) is @Nullable",
+            "    (b ? o1 : o2).toString();",
+            "    // BUG: Diagnostic contains: dereferenced expression (b ? o2 : o1) is @Nullable",
+            "    (b ? o2 : o1).toString();",
+            "    // This case is safe",
+            "    (b ? o2 : o2).toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

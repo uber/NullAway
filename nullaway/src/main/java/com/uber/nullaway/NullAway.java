@@ -1992,15 +1992,17 @@ public class NullAway extends BugChecker
 
   private Description matchDereference(
       ExpressionTree baseExpression, ExpressionTree derefExpression, VisitorState state) {
-    baseExpression = stripParensAndCasts(baseExpression);
-    Symbol dereferenced = ASTHelpers.getSymbol(baseExpression);
-    if (!baseExpression.getKind().name().equals("SWITCH_EXPRESSION")
-        && (dereferenced == null
-            || dereferenced.type.isPrimitive()
-            || dereferenced.getKind() == ElementKind.PACKAGE
-            || ElementUtils.isTypeElement(dereferenced))) {
-      // we know we don't have a null dereference here
-      return Description.NO_MATCH;
+    Symbol baseExpressionSymbol = ASTHelpers.getSymbol(baseExpression);
+    // Note that a null dereference is possible even if baseExpressionSymbol is null,
+    // e.g., in cases where baseExpression contains conditional logic (like a ternary
+    // expression, or a switch expression in JDK 12+)
+    if (baseExpressionSymbol != null) {
+      if (baseExpressionSymbol.type.isPrimitive()
+          || baseExpressionSymbol.getKind() == ElementKind.PACKAGE
+          || ElementUtils.isTypeElement(baseExpressionSymbol)) {
+        // we know we don't have a null dereference here
+        return Description.NO_MATCH;
+      }
     }
     if (mayBeNullExpr(state, baseExpression)) {
       final String message =
