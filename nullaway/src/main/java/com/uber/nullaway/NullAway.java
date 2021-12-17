@@ -477,16 +477,25 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    ExpressionTree switchExpression = stripParensAndCasts(tree.getExpression());
+    ExpressionTree switchSelectorExpression = tree.getExpression();
+    // For a statement `switch (e) { ... }`, javac returns `(e)` as the selector expression.  We
+    // strip
+    // the outermost parentheses for a nicer-looking error message.
+    if (switchSelectorExpression instanceof ParenthesizedTree) {
+      switchSelectorExpression = ((ParenthesizedTree) switchSelectorExpression).getExpression();
+    }
 
-    if (mayBeNullExpr(state, switchExpression)) {
+    if (mayBeNullExpr(state, switchSelectorExpression)) {
       final String message =
-          "switch expression " + state.getSourceForNode(switchExpression) + " is @Nullable";
+          "switch expression " + state.getSourceForNode(switchSelectorExpression) + " is @Nullable";
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.SWITCH_EXPRESSION_NULLABLE, message);
 
       return errorBuilder.createErrorDescription(
-          errorMessage, switchExpression, buildDescription(switchExpression), state);
+          errorMessage,
+          switchSelectorExpression,
+          buildDescription(switchSelectorExpression),
+          state);
     }
 
     return Description.NO_MATCH;
@@ -1941,6 +1950,7 @@ public class NullAway extends BugChecker
         exprMayBeNull = nullnessFromDataflow(state, expr);
         break;
       default:
+        // match switch expressions by comparing strings, so the code compiles on JDK versions < 12
         if (expr.getKind().name().equals("SWITCH_EXPRESSION")) {
           exprMayBeNull = nullnessFromDataflow(state, expr);
         } else {

@@ -492,6 +492,9 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitSwitchExpressionNode(
       SwitchExpressionNode node, TransferInput<Nullness, NullnessStore> input) {
+    // The cfg includes assignments of the value of each case body of the switch expression
+    // to the switch expression var (a synthetic local variale).  So, the dataflow result
+    // for the switch expression is just the result for the switch expression var
     return visitLocalVariable(node.getSwitchExpressionVar(), input);
   }
 
