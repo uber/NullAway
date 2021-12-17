@@ -62,7 +62,7 @@ public class NullAwayJDK17Test {
             "    o2.toString();",
             "  }",
             "  public void testSwitchExpr2(int i) {",
-            "    // BUG: Diagnostic contains: dereferenced expression switch",
+            "    // BUG: Diagnostic contains: dereferenced expression (switch",
             "    (switch (i) { case 3, 4, 5 -> new Object(); default -> null; }).toString();",
             "  }",
             "  private void takesNonNull(Object o) {}",
