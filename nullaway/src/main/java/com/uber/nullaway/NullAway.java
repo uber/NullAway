@@ -479,8 +479,7 @@ public class NullAway extends BugChecker
 
     ExpressionTree switchSelectorExpression = tree.getExpression();
     // For a statement `switch (e) { ... }`, javac returns `(e)` as the selector expression.  We
-    // strip
-    // the outermost parentheses for a nicer-looking error message.
+    // strip the outermost parentheses for a nicer-looking error message.
     if (switchSelectorExpression instanceof ParenthesizedTree) {
       switchSelectorExpression = ((ParenthesizedTree) switchSelectorExpression).getExpression();
     }
