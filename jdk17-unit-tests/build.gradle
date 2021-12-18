@@ -17,7 +17,6 @@ plugins {
   id 'java-library'
   // For code coverage:
   id 'jacoco'
-  id 'com.github.nbaztec.coveralls-jacoco'
 }
 
 // Use JDK 17 for this module, via a toolchain
@@ -60,6 +59,4 @@ jacocoTestReport {
     }
 }
 
-coverallsJacoco {
-    reportPath = "jdk17-unit-tests/build/reports/jacoco/test/jacocoTestReport.xml"
-}
+

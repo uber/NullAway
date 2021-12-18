@@ -28,9 +28,10 @@ buildscript {
 }
 plugins {
   id "com.github.sherter.google-java-format" version "0.9"
+  id "org.barfuin.gradle.jacocolog" version "2.0.0"
+  id "com.github.nbaztec.coveralls-jacoco" version "1.2.13"
   id "net.ltgt.errorprone" version "2.0.1" apply false
   id "com.github.johnrengelman.shadow" version "6.1.0" apply false
-  id "com.github.nbaztec.coveralls-jacoco" version "1.2.5" apply false
   id "com.android.application" version "3.5.0" apply false
 }
 
@@ -94,4 +95,8 @@ tasks.register('installGitHooks', Copy) {
 	}
 	into file('.git/hooks')
 	fileMode 0777
+}
+
+coverallsJacoco {
+    reportPath = "build/reports/jacoco/jacocoAggregatedReport/jacocoAggregatedReport.xml"
 }
