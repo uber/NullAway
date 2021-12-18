@@ -19,6 +19,7 @@ plugins {
   id 'java-library'
   // For code coverage:
   id 'jacoco'
+  id 'com.github.nbaztec.coveralls-jacoco'
 }
 
 sourceCompatibility = "1.8"
@@ -97,4 +98,6 @@ jacocoTestReport {
     }
 }
 
-
+coverallsJacoco {
+    reportPath = "nullaway/build/reports/jacoco/test/jacocoTestReport.xml"
+}
