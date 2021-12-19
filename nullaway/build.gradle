@@ -19,7 +19,6 @@ plugins {
   id 'java-library'
   // For code coverage:
   id 'jacoco'
-  id 'com.github.nbaztec.coveralls-jacoco'
 }
 
 sourceCompatibility = "1.8"
@@ -91,13 +90,40 @@ jacoco {
   toolVersion = "0.8.7"
 }
 
-jacocoTestReport {
-    reports {
-        xml.enabled = true // coveralls plugin depends on xml format report
-        html.enabled = true
+// Do not generate reports for individual projects
+tasks.named("jacocoTestReport") {
+    enabled = false
+}
+
+// Share sources folder with other projects for aggregated JaCoCo reports
+configurations.create('transitiveSourcesElements') {
+    visible = false
+    canBeResolved = false
+    canBeConsumed = true
+    extendsFrom(configurations.implementation)
+    attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
+        attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, 'source-folders'))
+    }
+    sourceSets.main.java.srcDirs.forEach {
+        outgoing.artifact(it)
     }
 }
 
-coverallsJacoco {
-    reportPath = "nullaway/build/reports/jacoco/test/jacocoTestReport.xml"
+// Share the coverage data to be aggregated for the whole product
+configurations.create('coverageDataElements') {
+    visible = false
+    canBeResolved = false
+    canBeConsumed = true
+    extendsFrom(configurations.implementation)
+    attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
+        attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, 'jacoco-coverage-data'))
+    }
+    // This will cause the test task to run if the coverage data is requested by the aggregation task
+    outgoing.artifact(tasks.named("test").map { task ->
+        task.extensions.getByType(JacocoTaskExtension).destinationFile
+    })
 }
