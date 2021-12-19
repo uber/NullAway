@@ -54,4 +54,5 @@ coverallsJacoco {
 
 dependencies {
     implementation project(':nullaway')
+    implementation project(':jar-infer:jar-infer-lib')
 }
