@@ -1,7 +1,8 @@
 plugins {
     id 'java'
     id 'jacoco'
-    id 'com.github.nbaztec.coveralls-jacoco'
+//    id 'com.github.nbaztec.coveralls-jacoco'
+    id 'com.github.kt3k.coveralls'
 }
 
 // A resolvable configuration to collect source code
@@ -47,9 +48,11 @@ def codeCoverageReport = tasks.register('codeCoverageReport', JacocoReport) {
     }
 }
 
-coverallsJacoco {
-    reportPath = "code-coverage-report/build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
-    reportSourceSets = sourcesPath.incoming.artifactView { lenient(true) }.files
+coveralls {
+    jacocoReportPath = "build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
+    afterEvaluate {
+        sourceDirs = sourcesPath.incoming.artifactView { lenient(true) }.files as List<String>
+    }
 }
 
 dependencies {
