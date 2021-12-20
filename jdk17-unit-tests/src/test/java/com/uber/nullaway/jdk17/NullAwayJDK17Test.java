@@ -48,13 +48,13 @@ public class NullAwayJDK17Test {
   }
 
   @Test
-  public void testSwitchExpression() {
+  public void testSwitchExpressionAssign() {
     defaultCompilationHelper
         .addSourceLines(
             "SwitchExpr.java",
             "package com.uber;",
             "class SwitchExpr {",
-            "  public void testSwitchExpr(int i) {",
+            "  public void testSwitchExpressionAssign(int i) {",
             "    Object o = switch (i) { case 3, 4, 5 -> new Object(); default -> null; };",
             "    // BUG: Diagnostic contains: dereferenced expression o is @Nullable",
             "    o.toString();",
@@ -62,12 +62,34 @@ public class NullAwayJDK17Test {
             "    // This dereference is safe",
             "    o2.toString();",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testDirectlyDerefedSwitchExpr() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SwitchExpr.java",
+            "package com.uber;",
+            "class SwitchExpr {",
             "  public void testDirectlyDerefedSwitchExpr(int i) {",
             "    // BUG: Diagnostic contains: dereferenced expression (switch",
             "    (switch (i) { case 3, 4, 5 -> new Object(); default -> null; }).toString();",
             "    // This deference is safe",
             "    (switch (i) { case 3, 4, 5 -> new Object(); default -> \"hello\"; }).toString();",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testPassingSwitchExprAsParam() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SwitchExpr.java",
+            "package com.uber;",
+            "class SwitchExpr {",
             "  private void takesNonNull(Object o) {}",
             "  public void testSwitchExpr3(int i) {",
             "    // BUG: Diagnostic contains: passing",
@@ -75,6 +97,17 @@ public class NullAwayJDK17Test {
             "    // This call is safe",
             "    takesNonNull(switch (i) { case 3, 4, 5 -> new Object(); default -> new Object(); });",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testSwitchStmtArrowCase() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SwitchExpr.java",
+            "package com.uber;",
+            "class SwitchExpr {",
             "  public void testSwitchStmtArrowCase(int i) {",
             "    Object o = null;",
             "    switch (i) {",
@@ -98,6 +131,17 @@ public class NullAwayJDK17Test {
             "    // This dereference is safe",
             "    o3.toString();",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testSwitchExprUnbox() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SwitchExpr.java",
+            "package com.uber;",
+            "class SwitchExpr {",
             "  public void testSwitchExprUnbox() {",
             "    Integer i = null;",
             "    // NOTE: we should report a bug here due to the unboxing of i, but cannot do so until",
