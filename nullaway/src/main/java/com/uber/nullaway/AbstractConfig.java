@@ -111,9 +111,9 @@ public abstract class AbstractConfig implements Config {
   protected String errorURL;
 
   /** --- Fully qualified names of custom nonnull/nullable annotation --- */
-  protected Set<String> customNonnullAnnotation;
+  protected Set<String> customNonnullAnnotations;
 
-  protected Set<String> customNullableAnnotation;
+  protected Set<String> customNullableAnnotations;
 
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
     // noinspection ConstantConditions
@@ -171,12 +171,12 @@ public abstract class AbstractConfig implements Config {
 
   @Override
   public boolean isCustomNullableAnnotation(String annotationName) {
-    return customNullableAnnotation.contains(annotationName);
+    return customNullableAnnotations.contains(annotationName);
   }
 
   @Override
   public boolean isCustomNonnullAnnotation(String annotationName) {
-    return customNonnullAnnotation.contains(annotationName);
+    return customNonnullAnnotations.contains(annotationName);
   }
 
   @Override
