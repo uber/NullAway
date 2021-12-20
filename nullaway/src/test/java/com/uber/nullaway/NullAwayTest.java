@@ -3178,7 +3178,7 @@ public class NullAwayTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:CustomNullableAnnotation=qual.Null"))
+                "-XepOpt:NullAway:CustomNullableAnnotations=qual.Null"))
         .addSourceLines("qual/Null.java", "package qual;", "public @interface Null {", "}")
         .addSourceLines(
             "Test.java",
