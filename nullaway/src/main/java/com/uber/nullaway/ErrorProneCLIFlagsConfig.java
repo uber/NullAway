@@ -51,8 +51,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_ACKNOWLEDGE_ANDROID_RECENT = EP_FL_NAMESPACE + ":AcknowledgeAndroidRecent";
   static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
-  static final String FL_NULLABLE_ANNOT = EP_FL_NAMESPACE + ":CustomNullableAnnotation";
-  static final String FL_NONNULL_ANNOT = EP_FL_NAMESPACE + ":CustomNonnullAnnotation";
+  static final String FL_NULLABLE_ANNOT = EP_FL_NAMESPACE + ":CustomNullableAnnotations";
+  static final String FL_NONNULL_ANNOT = EP_FL_NAMESPACE + ":CustomNonnullAnnotations";
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
   static final String FL_EXTERNAL_INIT_ANNOT = EP_FL_NAMESPACE + ":ExternalInitAnnotations";
   static final String FL_CONTRACT_ANNOT = EP_FL_NAMESPACE + ":CustomContractAnnotations";
@@ -154,8 +154,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
             flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE, DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE);
     initializerAnnotations =
         getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);
-    customNullableAnnotation = flags.get(FL_NULLABLE_ANNOT).orElse("javax.annotation.Nullable");
-    customNonnullAnnotation = flags.get(FL_NONNULL_ANNOT).orElse("javax.annotation.Nonnull");
+    customNullableAnnotation = getFlagStringSet(flags, FL_NULLABLE_ANNOT, ImmutableSet.of());
+    customNonnullAnnotation = getFlagStringSet(flags, FL_NONNULL_ANNOT, ImmutableSet.of());
     externalInitAnnotations =
         getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT, DEFAULT_EXTERNAL_INIT_ANNOT);
     contractAnnotations = getFlagStringSet(flags, FL_CONTRACT_ANNOT, DEFAULT_CONTRACT_ANNOT);
@@ -218,15 +218,5 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
       Collections.addAll(combined, flagValue.get().split(DELIMITER));
     }
     return ImmutableSet.copyOf(combined);
-  }
-
-  @Override
-  public boolean isCustomNullableAnnotation(String annotationName) {
-    return customNullableAnnotation.equals(annotationName);
-  }
-
-  @Override
-  public boolean isCustomNonnullAnnotation(String annotationName) {
-    return customNonnullAnnotation.equals(annotationName);
   }
 }
