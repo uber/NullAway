@@ -3178,21 +3178,34 @@ public class NullAwayTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:CustomNullableAnnotations=qual.Null"))
+                "-XepOpt:NullAway:UnannotatedClasses=com.uber.Super",
+                "-XepOpt:NullAway:CustomNullableAnnotations=qual.Null",
+                "-XepOpt:NullAway:CustomNonnullAnnotations=qual.NoNull",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
         .addSourceLines("qual/Null.java", "package qual;", "public @interface Null {", "}")
+        .addSourceLines("qual/NoNull.java", "package qual;", "public @interface NoNull {", "}")
         .addSourceLines(
-            "Test.java",
+            "Super.java",
+            "package com.uber;",
+            "import qual.NoNull;",
+            "import qual.Null;",
+            "public abstract class Super {",
+            "   abstract @NoNull String bar(@Null Object item);",
+            "}")
+        .addSourceLines(
+            "Base.java",
             "package com.uber;",
             "import qual.Null;",
-            "class Test {",
+            "class Base extends Super{",
             "   @Null Object foo;", // No error, should detect @Null
-            "   @Null Object returnNullable(){",
-            "     passNullable(foo);",
+            "   @Null Object baz(){",
+            "     bar(foo);",
             "     return null;", // No error, should detect @Null
             "   }",
-            "   String passNullable(@Null Object item){",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "      return item.toString();",
+            "     // BUG: Diagnostic contains: method returns @Nullable, but superclass method com.uber.Super.bar",
+            "   @Null String bar(@Null Object item){",
+            "     // BUG: Diagnostic contains: dereferenced expression item is @Nullable",
+            "     return item.toString();",
             "   }",
             "}")
         .doTest();
