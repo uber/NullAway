@@ -3170,4 +3170,31 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testCustomNullableAnnotation() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CustomNullableAnnotation=qual.Null"))
+        .addSourceLines("qual/Null.java", "package qual;", "public @interface Null {", "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import qual.Null;",
+            "class Test {",
+            "   @Null Object foo;", // No error, should detect @Null
+            "   @Null Object returnNullable(){",
+            "     passNullable(foo);",
+            "     return null;", // No error, should detect @Null
+            "   }",
+            "   String passNullable(@Null Object item){",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "      return item.toString();",
+            "   }",
+            "}")
+        .doTest();
+  }
 }

@@ -110,6 +110,11 @@ public abstract class AbstractConfig implements Config {
 
   protected String errorURL;
 
+  /** --- Fully qualified names of custom nonnull/nullable annotation --- */
+  protected String customNonnullAnnotation;
+
+  protected String customNullableAnnotation;
+
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
     // noinspection ConstantConditions
     String choiceRegexp =
