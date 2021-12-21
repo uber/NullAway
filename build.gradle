@@ -81,6 +81,7 @@ subprojects { project ->
 
 googleJavaFormat {
   toolVersion = "1.6"
+  exclude 'buildSrc/build/**/*.java'
 }
 
 ////////////////////////////////////////////////////////////////////////
