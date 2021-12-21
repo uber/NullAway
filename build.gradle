@@ -81,6 +81,7 @@ subprojects { project ->
 
 googleJavaFormat {
   toolVersion = "1.6"
+  // don't enforce formatting for generated Java code under buildSrc
   exclude 'buildSrc/build/**/*.java'
 }
 
