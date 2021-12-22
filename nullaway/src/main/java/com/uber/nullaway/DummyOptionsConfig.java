@@ -104,6 +104,16 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public boolean isCustomNullableAnnotation(String annotationName) {
+    return false;
+  }
+
+  @Override
+  public boolean isCustomNonnullAnnotation(String annotationName) {
+    return false;
+  }
+
+  @Override
   public boolean suggestSuppressions() {
     throw new IllegalStateException(error_msg);
   }

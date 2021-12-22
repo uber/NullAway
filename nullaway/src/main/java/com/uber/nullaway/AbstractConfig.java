@@ -110,6 +110,11 @@ public abstract class AbstractConfig implements Config {
 
   protected String errorURL;
 
+  /** --- Fully qualified names of custom nonnull/nullable annotation --- */
+  protected Set<String> customNonnullAnnotations;
+
+  protected Set<String> customNullableAnnotations;
+
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
     // noinspection ConstantConditions
     String choiceRegexp =
@@ -162,6 +167,16 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean isInitializerMethodAnnotation(String annotationName) {
     return initializerAnnotations.contains(annotationName);
+  }
+
+  @Override
+  public boolean isCustomNullableAnnotation(String annotationName) {
+    return customNullableAnnotations.contains(annotationName);
+  }
+
+  @Override
+  public boolean isCustomNonnullAnnotation(String annotationName) {
+    return customNonnullAnnotations.contains(annotationName);
   }
 
   @Override
