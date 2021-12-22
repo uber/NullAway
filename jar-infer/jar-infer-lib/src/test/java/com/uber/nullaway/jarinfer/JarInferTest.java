@@ -27,7 +27,9 @@ import com.google.errorprone.bugpatterns.BugChecker;
 import com.sun.tools.javac.main.Main;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -460,17 +462,7 @@ public class JarInferTest {
     final String inputJarPath = workingFolderPath + "/" + baseJarName + ".jar";
     final String outputJarPath = workingFolderPath + "/" + baseJarName + "-annotated.jar";
 
-    // Copy Jar to workspace, and sign it
-    Files.copy(
-        Paths.get(baseJarPath), Paths.get(inputJarPath), StandardCopyOption.REPLACE_EXISTING);
-    String ksPath =
-        Thread.currentThread().getContextClassLoader().getResource("testKeyStore.jks").getPath();
-    // JDK 8 only?
-    sun.security.tools.jarsigner.Main jarSignerTool = new sun.security.tools.jarsigner.Main();
-    jarSignerTool.run(
-        new String[] {
-          "-keystore", ksPath, "-storepass", "testPassword", inputJarPath, "testKeystore"
-        });
+    copyAndSignJar(baseJarPath, inputJarPath);
 
     // Test that this new jar fails if not run in --strip-jar-signatures mode
     boolean signedJarExceptionThrown = false;
@@ -505,6 +497,33 @@ public class JarInferTest {
     Assert.assertTrue(
         "Annotated jar after signature stripping does not preserve the info inside META-INF/MANIFEST.MF",
         EntriesComparator.compareManifestContents(outputJarPath, baseJarPath));
+  }
+
+  /** copy the jar at {@code baseJarPath} to a signed jar at {@code signedJarPath} */
+  private void copyAndSignJar(String baseJarPath, String signedJarPath)
+      throws IOException, InterruptedException {
+    Files.copy(
+        Paths.get(baseJarPath), Paths.get(signedJarPath), StandardCopyOption.REPLACE_EXISTING);
+    String ksPath =
+        Thread.currentThread().getContextClassLoader().getResource("testKeyStore.jks").getPath();
+    String jarsignerExecutable =
+        String.join(
+            FileSystems.getDefault().getSeparator(),
+            new String[] {System.getenv("JAVA_HOME"), "bin", "jarsigner"});
+    Process process =
+        Runtime.getRuntime()
+            .exec(
+                new String[] {
+                  jarsignerExecutable,
+                  "-keystore",
+                  ksPath,
+                  "-storepass",
+                  "testPassword",
+                  signedJarPath,
+                  "testKeystore"
+                });
+    int exitCode = process.waitFor();
+    Assert.assertEquals("jarsigner process failed", 0, exitCode);
   }
 
   private byte[] sha1sum(String path) throws Exception {
