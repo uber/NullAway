@@ -166,7 +166,7 @@ public class NullAwayJDK17Test {
             "import java.util.function.Function;",
             "class SwitchExpr {",
             "  int i;",
-            "  public void testSwitchExprLambda(SwitchExpr s) {",
+            "  public void testSwitchExprLambda() {",
             "    Function<SwitchExpr,Object> f = (s) -> switch (s.i) { case 3, 4, 5 -> new Object(); default -> \"hello\"; };",
             "  }",
             "}")
