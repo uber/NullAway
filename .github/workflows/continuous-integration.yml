@@ -49,7 +49,7 @@ jobs:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: verGJF build
+          arguments: verGJF build -x :code-coverage-report:build
         if: matrix.java == '8'
       - name: Build and test using Gradle and Java 11
         uses: eskatos/gradle-command-action@v1
