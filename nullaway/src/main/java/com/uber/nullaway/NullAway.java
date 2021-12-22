@@ -477,19 +477,24 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    ExpressionTree switchExpression = tree.getExpression();
-    if (switchExpression instanceof ParenthesizedTree) {
-      switchExpression = ((ParenthesizedTree) switchExpression).getExpression();
+    ExpressionTree switchSelectorExpression = tree.getExpression();
+    // For a statement `switch (e) { ... }`, javac returns `(e)` as the selector expression.  We
+    // strip the outermost parentheses for a nicer-looking error message.
+    if (switchSelectorExpression instanceof ParenthesizedTree) {
+      switchSelectorExpression = ((ParenthesizedTree) switchSelectorExpression).getExpression();
     }
 
-    if (mayBeNullExpr(state, switchExpression)) {
+    if (mayBeNullExpr(state, switchSelectorExpression)) {
       final String message =
-          "switch expression " + state.getSourceForNode(switchExpression) + " is @Nullable";
+          "switch expression " + state.getSourceForNode(switchSelectorExpression) + " is @Nullable";
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.SWITCH_EXPRESSION_NULLABLE, message);
 
       return errorBuilder.createErrorDescription(
-          errorMessage, switchExpression, buildDescription(switchExpression), state);
+          errorMessage,
+          switchSelectorExpression,
+          buildDescription(switchSelectorExpression),
+          state);
     }
 
     return Description.NO_MATCH;
@@ -1944,8 +1949,13 @@ public class NullAway extends BugChecker
         exprMayBeNull = nullnessFromDataflow(state, expr);
         break;
       default:
-        throw new RuntimeException(
-            "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
+        // match switch expressions by comparing strings, so the code compiles on JDK versions < 12
+        if (expr.getKind().name().equals("SWITCH_EXPRESSION")) {
+          exprMayBeNull = nullnessFromDataflow(state, expr);
+        } else {
+          throw new RuntimeException(
+              "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
+        }
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);
     return exprMayBeNull;

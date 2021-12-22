@@ -109,6 +109,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.StringConcatenateNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.StringConversionNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.StringLiteralNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.SuperNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.SwitchExpressionNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.SynchronizedNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.TernaryExpressionNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ThisNode;
@@ -486,6 +487,15 @@ public class AccessPathNullnessPropagation
             .valueOfSubNode(node.getThenOperand())
             .leastUpperBound(inputs.valueOfSubNode(node.getElseOperand()));
     return new RegularTransferResult<>(result, input.getRegularStore());
+  }
+
+  @Override
+  public TransferResult<Nullness, NullnessStore> visitSwitchExpressionNode(
+      SwitchExpressionNode node, TransferInput<Nullness, NullnessStore> input) {
+    // The cfg includes assignments of the value of each case body of the switch expression
+    // to the switch expression var (a synthetic local variable).  So, the dataflow result
+    // for the switch expression is just the result for the switch expression var
+    return visitLocalVariable(node.getSwitchExpressionVar(), input);
   }
 
   @Override
