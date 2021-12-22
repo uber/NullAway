@@ -75,6 +75,22 @@ public interface Config {
   boolean isInitializerMethodAnnotation(String annotationName);
 
   /**
+   * Checks if the annotation is a custom @Nullable annotation.
+   *
+   * @param annotationName fully-qualified annotation name
+   * @return true if annotation should be considered as a custom nullable annotation.
+   */
+  boolean isCustomNullableAnnotation(String annotationName);
+
+  /**
+   * Checks if the annotation is a custom @Nonnull annotation.
+   *
+   * @param annotationName fully-qualified annotation name
+   * @return true if annotation should be considered as a custom nonnull annotation.
+   */
+  boolean isCustomNonnullAnnotation(String annotationName);
+
+  /**
    * Checks if the annotation is an excluded field annotation.
    *
    * @param annotationName fully-qualified annotation name

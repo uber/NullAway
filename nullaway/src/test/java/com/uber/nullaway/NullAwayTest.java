@@ -3170,4 +3170,62 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testCustomNullableAnnotation() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CustomNullableAnnotations=qual.Null"))
+        .addSourceLines("qual/Null.java", "package qual;", "public @interface Null {", "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import qual.Null;",
+            "class Test {",
+            "   @Null Object foo;", // No error, should detect @Null
+            "   @Null Object baz(){",
+            "     bar(foo);",
+            "     return null;", // No error, should detect @Null
+            "   }",
+            "   String bar(@Null Object item){",
+            "     // BUG: Diagnostic contains: dereferenced expression item is @Nullable",
+            "     return item.toString();",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testCustomNonnullAnnotation() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedClasses=com.uber.Other",
+                "-XepOpt:NullAway:CustomNonnullAnnotations=qual.NoNull",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines("qual/NoNull.java", "package qual;", "public @interface NoNull {", "}")
+        .addSourceLines(
+            "Other.java",
+            "package com.uber;",
+            "import qual.NoNull;",
+            "public class Other {",
+            "   void bar(@NoNull Object item) { }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "   Other other = new Other();",
+            "   void foo(){",
+            "     // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "     other.bar(null);",
+            "   }",
+            "}")
+        .doTest();
+  }
 }
