@@ -1,3 +1,4 @@
+// Mostly taken from official Gradle sample: https://docs.gradle.org/current/samples/sample_jvm_multi_project_with_code_coverage.html
 plugins {
     id 'java'
     id 'jacoco'
@@ -54,10 +55,13 @@ coveralls {
     }
 }
 
+// these dependencies indicate which projects have tests or tested code we want to include
+// when computing overall coverage
 dependencies {
     implementation project(':nullaway')
     implementation project(':jar-infer:jar-infer-lib')
-    // We cannot include the JarInfer NullAway integration test yet since it does not run on JDK 11
+    // We cannot include the JarInfer NullAway integration test yet since it does not run on JDK 11.
+    // To include it we would have to also add dependencies on the code being tested
     //implementation project(':jar-infer:nullaway-integration-test')
     implementation project(':jdk17-unit-tests')
     implementation project(':jmh')
