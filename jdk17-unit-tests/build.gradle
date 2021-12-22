@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 plugins {
-  id 'java-library'
-  // For code coverage:
-  id 'jacoco'
+    id 'java-library'
+    id 'nullaway.jacoco-conventions'
 }
 
 // Use JDK 17 for this module, via a toolchain
@@ -48,13 +47,3 @@ test {
     ]
 }
 
-jacoco {
-  toolVersion = "0.8.7"
-}
-
-jacocoTestReport {
-    reports {
-        xml.enabled = true // coveralls plugin depends on xml format report
-        html.enabled = true
-    }
-}

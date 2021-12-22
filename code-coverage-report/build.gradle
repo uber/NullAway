@@ -57,4 +57,5 @@ coveralls {
 dependencies {
     implementation project(':nullaway')
     implementation project(':jar-infer:jar-infer-lib')
+    implementation project(':jdk17-unit-tests')
 }
