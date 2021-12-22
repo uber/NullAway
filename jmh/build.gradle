@@ -1,5 +1,6 @@
 plugins {
     id 'java-library'
+    id 'nullaway.jacoco-conventions'
     id "me.champeau.jmh" version "0.6.6"
 }
 
