@@ -506,6 +506,9 @@ public class JarInferTest {
         Paths.get(baseJarPath), Paths.get(signedJarPath), StandardCopyOption.REPLACE_EXISTING);
     String ksPath =
         Thread.currentThread().getContextClassLoader().getResource("testKeyStore.jks").getPath();
+    // A public API for signing jars was added for Java 9+, but there is only an internal API on
+    // Java 8.  And we need the test code to compile on Java 8.  For simplicity and uniformity, we
+    // just run jarsigner as an executable (which slightly slows down test execution)
     String jarsignerExecutable =
         String.join(
             FileSystems.getDefault().getSeparator(),
