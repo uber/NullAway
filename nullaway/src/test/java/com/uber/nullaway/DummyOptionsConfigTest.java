@@ -1,7 +1,9 @@
 package com.uber.nullaway;
 
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -46,9 +48,9 @@ public class DummyOptionsConfigTest {
                   method.getName()));
       // The real exception, not wrapped by reflection exceptions
       Throwable cause = reflectionException.getCause();
-      assertTrue(cause instanceof IllegalStateException);
+      assertThat(cause, instanceOf(IllegalStateException.class));
       IllegalStateException exception = (IllegalStateException) cause;
-      assertTrue(exception.getMessage().equals(DummyOptionsConfig.ERROR_MESSAGE));
+      assertEquals(exception.getMessage(), DummyOptionsConfig.ERROR_MESSAGE);
     }
   }
 }
