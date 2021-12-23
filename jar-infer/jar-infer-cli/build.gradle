@@ -30,6 +30,7 @@ jar {
         'Main-Class': 'com.uber.nullaway.jarinfer.JarInfer'
         )
     }
+    archiveClassifier = "nonshadow"
 }
 
 shadowJar {
