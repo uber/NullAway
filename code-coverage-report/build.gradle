@@ -55,8 +55,9 @@ coveralls {
     }
 }
 
-// these dependencies indicate which projects have tests or tested code we want to include
-// when computing overall coverage
+// These dependencies indicate which projects have tests or tested code we want to include
+// when computing overall coverage.  We aim to measure coverage for all code that actually ships
+// in a Maven artifact (so, e.g., we do not measure coverage for the jmh module)
 dependencies {
     implementation project(':nullaway')
     implementation project(':jar-infer:jar-infer-lib')
@@ -64,5 +65,4 @@ dependencies {
     // To include it we would have to also add dependencies on the code being tested
     //implementation project(':jar-infer:nullaway-integration-test')
     implementation project(':jdk17-unit-tests')
-    implementation project(':jmh')
 }
