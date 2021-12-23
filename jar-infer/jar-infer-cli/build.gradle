@@ -30,6 +30,9 @@ jar {
         'Main-Class': 'com.uber.nullaway.jarinfer.JarInfer'
         )
     }
+    // add this classifier so that the output file for the jar task differs from
+    // the output file for the shadowJar task (otherwise they overwrite each other's
+    // outputs, forcing the tasks to always re-run)
     archiveClassifier = "nonshadow"
 }
 
