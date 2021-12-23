@@ -66,9 +66,9 @@ jobs:
         env:
           COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
         with:
-          arguments: jacocoTestReport coverallsJacoco
+          arguments: codeCoverageReport coveralls
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '8' && matrix.epVersion == '2.4.0' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.4.0' && github.repository == 'uber/NullAway'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
   publish_snapshot:
