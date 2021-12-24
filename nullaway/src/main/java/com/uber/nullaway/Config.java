@@ -206,10 +206,10 @@ public interface Config {
   String getCastToNonNullMethod();
 
   /**
-   * Gets an optional comment to add to auto-suggest suppressions.
+   * Gets an optional comment to add to auto-fix suppressions.
    *
-   * @return the comment to add to @SuppressWarnings annotations inserted into suggest suggestions
-   *     and/or auto-suggest runs.
+   * @return the comment to add to @SuppressWarnings annotations inserted into fix suggestions
+   *     and/or auto-fix runs.
    */
   String getAutofixSuppressionComment();
 

@@ -95,7 +95,7 @@ public class ErrorBuilder {
    * create an error description for a nullability warning
    *
    * @param errorMessage the error message object.
-   * @param suggestTree the location at which a suggest suggestion should be made
+   * @param suggestTree the location at which a fix suggestion should be made
    * @param descriptionBuilder the description builder for the error.
    * @param state the visitor state (used for e.g. suppression finding).
    * @return the error description
@@ -205,8 +205,8 @@ public class ErrorBuilder {
    * <p>This includes: field assignments, method arguments and method returns
    *
    * @param errorMessage the error message object.
-   * @param suggestTreeIfCastToNonNull the location at which a suggest suggestion should be made if
-   *     a castToNonNull method is available (usually the expression to cast)
+   * @param suggestTreeIfCastToNonNull the location at which a fix suggestion should be made if a
+   *     castToNonNull method is available (usually the expression to cast)
    * @param descriptionBuilder the description builder for the error.
    * @param state the visitor state for the location which triggered the error (i.e. for suppression
    *     finding)
@@ -399,11 +399,8 @@ public class ErrorBuilder {
       Iterator<Element> it = uninitFields.iterator();
       while (it.hasNext()) {
         uninitField = it.next();
-        message
-            .append(uninitField.toString())
-            .append(" (line ")
-            .append(getLineNumForElement(uninitField, state))
-            .append(")");
+        message.append(
+            uninitField.toString() + " (line " + getLineNumForElement(uninitField, state) + ")");
         if (it.hasNext()) {
           message.append(", ");
         } else {

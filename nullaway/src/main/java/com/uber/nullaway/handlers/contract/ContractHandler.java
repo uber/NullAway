@@ -185,7 +185,7 @@ public class ContractHandler extends BaseNoOpHandler {
         }
         assert argAntecedentNullness != null;
         // The nullness of one argument is all that matters for the antecedent, let's negate the
-        // consequent to suggest the nullness of this argument.
+        // consequent to fix the nullness of this argument.
         AccessPath accessPath =
             AccessPath.getAccessPathForNodeNoMapGet(node.getArgument(argIdx), apContext);
         if (accessPath == null) {
