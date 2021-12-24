@@ -112,7 +112,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
    * Scan Java Classpath for JarInfer model jars and map their names to locations
    */
   private void processClassPath() {
-    try (ScanResult scanResult = new ClassGraph().scan()) { // Start the scan
+    try (ScanResult scanResult = new ClassGraph().scan()) {
       for (File file : scanResult.getClasspathFiles()) {
         String path = file.getAbsolutePath();
         if (System.getProperty("os.name").startsWith("Windows")) {
