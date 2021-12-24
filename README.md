@@ -86,11 +86,11 @@ A complete Android `build.gradle` example is [here](https://gist.github.com/msri
 
 Some annotation processors like [Dagger](https://google.github.io/dagger/) and [AutoValue](https://github.com/google/auto/tree/master/value) generate code into the same package namespace as your own code.  This can cause problems when setting NullAway to the `ERROR` level as suggested above, since errors in this generated code will block the build.  Currently the best solution to this problem is to completely disable Error Prone on generated code, using the `-XepExcludedPaths` option added in Error Prone 2.13 (documented [here](http://errorprone.info/docs/flags), use `options.errorprone.excludedPaths=` in Gradle).  To use, figure out which directory contains the generated code, and add that directory to the excluded path regex.
 
-**Note for Dagger users**: Dagger versions older than 2.12 can have bad interactions with NullAway; see [here](https://github.com/uber/NullAway/issues/48#issuecomment-340018409).  Please update to Dagger 2.12 to suggestedFixInfo the problem.
+**Note for Dagger users**: Dagger versions older than 2.12 can have bad interactions with NullAway; see [here](https://github.com/uber/NullAway/issues/48#issuecomment-340018409).  Please update to Dagger 2.12 to fix the problem.
 
 #### Lombok
 
-Unlike other annotation processors above, Lombok modifies the in-memory AST of the code it processes, which is the source of numerous incompatibilities with Error Prone and, consequently, NullAway. 
+Unlike other annotation processors above, Lombok modifies the in-memory AST of the code it processes, which is the source of numerous incompatibilities with Error Prone and, consequently, NullAway.
 
 We do not particularly recommend using NullAway with Lombok. However, NullAway encodes some knowledge of common Lombok annotations and we do try for best-effort compatibility. In particular, common usages like `@lombok.Builder` and `@Data` classes should be supported.
 
@@ -100,7 +100,7 @@ In order for NullAway to successfully detect Lombok generated code within the in
 addLombokGeneratedAnnotation
 ```
 
-This causes Lombok to add `@lombok.Generated` to the methods/classes it generates. NullAway will ignore (i.e. not check) the implementation of this generated code, treating it as unannotated. 
+This causes Lombok to add `@lombok.Generated` to the methods/classes it generates. NullAway will ignore (i.e. not check) the implementation of this generated code, treating it as unannotated.
 
 ## Code Example
 
@@ -125,7 +125,7 @@ warning: [NullAway] passing @Nullable parameter 'null' where @NonNull is require
     log(null);
         ^
 ```
-We can suggestedFixInfo this error by allowing `null` to be passed to `log()`, with a `@Nullable` annotation:
+We can fix this error by allowing `null` to be passed to `log()`, with a `@Nullable` annotation:
 ```java
 static void log(@Nullable Object x) {
     System.out.println(x.toString());
@@ -137,13 +137,13 @@ warning: [NullAway] dereferenced expression x is @Nullable
     System.out.println(x.toString());
                         ^
 ```
-We can suggestedFixInfo this warning by adding a null check:
+We can fix this warning by adding a null check:
 ```java
 static void log(@Nullable Object x) {
-    if (x != null) {
+        if (x != null) {
         System.out.println(x.toString());
-    }
-}
+        }
+        }
 ```
 With this change, all the NullAway warnings are fixed.
 
@@ -162,4 +162,4 @@ you create a pull request, you will be asked to sign our [Uber Contributor Licen
 
 NullAway is licensed under the MIT license.  See the LICENSE.txt file for more information.
 
- [snapshots]: https://oss.sonatype.org/content/repositories/snapshots/com/uber/nullaway/
+[snapshots]: https://oss.sonatype.org/content/repositories/snapshots/com/uber/nullaway/
