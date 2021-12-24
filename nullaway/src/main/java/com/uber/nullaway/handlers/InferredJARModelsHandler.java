@@ -115,6 +115,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     try (ScanResult scanResult = new ClassGraph().scan()) { // Start the scan
       for (File file : scanResult.getClasspathFiles()) {
         String path = file.getAbsolutePath();
+        if (System.getProperty("os.name").startsWith("Windows")) {
+          path = path.replace('\\', '/');
+        }
         if (path.matches(config.getJarInferRegexStripModelJarName())) {
           String name = path.replaceAll(config.getJarInferRegexStripModelJarName(), "$1");
           LOG(DEBUG, "DEBUG", "model jar name: " + name + "\tjar path: " + path);
