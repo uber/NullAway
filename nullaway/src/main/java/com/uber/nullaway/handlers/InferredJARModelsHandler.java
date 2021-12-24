@@ -59,8 +59,8 @@ import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 /** This handler loads inferred nullability model from stubs for methods in unannotated packages. */
 public class InferredJARModelsHandler extends BaseNoOpHandler {
-  private static boolean DEBUG = true;
-  private static boolean VERBOSE = true;
+  private static boolean DEBUG = false;
+  private static boolean VERBOSE = false;
 
   private static void LOG(boolean cond, String tag, String msg) {
     if (cond) System.out.println("[JI " + tag + "] " + msg);
@@ -124,8 +124,6 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
           if (!mapModelJarLocations.containsKey(name))
             mapModelJarLocations.put(name, new LinkedHashSet<>());
           mapModelJarLocations.get(name).add(path);
-        } else {
-          LOG(DEBUG, "DEBUG", "not a model jar: " + path);
         }
       }
     }
