@@ -314,7 +314,7 @@ public interface Handler {
    */
   ImmutableSet<String> onRegisterImmutableTypes();
 
-  void fix(VisitorState state, Symbol target, ErrorMessage errorMessage);
+  void suggest(VisitorState state, Symbol target, ErrorMessage errorMessage);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate

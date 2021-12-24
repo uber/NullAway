@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.autofix.AutoFixConfig;
+import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -113,17 +113,22 @@ public abstract class AbstractConfig implements Config {
 
   protected String errorURL;
 
-  protected boolean autoFixFlag;
-  protected AutoFixConfig autoFixConfig;
+  /** --- Fully qualified names of custom nonnull/nullable annotation --- */
+  protected Set<String> customNonnullAnnotations;
+
+  protected Set<String> customNullableAnnotations;
+
+  protected boolean fixSerializationActivationFlag;
+  protected FixSerializationConfig fixSerializationConfig;
 
   @Override
-  public boolean autofixIsEnabled() {
-    return autoFixFlag;
+  public boolean fixSerializationIsActive() {
+    return fixSerializationActivationFlag;
   }
 
   @Override
-  public AutoFixConfig getAutoFixConfig() {
-    return autoFixConfig;
+  public FixSerializationConfig getFixSerializationConfig() {
+    return fixSerializationConfig;
   }
 
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
@@ -152,8 +157,8 @@ public abstract class AbstractConfig implements Config {
         }
       }
     }
-    if (autoFixFlag) {
-      return autoFixConfig.isOutOfScope(className);
+    if (fixSerializationActivationFlag) {
+      return fixSerializationConfig.isOutOfScope(className);
     }
     return false;
   }
@@ -180,6 +185,16 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean isInitializerMethodAnnotation(String annotationName) {
     return initializerAnnotations.contains(annotationName);
+  }
+
+  @Override
+  public boolean isCustomNullableAnnotation(String annotationName) {
+    return customNullableAnnotations.contains(annotationName);
+  }
+
+  @Override
+  public boolean isCustomNonnullAnnotation(String annotationName) {
+    return customNonnullAnnotations.contains(annotationName);
   }
 
   @Override
@@ -241,12 +256,6 @@ public abstract class AbstractConfig implements Config {
   @Nullable
   public String getCastToNonNullMethod() {
     return castToNonNullMethod;
-  }
-
-  @Override
-  @Nullable
-  public String getCustomNullableAnnotation() {
-    return customNullableAnnotation;
   }
 
   @Override

@@ -30,3 +30,10 @@ include ':jar-infer:test-java-lib-jarinfer'
 include ':jar-infer:nullaway-integration-test'
 include ':jar-infer:test-android-lib-jarinfer'
 include ':jmh'
+include ':jdk17-unit-tests'
+
+// On Java 8, the code-coverage-report module fails during Gradle configuration.  So, exclude it
+// on pre-JDK-11 JVMs
+if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+    include ':code-coverage-report'
+}

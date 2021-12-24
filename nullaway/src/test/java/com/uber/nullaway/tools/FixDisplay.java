@@ -8,7 +8,6 @@ public class FixDisplay {
   public final String param;
   public final String location;
   public final String className;
-  public final String inject;
   public String uri;
 
   public FixDisplay(
@@ -17,15 +16,13 @@ public class FixDisplay {
       String param,
       String location,
       String className,
-      String uri,
-      String inject) {
+      String uri) {
     this.annotation = annotation;
     this.method = method;
     this.param = param;
     this.location = location;
     this.className = className;
     this.uri = uri;
-    this.inject = inject;
   }
 
   @Override
@@ -46,9 +43,6 @@ public class FixDisplay {
         + ", \n\tclassName='"
         + className
         + '\''
-        + ", \n\tinject='"
-        + inject
-        + '\''
         + ", \n\turi='"
         + uri
         + '\''
@@ -65,17 +59,16 @@ public class FixDisplay {
         && Objects.equals(param, fix.param)
         && Objects.equals(location, fix.location)
         && Objects.equals(className, fix.className)
-        && Objects.equals(inject, fix.inject)
         && Objects.equals(uri, fix.uri);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(annotation, method, param, location, className, inject, uri);
+    return Objects.hash(annotation, method, param, location, className, uri);
   }
 
   public static FixDisplay fromCSVLine(String line, String delimiter) {
     String[] infos = line.split(delimiter);
-    return new FixDisplay(infos[7], infos[2], infos[3], infos[0], infos[1], infos[5], infos[8]);
+    return new FixDisplay(infos[7], infos[2], infos[3], infos[0], infos[1], infos[5]);
   }
 }

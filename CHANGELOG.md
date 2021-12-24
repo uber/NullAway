@@ -57,7 +57,7 @@ Version 0.8.0
 * Make `@ChecksForNull` an alias for `@Nullable` (#397)
 * Fix: android-jar.py's exit code. (#399)
 * Upgrade Error Prone dependencies to 2.4.0. (#400)
-  - And fix detected issues (#403, #404)
+  - And suggestedFixInfo detected issues (#403, #404)
 * Allow library models of the form null param -> null return (#407)
 * Make excluded class annotations work on nested classes (#412)
 * Improved Map handling: Strings and integers. (#413)
@@ -160,7 +160,7 @@ Version 0.7.0
 
 Version 0.6.6
 ---------------
-This only adds a minor library fix supporting Guava's Preconditions.checkNotNull with an error message 
+This only adds a minor library suggestedFixInfo supporting Guava's Preconditions.checkNotNull with an error message 
 argument (#283)
 
 Version 0.6.5
@@ -234,9 +234,9 @@ Version 0.5.3
 * JarInfer: Third-party bytecode analysis (MVP version) (#199)
 * Handle @NotNull in hasNonNullAnnotation. (#204)
 * Handler for separate Android models jar (#206)
-* fix: zip entry size error (#207)
+* suggestedFixInfo: zip entry size error (#207)
 * Small test for restrictive annotations and generics. (#209)
-* Create android-jarinfer-models-sdk28 and fix release scripts. (#210)
+* Create android-jarinfer-models-sdk28 and suggestedFixInfo release scripts. (#210)
 * JarInfer checks for null tested parameters #211
 
 Note: This is the first release to include jar-infer-cli, jar-infer-lib, and
@@ -310,7 +310,7 @@ Version 0.4.0
 
 Version 0.3.7
 -------------
-* Small bug fix in `@Contract` support (#136)
+* Small bug suggestedFixInfo in `@Contract` support (#136)
 
 Version 0.3.6
 -------------
@@ -398,7 +398,7 @@ Version 0.1.5
 
 Version 0.1.4
 -------------
-* Another lambda fix (#23)
+* Another lambda suggestedFixInfo (#23)
 
 Version 0.1.3
 -------------
@@ -413,7 +413,7 @@ Version 0.1.2
 Version 0.1.1
 -------------
 
-* Update Checker Framework dependence to pick up bug fix (#4)
+* Update Checker Framework dependence to pick up bug suggestedFixInfo (#4)
 
 
 Version 0.1.0

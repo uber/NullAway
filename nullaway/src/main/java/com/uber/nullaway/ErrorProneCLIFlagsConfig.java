@@ -24,7 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.ErrorProneFlags;
-import com.uber.nullaway.autofix.AutoFixConfig;
+import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -52,7 +52,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_ACKNOWLEDGE_ANDROID_RECENT = EP_FL_NAMESPACE + ":AcknowledgeAndroidRecent";
   static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
-  static final String FL_CUSTOM_NULLABLE_ANNOT = EP_FL_NAMESPACE + ":CustomNullableAnnotation";
+  static final String FL_NULLABLE_ANNOT = EP_FL_NAMESPACE + ":CustomNullableAnnotations";
+  static final String FL_NONNULL_ANNOT = EP_FL_NAMESPACE + ":CustomNonnullAnnotations";
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
   static final String FL_EXTERNAL_INIT_ANNOT = EP_FL_NAMESPACE + ":ExternalInitAnnotations";
   static final String FL_CONTRACT_ANNOT = EP_FL_NAMESPACE + ":CustomContractAnnotations";
@@ -155,9 +156,10 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     excludedClassAnnotations =
         getFlagStringSet(
             flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE, DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE);
-    customNullableAnnotation = flags.get(FL_CUSTOM_NULLABLE_ANNOT).orElse(null);
     initializerAnnotations =
         getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);
+    customNullableAnnotations = getFlagStringSet(flags, FL_NULLABLE_ANNOT, ImmutableSet.of());
+    customNonnullAnnotations = getFlagStringSet(flags, FL_NONNULL_ANNOT, ImmutableSet.of());
     externalInitAnnotations =
         getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT, DEFAULT_EXTERNAL_INIT_ANNOT);
     contractAnnotations = getFlagStringSet(flags, FL_CONTRACT_ANNOT, DEFAULT_CONTRACT_ANNOT);
@@ -202,9 +204,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + FL_ACKNOWLEDGE_RESTRICTIVE
               + " is also set");
     }
-    autoFixFlag = flags.getBoolean(AUTO_FIX).orElse(false);
+    fixSerializationActivationFlag = flags.getBoolean(AUTO_FIX).orElse(false);
     Optional<String> autoFixOutPutDir = flags.get(AUTO_FIX_OUTPUT_DIRECTORY_PATH);
-    if (autoFixFlag && !autoFixOutPutDir.isPresent()) {
+    if (fixSerializationActivationFlag && !autoFixOutPutDir.isPresent()) {
       throw new IllegalStateException(
           "DO NOT report an issue to Error Prone for this crash!  NullAway AutoFixer configuration is "
               + "incorrect.  "
@@ -214,9 +216,11 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + " flag.  If you feel you have gotten this message in error report an issue"
               + " at https://github.com/uber/NullAway/issues.");
     }
-    autoFixConfig =
-        autoFixOutPutDir.map(s -> new AutoFixConfig(autoFixFlag, s)).orElseGet(AutoFixConfig::new);
-    if (autoFixFlag && isSuggestSuppressions)
+    fixSerializationConfig =
+        autoFixOutPutDir
+            .map(s -> new FixSerializationConfig(fixSerializationActivationFlag, s))
+            .orElseGet(FixSerializationConfig::new);
+    if (fixSerializationActivationFlag && isSuggestSuppressions)
       throw new IllegalStateException(
           "In order to activate autoFix mode ("
               + AUTO_FIX
@@ -244,7 +248,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   }
 
   @Override
-  public AutoFixConfig getAutoFixConfig() {
-    return autoFixConfig;
+  public FixSerializationConfig getFixSerializationConfig() {
+    return fixSerializationConfig;
   }
 }

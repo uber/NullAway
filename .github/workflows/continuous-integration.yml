@@ -54,7 +54,7 @@ jobs:
       - name: Build and test using Gradle and Java 11
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: build -x :sample-app:build -x :jar-infer:jar-infer-lib:build -x :jar-infer:nullaway-integration-test:build
+          arguments: build -x :sample-app:build -x :jar-infer:nullaway-integration-test:build
         if: matrix.java == '11'
       - name: Build and test using Gradle and Java 17
         uses: eskatos/gradle-command-action@v1
@@ -66,9 +66,9 @@ jobs:
         env:
           COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
         with:
-          arguments: jacocoTestReport coverallsJacoco
+          arguments: codeCoverageReport coveralls
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '8' && matrix.epVersion == '2.4.0' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.4.0' && github.repository == 'uber/NullAway'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
   publish_snapshot:

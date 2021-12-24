@@ -35,7 +35,6 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
-@SuppressWarnings("CheckTestExtendsBaseClass")
 public class NullAwayTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -462,10 +461,6 @@ public class NullAwayTest {
             "  String test3(@Nullable Object o) {",
             "    NullnessChecker.assertNonNull(o);",
             "    return o.toString();",
-            "  }",
-            "  String test4(@Nullable Object o) {",
-            "     if(NullnessChecker.isNull(false, o)) return \"Null\";",
-            "     else return o.toString();",
             "  }",
             "}")
         .doTest();
@@ -3156,36 +3151,79 @@ public class NullAwayTest {
   }
 
   @Test
+  public void derefNullableTernary() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "public class Test {",
+            "  public void derefTernary(boolean b) {",
+            "    Object o1 = null, o2 = new Object();",
+            "    // BUG: Diagnostic contains: dereferenced expression (b ? o1 : o2) is @Nullable",
+            "    (b ? o1 : o2).toString();",
+            "    // BUG: Diagnostic contains: dereferenced expression (b ? o2 : o1) is @Nullable",
+            "    (b ? o2 : o1).toString();",
+            "    // This case is safe",
+            "    (b ? o2 : o2).toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testCustomNullableAnnotation() {
     makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:CustomNullableAnnotation=com.uber.Null"))
+                "-XepOpt:NullAway:CustomNullableAnnotations=qual.Null"))
+        .addSourceLines("qual/Null.java", "package qual;", "public @interface Null {", "}")
         .addSourceLines(
-            "Null.java",
+            "Test.java",
             "package com.uber;",
-            "import java.lang.annotation.Documented;",
-            "import java.lang.annotation.ElementType;",
-            "import java.lang.annotation.Target;",
-            "@Documented",
-            "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE})",
-            "public @interface Null {",
+            "import qual.Null;",
+            "class Test {",
+            "   @Null Object foo;", // No error, should detect @Null
+            "   @Null Object baz(){",
+            "     bar(foo);",
+            "     return null;", // No error, should detect @Null
+            "   }",
+            "   String bar(@Null Object item){",
+            "     // BUG: Diagnostic contains: dereferenced expression item is @Nullable",
+            "     return item.toString();",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testCustomNonnullAnnotation() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedClasses=com.uber.Other",
+                "-XepOpt:NullAway:CustomNonnullAnnotations=qual.NoNull",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines("qual/NoNull.java", "package qual;", "public @interface NoNull {", "}")
+        .addSourceLines(
+            "Other.java",
+            "package com.uber;",
+            "import qual.NoNull;",
+            "public class Other {",
+            "   void bar(@NoNull Object item) { }",
             "}")
         .addSourceLines(
             "Test.java",
-            "package com.uber;" + "import com.uber.Null;",
-            "import javax.annotation.Nullable;",
+            "package com.uber;",
             "class Test {",
-            "  Object bar = new Object();",
-            "  void foo(@Null Object bar) {",
-            "    // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "    this.bar = bar;",
-            "  }",
-            "  @Null Object nullableReturn() {",
-            "     return null;",
-            "  }",
+            "   Other other = new Other();",
+            "   void foo(){",
+            "     // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "     other.bar(null);",
+            "   }",
             "}")
         .doTest();
   }

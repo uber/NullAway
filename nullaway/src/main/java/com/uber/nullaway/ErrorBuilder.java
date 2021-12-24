@@ -95,7 +95,7 @@ public class ErrorBuilder {
    * create an error description for a nullability warning
    *
    * @param errorMessage the error message object.
-   * @param suggestTree the location at which a fix suggestion should be made
+   * @param suggestTree the location at which a suggest suggestion should be made
    * @param descriptionBuilder the description builder for the error.
    * @param state the visitor state (used for e.g. suppression finding).
    * @return the error description
@@ -125,11 +125,11 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
     }
 
-    if (config.autofixIsEnabled() && config.getAutoFixConfig().logErrorEnabled) {
+    if (config.fixSerializationIsActive() && config.getFixSerializationConfig().logErrorEnabled) {
       config
-          .getAutoFixConfig()
+          .getFixSerializationConfig()
           .writer
-          .saveErrorNode(errorMessage, state, config.getAutoFixConfig().logErrorDeep);
+          .saveErrorNode(errorMessage, state, config.getFixSerializationConfig().logErrorDeep);
     }
 
     // #letbuildersbuild
@@ -205,8 +205,8 @@ public class ErrorBuilder {
    * <p>This includes: field assignments, method arguments and method returns
    *
    * @param errorMessage the error message object.
-   * @param suggestTreeIfCastToNonNull the location at which a fix suggestion should be made if a
-   *     castToNonNull method is available (usually the expression to cast)
+   * @param suggestTreeIfCastToNonNull the location at which a suggest suggestion should be made if
+   *     a castToNonNull method is available (usually the expression to cast)
    * @param descriptionBuilder the description builder for the error.
    * @param state the visitor state for the location which triggered the error (i.e. for suppression
    *     finding)
@@ -434,7 +434,7 @@ public class ErrorBuilder {
       fieldName = flatName.substring(index) + "." + fieldName;
     }
 
-    handler.fix(
+    handler.suggest(
         state,
         symbol,
         new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"));

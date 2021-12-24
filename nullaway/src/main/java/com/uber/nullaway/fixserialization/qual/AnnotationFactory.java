@@ -1,6 +1,6 @@
-package com.uber.nullaway.autofix.qual;
+package com.uber.nullaway.fixserialization.qual;
 
-import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
+import com.uber.nullaway.fixserialization.out.SeperatedValueDisplay;
 
 public class AnnotationFactory {
 

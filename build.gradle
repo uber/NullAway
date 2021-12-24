@@ -30,8 +30,9 @@ plugins {
   id "com.github.sherter.google-java-format" version "0.9"
   id "net.ltgt.errorprone" version "2.0.1" apply false
   id "com.github.johnrengelman.shadow" version "6.1.0" apply false
-  id "com.github.nbaztec.coveralls-jacoco" version "1.2.5" apply false
+  id "com.github.kt3k.coveralls" version "2.12.0" apply false
   id "com.android.application" version "3.5.0" apply false
+  id "me.champeau.jmh" version "0.6.6" apply false
 }
 
 repositories {
@@ -81,6 +82,8 @@ subprojects { project ->
 
 googleJavaFormat {
   toolVersion = "1.6"
+  // don't enforce formatting for generated Java code under buildSrc
+  exclude 'buildSrc/build/**/*.java'
 }
 
 ////////////////////////////////////////////////////////////////////////

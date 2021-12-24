@@ -390,7 +390,7 @@ public class NullAway extends BugChecker
     if (mayBeNullExpr(state, expression)) {
       String message = "assigning @Nullable expression to @NonNull field";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message);
-      handler.fix(state, ASTHelpers.getSymbol(tree.getVariable()), errorMessage);
+      handler.suggest(state, ASTHelpers.getSymbol(tree.getVariable()), errorMessage);
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, expression, buildDescription(tree), state);
     }
@@ -478,19 +478,24 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    ExpressionTree switchExpression = tree.getExpression();
-    if (switchExpression instanceof ParenthesizedTree) {
-      switchExpression = ((ParenthesizedTree) switchExpression).getExpression();
+    ExpressionTree switchSelectorExpression = tree.getExpression();
+    // For a statement `switch (e) { ... }`, javac returns `(e)` as the selector expression.  We
+    // strip the outermost parentheses for a nicer-looking error message.
+    if (switchSelectorExpression instanceof ParenthesizedTree) {
+      switchSelectorExpression = ((ParenthesizedTree) switchSelectorExpression).getExpression();
     }
 
-    if (mayBeNullExpr(state, switchExpression)) {
+    if (mayBeNullExpr(state, switchSelectorExpression)) {
       final String message =
-          "switch expression " + state.getSourceForNode(switchExpression) + " is @Nullable";
+          "switch expression " + state.getSourceForNode(switchSelectorExpression) + " is @Nullable";
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.SWITCH_EXPRESSION_NULLABLE, message);
 
       return errorBuilder.createErrorDescription(
-          errorMessage, switchExpression, buildDescription(switchExpression), state);
+          errorMessage,
+          switchSelectorExpression,
+          buildDescription(switchSelectorExpression),
+          state);
     }
 
     return Description.NO_MATCH;
@@ -603,7 +608,7 @@ public class NullAway extends BugChecker
         }
 
         ErrorMessage errorMessage = new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message);
-        handler.fix(state, paramSymbol, errorMessage);
+        handler.suggest(state, paramSymbol, errorMessage);
         return errorBuilder.createErrorDescription(
             errorMessage, buildDescription(errorTree), state);
       }
@@ -634,7 +639,7 @@ public class NullAway extends BugChecker
           new ErrorMessage(
               MessageTypes.RETURN_NULLABLE,
               "returning @Nullable expression from method with @NonNull return type");
-      handler.fix(state, methodSymbol, errorMessage);
+      handler.suggest(state, methodSymbol, errorMessage);
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, retExpr, buildDescription(tree), state);
     }
@@ -748,7 +753,7 @@ public class NullAway extends BugChecker
               ? memberReferenceTree
               : getTreesInstance(state).getTree(overridingMethod);
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message);
-      handler.fix(state, ASTHelpers.getSymbol(superTree), errorMessage);
+      handler.suggest(state, ASTHelpers.getSymbol(superTree), errorMessage);
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(errorTree), state);
     }
     // if any parameter in the super method is annotated @Nullable,
@@ -1114,7 +1119,7 @@ public class NullAway extends BugChecker
               new ErrorMessage(
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
                   "assigning @Nullable expression to @NonNull field");
-          handler.fix(state, symbol, errorMessage);
+          handler.suggest(state, symbol, errorMessage);
           return errorBuilder.createErrorDescriptionForNullAssignment(
               errorMessage, initializer, buildDescription(tree), state);
         }
@@ -1357,7 +1362,7 @@ public class NullAway extends BugChecker
                 + state.getSourceForNode(actual)
                 + "' where @NonNull is required";
         ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message);
-        handler.fix(state, formalParams.get(argPos), errorMessage);
+        handler.suggest(state, formalParams.get(argPos), errorMessage);
         state.reportMatch(
             errorBuilder.createErrorDescriptionForNullAssignment(
                 errorMessage, actual, buildDescription(actual), state));
@@ -1495,21 +1500,21 @@ public class NullAway extends BugChecker
           buildDescription(getTreesInstance(state).getTree(uninitSField)),
           handler);
     }
-    if (config.autofixIsEnabled()) {
+    if (config.fixSerializationIsActive()) {
       fixInitializationErrorsOnControlFlowPaths(state, errorFieldsForInitializer);
     }
   }
 
   /**
-   * It only gets executed when autofix is enabled. It creates a fix object for every class field
-   * that is not guaranteed to be @Nonnull at exit point.
+   * It only gets executed when autofix is enabled. It creates a suggest object for every class
+   * field that is not guaranteed to be @Nonnull at exit point.
    *
    * @param errorFieldsForInitializer fields that are not initialized
    * @param state visitor state
    */
   private void fixInitializationErrorsOnControlFlowPaths(
       VisitorState state, SetMultimap<Element, Element> errorFieldsForInitializer) {
-    Preconditions.checkArgument(config.autofixIsEnabled());
+    Preconditions.checkArgument(config.fixSerializationIsActive());
     for (Element constructorElement : errorFieldsForInitializer.keySet()) {
       for (Element element : errorFieldsForInitializer.get(constructorElement)) {
         Tree tree = getTreesInstance(state).getTree(element);
@@ -1520,7 +1525,7 @@ public class NullAway extends BugChecker
             new ErrorMessage(
                 MessageTypes.FIELD_NO_INIT,
                 "initializer method does not guarantee @NonNull fields");
-        handler.fix(state, ASTHelpers.getSymbol(tree), errorMessage);
+        handler.suggest(state, ASTHelpers.getSymbol(tree), errorMessage);
       }
     }
   }
@@ -1984,8 +1989,13 @@ public class NullAway extends BugChecker
         exprMayBeNull = nullnessFromDataflow(state, expr);
         break;
       default:
-        throw new RuntimeException(
-            "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
+        // match switch expressions by comparing strings, so the code compiles on JDK versions < 12
+        if (expr.getKind().name().equals("SWITCH_EXPRESSION")) {
+          exprMayBeNull = nullnessFromDataflow(state, expr);
+        } else {
+          throw new RuntimeException(
+              "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
+        }
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);
     return exprMayBeNull;
@@ -2031,13 +2041,17 @@ public class NullAway extends BugChecker
 
   private Description matchDereference(
       ExpressionTree baseExpression, ExpressionTree derefExpression, VisitorState state) {
-    Symbol dereferenced = ASTHelpers.getSymbol(baseExpression);
-    if (dereferenced == null
-        || dereferenced.type.isPrimitive()
-        || dereferenced.getKind() == ElementKind.PACKAGE
-        || ElementUtils.isTypeElement(dereferenced)) {
-      // we know we don't have a null dereference here
-      return Description.NO_MATCH;
+    Symbol baseExpressionSymbol = ASTHelpers.getSymbol(baseExpression);
+    // Note that a null dereference is possible even if baseExpressionSymbol is null,
+    // e.g., in cases where baseExpression contains conditional logic (like a ternary
+    // expression, or a switch expression in JDK 12+)
+    if (baseExpressionSymbol != null) {
+      if (baseExpressionSymbol.type.isPrimitive()
+          || baseExpressionSymbol.getKind() == ElementKind.PACKAGE
+          || ElementUtils.isTypeElement(baseExpressionSymbol)) {
+        // we know we don't have a null dereference here
+        return Description.NO_MATCH;
+      }
     }
     if (mayBeNullExpr(state, baseExpression)) {
       final String message =

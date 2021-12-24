@@ -1,8 +1,8 @@
-package com.uber.nullaway.autofix;
+package com.uber.nullaway.fixserialization;
 
 import com.google.common.base.Preconditions;
 import com.sun.source.util.Trees;
-import com.uber.nullaway.autofix.qual.AnnotationFactory;
+import com.uber.nullaway.fixserialization.qual.AnnotationFactory;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -17,7 +17,7 @@ import javax.lang.model.element.Element;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
-public class AutoFixConfig {
+public class FixSerializationConfig {
 
   public final boolean suggestEnabled;
   public final boolean suggestDeep;
@@ -28,7 +28,7 @@ public class AutoFixConfig {
   public final Set<String> workList;
   public final Writer writer;
 
-  public AutoFixConfig() {
+  public FixSerializationConfig() {
     suggestEnabled = false;
     suggestDeep = false;
     logErrorEnabled = false;
@@ -39,7 +39,7 @@ public class AutoFixConfig {
     writer = null;
   }
 
-  public AutoFixConfig(boolean autofixEnabled, String outputDirectory) {
+  public FixSerializationConfig(boolean autofixEnabled, String outputDirectory) {
     Preconditions.checkNotNull(outputDirectory);
     JSONObject jsonObject = null;
     if (autofixEnabled) {

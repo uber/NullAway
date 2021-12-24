@@ -81,17 +81,17 @@ public class AutoFixTestHelper {
       fail(
           ""
               + output.size()
-              + " redundant fix(s) were found: "
+              + " redundant suggest(s) were found: "
               + "\n"
               + Arrays.deepToString(output.toArray())
               + "\n"
-              + "Fixer did not found any fix!"
+              + "Fixer did not found any suggest!"
               + "\n");
     }
     fail(
         ""
             + notFound.size()
-            + " fix(s) were not found: "
+            + " suggest(s) were not found: "
             + "\n"
             + Arrays.deepToString(notFound.toArray())
             + "\n"

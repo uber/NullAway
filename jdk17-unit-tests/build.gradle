@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017. Uber Technologies
+ * Copyright (C) 2021. Uber Technologies
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,59 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import net.ltgt.gradle.errorprone.CheckSeverity
-
 plugins {
-  id 'java-library'
-  id 'nullaway.jacoco-conventions'
+    id 'java-library'
+    id 'nullaway.jacoco-conventions'
 }
 
-sourceCompatibility = "1.8"
-targetCompatibility = "1.8"
+// Use JDK 17 for this module, via a toolchain
+java.toolchain.languageVersion.set JavaLanguageVersion.of(17)
 
 dependencies {
-    compileOnly deps.apt.autoValueAnnot
-    annotationProcessor deps.apt.autoValue
-    compileOnly deps.apt.autoServiceAnnot
-    annotationProcessor deps.apt.autoService
-
-    compileOnly deps.build.errorProneCheckApi
-    implementation deps.build.checkerDataflow
-    implementation deps.build.guava
-    implementation deps.build.jsonSimple
-
+    testImplementation project(":nullaway")
     testImplementation deps.test.junit4
     testImplementation(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
-    testImplementation deps.test.jetbrainsAnnotations
-    testImplementation deps.test.junit5Jupiter
-    testImplementation deps.test.cfQual
-    testImplementation deps.test.cfCompatQual
-    testImplementation project(":test-java-lib")
-    testImplementation deps.test.inferAnnotations
-    testImplementation deps.apt.jakartaInject
-    testImplementation deps.apt.javaxInject
-    testImplementation deps.test.rxjava2
-    testImplementation deps.test.commonsLang
-    testImplementation deps.test.commonsLang3
-    testImplementation project(":test-library-models")
-    testImplementation deps.test.lombok
-    testImplementation deps.test.springBeans
-    testImplementation deps.test.springContext
-    testImplementation deps.test.grpcCore
+    testImplementation deps.build.jsr305Annotations
 }
-
-javadoc {
-    failOnError = false
-}
-
 
 test {
-  maxHeapSize = "1024m"
-  if (!JavaVersion.current().java9Compatible) {
-    jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
-  } else {
+    maxHeapSize = "1024m"
     // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
     jvmArgs += [
             "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
@@ -78,11 +44,6 @@ test {
             "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
             "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
             "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-            // Accessed by Lombok tests
-            "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
     ]
-  }
 }
-
-apply plugin: 'com.vanniktech.maven.publish'
 

@@ -69,8 +69,8 @@ public class Handlers {
     if (config.checkContracts()) {
       handlerListBuilder.add(new ContractCheckHandler(config));
     }
-    if (config.autofixIsEnabled()) {
-      handlerListBuilder.add(new FixHandler(config.getAutoFixConfig()));
+    if (config.fixSerializationIsActive()) {
+      handlerListBuilder.add(new FixMetadataHandler(config.getFixSerializationConfig()));
     }
     return new CompositeHandler(handlerListBuilder.build());
   }

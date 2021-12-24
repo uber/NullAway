@@ -1,10 +1,10 @@
-package com.uber.nullaway.autofix;
+package com.uber.nullaway.fixserialization;
 
 import com.google.errorprone.VisitorState;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.autofix.out.ErrorInfo;
-import com.uber.nullaway.autofix.out.Fix;
-import com.uber.nullaway.autofix.out.SeperatedValueDisplay;
+import com.uber.nullaway.fixserialization.out.ErrorInfo;
+import com.uber.nullaway.fixserialization.out.SeperatedValueDisplay;
+import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -18,15 +18,15 @@ public class Writer {
   public final Path SUGGEST_FIX;
   public final String DELIMITER = "$*$";
 
-  public Writer(AutoFixConfig config) {
+  public Writer(FixSerializationConfig config) {
     String outputDirectory = config.outputDirectory;
     this.ERROR = Paths.get(outputDirectory, "errors.csv");
     this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.csv");
     reset(config);
   }
 
-  public void saveFix(Fix fix) {
-    appendToFile(fix, SUGGEST_FIX);
+  public void saveFix(SuggestedFixInfo suggestedFixInfo) {
+    appendToFile(suggestedFixInfo, SUGGEST_FIX);
   }
 
   public void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
@@ -51,11 +51,11 @@ public class Writer {
     }
   }
 
-  private void reset(AutoFixConfig config) {
+  private void reset(FixSerializationConfig config) {
     try {
       Files.createDirectories(Paths.get(config.outputDirectory));
       if (config.suggestEnabled) {
-        resetFile(SUGGEST_FIX, Fix.header(DELIMITER));
+        resetFile(SUGGEST_FIX, SuggestedFixInfo.header(DELIMITER));
       }
       if (config.logErrorEnabled) {
         resetFile(ERROR, ErrorInfo.header(DELIMITER));

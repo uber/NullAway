@@ -86,7 +86,7 @@ A complete Android `build.gradle` example is [here](https://gist.github.com/msri
 
 Some annotation processors like [Dagger](https://google.github.io/dagger/) and [AutoValue](https://github.com/google/auto/tree/master/value) generate code into the same package namespace as your own code.  This can cause problems when setting NullAway to the `ERROR` level as suggested above, since errors in this generated code will block the build.  Currently the best solution to this problem is to completely disable Error Prone on generated code, using the `-XepExcludedPaths` option added in Error Prone 2.13 (documented [here](http://errorprone.info/docs/flags), use `options.errorprone.excludedPaths=` in Gradle).  To use, figure out which directory contains the generated code, and add that directory to the excluded path regex.
 
-**Note for Dagger users**: Dagger versions older than 2.12 can have bad interactions with NullAway; see [here](https://github.com/uber/NullAway/issues/48#issuecomment-340018409).  Please update to Dagger 2.12 to fix the problem.
+**Note for Dagger users**: Dagger versions older than 2.12 can have bad interactions with NullAway; see [here](https://github.com/uber/NullAway/issues/48#issuecomment-340018409).  Please update to Dagger 2.12 to suggestedFixInfo the problem.
 
 #### Lombok
 
@@ -125,7 +125,7 @@ warning: [NullAway] passing @Nullable parameter 'null' where @NonNull is require
     log(null);
         ^
 ```
-We can fix this error by allowing `null` to be passed to `log()`, with a `@Nullable` annotation:
+We can suggestedFixInfo this error by allowing `null` to be passed to `log()`, with a `@Nullable` annotation:
 ```java
 static void log(@Nullable Object x) {
     System.out.println(x.toString());
@@ -137,7 +137,7 @@ warning: [NullAway] dereferenced expression x is @Nullable
     System.out.println(x.toString());
                         ^
 ```
-We can fix this warning by adding a null check:
+We can suggestedFixInfo this warning by adding a null check:
 ```java
 static void log(@Nullable Object x) {
     if (x != null) {

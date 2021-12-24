@@ -224,9 +224,9 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public void fix(VisitorState state, Symbol target, ErrorMessage errorMessage) {
+  public void suggest(VisitorState state, Symbol target, ErrorMessage errorMessage) {
     for (Handler h : handlers) {
-      h.fix(state, target, errorMessage);
+      h.suggest(state, target, errorMessage);
     }
   }
 

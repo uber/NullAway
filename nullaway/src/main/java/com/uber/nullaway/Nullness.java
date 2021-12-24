@@ -158,7 +158,7 @@ public enum Nullness implements AbstractValue<Nullness> {
         || annotName.endsWith(".CheckForNull")
         || (config.acknowledgeAndroidRecent()
             && annotName.equals("androidx.annotation.RecentlyNullable"))
-        || annotName.equals(config.getCustomNullableAnnotation());
+        || config.isCustomNullableAnnotation(annotName);
   }
 
   /**
@@ -172,7 +172,8 @@ public enum Nullness implements AbstractValue<Nullness> {
         || annotName.endsWith(".NotNull")
         || annotName.endsWith(".Nonnull")
         || (config.acknowledgeAndroidRecent()
-            && annotName.equals("androidx.annotation.RecentlyNonNull"));
+            && annotName.equals("androidx.annotation.RecentlyNonNull"))
+        || config.isCustomNonnullAnnotation(annotName);
   }
 
   /**

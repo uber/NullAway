@@ -24,16 +24,16 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.autofix.AutoFixConfig;
+import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Provides configuration parameters for the nullability checker. */
 public interface Config {
 
-  boolean autofixIsEnabled();
+  boolean fixSerializationIsActive();
 
-  AutoFixConfig getAutoFixConfig();
+  FixSerializationConfig getFixSerializationConfig();
 
   /**
    * Checks if a symbol comes from an annotated package.
@@ -71,14 +71,6 @@ public interface Config {
   ImmutableSet<String> getExcludedClassAnnotations();
 
   /**
-   * Gets the fully qualified name of the <code>Nullable</code> annotation, if any.
-   *
-   * @return the fully qualified name of a annotation that denotes Nullability.
-   */
-  @Nullable
-  String getCustomNullableAnnotation();
-
-  /**
    * Checks if the annotation is an @Initializer annotation.
    *
    * @param annotationName fully-qualified annotation name
@@ -86,6 +78,22 @@ public interface Config {
    *     otherwise.
    */
   boolean isInitializerMethodAnnotation(String annotationName);
+
+  /**
+   * Checks if the annotation is a custom @Nullable annotation.
+   *
+   * @param annotationName fully-qualified annotation name
+   * @return true if annotation should be considered as a custom nullable annotation.
+   */
+  boolean isCustomNullableAnnotation(String annotationName);
+
+  /**
+   * Checks if the annotation is a custom @Nonnull annotation.
+   *
+   * @param annotationName fully-qualified annotation name
+   * @return true if annotation should be considered as a custom nonnull annotation.
+   */
+  boolean isCustomNonnullAnnotation(String annotationName);
 
   /**
    * Checks if the annotation is an excluded field annotation.
@@ -198,10 +206,10 @@ public interface Config {
   String getCastToNonNullMethod();
 
   /**
-   * Gets an optional comment to add to auto-fix suppressions.
+   * Gets an optional comment to add to auto-suggest suppressions.
    *
-   * @return the comment to add to @SuppressWarnings annotations inserted into fix suggestions
-   *     and/or auto-fix runs.
+   * @return the comment to add to @SuppressWarnings annotations inserted into suggest suggestions
+   *     and/or auto-suggest runs.
    */
   String getAutofixSuppressionComment();
 

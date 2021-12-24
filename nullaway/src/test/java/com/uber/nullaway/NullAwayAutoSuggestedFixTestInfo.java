@@ -1,6 +1,6 @@
 package com.uber.nullaway;
 
-import com.uber.nullaway.autofix.AutoFixConfig;
+import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.tools.AutoFixTestHelper;
 import com.uber.nullaway.tools.FixDisplay;
 import java.io.IOException;
@@ -19,7 +19,7 @@ import org.junit.runners.JUnit4;
 import org.springframework.util.FileSystemUtils;
 
 @RunWith(JUnit4.class)
-public class NullAwayAutoFixTest {
+public class NullAwayAutoSuggestedFixTestInfo {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
@@ -33,8 +33,8 @@ public class NullAwayAutoFixTest {
     try {
       Files.createDirectories(home);
       autoFixTestHelper = new AutoFixTestHelper(home);
-      AutoFixConfig.AutoFixConfigBuilder writer =
-          new AutoFixConfig.AutoFixConfigBuilder().setSuggest(true, false);
+      FixSerializationConfig.AutoFixConfigBuilder writer =
+          new FixSerializationConfig.AutoFixConfigBuilder().setSuggest(true, false);
       Path configPath = home.resolve("explorer.config");
       Files.createFile(configPath);
       writer.write(configPath.toString());
@@ -77,8 +77,7 @@ public class NullAwayAutoFixTest {
                 "null",
                 "METHOD_RETURN",
                 "com.uber.SubClass",
-                "com/uber/SubClass.java",
-                "true"))
+                "com/uber/SubClass.java"))
         .doTest();
   }
 
@@ -123,8 +122,7 @@ public class NullAwayAutoFixTest {
                 "null",
                 "METHOD_RETURN",
                 "com.uber.Super",
-                "com/uber/android/Super.java",
-                "true"))
+                "com/uber/android/Super.java"))
         .doTest();
   }
 
@@ -169,8 +167,7 @@ public class NullAwayAutoFixTest {
                 "o",
                 "METHOD_PARAM",
                 "com.uber.SubClass",
-                "com/uber/test/SubClass.java",
-                "true"))
+                "com/uber/test/SubClass.java"))
         .doTest();
   }
 
@@ -205,8 +202,7 @@ public class NullAwayAutoFixTest {
                 "h",
                 "METHOD_PARAM",
                 "com.uber.Super",
-                "com/uber/android/Super.java",
-                "true"))
+                "com/uber/android/Super.java"))
         .doTest();
   }
 
@@ -267,8 +263,7 @@ public class NullAwayAutoFixTest {
                 "h",
                 "CLASS_FIELD",
                 "com.uber.Super",
-                "com/uber/android/Super.java",
-                "true"))
+                "com/uber/android/Super.java"))
         .doTest();
   }
 
@@ -328,8 +323,7 @@ public class NullAwayAutoFixTest {
                 "f",
                 "CLASS_FIELD",
                 "com.uber.Super",
-                "com/uber/android/Super.java",
-                "true"))
+                "com/uber/android/Super.java"))
         .doTest();
   }
 
@@ -362,8 +356,7 @@ public class NullAwayAutoFixTest {
                 "h",
                 "CLASS_FIELD",
                 "com.uber.Super",
-                "com/uber/android/Super.java",
-                "true"))
+                "com/uber/android/Super.java"))
         .doTest();
   }
 
@@ -391,8 +384,7 @@ public class NullAwayAutoFixTest {
                 "f",
                 "CLASS_FIELD",
                 "com.uber.Super",
-                "com/uber/android/Super.java",
-                "true"))
+                "com/uber/android/Super.java"))
         .doTest();
   }
 
@@ -433,8 +425,7 @@ public class NullAwayAutoFixTest {
                 "lhs",
                 "METHOD_PARAM",
                 "com.uber.Super",
-                "com/uber/Super.java",
-                "true"))
+                "com/uber/Super.java"))
         .doTest();
   }
 }

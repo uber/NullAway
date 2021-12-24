@@ -27,38 +27,35 @@ import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.autofix.AutoFixConfig;
-import com.uber.nullaway.autofix.Location;
-import com.uber.nullaway.autofix.out.Fix;
+import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.Location;
+import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 
-public class FixHandler extends BaseNoOpHandler {
+public class FixMetadataHandler extends BaseNoOpHandler {
 
-  private final AutoFixConfig config;
+  private final FixSerializationConfig config;
 
-  public FixHandler(AutoFixConfig config) {
+  public FixMetadataHandler(FixSerializationConfig config) {
     this.config = config;
   }
 
   @Override
-  public void fix(VisitorState state, Symbol target, ErrorMessage errorMessage) {
+  public void suggest(VisitorState state, Symbol target, ErrorMessage errorMessage) {
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
     if (config.canFixElement(trees, target)) {
       Location location = new Location(target);
-      if (!config.suggestEnabled) return;
-      // todo: remove this condition later, for now we are not supporting anonymous classes
-      if (location.isInAnonymousClass()) return;
-      Fix fix = buildFix(errorMessage, location);
-      if (fix != null) {
+      SuggestedFixInfo suggestedFixInfo = buildFixMetadata(errorMessage, location);
+      if (suggestedFixInfo != null) {
         if (config.suggestDeep) {
-          fix.findEnclosing(state, errorMessage);
+          suggestedFixInfo.findEnclosing(state, errorMessage);
         }
-        config.writer.saveFix(fix);
+        config.writer.saveFix(suggestedFixInfo);
       }
     }
   }
 
-  protected Fix buildFix(ErrorMessage errorMessage, Location location) {
-    Fix fix;
+  protected SuggestedFixInfo buildFixMetadata(ErrorMessage errorMessage, Location location) {
+    SuggestedFixInfo suggestedFixInfo;
     switch (errorMessage.getMessageType()) {
       case RETURN_NULLABLE:
       case WRONG_OVERRIDE_RETURN:
@@ -66,15 +63,14 @@ public class FixHandler extends BaseNoOpHandler {
       case PASS_NULLABLE:
       case FIELD_NO_INIT:
       case ASSIGN_FIELD_NULLABLE:
-        fix = new Fix();
-        fix.location = location;
-        fix.annotation = config.annotationFactory.getNullable();
-        fix.inject = true;
+        suggestedFixInfo = new SuggestedFixInfo();
+        suggestedFixInfo.location = location;
+        suggestedFixInfo.annotation = config.annotationFactory.getNullable();
         break;
       default:
         return null;
     }
-    fix.errorMessage = errorMessage;
-    return fix;
+    suggestedFixInfo.errorMessage = errorMessage;
+    return suggestedFixInfo;
   }
 }
