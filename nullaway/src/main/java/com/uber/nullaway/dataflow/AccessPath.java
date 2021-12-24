@@ -552,10 +552,8 @@ public final class AccessPath implements MapKey {
     @Nullable private final Element varElement;
 
     Root(Element varElement) {
-      isMethodReceiver =
-          varElement.getSimpleName().toString().equals("super")
-              || varElement.getSimpleName().toString().equals("this");
-      this.varElement = isMethodReceiver ? null : Preconditions.checkNotNull(varElement);
+      this.isMethodReceiver = false;
+      this.varElement = Preconditions.checkNotNull(varElement);
     }
 
     /** for case when it represents the receiver */
