@@ -90,7 +90,7 @@ Some annotation processors like [Dagger](https://google.github.io/dagger/) and [
 
 #### Lombok
 
-Unlike other annotation processors above, Lombok modifies the in-memory AST of the code it processes, which is the source of numerous incompatibilities with Error Prone and, consequently, NullAway.
+Unlike other annotation processors above, Lombok modifies the in-memory AST of the code it processes, which is the source of numerous incompatibilities with Error Prone and, consequently, NullAway. 
 
 We do not particularly recommend using NullAway with Lombok. However, NullAway encodes some knowledge of common Lombok annotations and we do try for best-effort compatibility. In particular, common usages like `@lombok.Builder` and `@Data` classes should be supported.
 
@@ -100,7 +100,7 @@ In order for NullAway to successfully detect Lombok generated code within the in
 addLombokGeneratedAnnotation
 ```
 
-This causes Lombok to add `@lombok.Generated` to the methods/classes it generates. NullAway will ignore (i.e. not check) the implementation of this generated code, treating it as unannotated.
+This causes Lombok to add `@lombok.Generated` to the methods/classes it generates. NullAway will ignore (i.e. not check) the implementation of this generated code, treating it as unannotated. 
 
 ## Code Example
 
@@ -140,10 +140,10 @@ warning: [NullAway] dereferenced expression x is @Nullable
 We can fix this warning by adding a null check:
 ```java
 static void log(@Nullable Object x) {
-        if (x != null) {
+    if (x != null) {
         System.out.println(x.toString());
-        }
-        }
+    }
+}
 ```
 With this change, all the NullAway warnings are fixed.
 
@@ -162,4 +162,4 @@ you create a pull request, you will be asked to sign our [Uber Contributor Licen
 
 NullAway is licensed under the MIT license.  See the LICENSE.txt file for more information.
 
-[snapshots]: https://oss.sonatype.org/content/repositories/snapshots/com/uber/nullaway/
+ [snapshots]: https://oss.sonatype.org/content/repositories/snapshots/com/uber/nullaway/
