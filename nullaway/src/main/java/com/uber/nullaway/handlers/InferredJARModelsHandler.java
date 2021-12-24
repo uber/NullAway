@@ -38,12 +38,13 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
+import io.github.classgraph.ClassGraph;
+import io.github.classgraph.ScanResult;
 import java.io.DataInputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.JarURLConnection;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.net.URLConnection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -111,16 +112,16 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
    * Scan Java Classpath for JarInfer model jars and map their names to locations
    */
   private void processClassPath() {
-    URL[] classLoaderUrls =
-        ((URLClassLoader) Thread.currentThread().getContextClassLoader()).getURLs();
-    for (URL url : classLoaderUrls) {
-      String path = url.getFile();
-      if (path.matches(config.getJarInferRegexStripModelJarName())) {
-        String name = path.replaceAll(config.getJarInferRegexStripModelJarName(), "$1");
-        LOG(DEBUG, "DEBUG", "model jar name: " + name + "\tjar path: " + path);
-        if (!mapModelJarLocations.containsKey(name))
-          mapModelJarLocations.put(name, new LinkedHashSet<>());
-        mapModelJarLocations.get(name).add(path);
+    try (ScanResult scanResult = new ClassGraph().scan()) { // Start the scan
+      for (File file : scanResult.getClasspathFiles()) {
+        String path = file.getAbsolutePath();
+        if (path.matches(config.getJarInferRegexStripModelJarName())) {
+          String name = path.replaceAll(config.getJarInferRegexStripModelJarName(), "$1");
+          LOG(DEBUG, "DEBUG", "model jar name: " + name + "\tjar path: " + path);
+          if (!mapModelJarLocations.containsKey(name))
+            mapModelJarLocations.put(name, new LinkedHashSet<>());
+          mapModelJarLocations.get(name).add(path);
+        }
       }
     }
   }
