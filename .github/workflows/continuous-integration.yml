@@ -29,7 +29,7 @@ jobs:
             java: 11
             epVersion: 2.4.0
           - os: windows-latest
-            java: 8
+            java: 11
             epVersion: 2.4.0
           - os: ubuntu-latest
             java: 17
