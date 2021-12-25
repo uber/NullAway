@@ -43,17 +43,17 @@ import org.json.simple.parser.JSONParser;
 public class FixSerializationConfig {
 
   /**
-   * If activated, NullAway will serialize information on code locations where it is reporting
-   * errors, in cases where those errors could be fixed by adding a @Nullable annotation and write
-   * in output directory.
+   * If activated, for all reporting errors, NullAway will serialize information and suggests type
+   * changes to resolve them, in case these errors could be fixed by adding a @Nullable annotation.
+   * These data will be written at output directory.
    */
   public final boolean suggestEnabled;
   /**
    * If activated, serialized information of a fix suggest will also include the enclosing method
-   * and classes of the element involved in error.
+   * and class of the element involved in error.
    */
   public final boolean suggestDeep;
-  /** If activated, NullAway will write reported errors in output directory. */
+  /** If activated, NullAway will write reporting errors in output directory. */
   public final boolean logErrorEnabled;
   /** If activated, errors information will also include the enclosing method and class. */
   public final boolean logErrorDeep;

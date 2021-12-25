@@ -35,33 +35,33 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-public class AutoFixTestHelper {
+public class FixSerializationTestHelper {
   private final List<FixDisplay> fixDisplays = new ArrayList<>();
   private final Path outputPath;
   private boolean haveFixes = true;
   private CompilationTestHelper compilationTestHelper;
 
-  public AutoFixTestHelper(Path outputPath) {
+  public FixSerializationTestHelper(Path outputPath) {
     this.outputPath = outputPath.resolve("fixes.csv");
   }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")
-  public AutoFixTestHelper addSourceLines(String path, String... lines) {
+  public FixSerializationTestHelper addSourceLines(String path, String... lines) {
     compilationTestHelper.addSourceLines(path, lines);
     return this;
   }
 
-  public AutoFixTestHelper addFixes(FixDisplay... fixDisplays) {
+  public FixSerializationTestHelper addFixes(FixDisplay... fixDisplays) {
     this.fixDisplays.addAll(Arrays.asList(fixDisplays));
     return this;
   }
 
-  public AutoFixTestHelper setNoFix() {
+  public FixSerializationTestHelper setNoFix() {
     this.haveFixes = false;
     return this;
   }
 
-  public AutoFixTestHelper setArgs(List<String> args) {
+  public FixSerializationTestHelper setArgs(List<String> args) {
     compilationTestHelper =
         CompilationTestHelper.newInstance(NullAway.class, getClass()).setArgs(args);
     return this;
