@@ -26,7 +26,9 @@ import com.google.errorprone.VisitorState;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.Location;
 import com.uber.nullaway.fixserialization.Writer;
@@ -38,10 +40,12 @@ import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
  */
 public class FixMetadataHandler extends BaseNoOpHandler {
 
-  private final FixSerializationConfig config;
+  private final FixSerializationConfig fixSerializationConfig;
+  private final Config config;
 
-  public FixMetadataHandler(FixSerializationConfig config) {
+  public FixMetadataHandler(Config config) {
     this.config = config;
+    this.fixSerializationConfig = config.getFixSerializationConfig();
   }
 
   /**
@@ -53,15 +57,19 @@ public class FixMetadataHandler extends BaseNoOpHandler {
    */
   @Override
   public void suggest(VisitorState state, Symbol target, ErrorMessage errorMessage) {
+    // Skip if element has an explicit @Nonnull annotation.
+    if (Nullness.hasNonNullAnnotation(target, config)) {
+      return;
+    }
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
-    if (config.canFixElement(trees, target)) {
+    if (fixSerializationConfig.canFixElement(trees, target)) {
       Location location = new Location(target);
       SuggestedFixInfo suggestedFixInfo = buildFixMetadata(errorMessage, location);
       if (suggestedFixInfo != null) {
-        if (config.suggestDeep) {
+        if (fixSerializationConfig.suggestDeep) {
           suggestedFixInfo.findEnclosing(state, errorMessage);
         }
-        Writer writer = config.writer;
+        Writer writer = fixSerializationConfig.writer;
         if (writer != null) {
           writer.saveFix(suggestedFixInfo);
         } else {
@@ -83,7 +91,8 @@ public class FixMetadataHandler extends BaseNoOpHandler {
       case FIELD_NO_INIT:
       case ASSIGN_FIELD_NULLABLE:
         suggestedFixInfo =
-            new SuggestedFixInfo(location, errorMessage, config.annotationFactory.getNullable());
+            new SuggestedFixInfo(
+                location, errorMessage, fixSerializationConfig.annotationFactory.getNullable());
         break;
       default:
         return null;

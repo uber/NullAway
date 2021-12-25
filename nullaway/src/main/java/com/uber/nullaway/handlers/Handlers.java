@@ -70,7 +70,7 @@ public class Handlers {
       handlerListBuilder.add(new ContractCheckHandler(config));
     }
     if (config.fixSerializationIsActive()) {
-      handlerListBuilder.add(new FixMetadataHandler(config.getFixSerializationConfig()));
+      handlerListBuilder.add(new FixMetadataHandler(config));
     }
     return new CompositeHandler(handlerListBuilder.build());
   }

@@ -398,4 +398,75 @@ public class NullAwayFixSerializationTest {
                 "com/uber/Super.java"))
         .doTest();
   }
+
+  @Test
+  public void skip_pass_nullable_param_explicit_nonnull() {
+    fixSerializationTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:WriteFixMetadata=true",
+                "-XepOpt:NullAway:FixMetadataOutputDir=" + outputPath))
+        .addSourceLines(
+            "com/uber/android/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Nonnull;",
+            "public class Super {",
+            "   Object test(int i, @Nonnull Object h) {",
+            "     return h;",
+            "   }",
+            "   Object test_param(@Nullable String o) {",
+            "   // BUG: Diagnostic contains: passing @Nullable",
+            "     return test(0, o);",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void skip_return_nullable_explicit_nonnull() {
+    fixSerializationTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:WriteFixMetadata=true",
+                "-XepOpt:NullAway:FixMetadataOutputDir=" + outputPath))
+        .addSourceLines(
+            "com/uber/Base.java",
+            "package com.uber;",
+            "import javax.annotation.Nonnull;",
+            "public class Base {",
+            "   @Nonnull Object test() {",
+            "     // BUG: Diagnostic contains: returning @Nullable",
+            "     return null;",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void skip_field_nullable_explicit_nonnull() {
+    fixSerializationTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:WriteFixMetadata=true",
+                "-XepOpt:NullAway:FixMetadataOutputDir=" + outputPath))
+        .addSourceLines(
+            "com/uber/Base.java",
+            "package com.uber;",
+            "import javax.annotation.Nonnull;",
+            "public class Base {",
+            "   // BUG: Diagnostic contains: field f not initialized",
+            "   @Nonnull Object f;",
+            "}")
+        .doTest();
+  }
 }
