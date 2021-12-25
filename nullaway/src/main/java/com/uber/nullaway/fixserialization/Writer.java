@@ -35,9 +35,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
+/**
+ * Writer class where all generated files in Fix Serialization package is created through APIs of
+ * this class.
+ */
 public class Writer {
+  /** Path to write errors. */
   public final Path ERROR;
+  /** Path to write suggested fix metadata. */
   public final Path SUGGEST_FIX;
+
+  /** Delimiter to separate values in a row. */
   public final String DELIMITER = "$*$";
 
   public Writer(FixSerializationConfig config) {
@@ -47,10 +55,22 @@ public class Writer {
     reset(config);
   }
 
+  /**
+   * Appends the string representation of the {@link SuggestedFixInfo}.
+   *
+   * @param suggestedFixInfo SuggestedFixInfo object.
+   */
   public void saveFix(SuggestedFixInfo suggestedFixInfo) {
     appendToFile(suggestedFixInfo, SUGGEST_FIX);
   }
 
+  /**
+   * Appends the string representation of the {@link ErrorMessage}.
+   *
+   * @param errorMessage ErrorMessage object.
+   * @param state Visitor state.
+   * @param deep Flag to control if enclosing method and class should be included.
+   */
   public void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
     ErrorInfo error = new ErrorInfo(errorMessage);
     if (deep) {
@@ -59,6 +79,7 @@ public class Writer {
     appendToFile(error, ERROR);
   }
 
+  /** Cleared the content of the file if exists and writes the header in the first line. */
   private void resetFile(Path path, String header) {
     try {
       Files.deleteIfExists(path);
@@ -73,6 +94,7 @@ public class Writer {
     }
   }
 
+  /** Resets every file which will be re-generated in the new run of NullAway. */
   private void reset(FixSerializationConfig config) {
     try {
       Files.createDirectories(Paths.get(config.outputDirectory));

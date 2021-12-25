@@ -76,7 +76,7 @@ public class SuggestedFixInfo extends EnclosingNode implements SeperatedValueDis
   }
 
   /**
-   * creates header of a csv file containing all {@code SuggestedFixInfo}.
+   * creates header of a csv file containing all {@link SuggestedFixInfo}.
    *
    * @param delimiter the delimiter.
    * @return string representation of the header separated by the {@code delimiter}.

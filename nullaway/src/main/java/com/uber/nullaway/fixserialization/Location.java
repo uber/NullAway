@@ -123,7 +123,7 @@ public class Location implements SeperatedValueDisplay {
   }
 
   /**
-   * creates header of a csv file containing all {@code Location}.
+   * creates header of a csv file containing all {@link Location}.
    *
    * @param delimiter the delimiter.
    * @return string representation of the header separated by the {@code delimiter}.

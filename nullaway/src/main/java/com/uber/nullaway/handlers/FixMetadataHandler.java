@@ -29,8 +29,13 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.Location;
+import com.uber.nullaway.fixserialization.Writer;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 
+/**
+ * This Handler deals with serializing information on code locations where NullAway is reporting
+ * errors, in cases where those errors could be fixed by adding a @Nullable annotation.
+ */
 public class FixMetadataHandler extends BaseNoOpHandler {
 
   private final FixSerializationConfig config;
@@ -39,6 +44,13 @@ public class FixMetadataHandler extends BaseNoOpHandler {
     this.config = config;
   }
 
+  /**
+   * Suggests a type change of an element in a source code that can resolve the error.
+   *
+   * @param state Visitor state.
+   * @param target Target element to alternate it's type.
+   * @param errorMessage Error caused by the target.
+   */
   @Override
   public void suggest(VisitorState state, Symbol target, ErrorMessage errorMessage) {
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
@@ -49,11 +61,18 @@ public class FixMetadataHandler extends BaseNoOpHandler {
         if (config.suggestDeep) {
           suggestedFixInfo.findEnclosing(state, errorMessage);
         }
-        config.writer.saveFix(suggestedFixInfo);
+        Writer writer = config.writer;
+        if (writer != null) {
+          writer.saveFix(suggestedFixInfo);
+        } else {
+          throw new IllegalStateException(
+              "Writer shouldn't be null at this point, error in configuration setting!");
+        }
       }
     }
   }
 
+  /** Builds the {@link SuggestedFixInfo} instance based on the {@link ErrorMessage} type. */
   protected SuggestedFixInfo buildFixMetadata(ErrorMessage errorMessage, Location location) {
     SuggestedFixInfo suggestedFixInfo;
     switch (errorMessage.getMessageType()) {

@@ -51,6 +51,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import com.uber.nullaway.fixserialization.Writer;
 import com.uber.nullaway.handlers.Handler;
 import java.util.Iterator;
 import java.util.List;
@@ -126,10 +127,13 @@ public class ErrorBuilder {
     }
 
     if (config.fixSerializationIsActive() && config.getFixSerializationConfig().logErrorEnabled) {
-      config
-          .getFixSerializationConfig()
-          .writer
-          .saveErrorNode(errorMessage, state, config.getFixSerializationConfig().logErrorDeep);
+      Writer writer = config.getFixSerializationConfig().writer;
+      if (writer != null) {
+        writer.saveErrorNode(errorMessage, state, config.getFixSerializationConfig().logErrorDeep);
+      } else {
+        throw new IllegalStateException(
+            "Writer shouldn't be null at this point, error in configuration setting!");
+      }
     }
 
     // #letbuildersbuild
