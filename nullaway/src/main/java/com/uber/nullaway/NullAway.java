@@ -1506,11 +1506,13 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * It only gets executed when autofix is enabled. It creates a suggest object for every class
-   * field that is not guaranteed to be @Nonnull at exit point.
+   * It only gets executed when {@code suggestEnabled} is activated in {@link
+   * com.uber.nullaway.fixserialization.FixSerializationConfig}. It creates a {@link
+   * com.uber.nullaway.fixserialization.out.SuggestedFixInfo} object for every class field that is
+   * not guaranteed to be {@code @Nonnull} at exit point.
    *
-   * @param errorFieldsForInitializer fields that are not initialized
-   * @param state visitor state
+   * @param errorFieldsForInitializer Fields that are not initialized.
+   * @param state Visitor state.
    */
   private void fixInitializationErrorsOnControlFlowPaths(
       VisitorState state, SetMultimap<Element, Element> errorFieldsForInitializer) {

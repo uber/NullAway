@@ -151,10 +151,6 @@ public final class AccessPath implements MapKey {
     return (root != null) ? new AccessPath(root, elements) : null;
   }
 
-  public static AccessPath fromMethodParameter(Element element) {
-    return new AccessPath(new Root(element), ImmutableList.of());
-  }
-
   /**
    * Construct the access path of a method call.
    *
