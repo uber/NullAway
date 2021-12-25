@@ -38,7 +38,6 @@ import java.util.List;
 public class FixSerializationTestHelper {
   private final List<FixDisplay> fixDisplays = new ArrayList<>();
   private final Path outputPath;
-  private boolean haveFixes = true;
   private CompilationTestHelper compilationTestHelper;
 
   public FixSerializationTestHelper(Path outputPath) {
@@ -56,11 +55,6 @@ public class FixSerializationTestHelper {
     return this;
   }
 
-  public FixSerializationTestHelper setNoFix() {
-    this.haveFixes = false;
-    return this;
-  }
-
   public FixSerializationTestHelper setArgs(List<String> args) {
     compilationTestHelper =
         CompilationTestHelper.newInstance(NullAway.class, getClass()).setArgs(args);
@@ -75,11 +69,7 @@ public class FixSerializationTestHelper {
       System.out.println("Ignored");
     }
     FixDisplay[] outputFixDisplays;
-    if (haveFixes) {
-      outputFixDisplays = readOutputFixes();
-    } else {
-      outputFixDisplays = new FixDisplay[0];
-    }
+    outputFixDisplays = readOutputFixes();
     compareFixes(outputFixDisplays);
   }
 
@@ -106,8 +96,6 @@ public class FixSerializationTestHelper {
               + " redundant suggest(s) were found: "
               + "\n"
               + Arrays.deepToString(output.toArray())
-              + "\n"
-              + "Fixer did not found any suggest!"
               + "\n");
     }
     fail(

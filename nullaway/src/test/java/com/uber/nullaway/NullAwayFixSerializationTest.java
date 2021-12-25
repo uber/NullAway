@@ -230,34 +230,6 @@ public class NullAwayFixSerializationTest {
   }
 
   @Test
-  public void add_nullable_pass_param_simple_no_fix() {
-    fixSerializationTestHelper
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:WriteFixMetadata=true",
-                "-XepOpt:NullAway:FixMetadataOutputDir=" + outputPath))
-        .addSourceLines(
-            "com/uber/android/Super.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import javax.annotation.Nonnull;",
-            "public class Super {",
-            "   Object test(int i, @Nonnull Object h) {",
-            "     return h;",
-            "   }",
-            "   Object test_param(@Nullable String o) {",
-            "   // BUG: Diagnostic contains: passing @Nullable",
-            "     return test(0, o);",
-            "   }",
-            "}")
-        .setNoFix()
-        .doTest();
-  }
-
-  @Test
   public void add_nullable_field_simple() {
     fixSerializationTestHelper
         .setArgs(
@@ -287,31 +259,6 @@ public class NullAwayFixSerializationTest {
                 "CLASS_FIELD",
                 "com.uber.Super",
                 "com/uber/android/Super.java"))
-        .doTest();
-  }
-
-  @Test
-  public void add_nullable_field_skip_final() {
-    fixSerializationTestHelper
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:WriteFixMetadata=true",
-                "-XepOpt:NullAway:FixMetadataOutputDir=" + outputPath))
-        .addSourceLines(
-            "com/uber/android/Super.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Super {",
-            "   final Object h;",
-            "   public Super(@Nullable Object f) {",
-            "   // BUG: Diagnostic contains: assigning @Nullable",
-            "      h = f;",
-            "   }",
-            "}")
-        .setNoFix()
         .doTest();
   }
 
