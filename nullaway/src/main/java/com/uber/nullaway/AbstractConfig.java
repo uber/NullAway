@@ -99,8 +99,6 @@ public abstract class AbstractConfig implements Config {
 
   @Nullable protected String castToNonNullMethod;
 
-  @Nullable protected String customNullableAnnotation;
-
   protected String autofixSuppressionComment;
 
   /** --- JarInfer configs --- */
@@ -157,6 +155,7 @@ public abstract class AbstractConfig implements Config {
         }
       }
     }
+    // For optimization purposes, scope of analysis can be limited only to a list of classes.
     if (fixSerializationActivationFlag) {
       return fixSerializationConfig.isOutOfScope(className);
     }

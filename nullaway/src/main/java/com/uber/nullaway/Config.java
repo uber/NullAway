@@ -31,8 +31,18 @@ import javax.annotation.Nullable;
 /** Provides configuration parameters for the nullability checker. */
 public interface Config {
 
+  /**
+   * Checks if Fix Serialization feature is active.
+   *
+   * @return true, if Fix Serialization feature is active.
+   */
   boolean fixSerializationIsActive();
 
+  /**
+   * Getter method for {@link FixSerializationConfig}.
+   *
+   * @return {@link FixSerializationConfig} instance in Config.
+   */
   FixSerializationConfig getFixSerializationConfig();
 
   /**
