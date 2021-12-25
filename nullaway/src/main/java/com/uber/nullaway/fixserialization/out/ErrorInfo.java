@@ -46,7 +46,7 @@ public class ErrorInfo extends EnclosingNode implements SeperatedValueDisplay {
   }
 
   /**
-   * represents header of a csv file containing all {@code ErrorInfo}.
+   * creates header of a csv file containing all {@code ErrorInfo}.
    *
    * @param delimiter the delimiter.
    * @return string representation of the header separated by the {@code delimiter}.
