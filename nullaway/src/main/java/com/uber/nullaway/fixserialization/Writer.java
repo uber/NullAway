@@ -32,7 +32,7 @@ public class Writer {
   public void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
     ErrorInfo error = new ErrorInfo(errorMessage);
     if (deep) {
-      error.findEnclosing(state);
+      error.findEnclosing(state, errorMessage);
     }
     appendToFile(error, ERROR);
   }

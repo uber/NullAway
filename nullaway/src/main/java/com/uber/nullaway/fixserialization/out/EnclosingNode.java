@@ -29,9 +29,15 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.uber.nullaway.ErrorMessage;
 
-public class EnclosingNode {
-  public ErrorMessage errorMessage;
+/** Nodes with this type, are surrounded in a method in source code. */
+public abstract class EnclosingNode {
+
+  /**
+   * Finding values for these properties is costly and are not needed by default, hence, they are
+   * not {@code final} and are only initialized at request.
+   */
   protected MethodTree enclosingMethod;
+
   protected ClassTree enclosingClass;
 
   public void findEnclosing(VisitorState state, ErrorMessage errorMessage) {

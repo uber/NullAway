@@ -63,14 +63,12 @@ public class FixMetadataHandler extends BaseNoOpHandler {
       case PASS_NULLABLE:
       case FIELD_NO_INIT:
       case ASSIGN_FIELD_NULLABLE:
-        suggestedFixInfo = new SuggestedFixInfo();
-        suggestedFixInfo.location = location;
-        suggestedFixInfo.annotation = config.annotationFactory.getNullable();
+        suggestedFixInfo =
+            new SuggestedFixInfo(location, errorMessage, config.annotationFactory.getNullable());
         break;
       default:
         return null;
     }
-    suggestedFixInfo.errorMessage = errorMessage;
     return suggestedFixInfo;
   }
 }

@@ -22,11 +22,13 @@
 
 package com.uber.nullaway.fixserialization.out;
 
-import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.uber.nullaway.ErrorMessage;
 
+/** Stores information regarding an error which will be reported by NullAway. */
 public class ErrorInfo extends EnclosingNode implements SeperatedValueDisplay {
+
+  private final ErrorMessage errorMessage;
 
   public ErrorInfo(ErrorMessage errorMessage) {
     this.errorMessage = errorMessage;
@@ -53,9 +55,5 @@ public class ErrorInfo extends EnclosingNode implements SeperatedValueDisplay {
         + "METHOD"
         + delimiter
         + "COVERED";
-  }
-
-  public void findEnclosing(VisitorState state) {
-    super.findEnclosing(state, errorMessage);
   }
 }

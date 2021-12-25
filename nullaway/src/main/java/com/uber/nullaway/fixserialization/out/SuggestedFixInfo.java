@@ -23,14 +23,27 @@
 package com.uber.nullaway.fixserialization.out;
 
 import com.google.errorprone.util.ASTHelpers;
+import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.Location;
 import com.uber.nullaway.fixserialization.qual.AnnotationFactory;
 import java.util.Objects;
 
 /** Stores information suggesting a type change of an element in source code. */
 public class SuggestedFixInfo extends EnclosingNode implements SeperatedValueDisplay {
-  public Location location;
-  public AnnotationFactory.Annotation annotation;
+
+  /** Location of the target element in source code. */
+  private final Location location;
+  /** Error which will be resolved by this type change. */
+  private final ErrorMessage errorMessage;
+  /** Suggested annotation. */
+  private final AnnotationFactory.Annotation annotation;
+
+  public SuggestedFixInfo(
+      Location location, ErrorMessage errorMessage, AnnotationFactory.Annotation annotation) {
+    this.location = location;
+    this.errorMessage = errorMessage;
+    this.annotation = annotation;
+  }
 
   @Override
   public boolean equals(Object o) {
@@ -47,18 +60,6 @@ public class SuggestedFixInfo extends EnclosingNode implements SeperatedValueDis
   @Override
   public int hashCode() {
     return Objects.hash(location, annotation, errorMessage.getMessageType().toString());
-  }
-
-  @Override
-  public String toString() {
-    return "SuggestedFixInfo{"
-        + "location="
-        + location
-        + ", annotation="
-        + annotation
-        + ", reason="
-        + errorMessage.getMessageType().toString()
-        + '}';
   }
 
   @Override
