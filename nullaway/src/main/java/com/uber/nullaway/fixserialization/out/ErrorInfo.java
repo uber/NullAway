@@ -45,6 +45,12 @@ public class ErrorInfo extends EnclosingNode implements SeperatedValueDisplay {
         + (enclosingMethod != null ? ASTHelpers.getSymbol(enclosingMethod) : "null");
   }
 
+  /**
+   * represents header of a csv file containing all {@code ErrorInfo}.
+   *
+   * @param delimiter the delimiter.
+   * @return string representation of the header separated by the {@code delimiter}.
+   */
   public static String header(String delimiter) {
     return "MESSAGE_TYPE"
         + delimiter

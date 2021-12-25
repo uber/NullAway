@@ -75,6 +75,12 @@ public class SuggestedFixInfo extends EnclosingNode implements SeperatedValueDis
         + (enclosingMethod == null ? "null" : ASTHelpers.getSymbol(enclosingMethod));
   }
 
+  /**
+   * represents header of a csv file containing all {@code SuggestedFixInfo}.
+   *
+   * @param delimiter the delimiter.
+   * @return string representation of the header separated by the {@code delimiter}.
+   */
   public static String header(String delimiter) {
     return Location.header(delimiter)
         + delimiter
