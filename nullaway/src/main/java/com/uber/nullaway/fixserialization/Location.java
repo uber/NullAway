@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2019 Uber Technologies, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 package com.uber.nullaway.fixserialization;
 
 import com.google.common.base.Preconditions;
@@ -7,13 +29,17 @@ import com.uber.nullaway.fixserialization.out.SeperatedValueDisplay;
 import java.net.URI;
 import javax.lang.model.element.ElementKind;
 
+/** Holds all the information to target a specific element in the source code. */
 public class Location implements SeperatedValueDisplay {
 
   private final URI uri;
-  private final Symbol.ClassSymbol classSymbol;
-  private Symbol.MethodSymbol methodSymbol;
+  private final Symbol.ClassSymbol enclosingClass;
+  private Symbol.MethodSymbol enclosingMethod;
+  /** Symbol of the element if the target is either a class field or a method parameter. */
   private Symbol.VarSymbol variableSymbol;
+
   private Kind kind;
+  /** Index of the element if target is a method argument. */
   int index = 0;
 
   public enum Kind {
@@ -27,6 +53,11 @@ public class Location implements SeperatedValueDisplay {
     }
   }
 
+  /**
+   * Initializes properties based on the type of the target.
+   *
+   * @param target Target element.
+   */
   public Location(Symbol target) {
     switch (target.getKind()) {
       case PARAMETER:
@@ -39,10 +70,10 @@ public class Location implements SeperatedValueDisplay {
         createFieldLocation(target);
         break;
       default:
-        throw new IllegalStateException("Cannot locate node: " + target);
+        throw new IllegalArgumentException("Cannot locate node: " + target);
     }
-    this.classSymbol = ASTHelpers.enclosingClass(target);
-    this.uri = classSymbol.sourcefile.toUri();
+    this.enclosingClass = ASTHelpers.enclosingClass(target);
+    this.uri = enclosingClass.sourcefile.toUri();
   }
 
   private void createFieldLocation(Symbol field) {
@@ -54,7 +85,7 @@ public class Location implements SeperatedValueDisplay {
   private void createMethodLocation(Symbol method) {
     Preconditions.checkArgument(method.getKind() == ElementKind.METHOD);
     kind = Kind.METHOD_RETURN;
-    methodSymbol = (Symbol.MethodSymbol) method;
+    enclosingMethod = (Symbol.MethodSymbol) method;
   }
 
   private void createMethodParamLocation(Symbol parameter) {
@@ -62,13 +93,14 @@ public class Location implements SeperatedValueDisplay {
     this.kind = Kind.METHOD_PARAM;
     this.variableSymbol = (Symbol.VarSymbol) parameter;
     Symbol enclosingMethod = parameter;
+    // Look for the enclosing method.
     while (enclosingMethod != null && enclosingMethod.getKind() != ElementKind.METHOD) {
       enclosingMethod = enclosingMethod.owner;
     }
     Preconditions.checkNotNull(enclosingMethod);
-    methodSymbol = (Symbol.MethodSymbol) enclosingMethod;
-    for (int i = 0; i < methodSymbol.getParameters().size(); i++) {
-      if (methodSymbol.getParameters().get(i).equals(parameter)) {
+    this.enclosingMethod = (Symbol.MethodSymbol) enclosingMethod;
+    for (int i = 0; i < this.enclosingMethod.getParameters().size(); i++) {
+      if (this.enclosingMethod.getParameters().get(i).equals(parameter)) {
         index = i;
         break;
       }
@@ -79,9 +111,9 @@ public class Location implements SeperatedValueDisplay {
   public String display(String delimiter) {
     return kind.label
         + delimiter
-        + classSymbol.toString()
+        + enclosingClass.toString()
         + delimiter
-        + (methodSymbol != null ? methodSymbol.toString() : "null")
+        + (enclosingMethod != null ? enclosingMethod.toString() : "null")
         + delimiter
         + (variableSymbol != null ? variableSymbol.toString() : "null")
         + delimiter
@@ -90,6 +122,12 @@ public class Location implements SeperatedValueDisplay {
         + (uri != null ? uri.toASCIIString() : "null");
   }
 
+  /**
+   * creates header of a csv file containing all {@code Location}.
+   *
+   * @param delimiter the delimiter.
+   * @return string representation of the header separated by the {@code delimiter}.
+   */
   public static String header(String delimiter) {
     return "location"
         + delimiter
@@ -102,9 +140,5 @@ public class Location implements SeperatedValueDisplay {
         + "index"
         + delimiter
         + "uri";
-  }
-
-  public boolean isInAnonymousClass() {
-    return classSymbol.toString().startsWith("<anonymous");
   }
 }

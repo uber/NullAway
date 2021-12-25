@@ -33,8 +33,8 @@ public class NullAwayAutoSuggestedFixTestInfo {
     try {
       Files.createDirectories(home);
       autoFixTestHelper = new AutoFixTestHelper(home);
-      FixSerializationConfig.AutoFixConfigBuilder writer =
-          new FixSerializationConfig.AutoFixConfigBuilder().setSuggest(true, false);
+      FixSerializationConfig.FixSerializationConfigBuilder writer =
+          new FixSerializationConfig.FixSerializationConfigBuilder().setSuggest(true, false);
       Path configPath = home.resolve("explorer.config");
       Files.createFile(configPath);
       writer.write(configPath.toString());

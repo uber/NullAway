@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2019 Uber Technologies, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 package com.uber.nullaway.fixserialization;
 
 import com.google.common.base.Preconditions;
@@ -17,15 +39,34 @@ import javax.lang.model.element.Element;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 
+/** Config class for Fix Serialization package. */
 public class FixSerializationConfig {
 
+  /**
+   * If activated, NullAway will serialize information on code locations where it is reporting
+   * errors, in cases where those errors could be fixed by adding a @Nullable annotation and write
+   * in output directory.
+   */
   public final boolean suggestEnabled;
+  /**
+   * If activated, serialized information of a fix suggest will also include the enclosing method
+   * and classes of the element involved in error.
+   */
   public final boolean suggestDeep;
+  /** If activated, NullAway will write reported errors in output directory. */
   public final boolean logErrorEnabled;
+  /** If activated, errors information will also include the enclosing method and class. */
   public final boolean logErrorDeep;
+  /** The directory where all files generated/read by Fix Serialization package resides. */
   public final String outputDirectory;
+
   public final AnnotationFactory annotationFactory;
+  /**
+   * Contains a set of classes fully qualified name. If not empty, NullAway will only report errors
+   * in these classes.
+   */
   public final Set<String> workList;
+
   public final Writer writer;
 
   public FixSerializationConfig() {
@@ -34,12 +75,23 @@ public class FixSerializationConfig {
     logErrorEnabled = false;
     logErrorDeep = false;
     annotationFactory = new AnnotationFactory();
+    // No class is excluded.
     workList = Collections.singleton("*");
     outputDirectory = null;
     writer = null;
   }
 
+  /**
+   * * Sets all flags based on their values in {@code outputdierectory/explorer.config} json file.
+   *
+   * @param autofixEnabled Flag value in main NullAway config. If false, all flags here will be set
+   *     to false.
+   * @param outputDirectory Directory where all files generated/read by Fix Serialization package
+   *     resides.
+   */
   public FixSerializationConfig(boolean autofixEnabled, String outputDirectory) {
+    // if autofixEnabled is false, all flags will be false regardless of their given value in json
+    // config file.
     Preconditions.checkNotNull(outputDirectory);
     JSONObject jsonObject = null;
     if (autofixEnabled) {
@@ -66,7 +118,7 @@ public class FixSerializationConfig {
             && autofixEnabled;
     logErrorDeep =
         getValueFromKey(jsonObject, "LOG_ERROR:DEEP", Boolean.class).orElse(false)
-            && autofixEnabled;
+            && logErrorEnabled;
     String nullableAnnot =
         getValueFromKey(jsonObject, "ANNOTATION:NULLABLE", String.class)
             .orElse("javax.annotation.Nullable");
@@ -84,20 +136,14 @@ public class FixSerializationConfig {
     writer = new Writer(this);
   }
 
-  static class OrElse<T> {
-    final Object value;
-    final Class<T> klass;
-
-    OrElse(Object value, Class<T> klass) {
-      this.value = value;
-      this.klass = klass;
-    }
-
-    T orElse(T other) {
-      return value == null ? other : klass.cast(this.value);
-    }
-  }
-
+  /**
+   * Helper method for reading values from json.
+   *
+   * @param json Json object to read values from.
+   * @param key Key to locate the value, can be nested (e.g. key1:key2).
+   * @param klass Class type of the value in json.
+   * @return The value in the specified key cast to the class type given in parameter.
+   */
   private <T> OrElse<T> getValueFromKey(JSONObject json, String key, Class<T> klass) {
     if (json == null) {
       return new OrElse<>(null, klass);
@@ -120,20 +166,51 @@ public class FixSerializationConfig {
     }
   }
 
+  /** Helper class for setting default values when the key is not found. */
+  static class OrElse<T> {
+    final Object value;
+    final Class<T> klass;
+
+    OrElse(Object value, Class<T> klass) {
+      this.value = value;
+      this.klass = klass;
+    }
+
+    T orElse(T other) {
+      return value == null ? other : klass.cast(this.value);
+    }
+  }
+
+  /**
+   * Validates whether {@code suggestEnabled} is active and the element involved in the error is
+   * accessible and not received in bytecodes.
+   *
+   * @param trees Trees object.
+   * @param symbol Symbol of the targeted element to perform type change.
+   * @return true, if the element is accessible and {@code suggestEnabled} is active.
+   */
   public boolean canFixElement(Trees trees, Element symbol) {
     if (!suggestEnabled) return false;
     if (trees == null || symbol == null) return false;
     return trees.getPath(symbol) != null;
   }
 
+  /**
+   * Determines if a class is out of scope of analysis. If {@code workList} is either empty or only
+   * contains {@code *}, no class is excluded.
+   *
+   * @param clazz Class name to process.
+   * @return true, if class is excluded.
+   */
   public boolean isOutOfScope(String clazz) {
-    if (workList.size() == 1 && workList.contains("*")) {
+    if (workList.size() == 0 || (workList.size() == 1 && workList.contains("*"))) {
       return false;
     }
     return !workList.contains(clazz);
   }
 
-  public static class AutoFixConfigBuilder {
+  /** Builder class for Config */
+  public static class FixSerializationConfigBuilder {
 
     private boolean suggestEnabled;
     private boolean suggestDeep;
@@ -143,7 +220,7 @@ public class FixSerializationConfig {
     private String nonnull;
     private Set<String> workList;
 
-    public AutoFixConfigBuilder() {
+    public FixSerializationConfigBuilder() {
       suggestEnabled = false;
       suggestDeep = false;
       logErrorEnabled = false;
@@ -158,6 +235,11 @@ public class FixSerializationConfig {
       return display.substring(1, display.length() - 1);
     }
 
+    /**
+     * Write the json representation of config at the given path.
+     *
+     * @param path Path to write the config file.
+     */
     @SuppressWarnings("unchecked")
     public void writeInJson(String path) {
       JSONObject res = new JSONObject();
@@ -183,7 +265,7 @@ public class FixSerializationConfig {
       }
     }
 
-    public AutoFixConfigBuilder setSuggest(boolean value, boolean isDeep) {
+    public FixSerializationConfigBuilder setSuggest(boolean value, boolean isDeep) {
       suggestEnabled = value;
       if (suggestEnabled) {
         suggestDeep = isDeep;
@@ -191,26 +273,27 @@ public class FixSerializationConfig {
       return this;
     }
 
-    public AutoFixConfigBuilder setSuggest(boolean suggest, String nullable, String nonnull) {
+    public FixSerializationConfigBuilder setSuggest(
+        boolean suggest, String nullable, String nonnull) {
       suggestEnabled = suggest;
       if (!suggest) {
-        throw new RuntimeException("SUGGEST must be activated");
+        throw new IllegalArgumentException("SUGGEST must be activated");
       }
       this.nullable = nullable;
       this.nonnull = nonnull;
       return this;
     }
 
-    public AutoFixConfigBuilder setLogError(boolean value, boolean isDeep) {
+    public FixSerializationConfigBuilder setLogError(boolean value, boolean isDeep) {
       logErrorEnabled = value;
       if (!value && isDeep) {
-        throw new RuntimeException("Log error must be enabled to activate deep log error");
+        throw new IllegalArgumentException("Log error must be enabled to activate deep log error");
       }
       logErrorDeep = isDeep;
       return this;
     }
 
-    public AutoFixConfigBuilder setWorkList(Set<String> workList) {
+    public FixSerializationConfigBuilder setWorkList(Set<String> workList) {
       this.workList = workList;
       return this;
     }
