@@ -22,8 +22,13 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.1.1'
+        classpath 'com.android.tools.build:gradle:7.0.4'
         classpath 'com.vanniktech:gradle-maven-publish-plugin:0.14.2'
+        classpath('org.ow2.asm:asm') {
+            version {
+                strictly '9.2'
+            }
+        }
     }
 }
 plugins {
@@ -31,7 +36,6 @@ plugins {
   id "net.ltgt.errorprone" version "2.0.1" apply false
   id "com.github.johnrengelman.shadow" version "6.1.0" apply false
   id "com.github.kt3k.coveralls" version "2.12.0" apply false
-  id "com.android.application" version "3.5.0" apply false
   id "me.champeau.jmh" version "0.6.6" apply false
 }
 

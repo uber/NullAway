@@ -31,7 +31,7 @@ if (project.hasProperty("epApiVersion")) {
     }
 }
 def versions = [
-    asm                    : "7.1",
+    asm                    : "9.2",
     checkerFramework       : "3.21.0",
     // The version of Error Prone used to check NullAway's code
     errorProne             : "2.10.0",
@@ -72,7 +72,6 @@ def build = [
     commonscli              : "commons-cli:commons-cli:${versions.commonscli}",
 
     // android stuff
-    buildToolsVersion: "30.0.3",
     compileSdkVersion: 30,
     ci: "true" == System.getenv("CI"),
     minSdkVersion: 16,
