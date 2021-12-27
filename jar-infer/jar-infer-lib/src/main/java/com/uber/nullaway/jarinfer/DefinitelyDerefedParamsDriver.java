@@ -247,9 +247,9 @@ public class DefinitelyDerefedParamsDriver {
               DefinitelyDerefedParams analysisDriver = null;
               String sign = "";
               // Parameter analysis
-              if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)) {
-                // Skip methods by looking at bytecode
-                try {
+              try {
+                if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)) {
+                  // Skip methods by looking at bytecode
                   if (!CodeScanner.getFieldsRead(mtd).isEmpty()
                       || !CodeScanner.getFieldsWritten(mtd).isEmpty()
                       || !CodeScanner.getCallSites(mtd).isEmpty()) {
@@ -265,14 +265,14 @@ public class DefinitelyDerefedParamsDriver {
                           "Inferred Nonnull param for method: " + sign + " = " + result.toString());
                     }
                   }
-                } catch (Exception e) {
-                  LOG(
-                      DEBUG,
-                      "DEBUG",
-                      "Exception while scanning bytecodes for " + mtd + " " + e.getMessage());
                 }
+                analyzeReturnValue(options, cache, mtd, analysisDriver, sign);
+              } catch (Exception e) {
+                LOG(
+                    DEBUG,
+                    "DEBUG",
+                    "Exception while scanning bytecodes for " + mtd + " " + e.getMessage());
               }
-              analyzeReturnValue(options, cache, mtd, analysisDriver, sign);
             }
           }
         }
