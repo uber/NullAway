@@ -9,7 +9,6 @@ pluginManagement {
 include ':nullaway'
 include ':sample-library-model'
 include ':sample'
-include ':sample-app'
 include ':test-java-lib'
 include ':test-java-lib-lombok'
 include ':test-library-models'
@@ -29,4 +28,5 @@ include ':jdk17-unit-tests'
 // on pre-JDK-11 JVMs
 if (JavaVersion.current() >= JavaVersion.VERSION_11) {
     include ':code-coverage-report'
+    include ':sample-app'
 }
