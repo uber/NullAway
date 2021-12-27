@@ -249,7 +249,12 @@ public class DefinitelyDerefedParamsDriver {
               // Parameter analysis
               try {
                 if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)) {
-                  // Skip methods by looking at bytecode
+                  // For inferring parameter nullability, our criteria is based on finding
+                  // unchecked dereferences of that parameter. We perform a quick bytecode
+                  // check and skip methods containing no dereferences (i.e. method calls
+                  // or field accesses) at all, avoiding the expensive IR/CFG generation
+                  // step for these methods.
+                  // Note that this doesn't apply to inferring return value nullability.
                   if (!CodeScanner.getFieldsRead(mtd).isEmpty()
                       || !CodeScanner.getFieldsWritten(mtd).isEmpty()
                       || !CodeScanner.getCallSites(mtd).isEmpty()) {
