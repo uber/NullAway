@@ -427,6 +427,9 @@ public class JarInferTest {
 
   @Test
   public void toyAARAnnotatingClasses() throws Exception {
+    //    if (System.getProperty("java.version").startsWith("1.8")) {
+    //      return;
+    //    }
     testAnnotationInAarTemplate(
         "toyAARAnnotatingClasses",
         "com.uber.nullaway.jarinfer.toys.unannotated",
