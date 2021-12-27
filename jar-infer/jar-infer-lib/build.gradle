@@ -39,7 +39,9 @@ dependencies {
         exclude group: "junit", module: "junit"
     }
     testImplementation project(":jar-infer:test-java-lib-jarinfer")
-    testImplementation project(path: ":jar-infer:test-android-lib-jarinfer", configuration: "default")
+    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+        testImplementation project(path: ":jar-infer:test-android-lib-jarinfer", configuration: "default")
+    }
     testImplementation files("${System.properties['java.home']}/../lib/tools.jar") // is there a better way?
     testRuntimeOnly deps.build.errorProneCheckApi
 }

@@ -20,7 +20,6 @@ include ':jar-infer:jar-infer-lib'
 include ':jar-infer:jar-infer-cli'
 include ':jar-infer:test-java-lib-jarinfer'
 include ':jar-infer:nullaway-integration-test'
-include ':jar-infer:test-android-lib-jarinfer'
 include ':jmh'
 include ':jdk17-unit-tests'
 
@@ -29,4 +28,5 @@ include ':jdk17-unit-tests'
 if (JavaVersion.current() >= JavaVersion.VERSION_11) {
     include ':code-coverage-report'
     include ':sample-app'
+    include ':jar-infer:test-android-lib-jarinfer'
 }
