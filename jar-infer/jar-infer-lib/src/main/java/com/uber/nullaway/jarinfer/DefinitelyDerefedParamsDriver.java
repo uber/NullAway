@@ -33,6 +33,7 @@ import com.ibm.wala.ipa.callgraph.impl.Everywhere;
 import com.ibm.wala.ipa.cha.ClassHierarchyException;
 import com.ibm.wala.ipa.cha.ClassHierarchyFactory;
 import com.ibm.wala.ipa.cha.IClassHierarchy;
+import com.ibm.wala.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.ssa.IR;
 import com.ibm.wala.ssa.ISSABasicBlock;
 import com.ibm.wala.ssa.SSAInstruction;
@@ -206,6 +207,14 @@ public class DefinitelyDerefedParamsDriver {
     return nonnullParams;
   }
 
+  // Check if a method includes any dereferences at all at the bytecode level
+  private boolean bytecodeHasAnyDereferences(IMethod mtd) throws InvalidClassFileException {
+    // A dereference is either a field access (o.f) or a method call (o.m())
+    return !CodeScanner.getFieldsRead(mtd).isEmpty()
+        || !CodeScanner.getFieldsWritten(mtd).isEmpty()
+        || !CodeScanner.getCallSites(mtd).isEmpty();
+  }
+
   private void analyzeFile(String pkgName, String inPath, boolean includeNonPublicClasses)
       throws IOException, ClassHierarchyException {
     InputStream jarIS = null;
@@ -246,13 +255,16 @@ public class DefinitelyDerefedParamsDriver {
               Preconditions.checkNotNull(mtd, "method not found");
               DefinitelyDerefedParams analysisDriver = null;
               String sign = "";
-              // Parameter analysis
-              if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)) {
-                // Skip methods by looking at bytecode
-                try {
-                  if (!CodeScanner.getFieldsRead(mtd).isEmpty()
-                      || !CodeScanner.getFieldsWritten(mtd).isEmpty()
-                      || !CodeScanner.getCallSites(mtd).isEmpty()) {
+              try {
+                // Parameter analysis
+                if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)) {
+                  // For inferring parameter nullability, our criteria is based on finding
+                  // unchecked dereferences of that parameter. We perform a quick bytecode
+                  // check and skip methods containing no dereferences (i.e. method calls
+                  // or field accesses) at all, avoiding the expensive IR/CFG generation
+                  // step for these methods.
+                  // Note that this doesn't apply to inferring return value nullability.
+                  if (bytecodeHasAnyDereferences(mtd)) {
                     analysisDriver = getAnalysisDriver(mtd, options, cache);
                     Set<Integer> result = analysisDriver.analyze();
                     sign = getSignature(mtd);
@@ -265,14 +277,15 @@ public class DefinitelyDerefedParamsDriver {
                           "Inferred Nonnull param for method: " + sign + " = " + result.toString());
                     }
                   }
-                } catch (Exception e) {
-                  LOG(
-                      DEBUG,
-                      "DEBUG",
-                      "Exception while scanning bytecodes for " + mtd + " " + e.getMessage());
                 }
+                // Return value analysis
+                analyzeReturnValue(options, cache, mtd, analysisDriver, sign);
+              } catch (Exception e) {
+                LOG(
+                    DEBUG,
+                    "DEBUG",
+                    "Exception while scanning bytecodes for " + mtd + " " + e.getMessage());
               }
-              analyzeReturnValue(options, cache, mtd, analysisDriver, sign);
             }
           }
         }
