@@ -88,8 +88,6 @@ public class SuggestedFixInfo extends EnclosingNode implements SeperatedValueDis
         + delimiter
         + "annotation"
         + delimiter
-        + "inject"
-        + delimiter
         + "rootClass"
         + delimiter
         + "rootMethod";

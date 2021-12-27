@@ -52,14 +52,6 @@ public class ErrorInfo extends EnclosingNode implements SeperatedValueDisplay {
    * @return string representation of the header separated by the {@code delimiter}.
    */
   public static String header(String delimiter) {
-    return "MESSAGE_TYPE"
-        + delimiter
-        + "MESSAGE"
-        + delimiter
-        + "CLASS"
-        + delimiter
-        + "METHOD"
-        + delimiter
-        + "COVERED";
+    return "MESSAGE_TYPE" + delimiter + "MESSAGE" + delimiter + "CLASS" + delimiter + "METHOD";
   }
 }
