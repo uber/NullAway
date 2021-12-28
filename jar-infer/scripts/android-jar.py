@@ -20,7 +20,9 @@ astubx_file = config_parser.get('android-model', 'astubx-path')
 
 ### Finding android libraries ###
 print "> Finding android libraries..."
-cmd = "find " + ajars_dir + " -name \"*.jar\""
+# Since SDK 31, the directory structure mixes classes.jar and classes-header.jar files, we use
+# only the former, as classes-header.jar files are missing methods' bytecode.
+cmd = "find " + ajars_dir + " -name \"*.jar\" | grep -v classes-header.jar"
 ajars = subprocess.Popen(cmd, stdout=subprocess.PIPE, shell=True).stdout.read().splitlines()
 for ajar in ajars:
   cmd = "jar tvf " + ajar + " | grep \"\.class$\" | awk '{print $8}'"
