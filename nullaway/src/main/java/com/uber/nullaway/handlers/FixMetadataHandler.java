@@ -66,7 +66,7 @@ public class FixMetadataHandler extends BaseNoOpHandler {
       Location location = new Location(target);
       SuggestedFixInfo suggestedFixInfo = buildFixMetadata(errorMessage, location);
       if (suggestedFixInfo != null) {
-        if (fixSerializationConfig.suggestDeep) {
+        if (fixSerializationConfig.suggestEnclosing) {
           suggestedFixInfo.findEnclosing(state, errorMessage);
         }
         Writer writer = fixSerializationConfig.writer;

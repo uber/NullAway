@@ -129,7 +129,8 @@ public class ErrorBuilder {
     if (config.fixSerializationIsActive() && config.getFixSerializationConfig().logErrorEnabled) {
       Writer writer = config.getFixSerializationConfig().writer;
       if (writer != null) {
-        writer.saveErrorNode(errorMessage, state, config.getFixSerializationConfig().logErrorDeep);
+        writer.saveErrorNode(
+            errorMessage, state, config.getFixSerializationConfig().logErrorEnclosing);
       } else {
         throw new IllegalStateException(
             "Writer shouldn't be null at this point, error in configuration setting!");

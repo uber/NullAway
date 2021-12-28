@@ -52,11 +52,11 @@ public class FixSerializationConfig {
    * If activated, serialized information of a fix suggest will also include the enclosing method
    * and class of the element involved in error.
    */
-  public final boolean suggestDeep;
+  public final boolean suggestEnclosing;
   /** If activated, NullAway will write reporting errors in output directory. */
   public final boolean logErrorEnabled;
   /** If activated, errors information will also include the enclosing method and class. */
-  public final boolean logErrorDeep;
+  public final boolean logErrorEnclosing;
   /** The directory where all files generated/read by Fix Serialization package resides. */
   public final String outputDirectory;
 
@@ -71,9 +71,9 @@ public class FixSerializationConfig {
 
   public FixSerializationConfig() {
     suggestEnabled = false;
-    suggestDeep = false;
+    suggestEnclosing = false;
     logErrorEnabled = false;
-    logErrorDeep = false;
+    logErrorEnclosing = false;
     annotationFactory = new AnnotationFactory();
     // No class is excluded.
     workList = Collections.singleton("*");
@@ -111,13 +111,14 @@ public class FixSerializationConfig {
     suggestEnabled =
         getValueFromKey(jsonObject, "SUGGEST:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
-    suggestDeep =
-        getValueFromKey(jsonObject, "SUGGEST:DEEP", Boolean.class).orElse(false) && suggestEnabled;
+    suggestEnclosing =
+        getValueFromKey(jsonObject, "SUGGEST:ENCLOSING", Boolean.class).orElse(false)
+            && suggestEnabled;
     logErrorEnabled =
         getValueFromKey(jsonObject, "LOG_ERROR:ACTIVE", Boolean.class).orElse(false)
             && autofixEnabled;
-    logErrorDeep =
-        getValueFromKey(jsonObject, "LOG_ERROR:DEEP", Boolean.class).orElse(false)
+    logErrorEnclosing =
+        getValueFromKey(jsonObject, "LOG_ERROR:ENCLOSING", Boolean.class).orElse(false)
             && logErrorEnabled;
     String nullableAnnot =
         getValueFromKey(jsonObject, "ANNOTATION:NULLABLE", String.class)
@@ -213,18 +214,18 @@ public class FixSerializationConfig {
   public static class FixSerializationConfigBuilder {
 
     private boolean suggestEnabled;
-    private boolean suggestDeep;
+    private boolean suggestEnclosing;
     private boolean logErrorEnabled;
-    private boolean logErrorDeep;
+    private boolean logErrorEnclosing;
     private String nullable;
     private String nonnull;
     private Set<String> workList;
 
     public FixSerializationConfigBuilder() {
       suggestEnabled = false;
-      suggestDeep = false;
+      suggestEnclosing = false;
       logErrorEnabled = false;
-      logErrorDeep = false;
+      logErrorEnclosing = false;
       nullable = "javax.annotation.Nullable";
       nonnull = "javax.annotation.Nonnull";
       workList = Collections.singleton("*");
@@ -245,7 +246,7 @@ public class FixSerializationConfig {
       JSONObject res = new JSONObject();
       JSONObject suggest = new JSONObject();
       suggest.put("ACTIVE", suggestEnabled);
-      suggest.put("DEEP", suggestDeep);
+      suggest.put("ENCLOSING", suggestEnclosing);
       res.put("SUGGEST", suggest);
       JSONObject annotation = new JSONObject();
       annotation.put("NULLABLE", nullable);
@@ -253,7 +254,7 @@ public class FixSerializationConfig {
       res.put("ANNOTATION", annotation);
       JSONObject logError = new JSONObject();
       logError.put("ACTIVE", logErrorEnabled);
-      logError.put("DEEP", logErrorDeep);
+      logError.put("ENCLOSING", logErrorEnclosing);
       res.put("LOG_ERROR", logError);
       res.put("WORK_LIST", workListDisplay());
       try {
@@ -265,31 +266,25 @@ public class FixSerializationConfig {
       }
     }
 
-    public FixSerializationConfigBuilder setSuggest(boolean value, boolean isDeep) {
-      suggestEnabled = value;
-      if (suggestEnabled) {
-        suggestDeep = isDeep;
-      }
+    public FixSerializationConfigBuilder setSuggest(boolean value, boolean withEnclosing) {
+      this.suggestEnabled = value;
+      this.suggestEnclosing = withEnclosing && suggestEnabled;
       return this;
     }
 
-    public FixSerializationConfigBuilder setSuggest(
-        boolean suggest, String nullable, String nonnull) {
-      suggestEnabled = suggest;
-      if (!suggest) {
-        throw new IllegalArgumentException("SUGGEST must be activated");
-      }
+    public FixSerializationConfigBuilder setAnnotations(String nullable, String nonnull) {
       this.nullable = nullable;
       this.nonnull = nonnull;
       return this;
     }
 
-    public FixSerializationConfigBuilder setLogError(boolean value, boolean isDeep) {
-      logErrorEnabled = value;
-      if (!value && isDeep) {
-        throw new IllegalArgumentException("Log error must be enabled to activate deep log error");
+    public FixSerializationConfigBuilder setLogError(boolean value, boolean withEnclosing) {
+      this.logErrorEnabled = value;
+      if (!value && withEnclosing) {
+        throw new IllegalArgumentException(
+            "Log error must be enabled to activate enclosing log error");
       }
-      logErrorDeep = isDeep;
+      this.logErrorEnclosing = withEnclosing;
       return this;
     }
 
