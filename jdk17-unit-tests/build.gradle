@@ -22,7 +22,8 @@ plugins {
 java.toolchain.languageVersion.set JavaLanguageVersion.of(17)
 
 configurations {
-    // We use this configuration to expose a module path that can be used to test analysis of module-info.java files.
+    // We use this configuration to expose a module path that can be
+    // used to test analysis of module-info.java files.
     // See com.uber.nullaway.jdk17.NullAwayModuleInfoTests
     testModulePath
 }
