@@ -1,5 +1,35 @@
 Changelog
 =========
+Version 0.9.3
+-------------
+IMPORTANT: This version introduces EXPERIMENTAL JDK17 support.
+  There is a known crash on lambdas with switch expressions as body
+  (see #524). Best current workaround is to 
+  `@SuppressWarnings("NullAway")` on the enclosing method
+* Improve reporting of multiple parameter errors on a single method call (#503)
+* Support compile-time constant field args in method Access Paths (#504)
+* Add basic library support for grpc Metadata through GrpcHandler (#505)
+* Fix soundness bug with dereference of ternary expressions (#516)
+* Add support for switch expressions (#520) [JDK 17]
+* Allow setting custom Nullable Annotation via Error Prone CLI flags (#522)
+* Add JarInfer models for Android SDK 31 (Android 12) (#532)
+* Build / CI tooling for NullAway itself:
+  - Prevent JMH tests from running on pre-v11 JDKs (#492)
+  - Bump to Error Prone 2.8.1 (#494), 2.9.0 (#497), and 2.10.0 (#507)
+  - Docs: Fix a broken link in README.md (#495)
+  - Update to Gradle 7.2 (#496), 7.3.1 (#509), and 7.3.3 (#530)
+  - Add Autodispose benchmark (#498)
+  - Bump jmh plugin to 0.6.6 (#500)
+  - Bump to Checker dataflow 3.20.0 (#510)
+  - CI tests for JDK 17 (#512)
+  - Some fixes to GitHub Actions config (#514)
+  - Make jar-infer-lib tests pass on JDK 11 (#523)
+  - Extra tests for all DummyOptionsConfig's methods (#525)
+  - Pull jmh Gradle plugin version to top level (#526)
+  - Add tests for JDK 16+ records (#527)
+  - Support for Coveralls on multiple modules (#521)
+  - Changes to avoid re-running Gradle tasks unnecessarily (#528)
+
 Version 0.9.2
 -------------
 * Allow specifying custom names for Contract annotations (#476)
