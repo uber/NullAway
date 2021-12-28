@@ -25,6 +25,7 @@ package com.uber.nullaway.fixserialization.out;
 import com.google.errorprone.util.ASTHelpers;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.Location;
+import com.uber.nullaway.fixserialization.SeperatedValueDisplay;
 import com.uber.nullaway.fixserialization.qual.AnnotationFactory;
 import java.util.Objects;
 

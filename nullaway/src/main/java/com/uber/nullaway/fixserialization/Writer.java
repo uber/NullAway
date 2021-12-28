@@ -25,7 +25,6 @@ package com.uber.nullaway.fixserialization;
 import com.google.errorprone.VisitorState;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
-import com.uber.nullaway.fixserialization.out.SeperatedValueDisplay;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 import java.io.FileOutputStream;
 import java.io.IOException;

@@ -25,7 +25,6 @@ package com.uber.nullaway.fixserialization;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.fixserialization.out.SeperatedValueDisplay;
 import java.net.URI;
 import javax.lang.model.element.ElementKind;
 

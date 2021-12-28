@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway.fixserialization.out;
+package com.uber.nullaway.fixserialization;
 
 /** Provides a method for displaying object information as string. */
 public interface SeperatedValueDisplay {
