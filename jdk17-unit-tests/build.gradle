@@ -21,6 +21,10 @@ plugins {
 // Use JDK 17 for this module, via a toolchain
 java.toolchain.languageVersion.set JavaLanguageVersion.of(17)
 
+configurations {
+    testModulePath
+}
+
 dependencies {
     testImplementation project(":nullaway")
     testImplementation deps.test.junit4
@@ -28,6 +32,7 @@ dependencies {
         exclude group: "junit", module: "junit"
     }
     testImplementation deps.build.jsr305Annotations
+    testModulePath deps.test.cfQual
 }
 
 test {
@@ -44,6 +49,8 @@ test {
             "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
             "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
             "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+            // for use as module path in tests
+            "-Dtest.module.path=${configurations.testModulePath.asPath}"
     ]
 }
 
