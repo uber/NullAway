@@ -307,7 +307,12 @@ public class NullabilityUtil {
    */
   public static boolean mayBeNullFieldFromType(@Nullable Symbol symbol, Config config) {
     if (symbol == null) {
-      return true;
+      // An expression representing a field dereference should always have a non-null symbol.  A
+      // `MemberSelectTree` _can_ have a null symbol in cases where it does _not_ represent a field
+      // dereference.  E.g., in a `requires` clause in a module-info.java file, the fully-qualified
+      // package name is represented using `MemberSelectTree`s.  When the symbol is null, there is
+      // no possibility of a null dereference.
+      return false;
     }
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()

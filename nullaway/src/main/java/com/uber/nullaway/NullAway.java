@@ -2013,14 +2013,6 @@ public class NullAway extends BugChecker
         return Description.NO_MATCH;
       }
     }
-    if (baseExpressionSymbol == null && baseExpression.getKind().equals(Tree.Kind.MEMBER_SELECT)) {
-      // Dereferences of fields should always have a non-null symbol.  A null symbol _can_ occur for
-      // a MemberSelectTree in some cases though, e.g., in a requires clause in a module-info.java
-      // file, where the fully-qualified package name being "required" is represented using
-      // MemberSelectTrees.  In such cases, there is no possibility of a null dereference.
-      return Description.NO_MATCH;
-    }
-
     if (mayBeNullExpr(state, baseExpression)) {
       final String message =
           "dereferenced expression " + state.getSourceForNode(baseExpression) + " is @Nullable";
