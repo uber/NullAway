@@ -76,9 +76,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_JI_REGEX_CODE_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripCodeJar";
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
   /** --- Fix Serialization configs --- */
-  static final String AUTO_FIX = EP_FL_NAMESPACE + ":WriteFixMetadata";
+  static final String FL_FIX_SERIALIZATION = EP_FL_NAMESPACE + ":WriteFixMetadata";
 
-  static final String AUTO_FIX_OUTPUT_DIRECTORY_PATH = EP_FL_NAMESPACE + ":FixMetadataOutputDir";
+  static final String FL_FIX_SERIALIZATION_OUTPUT_DIR = EP_FL_NAMESPACE + ":FixMetadataOutputDir";
 
   private static final String DELIMITER = ",";
 
@@ -205,15 +205,15 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + FL_ACKNOWLEDGE_RESTRICTIVE
               + " is also set");
     }
-    fixSerializationActivationFlag = flags.getBoolean(AUTO_FIX).orElse(false);
-    Optional<String> autoFixOutPutDir = flags.get(AUTO_FIX_OUTPUT_DIRECTORY_PATH);
+    fixSerializationActivationFlag = flags.getBoolean(FL_FIX_SERIALIZATION).orElse(false);
+    Optional<String> autoFixOutPutDir = flags.get(FL_FIX_SERIALIZATION_OUTPUT_DIR);
     if (fixSerializationActivationFlag && !autoFixOutPutDir.isPresent()) {
       throw new IllegalStateException(
-          "DO NOT report an issue to Error Prone for this crash!  NullAway AutoFixer configuration is "
+          "DO NOT report an issue to Error Prone for this crash!  NullAway Fix Serialization configuration is "
               + "incorrect.  "
               + "Must specify AutoFixer Output Directory, using the "
               + "-XepOpt:"
-              + AUTO_FIX_OUTPUT_DIRECTORY_PATH
+              + FL_FIX_SERIALIZATION_OUTPUT_DIR
               + " flag.  If you feel you have gotten this message in error report an issue"
               + " at https://github.com/uber/NullAway/issues.");
     }
@@ -223,8 +223,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
             .orElseGet(FixSerializationConfig::new);
     if (fixSerializationActivationFlag && isSuggestSuppressions)
       throw new IllegalStateException(
-          "In order to activate autoFix mode ("
-              + AUTO_FIX
+          "In order to activate Fix Serialization mode ("
+              + FL_FIX_SERIALIZATION
               + "), Suggest Suppression mode must be deactivated ("
               + FL_SUGGEST_SUPPRESSIONS
               + ")");
