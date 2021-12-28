@@ -16,7 +16,6 @@ public class NullAwayModuleInfoTests {
 
   @Before
   public void setup() {
-    // TODO set up module path
     defaultCompilationHelper =
         CompilationTestHelper.newInstance(NullAway.class, getClass())
             .setArgs(
