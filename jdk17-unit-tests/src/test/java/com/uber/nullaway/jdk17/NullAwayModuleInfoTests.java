@@ -23,6 +23,8 @@ public class NullAwayModuleInfoTests {
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
+                    // The module path system property is set in the build.gradle file to just
+                    // include the jar for the Checker Framework qualifier annotations
                     "--module-path",
                     System.getProperty("test.module.path"),
                     "-XepOpt:NullAway:AnnotatedPackages=com.uber"));
@@ -30,6 +32,7 @@ public class NullAwayModuleInfoTests {
 
   @Test
   public void testModuleInfo() {
+    // just check that the tool doesn't crash
     defaultCompilationHelper
         .addSourceLines(
             "module-info.java",
