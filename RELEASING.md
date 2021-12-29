@@ -5,7 +5,7 @@
  2. Get a copy of the AOSP `framework_intermediates` for the corresponding Android version.
     2a. At Uber? http://t.uber.com/aosp_framework_intermediate
     2b. Elsewhere? You can still build the corresponding AOSP version and look for
-        out/target/common/obj/JAVA_LIBRARIES/framework_intermediates/**
+        out/target/common/obj/JAVA_LIBRARIES/**
  3. (first time) `cp jar-infer/scripts/android-jar.conf.template jar-infer/scripts/android-jar.conf`
  4. Set the correct paths and versions in `android-jar.conf`
  5. `rm jar-infer/android-jarinfer-models-sdk28/src/main/resources/jarinfer.astubx` (for SDK 28)

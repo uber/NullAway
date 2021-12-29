@@ -430,8 +430,10 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Symbol symbol = ASTHelpers.getSymbol(tree);
-    // some checks for cases where we know it is not
-    // a null dereference
+    // Some checks for cases where we know this cannot be a null dereference.  The tree's symbol may
+    // be null in cases where the tree represents a package name, e.g., in the package declaration
+    // in a class, or in a requires clause in a module-info.java file; it should never be null for a
+    // real field dereference or method call
     if (symbol == null || symbol.getSimpleName().toString().equals("class") || symbol.isEnum()) {
       return Description.NO_MATCH;
     }
@@ -1971,7 +1973,9 @@ public class NullAway extends BugChecker
         exprMayBeNull = false;
         break;
       case MEMBER_SELECT:
-        exprMayBeNull = mayBeNullFieldAccess(state, expr, exprSymbol);
+        // A MemberSelectTree for a field dereference or method call cannot have a null symbol; see
+        // comments in matchMemberSelect()
+        exprMayBeNull = exprSymbol == null ? false : mayBeNullFieldAccess(state, expr, exprSymbol);
         break;
       case IDENTIFIER:
         if (exprSymbol != null && exprSymbol.getKind().equals(ElementKind.FIELD)) {
