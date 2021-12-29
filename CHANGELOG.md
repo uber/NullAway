@@ -1,5 +1,9 @@
 Changelog
 =========
+Version 0.9.4
+-------------
+* Fix crash with fully-qualified names in module-info.java import (#534)
+
 Version 0.9.3
 -------------
 IMPORTANT: This version introduces EXPERIMENTAL JDK17 support.
