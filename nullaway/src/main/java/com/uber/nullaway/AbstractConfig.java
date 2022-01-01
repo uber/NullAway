@@ -148,16 +148,13 @@ public abstract class AbstractConfig implements Config {
 
   @Override
   public boolean isExcludedClass(String className) {
-    if (sourceClassesToExclude != null) {
-      for (String classPrefix : sourceClassesToExclude) {
-        if (className.startsWith(classPrefix)) {
-          return true;
-        }
-      }
+    if (sourceClassesToExclude == null) {
+      return false;
     }
-    // For optimization purposes, scope of analysis can be limited only to a list of classes.
-    if (fixSerializationActivationFlag) {
-      return fixSerializationConfig.isOutOfScope(className);
+    for (String classPrefix : sourceClassesToExclude) {
+      if (className.startsWith(classPrefix)) {
+        return true;
+      }
     }
     return false;
   }

@@ -56,11 +56,13 @@ public class NullAwayFixSerializationTest {
     try {
       Files.createDirectories(home);
       fixSerializationTestHelper = new FixSerializationTestHelper(home);
-      FixSerializationConfig.FixSerializationConfigBuilder writer =
-          new FixSerializationConfig.FixSerializationConfigBuilder().setSuggest(true, false);
+      FixSerializationConfig.FixSerializationConfigBuilder builder =
+          new FixSerializationConfig.FixSerializationConfigBuilder()
+              .setSuggest(true, false)
+              .setOutputDirectory(outputPath);
       Path configPath = home.resolve("explorer.config");
       Files.createFile(configPath);
-      writer.write(configPath.toString());
+      builder.write(configPath.toString());
     } catch (IOException ex) {
       throw new UncheckedIOException(ex);
     }
