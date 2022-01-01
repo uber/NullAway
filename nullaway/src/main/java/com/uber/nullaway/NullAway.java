@@ -375,7 +375,6 @@ public class NullAway extends BugChecker
     if (lhsType != null && lhsType.isPrimitive()) {
       return doUnboxingCheck(state, tree.getExpression());
     }
-
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
     if (assigned == null || assigned.getKind() != ElementKind.FIELD) {
       // not a field of nullable type
