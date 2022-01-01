@@ -451,7 +451,6 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
-
     if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
