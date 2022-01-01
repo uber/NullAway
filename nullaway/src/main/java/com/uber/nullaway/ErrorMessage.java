@@ -24,7 +24,6 @@ package com.uber.nullaway;
 
 /** Contains error message string to be displayed and the message type from {@link MessageTypes}. */
 public class ErrorMessage {
-
   MessageTypes messageType;
   String message;
 
