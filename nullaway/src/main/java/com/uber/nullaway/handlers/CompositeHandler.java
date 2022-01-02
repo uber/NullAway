@@ -224,13 +224,6 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public void suggest(VisitorState state, Symbol target, ErrorMessage errorMessage) {
-    for (Handler h : handlers) {
-      h.suggest(state, target, errorMessage);
-    }
-  }
-
-  @Override
   public boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state) {
     boolean shouldFilter = false;
     for (Handler h : handlers) {

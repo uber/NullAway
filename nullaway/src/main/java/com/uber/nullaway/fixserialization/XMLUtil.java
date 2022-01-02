@@ -112,8 +112,6 @@ public class XMLUtil {
       annots.appendChild(nullable);
       annots.appendChild(nonnull);
       rootElement.appendChild(annots);
-
-      System.out.println(doc);
       doc.appendChild(rootElement);
       TransformerFactory transformerFactory = TransformerFactory.newInstance();
       Transformer transformer = transformerFactory.newTransformer();

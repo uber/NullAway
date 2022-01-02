@@ -106,7 +106,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
                   new ErrorMessage(ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED, message),
                   tree,
                   analysis.buildDescription(tree),
-                  state));
+                  state,
+                  null));
       return false;
     }
     return true;
@@ -162,7 +163,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
                     errorMessage.toString()),
                 tree,
                 analysis.buildDescription(tree),
-                state));
+                state,
+                null));
   }
 
   /**

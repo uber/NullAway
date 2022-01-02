@@ -119,7 +119,8 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
                     ErrorMessage.MessageTypes.WRONG_OVERRIDE_PRECONDITION, errorMessage.toString()),
                 tree,
                 analysis.buildDescription(tree),
-                state));
+                state,
+                null));
   }
 
   /**
@@ -163,7 +164,8 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
                     new ErrorMessage(ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED, message),
                     tree,
                     analysis.buildDescription(tree),
-                    state));
+                    state,
+                    null));
       }
     }
   }

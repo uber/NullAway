@@ -47,12 +47,16 @@ import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.Location;
 import com.uber.nullaway.fixserialization.Writer;
-import com.uber.nullaway.handlers.Handler;
+import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -87,9 +91,13 @@ public class ErrorBuilder {
    * @return the error description
    */
   Description createErrorDescription(
-      ErrorMessage errorMessage, Description.Builder descriptionBuilder, VisitorState state) {
+      ErrorMessage errorMessage,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
+      Symbol fixable) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
-    return createErrorDescription(errorMessage, enclosingSuppressTree, descriptionBuilder, state);
+    return createErrorDescription(
+        errorMessage, enclosingSuppressTree, descriptionBuilder, state, fixable);
   }
 
   /**
@@ -105,7 +113,8 @@ public class ErrorBuilder {
       ErrorMessage errorMessage,
       @Nullable Tree suggestTree,
       Description.Builder descriptionBuilder,
-      VisitorState state) {
+      VisitorState state,
+      Symbol fixable) {
     Description.Builder builder = descriptionBuilder.setMessage(errorMessage.message);
     String checkName = CORE_CHECK_NAME;
     if (errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)) {
@@ -124,6 +133,10 @@ public class ErrorBuilder {
 
     if (config.suggestSuppressions() && suggestTree != null) {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
+    }
+
+    if (config.fixSerializationIsActive() && fixable != null) {
+      suggest(state, fixable, errorMessage);
     }
 
     if (config.fixSerializationIsActive() && config.getFixSerializationConfig().logErrorEnabled) {
@@ -221,13 +234,14 @@ public class ErrorBuilder {
       ErrorMessage errorMessage,
       @Nullable Tree suggestTreeIfCastToNonNull,
       Description.Builder descriptionBuilder,
-      VisitorState state) {
+      VisitorState state,
+      Symbol fixable) {
     if (config.getCastToNonNullMethod() != null) {
       return createErrorDescription(
-          errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state);
+          errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state, fixable);
     } else {
       return createErrorDescription(
-          errorMessage, suppressibleNode(state.getPath()), descriptionBuilder, state);
+          errorMessage, suppressibleNode(state.getPath()), descriptionBuilder, state, fixable);
     }
   }
 
@@ -329,7 +343,8 @@ public class ErrorBuilder {
       Symbol.MethodSymbol methodSymbol,
       String message,
       VisitorState state,
-      Description.Builder descriptionBuilder) {
+      Description.Builder descriptionBuilder,
+      List<Symbol> fixable) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
     // method itself).
@@ -337,9 +352,12 @@ public class ErrorBuilder {
       return;
     }
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
+    ErrorMessage errorMessage = new ErrorMessage(METHOD_NO_INIT, message);
     state.reportMatch(
-        createErrorDescription(
-            new ErrorMessage(METHOD_NO_INIT, message), methodTree, descriptionBuilder, state));
+        createErrorDescription(errorMessage, methodTree, descriptionBuilder, state, null));
+    for (Symbol symbol : fixable) {
+      suggest(state, symbol, errorMessage);
+    }
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
@@ -418,8 +436,7 @@ public class ErrorBuilder {
     return message.toString();
   }
 
-  void reportInitErrorOnField(
-      Symbol symbol, VisitorState state, Description.Builder builder, Handler handler) {
+  void reportInitErrorOnField(Symbol symbol, VisitorState state, Description.Builder builder) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
     // field itself).
@@ -436,11 +453,6 @@ public class ErrorBuilder {
       fieldName = flatName.substring(index) + "." + fieldName;
     }
 
-    handler.suggest(
-        state,
-        symbol,
-        new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"));
-
     if (symbol.isStatic()) {
       state.reportMatch(
           createErrorDescription(
@@ -448,14 +460,71 @@ public class ErrorBuilder {
                   FIELD_NO_INIT, "@NonNull static field " + fieldName + " not initialized"),
               tree,
               builder,
-              state));
+              state,
+              symbol));
     } else {
       state.reportMatch(
           createErrorDescription(
               new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),
               tree,
               builder,
-              state));
+              state,
+              symbol));
     }
+  }
+
+  /**
+   * Suggests a type change of an element in a source code that can resolve the error.
+   *
+   * @param state Visitor state.
+   * @param target Target element to alternate it's type.
+   * @param errorMessage Error caused by the target.
+   */
+  public void suggest(VisitorState state, Symbol target, ErrorMessage errorMessage) {
+    // Skip if element has an explicit @Nonnull annotation.
+    FixSerializationConfig fixSerializationConfig = config.getFixSerializationConfig();
+    if (Nullness.hasNonNullAnnotation(target, config)) {
+      return;
+    }
+    Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
+    if (fixSerializationConfig.canFixElement(trees, target)) {
+      Location location = new Location(target);
+      SuggestedFixInfo suggestedFixInfo = buildFixMetadata(errorMessage, location);
+      if (suggestedFixInfo != null) {
+        if (fixSerializationConfig.suggestEnclosing) {
+          suggestedFixInfo.findEnclosing(state, errorMessage);
+        }
+        Writer writer = fixSerializationConfig.writer;
+        if (writer != null) {
+          writer.saveFix(suggestedFixInfo);
+        } else {
+          throw new IllegalStateException(
+              "Writer shouldn't be null at this point, error in configuration setting!");
+        }
+      }
+    }
+  }
+
+  /** Builds the {@link SuggestedFixInfo} instance based on the {@link ErrorMessage} type. */
+  protected SuggestedFixInfo buildFixMetadata(ErrorMessage errorMessage, Location location) {
+    SuggestedFixInfo suggestedFixInfo;
+    switch (errorMessage.getMessageType()) {
+      case RETURN_NULLABLE:
+      case WRONG_OVERRIDE_RETURN:
+      case WRONG_OVERRIDE_PARAM:
+      case PASS_NULLABLE:
+      case FIELD_NO_INIT:
+      case ASSIGN_FIELD_NULLABLE:
+      case METHOD_NO_INIT:
+        suggestedFixInfo =
+            new SuggestedFixInfo(
+                location,
+                errorMessage,
+                config.getFixSerializationConfig().annotationFactory.getNullable());
+        break;
+      default:
+        return null;
+    }
+    return suggestedFixInfo;
   }
 }
