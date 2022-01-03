@@ -23,6 +23,7 @@
 package com.uber.nullaway.fixserialization.out;
 
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.Location;
 import com.uber.nullaway.fixserialization.SeperatedValueDisplay;
@@ -40,7 +41,11 @@ public class SuggestedFixInfo extends EnclosingNode implements SeperatedValueDis
   private final AnnotationFactory.Annotation annotation;
 
   public SuggestedFixInfo(
-      Location location, ErrorMessage errorMessage, AnnotationFactory.Annotation annotation) {
+      TreePath path,
+      Location location,
+      ErrorMessage errorMessage,
+      AnnotationFactory.Annotation annotation) {
+    super(path);
     this.location = location;
     this.errorMessage = errorMessage;
     this.annotation = annotation;

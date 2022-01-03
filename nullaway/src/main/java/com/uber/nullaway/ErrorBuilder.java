@@ -55,7 +55,8 @@ import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.Location;
-import com.uber.nullaway.fixserialization.Writer;
+import com.uber.nullaway.fixserialization.Serializer;
+import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 import java.util.Iterator;
 import java.util.List;
@@ -140,13 +141,14 @@ public class ErrorBuilder {
     }
 
     if (config.fixSerializationIsActive() && config.getFixSerializationConfig().logErrorEnabled) {
-      Writer writer = config.getFixSerializationConfig().writer;
-      if (writer != null) {
-        writer.saveErrorNode(
-            errorMessage, state, config.getFixSerializationConfig().logErrorEnclosing);
+      Serializer serializer = config.getFixSerializationConfig().serializer;
+      if (serializer != null) {
+        serializer.serializeErrorInfo(
+            new ErrorInfo(state.getPath(), errorMessage),
+            config.getFixSerializationConfig().logErrorEnclosing);
       } else {
         throw new IllegalStateException(
-            "Writer shouldn't be null at this point, error in configuration setting!");
+            "Serializer shouldn't be null at this point, error in configuration setting!");
       }
     }
 
@@ -489,24 +491,23 @@ public class ErrorBuilder {
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
     if (fixSerializationConfig.canFixElement(trees, target)) {
       Location location = new Location(target);
-      SuggestedFixInfo suggestedFixInfo = buildFixMetadata(errorMessage, location);
+      SuggestedFixInfo suggestedFixInfo = buildFixMetadata(state.getPath(), errorMessage, location);
       if (suggestedFixInfo != null) {
-        if (fixSerializationConfig.suggestEnclosing) {
-          suggestedFixInfo.findEnclosing(state, errorMessage);
-        }
-        Writer writer = fixSerializationConfig.writer;
-        if (writer != null) {
-          writer.saveFix(suggestedFixInfo);
+        Serializer serializer = fixSerializationConfig.serializer;
+        if (serializer != null) {
+          serializer.serializeSuggestedFixInfo(
+              suggestedFixInfo, fixSerializationConfig.suggestEnclosing);
         } else {
           throw new IllegalStateException(
-              "Writer shouldn't be null at this point, error in configuration setting!");
+              "Serializer shouldn't be null at this point, error in configuration setting!");
         }
       }
     }
   }
 
   /** Builds the {@link SuggestedFixInfo} instance based on the {@link ErrorMessage} type. */
-  protected SuggestedFixInfo buildFixMetadata(ErrorMessage errorMessage, Location location) {
+  protected SuggestedFixInfo buildFixMetadata(
+      TreePath path, ErrorMessage errorMessage, Location location) {
     SuggestedFixInfo suggestedFixInfo;
     switch (errorMessage.getMessageType()) {
       case RETURN_NULLABLE:
@@ -518,6 +519,7 @@ public class ErrorBuilder {
       case METHOD_NO_INIT:
         suggestedFixInfo =
             new SuggestedFixInfo(
+                path,
                 location,
                 errorMessage,
                 config.getFixSerializationConfig().annotationFactory.getNullable());

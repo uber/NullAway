@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.fixserialization;
 
-import com.google.errorprone.VisitorState;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
@@ -35,10 +34,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Writer class where all generated files in Fix Serialization package is created through APIs of
- * this class.
+ * Serializer class where all generated files in Fix Serialization package is created through APIs
+ * of this class.
  */
-public class Writer {
+public class Serializer {
   /** Path to write errors. */
   public final Path ERROR;
   /** Path to write suggested fix metadata. */
@@ -47,7 +46,7 @@ public class Writer {
   /** Delimiter to separate values in a row. */
   public final String DELIMITER = "$*$";
 
-  public Writer(FixSerializationConfig config) {
+  public Serializer(FixSerializationConfig config) {
     String outputDirectory = config.outputDirectory;
     this.ERROR = Paths.get(outputDirectory, "errors.csv");
     this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.csv");
@@ -58,24 +57,26 @@ public class Writer {
    * Appends the string representation of the {@link SuggestedFixInfo}.
    *
    * @param suggestedFixInfo SuggestedFixInfo object.
+   * @param enclosing Flag to control if enclosing method and class should be included.
    */
-  public void saveFix(SuggestedFixInfo suggestedFixInfo) {
+  public void serializeSuggestedFixInfo(SuggestedFixInfo suggestedFixInfo, boolean enclosing) {
+    if (enclosing) {
+      suggestedFixInfo.findEnclosing();
+    }
     appendToFile(suggestedFixInfo, SUGGEST_FIX);
   }
 
   /**
    * Appends the string representation of the {@link ErrorMessage}.
    *
-   * @param errorMessage ErrorMessage object.
-   * @param state Visitor state.
-   * @param deep Flag to control if enclosing method and class should be included.
+   * @param errorInfo ErrorMessage object.
+   * @param enclosing Flag to control if enclosing method and class should be included.
    */
-  public void saveErrorNode(ErrorMessage errorMessage, VisitorState state, boolean deep) {
-    ErrorInfo error = new ErrorInfo(errorMessage);
-    if (deep) {
-      error.findEnclosing(state, errorMessage);
+  public void serializeErrorInfo(ErrorInfo errorInfo, boolean enclosing) {
+    if (enclosing) {
+      errorInfo.findEnclosing();
     }
-    appendToFile(error, ERROR);
+    appendToFile(errorInfo, ERROR);
   }
 
   /** Cleared the content of the file if exists and writes the header in the first line. */
@@ -104,7 +105,7 @@ public class Writer {
         resetFile(ERROR, ErrorInfo.header(DELIMITER));
       }
     } catch (IOException e) {
-      throw new RuntimeException("Could not finish resetting writer: " + e);
+      throw new RuntimeException("Could not finish resetting serializer: " + e);
     }
   }
 

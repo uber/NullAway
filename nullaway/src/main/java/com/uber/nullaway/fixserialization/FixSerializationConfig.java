@@ -55,7 +55,7 @@ public class FixSerializationConfig {
 
   public final AnnotationFactory annotationFactory;
 
-  public final Writer writer;
+  public final Serializer serializer;
 
   public FixSerializationConfig() {
     suggestEnabled = false;
@@ -64,7 +64,7 @@ public class FixSerializationConfig {
     logErrorEnclosing = false;
     annotationFactory = new AnnotationFactory();
     outputDirectory = null;
-    writer = null;
+    serializer = null;
   }
 
   public FixSerializationConfig(
@@ -80,7 +80,7 @@ public class FixSerializationConfig {
     this.logErrorEnclosing = logErrorEnclosing;
     this.outputDirectory = outputDirectory;
     this.annotationFactory = annotationFactory;
-    writer = new Writer(this);
+    serializer = new Serializer(this);
   }
 
   /**
@@ -134,7 +134,7 @@ public class FixSerializationConfig {
             .orElse("javax.annotation.Nonnull");
     this.annotationFactory = new AnnotationFactory(nullableAnnot, nonnullAnnot);
     this.outputDirectory = outputDirectory;
-    writer = new Writer(this);
+    serializer = new Serializer(this);
   }
 
   /**

@@ -22,15 +22,17 @@
 
 package com.uber.nullaway.fixserialization.out;
 
-import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
-import com.uber.nullaway.ErrorMessage;
+import com.sun.source.util.TreePath;
 
 /** Nodes with this type, are surrounded in a method in source code. */
 public abstract class EnclosingNode {
+
+  /** Path to the Node in source code. */
+  public final TreePath path;
 
   /**
    * Finding values for these properties is costly and are not needed by default, hence, they are
@@ -40,20 +42,19 @@ public abstract class EnclosingNode {
 
   protected ClassTree enclosingClass;
 
-  public void findEnclosing(VisitorState state, ErrorMessage errorMessage) {
-    enclosingMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
-    enclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
-    if (enclosingClass == null && state.getPath().getLeaf() instanceof ClassTree) {
-      ErrorMessage.MessageTypes messageTypes = errorMessage.getMessageType();
-      if (messageTypes.equals(ErrorMessage.MessageTypes.ASSIGN_FIELD_NULLABLE)
-          || messageTypes.equals(ErrorMessage.MessageTypes.FIELD_NO_INIT)
-          || messageTypes.equals(ErrorMessage.MessageTypes.METHOD_NO_INIT)) {
-        enclosingClass = (ClassTree) state.getPath().getLeaf();
-      }
+  public EnclosingNode(TreePath path) {
+    this.path = path;
+  }
+
+  /** Finds the enclosing class and enclosing method of this node. */
+  public void findEnclosing() {
+    enclosingMethod = ASTHelpers.findEnclosingNode(path, MethodTree.class);
+    enclosingClass = ASTHelpers.findEnclosingNode(path, ClassTree.class);
+    if (enclosingClass == null && path.getLeaf() instanceof ClassTree) {
+      enclosingClass = (ClassTree) path.getLeaf();
     }
-    if (enclosingMethod == null
-        && errorMessage.getMessageType().equals(ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN)) {
-      Tree methodTree = state.getPath().getLeaf();
+    if (enclosingMethod == null) {
+      Tree methodTree = path.getLeaf();
       if (methodTree instanceof MethodTree) {
         enclosingMethod = (MethodTree) methodTree;
       }
