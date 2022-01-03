@@ -217,6 +217,11 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + " flag.  If you feel you have gotten this message in error report an issue"
               + " at https://github.com/uber/NullAway/issues.");
     }
+    /*
+     * if fixSerializationActivationFlag is false, the default constructor is invoked for
+     * creating FixSerializationConfig which all features are deactivated, this is for keeping
+     * it @Nonnull.
+     */
     fixSerializationConfig =
         autoFixOutPutDir
             .map(s -> new FixSerializationConfig(fixSerializationActivationFlag, s))
