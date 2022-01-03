@@ -36,7 +36,7 @@ import org.w3c.dom.Document;
 public class FixSerializationConfig {
 
   /**
-   * If activated, for all reporting errors, NullAway will serialize information and suggests type
+   * If activated, for all reported errors, NullAway will serialize information and suggests type
    * changes to resolve them, in case these errors could be fixed by adding a @Nullable annotation.
    * These data will be written at output directory.
    */
