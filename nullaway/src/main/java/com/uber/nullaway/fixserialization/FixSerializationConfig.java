@@ -103,7 +103,7 @@ public class FixSerializationConfig {
         DocumentBuilder builder = factory.newDocumentBuilder();
         document =
             builder.parse(
-                Files.newInputStream(Paths.get(outputDirectory).resolve("explorer.config")));
+                Files.newInputStream(Paths.get(outputDirectory).resolve("serializer.xml")));
         document.normalize();
       } catch (Exception e) {
         throw new RuntimeException(

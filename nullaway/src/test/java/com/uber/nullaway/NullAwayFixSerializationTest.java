@@ -60,7 +60,7 @@ public class NullAwayFixSerializationTest {
           new FixSerializationConfig.FixSerializationConfigBuilder()
               .setSuggest(true, false)
               .setOutputDirectory(outputPath);
-      Path configPath = home.resolve("explorer.config");
+      Path configPath = home.resolve("serializer.xml");
       Files.createFile(configPath);
       builder.write(configPath.toString());
     } catch (IOException ex) {
