@@ -14,13 +14,19 @@
  * limitations under the License.
  */
 plugins {
-  id 'java-library'
-  // For code coverage:
-  id 'jacoco'
+    id 'java-library'
+    id 'nullaway.jacoco-conventions'
 }
 
 // Use JDK 17 for this module, via a toolchain
 java.toolchain.languageVersion.set JavaLanguageVersion.of(17)
+
+configurations {
+    // We use this configuration to expose a module path that can be
+    // used to test analysis of module-info.java files.
+    // See com.uber.nullaway.jdk17.NullAwayModuleInfoTests
+    testModulePath
+}
 
 dependencies {
     testImplementation project(":nullaway")
@@ -29,6 +35,7 @@ dependencies {
         exclude group: "junit", module: "junit"
     }
     testImplementation deps.build.jsr305Annotations
+    testModulePath deps.test.cfQual
 }
 
 test {
@@ -45,16 +52,9 @@ test {
             "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
             "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
             "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+            // Expose a module path for tests as a JVM property.
+            // Used by com.uber.nullaway.jdk17.NullAwayModuleInfoTests
+            "-Dtest.module.path=${configurations.testModulePath.asPath}"
     ]
 }
 
-jacoco {
-  toolVersion = "0.8.7"
-}
-
-jacocoTestReport {
-    reports {
-        xml.enabled = true // coveralls plugin depends on xml format report
-        html.enabled = true
-    }
-}
