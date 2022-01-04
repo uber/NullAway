@@ -141,7 +141,7 @@ public class ErrorBuilder {
     }
 
     if (config.fixSerializationIsActive() && nonNullTarget != null) {
-      suggest(state, nonNullTarget, errorMessage);
+      serializeFixSuggestion(state, nonNullTarget, errorMessage);
     }
 
     if (config.fixSerializationIsActive() && config.getFixSerializationConfig().logErrorEnabled) {
@@ -372,7 +372,7 @@ public class ErrorBuilder {
     ErrorMessage errorMessage = new ErrorMessage(METHOD_NO_INIT, message);
     state.reportMatch(
         createErrorDescription(errorMessage, methodTree, descriptionBuilder, state, null));
-    nonNullFields.forEach(symbol -> suggest(state, symbol, errorMessage));
+    nonNullFields.forEach(symbol -> serializeFixSuggestion(state, symbol, errorMessage));
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
@@ -489,13 +489,14 @@ public class ErrorBuilder {
   }
 
   /**
-   * Suggests a type change of an element in a source code that can resolve the error.
+   * Serializes the suggested type change of an element in the source code that can resolve the
+   * error.
    *
    * @param state Visitor state.
    * @param target Target element to alternate it's type.
    * @param errorMessage Error caused by the target.
    */
-  public void suggest(VisitorState state, Symbol target, ErrorMessage errorMessage) {
+  public void serializeFixSuggestion(VisitorState state, Symbol target, ErrorMessage errorMessage) {
     // Skip if element has an explicit @Nonnull annotation.
     FixSerializationConfig fixSerializationConfig = config.getFixSerializationConfig();
     if (Nullness.hasNonNullAnnotation(target, config)) {
