@@ -29,7 +29,7 @@ import java.net.URI;
 import javax.lang.model.element.ElementKind;
 
 /** Holds all the information to target a specific element in the source code. */
-public class Location implements SeperatedValueDisplay {
+public class Location implements SeparatedValueDisplay {
 
   private final URI uri;
   private final Symbol.ClassSymbol enclosingClass;
