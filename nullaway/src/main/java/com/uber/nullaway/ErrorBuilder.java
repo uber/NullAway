@@ -89,16 +89,18 @@ public class ErrorBuilder {
    * @param errorMessage the error message object.
    * @param descriptionBuilder the description builder for the error.
    * @param state the visitor state (used for e.g. suppression finding).
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
    * @return the error description
    */
   Description createErrorDescription(
       ErrorMessage errorMessage,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      Symbol fixable) {
+      @Nullable Symbol nonNullTarget) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
     return createErrorDescription(
-        errorMessage, enclosingSuppressTree, descriptionBuilder, state, fixable);
+        errorMessage, enclosingSuppressTree, descriptionBuilder, state, nonNullTarget);
   }
 
   /**
@@ -108,6 +110,8 @@ public class ErrorBuilder {
    * @param suggestTree the location at which a fix suggestion should be made
    * @param descriptionBuilder the description builder for the error.
    * @param state the visitor state (used for e.g. suppression finding).
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
    * @return the error description
    */
   public Description createErrorDescription(
@@ -115,7 +119,7 @@ public class ErrorBuilder {
       @Nullable Tree suggestTree,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      Symbol fixable) {
+      @Nullable Symbol nonNullTarget) {
     Description.Builder builder = descriptionBuilder.setMessage(errorMessage.message);
     String checkName = CORE_CHECK_NAME;
     if (errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)) {
@@ -136,8 +140,8 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
     }
 
-    if (config.fixSerializationIsActive() && fixable != null) {
-      suggest(state, fixable, errorMessage);
+    if (config.fixSerializationIsActive() && nonNullTarget != null) {
+      suggest(state, nonNullTarget, errorMessage);
     }
 
     if (config.fixSerializationIsActive() && config.getFixSerializationConfig().logErrorEnabled) {
@@ -341,12 +345,23 @@ public class ErrorBuilder {
     return builder.addFix(fix);
   }
 
+  /**
+   * Reports initialization errors where a constructor fails to guarantee non-fields are initialized
+   * along all paths at exit points.
+   *
+   * @param methodSymbol Constructor symbol.
+   * @param message Error message.
+   * @param state The VisitorState object.
+   * @param descriptionBuilder the description builder for the error.
+   * @param nonNullFields list of @Nonnull fields that are not guaranteed to be initialized along
+   *     all paths at exit points of the constructor.
+   */
   void reportInitializerError(
       Symbol.MethodSymbol methodSymbol,
       String message,
       VisitorState state,
       Description.Builder descriptionBuilder,
-      List<Symbol> fixable) {
+      List<Symbol> nonNullFields) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
     // method itself).
@@ -357,9 +372,7 @@ public class ErrorBuilder {
     ErrorMessage errorMessage = new ErrorMessage(METHOD_NO_INIT, message);
     state.reportMatch(
         createErrorDescription(errorMessage, methodTree, descriptionBuilder, state, null));
-    for (Symbol symbol : fixable) {
-      suggest(state, symbol, errorMessage);
-    }
+    nonNullFields.forEach(symbol -> suggest(state, symbol, errorMessage));
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
