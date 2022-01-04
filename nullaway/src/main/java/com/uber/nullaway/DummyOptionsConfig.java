@@ -52,6 +52,8 @@ public class DummyOptionsConfig implements Config {
           + FL_ANNOTATED_PACKAGES
           + "=[...] flag.";
 
+  public DummyOptionsConfig() {}
+
   @Override
   public boolean fixSerializationIsActive() {
     throw new IllegalStateException(ERROR_MESSAGE);
