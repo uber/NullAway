@@ -90,6 +90,7 @@ public class XMLUtil {
 
       // Root
       Element rootElement = doc.createElement("serialization");
+      doc.appendChild(rootElement);
 
       // Suggest
       Element suggestElement = doc.createElement("suggest");
@@ -112,7 +113,13 @@ public class XMLUtil {
       annots.appendChild(nullable);
       annots.appendChild(nonnull);
       rootElement.appendChild(annots);
-      doc.appendChild(rootElement);
+
+      // Output dir
+      Element outputDir = doc.createElement("path");
+      outputDir.setTextContent(config.outputDirectory);
+      rootElement.appendChild(outputDir);
+
+      // Writings
       TransformerFactory transformerFactory = TransformerFactory.newInstance();
       Transformer transformer = transformerFactory.newTransformer();
       DOMSource source = new DOMSource(doc);

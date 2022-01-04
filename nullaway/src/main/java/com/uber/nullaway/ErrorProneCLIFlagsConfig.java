@@ -78,7 +78,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   /** --- Fix Serialization configs --- */
   static final String FL_FIX_SERIALIZATION = EP_FL_NAMESPACE + ":WriteFixMetadata";
 
-  static final String FL_FIX_SERIALIZATION_OUTPUT_DIR = EP_FL_NAMESPACE + ":FixMetadataOutputDir";
+  static final String FL_FIX_SERIALIZATION_OUTPUT_DIR = EP_FL_NAMESPACE + ":FixMetadataConfigPath";
 
   private static final String DELIMITER = ",";
 
@@ -206,8 +206,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + " is also set");
     }
     fixSerializationActivationFlag = flags.getBoolean(FL_FIX_SERIALIZATION).orElse(false);
-    Optional<String> autoFixOutPutDir = flags.get(FL_FIX_SERIALIZATION_OUTPUT_DIR);
-    if (fixSerializationActivationFlag && !autoFixOutPutDir.isPresent()) {
+    Optional<String> fixSerializationConfigPath = flags.get(FL_FIX_SERIALIZATION_OUTPUT_DIR);
+    if (fixSerializationActivationFlag && !fixSerializationConfigPath.isPresent()) {
       throw new IllegalStateException(
           "DO NOT report an issue to Error Prone for this crash!  NullAway Fix Serialization configuration is "
               + "incorrect.  "
@@ -223,7 +223,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
      * field be @Nonnull, allowing us to avoid null checks in various places.
      */
     fixSerializationConfig =
-        autoFixOutPutDir
+        fixSerializationConfigPath
             .map(s -> new FixSerializationConfig(fixSerializationActivationFlag, s))
             .orElseGet(FixSerializationConfig::new);
     if (fixSerializationActivationFlag && isSuggestSuppressions)

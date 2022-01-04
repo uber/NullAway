@@ -88,28 +88,28 @@ public class FixSerializationConfig {
    *
    * @param autofixEnabled Flag value in main NullAway config. If false, all flags here will be set
    *     to false.
-   * @param outputDirectory Directory where all files generated/read by Fix Serialization package
-   *     resides.
+   * @param path Directory where all files generated/read by Fix Serialization package resides.
    */
-  public FixSerializationConfig(boolean autofixEnabled, String outputDirectory) {
+  public FixSerializationConfig(boolean autofixEnabled, String path) {
     // if autofixEnabled is false, all flags will be false regardless of their given value in json
     // config file.
-    Preconditions.checkNotNull(outputDirectory);
+    Preconditions.checkNotNull(path);
 
     Document document = null;
     if (autofixEnabled) {
       try {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
-        document =
-            builder.parse(
-                Files.newInputStream(Paths.get(outputDirectory).resolve("serializer.xml")));
+        document = builder.parse(Files.newInputStream(Paths.get(path)));
         document.normalize();
       } catch (Exception e) {
-        throw new RuntimeException(
-            "Error in reading/parsing config at path: " + outputDirectory + "\n" + e);
+        throw new RuntimeException("Error in reading/parsing config at path: " + path + "\n" + e);
       }
     }
+    this.outputDirectory =
+        XMLUtil.getValueFromTag(document, "serialization:path", String.class).orElse(null);
+    Preconditions.checkNotNull(
+        this.outputDirectory, "Error in FixSerialization Config: Output path cannot be null");
     suggestEnabled =
         XMLUtil.getValueFromAttribute(document, "serialization:suggest", "active", Boolean.class)
                 .orElse(false)
@@ -133,7 +133,6 @@ public class FixSerializationConfig {
         XMLUtil.getValueFromTag(document, "serialization:annotation:nonnull", String.class)
             .orElse("javax.annotation.Nonnull");
     this.annotationFactory = new AnnotationFactory(nullableAnnot, nonnullAnnot);
-    this.outputDirectory = outputDirectory;
     serializer = new Serializer(this);
   }
 
@@ -198,7 +197,12 @@ public class FixSerializationConfig {
       return this;
     }
 
-    public void write(String path) {
+    /**
+     * Builds and writes the config with the state in builder at the given path as XML.
+     *
+     * @param path path to write the config file.
+     */
+    public void writeAsXMLat(String path) {
       FixSerializationConfig config = this.build();
       XMLUtil.writeInXMLFormat(config, path);
     }
