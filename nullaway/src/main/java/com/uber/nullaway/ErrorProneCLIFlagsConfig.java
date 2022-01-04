@@ -219,8 +219,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     }
     /*
      * if fixSerializationActivationFlag is false, the default constructor is invoked for
-     * creating FixSerializationConfig which all features are deactivated, this is for keeping
-     * it @Nonnull.
+     * creating FixSerializationConfig which all features are deactivated.  This lets the
+     * field be @Nonnull, allowing us to avoid null checks in various places.
      */
     fixSerializationConfig =
         autoFixOutPutDir
