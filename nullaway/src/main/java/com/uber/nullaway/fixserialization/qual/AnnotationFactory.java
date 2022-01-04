@@ -22,7 +22,7 @@
 
 package com.uber.nullaway.fixserialization.qual;
 
-import com.uber.nullaway.fixserialization.SeperatedValueDisplay;
+import com.uber.nullaway.fixserialization.SeparatedValueDisplay;
 
 /** Container object of any {@code @Nonnull} and {@code @Nullable} annotations. */
 public class AnnotationFactory {
@@ -31,7 +31,7 @@ public class AnnotationFactory {
   private Annotation nullable;
 
   /** Container object of annotation. */
-  public static class Annotation implements SeperatedValueDisplay {
+  public static class Annotation implements SeparatedValueDisplay {
     /** Simple name. */
     public String name;
     /** Fully qualified name. */

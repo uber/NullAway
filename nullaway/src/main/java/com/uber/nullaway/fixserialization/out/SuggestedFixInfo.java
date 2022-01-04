@@ -26,12 +26,12 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.Location;
-import com.uber.nullaway.fixserialization.SeperatedValueDisplay;
+import com.uber.nullaway.fixserialization.SeparatedValueDisplay;
 import com.uber.nullaway.fixserialization.qual.AnnotationFactory;
 import java.util.Objects;
 
 /** Stores information suggesting a type change of an element in source code. */
-public class SuggestedFixInfo extends EnclosingNode implements SeperatedValueDisplay {
+public class SuggestedFixInfo extends EnclosingNode implements SeparatedValueDisplay {
 
   /** Location of the target element in source code. */
   private final Location location;

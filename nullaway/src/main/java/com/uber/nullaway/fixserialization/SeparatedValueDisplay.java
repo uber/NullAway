@@ -23,7 +23,7 @@
 package com.uber.nullaway.fixserialization;
 
 /** Provides a method for displaying object information as string. */
-public interface SeperatedValueDisplay {
+public interface SeparatedValueDisplay {
 
   /**
    * represents content of an object.
