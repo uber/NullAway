@@ -129,7 +129,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "org.checkerframework.checker.nullness.qual.MonotonicNonNull",
           "org.springframework.beans.factory.annotation.Autowired");
 
-  private static final String DEFAULT_URL = "http://t.uber.com/nullaway";
+  private static final String DEFAULT_URL = "https://github.com/uber/NullAway/wiki/Error-Messages";
 
   ErrorProneCLIFlagsConfig(ErrorProneFlags flags) {
     if (!flags.get(FL_ANNOTATED_PACKAGES).isPresent()) {
