@@ -2250,7 +2250,7 @@ public class NullAwayTest {
             "package com.uber;",
             "class Test {",
             "  static void foo() {",
-            "    // BUG: Diagnostic contains: t.uber.com/nullaway",
+            "    // BUG: Diagnostic contains: https://github.com/uber/NullAway/wiki/Error-Messages",
             "    Object x = null; x.toString();",
             "  }",
             "}")
