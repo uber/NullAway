@@ -23,6 +23,9 @@ plugins {
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
+configurations {
+    nullawayRelease
+}
 dependencies {
     compileOnly deps.apt.autoValueAnnot
     annotationProcessor deps.apt.autoValue
@@ -53,6 +56,8 @@ dependencies {
     testImplementation deps.test.springBeans
     testImplementation deps.test.springContext
     testImplementation deps.test.grpcCore
+
+    nullawayRelease 'com.uber.nullaway:nullaway:0.9.4'
 }
 
 javadoc {
@@ -85,3 +90,17 @@ test {
 
 apply plugin: 'com.vanniktech.maven.publish'
 
+tasks.register('buildWithNullAway', JavaCompile) {
+    source = sourceSets.main.java
+    classpath = sourceSets.main.compileClasspath
+    destinationDirectory = file("$buildDir/ignoredClasses")
+    options.annotationProcessorPath = files(
+            configurations.errorprone.asCollection(),
+            sourceSets.main.annotationProcessorPath,
+            configurations.nullawayRelease.asCollection())
+    // Enable Error Prone
+    options.errorprone.enabled = true
+    options.errorprone {
+        option("NullAway:AnnotatedPackages", "com.uber")
+    }
+}
