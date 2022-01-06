@@ -92,27 +92,31 @@ test {
 
 apply plugin: 'com.vanniktech.maven.publish'
 
-tasks.register('buildWithNullAway', JavaCompile) {
-    // Configure compilation to run with Error Prone and NullAway
-    source = sourceSets.main.java
-    classpath = sourceSets.main.compileClasspath
-    destinationDirectory = file("$buildDir/ignoredClasses")
-    def nullawayDeps = configurations.nullawayJar.asCollection()
-    options.annotationProcessorPath = files(
-            configurations.errorprone.asCollection(),
-            sourceSets.main.annotationProcessorPath,
-            nullawayDeps)
-    options.errorprone.enabled = true
-    options.errorprone {
-        option("NullAway:AnnotatedPackages", "com.uber")
-    }
-    // Make sure the jar has already been built
-    dependsOn 'jar'
-    // Check that the NullAway jar actually exists (without this,
-    // Gradle will run the compilation even if the jar doesn't exist)
-    doFirst {
-        nullawayDeps.forEach { f ->
-            assert f.exists()
+// Create a task to build NullAway with NullAway checking enabled
+// For some reason, this doesn't work on Java 8
+if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+    tasks.register('buildWithNullAway', JavaCompile) {
+        // Configure compilation to run with Error Prone and NullAway
+        source = sourceSets.main.java
+        classpath = sourceSets.main.compileClasspath
+        destinationDirectory = file("$buildDir/ignoredClasses")
+        def nullawayDeps = configurations.nullawayJar.asCollection()
+        options.annotationProcessorPath = files(
+                configurations.errorprone.asCollection(),
+                sourceSets.main.annotationProcessorPath,
+                nullawayDeps)
+        options.errorprone.enabled = true
+        options.errorprone {
+            option("NullAway:AnnotatedPackages", "com.uber")
+        }
+        // Make sure the jar has already been built
+        dependsOn 'jar'
+        // Check that the NullAway jar actually exists (without this,
+        // Gradle will run the compilation even if the jar doesn't exist)
+        doFirst {
+            nullawayDeps.forEach { f ->
+                assert f.exists()
+            }
         }
     }
 }
