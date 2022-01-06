@@ -234,6 +234,8 @@ public class ErrorBuilder {
    * @param descriptionBuilder the description builder for the error.
    * @param state the visitor state for the location which triggered the error (i.e. for suppression
    *     finding)
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
    * @return the error description.
    */
   Description createErrorDescriptionForNullAssignment(
@@ -244,10 +246,14 @@ public class ErrorBuilder {
       Symbol nonNullTarget) {
     if (config.getCastToNonNullMethod() != null) {
       return createErrorDescription(
-          errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state, fixable);
+          errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state, nonNullTarget);
     } else {
       return createErrorDescription(
-          errorMessage, suppressibleNode(state.getPath()), descriptionBuilder, state, fixable);
+          errorMessage,
+          suppressibleNode(state.getPath()),
+          descriptionBuilder,
+          state,
+          nonNullTarget);
     }
   }
 
