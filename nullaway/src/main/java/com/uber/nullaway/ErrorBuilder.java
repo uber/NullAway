@@ -241,7 +241,7 @@ public class ErrorBuilder {
       @Nullable Tree suggestTreeIfCastToNonNull,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      Symbol fixable) {
+      Symbol nonNullTarget) {
     if (config.getCastToNonNullMethod() != null) {
       return createErrorDescription(
           errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state, fixable);
