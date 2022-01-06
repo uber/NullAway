@@ -3240,7 +3240,7 @@ public class NullAwayTest {
             "    if (m.containsKey(o)) {",
             "      // NullAway is currently unsound for this case.  It ignores",
             "      // the re-assignment of m and still assumes m.get(o) is non-null",
-            "      // on the next line.",
+            "      // on the subsequent line.",
             "      m = new HashMap();",
             "      m.get(o).toString();",
             "    }",
