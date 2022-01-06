@@ -25,7 +25,7 @@ package com.uber.nullaway.fixserialization.out;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.fixserialization.Location;
+import com.uber.nullaway.fixserialization.FixLocation;
 import com.uber.nullaway.fixserialization.SeparatedValueDisplay;
 import com.uber.nullaway.fixserialization.qual.AnnotationFactory;
 import java.util.Objects;
@@ -33,8 +33,8 @@ import java.util.Objects;
 /** Stores information suggesting a type change of an element in source code. */
 public class SuggestedFixInfo extends EnclosingNode implements SeparatedValueDisplay {
 
-  /** Location of the target element in source code. */
-  private final Location location;
+  /** FixLocation of the target element in source code. */
+  private final FixLocation fixLocation;
   /** Error which will be resolved by this type change. */
   private final ErrorMessage errorMessage;
   /** Suggested annotation. */
@@ -42,11 +42,11 @@ public class SuggestedFixInfo extends EnclosingNode implements SeparatedValueDis
 
   public SuggestedFixInfo(
       TreePath path,
-      Location location,
+      FixLocation fixLocation,
       ErrorMessage errorMessage,
       AnnotationFactory.Annotation annotation) {
     super(path);
-    this.location = location;
+    this.fixLocation = fixLocation;
     this.errorMessage = errorMessage;
     this.annotation = annotation;
   }
@@ -56,7 +56,7 @@ public class SuggestedFixInfo extends EnclosingNode implements SeparatedValueDis
     if (this == o) return true;
     if (!(o instanceof SuggestedFixInfo)) return false;
     SuggestedFixInfo suggestedFixInfo = (SuggestedFixInfo) o;
-    return Objects.equals(location, suggestedFixInfo.location)
+    return Objects.equals(fixLocation, suggestedFixInfo.fixLocation)
         && Objects.equals(annotation, suggestedFixInfo.annotation)
         && Objects.equals(
             errorMessage.getMessageType().toString(),
@@ -65,12 +65,12 @@ public class SuggestedFixInfo extends EnclosingNode implements SeparatedValueDis
 
   @Override
   public int hashCode() {
-    return Objects.hash(location, annotation, errorMessage.getMessageType().toString());
+    return Objects.hash(fixLocation, annotation, errorMessage.getMessageType().toString());
   }
 
   @Override
   public String display(String delimiter) {
-    return location.display(delimiter)
+    return fixLocation.display(delimiter)
         + delimiter
         + (errorMessage == null ? "Undefined" : errorMessage.getMessageType().toString())
         + delimiter
@@ -88,7 +88,7 @@ public class SuggestedFixInfo extends EnclosingNode implements SeparatedValueDis
    * @return string representation of the header separated by the {@code delimiter}.
    */
   public static String header(String delimiter) {
-    return Location.header(delimiter)
+    return FixLocation.header(delimiter)
         + delimiter
         + "reason"
         + delimiter

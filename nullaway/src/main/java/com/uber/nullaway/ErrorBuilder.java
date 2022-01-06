@@ -53,8 +53,8 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import com.uber.nullaway.fixserialization.FixLocation;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
-import com.uber.nullaway.fixserialization.Location;
 import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
@@ -512,7 +512,7 @@ public class ErrorBuilder {
     }
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
     if (fixSerializationConfig.canFixElement(trees, target)) {
-      Location location = new Location(target);
+      FixLocation location = new FixLocation(target);
       SuggestedFixInfo suggestedFixInfo = buildFixMetadata(state.getPath(), errorMessage, location);
       if (suggestedFixInfo != null) {
         Serializer serializer = fixSerializationConfig.serializer;
@@ -529,7 +529,7 @@ public class ErrorBuilder {
 
   /** Builds the {@link SuggestedFixInfo} instance based on the {@link ErrorMessage} type. */
   protected SuggestedFixInfo buildFixMetadata(
-      TreePath path, ErrorMessage errorMessage, Location location) {
+      TreePath path, ErrorMessage errorMessage, FixLocation location) {
     SuggestedFixInfo suggestedFixInfo;
     switch (errorMessage.getMessageType()) {
       case RETURN_NULLABLE:

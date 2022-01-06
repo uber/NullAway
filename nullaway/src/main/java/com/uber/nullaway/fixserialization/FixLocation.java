@@ -29,7 +29,7 @@ import java.net.URI;
 import javax.lang.model.element.ElementKind;
 
 /** Holds all the information to target a specific element in the source code. */
-public class Location implements SeparatedValueDisplay {
+public class FixLocation implements SeparatedValueDisplay {
 
   private final URI uri;
   private final Symbol.ClassSymbol enclosingClass;
@@ -57,7 +57,7 @@ public class Location implements SeparatedValueDisplay {
    *
    * @param target Target element.
    */
-  public Location(Symbol target) {
+  public FixLocation(Symbol target) {
     switch (target.getKind()) {
       case PARAMETER:
         createMethodParamLocation(target);
@@ -122,7 +122,7 @@ public class Location implements SeparatedValueDisplay {
   }
 
   /**
-   * creates header of a csv file containing all {@link Location}.
+   * creates header of a csv file containing all {@link FixLocation}.
    *
    * @param delimiter the delimiter.
    * @return string representation of the header separated by the {@code delimiter}.
