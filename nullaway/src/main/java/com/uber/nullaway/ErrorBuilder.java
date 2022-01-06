@@ -514,15 +514,13 @@ public class ErrorBuilder {
     if (fixSerializationConfig.canFixElement(trees, target)) {
       FixLocation location = new FixLocation(target);
       SuggestedFixInfo suggestedFixInfo = buildFixMetadata(state.getPath(), errorMessage, location);
-      if (suggestedFixInfo != null) {
-        Serializer serializer = fixSerializationConfig.serializer;
-        if (serializer != null) {
-          serializer.serializeSuggestedFixInfo(
-              suggestedFixInfo, fixSerializationConfig.suggestEnclosing);
-        } else {
-          throw new IllegalStateException(
-              "Serializer shouldn't be null at this point, error in configuration setting!");
-        }
+      Serializer serializer = fixSerializationConfig.serializer;
+      if (serializer != null) {
+        serializer.serializeSuggestedFixInfo(
+            suggestedFixInfo, fixSerializationConfig.suggestEnclosing);
+      } else {
+        throw new IllegalStateException(
+            "Serializer shouldn't be null at this point, error in configuration setting!");
       }
     }
   }
@@ -547,7 +545,8 @@ public class ErrorBuilder {
                 config.getFixSerializationConfig().annotationFactory.getNullable());
         break;
       default:
-        return null;
+        throw new IllegalStateException(
+            "Cannot suggest a type to resolve error with type: " + errorMessage.getMessageType());
     }
     return suggestedFixInfo;
   }
