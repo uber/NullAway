@@ -496,7 +496,9 @@ public class ErrorBuilder {
 
   /**
    * Serializes the suggested type change of an element in the source code that can resolve the
-   * error.
+   * error. We do not want suggested fix changes to override explicit annotations in the code,
+   * therefore, if the target element has an explicit {@code @Nonnull} annotation, no type change is
+   * suggested.
    *
    * @param state Visitor state.
    * @param target Target element to alternate it's type.
