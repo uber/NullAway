@@ -16,6 +16,7 @@
 package com.uber.nullaway.dataflow;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.BOTTOM;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
@@ -166,7 +167,12 @@ public class AccessPathNullnessPropagation
   }
 
   private static SubNodeValues values(final TransferInput<Nullness, NullnessStore> input) {
-    return input::getValueOfSubNode;
+    return new SubNodeValues() {
+      @Override
+      public Nullness valueOfSubNode(Node node) {
+        return castToNonNull(input.getValueOfSubNode(node));
+      }
+    };
   }
 
   /**

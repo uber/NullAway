@@ -29,6 +29,7 @@ import static com.sun.source.tree.Tree.Kind.OTHER;
 import static com.sun.source.tree.Tree.Kind.PARENTHESIZED;
 import static com.sun.source.tree.Tree.Kind.TYPE_CAST;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
@@ -725,7 +726,8 @@ public class NullAway extends BugChecker
     // overriding method better not return nullable
     if (overriddenMethodReturnsNonNull
         && Nullness.hasNullableAnnotation(overridingMethod, config)
-        && getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE)) {
+        && (memberReferenceTree == null
+            || getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE))) {
       String message;
       if (memberReferenceTree != null) {
         message =
@@ -813,7 +815,8 @@ public class NullAway extends BugChecker
     }
 
     // check that the field might actually be problematic to read
-    FieldInitEntities entities = class2Entities.get(enclosingClassSymbol(enclosingBlockPath));
+    FieldInitEntities entities =
+        castToNonNull(class2Entities.get(enclosingClassSymbol(enclosingBlockPath)));
     if (!(entities.nonnullInstanceFields().contains(symbol)
         || entities.nonnullStaticFields().contains(symbol))) {
       // field is either nullable or initialized at declaration
@@ -847,13 +850,13 @@ public class NullAway extends BugChecker
       if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) return true;
       if (ASTHelpers.getSymbol(methodTree).isStatic()) {
         Set<MethodTree> staticInitializerMethods =
-            class2Entities.get(enclosingClassSymbol(enclosingBlockPath)).staticInitializerMethods();
+            castToNonNull(class2Entities.get(enclosingClassSymbol(enclosingBlockPath)))
+                .staticInitializerMethods();
         return staticInitializerMethods.size() == 1
             && staticInitializerMethods.contains(methodTree);
       } else {
         Set<MethodTree> instanceInitializerMethods =
-            class2Entities
-                .get(enclosingClassSymbol(enclosingBlockPath))
+            castToNonNull(class2Entities.get(enclosingClassSymbol(enclosingBlockPath)))
                 .instanceInitializerMethods();
         return instanceInitializerMethods.size() == 1
             && instanceInitializerMethods.contains(methodTree);
@@ -1038,7 +1041,7 @@ public class NullAway extends BugChecker
     // all the initializer blocks have run before any code inside a constructor
     constructors.stream().forEach((c) -> builder.putAll(c, initThusFar));
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
-    FieldInitEntities entities = class2Entities.get(classSymbol);
+    FieldInitEntities entities = castToNonNull(class2Entities.get(classSymbol));
     if (entities.instanceInitializerMethods().size() == 1) {
       MethodTree initMethod = entities.instanceInitializerMethods().iterator().next();
       // collect the fields that may not be initialized by *some* constructor NC

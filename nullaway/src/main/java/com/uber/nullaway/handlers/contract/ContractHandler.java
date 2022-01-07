@@ -101,6 +101,8 @@ public class ContractHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
+    Preconditions.checkNotNull(state);
+    Preconditions.checkNotNull(analysis);
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
@@ -146,8 +148,6 @@ public class ContractHandler extends BaseNoOpHandler {
             argAntecedentNullness =
                 valueConstraint.equals("null") ? Nullness.NULLABLE : Nullness.NONNULL;
           } else {
-            Preconditions.checkNotNull(state);
-            Preconditions.checkNotNull(analysis);
             String errorMessage =
                 "Invalid @Contract annotation detected for method "
                     + callee
@@ -183,7 +183,9 @@ public class ContractHandler extends BaseNoOpHandler {
           }
           continue;
         }
-        assert argAntecedentNullness != null;
+        if (argAntecedentNullness == null) {
+          throw new IllegalStateException("argAntecedentNullness should have been set");
+        }
         // The nullness of one argument is all that matters for the antecedent, let's negate the
         // consequent to fix the nullness of this argument.
         AccessPath accessPath =

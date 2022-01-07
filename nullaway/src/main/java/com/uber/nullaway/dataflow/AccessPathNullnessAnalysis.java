@@ -18,6 +18,8 @@
 
 package com.uber.nullaway.dataflow;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
@@ -137,7 +139,8 @@ public final class AccessPathNullnessAnalysis {
    */
   @Nullable
   public Nullness getNullnessForContractDataflow(TreePath exprPath, Context context) {
-    return dataFlow.expressionDataflow(exprPath, context, contractNullnessPropagation);
+    return dataFlow.expressionDataflow(
+        exprPath, context, castToNonNull(contractNullnessPropagation));
   }
 
   /**

@@ -32,6 +32,7 @@ dependencies {
     annotationProcessor deps.apt.autoValue
     compileOnly deps.apt.autoServiceAnnot
     annotationProcessor deps.apt.autoService
+    compileOnly deps.test.inferAnnotations
 
     compileOnly deps.build.errorProneCheckApi
     implementation deps.build.checkerDataflow

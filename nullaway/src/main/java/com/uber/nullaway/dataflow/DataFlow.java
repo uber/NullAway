@@ -18,6 +18,7 @@
 
 package com.uber.nullaway.dataflow;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer;
 
 import com.google.auto.value.AutoValue;
@@ -174,8 +175,12 @@ public final class DataFlow {
    */
   <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       ControlFlowGraph getControlFlowGraph(TreePath path, Context context, T transfer) {
-    return dataflow(findEnclosingMethodOrLambdaOrInitializer(path), context, transfer)
-        .getControlFlowGraph();
+    TreePath enclosingMethodOrLambdaOrInitializer = findEnclosingMethodOrLambdaOrInitializer(path);
+    if (enclosingMethodOrLambdaOrInitializer == null) {
+      throw new IllegalArgumentException(
+          "Cannot get CFG for node outside a method, lambda, or initializer");
+    }
+    return dataflow(enclosingMethodOrLambdaOrInitializer, context, transfer).getControlFlowGraph();
   }
 
   /**
@@ -253,7 +258,8 @@ public final class DataFlow {
     return resultFor(exprPath, context, transfer);
   }
 
-  private <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
+  private @Nullable <
+          A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       AnalysisResult<A, S> resultFor(TreePath exprPath, Context context, T transfer) {
     final TreePath enclosingPath =
         NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(exprPath);
@@ -285,7 +291,7 @@ public final class DataFlow {
   @AutoValue
   abstract static class CfgParams {
     // Should not be used for hashCode or equals
-    private ProcessingEnvironment environment;
+    private @Nullable ProcessingEnvironment environment;
 
     private static CfgParams create(TreePath codePath, ProcessingEnvironment environment) {
       CfgParams cp = new AutoValue_DataFlow_CfgParams(codePath);
@@ -294,7 +300,7 @@ public final class DataFlow {
     }
 
     ProcessingEnvironment environment() {
-      return environment;
+      return castToNonNull(environment);
     }
 
     abstract TreePath codePath();

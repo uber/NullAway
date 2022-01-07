@@ -209,6 +209,7 @@ public class NullnessStore implements Store<NullnessStore> {
    *     variables in the domain of {@code localVarTranslations}, with each access path re-rooted to
    *     be relative to the corresponding local variable in the co-domain of the map.
    */
+  @SuppressWarnings("NullAway") // keySet issues
   public NullnessStore uprootAccessPaths(
       Map<LocalVariableNode, LocalVariableNode> localVarTranslations) {
     NullnessStore.Builder nullnessBuilder = NullnessStore.empty().toBuilder();

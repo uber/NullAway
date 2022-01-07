@@ -280,7 +280,9 @@ public class ErrorBuilder {
 
   private Description.Builder addCastToNonNullFix(Tree suggestTree, Description.Builder builder) {
     final String fullMethodName = config.getCastToNonNullMethod();
-    assert fullMethodName != null;
+    if (fullMethodName == null) {
+      throw new IllegalStateException("cast-to-non-null method not set");
+    }
     // Add a call to castToNonNull around suggestTree:
     final String[] parts = fullMethodName.split("\\.");
     final String shortMethodName = parts[parts.length - 1];

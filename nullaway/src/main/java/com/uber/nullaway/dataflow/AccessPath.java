@@ -696,6 +696,9 @@ public final class AccessPath implements MapKey {
        * @return an access path context constructed from everything added to the builder
        */
       public AccessPathContext build() {
+        if (immutableTypes == null) {
+          throw new IllegalStateException("must set immutable types before building");
+        }
         return new AccessPathContext(immutableTypes);
       }
     }

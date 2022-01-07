@@ -360,4 +360,11 @@ public class NullabilityUtil {
     Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
     return ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated");
   }
+
+  public static <T> T castToNonNull(@Nullable T obj) {
+    if (obj == null) {
+      throw new NullPointerException();
+    }
+    return obj;
+  }
 }
