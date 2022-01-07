@@ -76,10 +76,10 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_JI_REGEX_CODE_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripCodeJar";
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
   /** --- Serialization configs --- */
-  static final String FL_FIX_SERIALIZATION = EP_FL_NAMESPACE + ":serializeMetadata";
+  static final String FL_FIX_SERIALIZATION = EP_FL_NAMESPACE + ":SerializeMetadata";
 
   static final String FL_FIX_SERIALIZATION_OUTPUT_DIR =
-      EP_FL_NAMESPACE + ":serializationConfigPath";
+      EP_FL_NAMESPACE + ":SerializationConfigPath";
 
   private static final String DELIMITER = ",";
 
