@@ -77,18 +77,19 @@ public class SerializationConfig {
   /**
    * Sets all flags based on their values in the configuration file.
    *
-   * @param path Directory where all files generated/read by Fix Serialization package resides.
+   * @param configFilePath Path to the serialization config file written in xml.
    */
-  public SerializationConfig(String path) {
-    Preconditions.checkNotNull(path);
+  public SerializationConfig(String configFilePath) {
+    Preconditions.checkNotNull(configFilePath);
     Document document;
     try {
       DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
       DocumentBuilder builder = factory.newDocumentBuilder();
-      document = builder.parse(Files.newInputStream(Paths.get(path)));
+      document = builder.parse(Files.newInputStream(Paths.get(configFilePath)));
       document.normalize();
     } catch (Exception e) {
-      throw new RuntimeException("Error in reading/parsing config at path: " + path + "\n" + e);
+      throw new RuntimeException(
+          "Error in reading/parsing config at path: " + configFilePath + "\n" + e);
     }
     this.outputDirectory =
         XMLUtil.getValueFromTag(document, "serialization:path", String.class).orElse(null);
