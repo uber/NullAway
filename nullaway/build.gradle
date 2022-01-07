@@ -109,6 +109,7 @@ if (JavaVersion.current() >= JavaVersion.VERSION_11) {
         options.errorprone.enabled = true
         options.errorprone {
             option("NullAway:AnnotatedPackages", "com.uber")
+            option("NullAway:CheckOptionalEmptiness")
         }
         // Make sure the jar has already been built
         dependsOn 'jar'
