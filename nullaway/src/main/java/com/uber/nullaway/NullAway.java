@@ -611,7 +611,6 @@ public class NullAway extends BugChecker
         } else {
           errorTree = getTreesInstance(state).getTree(paramSymbol);
         }
-
         return errorBuilder.createErrorDescription(
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
             buildDescription(errorTree),
