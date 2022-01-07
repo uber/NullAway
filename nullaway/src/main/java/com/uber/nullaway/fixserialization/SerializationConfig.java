@@ -75,19 +75,19 @@ public class SerializationConfig {
   }
 
   /**
-   * * Sets all flags based on their values in {@code outputdierectory/explorer.config} json file.
+   * Sets all flags based on their values in the configuration file.
    *
-   * @param autofixEnabled Flag value in main NullAway config. If false, all flags here will be set
-   *     to false.
+   * @param serializationIsActive Flag value in main NullAway config. If false, all flags here will
+   *     be set to false.
    * @param path Directory where all files generated/read by Fix Serialization package resides.
    */
-  public SerializationConfig(boolean autofixEnabled, String path) {
+  public SerializationConfig(boolean serializationIsActive, String path) {
     // if autofixEnabled is false, all flags will be false regardless of their given value in json
     // config file.
     Preconditions.checkNotNull(path);
 
     Document document = null;
-    if (autofixEnabled) {
+    if (serializationIsActive) {
       try {
         DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
         DocumentBuilder builder = factory.newDocumentBuilder();
@@ -104,7 +104,7 @@ public class SerializationConfig {
     suggestEnabled =
         XMLUtil.getValueFromAttribute(document, "serialization:suggest", "active", Boolean.class)
                 .orElse(false)
-            && autofixEnabled;
+            && serializationIsActive;
     suggestEnclosing =
         XMLUtil.getValueFromAttribute(document, "serialization:suggest", "enclosing", Boolean.class)
                 .orElse(false)
