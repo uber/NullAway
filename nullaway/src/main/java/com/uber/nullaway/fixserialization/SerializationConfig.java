@@ -77,25 +77,18 @@ public class SerializationConfig {
   /**
    * Sets all flags based on their values in the configuration file.
    *
-   * @param serializationIsActive Flag value in main NullAway config. If false, all flags here will
-   *     be set to false.
    * @param path Directory where all files generated/read by Fix Serialization package resides.
    */
-  public SerializationConfig(boolean serializationIsActive, String path) {
-    // if autofixEnabled is false, all flags will be false regardless of their given value in json
-    // config file.
+  public SerializationConfig(String path) {
     Preconditions.checkNotNull(path);
-
-    Document document = null;
-    if (serializationIsActive) {
-      try {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder = factory.newDocumentBuilder();
-        document = builder.parse(Files.newInputStream(Paths.get(path)));
-        document.normalize();
-      } catch (Exception e) {
-        throw new RuntimeException("Error in reading/parsing config at path: " + path + "\n" + e);
-      }
+    Document document;
+    try {
+      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      DocumentBuilder builder = factory.newDocumentBuilder();
+      document = builder.parse(Files.newInputStream(Paths.get(path)));
+      document.normalize();
+    } catch (Exception e) {
+      throw new RuntimeException("Error in reading/parsing config at path: " + path + "\n" + e);
     }
     this.outputDirectory =
         XMLUtil.getValueFromTag(document, "serialization:path", String.class).orElse(null);
@@ -103,8 +96,7 @@ public class SerializationConfig {
         this.outputDirectory, "Error in FixSerialization Config: Output path cannot be null");
     suggestEnabled =
         XMLUtil.getValueFromAttribute(document, "serialization:suggest", "active", Boolean.class)
-                .orElse(false)
-            && serializationIsActive;
+            .orElse(false);
     suggestEnclosing =
         XMLUtil.getValueFromAttribute(document, "serialization:suggest", "enclosing", Boolean.class)
                 .orElse(false)

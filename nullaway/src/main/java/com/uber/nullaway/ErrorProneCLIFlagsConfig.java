@@ -224,9 +224,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
      * field be @Nonnull, allowing us to avoid null checks in various places.
      */
     serializationConfig =
-        fixSerializationConfigPath
-            .map(s -> new SerializationConfig(serializationActivationFlag, s))
-            .orElseGet(SerializationConfig::new);
+        serializationActivationFlag
+            ? new SerializationConfig(fixSerializationConfigPath.get())
+            : new SerializationConfig();
     if (serializationActivationFlag && isSuggestSuppressions)
       throw new IllegalStateException(
           "In order to activate Fix Serialization mode ("
