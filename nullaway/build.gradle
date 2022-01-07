@@ -108,8 +108,9 @@ if (JavaVersion.current() >= JavaVersion.VERSION_11) {
                 nullawayDeps)
         options.errorprone.enabled = true
         options.errorprone {
-            option("NullAway:AnnotatedPackages", "com.uber")
+            option("NullAway:AnnotatedPackages", "com.uber,org.checkerframework.nullaway")
             option("NullAway:CheckOptionalEmptiness")
+            option("NullAway:AcknowledgeRestrictiveAnnotations")
         }
         // Make sure the jar has already been built
         dependsOn 'jar'
