@@ -126,7 +126,7 @@ public class SerializationConfig {
     return trees.getPath(symbol) != null;
   }
 
-  /** Builder class for Config */
+  /** Builder class for Serialization Config */
   public static class Builder {
 
     private boolean suggestEnabled;
