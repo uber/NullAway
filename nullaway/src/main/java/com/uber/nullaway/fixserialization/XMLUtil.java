@@ -77,12 +77,12 @@ public class XMLUtil {
   }
 
   /**
-   * Writes the {@link FixSerializationConfig} in {@code XML} format.
+   * Writes the {@link SerializationConfig} in {@code XML} format.
    *
    * @param config Config file to write.
    * @param path Path to write the config at.
    */
-  public static void writeInXMLFormat(FixSerializationConfig config, String path) {
+  public static void writeInXMLFormat(SerializationConfig config, String path) {
     DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
     try {
       DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
@@ -97,12 +97,6 @@ public class XMLUtil {
       suggestElement.setAttribute("active", String.valueOf(config.suggestEnabled));
       suggestElement.setAttribute("enclosing", String.valueOf(config.suggestEnclosing));
       rootElement.appendChild(suggestElement);
-
-      // Error
-      Element errorElement = doc.createElement("error");
-      errorElement.setAttribute("active", String.valueOf(config.logErrorEnabled));
-      errorElement.setAttribute("enclosing", String.valueOf(config.logErrorEnclosing));
-      rootElement.appendChild(errorElement);
 
       // Annotations
       Element annots = doc.createElement("annotation");

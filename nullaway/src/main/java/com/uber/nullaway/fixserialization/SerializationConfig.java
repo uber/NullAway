@@ -33,7 +33,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Document;
 
 /** Config class for Fix Serialization package. */
-public class FixSerializationConfig {
+public class SerializationConfig {
 
   /**
    * If activated, for all reported errors, NullAway will serialize information and suggests type
@@ -43,13 +43,10 @@ public class FixSerializationConfig {
   public final boolean suggestEnabled;
   /**
    * If activated, serialized information of a fix suggest will also include the enclosing method
-   * and class of the element involved in error.
+   * and class of the element involved in error. Finding enclosing elements is costly and will only
+   * be computed at request.
    */
   public final boolean suggestEnclosing;
-  /** If activated, NullAway will write reporting errors in output directory. */
-  public final boolean logErrorEnabled;
-  /** If activated, errors information will also include the enclosing method and class. */
-  public final boolean logErrorEnclosing;
   /** The directory where all files generated/read by Fix Serialization package resides. */
   public final String outputDirectory;
 
@@ -57,27 +54,21 @@ public class FixSerializationConfig {
 
   public final Serializer serializer;
 
-  public FixSerializationConfig() {
+  public SerializationConfig() {
     suggestEnabled = false;
     suggestEnclosing = false;
-    logErrorEnabled = false;
-    logErrorEnclosing = false;
     annotationFactory = new AnnotationFactory();
     outputDirectory = null;
     serializer = null;
   }
 
-  public FixSerializationConfig(
+  public SerializationConfig(
       boolean suggestEnabled,
       boolean suggestEnclosing,
-      boolean logErrorEnabled,
-      boolean logErrorEnclosing,
       AnnotationFactory annotationFactory,
       String outputDirectory) {
     this.suggestEnabled = suggestEnabled;
     this.suggestEnclosing = suggestEnclosing;
-    this.logErrorEnabled = logErrorEnabled;
-    this.logErrorEnclosing = logErrorEnclosing;
     this.outputDirectory = outputDirectory;
     this.annotationFactory = annotationFactory;
     serializer = new Serializer(this);
@@ -90,7 +81,7 @@ public class FixSerializationConfig {
    *     to false.
    * @param path Directory where all files generated/read by Fix Serialization package resides.
    */
-  public FixSerializationConfig(boolean autofixEnabled, String path) {
+  public SerializationConfig(boolean autofixEnabled, String path) {
     // if autofixEnabled is false, all flags will be false regardless of their given value in json
     // config file.
     Preconditions.checkNotNull(path);
@@ -118,14 +109,6 @@ public class FixSerializationConfig {
         XMLUtil.getValueFromAttribute(document, "serialization:suggest", "enclosing", Boolean.class)
                 .orElse(false)
             && suggestEnabled;
-    logErrorEnabled =
-        XMLUtil.getValueFromAttribute(document, "serialization:error", "active", Boolean.class)
-                .orElse(false)
-            && autofixEnabled;
-    logErrorEnclosing =
-        XMLUtil.getValueFromAttribute(document, "serialization:error", "enclosing", Boolean.class)
-                .orElse(false)
-            && logErrorEnabled;
     String nullableAnnot =
         XMLUtil.getValueFromTag(document, "serialization:annotation:nullable", String.class)
             .orElse("javax.annotation.Nullable");
@@ -151,48 +134,34 @@ public class FixSerializationConfig {
   }
 
   /** Builder class for Config */
-  public static class FixSerializationConfigBuilder {
+  public static class Builder {
 
     private boolean suggestEnabled;
     private boolean suggestEnclosing;
-    private boolean logErrorEnabled;
-    private boolean logErrorEnclosing;
     private String nullable;
     private String nonnull;
     private String outputDir;
 
-    public FixSerializationConfigBuilder() {
+    public Builder() {
       suggestEnabled = false;
       suggestEnclosing = false;
-      logErrorEnabled = false;
-      logErrorEnclosing = false;
       nullable = "javax.annotation.Nullable";
       nonnull = "javax.annotation.Nonnull";
     }
 
-    public FixSerializationConfigBuilder setSuggest(boolean value, boolean withEnclosing) {
+    public Builder setSuggest(boolean value, boolean withEnclosing) {
       this.suggestEnabled = value;
       this.suggestEnclosing = withEnclosing && suggestEnabled;
       return this;
     }
 
-    public FixSerializationConfigBuilder setAnnotations(String nullable, String nonnull) {
+    public Builder setAnnotations(String nullable, String nonnull) {
       this.nullable = nullable;
       this.nonnull = nonnull;
       return this;
     }
 
-    public FixSerializationConfigBuilder setLogError(boolean value, boolean withEnclosing) {
-      this.logErrorEnabled = value;
-      if (!value && withEnclosing) {
-        throw new IllegalArgumentException(
-            "Log error must be enabled to activate enclosing log error");
-      }
-      this.logErrorEnclosing = withEnclosing;
-      return this;
-    }
-
-    public FixSerializationConfigBuilder setOutputDirectory(String outputDir) {
+    public Builder setOutputDirectory(String outputDir) {
       this.outputDir = outputDir;
       return this;
     }
@@ -203,18 +172,13 @@ public class FixSerializationConfig {
      * @param path path to write the config file.
      */
     public void writeAsXMLat(String path) {
-      FixSerializationConfig config = this.build();
+      SerializationConfig config = this.build();
       XMLUtil.writeInXMLFormat(config, path);
     }
 
-    public FixSerializationConfig build() {
-      return new FixSerializationConfig(
-          suggestEnabled,
-          suggestEnclosing,
-          logErrorEnabled,
-          logErrorEnclosing,
-          new AnnotationFactory(nullable, nonnull),
-          outputDir);
+    public SerializationConfig build() {
+      return new SerializationConfig(
+          suggestEnabled, suggestEnclosing, new AnnotationFactory(nullable, nonnull), outputDir);
     }
   }
 }

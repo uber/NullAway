@@ -24,7 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.ErrorProneFlags;
-import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.SerializationConfig;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -75,10 +75,11 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_JI_REGEX_MODEL_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripModelJar";
   static final String FL_JI_REGEX_CODE_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripCodeJar";
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
-  /** --- Fix Serialization configs --- */
-  static final String FL_FIX_SERIALIZATION = EP_FL_NAMESPACE + ":WriteFixMetadata";
+  /** --- Serialization configs --- */
+  static final String FL_FIX_SERIALIZATION = EP_FL_NAMESPACE + ":serializeMetadata";
 
-  static final String FL_FIX_SERIALIZATION_OUTPUT_DIR = EP_FL_NAMESPACE + ":FixMetadataConfigPath";
+  static final String FL_FIX_SERIALIZATION_OUTPUT_DIR =
+      EP_FL_NAMESPACE + ":serializationConfigPath";
 
   private static final String DELIMITER = ",";
 
@@ -205,9 +206,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + FL_ACKNOWLEDGE_RESTRICTIVE
               + " is also set");
     }
-    fixSerializationActivationFlag = flags.getBoolean(FL_FIX_SERIALIZATION).orElse(false);
+    serializationActivationFlag = flags.getBoolean(FL_FIX_SERIALIZATION).orElse(false);
     Optional<String> fixSerializationConfigPath = flags.get(FL_FIX_SERIALIZATION_OUTPUT_DIR);
-    if (fixSerializationActivationFlag && !fixSerializationConfigPath.isPresent()) {
+    if (serializationActivationFlag && !fixSerializationConfigPath.isPresent()) {
       throw new IllegalStateException(
           "DO NOT report an issue to Error Prone for this crash!  NullAway Fix Serialization configuration is "
               + "incorrect.  "
@@ -219,14 +220,14 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     }
     /*
      * if fixSerializationActivationFlag is false, the default constructor is invoked for
-     * creating FixSerializationConfig which all features are deactivated.  This lets the
+     * creating SerializationConfig which all features are deactivated.  This lets the
      * field be @Nonnull, allowing us to avoid null checks in various places.
      */
-    fixSerializationConfig =
+    serializationConfig =
         fixSerializationConfigPath
-            .map(s -> new FixSerializationConfig(fixSerializationActivationFlag, s))
-            .orElseGet(FixSerializationConfig::new);
-    if (fixSerializationActivationFlag && isSuggestSuppressions)
+            .map(s -> new SerializationConfig(serializationActivationFlag, s))
+            .orElseGet(SerializationConfig::new);
+    if (serializationActivationFlag && isSuggestSuppressions)
       throw new IllegalStateException(
           "In order to activate Fix Serialization mode ("
               + FL_FIX_SERIALIZATION
@@ -254,7 +255,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   }
 
   @Override
-  public FixSerializationConfig getFixSerializationConfig() {
-    return fixSerializationConfig;
+  public SerializationConfig getSerializationConfig() {
+    return serializationConfig;
   }
 }

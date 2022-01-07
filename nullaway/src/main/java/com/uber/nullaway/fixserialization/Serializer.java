@@ -46,7 +46,7 @@ public class Serializer {
   /** Delimiter to separate values in a row. */
   public final String DELIMITER = "$*$";
 
-  public Serializer(FixSerializationConfig config) {
+  public Serializer(SerializationConfig config) {
     String outputDirectory = config.outputDirectory;
     this.ERROR = Paths.get(outputDirectory, "errors.csv");
     this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.csv");
@@ -70,12 +70,9 @@ public class Serializer {
    * Appends the string representation of the {@link ErrorMessage}.
    *
    * @param errorInfo ErrorMessage object.
-   * @param enclosing Flag to control if enclosing method and class should be included.
    */
-  public void serializeErrorInfo(ErrorInfo errorInfo, boolean enclosing) {
-    if (enclosing) {
-      errorInfo.findEnclosing();
-    }
+  public void serializeErrorInfo(ErrorInfo errorInfo) {
+    errorInfo.findEnclosing();
     appendToFile(errorInfo, ERROR);
   }
 
@@ -95,15 +92,13 @@ public class Serializer {
   }
 
   /** Resets every file which will be re-generated in the new run of NullAway. */
-  private void reset(FixSerializationConfig config) {
+  private void reset(SerializationConfig config) {
     try {
       Files.createDirectories(Paths.get(config.outputDirectory));
       if (config.suggestEnabled) {
         resetFile(SUGGEST_FIX, SuggestedFixInfo.header(DELIMITER));
       }
-      if (config.logErrorEnabled) {
-        resetFile(ERROR, ErrorInfo.header(DELIMITER));
-      }
+      resetFile(ERROR, ErrorInfo.header(DELIMITER));
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting serializer: " + e);
     }

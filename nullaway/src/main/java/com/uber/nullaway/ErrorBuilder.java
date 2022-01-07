@@ -54,7 +54,7 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.fixserialization.FixLocation;
-import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.SerializationConfig;
 import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
@@ -140,16 +140,14 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
     }
 
-    if (config.fixSerializationIsActive() && nonNullTarget != null) {
+    if (config.serializationIsActive() && nonNullTarget != null) {
       serializeFixSuggestion(state, nonNullTarget, errorMessage);
     }
 
-    if (config.fixSerializationIsActive() && config.getFixSerializationConfig().logErrorEnabled) {
-      Serializer serializer = config.getFixSerializationConfig().serializer;
+    if (config.serializationIsActive()) {
+      Serializer serializer = config.getSerializationConfig().serializer;
       if (serializer != null) {
-        serializer.serializeErrorInfo(
-            new ErrorInfo(state.getPath(), errorMessage),
-            config.getFixSerializationConfig().logErrorEnclosing);
+        serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorMessage));
       } else {
         throw new IllegalStateException(
             "Serializer shouldn't be null at this point, error in configuration setting!");
@@ -506,18 +504,18 @@ public class ErrorBuilder {
    */
   public void serializeFixSuggestion(VisitorState state, Symbol target, ErrorMessage errorMessage) {
     // Skip if element has an explicit @Nonnull annotation.
-    FixSerializationConfig fixSerializationConfig = config.getFixSerializationConfig();
+    SerializationConfig serializationConfig = config.getSerializationConfig();
     if (Nullness.hasNonNullAnnotation(target, config)) {
       return;
     }
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
-    if (fixSerializationConfig.canFixElement(trees, target)) {
+    if (serializationConfig.canFixElement(trees, target)) {
       FixLocation location = new FixLocation(target);
       SuggestedFixInfo suggestedFixInfo = buildFixMetadata(state.getPath(), errorMessage, location);
-      Serializer serializer = fixSerializationConfig.serializer;
+      Serializer serializer = serializationConfig.serializer;
       if (serializer != null) {
         serializer.serializeSuggestedFixInfo(
-            suggestedFixInfo, fixSerializationConfig.suggestEnclosing);
+            suggestedFixInfo, serializationConfig.suggestEnclosing);
       } else {
         throw new IllegalStateException(
             "Serializer shouldn't be null at this point, error in configuration setting!");
@@ -542,7 +540,7 @@ public class ErrorBuilder {
                 path,
                 location,
                 errorMessage,
-                config.getFixSerializationConfig().annotationFactory.getNullable());
+                config.getSerializationConfig().annotationFactory.getNullable());
         break;
       default:
         throw new IllegalStateException(

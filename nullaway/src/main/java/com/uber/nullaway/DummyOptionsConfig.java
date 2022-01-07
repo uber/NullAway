@@ -27,7 +27,7 @@ import static com.uber.nullaway.ErrorProneCLIFlagsConfig.FL_ANNOTATED_PACKAGES;
 
 import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.SerializationConfig;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -55,12 +55,12 @@ public class DummyOptionsConfig implements Config {
   public DummyOptionsConfig() {}
 
   @Override
-  public boolean fixSerializationIsActive() {
+  public boolean serializationIsActive() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 
   @Override
-  public FixSerializationConfig getFixSerializationConfig() {
+  public SerializationConfig getSerializationConfig() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 

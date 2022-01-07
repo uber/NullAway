@@ -24,7 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.SerializationConfig;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -32,18 +32,18 @@ import javax.annotation.Nullable;
 public interface Config {
 
   /**
-   * Checks if Fix Serialization feature is active.
+   * Checks if Serialization feature is active.
    *
    * @return true, if Fix Serialization feature is active.
    */
-  boolean fixSerializationIsActive();
+  boolean serializationIsActive();
 
   /**
-   * Getter method for {@link FixSerializationConfig}.
+   * Getter method for {@link SerializationConfig}.
    *
-   * @return {@link FixSerializationConfig} instance in Config.
+   * @return {@link SerializationConfig} instance in Config.
    */
-  FixSerializationConfig getFixSerializationConfig();
+  SerializationConfig getSerializationConfig();
 
   /**
    * Checks if a symbol comes from an annotated package.
