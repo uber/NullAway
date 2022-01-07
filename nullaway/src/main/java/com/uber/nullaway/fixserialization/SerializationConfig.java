@@ -122,7 +122,7 @@ public class SerializationConfig {
    */
   public boolean canFixElement(Trees trees, Element symbol) {
     if (!suggestEnabled) return false;
-    if (trees == null || symbol == null) return false;
+    if (symbol == null) return false;
     return trees.getPath(symbol) != null;
   }
 
