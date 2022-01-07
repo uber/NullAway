@@ -97,7 +97,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -1492,7 +1491,6 @@ public class NullAway extends BugChecker
               .get(constructorElement)
               .stream()
               .map(element -> ASTHelpers.getSymbol(getTreesInstance(state).getTree(element)))
-              .filter(Objects::nonNull)
               .collect(Collectors.toList());
       errorBuilder.reportInitializerError(
           (Symbol.MethodSymbol) constructorElement,
