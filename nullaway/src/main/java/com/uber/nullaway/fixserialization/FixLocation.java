@@ -107,7 +107,7 @@ public class FixLocation implements SeparatedValueDisplay {
   }
 
   @Override
-  public String display(String delimiter) {
+  public String toStringWithDelimiter(String delimiter) {
     return kind.label
         + delimiter
         + enclosingClass.toString()
@@ -122,7 +122,8 @@ public class FixLocation implements SeparatedValueDisplay {
   }
 
   /**
-   * creates header of a csv file containing all {@link FixLocation}.
+   * Creates header of an output file containing all {@link FixLocation} written in string which
+   * values are separated by the delimiter.
    *
    * @param delimiter the delimiter.
    * @return string representation of the header separated by the {@code delimiter}.

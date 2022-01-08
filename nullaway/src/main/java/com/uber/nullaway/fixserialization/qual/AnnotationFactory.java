@@ -44,7 +44,7 @@ public class AnnotationFactory {
     }
 
     @Override
-    public String display(String delimiter) {
+    public String toStringWithDelimiter(String delimiter) {
       return fullName;
     }
   }

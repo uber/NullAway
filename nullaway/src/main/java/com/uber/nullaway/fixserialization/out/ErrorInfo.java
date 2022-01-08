@@ -38,7 +38,7 @@ public class ErrorInfo extends EnclosingNode implements SeparatedValueDisplay {
   }
 
   @Override
-  public String display(String delimiter) {
+  public String toStringWithDelimiter(String delimiter) {
     return errorMessage.getMessageType().toString()
         + delimiter
         + errorMessage.getMessage()
@@ -49,7 +49,8 @@ public class ErrorInfo extends EnclosingNode implements SeparatedValueDisplay {
   }
 
   /**
-   * creates header of a csv file containing all {@link ErrorInfo}.
+   * Creates header of an output file containing all {@link ErrorInfo} written in string which
+   * values are separated by the delimiter.
    *
    * @param delimiter the delimiter.
    * @return string representation of the header separated by the {@code delimiter}.

@@ -69,12 +69,12 @@ public class SuggestedFixInfo extends EnclosingNode implements SeparatedValueDis
   }
 
   @Override
-  public String display(String delimiter) {
-    return fixLocation.display(delimiter)
+  public String toStringWithDelimiter(String delimiter) {
+    return fixLocation.toStringWithDelimiter(delimiter)
         + delimiter
         + (errorMessage == null ? "Undefined" : errorMessage.getMessageType().toString())
         + delimiter
-        + annotation.display(delimiter)
+        + annotation.toStringWithDelimiter(delimiter)
         + delimiter
         + (enclosingClass == null ? "null" : ASTHelpers.getSymbol(enclosingClass))
         + delimiter
@@ -82,7 +82,8 @@ public class SuggestedFixInfo extends EnclosingNode implements SeparatedValueDis
   }
 
   /**
-   * creates header of a csv file containing all {@link SuggestedFixInfo}.
+   * Creates header of an output file containing all {@link SuggestedFixInfo} written in string
+   * which values are separated by the delimiter.
    *
    * @param delimiter the delimiter.
    * @return string representation of the header separated by the {@code delimiter}.

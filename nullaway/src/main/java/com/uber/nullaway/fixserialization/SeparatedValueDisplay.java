@@ -31,5 +31,5 @@ public interface SeparatedValueDisplay {
    * @param delimiter the delimiter.
    * @return string representation of content of an object in a line seperated by delimiter.
    */
-  String display(String delimiter);
+  String toStringWithDelimiter(String delimiter);
 }

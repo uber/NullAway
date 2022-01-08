@@ -106,7 +106,7 @@ public class Serializer {
 
   private void appendToFile(SeparatedValueDisplay value, Path path) {
     OutputStream os;
-    String display = value.display(DELIMITER);
+    String display = value.toStringWithDelimiter(DELIMITER);
     if (display == null || display.equals("")) {
       return;
     }
