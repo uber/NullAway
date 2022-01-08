@@ -37,7 +37,7 @@ public class FixLocation implements SeparatedValueDisplay {
   /** Symbol of the element if the target is either a class field or a method parameter. */
   private Symbol.VarSymbol variableSymbol;
 
-  private Kind kind;
+  private final Kind kind;
   /** Index of the element if target is a method argument. */
   int index = 0;
 
@@ -60,12 +60,15 @@ public class FixLocation implements SeparatedValueDisplay {
   public FixLocation(Symbol target) {
     switch (target.getKind()) {
       case PARAMETER:
+        this.kind = Kind.METHOD_PARAM;
         createMethodParamLocation(target);
         break;
       case METHOD:
+        kind = Kind.METHOD_RETURN;
         createMethodLocation(target);
         break;
       case FIELD:
+        kind = Kind.CLASS_FIELD;
         createFieldLocation(target);
         break;
       default:
@@ -78,18 +81,15 @@ public class FixLocation implements SeparatedValueDisplay {
   private void createFieldLocation(Symbol field) {
     Preconditions.checkArgument(field.getKind() == ElementKind.FIELD);
     variableSymbol = (Symbol.VarSymbol) field;
-    kind = Kind.CLASS_FIELD;
   }
 
   private void createMethodLocation(Symbol method) {
     Preconditions.checkArgument(method.getKind() == ElementKind.METHOD);
-    kind = Kind.METHOD_RETURN;
     enclosingMethod = (Symbol.MethodSymbol) method;
   }
 
   private void createMethodParamLocation(Symbol parameter) {
     Preconditions.checkArgument(parameter.getKind() == ElementKind.PARAMETER);
-    this.kind = Kind.METHOD_PARAM;
     this.variableSymbol = (Symbol.VarSymbol) parameter;
     Symbol enclosingMethod = parameter;
     // Look for the enclosing method.
