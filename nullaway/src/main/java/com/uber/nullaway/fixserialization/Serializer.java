@@ -46,7 +46,7 @@ public class Serializer {
   /** Delimiter to separate values in a row. */
   public final String DELIMITER = "$*$";
 
-  public Serializer(SerializationConfig config) {
+  public Serializer(FixSerializationConfig config) {
     String outputDirectory = config.outputDirectory;
     this.ERROR = Paths.get(outputDirectory, "errors.csv");
     this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.csv");
@@ -92,7 +92,7 @@ public class Serializer {
   }
 
   /** Resets every file which will be re-generated in the new run of NullAway. */
-  private void reset(SerializationConfig config) {
+  private void reset(FixSerializationConfig config) {
     try {
       Files.createDirectories(Paths.get(config.outputDirectory));
       if (config.suggestEnabled) {

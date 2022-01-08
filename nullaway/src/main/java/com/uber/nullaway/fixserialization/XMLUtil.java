@@ -77,12 +77,12 @@ public class XMLUtil {
   }
 
   /**
-   * Writes the {@link SerializationConfig} in {@code XML} format.
+   * Writes the {@link FixSerializationConfig} in {@code XML} format.
    *
    * @param config Config file to write.
    * @param path Path to write the config at.
    */
-  public static void writeInXMLFormat(SerializationConfig config, String path) {
+  public static void writeInXMLFormat(FixSerializationConfig config, String path) {
     DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
     try {
       DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
@@ -120,7 +120,7 @@ public class XMLUtil {
       StreamResult result = new StreamResult(new File(path));
       transformer.transform(source, result);
     } catch (Exception e) {
-      System.err.println("Error happened in writing config." + e);
+      throw new RuntimeException("Error happened in writing config." + e);
     }
   }
 

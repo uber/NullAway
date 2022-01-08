@@ -54,7 +54,7 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.fixserialization.FixLocation;
-import com.uber.nullaway.fixserialization.SerializationConfig;
+import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
@@ -504,7 +504,7 @@ public class ErrorBuilder {
    */
   public void serializeFixSuggestion(VisitorState state, Symbol target, ErrorMessage errorMessage) {
     // Skip if element has an explicit @Nonnull annotation.
-    SerializationConfig serializationConfig = config.getSerializationConfig();
+    FixSerializationConfig serializationConfig = config.getSerializationConfig();
     if (Nullness.hasNonNullAnnotation(target, config)) {
       return;
     }

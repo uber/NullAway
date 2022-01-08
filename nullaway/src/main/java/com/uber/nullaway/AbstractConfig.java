@@ -28,7 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.fixserialization.SerializationConfig;
+import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -119,11 +119,11 @@ public abstract class AbstractConfig implements Config {
   /**
    * If active, NullAway will write all reporting errors in output directory. The output directory
    * along the activation status of other serialization features are stored in {@link
-   * SerializationConfig}.
+   * FixSerializationConfig}.
    */
   protected boolean serializationActivationFlag;
 
-  protected SerializationConfig serializationConfig;
+  protected FixSerializationConfig fixSerializationConfig;
 
   @Override
   public boolean serializationIsActive() {
@@ -131,8 +131,8 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public SerializationConfig getSerializationConfig() {
-    return serializationConfig;
+  public FixSerializationConfig getSerializationConfig() {
+    return fixSerializationConfig;
   }
 
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {

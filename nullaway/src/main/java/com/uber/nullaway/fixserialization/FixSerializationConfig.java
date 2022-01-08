@@ -33,7 +33,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import org.w3c.dom.Document;
 
 /** Config class for Fix Serialization package. */
-public class SerializationConfig {
+public class FixSerializationConfig {
 
   /**
    * If activated, for all reported errors, NullAway will serialize information and suggests type
@@ -54,7 +54,7 @@ public class SerializationConfig {
 
   public final Serializer serializer;
 
-  public SerializationConfig() {
+  public FixSerializationConfig() {
     suggestEnabled = false;
     suggestEnclosing = false;
     annotationFactory = new AnnotationFactory();
@@ -62,7 +62,7 @@ public class SerializationConfig {
     serializer = null;
   }
 
-  public SerializationConfig(
+  public FixSerializationConfig(
       boolean suggestEnabled,
       boolean suggestEnclosing,
       AnnotationFactory annotationFactory,
@@ -79,7 +79,7 @@ public class SerializationConfig {
    *
    * @param configFilePath Path to the serialization config file written in xml.
    */
-  public SerializationConfig(String configFilePath) {
+  public FixSerializationConfig(String configFilePath) {
     Preconditions.checkNotNull(configFilePath);
     Document document;
     try {
@@ -165,12 +165,12 @@ public class SerializationConfig {
      * @param path path to write the config file.
      */
     public void writeAsXMLat(String path) {
-      SerializationConfig config = this.build();
+      FixSerializationConfig config = this.build();
       XMLUtil.writeInXMLFormat(config, path);
     }
 
-    public SerializationConfig build() {
-      return new SerializationConfig(
+    public FixSerializationConfig build() {
+      return new FixSerializationConfig(
           suggestEnabled, suggestEnclosing, new AnnotationFactory(nullable, nonnull), outputDir);
     }
   }
