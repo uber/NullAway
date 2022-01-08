@@ -222,7 +222,13 @@ public class NullAway extends BugChecker
    */
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
-  private final Class<?> moduleElementClass;
+  /**
+   * Used to check if a symbol represents a module in {@link #matchMemberSelect(MemberSelectTree,
+   * VisitorState)}. We need to use reflection to preserve compatibility with Java 8.
+   *
+   * <p>TODO remove this once NullAway requires JDK 11
+   */
+  @Nullable private final Class<?> moduleElementClass;
 
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
@@ -442,9 +448,9 @@ public class NullAway extends BugChecker
     }
     Symbol symbol = ASTHelpers.getSymbol(tree);
     // Some checks for cases where we know this cannot be a null dereference.  The tree's symbol may
-    // be null in cases where the tree represents a package name, e.g., in the package declaration
-    // in a class, or in a requires clause in a module-info.java file; it should never be null for a
-    // real field dereference or method call
+    // be null in cases where the tree represents part of a package name, e.g., in the package
+    // declaration in a class, or in a requires clause in a module-info.java file; it should never
+    // be null for a real field dereference or method call
     if (symbol == null
         || symbol.getSimpleName().toString().equals("class")
         || symbol.isEnum()
@@ -464,6 +470,11 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
+  /**
+   * Checks if {@code symbol} represents a JDK 9+ module using reflection.
+   *
+   * <p>TODO just check using instanceof once NullAway requires JDK 11
+   */
   private boolean isModuleSymbol(Symbol symbol) {
     return moduleElementClass != null && moduleElementClass.isAssignableFrom(symbol.getClass());
   }
