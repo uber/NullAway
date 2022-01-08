@@ -18,6 +18,7 @@ package com.uber.nullaway.dataflow;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Sets.intersection;
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.collect.ImmutableMap;
 import com.sun.tools.javac.code.Types;
@@ -209,7 +210,6 @@ public class NullnessStore implements Store<NullnessStore> {
    *     variables in the domain of {@code localVarTranslations}, with each access path re-rooted to
    *     be relative to the corresponding local variable in the co-domain of the map.
    */
-  @SuppressWarnings("NullAway") // keySet issues
   public NullnessStore uprootAccessPaths(
       Map<LocalVariableNode, LocalVariableNode> localVarTranslations) {
     NullnessStore.Builder nullnessBuilder = NullnessStore.empty().toBuilder();
@@ -220,10 +220,10 @@ public class NullnessStore implements Store<NullnessStore> {
       Element varElement = ap.getRoot().getVarElement();
       for (LocalVariableNode fromVar : localVarTranslations.keySet()) {
         if (varElement.equals(fromVar.getElement())) {
-          LocalVariableNode toVar = localVarTranslations.get(fromVar);
+          LocalVariableNode toVar = castToNonNull(localVarTranslations.get(fromVar));
           AccessPath newAP =
               new AccessPath(new AccessPath.Root(toVar.getElement()), ap.getElements());
-          nullnessBuilder.setInformation(newAP, contents.get(ap));
+          nullnessBuilder.setInformation(newAP, castToNonNull(contents.get(ap)));
         }
       }
     }

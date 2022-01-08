@@ -109,6 +109,7 @@ if (JavaVersion.current() >= JavaVersion.VERSION_11) {
         options.errorprone.enabled = true
         options.errorprone {
             option("NullAway:AnnotatedPackages", "com.uber,org.checkerframework.nullaway")
+            option("NullAway:CastToNonNullMethod", "com.uber.nullaway.NullabilityUtil.castToNonNull")
             option("NullAway:CheckOptionalEmptiness")
             option("NullAway:AcknowledgeRestrictiveAnnotations")
         }
