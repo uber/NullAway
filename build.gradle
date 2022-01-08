@@ -76,7 +76,6 @@ subprojects { project ->
     repositories {
         mavenCentral()
         google()
-        mavenLocal()
     }
 
 }
