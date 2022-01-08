@@ -37,7 +37,7 @@ public abstract class NullnessStoreInitializer {
    */
   public abstract NullnessStore getInitialStore(
       UnderlyingAST underlyingAST,
-      List<LocalVariableNode> parameters,
+      @Nullable List<LocalVariableNode> parameters,
       Handler handler,
       Context context,
       Types types,

@@ -39,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import javax.annotation.CheckReturnValue;
+import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.analysis.ConditionalTransferResult;
@@ -192,7 +193,7 @@ public class AccessPathNullnessPropagation
 
   @Override
   public NullnessStore initialStore(
-      UnderlyingAST underlyingAST, List<LocalVariableNode> parameters) {
+      UnderlyingAST underlyingAST, @Nullable List<LocalVariableNode> parameters) {
     return nullnessStoreInitializer.getInitialStore(
         underlyingAST, parameters, handler, context, types, config);
   }

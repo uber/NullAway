@@ -106,13 +106,15 @@ public final class DataFlow {
                     LambdaExpressionTree lambdaExpressionTree =
                         (LambdaExpressionTree) codePath.getLeaf();
                     MethodTree enclMethod =
-                        ASTHelpers.findEnclosingNode(codePath, MethodTree.class);
-                    ClassTree enclClass = ASTHelpers.findEnclosingNode(codePath, ClassTree.class);
+                        castToNonNull(ASTHelpers.findEnclosingNode(codePath, MethodTree.class));
+                    ClassTree enclClass =
+                        castToNonNull(ASTHelpers.findEnclosingNode(codePath, ClassTree.class));
                     ast = new UnderlyingAST.CFGLambda(lambdaExpressionTree, enclClass, enclMethod);
                     bodyPath = new TreePath(codePath, lambdaExpressionTree.getBody());
                   } else if (codePath.getLeaf() instanceof MethodTree) {
                     MethodTree method = (MethodTree) codePath.getLeaf();
-                    ClassTree enclClass = ASTHelpers.findEnclosingNode(codePath, ClassTree.class);
+                    ClassTree enclClass =
+                        castToNonNull(ASTHelpers.findEnclosingNode(codePath, ClassTree.class));
                     ast = new UnderlyingAST.CFGMethod(method, enclClass);
                     BlockTree body = method.getBody();
                     if (body == null) {
@@ -213,6 +215,7 @@ public final class DataFlow {
    * @param <T> transfer function type
    * @return dataflow result at exit of method
    */
+  @Nullable
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       S finalResult(TreePath path, Context context, T transfer) {
     final Tree leaf = path.getLeaf();
