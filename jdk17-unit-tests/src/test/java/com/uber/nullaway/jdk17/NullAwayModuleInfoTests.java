@@ -36,6 +36,7 @@ public class NullAwayModuleInfoTests {
         .addSourceLines(
             "module-info.java",
             "module com.uber.mymodule {",
+            "  requires java.base;",
             "  requires static org.checkerframework.checker.qual;",
             "}")
         .doTest();

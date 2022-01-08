@@ -222,6 +222,8 @@ public class NullAway extends BugChecker
    */
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
+  private final Class<?> moduleElementClass;
+
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
@@ -233,6 +235,7 @@ public class NullAway extends BugChecker
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
+    moduleElementClass = null;
   }
 
   public NullAway(ErrorProneFlags flags) {
@@ -240,6 +243,14 @@ public class NullAway extends BugChecker
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames());
+    Class<?> moduleElementClass = null;
+    try {
+      moduleElementClass =
+          getClass().getClassLoader().loadClass("javax.lang.model.element.ModuleElement");
+    } catch (ClassNotFoundException e) {
+      // can occur pre JDK 11
+    }
+    this.moduleElementClass = moduleElementClass;
   }
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
@@ -434,7 +445,10 @@ public class NullAway extends BugChecker
     // be null in cases where the tree represents a package name, e.g., in the package declaration
     // in a class, or in a requires clause in a module-info.java file; it should never be null for a
     // real field dereference or method call
-    if (symbol == null || symbol.getSimpleName().toString().equals("class") || symbol.isEnum()) {
+    if (symbol == null
+        || symbol.getSimpleName().toString().equals("class")
+        || symbol.isEnum()
+        || isModuleSymbol(symbol)) {
       return Description.NO_MATCH;
     }
 
@@ -448,6 +462,10 @@ public class NullAway extends BugChecker
       return checkForReadBeforeInit(tree, state);
     }
     return Description.NO_MATCH;
+  }
+
+  private boolean isModuleSymbol(Symbol symbol) {
+    return moduleElementClass != null && moduleElementClass.isAssignableFrom(symbol.getClass());
   }
 
   @Override
@@ -1931,12 +1949,18 @@ public class NullAway extends BugChecker
         exprMayBeNull = false;
         break;
       case MEMBER_SELECT:
-        // A MemberSelectTree for a field dereference or method call cannot have a null symbol; see
-        // comments in matchMemberSelect()
-        exprMayBeNull = exprSymbol == null ? false : mayBeNullFieldAccess(state, expr, exprSymbol);
+        if (exprSymbol == null) {
+          throw new IllegalStateException(
+              "unexpected null symbol for dereference expression " + state.getSourceForNode(expr));
+        }
+        exprMayBeNull = mayBeNullFieldAccess(state, expr, exprSymbol);
         break;
       case IDENTIFIER:
-        if (exprSymbol != null && exprSymbol.getKind().equals(ElementKind.FIELD)) {
+        if (exprSymbol == null) {
+          throw new IllegalStateException(
+              "unexpected null symbol for identifier " + state.getSourceForNode(expr));
+        }
+        if (exprSymbol.getKind().equals(ElementKind.FIELD)) {
           // Special case: mayBeNullFieldAccess runs handler.onOverrideMayBeNullExpr before
           // dataflow.
           return mayBeNullFieldAccess(state, expr, exprSymbol);
