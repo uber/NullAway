@@ -75,13 +75,11 @@ public class Serializer {
 
   /** Cleared the content of the file if exists and writes the header in the first line. */
   private void initializeFile(Path path, String header) {
-    try {
+    try (OutputStream os = new FileOutputStream(path.toFile()); ) {
       Files.deleteIfExists(path);
-      OutputStream os = new FileOutputStream(path.toFile());
       header += "\n";
       os.write(header.getBytes(Charset.defaultCharset()), 0, header.length());
       os.flush();
-      os.close();
     } catch (IOException e) {
       throw new RuntimeException(
           "Could not finish resetting File at Path: " + path + ", Exception: " + e);
@@ -102,6 +100,9 @@ public class Serializer {
   }
 
   private void appendToFile(String row, Path path) {
+    // Since there is no method available in API of either javac or errorprone to inform NullAway
+    // that the analysis is finished, we cannot open a single stream and flush it within a finalize
+    // method. Must open and close a new stream everytime we are appending a new line to a file.
     if (row == null || row.equals("")) {
       return;
     }
