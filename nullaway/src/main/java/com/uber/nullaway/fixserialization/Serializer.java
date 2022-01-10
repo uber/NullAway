@@ -102,16 +102,13 @@ public class Serializer {
   }
 
   private void appendToFile(String row, Path path) {
-    OutputStream os;
     if (row == null || row.equals("")) {
       return;
     }
     row = row.replaceAll("\\R+", " ") + "\n";
-    try {
-      os = new FileOutputStream(path.toFile(), true);
+    try (OutputStream os = new FileOutputStream(path.toFile(), true)) {
       os.write(row.getBytes(Charset.defaultCharset()), 0, row.length());
       os.flush();
-      os.close();
     } catch (Exception e) {
       System.err.println("Error happened for writing at file: " + path);
     }
