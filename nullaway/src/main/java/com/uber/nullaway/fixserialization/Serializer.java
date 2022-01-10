@@ -47,7 +47,7 @@ public class Serializer {
     String outputDirectory = config.outputDirectory;
     this.ERROR = Paths.get(outputDirectory, "errors.tsv");
     this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.tsv");
-    reset(config);
+    initializeOutputFiles(config);
   }
 
   /**
@@ -74,7 +74,7 @@ public class Serializer {
   }
 
   /** Cleared the content of the file if exists and writes the header in the first line. */
-  private void resetFile(Path path, String header) {
+  private void initializeFile(Path path, String header) {
     try {
       Files.deleteIfExists(path);
       OutputStream os = new FileOutputStream(path.toFile());
@@ -88,14 +88,14 @@ public class Serializer {
     }
   }
 
-  /** Resets every file which will be re-generated in the new run of NullAway. */
-  private void reset(FixSerializationConfig config) {
+  /** Initializes every file which will be re-generated in the new run of NullAway. */
+  private void initializeOutputFiles(FixSerializationConfig config) {
     try {
       Files.createDirectories(Paths.get(config.outputDirectory));
       if (config.suggestEnabled) {
-        resetFile(SUGGEST_FIX, SuggestedFixInfo.header());
+        initializeFile(SUGGEST_FIX, SuggestedFixInfo.header());
       }
-      resetFile(ERROR, ErrorInfo.header());
+      initializeFile(ERROR, ErrorInfo.header());
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting serializer: " + e);
     }
