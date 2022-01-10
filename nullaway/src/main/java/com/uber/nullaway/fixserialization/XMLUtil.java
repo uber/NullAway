@@ -50,13 +50,13 @@ public class XMLUtil {
    * @param klass Class type of the value in doc.
    * @return The value in the specified keychain cast to the class type given in parameter.
    */
-  public static <T> OrElse<T> getValueFromAttribute(
+  public static <T> DefaultXMLValueProvider<T> getValueFromAttribute(
       Document doc, String key, String attr, Class<T> klass) {
     Node node = getNodeFromDocument(doc, key);
     if (node == null) {
-      return new OrElse<>(null, klass);
+      return new DefaultXMLValueProvider<>(null, klass);
     }
-    return new OrElse<>(node.getAttributes().getNamedItem(attr), klass);
+    return new DefaultXMLValueProvider<>(node.getAttributes().getNamedItem(attr), klass);
   }
 
   /**
@@ -68,12 +68,13 @@ public class XMLUtil {
    * @param klass Class type of the value in doc.
    * @return The value in the specified keychain cast to the class type given in parameter.
    */
-  public static <T> OrElse<T> getValueFromTag(Document doc, String key, Class<T> klass) {
+  public static <T> DefaultXMLValueProvider<T> getValueFromTag(
+      Document doc, String key, Class<T> klass) {
     Node node = getNodeFromDocument(doc, key);
     if (node == null) {
-      return new OrElse<>(null, klass);
+      return new DefaultXMLValueProvider<>(null, klass);
     }
-    return new OrElse<>(node, klass);
+    return new DefaultXMLValueProvider<>(node, klass);
   }
 
   /**
@@ -165,11 +166,11 @@ public class XMLUtil {
   }
 
   /** Helper class for setting default values when the key is not found. */
-  static class OrElse<T> {
+  static class DefaultXMLValueProvider<T> {
     final Object value;
     final Class<T> klass;
 
-    OrElse(Node value, Class<T> klass) {
+    DefaultXMLValueProvider(Node value, Class<T> klass) {
       this.klass = klass;
       if (value == null) {
         this.value = null;

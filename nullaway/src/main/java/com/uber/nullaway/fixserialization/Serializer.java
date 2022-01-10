@@ -75,8 +75,12 @@ public class Serializer {
 
   /** Cleared the content of the file if exists and writes the header in the first line. */
   private void initializeFile(Path path, String header) {
-    try (OutputStream os = new FileOutputStream(path.toFile()); ) {
+    try {
       Files.deleteIfExists(path);
+    } catch (IOException e) {
+      throw new RuntimeException("Could not clear file at: " + path);
+    }
+    try (OutputStream os = new FileOutputStream(path.toFile())) {
       header += "\n";
       os.write(header.getBytes(Charset.defaultCharset()), 0, header.length());
       os.flush();
