@@ -25,10 +25,9 @@ package com.uber.nullaway.fixserialization.out;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.fixserialization.SeparatedValueDisplay;
 
 /** Stores information regarding an error which will be reported by NullAway. */
-public class ErrorInfo extends EnclosingNode implements SeparatedValueDisplay {
+public class ErrorInfo extends EnclosingNode {
 
   public final ErrorMessage errorMessage;
 
@@ -37,25 +36,28 @@ public class ErrorInfo extends EnclosingNode implements SeparatedValueDisplay {
     this.errorMessage = errorMessage;
   }
 
-  @Override
-  public String toStringWithDelimiter(String delimiter) {
+  /**
+   * returns string representation of content of an object.
+   *
+   * @return string representation of contents of an object in a line seperated by tabs.
+   */
+  public String tabSeparatedToString() {
     return errorMessage.getMessageType().toString()
-        + delimiter
+        + '\t'
         + errorMessage.getMessage()
-        + delimiter
+        + '\t'
         + (enclosingClass != null ? ASTHelpers.getSymbol(enclosingClass) : "null")
-        + delimiter
+        + '\t'
         + (enclosingMethod != null ? ASTHelpers.getSymbol(enclosingMethod) : "null");
   }
 
   /**
    * Creates header of an output file containing all {@link ErrorInfo} written in string which
-   * values are separated by the delimiter.
+   * values are separated tabs.
    *
-   * @param delimiter the delimiter.
-   * @return string representation of the header separated by the {@code delimiter}.
+   * @return string representation of the header separated by tabs.
    */
-  public static String header(String delimiter) {
-    return "MESSAGE_TYPE" + delimiter + "MESSAGE" + delimiter + "CLASS" + delimiter + "METHOD";
+  public static String header() {
+    return "MESSAGE_TYPE" + '\t' + "MESSAGE" + '\t' + "CLASS" + '\t' + "METHOD";
   }
 }

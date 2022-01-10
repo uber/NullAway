@@ -43,13 +43,10 @@ public class Serializer {
   /** Path to write suggested fix metadata. */
   public final Path SUGGEST_FIX;
 
-  /** Delimiter to separate values in a row. */
-  public final String DELIMITER = "$*$";
-
   public Serializer(FixSerializationConfig config) {
     String outputDirectory = config.outputDirectory;
-    this.ERROR = Paths.get(outputDirectory, "errors.csv");
-    this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.csv");
+    this.ERROR = Paths.get(outputDirectory, "errors.tsv");
+    this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.tsv");
     reset(config);
   }
 
@@ -63,7 +60,7 @@ public class Serializer {
     if (enclosing) {
       suggestedFixInfo.findEnclosing();
     }
-    appendToFile(suggestedFixInfo, SUGGEST_FIX);
+    appendToFile(suggestedFixInfo.tabSeparatedToString(), SUGGEST_FIX);
   }
 
   /**
@@ -73,7 +70,7 @@ public class Serializer {
    */
   public void serializeErrorInfo(ErrorInfo errorInfo) {
     errorInfo.findEnclosing();
-    appendToFile(errorInfo, ERROR);
+    appendToFile(errorInfo.tabSeparatedToString(), ERROR);
   }
 
   /** Cleared the content of the file if exists and writes the header in the first line. */
@@ -96,24 +93,23 @@ public class Serializer {
     try {
       Files.createDirectories(Paths.get(config.outputDirectory));
       if (config.suggestEnabled) {
-        resetFile(SUGGEST_FIX, SuggestedFixInfo.header(DELIMITER));
+        resetFile(SUGGEST_FIX, SuggestedFixInfo.header());
       }
-      resetFile(ERROR, ErrorInfo.header(DELIMITER));
+      resetFile(ERROR, ErrorInfo.header());
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting serializer: " + e);
     }
   }
 
-  private void appendToFile(SeparatedValueDisplay value, Path path) {
+  private void appendToFile(String row, Path path) {
     OutputStream os;
-    String display = value.toStringWithDelimiter(DELIMITER);
-    if (display == null || display.equals("")) {
+    if (row == null || row.equals("")) {
       return;
     }
-    display = display.replaceAll("\\R+", " ").replaceAll("\t", "") + "\n";
+    row = row.replaceAll("\\R+", " ") + "\n";
     try {
       os = new FileOutputStream(path.toFile(), true);
-      os.write(display.getBytes(Charset.defaultCharset()), 0, display.length());
+      os.write(row.getBytes(Charset.defaultCharset()), 0, row.length());
       os.flush();
       os.close();
     } catch (Exception e) {

@@ -41,7 +41,7 @@ public class SerializationTestHelper {
   private CompilationTestHelper compilationTestHelper;
 
   public SerializationTestHelper(Path outputPath) {
-    this.outputPath = outputPath.resolve("fixes.csv");
+    this.outputPath = outputPath.resolve("fixes.tsv");
   }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")
@@ -123,7 +123,7 @@ public class SerializationTestHelper {
       String line = reader.readLine();
       if (line != null) line = reader.readLine();
       while (line != null) {
-        FixDisplay fixDisplay = FixDisplay.fromStringWithDelimiter(line, "(\\$\\*\\$)");
+        FixDisplay fixDisplay = FixDisplay.fromStringWithDelimiter(line);
         fixDisplay.uri = fixDisplay.uri.substring(fixDisplay.uri.indexOf("com/uber/"));
         fixDisplays.add(fixDisplay);
         line = reader.readLine();

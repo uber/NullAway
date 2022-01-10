@@ -29,7 +29,7 @@ import java.net.URI;
 import javax.lang.model.element.ElementKind;
 
 /** Holds all the information to target a specific element in the source code. */
-public class FixLocation implements SeparatedValueDisplay {
+public class FixLocation {
 
   private final URI uri;
   private final Symbol.ClassSymbol enclosingClass;
@@ -106,39 +106,42 @@ public class FixLocation implements SeparatedValueDisplay {
     }
   }
 
-  @Override
-  public String toStringWithDelimiter(String delimiter) {
+  /**
+   * returns string representation of content of an object.
+   *
+   * @return string representation of contents of an object in a line seperated by tabs.
+   */
+  public String tabSeparatedToString() {
     return kind.label
-        + delimiter
+        + '\t'
         + enclosingClass.toString()
-        + delimiter
+        + '\t'
         + (enclosingMethod != null ? enclosingMethod.toString() : "null")
-        + delimiter
+        + '\t'
         + (variableSymbol != null ? variableSymbol.toString() : "null")
-        + delimiter
+        + '\t'
         + index
-        + delimiter
+        + '\t'
         + (uri != null ? uri.toASCIIString() : "null");
   }
 
   /**
    * Creates header of an output file containing all {@link FixLocation} written in string which
-   * values are separated by the delimiter.
+   * values are separated tabs.
    *
-   * @param delimiter the delimiter.
-   * @return string representation of the header separated by the {@code delimiter}.
+   * @return string representation of the header separated by tabs.
    */
-  public static String header(String delimiter) {
+  public static String header() {
     return "location"
-        + delimiter
+        + '\t'
         + "class"
-        + delimiter
+        + '\t'
         + "method"
-        + delimiter
+        + '\t'
         + "param"
-        + delimiter
+        + '\t'
         + "index"
-        + delimiter
+        + '\t'
         + "uri";
   }
 }

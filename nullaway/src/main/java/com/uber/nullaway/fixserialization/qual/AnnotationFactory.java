@@ -22,8 +22,6 @@
 
 package com.uber.nullaway.fixserialization.qual;
 
-import com.uber.nullaway.fixserialization.SeparatedValueDisplay;
-
 /** Container object of any {@code @Nonnull} and {@code @Nullable} annotations. */
 public class AnnotationFactory {
 
@@ -31,7 +29,7 @@ public class AnnotationFactory {
   private Annotation nullable;
 
   /** Container object of annotation. */
-  public static class Annotation implements SeparatedValueDisplay {
+  public static class Annotation {
     /** Simple name. */
     public String name;
     /** Fully qualified name. */
@@ -43,8 +41,12 @@ public class AnnotationFactory {
       this.name = paths[paths.length - 1];
     }
 
-    @Override
-    public String toStringWithDelimiter(String delimiter) {
+    /**
+     * returns string representation of content of an object.
+     *
+     * @return string representation of contents of an object in a line seperated by tabs.
+     */
+    public String tabSeparatedToString() {
       return fullName;
     }
   }

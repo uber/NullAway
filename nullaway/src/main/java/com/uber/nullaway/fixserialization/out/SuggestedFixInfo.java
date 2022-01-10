@@ -26,12 +26,11 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.FixLocation;
-import com.uber.nullaway.fixserialization.SeparatedValueDisplay;
 import com.uber.nullaway.fixserialization.qual.AnnotationFactory;
 import java.util.Objects;
 
 /** Stores information suggesting a type change of an element in source code. */
-public class SuggestedFixInfo extends EnclosingNode implements SeparatedValueDisplay {
+public class SuggestedFixInfo extends EnclosingNode {
 
   /** FixLocation of the target element in source code. */
   private final FixLocation fixLocation;
@@ -68,35 +67,38 @@ public class SuggestedFixInfo extends EnclosingNode implements SeparatedValueDis
     return Objects.hash(fixLocation, annotation, errorMessage.getMessageType().toString());
   }
 
-  @Override
-  public String toStringWithDelimiter(String delimiter) {
-    return fixLocation.toStringWithDelimiter(delimiter)
-        + delimiter
+  /**
+   * returns string representation of content of an object.
+   *
+   * @return string representation of contents of an object in a line seperated by tabs.
+   */
+  public String tabSeparatedToString() {
+    return fixLocation.tabSeparatedToString()
+        + '\t'
         + (errorMessage == null ? "Undefined" : errorMessage.getMessageType().toString())
-        + delimiter
-        + annotation.toStringWithDelimiter(delimiter)
-        + delimiter
+        + '\t'
+        + annotation.tabSeparatedToString()
+        + '\t'
         + (enclosingClass == null ? "null" : ASTHelpers.getSymbol(enclosingClass))
-        + delimiter
+        + '\t'
         + (enclosingMethod == null ? "null" : ASTHelpers.getSymbol(enclosingMethod));
   }
 
   /**
    * Creates header of an output file containing all {@link SuggestedFixInfo} written in string
-   * which values are separated by the delimiter.
+   * which values are separated by tabs.
    *
-   * @param delimiter the delimiter.
-   * @return string representation of the header separated by the {@code delimiter}.
+   * @return string representation of the header separated by tabs.
    */
-  public static String header(String delimiter) {
-    return FixLocation.header(delimiter)
-        + delimiter
+  public static String header() {
+    return FixLocation.header()
+        + '\t'
         + "reason"
-        + delimiter
+        + '\t'
         + "annotation"
-        + delimiter
+        + '\t'
         + "rootClass"
-        + delimiter
+        + '\t'
         + "rootMethod";
   }
 }

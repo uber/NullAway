@@ -90,8 +90,8 @@ public class FixDisplay {
     return Objects.hash(annotation, method, param, location, className, uri);
   }
 
-  public static FixDisplay fromStringWithDelimiter(String line, String delimiter) {
-    String[] infos = line.split(delimiter);
+  public static FixDisplay fromStringWithDelimiter(String line) {
+    String[] infos = line.split("\\t");
     return new FixDisplay(infos[7], infos[2], infos[3], infos[0], infos[1], infos[5]);
   }
 }
