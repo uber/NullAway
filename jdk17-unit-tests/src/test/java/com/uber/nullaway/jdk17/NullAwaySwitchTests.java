@@ -156,4 +156,22 @@ public class NullAwaySwitchTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testSwitchExprLambda() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SwitchExpr.java",
+            "package com.uber;",
+            "import java.util.function.Function;",
+            "class SwitchExpr {",
+            "  int i;",
+            "  public void testSwitchExprLambda() {",
+            "    // Here we just test to make sure there is no crash.  We need better",
+            "    // generics support to do a more substantive test.",
+            "    Function<SwitchExpr,Object> f = (s) -> switch (s.i) { case 3, 4, 5 -> new Object(); default -> \"hello\"; };",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
