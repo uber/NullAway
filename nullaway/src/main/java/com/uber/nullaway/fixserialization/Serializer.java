@@ -39,14 +39,14 @@ import java.nio.file.Paths;
  */
 public class Serializer {
   /** Path to write errors. */
-  public final Path ERROR;
+  public final Path errorOutputPath;
   /** Path to write suggested fix metadata. */
-  public final Path SUGGEST_FIX;
+  public final Path suggestedFixesOutputPath;
 
   public Serializer(FixSerializationConfig config) {
     String outputDirectory = config.outputDirectory;
-    this.ERROR = Paths.get(outputDirectory, "errors.tsv");
-    this.SUGGEST_FIX = Paths.get(outputDirectory, "fixes.tsv");
+    this.errorOutputPath = Paths.get(outputDirectory, "errors.tsv");
+    this.suggestedFixesOutputPath = Paths.get(outputDirectory, "fixes.tsv");
     initializeOutputFiles(config);
   }
 
@@ -60,7 +60,7 @@ public class Serializer {
     if (enclosing) {
       suggestedFixInfo.findEnclosing();
     }
-    appendToFile(suggestedFixInfo.tabSeparatedToString(), SUGGEST_FIX);
+    appendToFile(suggestedFixInfo.tabSeparatedToString(), suggestedFixesOutputPath);
   }
 
   /**
@@ -70,7 +70,7 @@ public class Serializer {
    */
   public void serializeErrorInfo(ErrorInfo errorInfo) {
     errorInfo.findEnclosing();
-    appendToFile(errorInfo.tabSeparatedToString(), ERROR);
+    appendToFile(errorInfo.tabSeparatedToString(), errorOutputPath);
   }
 
   /** Cleared the content of the file if exists and writes the header in the first line. */
@@ -93,9 +93,9 @@ public class Serializer {
     try {
       Files.createDirectories(Paths.get(config.outputDirectory));
       if (config.suggestEnabled) {
-        initializeFile(SUGGEST_FIX, SuggestedFixInfo.header());
+        initializeFile(suggestedFixesOutputPath, SuggestedFixInfo.header());
       }
-      initializeFile(ERROR, ErrorInfo.header());
+      initializeFile(errorOutputPath, ErrorInfo.header());
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting serializer: " + e);
     }
