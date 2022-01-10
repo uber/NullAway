@@ -3227,4 +3227,36 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testMapGetChainWithCast() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Constants.java",
+            "package com.uber;",
+            "public class Constants {",
+            "   public static final String KEY_1 = \"key1\";",
+            "   public static final String KEY_2 = \"key2\";",
+            "   public static final String KEY_3 = \"key3\";",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "class Test {",
+            "   boolean withoutCast(Map<String, Map<String, Map<String, Object>>> topLevelMap){",
+            "     return topLevelMap.get(Constants.KEY_1) == null ",
+            "       || topLevelMap.get(Constants.KEY_1).get(Constants.KEY_2) == null",
+            "       || topLevelMap.get(Constants.KEY_1).get(Constants.KEY_2).get(Constants.KEY_3) == null;",
+            "   }",
+            "   boolean withCast(Map<String, Object> topLevelMap){",
+            "     return topLevelMap.get(Constants.KEY_1) == null ",
+            "       || ((Map<String,Object>) topLevelMap.get(Constants.KEY_1)).get(Constants.KEY_2) == null",
+            "       || ((Map<String,Object>) ",
+            "              ((Map<String,Object>) topLevelMap.get(Constants.KEY_1)).get(Constants.KEY_2))",
+            "                .get(Constants.KEY_3) == null;",
+            "   }",
+            "}")
+        .doTest();
+  }
 }
