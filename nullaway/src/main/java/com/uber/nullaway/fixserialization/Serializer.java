@@ -58,7 +58,7 @@ public class Serializer {
    */
   public void serializeSuggestedFixInfo(SuggestedFixInfo suggestedFixInfo, boolean enclosing) {
     if (enclosing) {
-      suggestedFixInfo.findEnclosing();
+      suggestedFixInfo.initEnclosing();
     }
     appendToFile(suggestedFixInfo.tabSeparatedToString(), suggestedFixesOutputPath);
   }
@@ -69,7 +69,7 @@ public class Serializer {
    * @param errorInfo ErrorMessage object.
    */
   public void serializeErrorInfo(ErrorInfo errorInfo) {
-    errorInfo.findEnclosing();
+    errorInfo.initEnclosing();
     appendToFile(errorInfo.tabSeparatedToString(), errorOutputPath);
   }
 

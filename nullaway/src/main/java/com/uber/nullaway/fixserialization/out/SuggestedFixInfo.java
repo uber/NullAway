@@ -31,7 +31,7 @@ import com.uber.nullaway.fixserialization.qual.AnnotationConfig;
 import java.util.Objects;
 
 /** Stores information suggesting a type change of an element in source code. */
-public class SuggestedFixInfo extends EnclosingNode {
+public class SuggestedFixInfo {
 
   /** FixLocation of the target element in source code. */
   private final FixLocation fixLocation;
@@ -40,12 +40,14 @@ public class SuggestedFixInfo extends EnclosingNode {
   /** Suggested annotation. */
   private final AnnotationConfig.Annotation annotation;
 
+  private final EnclosingClassAndMethodInfo enclosingInfo;
+
   public SuggestedFixInfo(
       TreePath path,
       FixLocation fixLocation,
       ErrorMessage errorMessage,
       AnnotationConfig.Annotation annotation) {
-    super(path);
+    this.enclosingInfo = new EnclosingClassAndMethodInfo(path);
     this.fixLocation = fixLocation;
     this.errorMessage = errorMessage;
     this.annotation = annotation;
@@ -80,9 +82,14 @@ public class SuggestedFixInfo extends EnclosingNode {
         + '\t'
         + annotation.tabSeparatedToString()
         + '\t'
-        + (enclosingClass == null ? "null" : ASTHelpers.getSymbol(enclosingClass))
+        + (enclosingInfo.clazz == null ? "null" : ASTHelpers.getSymbol(enclosingInfo.clazz))
         + '\t'
-        + (enclosingMethod == null ? "null" : ASTHelpers.getSymbol(enclosingMethod));
+        + (enclosingInfo.method == null ? "null" : ASTHelpers.getSymbol(enclosingInfo.method));
+  }
+
+  /** Finds the enclosing class and method of program point where triggered this type change. */
+  public void initEnclosing() {
+    enclosingInfo.findEnclosing();
   }
 
   /**

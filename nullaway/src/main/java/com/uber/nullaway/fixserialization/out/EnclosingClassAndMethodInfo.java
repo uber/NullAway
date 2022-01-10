@@ -28,35 +28,34 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 
-/** Nodes with this type, are surrounded in a method in source code. */
-public abstract class EnclosingNode {
-
-  /** Path to the Node in source code. */
+/** Container class of enclosing class nad method of the element. */
+public class EnclosingClassAndMethodInfo {
+  /** Path to the element in source code. */
   public final TreePath path;
 
   /**
    * Finding values for these properties is costly and are not needed by default, hence, they are
    * not {@code final} and are only initialized at request.
    */
-  protected MethodTree enclosingMethod;
+  protected MethodTree method;
 
-  protected ClassTree enclosingClass;
+  protected ClassTree clazz;
 
-  public EnclosingNode(TreePath path) {
+  public EnclosingClassAndMethodInfo(TreePath path) {
     this.path = path;
   }
 
-  /** Finds the enclosing class and enclosing method of this node. */
+  /** Finds the enclosing class and method according to {@code path}. */
   public void findEnclosing() {
-    enclosingMethod = ASTHelpers.findEnclosingNode(path, MethodTree.class);
-    enclosingClass = ASTHelpers.findEnclosingNode(path, ClassTree.class);
-    if (enclosingClass == null && path.getLeaf() instanceof ClassTree) {
-      enclosingClass = (ClassTree) path.getLeaf();
+    method = ASTHelpers.findEnclosingNode(path, MethodTree.class);
+    clazz = ASTHelpers.findEnclosingNode(path, ClassTree.class);
+    if (clazz == null && path.getLeaf() instanceof ClassTree) {
+      clazz = (ClassTree) path.getLeaf();
     }
-    if (enclosingMethod == null) {
+    if (method == null) {
       Tree methodTree = path.getLeaf();
       if (methodTree instanceof MethodTree) {
-        enclosingMethod = (MethodTree) methodTree;
+        method = (MethodTree) methodTree;
       }
     }
   }

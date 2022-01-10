@@ -27,12 +27,13 @@ import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
 
 /** Stores information regarding an error which will be reported by NullAway. */
-public class ErrorInfo extends EnclosingNode {
+public class ErrorInfo {
 
   public final ErrorMessage errorMessage;
+  private final EnclosingClassAndMethodInfo enclosingInfo;
 
   public ErrorInfo(TreePath path, ErrorMessage errorMessage) {
-    super(path);
+    this.enclosingInfo = new EnclosingClassAndMethodInfo(path);
     this.errorMessage = errorMessage;
   }
 
@@ -46,9 +47,14 @@ public class ErrorInfo extends EnclosingNode {
         + '\t'
         + errorMessage.getMessage()
         + '\t'
-        + (enclosingClass != null ? ASTHelpers.getSymbol(enclosingClass) : "null")
+        + (enclosingInfo.clazz != null ? ASTHelpers.getSymbol(enclosingInfo.clazz) : "null")
         + '\t'
-        + (enclosingMethod != null ? ASTHelpers.getSymbol(enclosingMethod) : "null");
+        + (enclosingInfo.method != null ? ASTHelpers.getSymbol(enclosingInfo.method) : "null");
+  }
+
+  /** Finds the enclosing class and method of program point where the error is reported. */
+  public void initEnclosing() {
+    enclosingInfo.findEnclosing();
   }
 
   /**
