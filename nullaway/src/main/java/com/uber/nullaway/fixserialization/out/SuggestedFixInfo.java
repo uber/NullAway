@@ -26,7 +26,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.FixLocation;
-import com.uber.nullaway.fixserialization.qual.AnnotationFactory;
+import com.uber.nullaway.fixserialization.qual.AnnotationConfig;
 import java.util.Objects;
 
 /** Stores information suggesting a type change of an element in source code. */
@@ -37,13 +37,13 @@ public class SuggestedFixInfo extends EnclosingNode {
   /** Error which will be resolved by this type change. */
   private final ErrorMessage errorMessage;
   /** Suggested annotation. */
-  private final AnnotationFactory.Annotation annotation;
+  private final AnnotationConfig.Annotation annotation;
 
   public SuggestedFixInfo(
       TreePath path,
       FixLocation fixLocation,
       ErrorMessage errorMessage,
-      AnnotationFactory.Annotation annotation) {
+      AnnotationConfig.Annotation annotation) {
     super(path);
     this.fixLocation = fixLocation;
     this.errorMessage = errorMessage;

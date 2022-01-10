@@ -23,7 +23,7 @@
 package com.uber.nullaway.fixserialization.qual;
 
 /** Container object of any {@code @Nonnull} and {@code @Nullable} annotations. */
-public class AnnotationFactory {
+public class AnnotationConfig {
 
   private Annotation nonNull;
   private Annotation nullable;
@@ -51,11 +51,11 @@ public class AnnotationFactory {
     }
   }
 
-  public AnnotationFactory() {
+  public AnnotationConfig() {
     setFullNames("javax.annotation.Nonnull", "javax.annotation.Nullable");
   }
 
-  public AnnotationFactory(String nullable, String nonNull) {
+  public AnnotationConfig(String nullable, String nonNull) {
     this();
     if (nullable == null || nullable.equals("") || nonNull == null || nonNull.equals("")) return;
     setFullNames(nonNull, nullable);

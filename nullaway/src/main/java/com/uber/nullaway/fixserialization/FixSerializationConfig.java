@@ -24,7 +24,7 @@ package com.uber.nullaway.fixserialization;
 
 import com.google.common.base.Preconditions;
 import com.sun.source.util.Trees;
-import com.uber.nullaway.fixserialization.qual.AnnotationFactory;
+import com.uber.nullaway.fixserialization.qual.AnnotationConfig;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import javax.lang.model.element.Element;
@@ -50,14 +50,14 @@ public class FixSerializationConfig {
   /** The directory where all files generated/read by Fix Serialization package resides. */
   public final String outputDirectory;
 
-  public final AnnotationFactory annotationFactory;
+  public final AnnotationConfig annotationConfig;
 
   public final Serializer serializer;
 
   public FixSerializationConfig() {
     suggestEnabled = false;
     suggestEnclosing = false;
-    annotationFactory = new AnnotationFactory();
+    annotationConfig = new AnnotationConfig();
     outputDirectory = null;
     serializer = null;
   }
@@ -65,12 +65,12 @@ public class FixSerializationConfig {
   public FixSerializationConfig(
       boolean suggestEnabled,
       boolean suggestEnclosing,
-      AnnotationFactory annotationFactory,
+      AnnotationConfig annotationConfig,
       String outputDirectory) {
     this.suggestEnabled = suggestEnabled;
     this.suggestEnclosing = suggestEnclosing;
     this.outputDirectory = outputDirectory;
-    this.annotationFactory = annotationFactory;
+    this.annotationConfig = annotationConfig;
     serializer = new Serializer(this);
   }
 
@@ -108,7 +108,7 @@ public class FixSerializationConfig {
     String nonnullAnnot =
         XMLUtil.getValueFromTag(document, "serialization:annotation:nonnull", String.class)
             .orElse("javax.annotation.Nonnull");
-    this.annotationFactory = new AnnotationFactory(nullableAnnot, nonnullAnnot);
+    this.annotationConfig = new AnnotationConfig(nullableAnnot, nonnullAnnot);
     serializer = new Serializer(this);
   }
 
@@ -171,7 +171,7 @@ public class FixSerializationConfig {
 
     public FixSerializationConfig build() {
       return new FixSerializationConfig(
-          suggestEnabled, suggestEnclosing, new AnnotationFactory(nullable, nonnull), outputDir);
+          suggestEnabled, suggestEnclosing, new AnnotationConfig(nullable, nonnull), outputDir);
     }
   }
 }

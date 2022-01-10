@@ -540,7 +540,7 @@ public class ErrorBuilder {
                 path,
                 location,
                 errorMessage,
-                config.getSerializationConfig().annotationFactory.getNullable());
+                config.getSerializationConfig().annotationConfig.getNullable());
         break;
       default:
         throw new IllegalStateException(

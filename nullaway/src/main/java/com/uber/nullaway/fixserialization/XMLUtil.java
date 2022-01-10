@@ -101,9 +101,9 @@ public class XMLUtil {
       // Annotations
       Element annots = doc.createElement("annotation");
       Element nonnull = doc.createElement("nonnull");
-      nonnull.setTextContent(config.annotationFactory.getNonNull().fullName);
+      nonnull.setTextContent(config.annotationConfig.getNonNull().fullName);
       Element nullable = doc.createElement("nullable");
-      nullable.setTextContent(config.annotationFactory.getNullable().fullName);
+      nullable.setTextContent(config.annotationConfig.getNullable().fullName);
       annots.appendChild(nullable);
       annots.appendChild(nonnull);
       rootElement.appendChild(annots);
