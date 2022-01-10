@@ -26,7 +26,9 @@ package com.uber.nullaway.fixserialization.location;
 public interface FixLocation {
 
   /**
-   * returns string representation of contents of the instance.
+   * returns string representation of contents of the instance. It must have the format below: type
+   * of the element, symbol of the containing class, symbol of the enclosing method, symbol of the
+   * variable, index of the element and uri to containing file.
    *
    * @return string representation of contents in a line seperated by tabs.
    */

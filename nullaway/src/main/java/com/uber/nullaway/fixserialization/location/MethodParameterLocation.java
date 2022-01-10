@@ -29,12 +29,15 @@ import javax.lang.model.element.ElementKind;
 /** subtype of {@link AbstractFixLocation} targeting a method parameter. */
 public class MethodParameterLocation extends AbstractFixLocation {
 
+  /** Symbol of the targeted method. */
+  protected final Symbol.MethodSymbol enclosingMethod;
+  /** Symbol of the targeted method parameter. */
+  protected final Symbol.VarSymbol variableSymbol;
+  /** Index of the method parameter in the containing method's argument list. */
+  protected final int index;
+
   public MethodParameterLocation(Symbol target) {
     super(ElementKind.PARAMETER, target);
-  }
-
-  @Override
-  protected void initialize(Symbol target) {
     this.variableSymbol = (Symbol.VarSymbol) target;
     Symbol enclosingMethod = target;
     // Look for the enclosing method.
@@ -43,11 +46,27 @@ public class MethodParameterLocation extends AbstractFixLocation {
     }
     Preconditions.checkNotNull(enclosingMethod);
     this.enclosingMethod = (Symbol.MethodSymbol) enclosingMethod;
-    for (int i = 0; i < this.enclosingMethod.getParameters().size(); i++) {
+    int i;
+    for (i = 0; i < this.enclosingMethod.getParameters().size(); i++) {
       if (this.enclosingMethod.getParameters().get(i).equals(target)) {
-        index = String.valueOf(i);
         break;
       }
     }
+    index = i;
+  }
+
+  @Override
+  public String tabSeparatedToString() {
+    return type.toString()
+        + '\t'
+        + enclosingClass.toString()
+        + '\t'
+        + enclosingMethod
+        + '\t'
+        + variableSymbol
+        + '\t'
+        + index
+        + '\t'
+        + uri.toASCIIString();
   }
 }

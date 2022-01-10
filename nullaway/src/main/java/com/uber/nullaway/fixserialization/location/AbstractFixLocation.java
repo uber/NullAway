@@ -26,26 +26,17 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import java.net.URI;
-import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
 
 /** abstract base class for {@link FixLocation}. */
 public abstract class AbstractFixLocation implements FixLocation {
 
+  /** Element kind of the targeted symbol */
   protected final ElementKind type;
+  /** URI of the file containing the symbol. */
   protected final URI uri;
+  /** Enclosing class of the symbol. */
   protected final Symbol.ClassSymbol enclosingClass;
-  /**
-   * Symbol of the method if the target is either a method or a method parameter and null otherwise.
-   */
-  @Nullable protected Symbol.MethodSymbol enclosingMethod;
-  /**
-   * Symbol of the element if the target is either a class field or a method parameter and null
-   * otherwise.
-   */
-  @Nullable protected Symbol.VarSymbol variableSymbol;
-  /** Index of the element in String if target is a method argument and null otherwise. */
-  @Nullable protected String index = null;
 
   public AbstractFixLocation(ElementKind type, Symbol target) {
     Preconditions.checkArgument(
@@ -58,15 +49,7 @@ public abstract class AbstractFixLocation implements FixLocation {
     this.type = type;
     this.enclosingClass = ASTHelpers.enclosingClass(target);
     this.uri = enclosingClass.sourcefile.toUri();
-    this.initialize(target);
   }
-
-  /**
-   * initializes properties based on the type of the target.
-   *
-   * @param target Target element.
-   */
-  protected abstract void initialize(Symbol target);
 
   /**
    * returns the appropriate subtype of {@link FixLocation} based on the target kind.
@@ -105,25 +88,5 @@ public abstract class AbstractFixLocation implements FixLocation {
         + "index"
         + '\t'
         + "uri";
-  }
-
-  /**
-   * returns string representation of content of an object.
-   *
-   * @return string representation of contents of an object in a line seperated by tabs.
-   */
-  @Override
-  public String tabSeparatedToString() {
-    return type.toString()
-        + '\t'
-        + enclosingClass.toString()
-        + '\t'
-        + (enclosingMethod != null ? enclosingMethod.toString() : "null")
-        + '\t'
-        + (variableSymbol != null ? variableSymbol.toString() : "null")
-        + '\t'
-        + (index != null ? index : "null")
-        + '\t'
-        + uri.toASCIIString();
   }
 }

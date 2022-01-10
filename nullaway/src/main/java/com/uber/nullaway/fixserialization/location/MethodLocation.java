@@ -28,12 +28,26 @@ import javax.lang.model.element.ElementKind;
 /** subtype of {@link AbstractFixLocation} targeting methods. */
 public class MethodLocation extends AbstractFixLocation {
 
+  /** Symbol of the targeted method. */
+  protected final Symbol.MethodSymbol enclosingMethod;
+
   public MethodLocation(Symbol target) {
     super(ElementKind.METHOD, target);
+    enclosingMethod = (Symbol.MethodSymbol) target;
   }
 
   @Override
-  protected void initialize(Symbol target) {
-    enclosingMethod = (Symbol.MethodSymbol) target;
+  public String tabSeparatedToString() {
+    return type.toString()
+        + '\t'
+        + enclosingClass.toString()
+        + '\t'
+        + enclosingMethod
+        + '\t'
+        + "null"
+        + '\t'
+        + "null"
+        + '\t'
+        + uri.toASCIIString();
   }
 }
