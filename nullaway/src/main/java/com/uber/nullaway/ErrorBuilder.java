@@ -53,9 +53,10 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
-import com.uber.nullaway.fixserialization.FixLocation;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.Serializer;
+import com.uber.nullaway.fixserialization.location.AbstractFixLocation;
+import com.uber.nullaway.fixserialization.location.FixLocation;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 import java.util.Iterator;
@@ -512,7 +513,7 @@ public class ErrorBuilder {
     }
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
     if (serializationConfig.canFixElement(trees, target)) {
-      FixLocation location = new FixLocation(target);
+      FixLocation location = AbstractFixLocation.createFixLocationFromSymbol(target);
       SuggestedFixInfo suggestedFixInfo = buildFixMetadata(state.getPath(), errorMessage, location);
       Serializer serializer = serializationConfig.serializer;
       if (serializer != null) {

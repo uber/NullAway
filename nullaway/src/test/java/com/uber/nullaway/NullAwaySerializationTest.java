@@ -99,7 +99,7 @@ public class NullAwaySerializationTest {
                 "javax.annotation.Nullable",
                 "test(boolean)",
                 "null",
-                "METHOD_RETURN",
+                "METHOD",
                 "com.uber.SubClass",
                 "com/uber/SubClass.java"))
         .doTest();
@@ -144,7 +144,7 @@ public class NullAwaySerializationTest {
                 "javax.annotation.Nullable",
                 "test(boolean)",
                 "null",
-                "METHOD_RETURN",
+                "METHOD",
                 "com.uber.Super",
                 "com/uber/android/Super.java"))
         .doTest();
@@ -189,7 +189,7 @@ public class NullAwaySerializationTest {
                 "javax.annotation.Nullable",
                 "test(java.lang.Object)",
                 "o",
-                "METHOD_PARAM",
+                "PARAMETER",
                 "com.uber.SubClass",
                 "com/uber/test/SubClass.java"))
         .doTest();
@@ -224,7 +224,7 @@ public class NullAwaySerializationTest {
                 "javax.annotation.Nullable",
                 "test(int,java.lang.Object)",
                 "h",
-                "METHOD_PARAM",
+                "PARAMETER",
                 "com.uber.Super",
                 "com/uber/android/Super.java"))
         .doTest();
@@ -257,7 +257,7 @@ public class NullAwaySerializationTest {
                 "javax.annotation.Nullable",
                 "null",
                 "h",
-                "CLASS_FIELD",
+                "FIELD",
                 "com.uber.Super",
                 "com/uber/android/Super.java"))
         .doTest();
@@ -292,7 +292,7 @@ public class NullAwaySerializationTest {
                 "javax.annotation.Nullable",
                 "null",
                 "f",
-                "CLASS_FIELD",
+                "FIELD",
                 "com.uber.Super",
                 "com/uber/android/Super.java"))
         .doTest();
@@ -343,28 +343,28 @@ public class NullAwaySerializationTest {
                 "javax.annotation.Nullable",
                 "null",
                 "h",
-                "CLASS_FIELD",
+                "FIELD",
                 "com.uber.Super",
                 "com/uber/android/Super.java"),
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
                 "f",
-                "CLASS_FIELD",
+                "FIELD",
                 "com.uber.Super",
                 "com/uber/android/Super.java"),
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
                 "g",
-                "CLASS_FIELD",
+                "FIELD",
                 "com.uber.Super",
                 "com/uber/android/Super.java"),
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
                 "i",
-                "CLASS_FIELD",
+                "FIELD",
                 "com.uber.Super",
                 "com/uber/android/Super.java"))
         .doTest();
@@ -392,7 +392,7 @@ public class NullAwaySerializationTest {
                 "javax.annotation.Nullable",
                 "null",
                 "f",
-                "CLASS_FIELD",
+                "FIELD",
                 "com.uber.Super",
                 "com/uber/android/Super.java"))
         .doTest();
@@ -433,7 +433,7 @@ public class NullAwaySerializationTest {
                 "javax.annotation.Nullable",
                 "newStatement(T,java.util.ArrayList<T>,boolean,boolean)",
                 "lhs",
-                "METHOD_PARAM",
+                "PARAMETER",
                 "com.uber.Super",
                 "com/uber/Super.java"))
         .doTest();
