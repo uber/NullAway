@@ -23,6 +23,10 @@ plugins {
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
+configurations {
+    nullawayJar
+}
+
 dependencies {
     compileOnly deps.apt.autoValueAnnot
     annotationProcessor deps.apt.autoValue
@@ -53,6 +57,9 @@ dependencies {
     testImplementation deps.test.springBeans
     testImplementation deps.test.springContext
     testImplementation deps.test.grpcCore
+
+    // This ends up being resolved to the NullAway jar under nullaway/build/libs
+    nullawayJar "com.uber.nullaway:nullaway:$VERSION_NAME"
 }
 
 javadoc {
@@ -85,3 +92,31 @@ test {
 
 apply plugin: 'com.vanniktech.maven.publish'
 
+// Create a task to build NullAway with NullAway checking enabled
+// For some reason, this doesn't work on Java 8
+if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+    tasks.register('buildWithNullAway', JavaCompile) {
+        // Configure compilation to run with Error Prone and NullAway
+        source = sourceSets.main.java
+        classpath = sourceSets.main.compileClasspath
+        destinationDirectory = file("$buildDir/ignoredClasses")
+        def nullawayDeps = configurations.nullawayJar.asCollection()
+        options.annotationProcessorPath = files(
+                configurations.errorprone.asCollection(),
+                sourceSets.main.annotationProcessorPath,
+                nullawayDeps)
+        options.errorprone.enabled = true
+        options.errorprone {
+            option("NullAway:AnnotatedPackages", "com.uber")
+        }
+        // Make sure the jar has already been built
+        dependsOn 'jar'
+        // Check that the NullAway jar actually exists (without this,
+        // Gradle will run the compilation even if the jar doesn't exist)
+        doFirst {
+            nullawayDeps.forEach { f ->
+                assert f.exists()
+            }
+        }
+    }
+}
