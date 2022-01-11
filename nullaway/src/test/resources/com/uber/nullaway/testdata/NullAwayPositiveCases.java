@@ -283,6 +283,12 @@ public class NullAwayPositiveCases {
     arr.toString();
   }
 
+  static void onlyReportOneField(@Nullable Inner i) {
+    // BUG: Diagnostic contains: dereferenced expression
+    i.f1 = null;
+    i.toString();
+  }
+
   static void testCast(@Nullable Object o) {
     String x = (String) o;
     // BUG: Diagnostic contains: dereferenced expression

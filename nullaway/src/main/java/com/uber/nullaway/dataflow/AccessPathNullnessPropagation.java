@@ -505,7 +505,8 @@ public class AccessPathNullnessPropagation
     Nullness value = values(input).valueOfSubNode(node.getExpression());
     Node target = node.getTarget();
 
-    if (target instanceof LocalVariableNode) {
+    if (target instanceof LocalVariableNode
+        && !ASTHelpers.getType(target.getTree()).isPrimitive()) {
       updates.set((LocalVariableNode) target, value);
     }
 
@@ -518,8 +519,10 @@ public class AccessPathNullnessPropagation
       // here we still require an access of a field of this, or a static field
       FieldAccessNode fieldAccessNode = (FieldAccessNode) target;
       Node receiver = fieldAccessNode.getReceiver();
+      setNonnullIfAnalyzeable(updates, receiver);
       if ((receiver instanceof ThisNode || fieldAccessNode.isStatic())
-          && fieldAccessNode.getElement().getKind().equals(ElementKind.FIELD)) {
+          && fieldAccessNode.getElement().getKind().equals(ElementKind.FIELD)
+          && !ASTHelpers.getType(target.getTree()).isPrimitive()) {
         updates.set(fieldAccessNode, value);
       }
     }
