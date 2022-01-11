@@ -27,7 +27,7 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
 
-/** Container class of enclosing class nad method of the element. */
+/** Container class of enclosing class and method of the element. */
 public class EnclosingClassAndMethodInfo {
   /** Path to the element in source code. */
   public final TreePath path;
