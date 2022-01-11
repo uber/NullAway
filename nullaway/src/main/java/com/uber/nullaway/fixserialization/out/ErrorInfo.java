@@ -47,9 +47,13 @@ public class ErrorInfo {
         + '\t'
         + errorMessage.getMessage()
         + '\t'
-        + (enclosingInfo.clazz != null ? ASTHelpers.getSymbol(enclosingInfo.clazz) : "null")
+        + (enclosingInfo.getClazz() != null
+            ? ASTHelpers.getSymbol(enclosingInfo.getClazz())
+            : "null")
         + '\t'
-        + (enclosingInfo.method != null ? ASTHelpers.getSymbol(enclosingInfo.method) : "null");
+        + (enclosingInfo.getMethod() != null
+            ? ASTHelpers.getSymbol(enclosingInfo.getMethod())
+            : "null");
   }
 
   /** Finds the enclosing class and method of program point where the error is reported. */

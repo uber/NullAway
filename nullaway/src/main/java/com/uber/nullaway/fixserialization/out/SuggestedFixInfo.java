@@ -82,9 +82,13 @@ public class SuggestedFixInfo {
         + '\t'
         + annotation.tabSeparatedToString()
         + '\t'
-        + (enclosingInfo.clazz == null ? "null" : ASTHelpers.getSymbol(enclosingInfo.clazz))
+        + (enclosingInfo.getClazz() == null
+            ? "null"
+            : ASTHelpers.getSymbol(enclosingInfo.getClazz()))
         + '\t'
-        + (enclosingInfo.method == null ? "null" : ASTHelpers.getSymbol(enclosingInfo.method));
+        + (enclosingInfo.getMethod() == null
+            ? "null"
+            : ASTHelpers.getSymbol(enclosingInfo.getMethod()));
   }
 
   /** Finds the enclosing class and method of program point where triggered this type change. */

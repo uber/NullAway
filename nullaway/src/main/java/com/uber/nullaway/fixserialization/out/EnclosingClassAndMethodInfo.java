@@ -25,7 +25,6 @@ package com.uber.nullaway.fixserialization.out;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 
 /** Container class of enclosing class nad method of the element. */
@@ -37,9 +36,9 @@ public class EnclosingClassAndMethodInfo {
    * Finding values for these properties is costly and are not needed by default, hence, they are
    * not {@code final} and are only initialized at request.
    */
-  protected MethodTree method;
+  private MethodTree method;
 
-  protected ClassTree clazz;
+  private ClassTree clazz;
 
   public EnclosingClassAndMethodInfo(TreePath path) {
     this.path = path;
@@ -52,11 +51,16 @@ public class EnclosingClassAndMethodInfo {
     if (clazz == null && path.getLeaf() instanceof ClassTree) {
       clazz = (ClassTree) path.getLeaf();
     }
-    if (method == null) {
-      Tree methodTree = path.getLeaf();
-      if (methodTree instanceof MethodTree) {
-        method = (MethodTree) methodTree;
-      }
+    if (method == null && path.getLeaf() instanceof MethodTree) {
+      method = (MethodTree) path.getLeaf();
     }
+  }
+
+  public MethodTree getMethod() {
+    return method;
+  }
+
+  public ClassTree getClazz() {
+    return clazz;
   }
 }
