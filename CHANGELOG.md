@@ -1,5 +1,16 @@
 Changelog
 =========
+Version 0.9.5
+-------------
+* JDK17 support improvements:
+  - Fix crash with switch expression as a lambda body (#543, follow up: #545)
+  - Better fix for crash on member selects inside module-info.java (#544)
+* Bump Guava dependency to 24.1.1 (#536)
+* Build / CI tooling for NullAway itself:
+  - Bump AutoValue and AutoService versions (#538)
+  - Add task to run NullAway on itself (#542)
+  - Add test case for unsound map reassignment handling (#541)
+
 Version 0.9.4
 -------------
 * Fix crash with fully-qualified names in module-info.java import (#534)

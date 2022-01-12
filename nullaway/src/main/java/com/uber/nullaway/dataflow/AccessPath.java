@@ -53,6 +53,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 import org.checkerframework.nullaway.dataflow.cfg.node.StringLiteralNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.SuperNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ThisNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode;
 import org.checkerframework.nullaway.javacutil.TreeUtils;
@@ -251,6 +252,13 @@ public final class AccessPath implements MapKey {
     return fromMapGetCall(node, apContext);
   }
 
+  private static Node stripCasts(Node node) {
+    while (node instanceof TypeCastNode) {
+      node = ((TypeCastNode) node).getOperand();
+    }
+    return node;
+  }
+
   @Nullable
   private static MapKey argumentToMapKeySpecifier(Node argument, AccessPathContext apContext) {
     // Required to have Node type match Tree type in some instances.
@@ -267,13 +275,13 @@ public final class AccessPath implements MapKey {
         return new NumericMapKey(((LongLiteralNode) argument).getValue());
       case METHOD_INVOCATION:
         MethodAccessNode target = ((MethodInvocationNode) argument).getTarget();
+        Node receiver = stripCasts(target.getReceiver());
         List<Node> arguments = ((MethodInvocationNode) argument).getArguments();
         // Check for int/long boxing.
         if (target.getMethod().getSimpleName().toString().equals("valueOf")
             && arguments.size() == 1
-            && castToNonNull(target.getReceiver().getTree()).getKind().equals(Tree.Kind.IDENTIFIER)
-            && (target.getReceiver().toString().equals("Integer")
-                || target.getReceiver().toString().equals("Long"))) {
+            && receiver.getTree().getKind().equals(Tree.Kind.IDENTIFIER)
+            && (receiver.toString().equals("Integer") || receiver.toString().equals("Long"))) {
           return argumentToMapKeySpecifier(arguments.get(0), apContext);
         }
         // Fine to fallthrough:
@@ -291,7 +299,7 @@ public final class AccessPath implements MapKey {
       return null;
     }
     MethodAccessNode target = node.getTarget();
-    Node receiver = target.getReceiver();
+    Node receiver = stripCasts(target.getReceiver());
     List<AccessPathElement> elements = new ArrayList<>();
     Root root = populateElementsRec(receiver, elements, apContext);
     if (root == null) {
@@ -370,7 +378,7 @@ public final class AccessPath implements MapKey {
         result = new Root(fieldAccess.getElement());
       } else {
         // instance field access
-        result = populateElementsRec(fieldAccess.getReceiver(), elements, apContext);
+        result = populateElementsRec(stripCasts(fieldAccess.getReceiver()), elements, apContext);
         elements.add(new AccessPathElement(fieldAccess.getElement()));
       }
     } else if (node instanceof MethodInvocationNode) {
@@ -447,7 +455,7 @@ public final class AccessPath implements MapKey {
         }
         accessPathElement = new AccessPathElement(accessNode.getMethod(), constantArgumentValues);
       }
-      result = populateElementsRec(accessNode.getReceiver(), elements, apContext);
+      result = populateElementsRec(stripCasts(accessNode.getReceiver()), elements, apContext);
       elements.add(accessPathElement);
     } else if (node instanceof LocalVariableNode) {
       result = new Root(((LocalVariableNode) node).getElement());
