@@ -3259,4 +3259,21 @@ public class NullAwayTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void mapKeySetIterator() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.*;",
+            "public class Test {",
+            "  public void keySetStuff(Map<Object, Object> m) {",
+            "    for (Object k: m.keySet()) {",
+            "      m.get(k).toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

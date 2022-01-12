@@ -24,6 +24,8 @@ import static org.checkerframework.nullaway.javacutil.TreeUtils.elementFromDecla
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.code.Types;
@@ -502,11 +504,14 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitAssignment(
       AssignmentNode node, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates updates = new ReadableUpdates();
-    Nullness value = values(input).valueOfSubNode(node.getExpression());
+    Node rhs = node.getExpression();
+    Nullness value = values(input).valueOfSubNode(rhs);
     Node target = node.getTarget();
 
     if (target instanceof LocalVariableNode) {
-      updates.set((LocalVariableNode) target, value);
+      LocalVariableNode localVariableNode = (LocalVariableNode) target;
+      updates.set(localVariableNode, value);
+      handleKeySetForEachPattern(localVariableNode, rhs, input, updates);
     }
 
     if (target instanceof ArrayAccessNode) {
@@ -525,6 +530,30 @@ public class AccessPathNullnessPropagation
     }
 
     return updateRegularStore(value, input, updates);
+  }
+
+  @SuppressWarnings("unused")
+  private void handleKeySetForEachPattern(
+      LocalVariableNode lhs,
+      Node rhs,
+      TransferInput<Nullness, NullnessStore> input,
+      ReadableUpdates updates) {
+    if (lhs.getName().startsWith("iter#num")) {
+      MethodInvocationNode rhsInv = (MethodInvocationNode) rhs;
+      MemberSelectTree methodSelect = (MemberSelectTree) rhsInv.getTree().getMethodSelect();
+      if (!methodSelect.getIdentifier().contentEquals("iterator")) {
+        throw new IllegalStateException("should have been an iterator call");
+      }
+      ExpressionTree baseForIteratorCall = methodSelect.getExpression();
+      input.getRegularStore();
+      // for other case, check if any variable named iter#num is in the store, by adding a method to
+      // NullnessStore,
+      // to avoid more expensive matching in most cases
+      // TODO use matchers to match calls?  or too slow?
+      // TODO keep a map inside this class, from iterator variable to the corresponding map whose
+      // keyset it is iterating over
+      // then we can quickly identify relevant calls to Iterator.next()
+    }
   }
 
   private TransferResult<Nullness, NullnessStore> updateRegularStore(
