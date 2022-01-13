@@ -1,15 +1,8 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
-public class NullAwayJava8Tests {
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-  private CompilationTestHelper defaultCompilationHelper;
-
+public class NullAwayJava8Tests extends NullAwayTestsBase {
   @Test
   public void java8PositiveCases() {
     defaultCompilationHelper.addSourceFile("NullAwayJava8PositiveCases.java").doTest();

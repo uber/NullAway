@@ -1,15 +1,8 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
-public class NullAwayBytecodeInteractionsTests {
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-  private CompilationTestHelper defaultCompilationHelper;
-
+public class NullAwayBytecodeInteractionsTests extends NullAwayTestsBase {
   @Test
   public void typeUseJarReturn() {
     defaultCompilationHelper

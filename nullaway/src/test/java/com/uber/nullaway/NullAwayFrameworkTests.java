@@ -1,15 +1,8 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
-public class NullAwayFrameworkTests {
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-  private CompilationTestHelper defaultCompilationHelper;
-
+public class NullAwayFrameworkTests extends NullAwayTestsBase {
   @Test
   public void lombokSupportTesting() {
     defaultCompilationHelper.addSourceFile("lombok/LombokBuilderInit.java").doTest();

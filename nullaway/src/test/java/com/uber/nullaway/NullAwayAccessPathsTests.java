@@ -1,14 +1,8 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
-public class NullAwayAccessPathsTests {
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-  private CompilationTestHelper defaultCompilationHelper;
+public class NullAwayAccessPathsTests extends NullAwayTestsBase {
 
   @Test
   public void testConstantsInAccessPathsNegative() {

@@ -1,29 +1,9 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
-import java.util.List;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
-public class NullAwayAssertionLibsTests {
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-  private CompilationTestHelper defaultCompilationHelper;
-
-  /**
-   * Creates a new {@link CompilationTestHelper} with a list of javac arguments. As of Error Prone
-   * 2.5.1, {@link CompilationTestHelper#setArgs(List)} can only be invoked once per object. So,
-   * this method must be used to create a test helper when a different set of javac arguments is
-   * required than those used for {@link #defaultCompilationHelper}.
-   *
-   * @param args the javac arguments
-   * @return the test helper
-   */
-  private CompilationTestHelper makeTestHelperWithArgs(List<String> args) {
-    return CompilationTestHelper.newInstance(NullAway.class, getClass()).setArgs(args);
-  }
+public class NullAwayAssertionLibsTests extends NullAwayTestsBase {
 
   @Test
   public void supportTruthAssertThatIsNotNull_Object() {

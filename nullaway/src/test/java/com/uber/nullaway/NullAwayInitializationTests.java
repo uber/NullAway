@@ -1,15 +1,8 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
-public class NullAwayInitializationTests {
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-  private CompilationTestHelper defaultCompilationHelper;
-
+public class NullAwayInitializationTests extends NullAwayTestsBase {
   @Test
   public void initFieldPositiveCases() {
     defaultCompilationHelper.addSourceFile("CheckFieldInitPositiveCases.java").doTest();
