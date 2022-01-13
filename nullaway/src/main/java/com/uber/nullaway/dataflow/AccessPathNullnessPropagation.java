@@ -555,22 +555,31 @@ public class AccessPathNullnessPropagation
       TransferInput<Nullness, NullnessStore> input,
       ReadableUpdates updates) {
     if (isEnhancedForIteratorVariable(lhs)) {
-      // the RHS must be a call  of the form e.iterator().  See if e is a call to keySet
+      // Based on the structure of Checker Framework CFGs, rhs must be a call of the form
+      // e.iterator().  We check if e is a call to keySet() on a Map, and if so, propagate
+      // NONNULL for an access path for e.get(iteratorContents(lhs))
       MethodInvocationNode rhsInv = (MethodInvocationNode) rhs;
       Node mapNode = getMapNodeForKeySetIteratorCall(rhsInv);
       if (mapNode != null) {
-        AccessPath mapKeySetIterator = AccessPath.getForMapKeySetIterator(mapNode, lhs, apContext);
-        if (mapKeySetIterator != null) {
-          updates.set(mapKeySetIterator, NONNULL);
+        AccessPath mapWithIteratorContentsKey =
+            AccessPath.mapWithIteratorContentsKey(mapNode, lhs, apContext);
+        if (mapWithIteratorContentsKey != null) {
+          updates.set(mapWithIteratorContentsKey, NONNULL);
         }
       }
     } else {
+      // Check for an assignment lhs = iter#numX.next().  From the structure of Checker Framework
+      // CFGs, we know that
+      // if iter#numX is the receiver of a call on the rhs of an assignment, it must be a call to
+      // next().
       if (rhs instanceof MethodInvocationNode) {
         MethodInvocationNode methodInv = (MethodInvocationNode) rhs;
         Node receiver = methodInv.getTarget().getReceiver();
         if (receiver instanceof LocalVariableNode
             && isEnhancedForIteratorVariable((LocalVariableNode) receiver)) {
-          // this must be a call to next() on the variable
+          // See if we are tracking an access path e.get(iteratorContents(receiver)).  If so, since
+          // lhs is being
+          // assigned from the iterator contents, propagate NONNULL for an access path e.get(lhs)
           AccessPath mapGetPath =
               input
                   .getRegularStore()

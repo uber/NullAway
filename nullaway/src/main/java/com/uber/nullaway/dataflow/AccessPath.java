@@ -468,8 +468,19 @@ public final class AccessPath implements MapKey {
     return result;
   }
 
+  /**
+   * Creates an access path representing a Map get call, where the key is obtained by calling {@code
+   * next()} on some {@code Iterator}. Used to support iterating over a map's key set using an
+   * enhanced-for loop.
+   *
+   * @param mapNode Node representing the map
+   * @param iterVar local variable holding the iterator
+   * @param apContext access path context
+   * @return access path representing the get call, or {@code null} if the map node cannot be
+   *     represented with an access path
+   */
   @Nullable
-  public static AccessPath getForMapKeySetIterator(
+  public static AccessPath mapWithIteratorContentsKey(
       Node mapNode, LocalVariableNode iterVar, AccessPathContext apContext) {
     List<AccessPathElement> elems = new ArrayList<>();
     Root root = populateElementsRec(mapNode, elems, apContext);
