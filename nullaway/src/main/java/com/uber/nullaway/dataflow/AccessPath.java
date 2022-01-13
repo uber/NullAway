@@ -472,16 +472,15 @@ public final class AccessPath implements MapKey {
   public static AccessPath getForMapKeySetIterator(
       Node mapNode, LocalVariableNode iterVar, AccessPathContext apContext) {
     List<AccessPathElement> elems = new ArrayList<>();
-    Root rootForMap = populateElementsRec(mapNode, elems, apContext);
-    if (rootForMap != null) {
-      return new AccessPath(rootForMap, elems, new IteratorContentsKey(iterVar.getElement()));
+    Root root = populateElementsRec(mapNode, elems, apContext);
+    if (root != null) {
+      return new AccessPath(root, elems, new IteratorContentsKey(iterVar.getElement()));
     }
     return null;
   }
 
-  public static AccessPath switchMapKey(AccessPath mapGetPath, LocalVariableNode lhs) {
-    return new AccessPath(
-        mapGetPath.getRoot(), mapGetPath.getElements(), AccessPath.fromLocal(lhs));
+  public static AccessPath withMapKey(AccessPath accessPath, MapKey mapKey) {
+    return new AccessPath(accessPath.getRoot(), accessPath.getElements(), mapKey);
   }
 
   @Override

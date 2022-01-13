@@ -555,7 +555,10 @@ public class AccessPathNullnessPropagation
       if (mapExprForKeySetCall != null) {
         Node mapNode =
             ((MethodInvocationNode) rhsInv.getTarget().getReceiver()).getTarget().getReceiver();
-        updates.set(AccessPath.getForMapKeySetIterator(mapNode, lhs, apContext), NONNULL);
+        AccessPath mapKeySetIterator = AccessPath.getForMapKeySetIterator(mapNode, lhs, apContext);
+        if (mapKeySetIterator != null) {
+          updates.set(mapKeySetIterator, NONNULL);
+        }
       }
     } else {
       if (rhs instanceof MethodInvocationNode) {
@@ -565,9 +568,11 @@ public class AccessPathNullnessPropagation
             && isEnhancedForIteratorVariable((LocalVariableNode) receiver)) {
           // this must be a call to next() on the variable
           AccessPath mapGetPath =
-              input.getRegularStore().getMapGetAccessPath((LocalVariableNode) receiver);
+              input
+                  .getRegularStore()
+                  .getMapGetIteratorContentsAccessPath((LocalVariableNode) receiver);
           if (mapGetPath != null) {
-            updates.set(AccessPath.switchMapKey(mapGetPath, lhs), NONNULL);
+            updates.set(AccessPath.withMapKey(mapGetPath, AccessPath.fromLocal(lhs)), NONNULL);
           }
         }
       }

@@ -125,12 +125,12 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   @Nullable
-  public AccessPath getMapGetAccessPath(LocalVariableNode mapKey) {
+  public AccessPath getMapGetIteratorContentsAccessPath(LocalVariableNode iteratorVar) {
     for (AccessPath accessPath : contents.keySet()) {
       MapKey mapGetArg = accessPath.getMapGetArg();
       if (mapGetArg instanceof IteratorContentsKey) {
         IteratorContentsKey iteratorContentsKey = (IteratorContentsKey) mapGetArg;
-        if (iteratorContentsKey.getIteratorVarElement().equals(mapKey.getElement())) {
+        if (iteratorContentsKey.getIteratorVarElement().equals(iteratorVar.getElement())) {
           return accessPath;
         }
       }
