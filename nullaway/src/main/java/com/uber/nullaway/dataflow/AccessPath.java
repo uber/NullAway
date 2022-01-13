@@ -468,6 +468,23 @@ public final class AccessPath implements MapKey {
     return result;
   }
 
+  @Nullable
+  public static AccessPath getForMapKeySetIterator(
+      Node mapNode, LocalVariableNode iterVar, AccessPathContext apContext) {
+    List<AccessPathElement> elems = new ArrayList<>();
+    Root rootForMap = populateElementsRec(mapNode, elems, apContext);
+    if (rootForMap != null) {
+      AccessPath iterNextKey = fromLocal(iterVar);
+      return new AccessPath(rootForMap, elems, iterNextKey);
+    }
+    return null;
+  }
+
+  public static AccessPath switchMapKey(AccessPath mapGetPath, LocalVariableNode lhs) {
+    return new AccessPath(
+        mapGetPath.getRoot(), mapGetPath.getElements(), AccessPath.fromLocal(lhs));
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -504,6 +521,11 @@ public final class AccessPath implements MapKey {
 
   public ImmutableList<AccessPathElement> getElements() {
     return elements;
+  }
+
+  @Nullable
+  public MapKey getMapGetArg() {
+    return mapGetArg;
   }
 
   @Override

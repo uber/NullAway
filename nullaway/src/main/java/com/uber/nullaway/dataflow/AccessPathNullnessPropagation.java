@@ -26,6 +26,7 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.code.Types;
@@ -40,6 +41,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import javax.annotation.CheckReturnValue;
+import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.analysis.ConditionalTransferResult;
@@ -535,28 +537,60 @@ public class AccessPathNullnessPropagation
     return updateRegularStore(value, input, updates);
   }
 
+  // can't use this since we don't have a VisitorState :-(
+  //  private static final Matcher<ExpressionTree> MAP_KEYSET_CALL =
+  //      Matchers.instanceMethod().onExactClass("java.util.Map").named("keySet");
+
   @SuppressWarnings("unused")
   private void handleKeySetForEachPattern(
       LocalVariableNode lhs,
       Node rhs,
       TransferInput<Nullness, NullnessStore> input,
       ReadableUpdates updates) {
-    if (lhs.getName().startsWith("iter#num")) {
+    if (isEnhancedForIteratorVariable(lhs)) {
+      // the RHS must be a call  of the form e.iterator().  See if e is a call to keySet
       MethodInvocationNode rhsInv = (MethodInvocationNode) rhs;
       MemberSelectTree methodSelect = (MemberSelectTree) rhsInv.getTree().getMethodSelect();
-      if (!methodSelect.getIdentifier().contentEquals("iterator")) {
-        throw new IllegalStateException("should have been an iterator call");
-      }
       ExpressionTree baseForIteratorCall = methodSelect.getExpression();
-      input.getRegularStore();
-      // for other case, check if any variable named iter#num is in the store, by adding a method to
-      // NullnessStore,
-      // to avoid more expensive matching in most cases
-      // TODO use matchers to match calls?  or too slow?
-      // TODO keep a map inside this class, from iterator variable to the corresponding map whose
-      // keyset it is iterating over
-      // then we can quickly identify relevant calls to Iterator.next()
+      ExpressionTree mapExprForKeySetCall = getMapExprForKeySetCall(baseForIteratorCall);
+      if (mapExprForKeySetCall != null) {
+        Node mapNode =
+            ((MethodInvocationNode) rhsInv.getTarget().getReceiver()).getTarget().getReceiver();
+        updates.set(AccessPath.getForMapKeySetIterator(mapNode, lhs, apContext), NONNULL);
+      }
+    } else {
+      if (rhs instanceof MethodInvocationNode) {
+        MethodInvocationNode methodInv = (MethodInvocationNode) rhs;
+        Node receiver = methodInv.getTarget().getReceiver();
+        if (receiver instanceof LocalVariableNode
+            && isEnhancedForIteratorVariable((LocalVariableNode) receiver)) {
+          // this must be a call to next() on the variable
+          AccessPath mapGetPath =
+              input.getRegularStore().getMapGetAccessPath((LocalVariableNode) receiver);
+          if (mapGetPath != null) {
+            updates.set(AccessPath.switchMapKey(mapGetPath, lhs), NONNULL);
+          }
+        }
+      }
     }
+  }
+
+  @Nullable
+  private ExpressionTree getMapExprForKeySetCall(ExpressionTree expr) {
+    if (expr instanceof MethodInvocationTree) {
+      MethodInvocationTree methodInvocationTree = (MethodInvocationTree) expr;
+      Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
+      if (symbol != null
+          && symbol.getSimpleName().contentEquals("keySet")
+          && symbol.owner.getQualifiedName().contentEquals("java.util.Map")) {
+        return ((MemberSelectTree) methodInvocationTree.getMethodSelect()).getExpression();
+      }
+    }
+    return null;
+  }
+
+  private boolean isEnhancedForIteratorVariable(LocalVariableNode lhs) {
+    return lhs.getName().startsWith("iter#num");
   }
 
   private TransferResult<Nullness, NullnessStore> updateRegularStore(

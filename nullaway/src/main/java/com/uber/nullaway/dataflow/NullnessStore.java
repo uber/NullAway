@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
@@ -122,6 +123,20 @@ public class NullnessStore implements Store<NullnessStore> {
     return result;
   }
 
+  @Nullable
+  public AccessPath getMapGetAccessPath(LocalVariableNode mapKey) {
+    for (AccessPath accessPath : contents.keySet()) {
+      if (accessPath.getMapGetArg() instanceof AccessPath) {
+        AccessPath keyAccessPath = (AccessPath) accessPath.getMapGetArg();
+        if (keyAccessPath.getElements().isEmpty()) {
+          if (keyAccessPath.getRoot().getVarElement().equals(mapKey.getElement())) {
+            return accessPath;
+          }
+        }
+      }
+    }
+    return null;
+  }
   /**
    * Gets the {@link Nullness} value of an access path.
    *
