@@ -24,9 +24,6 @@ import static org.checkerframework.nullaway.javacutil.TreeUtils.elementFromDecla
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.MemberSelectTree;
-import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.code.Types;
@@ -41,7 +38,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import javax.annotation.CheckReturnValue;
-import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.analysis.ConditionalTransferResult;
@@ -514,7 +510,7 @@ public class AccessPathNullnessPropagation
         && !ASTHelpers.getType(target.getTree()).isPrimitive()) {
       LocalVariableNode localVariableNode = (LocalVariableNode) target;
       updates.set(localVariableNode, value);
-      handleKeySetForEachPattern(localVariableNode, rhs, input, updates);
+      handleEnhancedForOverKeySet(localVariableNode, rhs, input, updates);
     }
 
     if (target instanceof ArrayAccessNode) {
@@ -537,11 +533,23 @@ public class AccessPathNullnessPropagation
     return updateRegularStore(value, input, updates);
   }
 
-  // can't use this since we don't have a VisitorState :-(
-  //  private static final Matcher<ExpressionTree> MAP_KEYSET_CALL =
-  //      Matchers.instanceMethod().onExactClass("java.util.Map").named("keySet");
-
-  private void handleKeySetForEachPattern(
+  /**
+   * Propagates access paths to track iteration over a map's key set using an enhanced-for loop,
+   * i.e., code of the form {@code for (Object k: m.keySet()) ...}. For such code, we track access
+   * paths to enable reasoning that within the body of the loop, {@code m.get(k)} is non-null.
+   *
+   * <p>There are two relevant types of assignments in the Checker Framework CFG for such tracking:
+   *
+   * <ol>
+   *   <li>{@code iter#numX = m.keySet().iterator()}, for getting the iterator over a key set for an
+   *       enhanced-for loop. After such assignments, we track an access path indicating that {@code
+   *       m.get(contentsOf(iter#numX)} is non-null.
+   *   <li>{@code k = iter#numX.next()}, which gets the next key in the key set when {@code
+   *       iter#numX} was assigned as in case 1. After such assignments, we track the desired {@code
+   *       m.get(k)} access path.
+   * </ol>
+   */
+  private void handleEnhancedForOverKeySet(
       LocalVariableNode lhs,
       Node rhs,
       TransferInput<Nullness, NullnessStore> input,
@@ -549,12 +557,8 @@ public class AccessPathNullnessPropagation
     if (isEnhancedForIteratorVariable(lhs)) {
       // the RHS must be a call  of the form e.iterator().  See if e is a call to keySet
       MethodInvocationNode rhsInv = (MethodInvocationNode) rhs;
-      MemberSelectTree methodSelect = (MemberSelectTree) rhsInv.getTree().getMethodSelect();
-      ExpressionTree baseForIteratorCall = methodSelect.getExpression();
-      ExpressionTree mapExprForKeySetCall = getMapExprForKeySetCall(baseForIteratorCall);
-      if (mapExprForKeySetCall != null) {
-        Node mapNode =
-            ((MethodInvocationNode) rhsInv.getTarget().getReceiver()).getTarget().getReceiver();
+      Node mapNode = getMapNodeForKeySetIteratorCall(rhsInv);
+      if (mapNode != null) {
         AccessPath mapKeySetIterator = AccessPath.getForMapKeySetIterator(mapNode, lhs, apContext);
         if (mapKeySetIterator != null) {
           updates.set(mapKeySetIterator, NONNULL);
@@ -579,15 +583,17 @@ public class AccessPathNullnessPropagation
     }
   }
 
-  @Nullable
-  private ExpressionTree getMapExprForKeySetCall(ExpressionTree expr) {
-    if (expr instanceof MethodInvocationTree) {
-      MethodInvocationTree methodInvocationTree = (MethodInvocationTree) expr;
-      Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
+  private Node getMapNodeForKeySetIteratorCall(MethodInvocationNode invocationNode) {
+    Node receiver = invocationNode.getTarget().getReceiver();
+    if (receiver instanceof MethodInvocationNode) {
+      MethodInvocationNode baseInvocation = (MethodInvocationNode) receiver;
+      // Check for a call to java.util.Map.keySet()
+      Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(baseInvocation.getTree());
       if (symbol != null
           && symbol.getSimpleName().contentEquals("keySet")
           && symbol.owner.getQualifiedName().contentEquals("java.util.Map")) {
-        return ((MemberSelectTree) methodInvocationTree.getMethodSelect()).getExpression();
+        // receiver represents the map
+        return baseInvocation.getTarget().getReceiver();
       }
     }
     return null;
