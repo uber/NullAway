@@ -22,6 +22,7 @@ import static com.google.common.collect.Sets.intersection;
 import com.google.common.collect.ImmutableMap;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.dataflow.AccessPath.IteratorContentsKey;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -126,12 +127,11 @@ public class NullnessStore implements Store<NullnessStore> {
   @Nullable
   public AccessPath getMapGetAccessPath(LocalVariableNode mapKey) {
     for (AccessPath accessPath : contents.keySet()) {
-      if (accessPath.getMapGetArg() instanceof AccessPath) {
-        AccessPath keyAccessPath = (AccessPath) accessPath.getMapGetArg();
-        if (keyAccessPath.getElements().isEmpty()) {
-          if (keyAccessPath.getRoot().getVarElement().equals(mapKey.getElement())) {
-            return accessPath;
-          }
+      MapKey mapGetArg = accessPath.getMapGetArg();
+      if (mapGetArg instanceof IteratorContentsKey) {
+        IteratorContentsKey iteratorContentsKey = (IteratorContentsKey) mapGetArg;
+        if (iteratorContentsKey.getIteratorVarElement().equals(mapKey.getElement())) {
+          return accessPath;
         }
       }
     }

@@ -474,8 +474,7 @@ public final class AccessPath implements MapKey {
     List<AccessPathElement> elems = new ArrayList<>();
     Root rootForMap = populateElementsRec(mapNode, elems, apContext);
     if (rootForMap != null) {
-      AccessPath iterNextKey = fromLocal(iterVar);
-      return new AccessPath(rootForMap, elems, iterNextKey);
+      return new AccessPath(rootForMap, elems, new IteratorContentsKey(iterVar.getElement()));
     }
     return null;
   }
@@ -638,7 +637,7 @@ public final class AccessPath implements MapKey {
 
   private static final class StringMapKey implements MapKey {
 
-    private String key;
+    private final String key;
 
     public StringMapKey(String key) {
       this.key = key;
@@ -660,7 +659,7 @@ public final class AccessPath implements MapKey {
 
   private static final class NumericMapKey implements MapKey {
 
-    private long key;
+    private final long key;
 
     public NumericMapKey(long key) {
       this.key = key;
@@ -677,6 +676,36 @@ public final class AccessPath implements MapKey {
         return this.key == ((NumericMapKey) obj).key;
       }
       return false;
+    }
+  }
+
+  /**
+   * Represents all possible values that could be returned by calling {@code next()} on an {@code
+   * Iterator} variable
+   */
+  public static final class IteratorContentsKey implements MapKey {
+
+    private final Element iteratorVarElement;
+
+    IteratorContentsKey(Element iteratorVarElement) {
+      this.iteratorVarElement = iteratorVarElement;
+    }
+
+    public Element getIteratorVarElement() {
+      return iteratorVarElement;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) return true;
+      if (o == null || getClass() != o.getClass()) return false;
+      IteratorContentsKey that = (IteratorContentsKey) o;
+      return iteratorVarElement.equals(that.iteratorVarElement);
+    }
+
+    @Override
+    public int hashCode() {
+      return iteratorVarElement.hashCode();
     }
   }
 

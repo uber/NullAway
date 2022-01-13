@@ -541,7 +541,6 @@ public class AccessPathNullnessPropagation
   //  private static final Matcher<ExpressionTree> MAP_KEYSET_CALL =
   //      Matchers.instanceMethod().onExactClass("java.util.Map").named("keySet");
 
-  @SuppressWarnings("unused")
   private void handleKeySetForEachPattern(
       LocalVariableNode lhs,
       Node rhs,
@@ -589,8 +588,8 @@ public class AccessPathNullnessPropagation
     return null;
   }
 
-  private boolean isEnhancedForIteratorVariable(LocalVariableNode lhs) {
-    return lhs.getName().startsWith("iter#num");
+  private boolean isEnhancedForIteratorVariable(LocalVariableNode varNode) {
+    return varNode.getName().startsWith("iter#num");
   }
 
   private TransferResult<Nullness, NullnessStore> updateRegularStore(
