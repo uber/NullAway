@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import javax.annotation.CheckReturnValue;
+import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.analysis.ConditionalTransferResult;
@@ -578,8 +579,8 @@ public class AccessPathNullnessPropagation
         if (receiver instanceof LocalVariableNode
             && isEnhancedForIteratorVariable((LocalVariableNode) receiver)) {
           // See if we are tracking an access path e.get(iteratorContents(receiver)).  If so, since
-          // lhs is being
-          // assigned from the iterator contents, propagate NONNULL for an access path e.get(lhs)
+          // lhs is being assigned from the iterator contents, propagate NONNULL for an access path
+          // e.get(lhs)
           AccessPath mapGetPath =
               input
                   .getRegularStore()
@@ -592,6 +593,12 @@ public class AccessPathNullnessPropagation
     }
   }
 
+  /**
+   * {@code invocationNode} must represent a call of the form {@code e.iterator()}. If {@code e} is
+   * of the form {@code e'.keySet()}, returns the {@code Node} for {@code e'}. Otherwise, returns
+   * {@code null}.
+   */
+  @Nullable
   private Node getMapNodeForKeySetIteratorCall(MethodInvocationNode invocationNode) {
     Node receiver = invocationNode.getTarget().getReceiver();
     if (receiver instanceof MethodInvocationNode) {
@@ -608,6 +615,10 @@ public class AccessPathNullnessPropagation
     return null;
   }
 
+  /**
+   * Is {@code varNode} a temporary variable representing the {@code Iterator} for an enhanced for
+   * loop? Matched based on the naming scheme used by Checker dataflow.
+   */
   private boolean isEnhancedForIteratorVariable(LocalVariableNode varNode) {
     return varNode.getName().startsWith("iter#num");
   }

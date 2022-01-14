@@ -470,8 +470,8 @@ public final class AccessPath implements MapKey {
 
   /**
    * Creates an access path representing a Map get call, where the key is obtained by calling {@code
-   * next()} on some {@code Iterator}. Used to support iterating over a map's key set using an
-   * enhanced-for loop.
+   * next()} on some {@code Iterator}. Used to support reasoning about iteration over a map's key
+   * set using an enhanced-for loop.
    *
    * @param mapNode Node representing the map
    * @param iterVar local variable holding the iterator
@@ -490,6 +490,10 @@ public final class AccessPath implements MapKey {
     return null;
   }
 
+  /**
+   * Creates an access path identical to {@code accessPath} (which must represent a map), but with
+   * {@code mapKey} as its map {@code get()} argument
+   */
   public static AccessPath withMapKey(AccessPath accessPath, MapKey mapKey) {
     return new AccessPath(accessPath.getRoot(), accessPath.getElements(), mapKey);
   }
@@ -695,6 +699,12 @@ public final class AccessPath implements MapKey {
    */
   public static final class IteratorContentsKey implements MapKey {
 
+    /**
+     * Element for the local variable holding the {@code Iterator}. We only support locals for now,
+     * as this class is designed specifically for reasoning about iterating over map keys using an
+     * enhanced-for loop over a {@code keySet()}, and for such cases the iterator is always stored
+     * locally
+     */
     private final Element iteratorVarElement;
 
     IteratorContentsKey(Element iteratorVarElement) {
