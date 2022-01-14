@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayOptinalEmptinessTests extends NullAwayTestsBase {
+public class NullAwayOptionalEmptinessTests extends NullAwayTestsBase {
 
   @Test
   public void optionalEmptinessHandlerTest() {

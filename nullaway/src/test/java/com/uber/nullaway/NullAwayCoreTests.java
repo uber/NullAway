@@ -29,7 +29,7 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
-public class NullAwayTest extends NullAwayTestsBase {
+public class NullAwayCoreTests extends NullAwayTestsBase {
 
   @Test
   public void coreNullabilityPositiveCases() {
