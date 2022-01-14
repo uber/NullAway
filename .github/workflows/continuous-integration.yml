@@ -43,8 +43,7 @@ jobs:
         uses: actions/setup-java@v2
         with:
           java-version: ${{ matrix.java }}
-          # dummy change
-          distribution: 'zulu'
+          distribution: 'temurin'
       - name: Build and test using Gradle, Java 8, and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
