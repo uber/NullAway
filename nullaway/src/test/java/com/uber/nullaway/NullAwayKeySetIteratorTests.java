@@ -1,28 +1,8 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
-import java.util.Arrays;
-import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
-public class NullAwayKeySetIteratorTests {
-
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-  private CompilationTestHelper defaultCompilationHelper;
-
-  @Before
-  public void setup() {
-    defaultCompilationHelper =
-        CompilationTestHelper.newInstance(NullAway.class, getClass())
-            .setArgs(
-                Arrays.asList(
-                    "-d",
-                    temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:AnnotatedPackages=com.uber"));
-  }
+public class NullAwayKeySetIteratorTests extends NullAwayTestsBase {
 
   @Test
   public void mapKeySetIteratorBasic() {
