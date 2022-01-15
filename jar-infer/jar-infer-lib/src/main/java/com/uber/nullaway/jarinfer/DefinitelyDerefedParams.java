@@ -192,9 +192,9 @@ public class DefinitelyDerefedParams {
       // Iterate over all instructions in BB
       for (int i = node.getFirstInstructionIndex(); i <= node.getLastInstructionIndex(); i++) {
         SSAInstruction instr = ir.getInstructions()[i];
-        if (instr == null) {
+        if (instr == null) { // Some instructions are null (padding NoOps)
           continue;
-        } // Some instructions are null (padding NoOps)
+        }
         LOG(DEBUG, "DEBUG", "\tinst: " + instr.toString());
         int derefValueNumber = -1;
         if (instr instanceof SSAGetInstruction && !((SSAGetInstruction) instr).isStatic()) {
