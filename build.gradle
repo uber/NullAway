@@ -65,10 +65,6 @@ subprojects { project ->
             check("StringSplitter", CheckSeverity.OFF)
             check("WildcardImport", CheckSeverity.ERROR)
             check("MissingBraces", CheckSeverity.ERROR)
-//            errorproneArgs.addAll(
-//                    "-XepPatchChecks:MissingBraces",
-//                    "-XepPatchLocation:IN_PLACE"
-//            )
         }
     }
 
