@@ -3,18 +3,13 @@ package com.uber.nullaway;
 import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 
 /** Unit tests showing cases where NullAway is unsound. Useful for documentation purposes. */
-public class NullAwayUnsoundnessTests {
-
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
-
-  private CompilationTestHelper defaultCompilationHelper;
+public class NullAwayUnsoundnessTests extends NullAwayTestsBase {
 
   @Before
+  @Override
   public void setup() {
     defaultCompilationHelper =
         CompilationTestHelper.newInstance(NullAway.class, getClass())
