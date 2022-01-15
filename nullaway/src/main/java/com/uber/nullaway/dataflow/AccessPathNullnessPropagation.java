@@ -570,9 +570,8 @@ public class AccessPathNullnessPropagation
       }
     } else {
       // Check for an assignment lhs = iter#numX.next().  From the structure of Checker Framework
-      // CFGs, we know that
-      // if iter#numX is the receiver of a call on the rhs of an assignment, it must be a call to
-      // next().
+      // CFGs, we know that if iter#numX is the receiver of a call on the rhs of an assignment, it
+      // must be a call to next().
       if (rhs instanceof MethodInvocationNode) {
         MethodInvocationNode methodInv = (MethodInvocationNode) rhs;
         Node receiver = methodInv.getTarget().getReceiver();

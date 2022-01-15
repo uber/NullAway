@@ -124,6 +124,11 @@ public class NullnessStore implements Store<NullnessStore> {
     return result;
   }
 
+  /**
+   * If this store maps an access path {@code p} whose map-get argument is an {@link
+   * IteratorContentsKey} whose variable is {@code iteratorVar}, returns {@code p}. Otherwise,
+   * returns {@code null}.
+   */
   @Nullable
   public AccessPath getMapGetIteratorContentsAccessPath(LocalVariableNode iteratorVar) {
     for (AccessPath accessPath : contents.keySet()) {
