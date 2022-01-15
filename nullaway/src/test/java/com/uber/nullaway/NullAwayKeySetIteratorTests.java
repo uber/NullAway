@@ -114,4 +114,39 @@ public class NullAwayKeySetIteratorTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void nestedLoops() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.*;",
+            "public class Test {",
+            "  public void keySetStuff(Map<Object, Object> m, Map<Object, Object> m2) {",
+            "    for (Object k: m.keySet()) {",
+            "      for (Object k2: m2.keySet()) {",
+            "        m.get(k).toString();",
+            "        // BUG: Diagnostic contains: dereferenced expression",
+            "        m.get(k2).toString();",
+            "        // BUG: Diagnostic contains: dereferenced expression",
+            "        m2.get(k).toString();",
+            "        m2.get(k2).toString();",
+            "      }",
+            "    }",
+            "    // nested loop over the same map",
+            "    for (Object k: m.keySet()) {",
+            "      for (Object k2: m.keySet()) {",
+            "        m.get(k).toString();",
+            "        m.get(k2).toString();",
+            "        // BUG: Diagnostic contains: dereferenced expression",
+            "        m2.get(k).toString();",
+            "        // BUG: Diagnostic contains: dereferenced expression",
+            "        m2.get(k2).toString();",
+            "      }",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
