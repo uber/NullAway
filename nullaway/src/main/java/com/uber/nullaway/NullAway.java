@@ -656,7 +656,7 @@ public class NullAway extends BugChecker
       // check for unboxing
       return doUnboxingCheck(state, retExpr);
     }
-    if (returnType.toString().equals("java.lang.Void")) {
+    if (state.getTypes().isSameType(returnType, state.getTypeFromString("java.lang.Void"))) {
       return Description.NO_MATCH;
     }
     if (NullabilityUtil.isUnannotated(methodSymbol, config)

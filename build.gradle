@@ -64,6 +64,9 @@ subprojects { project ->
             // this check is too noisy
             check("StringSplitter", CheckSeverity.OFF)
             check("WildcardImport", CheckSeverity.ERROR)
+            check("TypeToString", CheckSeverity.ERROR)
+            check("SymbolToString", CheckSeverity.ERROR)
+            check("DescribeMatch", CheckSeverity.ERROR)
         }
     }
 
