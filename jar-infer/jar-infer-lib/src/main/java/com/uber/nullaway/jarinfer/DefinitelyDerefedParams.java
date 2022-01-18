@@ -52,7 +52,9 @@ public class DefinitelyDerefedParams {
   private boolean USE_EXTENDED_APPROACH = true;
 
   private static void LOG(boolean cond, String tag, String msg) {
-    if (cond) System.out.println("[JI " + tag + "] " + msg);
+    if (cond) {
+      System.out.println("[JI " + tag + "] " + msg);
+    }
   }
 
   private final IMethod method;
@@ -190,7 +192,9 @@ public class DefinitelyDerefedParams {
       // Iterate over all instructions in BB
       for (int i = node.getFirstInstructionIndex(); i <= node.getLastInstructionIndex(); i++) {
         SSAInstruction instr = ir.getInstructions()[i];
-        if (instr == null) continue; // Some instructions are null (padding NoOps)
+        if (instr == null) { // Some instructions are null (padding NoOps)
+          continue;
+        }
         LOG(DEBUG, "DEBUG", "\tinst: " + instr.toString());
         int derefValueNumber = -1;
         if (instr instanceof SSAGetInstruction && !((SSAGetInstruction) instr).isStatic()) {

@@ -46,7 +46,9 @@ public final class BytecodeAnnotator {
   private static boolean debug = false;
 
   private static void LOG(boolean cond, String tag, String msg) {
-    if (cond) System.out.println("[" + tag + "] " + msg);
+    if (cond) {
+      System.out.println("[" + tag + "] " + msg);
+    }
   }
 
   public static final String javaxNullableDesc = "Ljavax/annotation/Nullable;";

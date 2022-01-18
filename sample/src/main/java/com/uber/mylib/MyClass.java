@@ -7,7 +7,9 @@ import org.utilities.StringUtils;
 public class MyClass {
 
   static void log(@Nullable Object x) {
-    if (x == null) return;
+    if (x == null) {
+      return;
+    }
     System.out.println(x.toString());
   }
 
