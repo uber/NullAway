@@ -717,8 +717,12 @@ public final class AccessPath implements MapKey {
 
     @Override
     public boolean equals(Object o) {
-      if (this == o) return true;
-      if (o == null || getClass() != o.getClass()) return false;
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
       IteratorContentsKey that = (IteratorContentsKey) o;
       return iteratorVarElement.equals(that.iteratorVarElement);
     }
