@@ -873,7 +873,9 @@ public class NullAway extends BugChecker
       return false;
     } else if (methodLambdaOrBlock instanceof MethodTree) {
       MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
-      if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) return true;
+      if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) {
+        return true;
+      }
       if (ASTHelpers.getSymbol(methodTree).isStatic()) {
         Set<MethodTree> staticInitializerMethods =
             class2Entities.get(enclosingClassSymbol(enclosingBlockPath)).staticInitializerMethods();

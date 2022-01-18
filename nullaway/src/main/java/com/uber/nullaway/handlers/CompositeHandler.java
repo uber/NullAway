@@ -218,7 +218,9 @@ class CompositeHandler implements Handler {
     Optional<ErrorMessage> optionalErrorMessage;
     for (Handler h : handlers) {
       optionalErrorMessage = h.onExpressionDereference(expr, baseExpr, state);
-      if (optionalErrorMessage.isPresent()) return optionalErrorMessage;
+      if (optionalErrorMessage.isPresent()) {
+        return optionalErrorMessage;
+      }
     }
     return Optional.empty();
   }

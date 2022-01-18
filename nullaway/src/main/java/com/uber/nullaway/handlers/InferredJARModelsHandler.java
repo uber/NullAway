@@ -62,7 +62,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   private static boolean VERBOSE = false;
 
   private static void LOG(boolean cond, String tag, String msg) {
-    if (cond) System.out.println("[JI " + tag + "] " + msg);
+    if (cond) {
+      System.out.println("[JI " + tag + "] " + msg);
+    }
   }
 
   private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
@@ -118,8 +120,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       if (path.matches(config.getJarInferRegexStripModelJarName())) {
         String name = path.replaceAll(config.getJarInferRegexStripModelJarName(), "$1");
         LOG(DEBUG, "DEBUG", "model jar name: " + name + "\tjar path: " + path);
-        if (!mapModelJarLocations.containsKey(name))
+        if (!mapModelJarLocations.containsKey(name)) {
           mapModelJarLocations.put(name, new LinkedHashSet<>());
+        }
         mapModelJarLocations.get(name).add(path);
       }
     }
@@ -144,10 +147,14 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
           "Skipping abstract method: " + className + " : " + methodSymbol.getQualifiedName());
       return nonNullPositions;
     }
-    if (!lookupAndBuildCache(classSymbol)) return nonNullPositions;
+    if (!lookupAndBuildCache(classSymbol)) {
+      return nonNullPositions;
+    }
     String methodSign = getMethodSignature(methodSymbol);
     Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
-    if (methodArgAnnotations == null) return nonNullPositions;
+    if (methodArgAnnotations == null) {
+      return nonNullPositions;
+    }
     Set<Integer> jiNonNullParams = new LinkedHashSet<>();
     for (Map.Entry<Integer, Set<String>> annotationEntry : methodArgAnnotations.entrySet()) {
       if (annotationEntry.getKey() != RETURN
@@ -156,8 +163,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         jiNonNullParams.add(annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1));
       }
     }
-    if (!jiNonNullParams.isEmpty())
+    if (!jiNonNullParams.isEmpty()) {
       LOG(DEBUG, "DEBUG", "Nonnull params: " + jiNonNullParams.toString() + " for " + methodSign);
+    }
     return Sets.union(nonNullPositions, jiNonNullParams).immutableCopy();
   }
 
@@ -222,7 +230,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       if (!argAnnotCache.containsKey(className)) {
         // this works for aar !
         URLConnection uc = klass.classfile.toUri().toURL().openConnection();
-        if (!(uc instanceof JarURLConnection)) return false;
+        if (!(uc instanceof JarURLConnection)) {
+          return false;
+        }
         JarURLConnection juc = (JarURLConnection) uc;
         jarPath = juc.getJarFileURL().getPath();
         LOG(DEBUG, "DEBUG", "Found source of class: " + className + ", jar: " + jarPath);
@@ -284,7 +294,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   }
 
   private Map<Integer, Set<String>> lookupMethodInCache(String className, String methodSign) {
-    if (!argAnnotCache.containsKey(className)) return null;
+    if (!argAnnotCache.containsKey(className)) {
+      return null;
+    }
     Map<Integer, Set<String>> methodArgAnnotations = argAnnotCache.get(className).get(methodSign);
     if (methodArgAnnotations == null) {
       LOG(
@@ -330,9 +342,11 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   }
 
   private String getSimpleTypeName(Type typ) {
-    if (typ.getKind() == TypeKind.TYPEVAR)
+    if (typ.getKind() == TypeKind.TYPEVAR) {
       return typ.getUpperBound().tsym.getSimpleName().toString();
-    else return typ.tsym.getSimpleName().toString();
+    } else {
+      return typ.tsym.getSimpleName().toString();
+    }
   }
 
   private void parseStubStream(InputStream stubxInputStream, String stubxLocation)
@@ -398,11 +412,15 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   private void cacheAnnotation(String methodSig, Integer argNum, String annotation) {
     // TODO: handle inner classes properly
     String className = methodSig.split(":")[0].replace('$', '.');
-    if (!argAnnotCache.containsKey(className)) argAnnotCache.put(className, new LinkedHashMap<>());
-    if (!argAnnotCache.get(className).containsKey(methodSig))
+    if (!argAnnotCache.containsKey(className)) {
+      argAnnotCache.put(className, new LinkedHashMap<>());
+    }
+    if (!argAnnotCache.get(className).containsKey(methodSig)) {
       argAnnotCache.get(className).put(methodSig, new LinkedHashMap<>());
-    if (!argAnnotCache.get(className).get(methodSig).containsKey(argNum))
+    }
+    if (!argAnnotCache.get(className).get(methodSig).containsKey(argNum)) {
       argAnnotCache.get(className).get(methodSig).put(argNum, new LinkedHashSet<>());
+    }
     argAnnotCache.get(className).get(methodSig).get(argNum).add(annotation);
   }
 }

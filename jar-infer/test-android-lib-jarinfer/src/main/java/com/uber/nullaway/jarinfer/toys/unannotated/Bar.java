@@ -5,7 +5,9 @@ public class Bar {
   public int b;
 
   public Bar(String str) {
-    if (str == null) str = "bar";
+    if (str == null) {
+      str = "bar";
+    }
     this.bar = str;
     this.b = bar.length();
   }
