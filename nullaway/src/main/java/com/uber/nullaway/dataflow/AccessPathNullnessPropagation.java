@@ -565,6 +565,11 @@ public class AccessPathNullnessPropagation
         AccessPath mapWithIteratorContentsKey =
             AccessPath.mapWithIteratorContentsKey(mapNode, lhs, apContext);
         if (mapWithIteratorContentsKey != null) {
+          // put sanity check here to minimize perf impact
+          if (!isCallToMethod(rhsInv, "java.util.Set", "iterator")) {
+            throw new RuntimeException(
+                "expected call to iterator(), instead saw " + rhsInv.getTarget().getMethod());
+          }
           updates.set(mapWithIteratorContentsKey, NONNULL);
         }
       }
@@ -584,6 +589,11 @@ public class AccessPathNullnessPropagation
                 .getRegularStore()
                 .getMapGetIteratorContentsAccessPath((LocalVariableNode) receiver);
         if (mapGetPath != null) {
+          // put sanity check here to minimize perf impact
+          if (!isCallToMethod(methodInv, "java.util.Iterator", "next")) {
+            throw new RuntimeException(
+                "expected call to iterator(), instead saw " + methodInv.getTarget().getMethod());
+          }
           updates.set(AccessPath.replaceMapKey(mapGetPath, AccessPath.fromLocal(lhs)), NONNULL);
         }
       }
@@ -601,15 +611,20 @@ public class AccessPathNullnessPropagation
     if (receiver instanceof MethodInvocationNode) {
       MethodInvocationNode baseInvocation = (MethodInvocationNode) receiver;
       // Check for a call to java.util.Map.keySet()
-      Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(baseInvocation.getTree());
-      if (symbol != null
-          && symbol.getSimpleName().contentEquals("keySet")
-          && symbol.owner.getQualifiedName().contentEquals("java.util.Map")) {
+      if (isCallToMethod(baseInvocation, "java.util.Map", "keySet")) {
         // receiver represents the map
         return baseInvocation.getTarget().getReceiver();
       }
     }
     return null;
+  }
+
+  private boolean isCallToMethod(
+      MethodInvocationNode invocationNode, String containingClassName, String methodName) {
+    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocationNode.getTree());
+    return symbol != null
+        && symbol.getSimpleName().contentEquals(methodName)
+        && symbol.owner.getQualifiedName().contentEquals(containingClassName);
   }
 
   /**
