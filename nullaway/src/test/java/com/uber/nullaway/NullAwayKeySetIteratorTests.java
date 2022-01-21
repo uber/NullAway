@@ -10,7 +10,7 @@ public class NullAwayKeySetIteratorTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import java.util.*;",
+            "import java.util.Map;",
             "public class Test {",
             "  public void keySetStuff(Map<Object, Object> m) {",
             "    for (Object k: m.keySet()) {",
@@ -27,7 +27,7 @@ public class NullAwayKeySetIteratorTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import java.util.*;",
+            "import java.util.Map;",
             "public class Test {",
             "  private final Object k = new Object();",
             "  public void keySetStuff(Map<Object, Object> m) {",
@@ -47,7 +47,8 @@ public class NullAwayKeySetIteratorTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import java.util.*;",
+            "import java.util.Map;",
+            "import java.util.HashMap;",
             "public class Test {",
             "  static class MapWrapper {",
             "    Map<Object,Object> mf = new HashMap<>();",
@@ -80,7 +81,8 @@ public class NullAwayKeySetIteratorTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import java.util.*;",
+            "import java.util.Iterator;",
+            "import java.util.Map;",
             "public class Test {",
             "  public void keySetStuff(Map<Object, Object> m) {",
             "    // BUG: Diagnostic contains: dereferenced expression",
@@ -101,7 +103,7 @@ public class NullAwayKeySetIteratorTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import java.util.*;",
+            "import java.util.Map;",
             "public class Test {",
             "  public void keySetStuff(Map<Object, Object> m, Map<Object, Object> m2) {",
             "    for (Object k: m.keySet()) {",
