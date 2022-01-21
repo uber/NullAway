@@ -509,12 +509,15 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitAssignment(
       AssignmentNode node, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates updates = new ReadableUpdates();
-    Nullness value = values(input).valueOfSubNode(node.getExpression());
+    Node rhs = node.getExpression();
+    Nullness value = values(input).valueOfSubNode(rhs);
     Node target = node.getTarget();
 
     if (target instanceof LocalVariableNode
         && !ASTHelpers.getType(target.getTree()).isPrimitive()) {
-      updates.set((LocalVariableNode) target, value);
+      LocalVariableNode localVariableNode = (LocalVariableNode) target;
+      updates.set(localVariableNode, value);
+      handleEnhancedForOverKeySet(localVariableNode, rhs, input, updates);
     }
 
     if (target instanceof ArrayAccessNode) {
@@ -535,6 +538,107 @@ public class AccessPathNullnessPropagation
     }
 
     return updateRegularStore(value, input, updates);
+  }
+
+  /**
+   * Propagates access paths to track iteration over a map's key set using an enhanced-for loop,
+   * i.e., code of the form {@code for (Object k: m.keySet()) ...}. For such code, we track access
+   * paths to enable reasoning that within the body of the loop, {@code m.get(k)} is non-null.
+   *
+   * <p>There are two relevant types of assignments in the Checker Framework CFG for such tracking:
+   *
+   * <ol>
+   *   <li>{@code iter#numX = m.keySet().iterator()}, for getting the iterator over a key set for an
+   *       enhanced-for loop. After such assignments, we track an access path indicating that {@code
+   *       m.get(contentsOf(iter#numX)} is non-null.
+   *   <li>{@code k = iter#numX.next()}, which gets the next key in the key set when {@code
+   *       iter#numX} was assigned as in case 1. After such assignments, we track the desired {@code
+   *       m.get(k)} access path.
+   * </ol>
+   */
+  private void handleEnhancedForOverKeySet(
+      LocalVariableNode lhs,
+      Node rhs,
+      TransferInput<Nullness, NullnessStore> input,
+      ReadableUpdates updates) {
+    if (isEnhancedForIteratorVariable(lhs)) {
+      // Based on the structure of Checker Framework CFGs, rhs must be a call of the form
+      // e.iterator().  We check if e is a call to keySet() on a Map, and if so, propagate
+      // NONNULL for an access path for e.get(iteratorContents(lhs))
+      MethodInvocationNode rhsInv = (MethodInvocationNode) rhs;
+      Node mapNode = getMapNodeForKeySetIteratorCall(rhsInv);
+      if (mapNode != null) {
+        AccessPath mapWithIteratorContentsKey =
+            AccessPath.mapWithIteratorContentsKey(mapNode, lhs, apContext);
+        if (mapWithIteratorContentsKey != null) {
+          // put sanity check here to minimize perf impact
+          if (!isCallToMethod(rhsInv, "java.util.Set", "iterator")) {
+            throw new RuntimeException(
+                "expected call to iterator(), instead saw " + rhsInv.getTarget().getMethod());
+          }
+          updates.set(mapWithIteratorContentsKey, NONNULL);
+        }
+      }
+    } else if (rhs instanceof MethodInvocationNode) {
+      // Check for an assignment lhs = iter#numX.next().  From the structure of Checker Framework
+      // CFGs, we know that if iter#numX is the receiver of a call on the rhs of an assignment, it
+      // must be a call to next().
+      MethodInvocationNode methodInv = (MethodInvocationNode) rhs;
+      Node receiver = methodInv.getTarget().getReceiver();
+      if (receiver instanceof LocalVariableNode
+          && isEnhancedForIteratorVariable((LocalVariableNode) receiver)) {
+        // See if we are tracking an access path e.get(iteratorContents(receiver)).  If so, since
+        // lhs is being assigned from the iterator contents, propagate NONNULL for an access path
+        // e.get(lhs)
+        AccessPath mapGetPath =
+            input
+                .getRegularStore()
+                .getMapGetIteratorContentsAccessPath((LocalVariableNode) receiver);
+        if (mapGetPath != null) {
+          // put sanity check here to minimize perf impact
+          if (!isCallToMethod(methodInv, "java.util.Iterator", "next")) {
+            throw new RuntimeException(
+                "expected call to iterator(), instead saw " + methodInv.getTarget().getMethod());
+          }
+          updates.set(AccessPath.replaceMapKey(mapGetPath, AccessPath.fromLocal(lhs)), NONNULL);
+        }
+      }
+    }
+  }
+
+  /**
+   * {@code invocationNode} must represent a call of the form {@code e.iterator()}. If {@code e} is
+   * of the form {@code e'.keySet()}, returns the {@code Node} for {@code e'}. Otherwise, returns
+   * {@code null}.
+   */
+  @Nullable
+  private Node getMapNodeForKeySetIteratorCall(MethodInvocationNode invocationNode) {
+    Node receiver = invocationNode.getTarget().getReceiver();
+    if (receiver instanceof MethodInvocationNode) {
+      MethodInvocationNode baseInvocation = (MethodInvocationNode) receiver;
+      // Check for a call to java.util.Map.keySet()
+      if (isCallToMethod(baseInvocation, "java.util.Map", "keySet")) {
+        // receiver represents the map
+        return baseInvocation.getTarget().getReceiver();
+      }
+    }
+    return null;
+  }
+
+  private boolean isCallToMethod(
+      MethodInvocationNode invocationNode, String containingClassName, String methodName) {
+    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocationNode.getTree());
+    return symbol != null
+        && symbol.getSimpleName().contentEquals(methodName)
+        && symbol.owner.getQualifiedName().contentEquals(containingClassName);
+  }
+
+  /**
+   * Is {@code varNode} a temporary variable representing the {@code Iterator} for an enhanced for
+   * loop? Matched based on the naming scheme used by Checker dataflow.
+   */
+  private boolean isEnhancedForIteratorVariable(LocalVariableNode varNode) {
+    return varNode.getName().startsWith("iter#num");
   }
 
   private TransferResult<Nullness, NullnessStore> updateRegularStore(

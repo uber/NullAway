@@ -203,7 +203,9 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     for (Type optionalType : optionalTypes) {
       if (symbol.getSimpleName().toString().equals("isPresent")
           && symbol.getParameters().length() == 0
-          && types.isSubtype(symbol.owner.type, optionalType)) return true;
+          && types.isSubtype(symbol.owner.type, optionalType)) {
+        return true;
+      }
     }
     return false;
   }
@@ -213,7 +215,9 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     for (Type optionalType : optionalTypes) {
       if (symbol.getSimpleName().toString().equals("get")
           && symbol.getParameters().length() == 0
-          && types.isSubtype(symbol.owner.type, optionalType)) return true;
+          && types.isSubtype(symbol.owner.type, optionalType)) {
+        return true;
+      }
     }
     return false;
   }
