@@ -584,7 +584,7 @@ public class AccessPathNullnessPropagation
                 .getRegularStore()
                 .getMapGetIteratorContentsAccessPath((LocalVariableNode) receiver);
         if (mapGetPath != null) {
-          updates.set(AccessPath.withMapKey(mapGetPath, AccessPath.fromLocal(lhs)), NONNULL);
+          updates.set(AccessPath.replaceMapKey(mapGetPath, AccessPath.fromLocal(lhs)), NONNULL);
         }
       }
     }

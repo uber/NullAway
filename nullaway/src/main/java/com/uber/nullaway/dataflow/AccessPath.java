@@ -492,10 +492,10 @@ public final class AccessPath implements MapKey {
   }
 
   /**
-   * Creates an access path identical to {@code accessPath} (which must represent a map), but with
-   * {@code mapKey} as its map {@code get()} argument
+   * Creates an access path identical to {@code accessPath} (which must represent a map get), but
+   * replacing its map {@code get()} argument with {@code mapKey}
    */
-  public static AccessPath withMapKey(AccessPath accessPath, MapKey mapKey) {
+  public static AccessPath replaceMapKey(AccessPath accessPath, MapKey mapKey) {
     return new AccessPath(accessPath.getRoot(), accessPath.getElements(), mapKey);
   }
 
