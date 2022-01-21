@@ -568,25 +568,23 @@ public class AccessPathNullnessPropagation
           updates.set(mapWithIteratorContentsKey, NONNULL);
         }
       }
-    } else {
+    } else if (rhs instanceof MethodInvocationNode) {
       // Check for an assignment lhs = iter#numX.next().  From the structure of Checker Framework
       // CFGs, we know that if iter#numX is the receiver of a call on the rhs of an assignment, it
       // must be a call to next().
-      if (rhs instanceof MethodInvocationNode) {
-        MethodInvocationNode methodInv = (MethodInvocationNode) rhs;
-        Node receiver = methodInv.getTarget().getReceiver();
-        if (receiver instanceof LocalVariableNode
-            && isEnhancedForIteratorVariable((LocalVariableNode) receiver)) {
-          // See if we are tracking an access path e.get(iteratorContents(receiver)).  If so, since
-          // lhs is being assigned from the iterator contents, propagate NONNULL for an access path
-          // e.get(lhs)
-          AccessPath mapGetPath =
-              input
-                  .getRegularStore()
-                  .getMapGetIteratorContentsAccessPath((LocalVariableNode) receiver);
-          if (mapGetPath != null) {
-            updates.set(AccessPath.withMapKey(mapGetPath, AccessPath.fromLocal(lhs)), NONNULL);
-          }
+      MethodInvocationNode methodInv = (MethodInvocationNode) rhs;
+      Node receiver = methodInv.getTarget().getReceiver();
+      if (receiver instanceof LocalVariableNode
+          && isEnhancedForIteratorVariable((LocalVariableNode) receiver)) {
+        // See if we are tracking an access path e.get(iteratorContents(receiver)).  If so, since
+        // lhs is being assigned from the iterator contents, propagate NONNULL for an access path
+        // e.get(lhs)
+        AccessPath mapGetPath =
+            input
+                .getRegularStore()
+                .getMapGetIteratorContentsAccessPath((LocalVariableNode) receiver);
+        if (mapGetPath != null) {
+          updates.set(AccessPath.withMapKey(mapGetPath, AccessPath.fromLocal(lhs)), NONNULL);
         }
       }
     }
