@@ -242,7 +242,7 @@ public class NullnessStore implements Store<NullnessStore> {
       Element varElement = ap.getRoot().getVarElement();
       for (LocalVariableNode fromVar : localVarTranslations.keySet()) {
         if (varElement.equals(fromVar.getElement())) {
-          LocalVariableNode toVar = castToNonNull(localVarTranslations.get(fromVar));
+          LocalVariableNode toVar = localVarTranslations.get(fromVar);
           AccessPath newAP =
               new AccessPath(new AccessPath.Root(toVar.getElement()), ap.getElements());
           nullnessBuilder.setInformation(newAP, castToNonNull(contents.get(ap)));

@@ -280,7 +280,7 @@ public final class AccessPath implements MapKey {
         // Check for int/long boxing.
         if (target.getMethod().getSimpleName().toString().equals("valueOf")
             && arguments.size() == 1
-            && receiver.getTree().getKind().equals(Tree.Kind.IDENTIFIER)
+            && castToNonNull(receiver.getTree()).getKind().equals(Tree.Kind.IDENTIFIER)
             && (receiver.toString().equals("Integer") || receiver.toString().equals("Long"))) {
           return argumentToMapKeySpecifier(arguments.get(0), apContext);
         }
