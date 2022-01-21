@@ -468,6 +468,37 @@ public final class AccessPath implements MapKey {
     return result;
   }
 
+  /**
+   * Creates an access path representing a Map get call, where the key is obtained by calling {@code
+   * next()} on some {@code Iterator}. Used to support reasoning about iteration over a map's key
+   * set using an enhanced-for loop.
+   *
+   * @param mapNode Node representing the map
+   * @param iterVar local variable holding the iterator
+   * @param apContext access path context
+   * @return access path representing the get call, or {@code null} if the map node cannot be
+   *     represented with an access path
+   */
+  @Nullable
+  public static AccessPath mapWithIteratorContentsKey(
+      Node mapNode, LocalVariableNode iterVar, AccessPathContext apContext) {
+    List<AccessPathElement> elems = new ArrayList<>();
+    Root root = populateElementsRec(mapNode, elems, apContext);
+    if (root != null) {
+      return new AccessPath(
+          root, elems, new IteratorContentsKey((VariableElement) iterVar.getElement()));
+    }
+    return null;
+  }
+
+  /**
+   * Creates an access path identical to {@code accessPath} (which must represent a map get), but
+   * replacing its map {@code get()} argument with {@code mapKey}
+   */
+  public static AccessPath replaceMapKey(AccessPath accessPath, MapKey mapKey) {
+    return new AccessPath(accessPath.getRoot(), accessPath.getElements(), mapKey);
+  }
+
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -504,6 +535,11 @@ public final class AccessPath implements MapKey {
 
   public ImmutableList<AccessPathElement> getElements() {
     return elements;
+  }
+
+  @Nullable
+  public MapKey getMapGetArg() {
+    return mapGetArg;
   }
 
   @Override
@@ -616,7 +652,7 @@ public final class AccessPath implements MapKey {
 
   private static final class StringMapKey implements MapKey {
 
-    private String key;
+    private final String key;
 
     public StringMapKey(String key) {
       this.key = key;
@@ -638,7 +674,7 @@ public final class AccessPath implements MapKey {
 
   private static final class NumericMapKey implements MapKey {
 
-    private long key;
+    private final long key;
 
     public NumericMapKey(long key) {
       this.key = key;
@@ -655,6 +691,46 @@ public final class AccessPath implements MapKey {
         return this.key == ((NumericMapKey) obj).key;
       }
       return false;
+    }
+  }
+
+  /**
+   * Represents all possible values that could be returned by calling {@code next()} on an {@code
+   * Iterator} variable
+   */
+  public static final class IteratorContentsKey implements MapKey {
+
+    /**
+     * Element for the local variable holding the {@code Iterator}. We only support locals for now,
+     * as this class is designed specifically for reasoning about iterating over map keys using an
+     * enhanced-for loop over a {@code keySet()}, and for such cases the iterator is always stored
+     * locally
+     */
+    private final VariableElement iteratorVarElement;
+
+    IteratorContentsKey(VariableElement iteratorVarElement) {
+      this.iteratorVarElement = iteratorVarElement;
+    }
+
+    public VariableElement getIteratorVarElement() {
+      return iteratorVarElement;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      IteratorContentsKey that = (IteratorContentsKey) o;
+      return iteratorVarElement.equals(that.iteratorVarElement);
+    }
+
+    @Override
+    public int hashCode() {
+      return iteratorVarElement.hashCode();
     }
   }
 
