@@ -71,6 +71,12 @@ coveralls {
     }
 }
 
+def coverallsTask = tasks.named('coveralls')
+
+coverallsTask.configure {
+    dependsOn 'codeCoverageReport'
+}
+
 // These dependencies indicate which projects have tests or tested code we want to include
 // when computing overall coverage.  We aim to measure coverage for all code that actually ships
 // in a Maven artifact (so, e.g., we do not measure coverage for the jmh module)

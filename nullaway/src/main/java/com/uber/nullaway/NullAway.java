@@ -223,6 +223,14 @@ public class NullAway extends BugChecker
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
   /**
+   * Used to check if a symbol represents a module in {@link #matchMemberSelect(MemberSelectTree,
+   * VisitorState)}. We need to use reflection to preserve compatibility with Java 8.
+   *
+   * <p>TODO remove this once NullAway requires JDK 11
+   */
+  @Nullable private final Class<?> moduleElementClass;
+
+  /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
    * else. Checker objects constructed with this constructor will fail with IllegalStateException if
@@ -233,6 +241,7 @@ public class NullAway extends BugChecker
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
+    moduleElementClass = null;
   }
 
   public NullAway(ErrorProneFlags flags) {
@@ -240,6 +249,14 @@ public class NullAway extends BugChecker
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames());
+    Class<?> moduleElementClass = null;
+    try {
+      moduleElementClass =
+          getClass().getClassLoader().loadClass("javax.lang.model.element.ModuleElement");
+    } catch (ClassNotFoundException e) {
+      // can occur pre JDK 11
+    }
+    this.moduleElementClass = moduleElementClass;
   }
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
@@ -431,10 +448,13 @@ public class NullAway extends BugChecker
     }
     Symbol symbol = ASTHelpers.getSymbol(tree);
     // Some checks for cases where we know this cannot be a null dereference.  The tree's symbol may
-    // be null in cases where the tree represents a package name, e.g., in the package declaration
-    // in a class, or in a requires clause in a module-info.java file; it should never be null for a
-    // real field dereference or method call
-    if (symbol == null || symbol.getSimpleName().toString().equals("class") || symbol.isEnum()) {
+    // be null in cases where the tree represents part of a package name, e.g., in the package
+    // declaration in a class, or in a requires clause in a module-info.java file; it should never
+    // be null for a real field dereference or method call
+    if (symbol == null
+        || symbol.getSimpleName().toString().equals("class")
+        || symbol.isEnum()
+        || isModuleSymbol(symbol)) {
       return Description.NO_MATCH;
     }
 
@@ -448,6 +468,15 @@ public class NullAway extends BugChecker
       return checkForReadBeforeInit(tree, state);
     }
     return Description.NO_MATCH;
+  }
+
+  /**
+   * Checks if {@code symbol} represents a JDK 9+ module using reflection.
+   *
+   * <p>TODO just check using instanceof once NullAway requires JDK 11
+   */
+  private boolean isModuleSymbol(Symbol symbol) {
+    return moduleElementClass != null && moduleElementClass.isAssignableFrom(symbol.getClass());
   }
 
   @Override
@@ -844,7 +873,9 @@ public class NullAway extends BugChecker
       return false;
     } else if (methodLambdaOrBlock instanceof MethodTree) {
       MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
-      if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) return true;
+      if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) {
+        return true;
+      }
       if (ASTHelpers.getSymbol(methodTree).isStatic()) {
         Set<MethodTree> staticInitializerMethods =
             class2Entities.get(enclosingClassSymbol(enclosingBlockPath)).staticInitializerMethods();
@@ -1931,12 +1962,18 @@ public class NullAway extends BugChecker
         exprMayBeNull = false;
         break;
       case MEMBER_SELECT:
-        // A MemberSelectTree for a field dereference or method call cannot have a null symbol; see
-        // comments in matchMemberSelect()
-        exprMayBeNull = exprSymbol == null ? false : mayBeNullFieldAccess(state, expr, exprSymbol);
+        if (exprSymbol == null) {
+          throw new IllegalStateException(
+              "unexpected null symbol for dereference expression " + state.getSourceForNode(expr));
+        }
+        exprMayBeNull = mayBeNullFieldAccess(state, expr, exprSymbol);
         break;
       case IDENTIFIER:
-        if (exprSymbol != null && exprSymbol.getKind().equals(ElementKind.FIELD)) {
+        if (exprSymbol == null) {
+          throw new IllegalStateException(
+              "unexpected null symbol for identifier " + state.getSourceForNode(expr));
+        }
+        if (exprSymbol.getKind().equals(ElementKind.FIELD)) {
           // Special case: mayBeNullFieldAccess runs handler.onOverrideMayBeNullExpr before
           // dataflow.
           return mayBeNullFieldAccess(state, expr, exprSymbol);
