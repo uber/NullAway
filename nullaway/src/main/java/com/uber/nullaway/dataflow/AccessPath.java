@@ -485,7 +485,8 @@ public final class AccessPath implements MapKey {
     List<AccessPathElement> elems = new ArrayList<>();
     Root root = populateElementsRec(mapNode, elems, apContext);
     if (root != null) {
-      return new AccessPath(root, elems, new IteratorContentsKey(iterVar.getElement()));
+      return new AccessPath(
+          root, elems, new IteratorContentsKey((VariableElement) iterVar.getElement()));
     }
     return null;
   }
@@ -705,13 +706,13 @@ public final class AccessPath implements MapKey {
      * enhanced-for loop over a {@code keySet()}, and for such cases the iterator is always stored
      * locally
      */
-    private final Element iteratorVarElement;
+    private final VariableElement iteratorVarElement;
 
-    IteratorContentsKey(Element iteratorVarElement) {
+    IteratorContentsKey(VariableElement iteratorVarElement) {
       this.iteratorVarElement = iteratorVarElement;
     }
 
-    public Element getIteratorVarElement() {
+    public VariableElement getIteratorVarElement() {
       return iteratorVarElement;
     }
 
