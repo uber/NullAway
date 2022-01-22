@@ -70,7 +70,6 @@ def build = [
                                "com.ibm.wala:com.ibm.wala.shrike:${versions.wala}",
                                "com.ibm.wala:com.ibm.wala.core:${versions.wala}"],
     commonscli              : "commons-cli:commons-cli:${versions.commonscli}",
-    classgraph              : "io.github.classgraph:classgraph:4.8.138",
 
     // android stuff
     buildToolsVersion: "30.0.3",

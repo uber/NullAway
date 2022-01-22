@@ -36,8 +36,6 @@ dependencies {
     compileOnly deps.build.errorProneCheckApi
     implementation deps.build.checkerDataflow
     implementation deps.build.guava
-    // for InferredJARModelsHandler classpath scanning
-    implementation deps.build.classgraph
 
     testImplementation deps.test.junit4
     testImplementation(deps.build.errorProneTestHelpers) {
