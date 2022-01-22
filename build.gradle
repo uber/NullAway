@@ -54,6 +54,7 @@ subprojects { project ->
             "-Xlint:deprecation",
             "-Xlint:rawtypes",
             "-Xlint:unchecked",
+            "-Werror"
         ]
         options.errorprone {
             // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
