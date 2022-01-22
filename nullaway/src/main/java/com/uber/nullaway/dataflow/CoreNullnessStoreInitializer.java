@@ -16,6 +16,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
@@ -25,7 +26,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
   @Override
   public NullnessStore getInitialStore(
       UnderlyingAST underlyingAST,
-      List<LocalVariableNode> parameters,
+      @Nullable List<LocalVariableNode> parameters,
       Handler handler,
       Context context,
       Types types,
@@ -47,18 +48,20 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
 
   private static NullnessStore methodInitialStore(
       UnderlyingAST.CFGMethod underlyingAST,
-      List<LocalVariableNode> parameters,
+      @Nullable List<LocalVariableNode> parameters,
       Handler handler,
       Context context,
       Config config) {
     ClassTree classTree = underlyingAST.getClassTree();
     NullnessStore envStore = getEnvNullnessStoreForClass(classTree, context);
     NullnessStore.Builder result = envStore.toBuilder();
-    for (LocalVariableNode param : parameters) {
-      Element element = param.getElement();
-      Nullness assumed =
-          Nullness.hasNullableAnnotation((Symbol) element, config) ? NULLABLE : NONNULL;
-      result.setInformation(AccessPath.fromLocal(param), assumed);
+    if (parameters != null) {
+      for (LocalVariableNode param : parameters) {
+        Element element = param.getElement();
+        Nullness assumed =
+            Nullness.hasNullableAnnotation((Symbol) element, config) ? NULLABLE : NONNULL;
+        result.setInformation(AccessPath.fromLocal(param), assumed);
+      }
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
     return result.build();
@@ -66,7 +69,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
 
   private static NullnessStore lambdaInitialStore(
       UnderlyingAST.CFGLambda underlyingAST,
-      List<LocalVariableNode> parameters,
+      @Nullable List<LocalVariableNode> parameters,
       Handler handler,
       Context context,
       Types types,
@@ -88,31 +91,33 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         handler.onUnannotatedInvocationGetExplicitlyNullablePositions(
             context, fiMethodSymbol, ImmutableSet.of());
 
-    for (int i = 0; i < parameters.size(); i++) {
-      LocalVariableNode param = parameters.get(i);
-      VariableTree variableTree = code.getParameters().get(i);
-      Element element = param.getElement();
-      Nullness assumed;
-      // we treat lambda parameters differently; they "inherit" the nullability of the
-      // corresponding functional interface parameter, unless they are explicitly annotated
-      if (Nullness.hasNullableAnnotation((Symbol) element, config)) {
-        assumed = NULLABLE;
-      } else if (!NullabilityUtil.lambdaParamIsImplicitlyTyped(variableTree)) {
-        // the parameter has a declared type with no @Nullable annotation
-        // treat as non-null
-        assumed = NONNULL;
-      } else {
-        if (NullabilityUtil.isUnannotated(fiMethodSymbol, config)) {
-          // assume parameter is non-null unless handler tells us otherwise
-          assumed = nullableParamsFromHandler.contains(i) ? NULLABLE : NONNULL;
+    if (parameters != null) {
+      for (int i = 0; i < parameters.size(); i++) {
+        LocalVariableNode param = parameters.get(i);
+        VariableTree variableTree = code.getParameters().get(i);
+        Element element = param.getElement();
+        Nullness assumed;
+        // we treat lambda parameters differently; they "inherit" the nullability of the
+        // corresponding functional interface parameter, unless they are explicitly annotated
+        if (Nullness.hasNullableAnnotation((Symbol) element, config)) {
+          assumed = NULLABLE;
+        } else if (!NullabilityUtil.lambdaParamIsImplicitlyTyped(variableTree)) {
+          // the parameter has a declared type with no @Nullable annotation
+          // treat as non-null
+          assumed = NONNULL;
         } else {
-          assumed =
-              Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config)
-                  ? NULLABLE
-                  : NONNULL;
+          if (NullabilityUtil.isUnannotated(fiMethodSymbol, config)) {
+            // assume parameter is non-null unless handler tells us otherwise
+            assumed = nullableParamsFromHandler.contains(i) ? NULLABLE : NONNULL;
+          } else {
+            assumed =
+                Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config)
+                    ? NULLABLE
+                    : NONNULL;
+          }
         }
+        result.setInformation(AccessPath.fromLocal(param), assumed);
       }
-      result.setInformation(AccessPath.fromLocal(param), assumed);
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
     return result.build();

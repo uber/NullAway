@@ -327,6 +327,7 @@ public final class AccessPathNullnessAnalysis {
    * @param context Javac context
    * @return the final NullnessStore on exit from the method.
    */
+  @Nullable
   public NullnessStore forceRunOnMethod(TreePath methodPath, Context context) {
     return dataFlow.finalResult(methodPath, context, nullnessPropagation);
   }
@@ -345,9 +346,10 @@ public final class AccessPathNullnessAnalysis {
 
     // We use the CFG to get the Node corresponding to the expression
     Set<Node> exprNodes =
-        dataFlow
-            .getControlFlowGraph(exprPath, context, nullnessPropagation)
-            .getNodesCorrespondingToTree(exprPath.getLeaf());
+        castToNonNull(
+            dataFlow
+                .getControlFlowGraph(exprPath, context, nullnessPropagation)
+                .getNodesCorrespondingToTree(exprPath.getLeaf()));
 
     if (exprNodes.size() != 1) {
       // Since the expression must have a single corresponding node

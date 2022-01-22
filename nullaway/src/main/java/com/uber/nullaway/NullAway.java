@@ -262,7 +262,8 @@ public class NullAway extends BugChecker
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
     return invocationNode == null
-        || NullabilityUtil.isUnannotated(ASTHelpers.getSymbol(invocationNode.getTree()), config);
+        || NullabilityUtil.isUnannotated(
+            castToNonNull(ASTHelpers.getSymbol(invocationNode.getTree())), config);
   }
 
   @Override
@@ -377,7 +378,7 @@ public class NullAway extends BugChecker
       if (stmt instanceof ExpressionStatementTree) {
         ExpressionTree expression = ((ExpressionStatementTree) stmt).getExpression();
         if (expression instanceof MethodInvocationTree) {
-          return ASTHelpers.getSymbol((MethodInvocationTree) expression);
+          return castToNonNull(ASTHelpers.getSymbol((MethodInvocationTree) expression));
         }
       }
     }
@@ -719,7 +720,7 @@ public class NullAway extends BugChecker
     if (!matchWithinTopLevelClass) {
       return Description.NO_MATCH;
     }
-    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(tree);
+    Symbol.MethodSymbol referencedMethod = castToNonNull(ASTHelpers.getSymbol(tree));
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
     handler.onMatchMethodReference(this, tree, state, referencedMethod);
@@ -1118,7 +1119,7 @@ public class NullAway extends BugChecker
     } else if (parent instanceof MethodInvocationTree) {
       // ok if it's invoking castToNonNull and the read is the argument
       MethodInvocationTree methodInvoke = (MethodInvocationTree) parent;
-      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
+      Symbol.MethodSymbol methodSymbol = castToNonNull(ASTHelpers.getSymbol(methodInvoke));
       String qualifiedName =
           ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
       if (qualifiedName.equals(config.getCastToNonNullMethod())) {
@@ -1739,7 +1740,7 @@ public class NullAway extends BugChecker
             return false;
           }
           MethodInvocationTree methodInvocationTree = (MethodInvocationTree) expressionTree;
-          Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
+          Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(methodInvocationTree));
           Set<Modifier> modifiers = symbol.getModifiers();
           Set<Modifier> classModifiers = enclosingClassSymbol.getModifiers();
           if ((symbol.isPrivate()
@@ -2086,7 +2087,8 @@ public class NullAway extends BugChecker
     MethodTree methodTree = (MethodTree) suggestTree;
     int countNullableAnnotations = 0;
     for (AnnotationTree annotationTree : methodTree.getModifiers().getAnnotations()) {
-      if (state.getSourceForNode(annotationTree.getAnnotationType()).endsWith("Nullable")) {
+      if (castToNonNull(state.getSourceForNode(annotationTree.getAnnotationType()))
+          .endsWith("Nullable")) {
         fixBuilder.delete(annotationTree);
         countNullableAnnotations += 1;
       }

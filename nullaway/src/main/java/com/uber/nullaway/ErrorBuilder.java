@@ -30,6 +30,7 @@ import static com.uber.nullaway.NullAway.CORE_CHECK_NAME;
 import static com.uber.nullaway.NullAway.INITIALIZATION_CHECK_NAME;
 import static com.uber.nullaway.NullAway.OPTIONAL_CHECK_NAME;
 import static com.uber.nullaway.NullAway.getTreesInstance;
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
@@ -299,7 +300,7 @@ public class ErrorBuilder {
       Tree suggestTree, Description.Builder builder) {
     assert suggestTree.getKind() == Tree.Kind.METHOD_INVOCATION;
     final MethodInvocationTree invTree = (MethodInvocationTree) suggestTree;
-    final Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invTree);
+    final Symbol.MethodSymbol methodSymbol = castToNonNull(ASTHelpers.getSymbol(invTree));
     final String qualifiedName =
         ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
     if (!qualifiedName.equals(config.getCastToNonNullMethod())) {

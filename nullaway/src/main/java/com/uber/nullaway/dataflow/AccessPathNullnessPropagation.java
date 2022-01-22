@@ -514,7 +514,7 @@ public class AccessPathNullnessPropagation
     Node target = node.getTarget();
 
     if (target instanceof LocalVariableNode
-        && !ASTHelpers.getType(target.getTree()).isPrimitive()) {
+        && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
       LocalVariableNode localVariableNode = (LocalVariableNode) target;
       updates.set(localVariableNode, value);
       handleEnhancedForOverKeySet(localVariableNode, rhs, input, updates);
@@ -532,7 +532,7 @@ public class AccessPathNullnessPropagation
       setNonnullIfAnalyzeable(updates, receiver);
       if ((receiver instanceof ThisNode || fieldAccessNode.isStatic())
           && fieldAccessNode.getElement().getKind().equals(ElementKind.FIELD)
-          && !ASTHelpers.getType(target.getTree()).isPrimitive()) {
+          && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
         updates.set(fieldAccessNode, value);
       }
     }
@@ -773,7 +773,9 @@ public class AccessPathNullnessPropagation
     handler.onDataflowVisitLambdaResultExpression(
         resultNode.getTree(), input.getThenStore(), input.getElseStore());
     SubNodeValues values = values(input);
-    Nullness nullness = values.valueOfSubNode(resultNode.getResult());
+    // result.getResult() actually can't be null; see
+    // https://github.com/typetools/checker-framework/pull/5017
+    Nullness nullness = values.valueOfSubNode(castToNonNull(resultNode.getResult()));
     return noStoreChanges(nullness, input);
   }
 
