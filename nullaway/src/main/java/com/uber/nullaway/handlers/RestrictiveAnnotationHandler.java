@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -70,7 +72,8 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
-      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) expr);
+      Symbol.MethodSymbol methodSymbol =
+          castToNonNull(ASTHelpers.getSymbol((MethodInvocationTree) expr));
       if (NullabilityUtil.isUnannotated(methodSymbol, config)) {
         // with the generated-as-unannotated option enabled, we want to ignore
         // annotations in generated code
@@ -117,7 +120,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
+    Symbol.MethodSymbol methodSymbol = castToNonNull(ASTHelpers.getSymbol(node.getTree()));
     if (NullabilityUtil.isUnannotated(methodSymbol, config)
         && Nullness.hasNullableAnnotation(methodSymbol, config)) {
       return NullnessHint.HINT_NULLABLE;

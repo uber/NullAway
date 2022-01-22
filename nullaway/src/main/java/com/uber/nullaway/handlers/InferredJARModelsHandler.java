@@ -193,7 +193,8 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
       return exprMayBeNull
-          || isReturnAnnotatedNullable(ASTHelpers.getSymbol((MethodInvocationTree) expr));
+          || isReturnAnnotatedNullable(
+              castToNonNull(ASTHelpers.getSymbol((MethodInvocationTree) expr)));
     }
     return exprMayBeNull;
   }

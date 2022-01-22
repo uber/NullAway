@@ -21,6 +21,8 @@
  */
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
@@ -112,7 +114,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(node.getTree());
+    Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(node.getTree()));
 
     if (optionalIsPresentCall(symbol, types)) {
       updateNonNullAPsForOptionalContent(thenUpdates, node.getTarget().getReceiver(), apContext);
@@ -166,7 +168,8 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     Node receiver = node.getTarget().getReceiver();
     if (receiver instanceof MethodInvocationNode) {
       MethodInvocationNode receiverMethod = (MethodInvocationNode) receiver;
-      Symbol.MethodSymbol receiverSymbol = ASTHelpers.getSymbol(receiverMethod.getTree());
+      Symbol.MethodSymbol receiverSymbol =
+          castToNonNull(ASTHelpers.getSymbol(receiverMethod.getTree()));
       if (methodNameUtil.isMethodAssertThat(receiverSymbol)) {
         // assertThat will always have at least one argument, So safe to extract from the arguments
         Node arg = receiverMethod.getArgument(0);
@@ -177,7 +180,8 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
           Node unwrappedArg = ((MethodInvocationNode) arg).getArgument(0);
           if (unwrappedArg instanceof MethodInvocationNode) {
             MethodInvocationNode argMethod = (MethodInvocationNode) unwrappedArg;
-            Symbol.MethodSymbol argSymbol = ASTHelpers.getSymbol(argMethod.getTree());
+            Symbol.MethodSymbol argSymbol =
+                castToNonNull(ASTHelpers.getSymbol(argMethod.getTree()));
             if (optionalIsPresentCall(argSymbol, types)) {
               updateNonNullAPsForOptionalContent(
                   bothUpdates, argMethod.getTarget().getReceiver(), apContext);
