@@ -23,11 +23,10 @@ import static javax.lang.model.element.ElementKind.EXCEPTION_PARAMETER;
 import static org.checkerframework.nullaway.javacutil.TreeUtils.elementFromDeclaration;
 
 import com.google.common.base.Preconditions;
+import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TypeTag;
-import com.sun.tools.javac.code.Types;
-import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -136,11 +135,9 @@ public class AccessPathNullnessPropagation
 
   private final Predicate<MethodInvocationNode> methodReturnsNonNull;
 
-  private final Context context;
+  private final VisitorState state;
 
   private final AccessPath.AccessPathContext apContext;
-
-  private final Types types;
 
   private final Config config;
 
@@ -151,16 +148,15 @@ public class AccessPathNullnessPropagation
   public AccessPathNullnessPropagation(
       Nullness defaultAssumption,
       Predicate<MethodInvocationNode> methodReturnsNonNull,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext,
       Config config,
       Handler handler,
       NullnessStoreInitializer nullnessStoreInitializer) {
     this.defaultAssumption = defaultAssumption;
     this.methodReturnsNonNull = methodReturnsNonNull;
-    this.context = context;
+    this.state = state;
     this.apContext = apContext;
-    this.types = Types.instance(context);
     this.config = config;
     this.handler = handler;
     this.nullnessStoreInitializer = nullnessStoreInitializer;
@@ -189,7 +185,7 @@ public class AccessPathNullnessPropagation
   public NullnessStore initialStore(
       UnderlyingAST underlyingAST, List<LocalVariableNode> parameters) {
     return nullnessStoreInitializer.getInitialStore(
-        underlyingAST, parameters, handler, context, types, config);
+        underlyingAST, parameters, handler, state.context, state.getTypes(), config);
   }
 
   @Override
@@ -444,14 +440,14 @@ public class AccessPathNullnessPropagation
     Node realLeftNode = unwrapAssignExpr(leftNode);
     Node realRightNode = unwrapAssignExpr(rightNode);
 
-    AccessPath leftAP = AccessPath.getAccessPathForNodeWithMapGet(realLeftNode, types, apContext);
+    AccessPath leftAP = AccessPath.getAccessPathForNodeWithMapGet(realLeftNode, state, apContext);
     if (leftAP != null) {
       equalBranchUpdates.set(leftAP, equalBranchValue);
       notEqualBranchUpdates.set(
           leftAP, leftVal.greatestLowerBound(rightVal.deducedValueWhenNotEqual()));
     }
 
-    AccessPath rightAP = AccessPath.getAccessPathForNodeWithMapGet(realRightNode, types, apContext);
+    AccessPath rightAP = AccessPath.getAccessPathForNodeWithMapGet(realRightNode, state, apContext);
     if (rightAP != null) {
       equalBranchUpdates.set(rightAP, equalBranchValue);
       notEqualBranchUpdates.set(
@@ -566,10 +562,11 @@ public class AccessPathNullnessPropagation
             AccessPath.mapWithIteratorContentsKey(mapNode, lhs, apContext);
         if (mapWithIteratorContentsKey != null) {
           // put sanity check here to minimize perf impact
-          if (!isCallToMethod(rhsInv, "java.util.Set", "iterator")) {
-            throw new RuntimeException(
-                "expected call to iterator(), instead saw " + rhsInv.getTarget().getMethod());
-          }
+          //          if (!isCallToMethod(rhsInv, "java.util.Set", "iterator")) {
+          //            throw new RuntimeException(
+          //                "expected call to iterator(), instead saw " +
+          // rhsInv.getTarget().getMethod());
+          //          }
           updates.set(mapWithIteratorContentsKey, NONNULL);
         }
       }
@@ -611,7 +608,9 @@ public class AccessPathNullnessPropagation
     if (receiver instanceof MethodInvocationNode) {
       MethodInvocationNode baseInvocation = (MethodInvocationNode) receiver;
       // Check for a call to java.util.Map.keySet()
-      if (isCallToMethod(baseInvocation, "java.util.Map", "keySet")) {
+      //      if (isCallToMethod(baseInvocation, "java.util.Map", "keySet")) {
+      if (AccessPath.isMapMethod(
+          ASTHelpers.getSymbol(baseInvocation.getTree()), state, "keySet", 0)) {
         // receiver represents the map
         return baseInvocation.getTarget().getReceiver();
       }
@@ -646,7 +645,7 @@ public class AccessPathNullnessPropagation
    * the updates
    */
   private void setNonnullIfAnalyzeable(Updates updates, Node node) {
-    AccessPath ap = AccessPath.getAccessPathForNodeWithMapGet(node, types, apContext);
+    AccessPath ap = AccessPath.getAccessPathForNodeWithMapGet(node, state, apContext);
     if (ap != null) {
       updates.set(ap, NONNULL);
     }
@@ -867,10 +866,17 @@ public class AccessPathNullnessPropagation
     Preconditions.checkNotNull(callee);
     setReceiverNonnull(bothUpdates, node.getTarget().getReceiver(), callee);
     setNullnessForMapCalls(
-        node, callee, node.getArguments(), types, values(input), thenUpdates, bothUpdates);
+        node, callee, node.getArguments(), values(input), thenUpdates, bothUpdates);
     NullnessHint nullnessHint =
         handler.onDataflowVisitMethodInvocation(
-            node, types, context, apContext, values(input), thenUpdates, elseUpdates, bothUpdates);
+            node,
+            state.getTypes(),
+            state.context,
+            apContext,
+            values(input),
+            thenUpdates,
+            elseUpdates,
+            bothUpdates);
     Nullness nullness = returnValueNullness(node, input, nullnessHint);
     if (booleanReturnType(node)) {
       ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates, bothUpdates);
@@ -885,11 +891,10 @@ public class AccessPathNullnessPropagation
       MethodInvocationNode node,
       Symbol.MethodSymbol callee,
       List<Node> arguments,
-      Types types,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    if (AccessPath.isContainsKey(callee, types)) {
+    if (AccessPath.isContainsKey(callee, state)) {
       // make sure argument is a variable, and get its element
       AccessPath getAccessPath = AccessPath.getForMapInvocation(node, apContext);
       if (getAccessPath != null) {
@@ -898,7 +903,7 @@ public class AccessPathNullnessPropagation
         // as containsKey()
         thenUpdates.set(getAccessPath, NONNULL);
       }
-    } else if (AccessPath.isMapPut(callee, types)) {
+    } else if (AccessPath.isMapPut(callee, state)) {
       AccessPath getAccessPath = AccessPath.getForMapInvocation(node, apContext);
       if (getAccessPath != null) {
         Nullness value = inputs.valueOfSubNode(arguments.get(1));
@@ -928,7 +933,7 @@ public class AccessPathNullnessPropagation
     } else if (node != null && returnValueNullnessHint == NullnessHint.HINT_NULLABLE) {
       // we have a model saying return value is nullable.
       // still, rely on dataflow fact if there is one available
-      nullness = input.getRegularStore().valueOfMethodCall(node, types, NULLABLE, apContext);
+      nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
     } else if (node == null
         || methodReturnsNonNull.test(node)
         || !Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod(), config)) {
@@ -936,7 +941,7 @@ public class AccessPathNullnessPropagation
       nullness = NONNULL;
     } else {
       // rely on dataflow, assuming nullable if no fact
-      nullness = input.getRegularStore().valueOfMethodCall(node, types, NULLABLE, apContext);
+      nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
     }
     return nullness;
   }
@@ -1073,7 +1078,7 @@ public class AccessPathNullnessPropagation
 
     @Override
     public void set(MethodInvocationNode node, Nullness value) {
-      AccessPath path = AccessPath.fromMethodCall(node, types, apContext);
+      AccessPath path = AccessPath.fromMethodCall(node, state, apContext);
       values.put(checkNotNull(path), value);
     }
 

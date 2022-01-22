@@ -131,4 +131,21 @@ public class NullAwayKeySetIteratorTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void immutableMap() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.google.common.collect.ImmutableMap;",
+            "public class Test {",
+            "  public void keySetStuff(ImmutableMap<Object, Object> m) {",
+            "    for (Object k: m.keySet()) {",
+            "      m.get(k).toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
