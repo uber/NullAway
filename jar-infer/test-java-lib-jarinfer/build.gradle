@@ -23,7 +23,7 @@ evaluationDependsOn(":jar-infer:jar-infer-cli")
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
-def astubxPath = "META-INF/nullaway/jarinfer.astubx"
+def astubxPath = "nullaway/jarinfer.astubx"
 
 jar {
     manifest {
@@ -48,6 +48,9 @@ jar.doLast {
 }
 
 dependencies {
+    compileOnly deps.apt.autoService
+    annotationProcessor deps.apt.autoService
+    compileOnly project(":nullaway")
     implementation deps.build.jsr305Annotations
 }
 
