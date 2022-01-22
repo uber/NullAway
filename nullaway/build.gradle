@@ -123,4 +123,8 @@ if (JavaVersion.current() >= JavaVersion.VERSION_11) {
             }
         }
     }
+
+    project.tasks.named('check').configure {
+        dependsOn 'buildWithNullAway'
+    }
 }
