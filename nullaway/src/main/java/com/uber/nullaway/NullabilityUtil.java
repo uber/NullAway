@@ -363,7 +363,7 @@ public class NullabilityUtil {
 
   public static <T> T castToNonNull(@Nullable T obj) {
     if (obj == null) {
-      throw new NullPointerException();
+      throw new NullPointerException("castToNonNull failed!");
     }
     return obj;
   }

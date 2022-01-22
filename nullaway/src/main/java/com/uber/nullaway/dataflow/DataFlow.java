@@ -91,6 +91,11 @@ public final class DataFlow {
                 }
               });
 
+  // suppressing until we update to a version of Checker dataflow containing this fix:
+  // https://github.com/typetools/checker-framework/pull/5018
+  // Also, it would be nice if we could do a more local suppression; see
+  // https://github.com/uber/NullAway/issues/561
+  @SuppressWarnings("NullAway")
   private final LoadingCache<CfgParams, ControlFlowGraph> cfgCache =
       CacheBuilder.newBuilder()
           .maximumSize(MAX_CACHE_SIZE)
@@ -106,7 +111,7 @@ public final class DataFlow {
                     LambdaExpressionTree lambdaExpressionTree =
                         (LambdaExpressionTree) codePath.getLeaf();
                     MethodTree enclMethod =
-                        castToNonNull(ASTHelpers.findEnclosingNode(codePath, MethodTree.class));
+                        ASTHelpers.findEnclosingNode(codePath, MethodTree.class);
                     ClassTree enclClass =
                         castToNonNull(ASTHelpers.findEnclosingNode(codePath, ClassTree.class));
                     ast = new UnderlyingAST.CFGLambda(lambdaExpressionTree, enclClass, enclMethod);
