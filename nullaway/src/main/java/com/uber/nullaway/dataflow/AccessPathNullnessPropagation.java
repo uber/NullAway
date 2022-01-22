@@ -24,8 +24,11 @@ import static org.checkerframework.nullaway.javacutil.TreeUtils.elementFromDecla
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
@@ -130,6 +133,11 @@ public class AccessPathNullnessPropagation
     implements ForwardTransferFunction<Nullness, NullnessStore> {
 
   private static final boolean NO_STORE_CHANGE = false;
+
+  private static final Supplier<Type> SET_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Set");
+
+  private static final Supplier<Type> ITERATOR_TYPE_SUPPLIER =
+      Suppliers.typeFromString("java.util.Iterator");
 
   private final Nullness defaultAssumption;
 
@@ -562,11 +570,11 @@ public class AccessPathNullnessPropagation
             AccessPath.mapWithIteratorContentsKey(mapNode, lhs, apContext);
         if (mapWithIteratorContentsKey != null) {
           // put sanity check here to minimize perf impact
-          //          if (!isCallToMethod(rhsInv, "java.util.Set", "iterator")) {
-          //            throw new RuntimeException(
-          //                "expected call to iterator(), instead saw " +
-          // rhsInv.getTarget().getMethod());
-          //          }
+          if (!isCallToMethod(rhsInv, SET_TYPE_SUPPLIER, "iterator")) {
+            throw new RuntimeException(
+                "expected call to iterator(), instead saw "
+                    + state.getSourceForNode(rhsInv.getTree()));
+          }
           updates.set(mapWithIteratorContentsKey, NONNULL);
         }
       }
@@ -587,9 +595,10 @@ public class AccessPathNullnessPropagation
                 .getMapGetIteratorContentsAccessPath((LocalVariableNode) receiver);
         if (mapGetPath != null) {
           // put sanity check here to minimize perf impact
-          if (!isCallToMethod(methodInv, "java.util.Iterator", "next")) {
+          if (!isCallToMethod(methodInv, ITERATOR_TYPE_SUPPLIER, "next")) {
             throw new RuntimeException(
-                "expected call to iterator(), instead saw " + methodInv.getTarget().getMethod());
+                "expected call to next(), instead saw "
+                    + state.getSourceForNode(methodInv.getTree()));
           }
           updates.set(AccessPath.replaceMapKey(mapGetPath, AccessPath.fromLocal(lhs)), NONNULL);
         }
@@ -618,11 +627,13 @@ public class AccessPathNullnessPropagation
   }
 
   private boolean isCallToMethod(
-      MethodInvocationNode invocationNode, String containingClassName, String methodName) {
+      MethodInvocationNode invocationNode,
+      Supplier<Type> containingTypeSupplier,
+      String methodName) {
     Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocationNode.getTree());
     return symbol != null
         && symbol.getSimpleName().contentEquals(methodName)
-        && symbol.owner.getQualifiedName().contentEquals(containingClassName);
+        && ASTHelpers.isSubtype(symbol.owner.type, containingTypeSupplier.get(state), state);
   }
 
   /**
