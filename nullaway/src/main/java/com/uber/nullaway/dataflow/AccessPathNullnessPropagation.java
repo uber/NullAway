@@ -608,8 +608,7 @@ public class AccessPathNullnessPropagation
     if (receiver instanceof MethodInvocationNode) {
       MethodInvocationNode baseInvocation = (MethodInvocationNode) receiver;
       // Check for a call to java.util.Map.keySet()
-      //      if (isCallToMethod(baseInvocation, "java.util.Map", "keySet")) {
-      if (AccessPath.isMapMethod(
+      if (NullabilityUtil.isMapMethod(
           ASTHelpers.getSymbol(baseInvocation.getTree()), state, "keySet", 0)) {
         // receiver represents the map
         return baseInvocation.getTarget().getReceiver();

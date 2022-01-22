@@ -26,14 +26,13 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.suppliers.Supplier;
-import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.NullabilityUtil;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -549,40 +548,16 @@ public final class AccessPath implements MapKey {
     return "AccessPath{" + "root=" + root + ", elements=" + elements + '}';
   }
 
-  private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
-
-  public static boolean isMapMethod(
-      Symbol.MethodSymbol symbol, VisitorState state, String methodName, int numParams) {
-    if (!symbol.getSimpleName().toString().equals(methodName)) {
-      return false;
-    }
-    if (symbol.getParameters().size() != numParams) {
-      return false;
-    }
-    Symbol owner = symbol.owner;
-    return ASTHelpers.isSubtype(owner.type, MAP_TYPE_SUPPLIER.get(state), state);
-    //    if (owner.getQualifiedName().toString().equals("java.util.Map")) {
-    //      return true;
-    //    }
-    //    com.sun.tools.javac.util.List<Type> supertypes = types.closure(owner.type);
-    //    for (Type t : supertypes) {
-    //      if (t.asElement().getQualifiedName().toString().equals("java.util.Map")) {
-    //        return true;
-    //      }
-    //    }
-    //    return false;
-  }
-
   private static boolean isMapGet(Symbol.MethodSymbol symbol, VisitorState state) {
-    return isMapMethod(symbol, state, "get", 1);
+    return NullabilityUtil.isMapMethod(symbol, state, "get", 1);
   }
 
   public static boolean isContainsKey(Symbol.MethodSymbol symbol, VisitorState state) {
-    return isMapMethod(symbol, state, "containsKey", 1);
+    return NullabilityUtil.isMapMethod(symbol, state, "containsKey", 1);
   }
 
   public static boolean isMapPut(Symbol.MethodSymbol symbol, VisitorState state) {
-    return isMapMethod(symbol, state, "put", 2);
+    return NullabilityUtil.isMapMethod(symbol, state, "put", 2);
   }
 
   /**
