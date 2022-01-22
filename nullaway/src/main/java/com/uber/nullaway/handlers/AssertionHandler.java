@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.NONNULL;
 
 import com.google.errorprone.util.ASTHelpers;
@@ -68,7 +69,8 @@ public class AssertionHandler extends BaseNoOpHandler {
       Node receiver = node.getTarget().getReceiver();
       if (receiver instanceof MethodInvocationNode) {
         MethodInvocationNode receiver_method = (MethodInvocationNode) receiver;
-        Symbol.MethodSymbol receiver_symbol = ASTHelpers.getSymbol(receiver_method.getTree());
+        Symbol.MethodSymbol receiver_symbol =
+            castToNonNull(ASTHelpers.getSymbol(receiver_method.getTree()));
         if (methodNameUtil.isMethodAssertThat(receiver_symbol)) {
           Node arg = receiver_method.getArgument(0);
           AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(arg, apContext);

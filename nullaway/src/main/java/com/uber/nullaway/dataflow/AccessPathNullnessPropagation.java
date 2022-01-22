@@ -34,6 +34,7 @@ import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handler.NullnessHint;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -195,7 +196,12 @@ public class AccessPathNullnessPropagation
   public NullnessStore initialStore(
       UnderlyingAST underlyingAST, @Nullable List<LocalVariableNode> parameters) {
     return nullnessStoreInitializer.getInitialStore(
-        underlyingAST, parameters, handler, context, types, config);
+        underlyingAST,
+        parameters == null ? Collections.emptyList() : parameters,
+        handler,
+        context,
+        types,
+        config);
   }
 
   @Override

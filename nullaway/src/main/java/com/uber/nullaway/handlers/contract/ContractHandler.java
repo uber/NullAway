@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.handlers.contract;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getAntecedent;
 import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 
@@ -29,6 +30,7 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -112,10 +114,10 @@ public class ContractHandler extends BaseNoOpHandler {
       String[] clauses = contractString.split(";");
       for (String clause : clauses) {
 
+        MethodInvocationTree tree = castToNonNull(node.getTree());
         String[] antecedent =
-            getAntecedent(
-                clause, node.getTree(), analysis, state, callee, node.getArguments().size());
-        String consequent = getConsequent(clause, node.getTree(), analysis, state, callee);
+            getAntecedent(clause, tree, analysis, state, callee, node.getArguments().size());
+        String consequent = getConsequent(clause, tree, analysis, state, callee);
 
         // Find a single value constraint that is not already known. If more than one arguments with
         // unknown
@@ -162,8 +164,8 @@ public class ContractHandler extends BaseNoOpHandler {
                     .createErrorDescription(
                         new ErrorMessage(
                             ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
-                        node.getTree(),
-                        analysis.buildDescription(node.getTree()),
+                        tree,
+                        analysis.buildDescription(tree),
                         state));
             supported = false;
             break;

@@ -16,7 +16,6 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
 import java.util.Objects;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
@@ -26,7 +25,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
   @Override
   public NullnessStore getInitialStore(
       UnderlyingAST underlyingAST,
-      @Nullable List<LocalVariableNode> parameters,
+      List<LocalVariableNode> parameters,
       Handler handler,
       Context context,
       Types types,
@@ -48,7 +47,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
 
   private static NullnessStore methodInitialStore(
       UnderlyingAST.CFGMethod underlyingAST,
-      @Nullable List<LocalVariableNode> parameters,
+      List<LocalVariableNode> parameters,
       Handler handler,
       Context context,
       Config config) {
@@ -69,7 +68,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
 
   private static NullnessStore lambdaInitialStore(
       UnderlyingAST.CFGLambda underlyingAST,
-      @Nullable List<LocalVariableNode> parameters,
+      List<LocalVariableNode> parameters,
       Handler handler,
       Context context,
       Types types,

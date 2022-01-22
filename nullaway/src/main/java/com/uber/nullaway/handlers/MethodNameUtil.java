@@ -22,6 +22,8 @@ package com.uber.nullaway.handlers;
  * THE SOFTWARE.
  */
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.facebook.infer.annotation.Initializer;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
@@ -161,7 +163,8 @@ class MethodNameUtil {
   private boolean matchesMatcherMethod(Node node, Name matcherName, Name matcherClass) {
     if (node instanceof MethodInvocationNode) {
       MethodInvocationNode methodInvocationNode = (MethodInvocationNode) node;
-      Symbol.MethodSymbol callee = ASTHelpers.getSymbol(methodInvocationNode.getTree());
+      Symbol.MethodSymbol callee =
+          castToNonNull(ASTHelpers.getSymbol(methodInvocationNode.getTree()));
       return matchesMethod(callee, matcherName, matcherClass);
     }
     return false;

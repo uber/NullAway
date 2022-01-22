@@ -21,6 +21,8 @@
  */
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
@@ -75,7 +77,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(node.getTree());
+    Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(node.getTree()));
     if (thriftIsSetCall(symbol, types)) {
       String methodName = symbol.getSimpleName().toString();
       // remove "isSet"
@@ -107,8 +109,9 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
 
   /**
    * Returns the field (if it exists and is visible) and the setter for a property. If the field is
-   * not available, the first element of the returned pair is {@code null}.
+   * not available, returns {@code null}.
    */
+  @SuppressWarnings("NullAway") // need generics support for Pair, or write our own type
   private Pair<Element, Element> getFieldAndSetterForProperty(
       Symbol.MethodSymbol symbol, String capPropName) {
     Element field = null;
