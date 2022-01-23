@@ -78,7 +78,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     super();
     this.config = config;
     argAnnotCache = new LinkedHashMap<>();
-    processClassPath();
+    loadStubxFiles();
     // Load Android SDK JarInfer models
     try {
       InputStream androidStubxIS =
@@ -101,10 +101,11 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     }
   }
 
-  /*
-   * Scan Java Classpath for JarInfer model jars and map their names to locations
+  /**
+   * Loads all stubx files discovered in the classpath. Stubx files are discovered via
+   * implementations of {@link JarInferStubxProvider} loaded using a {@link ServiceLoader}
    */
-  private void processClassPath() {
+  private void loadStubxFiles() {
     Iterable<JarInferStubxProvider> astubxProviders =
         ServiceLoader.load(
             JarInferStubxProvider.class, InferredJARModelsHandler.class.getClassLoader());
@@ -115,7 +116,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         try {
           parseStubStream(stubxInputStream, stubxLocation);
         } catch (IOException e) {
-          throw new RuntimeException("could not parser stubx file " + stubxLocation, e);
+          throw new RuntimeException("could not parse stubx file " + stubxLocation, e);
         }
       }
     }
