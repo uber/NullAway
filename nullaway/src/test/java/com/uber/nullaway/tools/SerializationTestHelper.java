@@ -26,6 +26,7 @@ import static org.junit.Assert.fail;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -121,10 +122,15 @@ public class SerializationTestHelper {
     BufferedReader reader;
     try {
       reader = Files.newBufferedReader(this.outputPath, Charset.defaultCharset());
-      String line = reader.readLine();
-      if (line != null) {
-        line = reader.readLine();
+      String header = reader.readLine();
+      if (!header.equals(SuggestedFixInfo.header())) {
+        fail(
+            "Expected header of fixes.tsv to be: "
+                + SuggestedFixInfo.header()
+                + "\bBut found: "
+                + header);
       }
+      String line = reader.readLine();
       while (line != null) {
         FixDisplay fixDisplay = FixDisplay.fromStringWithDelimiter(line);
         fixDisplay.uri = fixDisplay.uri.substring(fixDisplay.uri.indexOf("com/uber/"));
