@@ -57,7 +57,9 @@ public class AnnotationConfig {
 
   public AnnotationConfig(String nullable, String nonNull) {
     this();
-    if (nullable == null || nullable.equals("") || nonNull == null || nonNull.equals("")) return;
+    if (nullable == null || nullable.equals("") || nonNull == null || nonNull.equals("")) {
+      return;
+    }
     setFullNames(nonNull, nullable);
   }
 

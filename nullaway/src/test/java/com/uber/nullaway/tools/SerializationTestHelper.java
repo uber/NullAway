@@ -85,10 +85,15 @@ public class SerializationTestHelper {
     ArrayList<FixDisplay> notFound = new ArrayList<>();
     ArrayList<FixDisplay> output = new ArrayList<>(Arrays.asList(outputFixDisplays));
     for (FixDisplay f : fixDisplays) {
-      if (!output.contains(f)) notFound.add(f);
-      else output.remove(f);
+      if (!output.contains(f)) {
+        notFound.add(f);
+      } else {
+        output.remove(f);
+      }
     }
-    if (notFound.size() == 0 && output.size() == 0) return;
+    if (notFound.size() == 0 && output.size() == 0) {
+      return;
+    }
     if (notFound.size() == 0) {
       fail(
           ""
@@ -121,7 +126,9 @@ public class SerializationTestHelper {
     try {
       reader = Files.newBufferedReader(this.outputPath, Charset.defaultCharset());
       String line = reader.readLine();
-      if (line != null) line = reader.readLine();
+      if (line != null) {
+        line = reader.readLine();
+      }
       while (line != null) {
         FixDisplay fixDisplay = FixDisplay.fromStringWithDelimiter(line);
         fixDisplay.uri = fixDisplay.uri.substring(fixDisplay.uri.indexOf("com/uber/"));

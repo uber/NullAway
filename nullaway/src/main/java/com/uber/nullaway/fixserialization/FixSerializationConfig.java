@@ -124,8 +124,12 @@ public class FixSerializationConfig {
    * @return true, if the element is accessible and {@code suggestEnabled} is active.
    */
   public boolean canFixElement(Trees trees, Element symbol) {
-    if (!suggestEnabled) return false;
-    if (symbol == null) return false;
+    if (!suggestEnabled) {
+      return false;
+    }
+    if (symbol == null) {
+      return false;
+    }
     return trees.getPath(symbol) != null;
   }
 

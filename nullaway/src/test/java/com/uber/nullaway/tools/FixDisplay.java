@@ -74,8 +74,12 @@ public class FixDisplay {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof FixDisplay)) return false;
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof FixDisplay)) {
+      return false;
+    }
     FixDisplay fix = (FixDisplay) o;
     return Objects.equals(annotation, fix.annotation)
         && Objects.equals(method, fix.method)

@@ -55,8 +55,12 @@ public class SuggestedFixInfo {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof SuggestedFixInfo)) return false;
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof SuggestedFixInfo)) {
+      return false;
+    }
     SuggestedFixInfo suggestedFixInfo = (SuggestedFixInfo) o;
     return Objects.equals(fixLocation, suggestedFixInfo.fixLocation)
         && Objects.equals(annotation, suggestedFixInfo.annotation)

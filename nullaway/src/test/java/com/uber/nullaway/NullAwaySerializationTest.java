@@ -33,23 +33,20 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 import org.springframework.util.FileSystemUtils;
 
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
-public class NullAwaySerializationTest {
-
-  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   private SerializationTestHelper serializationTestHelper;
   private String configPath;
 
   @Before
+  @Override
   public void setup() {
     Path home = Paths.get(temporaryFolder.getRoot().getPath());
     String output = home.toString();

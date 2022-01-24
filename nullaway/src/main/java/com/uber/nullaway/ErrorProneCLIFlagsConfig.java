@@ -227,13 +227,14 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
         serializationActivationFlag
             ? new FixSerializationConfig(fixSerializationConfigPath.get())
             : new FixSerializationConfig();
-    if (serializationActivationFlag && isSuggestSuppressions)
+    if (serializationActivationFlag && isSuggestSuppressions) {
       throw new IllegalStateException(
           "In order to activate Fix Serialization mode ("
               + FL_FIX_SERIALIZATION
               + "), Suggest Suppression mode must be deactivated ("
               + FL_SUGGEST_SUPPRESSIONS
               + ")");
+    }
   }
 
   private static ImmutableSet<String> getFlagStringSet(ErrorProneFlags flags, String flagName) {
