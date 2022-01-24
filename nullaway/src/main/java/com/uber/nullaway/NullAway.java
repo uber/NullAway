@@ -884,7 +884,9 @@ public class NullAway extends BugChecker
       return false;
     } else if (methodLambdaOrBlock instanceof MethodTree) {
       MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
-      if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) return true;
+      if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) {
+        return true;
+      }
       if (ASTHelpers.getSymbol(methodTree).isStatic()) {
         Set<MethodTree> staticInitializerMethods =
             class2Entities.get(enclosingClassSymbol(enclosingBlockPath)).staticInitializerMethods();
@@ -2043,8 +2045,7 @@ public class NullAway extends BugChecker
   }
 
   public AccessPathNullnessAnalysis getNullnessAnalysis(VisitorState state) {
-    return AccessPathNullnessAnalysis.instance(
-        state.context, nonAnnotatedMethod, config, this.handler);
+    return AccessPathNullnessAnalysis.instance(state, nonAnnotatedMethod, config, this.handler);
   }
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {

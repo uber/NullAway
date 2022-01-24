@@ -410,9 +410,10 @@ public class ErrorBuilder {
 
   static int getLineNumForElement(Element uninitField, VisitorState state) {
     Tree tree = getTreesInstance(state).getTree(uninitField);
-    if (tree == null)
+    if (tree == null) {
       throw new RuntimeException(
           "When getting the line number for uninitialized field, can't get the tree from the element.");
+    }
     DiagnosticPosition position =
         (DiagnosticPosition) tree; // Expect Tree to be JCTree and thus implement DiagnosticPosition
     TreePath path = state.getPath();

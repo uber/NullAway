@@ -64,6 +64,7 @@ subprojects { project ->
             // this check is too noisy
             check("StringSplitter", CheckSeverity.OFF)
             check("WildcardImport", CheckSeverity.ERROR)
+            check("MissingBraces", CheckSeverity.ERROR)
         }
     }
 
@@ -71,6 +72,10 @@ subprojects { project ->
         tasks.withType(JavaCompile) {
             options.release = 8
         }
+    }
+
+    tasks.withType(Test).configureEach {
+        maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
     }
 
     repositories {
