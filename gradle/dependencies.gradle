@@ -32,7 +32,7 @@ if (project.hasProperty("epApiVersion")) {
 }
 def versions = [
     asm                    : "9.2",
-    checkerFramework       : "3.21.0",
+    checkerFramework       : "3.21.1",
     // The version of Error Prone used to check NullAway's code
     errorProne             : "2.10.0",
     // The version of Error Prone that NullAway is compiled and tested against
@@ -40,8 +40,8 @@ def versions = [
     support                : "27.1.1",
     wala                   : "1.5.4",
     commonscli             : "1.4",
-    autoValue              : "1.6.2",
-    autoService            : "1.0-rc7",
+    autoValue              : "1.9",
+    autoService            : "1.0.1",
 ]
 
 def apt = [

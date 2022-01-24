@@ -113,7 +113,9 @@ public class AnnotationChecker {
         return false;
       }
       List<AnnotationNode>[] paramAnnotations = method.visibleParameterAnnotations;
-      if (paramAnnotations == null) continue;
+      if (paramAnnotations == null) {
+        continue;
+      }
       for (List<AnnotationNode> annotations : paramAnnotations) {
         if (!checkExpectedAnnotations(annotations, expectedToActualAnnotations)
             && !checkTestMethodParamAnnotationByName(method)) {
@@ -207,7 +209,9 @@ public class AnnotationChecker {
 
   // Returns the number of times 'annotation' is present in the list 'annotations'.
   private static int countAnnotations(List<AnnotationNode> annotations, String annotation) {
-    if (annotations == null) return 0;
+    if (annotations == null) {
+      return 0;
+    }
     int count = 0;
     for (AnnotationNode annotationNode : annotations) {
       if (annotationNode.desc.equals(annotation)) {

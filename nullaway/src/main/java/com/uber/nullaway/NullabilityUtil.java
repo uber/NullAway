@@ -24,6 +24,9 @@ package com.uber.nullaway;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
@@ -54,6 +57,8 @@ import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
+
+  private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
 
   private NullabilityUtil() {}
 
@@ -359,5 +364,21 @@ public class NullabilityUtil {
   public static boolean isGenerated(Symbol symbol) {
     Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
     return ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated");
+  }
+
+  /**
+   * Checks if {@code symbol} is a method on {@code java.util.Map} (or a subtype) with name {@code
+   * methodName} and {@code numParams} parameters
+   */
+  public static boolean isMapMethod(
+      Symbol.MethodSymbol symbol, VisitorState state, String methodName, int numParams) {
+    if (!symbol.getSimpleName().toString().equals(methodName)) {
+      return false;
+    }
+    if (symbol.getParameters().size() != numParams) {
+      return false;
+    }
+    Symbol owner = symbol.owner;
+    return ASTHelpers.isSubtype(owner.type, MAP_TYPE_SUPPLIER.get(state), state);
   }
 }

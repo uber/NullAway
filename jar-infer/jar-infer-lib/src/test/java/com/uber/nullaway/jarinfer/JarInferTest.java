@@ -173,13 +173,21 @@ public class JarInferTest {
     for (Map.Entry<String, Set<Integer>> entry : result.entrySet()) {
       String mtd_sign = entry.getKey();
       Set<Integer> ddParams = entry.getValue();
-      if (ddParams.isEmpty()) continue;
-      Set<Integer> xddParams = expected.get(mtd_sign);
-      if (xddParams == null) return false;
-      for (Integer var : ddParams) {
-        if (!xddParams.remove(var)) return false;
+      if (ddParams.isEmpty()) {
+        continue;
       }
-      if (!xddParams.isEmpty()) return false;
+      Set<Integer> xddParams = expected.get(mtd_sign);
+      if (xddParams == null) {
+        return false;
+      }
+      for (Integer var : ddParams) {
+        if (!xddParams.remove(var)) {
+          return false;
+        }
+      }
+      if (!xddParams.isEmpty()) {
+        return false;
+      }
       expected.remove(mtd_sign);
     }
     return expected.isEmpty();

@@ -25,13 +25,14 @@ package com.uber.nullaway.dataflow;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
+import com.uber.nullaway.NullabilityUtil;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -51,6 +52,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 import org.checkerframework.nullaway.dataflow.cfg.node.StringLiteralNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.SuperNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ThisNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode;
 import org.checkerframework.nullaway.javacutil.TreeUtils;
@@ -161,8 +163,8 @@ public final class AccessPath implements MapKey {
    */
   @Nullable
   static AccessPath fromMethodCall(
-      MethodInvocationNode node, @Nullable Types types, AccessPathContext apContext) {
-    if (types != null && isMapGet(ASTHelpers.getSymbol(node.getTree()), types)) {
+      MethodInvocationNode node, @Nullable VisitorState state, AccessPathContext apContext) {
+    if (state != null && isMapGet(ASTHelpers.getSymbol(node.getTree()), state)) {
       return fromMapGetCall(node, apContext);
     }
     return fromVanillaMethodCall(node, apContext);
@@ -249,6 +251,13 @@ public final class AccessPath implements MapKey {
     return fromMapGetCall(node, apContext);
   }
 
+  private static Node stripCasts(Node node) {
+    while (node instanceof TypeCastNode) {
+      node = ((TypeCastNode) node).getOperand();
+    }
+    return node;
+  }
+
   @Nullable
   private static MapKey argumentToMapKeySpecifier(Node argument, AccessPathContext apContext) {
     // Required to have Node type match Tree type in some instances.
@@ -265,13 +274,13 @@ public final class AccessPath implements MapKey {
         return new NumericMapKey(((LongLiteralNode) argument).getValue());
       case METHOD_INVOCATION:
         MethodAccessNode target = ((MethodInvocationNode) argument).getTarget();
+        Node receiver = stripCasts(target.getReceiver());
         List<Node> arguments = ((MethodInvocationNode) argument).getArguments();
         // Check for int/long boxing.
         if (target.getMethod().getSimpleName().toString().equals("valueOf")
             && arguments.size() == 1
-            && target.getReceiver().getTree().getKind().equals(Tree.Kind.IDENTIFIER)
-            && (target.getReceiver().toString().equals("Integer")
-                || target.getReceiver().toString().equals("Long"))) {
+            && receiver.getTree().getKind().equals(Tree.Kind.IDENTIFIER)
+            && (receiver.toString().equals("Integer") || receiver.toString().equals("Long"))) {
           return argumentToMapKeySpecifier(arguments.get(0), apContext);
         }
         // Fine to fallthrough:
@@ -289,7 +298,7 @@ public final class AccessPath implements MapKey {
       return null;
     }
     MethodAccessNode target = node.getTarget();
-    Node receiver = target.getReceiver();
+    Node receiver = stripCasts(target.getReceiver());
     List<AccessPathElement> elements = new ArrayList<>();
     Root root = populateElementsRec(receiver, elements, apContext);
     if (root == null) {
@@ -317,20 +326,20 @@ public final class AccessPath implements MapKey {
    * </code>
    *
    * @param node AST node
-   * @param types javac {@link Types}
+   * @param state the visitor state
    * @param apContext the current access path context information (see {@link
    *     AccessPath.AccessPathContext}).
    * @return corresponding AccessPath if it exists; <code>null</code> otherwise
    */
   @Nullable
   public static AccessPath getAccessPathForNodeWithMapGet(
-      Node node, @Nullable Types types, AccessPathContext apContext) {
+      Node node, @Nullable VisitorState state, AccessPathContext apContext) {
     if (node instanceof LocalVariableNode) {
       return fromLocal((LocalVariableNode) node);
     } else if (node instanceof FieldAccessNode) {
       return fromFieldAccess((FieldAccessNode) node, apContext);
     } else if (node instanceof MethodInvocationNode) {
-      return fromMethodCall((MethodInvocationNode) node, types, apContext);
+      return fromMethodCall((MethodInvocationNode) node, state, apContext);
     } else {
       return null;
     }
@@ -368,7 +377,7 @@ public final class AccessPath implements MapKey {
         result = new Root(fieldAccess.getElement());
       } else {
         // instance field access
-        result = populateElementsRec(fieldAccess.getReceiver(), elements, apContext);
+        result = populateElementsRec(stripCasts(fieldAccess.getReceiver()), elements, apContext);
         elements.add(new AccessPathElement(fieldAccess.getElement()));
       }
     } else if (node instanceof MethodInvocationNode) {
@@ -445,7 +454,7 @@ public final class AccessPath implements MapKey {
         }
         accessPathElement = new AccessPathElement(accessNode.getMethod(), constantArgumentValues);
       }
-      result = populateElementsRec(accessNode.getReceiver(), elements, apContext);
+      result = populateElementsRec(stripCasts(accessNode.getReceiver()), elements, apContext);
       elements.add(accessPathElement);
     } else if (node instanceof LocalVariableNode) {
       result = new Root(((LocalVariableNode) node).getElement());
@@ -458,6 +467,37 @@ public final class AccessPath implements MapKey {
       result = null;
     }
     return result;
+  }
+
+  /**
+   * Creates an access path representing a Map get call, where the key is obtained by calling {@code
+   * next()} on some {@code Iterator}. Used to support reasoning about iteration over a map's key
+   * set using an enhanced-for loop.
+   *
+   * @param mapNode Node representing the map
+   * @param iterVar local variable holding the iterator
+   * @param apContext access path context
+   * @return access path representing the get call, or {@code null} if the map node cannot be
+   *     represented with an access path
+   */
+  @Nullable
+  public static AccessPath mapWithIteratorContentsKey(
+      Node mapNode, LocalVariableNode iterVar, AccessPathContext apContext) {
+    List<AccessPathElement> elems = new ArrayList<>();
+    Root root = populateElementsRec(mapNode, elems, apContext);
+    if (root != null) {
+      return new AccessPath(
+          root, elems, new IteratorContentsKey((VariableElement) iterVar.getElement()));
+    }
+    return null;
+  }
+
+  /**
+   * Creates an access path identical to {@code accessPath} (which must represent a map get), but
+   * replacing its map {@code get()} argument with {@code mapKey}
+   */
+  public static AccessPath replaceMapKey(AccessPath accessPath, MapKey mapKey) {
+    return new AccessPath(accessPath.getRoot(), accessPath.getElements(), mapKey);
   }
 
   @Override
@@ -498,42 +538,26 @@ public final class AccessPath implements MapKey {
     return elements;
   }
 
+  @Nullable
+  public MapKey getMapGetArg() {
+    return mapGetArg;
+  }
+
   @Override
   public String toString() {
     return "AccessPath{" + "root=" + root + ", elements=" + elements + '}';
   }
 
-  private static boolean isMapMethod(
-      Symbol.MethodSymbol symbol, Types types, String methodName, int numParams) {
-    if (!symbol.getSimpleName().toString().equals(methodName)) {
-      return false;
-    }
-    if (symbol.getParameters().size() != numParams) {
-      return false;
-    }
-    Symbol owner = symbol.owner;
-    if (owner.getQualifiedName().toString().equals("java.util.Map")) {
-      return true;
-    }
-    com.sun.tools.javac.util.List<Type> supertypes = types.closure(owner.type);
-    for (Type t : supertypes) {
-      if (t.asElement().getQualifiedName().toString().equals("java.util.Map")) {
-        return true;
-      }
-    }
-    return false;
+  private static boolean isMapGet(Symbol.MethodSymbol symbol, VisitorState state) {
+    return NullabilityUtil.isMapMethod(symbol, state, "get", 1);
   }
 
-  private static boolean isMapGet(Symbol.MethodSymbol symbol, Types types) {
-    return isMapMethod(symbol, types, "get", 1);
+  public static boolean isContainsKey(Symbol.MethodSymbol symbol, VisitorState state) {
+    return NullabilityUtil.isMapMethod(symbol, state, "containsKey", 1);
   }
 
-  public static boolean isContainsKey(Symbol.MethodSymbol symbol, Types types) {
-    return isMapMethod(symbol, types, "containsKey", 1);
-  }
-
-  public static boolean isMapPut(Symbol.MethodSymbol symbol, Types types) {
-    return isMapMethod(symbol, types, "put", 2);
+  public static boolean isMapPut(Symbol.MethodSymbol symbol, VisitorState state) {
+    return NullabilityUtil.isMapMethod(symbol, state, "put", 2);
   }
 
   /**
@@ -608,7 +632,7 @@ public final class AccessPath implements MapKey {
 
   private static final class StringMapKey implements MapKey {
 
-    private String key;
+    private final String key;
 
     public StringMapKey(String key) {
       this.key = key;
@@ -630,7 +654,7 @@ public final class AccessPath implements MapKey {
 
   private static final class NumericMapKey implements MapKey {
 
-    private long key;
+    private final long key;
 
     public NumericMapKey(long key) {
       this.key = key;
@@ -647,6 +671,46 @@ public final class AccessPath implements MapKey {
         return this.key == ((NumericMapKey) obj).key;
       }
       return false;
+    }
+  }
+
+  /**
+   * Represents all possible values that could be returned by calling {@code next()} on an {@code
+   * Iterator} variable
+   */
+  public static final class IteratorContentsKey implements MapKey {
+
+    /**
+     * Element for the local variable holding the {@code Iterator}. We only support locals for now,
+     * as this class is designed specifically for reasoning about iterating over map keys using an
+     * enhanced-for loop over a {@code keySet()}, and for such cases the iterator is always stored
+     * locally
+     */
+    private final VariableElement iteratorVarElement;
+
+    IteratorContentsKey(VariableElement iteratorVarElement) {
+      this.iteratorVarElement = iteratorVarElement;
+    }
+
+    public VariableElement getIteratorVarElement() {
+      return iteratorVarElement;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (o == null || getClass() != o.getClass()) {
+        return false;
+      }
+      IteratorContentsKey that = (IteratorContentsKey) o;
+      return iteratorVarElement.equals(that.iteratorVarElement);
+    }
+
+    @Override
+    public int hashCode() {
+      return iteratorVarElement.hashCode();
     }
   }
 
