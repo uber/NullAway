@@ -133,6 +133,8 @@ public class SerializationTestHelper {
       String line = reader.readLine();
       while (line != null) {
         FixDisplay fixDisplay = FixDisplay.fromStringWithDelimiter(line);
+        // Fixes are written in Temp Directory and is not known at compile time, therefore, relative
+        // paths are getting compared.
         fixDisplay.uri = fixDisplay.uri.substring(fixDisplay.uri.indexOf("com/uber/"));
         fixDisplays.add(fixDisplay);
         line = reader.readLine();
