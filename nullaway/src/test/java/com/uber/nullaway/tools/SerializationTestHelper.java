@@ -77,7 +77,7 @@ public class SerializationTestHelper {
     try {
       Files.deleteIfExists(outputPath);
     } catch (IOException ignored) {
-      throw new RuntimeException("Did not expect it");
+      throw new RuntimeException("Failed to delete older files.");
     }
   }
 
