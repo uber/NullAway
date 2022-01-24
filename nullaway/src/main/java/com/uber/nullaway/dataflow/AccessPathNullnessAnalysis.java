@@ -62,7 +62,7 @@ public final class AccessPathNullnessAnalysis {
   // Use #instance to instantiate
   private AccessPathNullnessAnalysis(
       Predicate<MethodInvocationNode> methodReturnsNonNull,
-      Context context,
+      VisitorState state,
       Config config,
       Handler handler) {
     apContext =
@@ -73,7 +73,7 @@ public final class AccessPathNullnessAnalysis {
         new AccessPathNullnessPropagation(
             Nullness.NONNULL,
             methodReturnsNonNull,
-            context,
+            state,
             apContext,
             config,
             handler,
@@ -85,7 +85,7 @@ public final class AccessPathNullnessAnalysis {
           new AccessPathNullnessPropagation(
               Nullness.NONNULL,
               methodReturnsNonNull,
-              context,
+              state,
               apContext,
               config,
               handler,
@@ -96,20 +96,21 @@ public final class AccessPathNullnessAnalysis {
   /**
    * Get the per-Javac instance of the analysis.
    *
-   * @param context Javac context
+   * @param state visitor state for the compilation
    * @param methodReturnsNonNull predicate determining whether a method is assumed to return NonNull
    *     value
    * @param config analysis config
    * @return instance of the analysis
    */
   public static AccessPathNullnessAnalysis instance(
-      Context context,
+      VisitorState state,
       Predicate<MethodInvocationNode> methodReturnsNonNull,
       Config config,
       Handler handler) {
+    Context context = state.context;
     AccessPathNullnessAnalysis instance = context.get(FIELD_NULLNESS_ANALYSIS_KEY);
     if (instance == null) {
-      instance = new AccessPathNullnessAnalysis(methodReturnsNonNull, context, config, handler);
+      instance = new AccessPathNullnessAnalysis(methodReturnsNonNull, state, config, handler);
       context.put(FIELD_NULLNESS_ANALYSIS_KEY, instance);
     }
     return instance;
