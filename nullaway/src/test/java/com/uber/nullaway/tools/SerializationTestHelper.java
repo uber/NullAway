@@ -63,11 +63,7 @@ public class SerializationTestHelper {
 
   public void doTest() {
     clearOutput();
-    try {
-      compilationTestHelper.doTest();
-    } catch (Exception e) {
-      System.out.println("Ignored");
-    }
+    compilationTestHelper.doTest();
     FixDisplay[] outputFixDisplays;
     outputFixDisplays = readOutputFixes();
     compareFixes(outputFixDisplays);
