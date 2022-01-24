@@ -50,7 +50,7 @@ public class SerializationTestHelper {
     return this;
   }
 
-  public SerializationTestHelper addFixes(FixDisplay... fixDisplays) {
+  public SerializationTestHelper addExpectedFixes(FixDisplay... fixDisplays) {
     this.fixDisplays.addAll(Arrays.asList(fixDisplays));
     return this;
   }

@@ -91,7 +91,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "       else return null;",
             "   }",
             "}")
-        .addFixes(
+        .addExpectedFixes(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "test(boolean)",
@@ -136,7 +136,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "       else return null;",
             "   }",
             "}")
-        .addFixes(
+        .addExpectedFixes(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "test(boolean)",
@@ -181,7 +181,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "     return o.toString();",
             "   }",
             "}")
-        .addFixes(
+        .addExpectedFixes(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "test(java.lang.Object)",
@@ -216,7 +216,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "     return test(0, o);",
             "   }",
             "}")
-        .addFixes(
+        .addExpectedFixes(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "test(int,java.lang.Object)",
@@ -249,7 +249,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "      h = f;",
             "   }",
             "}")
-        .addFixes(
+        .addExpectedFixes(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
@@ -284,7 +284,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "     return null;",
             "   }",
             "}")
-        .addFixes(
+        .addExpectedFixes(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
@@ -335,7 +335,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "      }",
             "   }",
             "}")
-        .addFixes(
+        .addExpectedFixes(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
@@ -384,7 +384,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "   // BUG: Diagnostic contains: field f not initialized",
             "   Object f;",
             "}")
-        .addFixes(
+        .addExpectedFixes(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
@@ -425,7 +425,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "       return false;",
             "   }",
             "}")
-        .addFixes(
+        .addExpectedFixes(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "newStatement(T,java.util.ArrayList<T>,boolean,boolean)",
