@@ -48,14 +48,14 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   @Before
   @Override
   public void setup() {
-    Path home = Paths.get(temporaryFolder.getRoot().getPath());
-    String output = home.toString();
+    Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath());
+    String output = tempRoot.toString();
     try {
-      Files.createDirectories(home);
-      serializationTestHelper = new SerializationTestHelper(home);
+      Files.createDirectories(tempRoot);
+      serializationTestHelper = new SerializationTestHelper(tempRoot);
       FixSerializationConfig.Builder builder =
           new FixSerializationConfig.Builder().setSuggest(true, false).setOutputDirectory(output);
-      Path config = home.resolve("serializer.xml");
+      Path config = tempRoot.resolve("serializer.xml");
       Files.createFile(config);
       configPath = config.toString();
       builder.writeAsXMLat(configPath);
