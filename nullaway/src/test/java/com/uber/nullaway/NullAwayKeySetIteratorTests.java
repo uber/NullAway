@@ -131,4 +131,33 @@ public class NullAwayKeySetIteratorTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void declaredTypeSubtypeOfMap() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.google.common.collect.ImmutableMap;",
+            "import java.util.TreeMap;",
+            "import java.util.LinkedHashMap;",
+            "public class Test {",
+            "  public void keySetStuff1(ImmutableMap<Object, Object> m) {",
+            "    for (Object k: m.keySet()) {",
+            "      m.get(k).toString();",
+            "    }",
+            "  }",
+            "  public void keySetStuff2(TreeMap<Object, Object> m) {",
+            "    for (Object k: m.keySet()) {",
+            "      m.get(k).toString();",
+            "    }",
+            "  }",
+            "  public void keySetStuff3(LinkedHashMap<Object, Object> m) {",
+            "    for (Object k: m.keySet()) {",
+            "      m.get(k).toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

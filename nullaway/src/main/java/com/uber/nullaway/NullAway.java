@@ -2027,8 +2027,7 @@ public class NullAway extends BugChecker
   }
 
   public AccessPathNullnessAnalysis getNullnessAnalysis(VisitorState state) {
-    return AccessPathNullnessAnalysis.instance(
-        state.context, nonAnnotatedMethod, config, this.handler);
+    return AccessPathNullnessAnalysis.instance(state, nonAnnotatedMethod, config, this.handler);
   }
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
