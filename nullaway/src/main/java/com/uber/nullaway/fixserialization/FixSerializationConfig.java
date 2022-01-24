@@ -171,7 +171,7 @@ public class FixSerializationConfig {
      *
      * @param path path to write the config file.
      */
-    public void writeAsXMLat(String path) {
+    public void writeAsXML(String path) {
       FixSerializationConfig config = this.build();
       XMLUtil.writeInXMLFormat(config, path);
     }

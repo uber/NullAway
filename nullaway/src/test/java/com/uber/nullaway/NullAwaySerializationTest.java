@@ -58,7 +58,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
       Path config = tempRoot.resolve("serializer.xml");
       Files.createFile(config);
       configPath = config.toString();
-      builder.writeAsXMLat(configPath);
+      builder.writeAsXML(configPath);
     } catch (IOException ex) {
       throw new UncheckedIOException(ex);
     }
