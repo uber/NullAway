@@ -33,6 +33,7 @@ import static com.uber.nullaway.NullAway.getTreesInstance;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -360,7 +361,7 @@ public class ErrorBuilder {
       String message,
       VisitorState state,
       Description.Builder descriptionBuilder,
-      List<Symbol> nonNullFields) {
+      ImmutableList<Symbol> nonNullFields) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
     // method itself).

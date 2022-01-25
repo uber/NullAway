@@ -1517,12 +1517,16 @@ public class NullAway extends BugChecker
       }
     }
     for (Element constructorElement : errorFieldsForInitializer.keySet()) {
-      List<Symbol> fieldSymbols =
-          errorFieldsForInitializer
-              .get(constructorElement)
-              .stream()
-              .map(element -> ASTHelpers.getSymbol(getTreesInstance(state).getTree(element)))
-              .collect(Collectors.toList());
+      ImmutableList<Symbol> fieldSymbols =
+          ImmutableList.<Symbol>builder()
+              .addAll(
+                  errorFieldsForInitializer
+                      .get(constructorElement)
+                      .stream()
+                      .map(
+                          element -> ASTHelpers.getSymbol(getTreesInstance(state).getTree(element)))
+                      .collect(Collectors.toList()))
+              .build();
       errorBuilder.reportInitializerError(
           (Symbol.MethodSymbol) constructorElement,
           errMsgForInitializer(errorFieldsForInitializer.get(constructorElement), state),
