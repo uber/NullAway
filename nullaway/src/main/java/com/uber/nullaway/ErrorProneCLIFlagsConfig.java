@@ -231,7 +231,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
       throw new IllegalStateException(
           "In order to activate Fix Serialization mode ("
               + FL_FIX_SERIALIZATION
-              + "), Suggest Suppression mode must be deactivated ("
+              + "), Suggest Suppressions mode must be deactivated ("
               + FL_SUGGEST_SUPPRESSIONS
               + ")");
     }
