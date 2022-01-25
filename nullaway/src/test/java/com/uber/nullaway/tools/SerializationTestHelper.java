@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class SerializationTestHelper {
   private FixDisplay[] expectedOutputFixes;
@@ -101,14 +102,14 @@ public class SerializationTestHelper {
           notFound.size()
               + " expected fix suggestions were NOT found:"
               + "\n"
-              + Arrays.deepToString(notFound.toArray())
+              + notFound.stream().map(FixDisplay::toString).collect(Collectors.toList())
               + "\n");
     }
     fail(
         output.size()
             + " unexpected fix(s) suggestions were found:"
             + "\n"
-            + Arrays.deepToString(output.toArray())
+            + output.stream().map(FixDisplay::toString).collect(Collectors.toList())
             + "\n");
   }
 
