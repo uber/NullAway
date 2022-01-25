@@ -306,14 +306,14 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
-            "com/uber/android/Super.java",
+            "com/uber/android/Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "import javax.annotation.Nonnull;",
-            "public class Super {",
+            "public class Test {",
             "   Object h, f, g, i;",
             "   // BUG: Diagnostic contains: initializer method",
-            "   public Super(boolean b) {",
+            "   public Test(boolean b) {",
             "      g = new Object();",
             "      i = g;",
             "      if(b) {",
@@ -324,7 +324,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "      }",
             "   }",
             "   // BUG: Diagnostic contains: initializer method",
-            "   public Super(boolean b, boolean a) {",
+            "   public Test(boolean b, boolean a) {",
             "      f = new Object();",
             "      h = f;",
             "      if(a) {",
@@ -341,29 +341,29 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "null",
                 "h",
                 "FIELD",
-                "com.uber.Super",
-                "com/uber/android/Super.java"),
+                "com.uber.Test",
+                "com/uber/android/Test.java"),
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
                 "f",
                 "FIELD",
-                "com.uber.Super",
-                "com/uber/android/Super.java"),
+                "com.uber.Test",
+                "com/uber/android/Test.java"),
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
                 "g",
                 "FIELD",
-                "com.uber.Super",
-                "com/uber/android/Super.java"),
+                "com.uber.Test",
+                "com/uber/android/Test.java"),
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
                 "i",
                 "FIELD",
-                "com.uber.Super",
-                "com/uber/android/Super.java"))
+                "com.uber.Test",
+                "com/uber/android/Test.java"))
         .doTest();
   }
 
