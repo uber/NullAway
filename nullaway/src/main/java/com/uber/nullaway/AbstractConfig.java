@@ -118,7 +118,7 @@ public abstract class AbstractConfig implements Config {
 
   /**
    * If active, NullAway will write all reporting errors in output directory. The output directory
-   * along the activation status of other serialization features are stored in {@link
+   * along with the activation status of other serialization features are stored in {@link
    * FixSerializationConfig}.
    */
   protected boolean serializationActivationFlag;
