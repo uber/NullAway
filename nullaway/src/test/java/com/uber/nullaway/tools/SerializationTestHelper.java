@@ -96,29 +96,19 @@ public class SerializationTestHelper {
     if (notFound.size() == 0 && output.size() == 0) {
       return;
     }
-    if (notFound.size() == 0) {
+    if (notFound.size() != 0) {
       fail(
-          ""
-              + output.size()
-              + " redundant suggest(s) were found: "
+          notFound.size()
+              + " expected fix suggestions were NOT found:"
               + "\n"
-              + Arrays.deepToString(output.toArray())
+              + Arrays.deepToString(notFound.toArray())
               + "\n");
     }
     fail(
-        ""
-            + notFound.size()
-            + " suggest(s) were not found: "
-            + "\n"
-            + Arrays.deepToString(notFound.toArray())
-            + "\n"
-            + "redundant fixDisplays list:"
-            + "\n"
-            + "================="
+        output.size()
+            + " unexpected fix(s) suggestions were found:"
             + "\n"
             + Arrays.deepToString(output.toArray())
-            + "\n"
-            + "================="
             + "\n");
   }
 
