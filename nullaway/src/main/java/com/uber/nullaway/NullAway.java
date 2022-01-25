@@ -777,10 +777,6 @@ public class NullAway extends BugChecker
                 + overriddenMethod.toString()
                 + " returns @NonNull";
       }
-      Tree overriddenMethodTree =
-          memberReferenceTree != null
-              ? memberReferenceTree
-              : getTreesInstance(state).getTree(overriddenMethod);
 
       Tree errorTree =
           memberReferenceTree != null
@@ -790,7 +786,7 @@ public class NullAway extends BugChecker
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message),
           buildDescription(errorTree),
           state,
-          ASTHelpers.getSymbol(overriddenMethodTree));
+          overriddenMethod);
     }
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull

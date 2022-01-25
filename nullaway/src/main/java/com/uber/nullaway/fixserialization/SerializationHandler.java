@@ -110,7 +110,7 @@ public class SerializationHandler {
         break;
       default:
         throw new IllegalStateException(
-            "Cannot suggest a type to resolve error with type: " + errorMessage.getMessageType());
+            "Cannot suggest a type to resolve error of type: " + errorMessage.getMessageType());
     }
     return suggestedFixInfo;
   }
