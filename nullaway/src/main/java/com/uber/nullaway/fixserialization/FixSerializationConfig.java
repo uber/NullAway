@@ -35,7 +35,7 @@ public class FixSerializationConfig {
 
   /**
    * If activated, the corresponding output file will be cleared and for all reported errors,
-   * NullAway will serialize information and suggests type changes to resolve them, in case these
+   * NullAway will serialize information and suggest type changes to resolve them, in case these
    * errors could be fixed by adding a {@code @Nullable} annotation. These type change suggestions
    * are in form of {@link com.uber.nullaway.fixserialization.out.SuggestedFixInfo} instances and
    * will be serialized at output directory. If deactivated, no {@code SuggestedFixInfo} will be
