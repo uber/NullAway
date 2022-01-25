@@ -32,6 +32,7 @@ import static com.uber.nullaway.NullAway.OPTIONAL_CHECK_NAME;
 import static com.uber.nullaway.NullAway.getTreesInstance;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -518,12 +519,9 @@ public class ErrorBuilder {
     FixLocation location = AbstractFixLocation.createFixLocationFromSymbol(target);
     SuggestedFixInfo suggestedFixInfo = buildFixMetadata(state.getPath(), errorMessage, location);
     Serializer serializer = serializationConfig.getSerializer();
-    if (serializer != null) {
-      serializer.serializeSuggestedFixInfo(suggestedFixInfo, serializationConfig.suggestEnclosing);
-    } else {
-      throw new IllegalStateException(
-          "Serializer shouldn't be null at this point, error in configuration setting!");
-    }
+    Preconditions.checkNotNull(
+        serializer, "Serializer shouldn't be null at this point, error in configuration setting!");
+    serializer.serializeSuggestedFixInfo(suggestedFixInfo, serializationConfig.suggestEnclosing);
   }
 
   /**
@@ -534,12 +532,9 @@ public class ErrorBuilder {
    */
   public void serializeReportingError(VisitorState state, ErrorMessage errorMessage) {
     Serializer serializer = config.getSerializationConfig().getSerializer();
-    if (serializer != null) {
-      serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorMessage));
-    } else {
-      throw new IllegalStateException(
-          "Serializer shouldn't be null at this point, error in configuration setting!");
-    }
+    Preconditions.checkNotNull(
+        serializer, "Serializer shouldn't be null at this point, error in configuration setting!");
+    serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorMessage));
   }
 
   /** Builds the {@link SuggestedFixInfo} instance based on the {@link ErrorMessage} type. */
