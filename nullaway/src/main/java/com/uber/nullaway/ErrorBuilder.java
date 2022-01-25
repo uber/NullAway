@@ -141,18 +141,11 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
     }
 
-    if (config.serializationIsActive() && nonNullTarget != null) {
-      serializeFixSuggestion(state, nonNullTarget, errorMessage);
-    }
-
     if (config.serializationIsActive()) {
-      Serializer serializer = config.getSerializationConfig().serializer;
-      if (serializer != null) {
-        serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorMessage));
-      } else {
-        throw new IllegalStateException(
-            "Serializer shouldn't be null at this point, error in configuration setting!");
+      if (nonNullTarget != null) {
+        serializeFixSuggestion(state, nonNullTarget, errorMessage);
       }
+      serializeReportingError(state, errorMessage);
     }
 
     // #letbuildersbuild
@@ -509,23 +502,43 @@ public class ErrorBuilder {
    * @param errorMessage Error caused by the target.
    */
   public void serializeFixSuggestion(VisitorState state, Symbol target, ErrorMessage errorMessage) {
-    // Skip if element has an explicit @Nonnull annotation.
     FixSerializationConfig serializationConfig = config.getSerializationConfig();
+    if (!serializationConfig.suggestEnabled) {
+      return;
+    }
+    // Skip if the element has an explicit @Nonnull annotation.
     if (Nullness.hasNonNullAnnotation(target, config)) {
       return;
     }
     Trees trees = Trees.instance(JavacProcessingEnvironment.instance(state.context));
-    if (serializationConfig.canFixElement(trees, target)) {
-      FixLocation location = AbstractFixLocation.createFixLocationFromSymbol(target);
-      SuggestedFixInfo suggestedFixInfo = buildFixMetadata(state.getPath(), errorMessage, location);
-      Serializer serializer = serializationConfig.serializer;
-      if (serializer != null) {
-        serializer.serializeSuggestedFixInfo(
-            suggestedFixInfo, serializationConfig.suggestEnclosing);
-      } else {
-        throw new IllegalStateException(
-            "Serializer shouldn't be null at this point, error in configuration setting!");
-      }
+    // Skip if the element is received as bytecode.
+    if (trees.getPath(target) == null) {
+      return;
+    }
+    FixLocation location = AbstractFixLocation.createFixLocationFromSymbol(target);
+    SuggestedFixInfo suggestedFixInfo = buildFixMetadata(state.getPath(), errorMessage, location);
+    Serializer serializer = serializationConfig.serializer;
+    if (serializer != null) {
+      serializer.serializeSuggestedFixInfo(suggestedFixInfo, serializationConfig.suggestEnclosing);
+    } else {
+      throw new IllegalStateException(
+          "Serializer shouldn't be null at this point, error in configuration setting!");
+    }
+  }
+
+  /**
+   * Serializes the reporting error.
+   *
+   * @param state Visitor state.
+   * @param errorMessage Error caused by the target.
+   */
+  public void serializeReportingError(VisitorState state, ErrorMessage errorMessage) {
+    Serializer serializer = config.getSerializationConfig().serializer;
+    if (serializer != null) {
+      serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorMessage));
+    } else {
+      throw new IllegalStateException(
+          "Serializer shouldn't be null at this point, error in configuration setting!");
     }
   }
 
