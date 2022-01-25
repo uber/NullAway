@@ -377,9 +377,11 @@ public class ErrorBuilder {
     ErrorMessage errorMessage = new ErrorMessage(METHOD_NO_INIT, message);
     state.reportMatch(
         createErrorDescription(errorMessage, methodTree, descriptionBuilder, state, null));
-    // For now, we serialize each fix suggestion separately and measure their effectiveness
-    // separately
-    nonNullFields.forEach(symbol -> serializeFixSuggestion(state, symbol, errorMessage));
+    if (config.serializationIsActive()) {
+      // For now, we serialize each fix suggestion separately and measure their effectiveness
+      // separately
+      nonNullFields.forEach(symbol -> serializeFixSuggestion(state, symbol, errorMessage));
+    }
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {

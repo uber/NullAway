@@ -254,9 +254,4 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     }
     return ImmutableSet.copyOf(combined);
   }
-
-  @Override
-  public FixSerializationConfig getSerializationConfig() {
-    return fixSerializationConfig;
-  }
 }
