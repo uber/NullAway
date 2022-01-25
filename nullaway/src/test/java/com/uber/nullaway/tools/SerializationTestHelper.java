@@ -51,7 +51,7 @@ public class SerializationTestHelper {
     return this;
   }
 
-  public SerializationTestHelper addExpectedFixes(FixDisplay... fixDisplays) {
+  public SerializationTestHelper setExpectedFixes(FixDisplay... fixDisplays) {
     this.expectedOutputFixes = fixDisplays;
     return this;
   }
