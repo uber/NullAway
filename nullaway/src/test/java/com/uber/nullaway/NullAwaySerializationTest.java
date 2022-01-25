@@ -408,16 +408,6 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
-            "com/uber/Base.java",
-            "package com.uber;",
-            "import java.util.ArrayList;",
-            "public class Base extends Super<String>{",
-            "   public void newSideEffect(ArrayList<String> op) {",
-            "   // BUG: Diagnostic contains: passing @Nullable",
-            "     newStatement(null, op, true, true);",
-            "   }",
-            "}")
-        .addSourceLines(
             "com/uber/Super.java",
             "package com.uber;",
             "import java.util.ArrayList;",
@@ -425,6 +415,16 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "   public boolean newStatement(",
             "     T lhs, ArrayList<T> operator, boolean toWorkList, boolean eager) {",
             "       return false;",
+            "   }",
+            "}")
+        .addSourceLines(
+            "com/uber/Child.java",
+            "package com.uber;",
+            "import java.util.ArrayList;",
+            "public class Child extends Super<String>{",
+            "   public void newSideEffect(ArrayList<String> op) {",
+            "   // BUG: Diagnostic contains: passing @Nullable",
+            "     newStatement(null, op, true, true);",
             "   }",
             "}")
         .setExpectedFixes(
