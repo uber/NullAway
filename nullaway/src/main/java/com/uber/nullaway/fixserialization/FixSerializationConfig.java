@@ -34,18 +34,18 @@ import org.w3c.dom.Document;
 public class FixSerializationConfig {
 
   /**
-   * If activated, the corresponding output file will be cleared and for all reported errors,
-   * NullAway will serialize information and suggest type changes to resolve them, in case these
-   * errors could be fixed by adding a {@code @Nullable} annotation. These type change suggestions
-   * are in form of {@link com.uber.nullaway.fixserialization.out.SuggestedFixInfo} instances and
-   * will be serialized at output directory. If deactivated, no {@code SuggestedFixInfo} will be
-   * created and the output file will remain untouched.
+   * If enabled, the corresponding output file will be cleared and for all reported errors, NullAway
+   * will serialize information and suggest type changes to resolve them, in case these errors could
+   * be fixed by adding a {@code @Nullable} annotation. These type change suggestions are in form of
+   * {@link com.uber.nullaway.fixserialization.out.SuggestedFixInfo} instances and will be
+   * serialized at output directory. If deactivated, no {@code SuggestedFixInfo} will be created and
+   * the output file will remain untouched.
    */
   public final boolean suggestEnabled;
   /**
-   * If activated, serialized information of a fix suggest will also include the enclosing method
-   * and class of the element involved in error. Finding enclosing elements is costly and will only
-   * be computed at request.
+   * If enabled, serialized information of a fix suggest will also include the enclosing method and
+   * class of the element involved in error. Finding enclosing elements is costly and will only be
+   * computed at request.
    */
   public final boolean suggestEnclosing;
   /** The directory where all files generated/read by Fix Serialization package resides. */
