@@ -449,11 +449,11 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
-            "com/uber/android/Super.java",
+            "com/uber/android/Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "import javax.annotation.Nonnull;",
-            "public class Super {",
+            "public class Test {",
             "   Object test(int i, @Nonnull Object h) {",
             "     return h;",
             "   }",
