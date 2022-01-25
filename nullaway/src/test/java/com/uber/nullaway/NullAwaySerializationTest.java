@@ -460,6 +460,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "     return test(0, o);",
             "   }",
             "}")
+        .expectNoFixSerialization()
         .doTest();
   }
 
@@ -483,6 +484,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "     return null;",
             "   }",
             "}")
+        .expectNoFixSerialization()
         .doTest();
   }
 
@@ -504,6 +506,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "   // BUG: Diagnostic contains: field f not initialized",
             "   @Nonnull Object f;",
             "}")
+        .expectNoFixSerialization()
         .doTest();
   }
 }

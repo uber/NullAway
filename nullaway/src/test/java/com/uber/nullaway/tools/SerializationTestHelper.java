@@ -37,7 +37,7 @@ import java.util.Arrays;
 import java.util.List;
 
 public class SerializationTestHelper {
-  private final List<FixDisplay> fixDisplays = new ArrayList<>();
+  private FixDisplay[] expectedOutputFixes;
   private final Path outputPath;
   private CompilationTestHelper compilationTestHelper;
 
@@ -52,7 +52,12 @@ public class SerializationTestHelper {
   }
 
   public SerializationTestHelper addExpectedFixes(FixDisplay... fixDisplays) {
-    this.fixDisplays.addAll(Arrays.asList(fixDisplays));
+    this.expectedOutputFixes = fixDisplays;
+    return this;
+  }
+
+  public SerializationTestHelper expectNoFixSerialization() {
+    this.expectedOutputFixes = new FixDisplay[0];
     return this;
   }
 
@@ -81,7 +86,7 @@ public class SerializationTestHelper {
   private void compareFixes(FixDisplay[] outputFixDisplays) {
     ArrayList<FixDisplay> notFound = new ArrayList<>();
     ArrayList<FixDisplay> output = new ArrayList<>(Arrays.asList(outputFixDisplays));
-    for (FixDisplay f : fixDisplays) {
+    for (FixDisplay f : expectedOutputFixes) {
       if (!output.contains(f)) {
         notFound.add(f);
       } else {
