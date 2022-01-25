@@ -517,7 +517,7 @@ public class ErrorBuilder {
     }
     FixLocation location = AbstractFixLocation.createFixLocationFromSymbol(target);
     SuggestedFixInfo suggestedFixInfo = buildFixMetadata(state.getPath(), errorMessage, location);
-    Serializer serializer = serializationConfig.serializer;
+    Serializer serializer = serializationConfig.getSerializer();
     if (serializer != null) {
       serializer.serializeSuggestedFixInfo(suggestedFixInfo, serializationConfig.suggestEnclosing);
     } else {
@@ -533,7 +533,7 @@ public class ErrorBuilder {
    * @param errorMessage Error caused by the target.
    */
   public void serializeReportingError(VisitorState state, ErrorMessage errorMessage) {
-    Serializer serializer = config.getSerializationConfig().serializer;
+    Serializer serializer = config.getSerializationConfig().getSerializer();
     if (serializer != null) {
       serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorMessage));
     } else {

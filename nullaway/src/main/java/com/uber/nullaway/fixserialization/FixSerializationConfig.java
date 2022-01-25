@@ -53,7 +53,7 @@ public class FixSerializationConfig {
 
   public final AnnotationConfig annotationConfig;
 
-  public final Serializer serializer;
+  private final Serializer serializer;
 
   public FixSerializationConfig() {
     suggestEnabled = false;
@@ -111,6 +111,10 @@ public class FixSerializationConfig {
             .orElse("javax.annotation.Nonnull");
     this.annotationConfig = new AnnotationConfig(nullableAnnot, nonnullAnnot);
     serializer = new Serializer(this);
+  }
+
+  public Serializer getSerializer() {
+    return serializer;
   }
 
   /** Builder class for Serialization Config */
