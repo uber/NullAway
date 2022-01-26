@@ -105,8 +105,11 @@ public class FixSerializationConfig {
             .orElse(false);
     suggestEnclosing =
         XMLUtil.getValueFromAttribute(document, "serialization:suggest", "enclosing", Boolean.class)
-                .orElse(false)
-            && suggestEnabled;
+            .orElse(false);
+    if (suggestEnclosing && !suggestEnabled) {
+      throw new IllegalStateException(
+          "Error in the fix serialization configuration, suggest flag must be enabled to activate enclosing method and class serialization.");
+    }
     String nullableAnnot =
         XMLUtil.getValueFromTag(document, "serialization:annotation:nullable", String.class)
             .orElse("javax.annotation.Nullable");
