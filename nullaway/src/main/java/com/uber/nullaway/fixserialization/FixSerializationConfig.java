@@ -55,6 +55,7 @@ public class FixSerializationConfig {
 
   private final Serializer serializer;
 
+  /** Default Constructor, all features are disabled with this config. */
   public FixSerializationConfig() {
     suggestEnabled = false;
     suggestEnclosing = false;
