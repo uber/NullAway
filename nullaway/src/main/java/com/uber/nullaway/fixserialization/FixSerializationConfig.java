@@ -24,11 +24,14 @@ package com.uber.nullaway.fixserialization;
 
 import com.google.common.base.Preconditions;
 import com.uber.nullaway.fixserialization.qual.AnnotationConfig;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
 
 /** Config class for Fix Serialization package. */
 public class FixSerializationConfig {
@@ -89,7 +92,7 @@ public class FixSerializationConfig {
       DocumentBuilder builder = factory.newDocumentBuilder();
       document = builder.parse(Files.newInputStream(Paths.get(configFilePath)));
       document.normalize();
-    } catch (Exception e) {
+    } catch (IOException | SAXException | ParserConfigurationException e) {
       throw new RuntimeException(
           "Error in reading/parsing config at path: " + configFilePath + "\n" + e);
     }
