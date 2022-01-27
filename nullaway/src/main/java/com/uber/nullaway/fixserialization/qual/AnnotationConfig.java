@@ -30,23 +30,27 @@ public class AnnotationConfig {
 
   /** Container object of annotation. */
   public static class Annotation {
-    /** Simple name. */
-    public String name;
     /** Fully qualified name. */
-    public String fullName;
+    private final String fullName;
 
     private Annotation(String fullName) {
       this.fullName = fullName;
-      String[] paths = fullName.split("\\.");
-      this.name = paths[paths.length - 1];
     }
-
     /**
      * returns string representation of content of an object.
      *
      * @return string representation of contents of an object in a line seperated by tabs.
      */
     public String tabSeparatedToString() {
+      return fullName;
+    }
+
+    /**
+     * Getter method for {@link Annotation#fullName}.
+     *
+     * @return fullName of the annotation.
+     */
+    public String getFullName() {
       return fullName;
     }
   }
