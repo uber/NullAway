@@ -39,13 +39,13 @@ public class MethodParameterLocation extends AbstractFixLocation {
   public MethodParameterLocation(Symbol target) {
     super(ElementKind.PARAMETER, target);
     this.variableSymbol = (Symbol.VarSymbol) target;
-    Symbol enclosingMethod = target;
+    Symbol cursor = target;
     // Look for the enclosing method.
-    while (enclosingMethod != null && enclosingMethod.getKind() != ElementKind.METHOD) {
-      enclosingMethod = enclosingMethod.owner;
+    while (cursor != null && cursor.getKind() != ElementKind.METHOD) {
+      cursor = cursor.owner;
     }
-    Preconditions.checkNotNull(enclosingMethod);
-    this.enclosingMethod = (Symbol.MethodSymbol) enclosingMethod;
+    Preconditions.checkNotNull(cursor);
+    this.enclosingMethod = (Symbol.MethodSymbol) cursor;
     int i;
     for (i = 0; i < this.enclosingMethod.getParameters().size(); i++) {
       if (this.enclosingMethod.getParameters().get(i).equals(target)) {
