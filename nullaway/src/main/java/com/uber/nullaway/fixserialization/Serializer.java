@@ -109,7 +109,7 @@ public class Serializer {
     if (row == null || row.equals("")) {
       return;
     }
-    row = row.replaceAll("\\R+", " ") + "\n";
+    row = row + "\n";
     try (OutputStream os = new FileOutputStream(path.toFile(), true)) {
       os.write(row.getBytes(Charset.defaultCharset()), 0, row.length());
       os.flush();
