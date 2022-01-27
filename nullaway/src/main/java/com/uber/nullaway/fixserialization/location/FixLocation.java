@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.fixserialization.location;
 
+import com.sun.tools.javac.code.Symbol;
+
 /** Provides method for fix locations. */
 public interface FixLocation {
 
@@ -52,5 +54,24 @@ public interface FixLocation {
         + "index"
         + '\t'
         + "uri";
+  }
+
+  /**
+   * returns the appropriate subtype of {@link FixLocation} based on the target kind.
+   *
+   * @param target Target element.
+   * @return subtype of {@link FixLocation} matching target's type.
+   */
+  static FixLocation createFixLocationFromSymbol(Symbol target) {
+    switch (target.getKind()) {
+      case PARAMETER:
+        return new MethodParameterLocation(target);
+      case METHOD:
+        return new MethodLocation(target);
+      case FIELD:
+        return new FieldLocation(target);
+      default:
+        throw new IllegalArgumentException("Cannot locate node: " + target);
+    }
   }
 }

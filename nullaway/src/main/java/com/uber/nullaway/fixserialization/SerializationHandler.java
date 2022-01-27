@@ -31,7 +31,6 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.Nullness;
-import com.uber.nullaway.fixserialization.location.AbstractFixLocation;
 import com.uber.nullaway.fixserialization.location.FixLocation;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
@@ -65,7 +64,7 @@ public class SerializationHandler {
     if (trees.getPath(target) == null) {
       return;
     }
-    FixLocation location = AbstractFixLocation.createFixLocationFromSymbol(target);
+    FixLocation location = FixLocation.createFixLocationFromSymbol(target);
     SuggestedFixInfo suggestedFixInfo =
         buildFixMetadata(config, state.getPath(), errorMessage, location);
     Serializer serializer = serializationConfig.getSerializer();

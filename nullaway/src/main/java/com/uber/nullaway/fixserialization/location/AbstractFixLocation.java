@@ -50,23 +50,4 @@ public abstract class AbstractFixLocation implements FixLocation {
     this.enclosingClass = ASTHelpers.enclosingClass(target);
     this.uri = enclosingClass.sourcefile.toUri();
   }
-
-  /**
-   * returns the appropriate subtype of {@link FixLocation} based on the target kind.
-   *
-   * @param target Target element.
-   * @return subtype of {@link FixLocation} matching target's type.
-   */
-  public static FixLocation createFixLocationFromSymbol(Symbol target) {
-    switch (target.getKind()) {
-      case PARAMETER:
-        return new MethodParameterLocation(target);
-      case METHOD:
-        return new MethodLocation(target);
-      case FIELD:
-        return new FieldLocation(target);
-      default:
-        throw new IllegalArgumentException("Cannot locate node: " + target);
-    }
-  }
 }
