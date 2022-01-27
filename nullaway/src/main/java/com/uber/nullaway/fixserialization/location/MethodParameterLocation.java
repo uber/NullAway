@@ -30,11 +30,11 @@ import javax.lang.model.element.ElementKind;
 public class MethodParameterLocation extends AbstractFixLocation {
 
   /** Symbol of the targeted method. */
-  protected final Symbol.MethodSymbol enclosingMethod;
+  private final Symbol.MethodSymbol enclosingMethod;
   /** Symbol of the targeted method parameter. */
-  protected final Symbol.VarSymbol variableSymbol;
+  private final Symbol.VarSymbol variableSymbol;
   /** Index of the method parameter in the containing method's argument list. */
-  protected final int index;
+  private final int index;
 
   public MethodParameterLocation(Symbol target) {
     super(ElementKind.PARAMETER, target);
