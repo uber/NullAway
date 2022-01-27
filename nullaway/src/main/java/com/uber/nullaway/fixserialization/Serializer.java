@@ -78,15 +78,14 @@ public class Serializer {
     try {
       Files.deleteIfExists(path);
     } catch (IOException e) {
-      throw new RuntimeException("Could not clear file at: " + path);
+      throw new RuntimeException("Could not clear file at: " + path, e);
     }
     try (OutputStream os = new FileOutputStream(path.toFile())) {
       header += "\n";
       os.write(header.getBytes(Charset.defaultCharset()), 0, header.length());
       os.flush();
     } catch (IOException e) {
-      throw new RuntimeException(
-          "Could not finish resetting File at Path: " + path + ", Exception: " + e);
+      throw new RuntimeException("Could not finish resetting File at Path: " + path, e);
     }
   }
 
@@ -99,7 +98,7 @@ public class Serializer {
       }
       initializeFile(errorOutputPath, ErrorInfo.header());
     } catch (IOException e) {
-      throw new RuntimeException("Could not finish resetting serializer: " + e);
+      throw new RuntimeException("Could not finish resetting serializer", e);
     }
   }
 
