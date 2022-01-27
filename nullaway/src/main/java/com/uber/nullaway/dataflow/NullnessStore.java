@@ -18,10 +18,9 @@ package com.uber.nullaway.dataflow;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Sets.intersection;
-import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.collect.ImmutableMap;
-import com.sun.tools.javac.code.Types;
+import com.google.errorprone.VisitorState;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath.IteratorContentsKey;
 import java.util.HashMap;
@@ -98,10 +97,10 @@ public class NullnessStore implements Store<NullnessStore> {
    */
   public Nullness valueOfMethodCall(
       MethodInvocationNode node,
-      Types types,
+      VisitorState state,
       Nullness defaultValue,
       AccessPath.AccessPathContext apContext) {
-    AccessPath accessPath = AccessPath.fromMethodCall(node, types, apContext);
+    AccessPath accessPath = AccessPath.fromMethodCall(node, state, apContext);
     if (accessPath == null) {
       return defaultValue;
     }
@@ -245,7 +244,7 @@ public class NullnessStore implements Store<NullnessStore> {
           LocalVariableNode toVar = localVarTranslations.get(fromVar);
           AccessPath newAP =
               new AccessPath(new AccessPath.Root(toVar.getElement()), ap.getElements());
-          nullnessBuilder.setInformation(newAP, castToNonNull(contents.get(ap)));
+          nullnessBuilder.setInformation(newAP, contents.get(ap));
         }
       }
     }
