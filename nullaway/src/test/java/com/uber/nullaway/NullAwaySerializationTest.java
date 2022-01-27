@@ -511,4 +511,54 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .expectNoFixSerialization()
         .doTest();
   }
+
+  @Test
+  public void test_custom_annot() {
+    Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "custom_annot");
+    String output = tempRoot.toString();
+    try {
+      Files.createDirectories(tempRoot);
+      serializationTestHelper = new SerializationTestHelper(tempRoot);
+      FixSerializationConfig.Builder builder =
+          new FixSerializationConfig.Builder()
+              .setSuggest(true, false)
+              .setAnnotations("Custom.Nullable", "Custom.Nonnull")
+              .setOutputDirectory(output);
+      Path config = tempRoot.resolve("serializer.xml");
+      Files.createFile(config);
+      configPath = config.toString();
+      builder.writeAsXML(configPath);
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
+    serializationTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/SubClass.java",
+            "package com.uber;",
+            "public class SubClass {",
+            "   Object test(boolean flag) {",
+            "       if(flag) {",
+            "           return new Object();",
+            "       } ",
+            "       // BUG: Diagnostic contains: returning @Nullable",
+            "       else return null;",
+            "   }",
+            "}")
+        .setExpectedFixes(
+            new FixDisplay(
+                "Custom.Nullable",
+                "test(boolean)",
+                "null",
+                "METHOD",
+                "com.uber.SubClass",
+                "com/uber/SubClass.java"))
+        .doTest();
+  }
 }

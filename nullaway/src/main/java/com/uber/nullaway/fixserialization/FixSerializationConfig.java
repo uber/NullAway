@@ -96,24 +96,25 @@ public class FixSerializationConfig {
       throw new RuntimeException("Error in reading/parsing config at path: " + configFilePath, e);
     }
     this.outputDirectory =
-        XMLUtil.getValueFromTag(document, "serialization:path", String.class).orElse(null);
+        XMLUtil.getValueFromTag(document, "/serialization/path", String.class).orElse(null);
     Preconditions.checkNotNull(
         this.outputDirectory, "Error in FixSerialization Config: Output path cannot be null");
     suggestEnabled =
-        XMLUtil.getValueFromAttribute(document, "serialization:suggest", "active", Boolean.class)
+        XMLUtil.getValueFromAttribute(document, "/serialization/suggest", "active", Boolean.class)
             .orElse(false);
     suggestEnclosing =
-        XMLUtil.getValueFromAttribute(document, "serialization:suggest", "enclosing", Boolean.class)
+        XMLUtil.getValueFromAttribute(
+                document, "/serialization/suggest", "enclosing", Boolean.class)
             .orElse(false);
     if (suggestEnclosing && !suggestEnabled) {
       throw new IllegalStateException(
           "Error in the fix serialization configuration, suggest flag must be enabled to activate enclosing method and class serialization.");
     }
     String nullableAnnot =
-        XMLUtil.getValueFromTag(document, "serialization:annotation:nullable", String.class)
+        XMLUtil.getValueFromTag(document, "/serialization/annotation/nullable", String.class)
             .orElse("javax.annotation.Nullable");
     String nonnullAnnot =
-        XMLUtil.getValueFromTag(document, "serialization:annotation:nonnull", String.class)
+        XMLUtil.getValueFromTag(document, "/serialization/annotation/nonnull", String.class)
             .orElse("javax.annotation.Nonnull");
     this.annotationConfig = new AnnotationConfig(nullableAnnot, nonnullAnnot);
     serializer = new Serializer(this);

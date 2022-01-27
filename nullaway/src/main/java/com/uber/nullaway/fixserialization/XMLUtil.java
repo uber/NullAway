@@ -23,10 +23,6 @@
 package com.uber.nullaway.fixserialization;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -35,48 +31,63 @@ import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
+import javax.xml.xpath.XPath;
+import javax.xml.xpath.XPathConstants;
+import javax.xml.xpath.XPathExpressionException;
+import javax.xml.xpath.XPathFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
 
 /** Helper for class for parsing/writing xml files. */
 public class XMLUtil {
 
   /**
-   * Helper method for reading attributes of node located at key_1:key_2:...:key_n from a {@link
+   * Helper method for reading attributes of node located at /key_1/key_2/.../key_n from a {@link
    * Document}.
    *
    * @param doc XML object to read values from.
-   * @param key Key to locate the value, can be nested (e.g. key1:key2:...:key_n).
+   * @param key Key to locate the value, can be nested (e.g. /key1/key2:.../key_n).
    * @param klass Class type of the value in doc.
    * @return The value in the specified keychain cast to the class type given in parameter.
    */
   public static <T> DefaultXMLValueProvider<T> getValueFromAttribute(
       Document doc, String key, String attr, Class<T> klass) {
-    Node node = getNodeFromDocument(doc, key);
-    if (node == null) {
+    try {
+      XPath xPath = XPathFactory.newInstance().newXPath();
+      Node node = (Node) xPath.compile(key).evaluate(doc, XPathConstants.NODE);
+      if (node.getNodeType() == Node.ELEMENT_NODE) {
+        Element eElement = (Element) node;
+        return new DefaultXMLValueProvider<>(eElement.getAttribute(attr), klass);
+      }
+    } catch (XPathExpressionException ignored) {
       return new DefaultXMLValueProvider<>(null, klass);
     }
-    return new DefaultXMLValueProvider<>(node.getAttributes().getNamedItem(attr), klass);
+    return new DefaultXMLValueProvider<>(null, klass);
   }
 
   /**
-   * Helper method for reading value of a node located at key_1:key_2:...:key_n from a {@link
+   * Helper method for reading value of a node located at /key_1/key_2:.../key_n from a {@link
    * Document}.
    *
    * @param doc XML object to read values from.
-   * @param key Key to locate the value, can be nested (e.g. key1:key2:...:key_n).
+   * @param key Key to locate the value, can be nested (e.g. /key1/key2:.../key_n).
    * @param klass Class type of the value in doc.
    * @return The value in the specified keychain cast to the class type given in parameter.
    */
   public static <T> DefaultXMLValueProvider<T> getValueFromTag(
       Document doc, String key, Class<T> klass) {
-    Node node = getNodeFromDocument(doc, key);
-    if (node == null) {
+    try {
+      XPath xPath = XPathFactory.newInstance().newXPath();
+      Node node = (Node) xPath.compile(key).evaluate(doc, XPathConstants.NODE);
+      if (node.getNodeType() == Node.ELEMENT_NODE) {
+        Element eElement = (Element) node;
+        return new DefaultXMLValueProvider<>(eElement.getTextContent(), klass);
+      }
+    } catch (XPathExpressionException ignored) {
       return new DefaultXMLValueProvider<>(null, klass);
     }
-    return new DefaultXMLValueProvider<>(node, klass);
+    return new DefaultXMLValueProvider<>(null, klass);
   }
 
   /**
@@ -127,57 +138,17 @@ public class XMLUtil {
     }
   }
 
-  /**
-   * Locates the node at the given key. Key can be nested in format key_1:key_2:...:key_n.
-   *
-   * @param doc Document object of XML.
-   * @param key Nested key.
-   * @return Node if exists with the hierarchy specified by the key, otherwise {@code null}.
-   */
-  private static Node getNodeFromDocument(Document doc, String key) {
-    if (doc == null || key == null || key.equals("")) {
-      return null;
-    }
-    ArrayList<String> keys = new ArrayList<>(Arrays.asList(key.split(":")));
-    Collections.reverse(keys);
-    NodeList candidates = doc.getElementsByTagName(keys.get(0));
-    for (int i = 0; i < candidates.getLength(); i++) {
-      Node candidate = candidates.item(i);
-      if (hasTheEnclosingParents(candidate, keys)) {
-        return candidate;
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Verifies if the node's hierarchy matches with the keys.
-   *
-   * @param node Node to examine.
-   * @param keys List of parents simple name.
-   * @return {@code true} if node's matches with keys, {@code false} otherwise.
-   */
-  private static boolean hasTheEnclosingParents(Node node, List<String> keys) {
-    for (String key : keys) {
-      if (node == null || !node.getNodeName().equals(key)) {
-        return false;
-      }
-      node = node.getParentNode();
-    }
-    return true;
-  }
-
   /** Helper class for setting default values when the key is not found. */
   static class DefaultXMLValueProvider<T> {
     final Object value;
     final Class<T> klass;
 
-    DefaultXMLValueProvider(Node value, Class<T> klass) {
+    DefaultXMLValueProvider(Object value, Class<T> klass) {
       this.klass = klass;
       if (value == null) {
         this.value = null;
       } else {
-        String content = value.getTextContent();
+        String content = value.toString();
         switch (klass.getSimpleName()) {
           case "Double":
             this.value = Double.valueOf(content);
