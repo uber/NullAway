@@ -29,7 +29,9 @@ import java.util.Collections;
 import java.util.List;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerException;
 import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
@@ -120,8 +122,8 @@ public class XMLUtil {
       DOMSource source = new DOMSource(doc);
       StreamResult result = new StreamResult(new File(path));
       transformer.transform(source, result);
-    } catch (Exception e) {
-      throw new RuntimeException("Error happened in writing config." + e);
+    } catch (ParserConfigurationException | TransformerException e) {
+      throw new RuntimeException("Error happened in writing config.", e);
     }
   }
 
