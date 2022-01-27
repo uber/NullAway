@@ -111,8 +111,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
             JarInferStubxProvider.class, InferredJARModelsHandler.class.getClassLoader());
     for (JarInferStubxProvider provider : astubxProviders) {
       for (String astubxPath : provider.pathsToStubxFiles()) {
-        InputStream stubxInputStream = getClass().getResourceAsStream(astubxPath);
-        String stubxLocation = provider.getClass().toString() + ":" + astubxPath;
+        Class<? extends JarInferStubxProvider> providerClass = provider.getClass();
+        InputStream stubxInputStream = providerClass.getResourceAsStream(astubxPath);
+        String stubxLocation = providerClass + ":" + astubxPath;
         try {
           parseStubStream(stubxInputStream, stubxLocation);
         } catch (IOException e) {
