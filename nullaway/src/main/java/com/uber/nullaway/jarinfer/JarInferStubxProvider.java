@@ -6,9 +6,8 @@ import java.util.List;
 public interface JarInferStubxProvider {
 
   /**
-   * Returns a list of paths to stubx files to be loaded. Paths must be <b>absolute</b> within the
-   * jar, i.e., they should all start with the {@code '/'} character. Typically, the stubx files
-   * reside in the same jar as the implementing class.
+   * Returns a list of paths to stubx files to be loaded. Paths can be relative to the location of
+   * the implementing provider class (recommended), or absolute (starting with {@code /}).
    *
    * <p><b>NOTE:</b> NullAway does <em>not</em> have any special handling for cases where there are
    * multiple jars in its classpath containing a stubx file at the same path. So, providers are
