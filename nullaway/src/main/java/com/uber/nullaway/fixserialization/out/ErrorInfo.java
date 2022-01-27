@@ -29,7 +29,7 @@ import com.uber.nullaway.ErrorMessage;
 /** Stores information regarding an error which will be reported by NullAway. */
 public class ErrorInfo {
 
-  public final ErrorMessage errorMessage;
+  private final ErrorMessage errorMessage;
   private final EnclosingClassAndMethodInfo enclosingInfo;
 
   public ErrorInfo(TreePath path, ErrorMessage errorMessage) {
