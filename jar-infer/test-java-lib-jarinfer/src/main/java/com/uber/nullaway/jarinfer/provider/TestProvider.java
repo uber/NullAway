@@ -9,6 +9,6 @@ import java.util.List;
 public class TestProvider implements JarInferStubxProvider {
   @Override
   public List<String> pathsToStubxFiles() {
-    return Collections.singletonList("/testastubx/jarinfer.astubx");
+    return Collections.singletonList("jarinfer.astubx");
   }
 }
