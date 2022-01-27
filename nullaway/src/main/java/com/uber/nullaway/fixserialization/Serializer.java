@@ -39,9 +39,9 @@ import java.nio.file.Paths;
  */
 public class Serializer {
   /** Path to write errors. */
-  public final Path errorOutputPath;
+  private final Path errorOutputPath;
   /** Path to write suggested fix metadata. */
-  public final Path suggestedFixesOutputPath;
+  private final Path suggestedFixesOutputPath;
 
   public Serializer(FixSerializationConfig config) {
     String outputDirectory = config.outputDirectory;
