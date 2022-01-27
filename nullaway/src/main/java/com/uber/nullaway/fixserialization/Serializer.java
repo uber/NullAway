@@ -114,7 +114,7 @@ public class Serializer {
       os.write(row.getBytes(Charset.defaultCharset()), 0, row.length());
       os.flush();
     } catch (Exception e) {
-      System.err.println("Error happened for writing at file: " + path);
+      System.err.println("Error happened for writing at file: " + path, e);
     }
   }
 }
