@@ -36,14 +36,6 @@ public class AnnotationConfig {
     private Annotation(String fullName) {
       this.fullName = fullName;
     }
-    /**
-     * returns string representation of content of an object.
-     *
-     * @return string representation of contents of an object in a line seperated by tabs.
-     */
-    public String tabSeparatedToString() {
-      return fullName;
-    }
 
     /**
      * Getter method for {@link Annotation#fullName}.
@@ -51,6 +43,11 @@ public class AnnotationConfig {
      * @return fullName of the annotation.
      */
     public String getFullName() {
+      return fullName;
+    }
+
+    @Override
+    public String toString() {
       return fullName;
     }
   }

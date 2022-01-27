@@ -84,7 +84,7 @@ public class SuggestedFixInfo {
         + '\t'
         + errorMessage.getMessageType().toString()
         + '\t'
-        + annotation.tabSeparatedToString()
+        + annotation
         + '\t'
         + (enclosingInfo.getClazz() == null
             ? "null"
