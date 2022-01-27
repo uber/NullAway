@@ -113,8 +113,8 @@ public class Serializer {
     try (OutputStream os = new FileOutputStream(path.toFile(), true)) {
       os.write(row.getBytes(Charset.defaultCharset()), 0, row.length());
       os.flush();
-    } catch (Exception e) {
-      System.err.println("Error happened for writing at file: " + path, e);
+    } catch (IOException e) {
+      throw new RuntimeException("Error happened for writing at file: " + path, e);
     }
   }
 }
