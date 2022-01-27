@@ -93,8 +93,7 @@ public class FixSerializationConfig {
       document = builder.parse(Files.newInputStream(Paths.get(configFilePath)));
       document.normalize();
     } catch (IOException | SAXException | ParserConfigurationException e) {
-      throw new RuntimeException(
-          "Error in reading/parsing config at path: " + configFilePath + "\n" + e);
+      throw new RuntimeException("Error in reading/parsing config at path: " + configFilePath, e);
     }
     this.outputDirectory =
         XMLUtil.getValueFromTag(document, "serialization:path", String.class).orElse(null);
