@@ -69,24 +69,4 @@ public abstract class AbstractFixLocation implements FixLocation {
         throw new IllegalArgumentException("Cannot locate node: " + target);
     }
   }
-
-  /**
-   * Creates header of an output file containing all {@link FixLocation} written in string which
-   * values are separated tabs.
-   *
-   * @return string representation of the header separated by tabs.
-   */
-  public static String header() {
-    return "location"
-        + '\t'
-        + "class"
-        + '\t'
-        + "method"
-        + '\t'
-        + "param"
-        + '\t'
-        + "index"
-        + '\t'
-        + "uri";
-  }
 }

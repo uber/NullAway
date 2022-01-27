@@ -33,4 +33,24 @@ public interface FixLocation {
    * @return string representation of contents in a line seperated by tabs.
    */
   String tabSeparatedToString();
+
+  /**
+   * Creates header of an output file containing all {@link FixLocation} written in string which
+   * values are separated tabs.
+   *
+   * @return string representation of the header separated by tabs.
+   */
+  static String header() {
+    return "location"
+        + '\t'
+        + "class"
+        + '\t'
+        + "method"
+        + '\t'
+        + "param"
+        + '\t'
+        + "index"
+        + '\t'
+        + "uri";
+  }
 }

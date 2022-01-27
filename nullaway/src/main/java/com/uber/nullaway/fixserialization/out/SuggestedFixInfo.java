@@ -25,7 +25,6 @@ package com.uber.nullaway.fixserialization.out;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.fixserialization.location.AbstractFixLocation;
 import com.uber.nullaway.fixserialization.location.FixLocation;
 import com.uber.nullaway.fixserialization.qual.AnnotationConfig;
 import java.util.Objects;
@@ -107,7 +106,7 @@ public class SuggestedFixInfo {
    * @return string representation of the header separated by tabs.
    */
   public static String header() {
-    return AbstractFixLocation.header()
+    return FixLocation.header()
         + '\t'
         + "reason"
         + '\t'
