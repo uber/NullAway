@@ -59,7 +59,7 @@ public class MethodParameterLocation extends AbstractFixLocation {
   public String tabSeparatedToString() {
     return type.toString()
         + '\t'
-        + enclosingClass.toString()
+        + enclosingClass
         + '\t'
         + enclosingMethod
         + '\t'
