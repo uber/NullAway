@@ -78,7 +78,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   /** --- Serialization configs --- */
   static final String FL_FIX_SERIALIZATION = EP_FL_NAMESPACE + ":SerializeFixMetadata";
 
-  static final String FL_FIX_SERIALIZATION_OUTPUT_DIR =
+  static final String FL_FIX_SERIALIZATION_CONFIG_PATH =
       EP_FL_NAMESPACE + ":FixSerializationConfigPath";
 
   private static final String DELIMITER = ",";
@@ -207,14 +207,14 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + " is also set");
     }
     serializationActivationFlag = flags.getBoolean(FL_FIX_SERIALIZATION).orElse(false);
-    Optional<String> fixSerializationConfigPath = flags.get(FL_FIX_SERIALIZATION_OUTPUT_DIR);
+    Optional<String> fixSerializationConfigPath = flags.get(FL_FIX_SERIALIZATION_CONFIG_PATH);
     if (serializationActivationFlag && !fixSerializationConfigPath.isPresent()) {
       throw new IllegalStateException(
           "DO NOT report an issue to Error Prone for this crash!  NullAway Fix Serialization configuration is "
               + "incorrect.  "
               + "Must specify AutoFixer Output Directory, using the "
               + "-XepOpt:"
-              + FL_FIX_SERIALIZATION_OUTPUT_DIR
+              + FL_FIX_SERIALIZATION_CONFIG_PATH
               + " flag.  If you feel you have gotten this message in error report an issue"
               + " at https://github.com/uber/NullAway/issues.");
     }
