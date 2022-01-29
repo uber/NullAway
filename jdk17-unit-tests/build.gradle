@@ -19,6 +19,8 @@ plugins {
 }
 
 // Use JDK 17 for this module, via a toolchain
+java.sourceCompatibility = null
+java.targetCompatibility = null
 java.toolchain.languageVersion.set JavaLanguageVersion.of(17)
 
 configurations {

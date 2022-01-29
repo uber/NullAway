@@ -21,6 +21,11 @@ plugins {
     id 'com.github.kt3k.coveralls'
 }
 
+// Use JDK 17 for this module, via a toolchain
+java.sourceCompatibility = null
+java.targetCompatibility = null
+java.toolchain.languageVersion.set JavaLanguageVersion.of(17)
+
 // A resolvable configuration to collect source code
 def sourcesPath = configurations.create("sourcesPath") {
     visible = false

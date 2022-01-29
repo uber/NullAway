@@ -143,7 +143,6 @@ import org.checkerframework.nullaway.javacutil.TreeUtils;
  */
 @AutoService(BugChecker.class)
 @BugPattern(
-    name = "NullAway",
     altNames = {"CheckNullabilityTypes"},
     summary = "Nullability type error.",
     tags = BugPattern.StandardTags.LIKELY_ERROR,

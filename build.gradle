@@ -68,11 +68,12 @@ subprojects { project ->
         }
     }
 
-//    if (JavaVersion.current().java9Compatible) {
-//        tasks.withType(JavaCompile) {
-//            options.release = 8
-//        }
-//    }
+    if (JavaVersion.current().java9Compatible) {
+        tasks.withType(JavaCompile) {
+            java.sourceCompatibility = "11"
+            java.targetCompatibility = "11"
+        }
+    }
 
     tasks.withType(Test).configureEach {
         maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
