@@ -19,7 +19,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
 package com.uber.nullaway;
 
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
@@ -143,10 +142,12 @@ import org.checkerframework.nullaway.javacutil.TreeUtils;
  */
 @AutoService(BugChecker.class)
 @BugPattern(
+    name = "NullAway",
     altNames = {"CheckNullabilityTypes"},
     summary = "Nullability type error.",
     tags = BugPattern.StandardTags.LIKELY_ERROR,
     severity = WARNING)
+@SuppressWarnings("BugPatternNaming") // For compat with EP pre 2.11.0
 public class NullAway extends BugChecker
     implements BugChecker.MethodInvocationTreeMatcher,
         BugChecker.AssignmentTreeMatcher,
