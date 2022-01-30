@@ -63,11 +63,15 @@ subprojects { project ->
             check("MutablePublicArray", CheckSeverity.OFF)
             // this check is too noisy
             check("StringSplitter", CheckSeverity.OFF)
+            // we can't fix these issues until EP 2.11.0 is our minimum version
+            check("BugPatternNaming", CheckSeverity.OFF)
             check("WildcardImport", CheckSeverity.ERROR)
             check("MissingBraces", CheckSeverity.ERROR)
         }
     }
 
+    // We target Java 11 when building on JDK 11+, but Java 8 when building on JDK 8, since
+    // EP 2.11.0+ requires Java 11
     if (JavaVersion.current() >= JavaVersion.VERSION_11) {
         tasks.withType(JavaCompile) {
             java.sourceCompatibility = "11"
