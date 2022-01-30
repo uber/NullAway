@@ -73,6 +73,11 @@ subprojects { project ->
             java.sourceCompatibility = "11"
             java.targetCompatibility = "11"
         }
+    } else {
+        tasks.withType(JavaCompile) {
+            java.sourceCompatibility = "1.8"
+            java.targetCompatibility = "1.8"
+        }
     }
 
     tasks.withType(Test).configureEach {
