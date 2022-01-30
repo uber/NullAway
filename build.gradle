@@ -68,7 +68,7 @@ subprojects { project ->
         }
     }
 
-    if (JavaVersion.current().java9Compatible) {
+    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
         tasks.withType(JavaCompile) {
             java.sourceCompatibility = "11"
             java.targetCompatibility = "11"
