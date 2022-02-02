@@ -486,12 +486,10 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitTernaryExpression(
       TernaryExpressionNode node, TransferInput<Nullness, NullnessStore> input) {
-    SubNodeValues inputs = values(input);
-    Nullness result =
-        inputs
-            .valueOfSubNode(node.getThenOperand())
-            .leastUpperBound(inputs.valueOfSubNode(node.getElseOperand()));
-    return new RegularTransferResult<>(result, input.getRegularStore());
+    // The cfg includes assignments of the value of the "then" and "else" sub-expressions to the
+    // synthetic variable for the ternary expression.  So, the dataflow result for the ternary
+    // expression is just the result for the synthetic variable
+    return visitLocalVariable(node.getTernaryExpressionVar(), input);
   }
 
   @Override
