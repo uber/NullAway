@@ -31,7 +31,7 @@ if (project.hasProperty("epApiVersion")) {
     }
 }
 def versions = [
-    asm                    : "9.2",
+    asm                    : "7.1",
     checkerFramework       : "3.21.1",
     // The version of Error Prone used to check NullAway's code
     errorProne             : "2.10.0",
