@@ -116,6 +116,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         String stubxLocation = providerClass + ":" + astubxPath;
         try {
           parseStubStream(stubxInputStream, stubxLocation);
+          LOG(DEBUG, "DEBUG", "loaded stubx file " + stubxLocation);
         } catch (IOException e) {
           throw new RuntimeException("could not parse stubx file " + stubxLocation, e);
         }
