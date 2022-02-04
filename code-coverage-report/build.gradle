@@ -83,8 +83,6 @@ coverallsTask.configure {
 dependencies {
     implementation project(':nullaway')
     implementation project(':jar-infer:jar-infer-lib')
-    // We cannot include the JarInfer NullAway integration test yet since it does not run on JDK 11.
-    // To include it we would have to also add dependencies on the code being tested
-    //implementation project(':jar-infer:nullaway-integration-test')
+    implementation project(':jar-infer:nullaway-integration-test')
     implementation project(':jdk17-unit-tests')
 }
