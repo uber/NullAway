@@ -436,6 +436,7 @@ public class JarInferTest {
   @Test
   public void toyAARAnnotatingClasses() throws Exception {
     if (System.getProperty("java.version").startsWith("1.8")) {
+      // We only build the sample Android apps on JDK 11+
       return;
     }
     testAnnotationInAarTemplate(
