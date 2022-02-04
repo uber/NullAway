@@ -54,7 +54,7 @@ jobs:
       - name: Build and test using Gradle and Java 11
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: build -x :sample-app:build -x :jar-infer:nullaway-integration-test:build
+          arguments: build
         if: matrix.java == '11'
       - name: Build and test using Gradle and Java 17
         uses: eskatos/gradle-command-action@v1
