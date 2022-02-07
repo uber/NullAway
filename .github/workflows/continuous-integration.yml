@@ -58,6 +58,7 @@ jobs:
       - name: Report jacoco coverage
         uses: eskatos/gradle-command-action@v1
         env:
+          ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
           COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
         with:
           arguments: coveralls
