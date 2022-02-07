@@ -13,24 +13,21 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: macos-latest
+          - os: ubuntu-latest
             java: 8
+            epVersion: 2.4.0
+          - os: ubuntu-latest
+            java: 11
             epVersion: 2.4.0
           - os: macos-latest
             java: 11
-            epVersion: 2.4.0
-          - os: ubuntu-latest
-            java: 8
-            epVersion: 2.4.0
-          - os: ubuntu-latest
-            java: 8
             epVersion: 2.10.0
           - os: ubuntu-latest
             java: 11
-            epVersion: 2.4.0
+            epVersion: 2.10.0
           - os: windows-latest
-            java: 8
-            epVersion: 2.4.0
+            java: 11
+            epVersion: 2.10.0
           - os: ubuntu-latest
             java: 17
             epVersion: 2.10.0
@@ -44,19 +41,16 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
-      - name: Build and test using Gradle, Java 8, and Error Prone ${{ matrix.epVersion }}
+      - name: Build and test using Gradle, Java ${{ matrix.java }}, and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: eskatos/gradle-command-action@v1
         with:
           arguments: verGJF build
-        if: matrix.java == '8'
-      - name: Build and test using Gradle and Java 11
-        uses: eskatos/gradle-command-action@v1
-        with:
-          arguments: build
-        if: matrix.java == '11'
-      - name: Build and test using Gradle and Java 17
+        if: matrix.java != '17'
+      - name: Build and test using Gradle, Java ${{ matrix.java }}, and Error Prone ${{ matrix.epVersion }}
+        env:
+          ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: eskatos/gradle-command-action@v1
         with:
           arguments: build -x :sample-app:build -x :jar-infer:jar-infer-lib:build -x :jar-infer:nullaway-integration-test:build -x :jar-infer:test-java-lib-jarinfer:build
@@ -68,7 +62,7 @@ jobs:
         with:
           arguments: coveralls
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.4.0' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.10.0' && github.repository == 'uber/NullAway'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
   publish_snapshot:
@@ -92,9 +86,10 @@ jobs:
           key: ${{ runner.os }}-gradlew-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
           restore-keys: ${{ runner.os }}-gradlew-wrapper-
       - name: 'Set up JDK 8'
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v2
         with:
           java-version: 8
+          distribution: 'temurin'
       - name: 'Publish'
         env:
           ORG_GRADLE_PROJECT_mavenCentralRepositoryUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
