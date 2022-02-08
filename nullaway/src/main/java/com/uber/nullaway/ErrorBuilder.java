@@ -52,7 +52,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
-import com.uber.nullaway.fixserialization.SerializationHandler;
+import com.uber.nullaway.fixserialization.SerializationService;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -137,9 +137,9 @@ public class ErrorBuilder {
 
     if (config.serializationIsActive()) {
       if (nonNullTarget != null) {
-        SerializationHandler.serializeFixSuggestion(config, state, nonNullTarget, errorMessage);
+        SerializationService.serializeFixSuggestion(config, state, nonNullTarget, errorMessage);
       }
-      SerializationHandler.serializeReportingError(config, state, errorMessage);
+      SerializationService.serializeReportingError(config, state, errorMessage);
     }
 
     // #letbuildersbuild
@@ -369,7 +369,7 @@ public class ErrorBuilder {
       // separately
       nonNullFields.forEach(
           symbol ->
-              SerializationHandler.serializeFixSuggestion(config, state, symbol, errorMessage));
+              SerializationService.serializeFixSuggestion(config, state, symbol, errorMessage));
     }
   }
 

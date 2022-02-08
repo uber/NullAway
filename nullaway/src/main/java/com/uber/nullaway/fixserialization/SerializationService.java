@@ -36,7 +36,7 @@ import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 
 /** A facade class to interact with fix serialization package. */
-public class SerializationHandler {
+public class SerializationService {
 
   /**
    * Serializes the suggested type change of an element in the source code that can resolve the
