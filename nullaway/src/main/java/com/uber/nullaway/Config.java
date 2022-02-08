@@ -39,8 +39,10 @@ public interface Config {
   boolean serializationIsActive();
 
   /**
-   * Getter method for {@link FixSerializationConfig}. Fix Serialization feature must be activated,
-   * otherwise calling this method will fail the execution.
+   * Getter method for {@link FixSerializationConfig}.
+   *
+   * <p>Fix Serialization feature must be activated, otherwise calling this method will fail the
+   * execution.
    *
    * @return {@link FixSerializationConfig} instance in Config.
    */

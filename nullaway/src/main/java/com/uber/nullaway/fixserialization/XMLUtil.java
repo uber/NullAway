@@ -47,7 +47,8 @@ public class XMLUtil {
    * Document}.
    *
    * @param doc XML object to read values from.
-   * @param key Key to locate the value, can be nested (e.g. /key1/key2:.../key_n).
+   * @param key Key to locate the value, can be nested in the form of {@code Xpath} query (e.g.
+   *     /key1/key2:.../key_n).
    * @param klass Class type of the value in doc.
    * @return The value in the specified keychain cast to the class type given in parameter.
    */
