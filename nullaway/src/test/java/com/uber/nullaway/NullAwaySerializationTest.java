@@ -158,27 +158,27 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
-            "com/uber/android/Super.java",
+            "com/uber/android/Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "import javax.annotation.Nonnull;",
-            "public class Super {",
-            "   Object test(int i, Object h) {",
+            "public class Test {",
+            "   Object run(int i, Object h) {",
             "     return h;",
             "   }",
             "   Object test_param(@Nullable String o) {",
-            "   // BUG: Diagnostic contains: passing @Nullable",
-            "     return test(0, o);",
+            "     // BUG: Diagnostic contains: passing @Nullable",
+            "     return run(0, o);",
             "   }",
             "}")
         .setExpectedFixes(
             new FixDisplay(
                 "javax.annotation.Nullable",
-                "test(int,java.lang.Object)",
+                "run(int,java.lang.Object)",
                 "h",
                 "PARAMETER",
-                "com.uber.Super",
-                "com/uber/android/Super.java"))
+                "com.uber.Test",
+                "com/uber/android/Test.java"))
         .doTest();
   }
 
@@ -289,7 +289,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "import java.util.ArrayList;",
             "public class Child extends Super<String>{",
             "   public void newSideEffect(ArrayList<String> op) {",
-            "   // BUG: Diagnostic contains: passing @Nullable",
+            "     // BUG: Diagnostic contains: passing @Nullable",
             "     newStatement(null, op, true, true);",
             "   }",
             "}")
