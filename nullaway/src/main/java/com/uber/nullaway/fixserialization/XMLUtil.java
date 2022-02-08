@@ -43,8 +43,8 @@ import org.w3c.dom.Node;
 public class XMLUtil {
 
   /**
-   * Helper method for reading attributes of node located at /key_1/key_2/.../key_n from a {@link
-   * Document}.
+   * Helper method for reading attributes of node located at /key_1/key_2/.../key_n (in the form of
+   * {@code Xpath} query) from a {@link Document}.
    *
    * @param doc XML object to read values from.
    * @param key Key to locate the value, can be nested in the form of {@code Xpath} query (e.g.
@@ -68,11 +68,12 @@ public class XMLUtil {
   }
 
   /**
-   * Helper method for reading value of a node located at /key_1/key_2:.../key_n from a {@link
-   * Document}.
+   * Helper method for reading value of a node located at /key_1/key_2/.../key_n (in the form of
+   * {@code Xpath} query) from a {@link Document}.
    *
    * @param doc XML object to read values from.
-   * @param key Key to locate the value, can be nested (e.g. /key1/key2:.../key_n).
+   * @param key Key to locate the value, can be nested in the form of {@code Xpath} query (e.g.
+   *     /key1/key2/.../key_n).
    * @param klass Class type of the value in doc.
    * @return The value in the specified keychain cast to the class type given in parameter.
    */
