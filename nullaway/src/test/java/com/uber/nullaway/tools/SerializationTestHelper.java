@@ -141,8 +141,7 @@ public class SerializationTestHelper {
       }
       reader.close();
     } catch (IOException e) {
-      e.printStackTrace();
-      throw new RuntimeException("Error happened in reading the fixDisplays.");
+      throw new RuntimeException("Error happened in reading the fixDisplays.", e);
     }
     return fixDisplays.toArray(new FixDisplay[0]);
   }
