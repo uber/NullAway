@@ -97,20 +97,24 @@ public class SerializationTestHelper {
     if (notFound.size() == 0 && output.size() == 0) {
       return;
     }
+    StringBuilder errorMessage = new StringBuilder();
     if (notFound.size() != 0) {
-      fail(
-          notFound.size()
-              + " expected fix suggestions were NOT found:"
-              + "\n"
-              + notFound.stream().map(FixDisplay::toString).collect(Collectors.toList())
-              + "\n");
+      errorMessage
+          .append(notFound.size())
+          .append(" expected fix suggestions were NOT found:")
+          .append("\n")
+          .append(notFound.stream().map(FixDisplay::toString).collect(Collectors.toList()))
+          .append("\n");
     }
-    fail(
-        output.size()
-            + " unexpected fix(s) suggestions were found:"
-            + "\n"
-            + output.stream().map(FixDisplay::toString).collect(Collectors.toList())
-            + "\n");
+    if (output.size() != 0) {
+      errorMessage
+          .append(output.size())
+          .append(" unexpected fix(s) suggestions were found:")
+          .append("\n")
+          .append(output.stream().map(FixDisplay::toString).collect(Collectors.toList()))
+          .append("\n");
+    }
+    fail(errorMessage.toString());
   }
 
   private FixDisplay[] readOutputFixes() {
@@ -123,7 +127,7 @@ public class SerializationTestHelper {
         fail(
             "Expected header of fixes.tsv to be: "
                 + SuggestedFixInfo.header()
-                + "\bBut found: "
+                + "\nBut found: "
                 + header);
       }
       String line = reader.readLine();

@@ -42,8 +42,8 @@ public class MethodParameterLocation extends AbstractFixLocation {
     Symbol cursor = target;
     // Look for the enclosing method.
     while (cursor != null
-        && (cursor.getKind() != ElementKind.CONSTRUCTOR
-            && cursor.getKind() != ElementKind.METHOD)) {
+        && cursor.getKind() != ElementKind.CONSTRUCTOR
+        && cursor.getKind() != ElementKind.METHOD) {
       cursor = cursor.owner;
     }
     Preconditions.checkNotNull(cursor);
