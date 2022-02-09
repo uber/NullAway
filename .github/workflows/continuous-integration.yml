@@ -21,16 +21,16 @@ jobs:
             epVersion: 2.4.0
           - os: macos-latest
             java: 11
-            epVersion: 2.10.0
+            epVersion: 2.11.0
           - os: ubuntu-latest
             java: 11
-            epVersion: 2.10.0
+            epVersion: 2.11.0
           - os: windows-latest
             java: 11
-            epVersion: 2.10.0
+            epVersion: 2.11.0
           - os: ubuntu-latest
             java: 17
-            epVersion: 2.10.0
+            epVersion: 2.11.0
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
