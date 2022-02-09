@@ -101,7 +101,7 @@ public class SerializationTestHelper {
     if (notFound.size() != 0) {
       errorMessage
           .append(notFound.size())
-          .append(" expected fix suggestions were NOT found:")
+          .append(" expected fix suggestion(s) were NOT found:")
           .append("\n")
           .append(notFound.stream().map(FixDisplay::toString).collect(Collectors.toList()))
           .append("\n");
@@ -109,7 +109,7 @@ public class SerializationTestHelper {
     if (output.size() != 0) {
       errorMessage
           .append(output.size())
-          .append(" unexpected fix(s) suggestions were found:")
+          .append(" unexpected fix suggestion(s) were found:")
           .append("\n")
           .append(output.stream().map(FixDisplay::toString).collect(Collectors.toList()))
           .append("\n");
