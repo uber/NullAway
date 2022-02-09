@@ -24,11 +24,29 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import java.util.Set;
 import javax.annotation.Nullable;
 
 /** Provides configuration parameters for the nullability checker. */
 public interface Config {
+
+  /**
+   * Checks if Serialization feature is active.
+   *
+   * @return true, if Fix Serialization feature is active.
+   */
+  boolean serializationIsActive();
+
+  /**
+   * Getter method for {@link FixSerializationConfig}.
+   *
+   * <p>Fix Serialization feature must be activated, otherwise calling this method will fail the
+   * execution.
+   *
+   * @return {@link FixSerializationConfig} instance in Config.
+   */
+  FixSerializationConfig getSerializationConfig();
 
   /**
    * Checks if a symbol comes from an annotated package.

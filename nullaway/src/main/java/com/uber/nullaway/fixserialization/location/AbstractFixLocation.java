@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Uber Technologies, Inc.
+ * Copyright (c) 2022 Uber Technologies, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,45 +20,34 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway;
+package com.uber.nullaway.fixserialization.location;
 
-/** Contains error message string to be displayed and the message type from {@link MessageTypes}. */
-public class ErrorMessage {
-  MessageTypes messageType;
-  String message;
+import com.google.common.base.Preconditions;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.tools.javac.code.Symbol;
+import java.net.URI;
+import javax.lang.model.element.ElementKind;
 
-  public ErrorMessage(MessageTypes messageType, String message) {
-    this.messageType = messageType;
-    this.message = message;
-  }
+/** abstract base class for {@link FixLocation}. */
+public abstract class AbstractFixLocation implements FixLocation {
 
-  public enum MessageTypes {
-    DEREFERENCE_NULLABLE,
-    RETURN_NULLABLE,
-    PASS_NULLABLE,
-    ASSIGN_FIELD_NULLABLE,
-    WRONG_OVERRIDE_RETURN,
-    WRONG_OVERRIDE_PARAM,
-    METHOD_NO_INIT,
-    FIELD_NO_INIT,
-    UNBOX_NULLABLE,
-    NONNULL_FIELD_READ_BEFORE_INIT,
-    NULLABLE_VARARGS_UNSUPPORTED,
-    ANNOTATION_VALUE_INVALID,
-    CAST_TO_NONNULL_ARG_NONNULL,
-    GET_ON_EMPTY_OPTIONAL,
-    SWITCH_EXPRESSION_NULLABLE,
-    POSTCONDITION_NOT_SATISFIED,
-    PRECONDITION_NOT_SATISFIED,
-    WRONG_OVERRIDE_POSTCONDITION,
-    WRONG_OVERRIDE_PRECONDITION,
-  }
+  /** Element kind of the targeted symbol */
+  protected final ElementKind type;
+  /** URI of the file containing the symbol. */
+  protected final URI uri;
+  /** Enclosing class of the symbol. */
+  protected final Symbol.ClassSymbol enclosingClass;
 
-  public String getMessage() {
-    return message;
-  }
-
-  public MessageTypes getMessageType() {
-    return messageType;
+  public AbstractFixLocation(ElementKind type, Symbol target) {
+    Preconditions.checkArgument(
+        type.equals(target.getKind()),
+        "Cannot instantiate element of type: "
+            + target.getKind()
+            + " with location type of: "
+            + type
+            + ".");
+    this.type = type;
+    this.enclosingClass = ASTHelpers.enclosingClass(target);
+    this.uri = enclosingClass.sourcefile.toUri();
   }
 }
