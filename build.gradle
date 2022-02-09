@@ -89,6 +89,13 @@ subprojects { project ->
         }
     }
 
+    // Ensure we are running on Java 8 whenever publishing to remote repos
+    tasks.withType(PublishToMavenRepository) {
+        doFirst {
+            assert JavaVersion.current() == JavaVersion.VERSION_1_8 : "Only publish to remote repos on JDK 1.8"
+        }
+    }
+
     tasks.withType(Test).configureEach {
         maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
     }
