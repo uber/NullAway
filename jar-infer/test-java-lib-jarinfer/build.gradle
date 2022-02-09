@@ -20,9 +20,6 @@ plugins {
 
 evaluationDependsOn(":jar-infer:jar-infer-cli")
 
-sourceCompatibility = "1.8"
-targetCompatibility = "1.8"
-
 def astubxPath = "com/uber/nullaway/jarinfer/provider/jarinfer.astubx"
 
 jar {

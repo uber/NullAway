@@ -65,6 +65,7 @@ public class JarInferTest {
    * A dummy checker to allow us to use {@link CompilationTestHelper} to compile Java code for
    * testing, as it requires a {@link BugChecker} to run.
    */
+  @SuppressWarnings("BugPatternNaming") // remove once we require EP 2.11+
   public static class DummyChecker extends BugChecker {
     public DummyChecker() {}
   }

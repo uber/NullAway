@@ -70,8 +70,6 @@ subprojects { project ->
             check("MutablePublicArray", CheckSeverity.OFF)
             // this check is too noisy
             check("StringSplitter", CheckSeverity.OFF)
-            // we can't fix these issues until EP 2.11.0 is our minimum version
-            check("BugPatternNaming", CheckSeverity.OFF)
             check("WildcardImport", CheckSeverity.ERROR)
             check("MissingBraces", CheckSeverity.ERROR)
         }
