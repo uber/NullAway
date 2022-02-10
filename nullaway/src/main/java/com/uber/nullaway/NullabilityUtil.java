@@ -284,9 +284,7 @@ public class NullabilityUtil {
     Symbol.VarSymbol varSymbol = symbol.getParameters().get(paramInd);
     return Stream.concat(
         varSymbol.getAnnotationMirrors().stream(),
-        symbol
-            .getRawTypeAttributes()
-            .stream()
+        symbol.getRawTypeAttributes().stream()
             .filter(
                 t ->
                     t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)

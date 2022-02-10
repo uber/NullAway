@@ -41,14 +41,21 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
-      - name: Build and test using Gradle, Java ${{ matrix.java }}, and Error Prone ${{ matrix.epVersion }}
+      - name: Build and test using Gradle, Java 8, and Error Prone ${{ matrix.epVersion }}
+        env:
+          ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
+        uses: eskatos/gradle-command-action@v1
+        with:
+          arguments: build
+        if: matrix.java == '8'
+      - name: Build and test using Gradle, Java 11, and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: eskatos/gradle-command-action@v1
         with:
           arguments: verGJF build
-        if: matrix.java != '17'
-      - name: Build and test using Gradle, Java ${{ matrix.java }}, and Error Prone ${{ matrix.epVersion }}
+        if: matrix.java == '11'
+      - name: Build and test using Gradle, Java 17, and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: eskatos/gradle-command-action@v1
@@ -63,7 +70,7 @@ jobs:
         with:
           arguments: coveralls
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.10.0' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.11.0' && github.repository == 'uber/NullAway'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
   publish_snapshot:

@@ -24,8 +24,7 @@ public class ContractUtils {
    * @return A set of trimmed field names.
    */
   public static Set<String> trimReceivers(Set<String> fieldNames) {
-    return fieldNames
-        .stream()
+    return fieldNames.stream()
         .map((Function<String, String>) input -> input.substring(input.lastIndexOf(".") + 1))
         .collect(Collectors.toSet());
   }
