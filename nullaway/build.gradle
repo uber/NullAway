@@ -20,9 +20,6 @@ plugins {
   id 'nullaway.jacoco-conventions'
 }
 
-sourceCompatibility = "1.8"
-targetCompatibility = "1.8"
-
 configurations {
     nullawayJar
 }
@@ -93,9 +90,26 @@ test {
 
 apply plugin: 'com.vanniktech.maven.publish'
 
-// Create a task to build NullAway with NullAway checking enabled
-// For some reason, this doesn't work on Java 8
 if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+    // Required on Java 11+ since Error Prone and NullAway access a bunch of
+    // JDK-internal APIs that are not exposed otherwise
+    tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs += [
+                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
+        ]
+    }
+    // Create a task to build NullAway with NullAway checking enabled
+    // For some reason, this doesn't work on Java 8
     tasks.register('buildWithNullAway', JavaCompile) {
         // Configure compilation to run with Error Prone and NullAway
         source = sourceSets.main.java

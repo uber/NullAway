@@ -166,7 +166,8 @@ public class ContractHandler extends BaseNoOpHandler {
                             ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
                         tree,
                         analysis.buildDescription(tree),
-                        state));
+                        state,
+                        null));
             supported = false;
             break;
           }

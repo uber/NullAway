@@ -58,7 +58,8 @@ public class ContractUtils {
                   new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                   tree,
                   analysis.buildDescription(tree),
-                  state));
+                  state,
+                  null));
     }
     return parts[1].trim();
   }
@@ -105,7 +106,8 @@ public class ContractUtils {
                   new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                   tree,
                   analysis.buildDescription(tree),
-                  state));
+                  state,
+                  null));
     }
     return antecedent;
   }

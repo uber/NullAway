@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Uber Technologies, Inc.
+ * Copyright (c) 2022 Uber Technologies, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -20,45 +20,34 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway;
+package com.uber.nullaway.fixserialization.location;
 
-/** Contains error message string to be displayed and the message type from {@link MessageTypes}. */
-public class ErrorMessage {
-  MessageTypes messageType;
-  String message;
+import com.sun.tools.javac.code.Symbol;
+import javax.lang.model.element.ElementKind;
 
-  public ErrorMessage(MessageTypes messageType, String message) {
-    this.messageType = messageType;
-    this.message = message;
+/** subtype of {@link AbstractFixLocation} targeting class fields. */
+public class FieldLocation extends AbstractFixLocation {
+
+  /** Symbol of targeted class field */
+  protected final Symbol.VarSymbol variableSymbol;
+
+  public FieldLocation(Symbol target) {
+    super(ElementKind.FIELD, target);
+    variableSymbol = (Symbol.VarSymbol) target;
   }
 
-  public enum MessageTypes {
-    DEREFERENCE_NULLABLE,
-    RETURN_NULLABLE,
-    PASS_NULLABLE,
-    ASSIGN_FIELD_NULLABLE,
-    WRONG_OVERRIDE_RETURN,
-    WRONG_OVERRIDE_PARAM,
-    METHOD_NO_INIT,
-    FIELD_NO_INIT,
-    UNBOX_NULLABLE,
-    NONNULL_FIELD_READ_BEFORE_INIT,
-    NULLABLE_VARARGS_UNSUPPORTED,
-    ANNOTATION_VALUE_INVALID,
-    CAST_TO_NONNULL_ARG_NONNULL,
-    GET_ON_EMPTY_OPTIONAL,
-    SWITCH_EXPRESSION_NULLABLE,
-    POSTCONDITION_NOT_SATISFIED,
-    PRECONDITION_NOT_SATISFIED,
-    WRONG_OVERRIDE_POSTCONDITION,
-    WRONG_OVERRIDE_PRECONDITION,
-  }
-
-  public String getMessage() {
-    return message;
-  }
-
-  public MessageTypes getMessageType() {
-    return messageType;
+  @Override
+  public String tabSeparatedToString() {
+    return type.toString()
+        + '\t'
+        + enclosingClass
+        + '\t'
+        + "null"
+        + '\t'
+        + variableSymbol
+        + '\t'
+        + "null"
+        + '\t'
+        + uri.toASCIIString();
   }
 }

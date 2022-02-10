@@ -156,7 +156,8 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                   new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                   tree,
                   analysis.buildDescription(tree),
-                  state));
+                  state,
+                  null));
       return false;
     } else {
       for (String fieldName : content) {
@@ -177,7 +178,8 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                             ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                         tree,
                         analysis.buildDescription(tree),
-                        state));
+                        state,
+                        null));
             return false;
           } else {
             fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
@@ -200,7 +202,8 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                       new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                       tree,
                       analysis.buildDescription(tree),
-                      state));
+                      state,
+                      null));
           return false;
         }
       }

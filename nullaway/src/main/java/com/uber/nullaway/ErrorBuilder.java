@@ -33,6 +33,7 @@ import static com.uber.nullaway.NullAway.getTreesInstance;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Joiner;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -52,6 +53,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
+import com.uber.nullaway.fixserialization.SerializationService;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -83,12 +85,18 @@ public class ErrorBuilder {
    * @param errorMessage the error message object.
    * @param descriptionBuilder the description builder for the error.
    * @param state the visitor state (used for e.g. suppression finding).
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
    * @return the error description
    */
   Description createErrorDescription(
-      ErrorMessage errorMessage, Description.Builder descriptionBuilder, VisitorState state) {
+      ErrorMessage errorMessage,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
+      @Nullable Symbol nonNullTarget) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
-    return createErrorDescription(errorMessage, enclosingSuppressTree, descriptionBuilder, state);
+    return createErrorDescription(
+        errorMessage, enclosingSuppressTree, descriptionBuilder, state, nonNullTarget);
   }
 
   /**
@@ -98,13 +106,16 @@ public class ErrorBuilder {
    * @param suggestTree the location at which a fix suggestion should be made
    * @param descriptionBuilder the description builder for the error.
    * @param state the visitor state (used for e.g. suppression finding).
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
    * @return the error description
    */
   public Description createErrorDescription(
       ErrorMessage errorMessage,
       @Nullable Tree suggestTree,
       Description.Builder descriptionBuilder,
-      VisitorState state) {
+      VisitorState state,
+      @Nullable Symbol nonNullTarget) {
     Description.Builder builder = descriptionBuilder.setMessage(errorMessage.message);
     String checkName = CORE_CHECK_NAME;
     if (errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)) {
@@ -124,6 +135,14 @@ public class ErrorBuilder {
     if (config.suggestSuppressions() && suggestTree != null) {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
     }
+
+    if (config.serializationIsActive()) {
+      if (nonNullTarget != null) {
+        SerializationService.serializeFixSuggestion(config, state, nonNullTarget, errorMessage);
+      }
+      SerializationService.serializeReportingError(config, state, errorMessage);
+    }
+
     // #letbuildersbuild
     return builder.build();
   }
@@ -202,19 +221,26 @@ public class ErrorBuilder {
    * @param descriptionBuilder the description builder for the error.
    * @param state the visitor state for the location which triggered the error (i.e. for suppression
    *     finding)
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
    * @return the error description.
    */
   Description createErrorDescriptionForNullAssignment(
       ErrorMessage errorMessage,
       @Nullable Tree suggestTreeIfCastToNonNull,
       Description.Builder descriptionBuilder,
-      VisitorState state) {
+      VisitorState state,
+      Symbol nonNullTarget) {
     if (config.getCastToNonNullMethod() != null) {
       return createErrorDescription(
-          errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state);
+          errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state, nonNullTarget);
     } else {
       return createErrorDescription(
-          errorMessage, suppressibleNode(state.getPath()), descriptionBuilder, state);
+          errorMessage,
+          suppressibleNode(state.getPath()),
+          descriptionBuilder,
+          state,
+          nonNullTarget);
     }
   }
 
@@ -314,11 +340,23 @@ public class ErrorBuilder {
     return builder.addFix(fix);
   }
 
+  /**
+   * Reports initialization errors where a constructor fails to guarantee non-fields are initialized
+   * along all paths at exit points.
+   *
+   * @param methodSymbol Constructor symbol.
+   * @param message Error message.
+   * @param state The VisitorState object.
+   * @param descriptionBuilder the description builder for the error.
+   * @param nonNullFields list of @Nonnull fields that are not guaranteed to be initialized along
+   *     all paths at exit points of the constructor.
+   */
   void reportInitializerError(
       Symbol.MethodSymbol methodSymbol,
       String message,
       VisitorState state,
-      Description.Builder descriptionBuilder) {
+      Description.Builder descriptionBuilder,
+      ImmutableList<Symbol> nonNullFields) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
     // method itself).
@@ -326,9 +364,16 @@ public class ErrorBuilder {
       return;
     }
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
+    ErrorMessage errorMessage = new ErrorMessage(METHOD_NO_INIT, message);
     state.reportMatch(
-        createErrorDescription(
-            new ErrorMessage(METHOD_NO_INIT, message), methodTree, descriptionBuilder, state));
+        createErrorDescription(errorMessage, methodTree, descriptionBuilder, state, null));
+    if (config.serializationIsActive()) {
+      // For now, we serialize each fix suggestion separately and measure their effectiveness
+      // separately
+      nonNullFields.forEach(
+          symbol ->
+              SerializationService.serializeFixSuggestion(config, state, symbol, errorMessage));
+    }
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
@@ -432,14 +477,16 @@ public class ErrorBuilder {
                   FIELD_NO_INIT, "@NonNull static field " + fieldName + " not initialized"),
               tree,
               builder,
-              state));
+              state,
+              symbol));
     } else {
       state.reportMatch(
           createErrorDescription(
               new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),
               tree,
               builder,
-              state));
+              state,
+              symbol));
     }
   }
 }

@@ -559,7 +559,8 @@ public final class AccessPath implements MapKey {
   }
 
   public static boolean isMapPut(Symbol.MethodSymbol symbol, VisitorState state) {
-    return NullabilityUtil.isMapMethod(symbol, state, "put", 2);
+    return NullabilityUtil.isMapMethod(symbol, state, "put", 2)
+        || NullabilityUtil.isMapMethod(symbol, state, "putIfAbsent", 2);
   }
 
   /**
