@@ -131,7 +131,7 @@ public class NullabilityUtil {
   public static Symbol.ClassSymbol getOutermostClassSymbol(Symbol symbol) {
     // get the symbol for the outermost enclosing class.  this handles
     // the case of anonymous classes
-    Symbol.ClassSymbol outermostClassSymbol = ASTHelpers.enclosingClass(symbol);
+    Symbol.ClassSymbol outermostClassSymbol = castToNonNull(ASTHelpers.enclosingClass(symbol));
     while (outermostClassSymbol.getNestingKind().isNested()) {
       Symbol.ClassSymbol enclosingSymbol = ASTHelpers.enclosingClass(outermostClassSymbol.owner);
       if (enclosingSymbol != null) {

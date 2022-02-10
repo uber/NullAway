@@ -166,7 +166,7 @@ public final class AccessPath implements MapKey {
   @Nullable
   static AccessPath fromMethodCall(
       MethodInvocationNode node, @Nullable VisitorState state, AccessPathContext apContext) {
-    if (state != null && isMapGet(castToNonNull(ASTHelpers.getSymbol(node.getTree())), state)) {
+    if (state != null && isMapGet(ASTHelpers.getSymbol(node.getTree()), state)) {
       return fromMapGetCall(node, apContext);
     }
     return fromVanillaMethodCall(node, apContext);
@@ -398,7 +398,7 @@ public final class AccessPath implements MapKey {
             // Check for boxing call
             MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
             if (methodInvocationTree.getArguments().size() == 1
-                && isBoxingMethod(castToNonNull(ASTHelpers.getSymbol(methodInvocationTree)))) {
+                && isBoxingMethod(ASTHelpers.getSymbol(methodInvocationTree))) {
               tree = methodInvocationTree.getArguments().get(0);
             }
           }
