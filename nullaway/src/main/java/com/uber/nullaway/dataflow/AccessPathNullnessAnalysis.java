@@ -357,9 +357,7 @@ public final class AccessPathNullnessAnalysis {
         AccessPath.fromBaseAndElement(exprNodes.iterator().next(), variableElement, apContext);
 
     if (store != null && ap != null) {
-      if (store
-          .getAccessPathsWithValue(Nullness.NONNULL)
-          .stream()
+      if (store.getAccessPathsWithValue(Nullness.NONNULL).stream()
           .anyMatch(accessPath -> accessPath.equals(ap))) {
         return Nullness.NONNULL;
       }

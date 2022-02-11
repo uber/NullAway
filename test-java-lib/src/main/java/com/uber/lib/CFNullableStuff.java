@@ -6,8 +6,7 @@ public class CFNullableStuff {
 
   public interface NullableReturn {
 
-    @Nullable
-    Object get();
+    @Nullable Object get();
   }
 
   public interface NullableParam {
