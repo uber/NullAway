@@ -394,10 +394,9 @@ public class ErrorBuilder {
     if (symbol instanceof Symbol.ClassSymbol) {
       ImmutableSet<String> excludedClassAnnotations = config.getExcludedClassAnnotations();
       return ((Symbol.ClassSymbol) symbol)
-          .getAnnotationMirrors()
-          .stream()
-          .map(anno -> anno.getAnnotationType().toString())
-          .anyMatch(excludedClassAnnotations::contains);
+          .getAnnotationMirrors().stream()
+              .map(anno -> anno.getAnnotationType().toString())
+              .anyMatch(excludedClassAnnotations::contains);
     }
     return false;
   }

@@ -1519,9 +1519,7 @@ public class NullAway extends BugChecker
     }
     for (Element constructorElement : errorFieldsForInitializer.keySet()) {
       ImmutableList<Symbol> fieldSymbols =
-          errorFieldsForInitializer
-              .get(constructorElement)
-              .stream()
+          errorFieldsForInitializer.get(constructorElement).stream()
               .map(element -> ASTHelpers.getSymbol(getTreesInstance(state).getTree(element)))
               .collect(ImmutableList.toImmutableList());
 
@@ -1905,9 +1903,7 @@ public class NullAway extends BugChecker
     }
     // check annotations
     ImmutableSet<String> excludedClassAnnotations = config.getExcludedClassAnnotations();
-    return classSymbol
-        .getAnnotationMirrors()
-        .stream()
+    return classSymbol.getAnnotationMirrors().stream()
         .map(anno -> anno.getAnnotationType().toString())
         .anyMatch(excludedClassAnnotations::contains);
   }
@@ -2240,7 +2236,9 @@ public class NullAway extends BugChecker
           ImmutableSet.copyOf(staticInitializerMethods));
     }
 
-    /** @return symbol for class */
+    /**
+     * @return symbol for class
+     */
     abstract Symbol.ClassSymbol classSymbol();
 
     /**
@@ -2266,7 +2264,9 @@ public class NullAway extends BugChecker
      */
     abstract ImmutableList<BlockTree> staticInitializerBlocks();
 
-    /** @return the list of constructor */
+    /**
+     * @return the list of constructor
+     */
     abstract ImmutableSet<MethodTree> constructors();
 
     /**
