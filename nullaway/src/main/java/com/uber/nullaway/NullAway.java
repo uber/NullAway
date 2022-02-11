@@ -2231,7 +2231,9 @@ public class NullAway extends BugChecker
           ImmutableSet.copyOf(staticInitializerMethods));
     }
 
-    /** @return symbol for class */
+    /**
+     * @return symbol for class
+     */
     abstract Symbol.ClassSymbol classSymbol();
 
     /**
@@ -2257,7 +2259,9 @@ public class NullAway extends BugChecker
      */
     abstract ImmutableList<BlockTree> staticInitializerBlocks();
 
-    /** @return the list of constructor */
+    /**
+     * @return the list of constructor
+     */
     abstract ImmutableSet<MethodTree> constructors();
 
     /**
