@@ -106,7 +106,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
                   new ErrorMessage(ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED, message),
                   tree,
                   analysis.buildDescription(tree),
-                  state));
+                  state,
+                  null));
       return false;
     }
     return true;
@@ -162,7 +163,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
                     errorMessage.toString()),
                 tree,
                 analysis.buildDescription(tree),
-                state));
+                state,
+                null));
   }
 
   /**
@@ -175,6 +177,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       MethodInvocationNode node,
       Types types,
       Context context,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -183,7 +186,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       // A synthetic node might be inserted by the Checker Framework during CFG construction, it is
       // safer to do a null check here.
       return super.onDataflowVisitMethodInvocation(
-          node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
+          node, types, context, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
     }
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(methodSymbol);
@@ -198,7 +201,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
           continue;
         }
         AccessPath accessPath =
-            AccessPath.fromBaseAndElement(node.getTarget().getReceiver(), field);
+            AccessPath.fromBaseAndElement(node.getTarget().getReceiver(), field, apContext);
         if (accessPath == null) {
           continue;
         }
@@ -206,6 +209,6 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       }
     }
     return super.onDataflowVisitMethodInvocation(
-        node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
+        node, types, context, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
   }
 }

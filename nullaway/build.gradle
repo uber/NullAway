@@ -17,13 +17,12 @@ import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
   id 'java-library'
-  // For code coverage:
-  id 'jacoco'
-  id 'com.github.nbaztec.coveralls-jacoco'
+  id 'nullaway.jacoco-conventions'
 }
 
-sourceCompatibility = "1.8"
-targetCompatibility = "1.8"
+configurations {
+    nullawayJar
+}
 
 dependencies {
     compileOnly deps.apt.autoValueAnnot
@@ -55,6 +54,10 @@ dependencies {
     testImplementation deps.test.lombok
     testImplementation deps.test.springBeans
     testImplementation deps.test.springContext
+    testImplementation deps.test.grpcCore
+
+    // This ends up being resolved to the NullAway jar under nullaway/build/libs
+    nullawayJar "com.uber.nullaway:nullaway:$VERSION_NAME"
 }
 
 javadoc {
@@ -66,22 +69,69 @@ test {
   maxHeapSize = "1024m"
   if (!JavaVersion.current().java9Compatible) {
     jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
+  } else {
+    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
+    jvmArgs += [
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+            // Accessed by Lombok tests
+            "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+    ]
   }
 }
 
 apply plugin: 'com.vanniktech.maven.publish'
 
-jacoco {
-  toolVersion = "0.8.2"
-}
-
-jacocoTestReport {
-    reports {
-        xml.enabled = true // coveralls plugin depends on xml format report
-        html.enabled = true
+if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+    // Required on Java 11+ since Error Prone and NullAway access a bunch of
+    // JDK-internal APIs that are not exposed otherwise
+    tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs += [
+                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
+        ]
     }
-}
-
-coverallsJacoco {
-    reportPath = "nullaway/build/reports/jacoco/test/jacocoTestReport.xml"
+    // Create a task to build NullAway with NullAway checking enabled
+    // For some reason, this doesn't work on Java 8
+    tasks.register('buildWithNullAway', JavaCompile) {
+        // Configure compilation to run with Error Prone and NullAway
+        source = sourceSets.main.java
+        classpath = sourceSets.main.compileClasspath
+        destinationDirectory = file("$buildDir/ignoredClasses")
+        def nullawayDeps = configurations.nullawayJar.asCollection()
+        options.annotationProcessorPath = files(
+                configurations.errorprone.asCollection(),
+                sourceSets.main.annotationProcessorPath,
+                nullawayDeps)
+        options.errorprone.enabled = true
+        options.errorprone {
+            option("NullAway:AnnotatedPackages", "com.uber")
+        }
+        // Make sure the jar has already been built
+        dependsOn 'jar'
+        // Check that the NullAway jar actually exists (without this,
+        // Gradle will run the compilation even if the jar doesn't exist)
+        doFirst {
+            nullawayDeps.forEach { f ->
+                assert f.exists()
+            }
+        }
+    }
 }

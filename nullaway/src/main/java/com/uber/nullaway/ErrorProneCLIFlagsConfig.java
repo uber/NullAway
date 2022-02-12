@@ -24,6 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.ErrorProneFlags;
+import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -51,6 +52,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_ACKNOWLEDGE_ANDROID_RECENT = EP_FL_NAMESPACE + ":AcknowledgeAndroidRecent";
   static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
+  static final String FL_NULLABLE_ANNOT = EP_FL_NAMESPACE + ":CustomNullableAnnotations";
+  static final String FL_NONNULL_ANNOT = EP_FL_NAMESPACE + ":CustomNonnullAnnotations";
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
   static final String FL_EXTERNAL_INIT_ANNOT = EP_FL_NAMESPACE + ":ExternalInitAnnotations";
   static final String FL_CONTRACT_ANNOT = EP_FL_NAMESPACE + ":CustomContractAnnotations";
@@ -72,6 +75,11 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_JI_REGEX_MODEL_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripModelJar";
   static final String FL_JI_REGEX_CODE_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripCodeJar";
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
+  /** --- Serialization configs --- */
+  static final String FL_FIX_SERIALIZATION = EP_FL_NAMESPACE + ":SerializeFixMetadata";
+
+  static final String FL_FIX_SERIALIZATION_CONFIG_PATH =
+      EP_FL_NAMESPACE + ":FixSerializationConfigPath";
 
   private static final String DELIMITER = ",";
 
@@ -152,6 +160,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
             flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE, DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE);
     initializerAnnotations =
         getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);
+    customNullableAnnotations = getFlagStringSet(flags, FL_NULLABLE_ANNOT, ImmutableSet.of());
+    customNonnullAnnotations = getFlagStringSet(flags, FL_NONNULL_ANNOT, ImmutableSet.of());
     externalInitAnnotations =
         getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT, DEFAULT_EXTERNAL_INIT_ANNOT);
     contractAnnotations = getFlagStringSet(flags, FL_CONTRACT_ANNOT, DEFAULT_CONTRACT_ANNOT);
@@ -195,6 +205,35 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + " should only be set when -XepOpt:"
               + FL_ACKNOWLEDGE_RESTRICTIVE
               + " is also set");
+    }
+    serializationActivationFlag = flags.getBoolean(FL_FIX_SERIALIZATION).orElse(false);
+    Optional<String> fixSerializationConfigPath = flags.get(FL_FIX_SERIALIZATION_CONFIG_PATH);
+    if (serializationActivationFlag && !fixSerializationConfigPath.isPresent()) {
+      throw new IllegalStateException(
+          "DO NOT report an issue to Error Prone for this crash!  NullAway Fix Serialization configuration is "
+              + "incorrect.  "
+              + "Must specify AutoFixer Output Directory, using the "
+              + "-XepOpt:"
+              + FL_FIX_SERIALIZATION_CONFIG_PATH
+              + " flag.  If you feel you have gotten this message in error report an issue"
+              + " at https://github.com/uber/NullAway/issues.");
+    }
+    /*
+     * if fixSerializationActivationFlag is false, the default constructor is invoked for
+     * creating FixSerializationConfig which all features are deactivated.  This lets the
+     * field be @Nonnull, allowing us to avoid null checks in various places.
+     */
+    fixSerializationConfig =
+        serializationActivationFlag
+            ? new FixSerializationConfig(fixSerializationConfigPath.get())
+            : new FixSerializationConfig();
+    if (serializationActivationFlag && isSuggestSuppressions) {
+      throw new IllegalStateException(
+          "In order to activate Fix Serialization mode ("
+              + FL_FIX_SERIALIZATION
+              + "), Suggest Suppressions mode must be deactivated ("
+              + FL_SUGGEST_SUPPRESSIONS
+              + ")");
     }
   }
 

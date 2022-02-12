@@ -128,6 +128,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       MethodInvocationNode node,
       Types types,
       Context context,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -138,8 +139,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       // Ignore annotated methods, library models should only apply to "unannotated" code.
       return NullnessHint.UNKNOWN;
     }
-    setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, context);
-    setConditionalArgumentNullness(thenUpdates, elseUpdates, node.getArguments(), callee, context);
+    setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, context, apContext);
+    setConditionalArgumentNullness(
+        thenUpdates, elseUpdates, node.getArguments(), callee, context, apContext);
     ImmutableSet<Integer> nullImpliesNullIndexes =
         getOptLibraryModels(context).nullImpliesNullParameters(callee);
     if (!nullImpliesNullIndexes.isEmpty()) {
@@ -169,27 +171,30 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       List<Node> arguments,
       Symbol.MethodSymbol callee,
-      Context context) {
+      Context context,
+      AccessPath.AccessPathContext apContext) {
     Set<Integer> nullImpliesTrueParameters =
         getOptLibraryModels(context).nullImpliesTrueParameters(callee);
     Set<Integer> nullImpliesFalseParameters =
         getOptLibraryModels(context).nullImpliesFalseParameters(callee);
-    for (AccessPath accessPath : accessPathsAtIndexes(nullImpliesTrueParameters, arguments)) {
+    for (AccessPath accessPath :
+        accessPathsAtIndexes(nullImpliesTrueParameters, arguments, apContext)) {
       elseUpdates.set(accessPath, NONNULL);
     }
-    for (AccessPath accessPath : accessPathsAtIndexes(nullImpliesFalseParameters, arguments)) {
+    for (AccessPath accessPath :
+        accessPathsAtIndexes(nullImpliesFalseParameters, arguments, apContext)) {
       thenUpdates.set(accessPath, NONNULL);
     }
   }
 
   private static Iterable<AccessPath> accessPathsAtIndexes(
-      Set<Integer> indexes, List<Node> arguments) {
+      Set<Integer> indexes, List<Node> arguments, AccessPath.AccessPathContext apContext) {
     List<AccessPath> result = new ArrayList<>();
     for (Integer i : indexes) {
       Preconditions.checkArgument(i >= 0 && i < arguments.size(), "Invalid argument index: " + i);
       if (i >= 0 && i < arguments.size()) {
         Node argument = arguments.get(i);
-        AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(argument);
+        AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(argument, apContext);
         if (ap != null) {
           result.add(ap);
         }
@@ -209,10 +214,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates bothUpdates,
       List<Node> arguments,
       Symbol.MethodSymbol callee,
-      Context context) {
+      Context context,
+      AccessPath.AccessPathContext apContext) {
     Set<Integer> requiredNonNullParameters =
         getOptLibraryModels(context).failIfNullParameters(callee);
-    for (AccessPath accessPath : accessPathsAtIndexes(requiredNonNullParameters, arguments)) {
+    for (AccessPath accessPath :
+        accessPathsAtIndexes(requiredNonNullParameters, arguments, apContext)) {
       bothUpdates.set(accessPath, NONNULL);
     }
   }

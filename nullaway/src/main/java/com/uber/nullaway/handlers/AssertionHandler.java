@@ -48,6 +48,7 @@ public class AssertionHandler extends BaseNoOpHandler {
       MethodInvocationNode node,
       Types types,
       Context context,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -70,7 +71,7 @@ public class AssertionHandler extends BaseNoOpHandler {
         Symbol.MethodSymbol receiver_symbol = ASTHelpers.getSymbol(receiver_method.getTree());
         if (methodNameUtil.isMethodAssertThat(receiver_symbol)) {
           Node arg = receiver_method.getArgument(0);
-          AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(arg);
+          AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(arg, apContext);
           if (ap != null) {
             bothUpdates.set(ap, NONNULL);
           }
@@ -85,7 +86,7 @@ public class AssertionHandler extends BaseNoOpHandler {
         || methodNameUtil.isMethodJunitAssertThat(callee)) {
       List<Node> args = node.getArguments();
       if (args.size() == 2 && methodNameUtil.isMatcherIsNotNull(args.get(1))) {
-        AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(args.get(0));
+        AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(args.get(0), apContext);
         if (ap != null) {
           bothUpdates.set(ap, NONNULL);
         }

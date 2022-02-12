@@ -27,7 +27,9 @@ import com.google.errorprone.bugpatterns.BugChecker;
 import com.sun.tools.javac.main.Main;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
@@ -55,14 +57,15 @@ public class JarInferTest {
 
   private CompilationTestHelper compilationTestHelper;
 
-  @BugPattern(
-      name = "DummyChecker",
-      summary = "Dummy checker to use CompilationTestHelper",
-      severity = WARNING)
   /**
    * A dummy checker to allow us to use {@link CompilationTestHelper} to compile Java code for
    * testing, as it requires a {@link BugChecker} to run.
    */
+  @BugPattern(
+      name = "DummyChecker",
+      summary = "Dummy checker to use CompilationTestHelper",
+      severity = WARNING)
+  @SuppressWarnings("BugPatternNaming") // remove once we require EP 2.11+
   public static class DummyChecker extends BugChecker {
     public DummyChecker() {}
   }
@@ -171,13 +174,21 @@ public class JarInferTest {
     for (Map.Entry<String, Set<Integer>> entry : result.entrySet()) {
       String mtd_sign = entry.getKey();
       Set<Integer> ddParams = entry.getValue();
-      if (ddParams.isEmpty()) continue;
-      Set<Integer> xddParams = expected.get(mtd_sign);
-      if (xddParams == null) return false;
-      for (Integer var : ddParams) {
-        if (!xddParams.remove(var)) return false;
+      if (ddParams.isEmpty()) {
+        continue;
       }
-      if (!xddParams.isEmpty()) return false;
+      Set<Integer> xddParams = expected.get(mtd_sign);
+      if (xddParams == null) {
+        return false;
+      }
+      for (Integer var : ddParams) {
+        if (!xddParams.remove(var)) {
+          return false;
+        }
+      }
+      if (!xddParams.isEmpty()) {
+        return false;
+      }
       expected.remove(mtd_sign);
     }
     return expected.isEmpty();
@@ -425,6 +436,10 @@ public class JarInferTest {
 
   @Test
   public void toyAARAnnotatingClasses() throws Exception {
+    if (System.getProperty("java.version").startsWith("1.8")) {
+      // We only build the sample Android apps on JDK 11+
+      return;
+    }
     testAnnotationInAarTemplate(
         "toyAARAnnotatingClasses",
         "com.uber.nullaway.jarinfer.toys.unannotated",
@@ -460,17 +475,7 @@ public class JarInferTest {
     final String inputJarPath = workingFolderPath + "/" + baseJarName + ".jar";
     final String outputJarPath = workingFolderPath + "/" + baseJarName + "-annotated.jar";
 
-    // Copy Jar to workspace, and sign it
-    Files.copy(
-        Paths.get(baseJarPath), Paths.get(inputJarPath), StandardCopyOption.REPLACE_EXISTING);
-    String ksPath =
-        Thread.currentThread().getContextClassLoader().getResource("testKeyStore.jks").getPath();
-    // JDK 8 only?
-    sun.security.tools.jarsigner.Main jarSignerTool = new sun.security.tools.jarsigner.Main();
-    jarSignerTool.run(
-        new String[] {
-          "-keystore", ksPath, "-storepass", "testPassword", inputJarPath, "testKeystore"
-        });
+    copyAndSignJar(baseJarPath, inputJarPath);
 
     // Test that this new jar fails if not run in --strip-jar-signatures mode
     boolean signedJarExceptionThrown = false;
@@ -505,6 +510,36 @@ public class JarInferTest {
     Assert.assertTrue(
         "Annotated jar after signature stripping does not preserve the info inside META-INF/MANIFEST.MF",
         EntriesComparator.compareManifestContents(outputJarPath, baseJarPath));
+  }
+
+  /** copy the jar at {@code baseJarPath} to a signed jar at {@code signedJarPath} */
+  private void copyAndSignJar(String baseJarPath, String signedJarPath)
+      throws IOException, InterruptedException {
+    Files.copy(
+        Paths.get(baseJarPath), Paths.get(signedJarPath), StandardCopyOption.REPLACE_EXISTING);
+    String ksPath =
+        Thread.currentThread().getContextClassLoader().getResource("testKeyStore.jks").getPath();
+    // A public API for signing jars was added for Java 9+, but there is only an internal API on
+    // Java 8.  And we need the test code to compile on Java 8.  For simplicity and uniformity, we
+    // just run jarsigner as an executable (which slightly slows down test execution)
+    String jarsignerExecutable =
+        String.join(
+            FileSystems.getDefault().getSeparator(),
+            new String[] {System.getenv("JAVA_HOME"), "bin", "jarsigner"});
+    Process process =
+        Runtime.getRuntime()
+            .exec(
+                new String[] {
+                  jarsignerExecutable,
+                  "-keystore",
+                  ksPath,
+                  "-storepass",
+                  "testPassword",
+                  signedJarPath,
+                  "testKeystore"
+                });
+    int exitCode = process.waitFor();
+    Assert.assertEquals("jarsigner process failed", 0, exitCode);
   }
 
   private byte[] sha1sum(String path) throws Exception {

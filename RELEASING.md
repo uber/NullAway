@@ -1,3 +1,8 @@
+IMPORTANT: Make sure you are using a JDK 8 JVM by checking `java -version` before any
+of the steps below.  If you run the steps below on a JDK 11+ JVM, that will break Java
+8 support, as the released jars will only run on JDK 11.  We do not target Java 8 when
+building on JDK 11 since Error Prone has required Java 11 since version 2.11.0.
+
 (Recommended, but optional) Update JarInfer Android SDK Models
 ==============================================================
 
@@ -5,7 +10,7 @@
  2. Get a copy of the AOSP `framework_intermediates` for the corresponding Android version.
     2a. At Uber? http://t.uber.com/aosp_framework_intermediate
     2b. Elsewhere? You can still build the corresponding AOSP version and look for
-        out/target/common/obj/JAVA_LIBRARIES/framework_intermediates/**
+        out/target/common/obj/JAVA_LIBRARIES/**
  3. (first time) `cp jar-infer/scripts/android-jar.conf.template jar-infer/scripts/android-jar.conf`
  4. Set the correct paths and versions in `android-jar.conf`
  5. `rm jar-infer/android-jarinfer-models-sdk28/src/main/resources/jarinfer.astubx` (for SDK 28)

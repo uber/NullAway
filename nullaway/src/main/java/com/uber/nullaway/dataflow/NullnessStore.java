@@ -20,14 +20,16 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Sets.intersection;
 
 import com.google.common.collect.ImmutableMap;
-import com.sun.tools.javac.code.Types;
+import com.google.errorprone.VisitorState;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.dataflow.AccessPath.IteratorContentsKey;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
@@ -76,8 +78,9 @@ public class NullnessStore implements Store<NullnessStore> {
    * @param defaultValue default value if we have no fact
    * @return fact associated with field access
    */
-  public Nullness valueOfField(FieldAccessNode node, Nullness defaultValue) {
-    AccessPath path = AccessPath.fromFieldAccess(node);
+  public Nullness valueOfField(
+      FieldAccessNode node, Nullness defaultValue, AccessPath.AccessPathContext apContext) {
+    AccessPath path = AccessPath.fromFieldAccess(node, apContext);
     if (path == null) {
       return defaultValue;
     }
@@ -92,8 +95,12 @@ public class NullnessStore implements Store<NullnessStore> {
    * @param defaultValue default value if we have no fact
    * @return fact associated with method invocation
    */
-  public Nullness valueOfMethodCall(MethodInvocationNode node, Types types, Nullness defaultValue) {
-    AccessPath accessPath = AccessPath.fromMethodCall(node, types);
+  public Nullness valueOfMethodCall(
+      MethodInvocationNode node,
+      VisitorState state,
+      Nullness defaultValue,
+      AccessPath.AccessPathContext apContext) {
+    AccessPath accessPath = AccessPath.fromMethodCall(node, state, apContext);
     if (accessPath == null) {
       return defaultValue;
     }
@@ -118,13 +125,33 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   /**
+   * If this store maps an access path {@code p} whose map-get argument is an {@link
+   * IteratorContentsKey} whose variable is {@code iteratorVar}, returns {@code p}. Otherwise,
+   * returns {@code null}.
+   */
+  @Nullable
+  public AccessPath getMapGetIteratorContentsAccessPath(LocalVariableNode iteratorVar) {
+    for (AccessPath accessPath : contents.keySet()) {
+      MapKey mapGetArg = accessPath.getMapGetArg();
+      if (mapGetArg instanceof IteratorContentsKey) {
+        IteratorContentsKey iteratorContentsKey = (IteratorContentsKey) mapGetArg;
+        if (iteratorContentsKey.getIteratorVarElement().equals(iteratorVar.getElement())) {
+          return accessPath;
+        }
+      }
+    }
+    return null;
+  }
+  /**
    * Gets the {@link Nullness} value of an access path.
    *
    * @param accessPath The access path.
    * @return The {@link Nullness} value of the access path.
    */
   public Nullness getNullnessOfAccessPath(AccessPath accessPath) {
-    if (contents == null) return Nullness.NULLABLE;
+    if (contents == null) {
+      return Nullness.NULLABLE;
+    }
     Nullness nullness = contents.get(accessPath);
     return (nullness == null) ? Nullness.NULLABLE : nullness;
   }
@@ -232,9 +259,7 @@ public class NullnessStore implements Store<NullnessStore> {
    */
   public NullnessStore filterAccessPaths(Predicate<AccessPath> pred) {
     return new NullnessStore(
-        contents
-            .entrySet()
-            .stream()
+        contents.entrySet().stream()
             .filter(e -> pred.test(e.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
   }

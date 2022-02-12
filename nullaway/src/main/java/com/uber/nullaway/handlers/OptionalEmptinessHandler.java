@@ -92,9 +92,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     this.analysis = analysis;
 
     optionalTypes =
-        config
-            .getOptionalClassPaths()
-            .stream()
+        config.getOptionalClassPaths().stream()
             .map(state::getTypeFromString)
             .filter(Objects::nonNull)
             .map(state.getTypes()::erasure)
@@ -106,6 +104,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
       MethodInvocationNode node,
       Types types,
       Context context,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -113,10 +112,10 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(node.getTree());
 
     if (optionalIsPresentCall(symbol, types)) {
-      updateNonNullAPsForOptionalContent(thenUpdates, node.getTarget().getReceiver());
+      updateNonNullAPsForOptionalContent(thenUpdates, node.getTarget().getReceiver(), apContext);
     } else if (config.handleTestAssertionLibraries() && methodNameUtil.isMethodIsTrue(symbol)) {
       // we check for instance of AssertThat(optionalFoo.isPresent()).isTrue()
-      updateIfAssertIsPresentTrueOnOptional(node, types, bothUpdates);
+      updateIfAssertIsPresentTrueOnOptional(node, types, apContext, bothUpdates);
     }
     return NullnessHint.UNKNOWN;
   }
@@ -157,7 +156,10 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   private void updateIfAssertIsPresentTrueOnOptional(
-      MethodInvocationNode node, Types types, AccessPathNullnessPropagation.Updates bothUpdates) {
+      MethodInvocationNode node,
+      Types types,
+      AccessPath.AccessPathContext apContext,
+      AccessPathNullnessPropagation.Updates bothUpdates) {
     Node receiver = node.getTarget().getReceiver();
     if (receiver instanceof MethodInvocationNode) {
       MethodInvocationNode receiverMethod = (MethodInvocationNode) receiver;
@@ -174,7 +176,8 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
             MethodInvocationNode argMethod = (MethodInvocationNode) unwrappedArg;
             Symbol.MethodSymbol argSymbol = ASTHelpers.getSymbol(argMethod.getTree());
             if (optionalIsPresentCall(argSymbol, types)) {
-              updateNonNullAPsForOptionalContent(bothUpdates, argMethod.getTarget().getReceiver());
+              updateNonNullAPsForOptionalContent(
+                  bothUpdates, argMethod.getTarget().getReceiver(), apContext);
             }
           }
         }
@@ -183,8 +186,10 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   private void updateNonNullAPsForOptionalContent(
-      AccessPathNullnessPropagation.Updates updates, Node base) {
-    AccessPath ap = AccessPath.fromBaseAndElement(base, OPTIONAL_CONTENT);
+      AccessPathNullnessPropagation.Updates updates,
+      Node base,
+      AccessPath.AccessPathContext apContext) {
+    AccessPath ap = AccessPath.fromBaseAndElement(base, OPTIONAL_CONTENT, apContext);
     if (ap != null && base.getTree() != null) {
       updates.set(ap, Nullness.NONNULL);
     }
@@ -194,7 +199,9 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     for (Type optionalType : optionalTypes) {
       if (symbol.getSimpleName().toString().equals("isPresent")
           && symbol.getParameters().length() == 0
-          && types.isSubtype(symbol.owner.type, optionalType)) return true;
+          && types.isSubtype(symbol.owner.type, optionalType)) {
+        return true;
+      }
     }
     return false;
   }
@@ -203,7 +210,9 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     for (Type optionalType : optionalTypes) {
       if (symbol.getSimpleName().toString().equals("get")
           && symbol.getParameters().length() == 0
-          && types.isSubtype(symbol.owner.type, optionalType)) return true;
+          && types.isSubtype(symbol.owner.type, optionalType)) {
+        return true;
+      }
     }
     return false;
   }

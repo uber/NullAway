@@ -1,5 +1,21 @@
+/*
+ * Copyright (C) 2021. Uber Technologies
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 plugins {
     id "java-library"
+    id 'nullaway.jacoco-conventions'
 }
 
 sourceCompatibility = 1.8
@@ -23,14 +39,34 @@ dependencies {
         exclude group: "junit", module: "junit"
     }
     testImplementation project(":jar-infer:test-java-lib-jarinfer")
-    testImplementation project(path: ":jar-infer:test-android-lib-jarinfer", configuration: "default")
     testImplementation files("${System.properties['java.home']}/../lib/tools.jar") // is there a better way?
     testRuntimeOnly deps.build.errorProneCheckApi
 }
 
 test {
     maxHeapSize = "1024m"
-    jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
+    if (!JavaVersion.current().java9Compatible) {
+        jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
+    } else {
+        // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
+        jvmArgs += [
+                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+                "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+                "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+                // Accessed by Lombok tests
+                "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+        ]
+    }
+    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+        dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
+    }
 }
 
 apply plugin: 'com.vanniktech.maven.publish'

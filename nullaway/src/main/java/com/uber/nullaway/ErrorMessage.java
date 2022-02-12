@@ -53,4 +53,12 @@ public class ErrorMessage {
     WRONG_OVERRIDE_POSTCONDITION,
     WRONG_OVERRIDE_PRECONDITION,
   }
+
+  public String getMessage() {
+    return message;
+  }
+
+  public MessageTypes getMessageType() {
+    return messageType;
+  }
 }

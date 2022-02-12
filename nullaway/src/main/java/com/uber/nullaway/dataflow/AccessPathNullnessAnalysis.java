@@ -51,6 +51,8 @@ public final class AccessPathNullnessAnalysis {
   private static final Context.Key<AccessPathNullnessAnalysis> FIELD_NULLNESS_ANALYSIS_KEY =
       new Context.Key<>();
 
+  private final AccessPath.AccessPathContext apContext;
+
   private final AccessPathNullnessPropagation nullnessPropagation;
 
   private final DataFlow dataFlow;
@@ -60,14 +62,19 @@ public final class AccessPathNullnessAnalysis {
   // Use #instance to instantiate
   private AccessPathNullnessAnalysis(
       Predicate<MethodInvocationNode> methodReturnsNonNull,
-      Context context,
+      VisitorState state,
       Config config,
       Handler handler) {
+    apContext =
+        AccessPath.AccessPathContext.builder()
+            .setImmutableTypes(handler.onRegisterImmutableTypes())
+            .build();
     this.nullnessPropagation =
         new AccessPathNullnessPropagation(
             Nullness.NONNULL,
             methodReturnsNonNull,
-            context,
+            state,
+            apContext,
             config,
             handler,
             new CoreNullnessStoreInitializer());
@@ -78,7 +85,8 @@ public final class AccessPathNullnessAnalysis {
           new AccessPathNullnessPropagation(
               Nullness.NONNULL,
               methodReturnsNonNull,
-              context,
+              state,
+              apContext,
               config,
               handler,
               new ContractNullnessStoreInitializer());
@@ -88,20 +96,21 @@ public final class AccessPathNullnessAnalysis {
   /**
    * Get the per-Javac instance of the analysis.
    *
-   * @param context Javac context
+   * @param state visitor state for the compilation
    * @param methodReturnsNonNull predicate determining whether a method is assumed to return NonNull
    *     value
    * @param config analysis config
    * @return instance of the analysis
    */
   public static AccessPathNullnessAnalysis instance(
-      Context context,
+      VisitorState state,
       Predicate<MethodInvocationNode> methodReturnsNonNull,
       Config config,
       Handler handler) {
+    Context context = state.context;
     AccessPathNullnessAnalysis instance = context.get(FIELD_NULLNESS_ANALYSIS_KEY);
     if (instance == null) {
-      instance = new AccessPathNullnessAnalysis(methodReturnsNonNull, context, config, handler);
+      instance = new AccessPathNullnessAnalysis(methodReturnsNonNull, state, config, handler);
       context.put(FIELD_NULLNESS_ANALYSIS_KEY, instance);
     }
     return instance;
@@ -259,7 +268,7 @@ public final class AccessPathNullnessAnalysis {
       if (trimReceiver && baseNode instanceof MethodAccessNode) {
         baseNode = ((MethodAccessNode) baseNode).getReceiver();
       }
-      AccessPath accessPath = AccessPath.fromBaseAndElement(baseNode, field);
+      AccessPath accessPath = AccessPath.fromBaseAndElement(baseNode, field, apContext);
       if (accessPath == null) {
         continue;
       }
@@ -344,12 +353,11 @@ public final class AccessPathNullnessAnalysis {
       return Nullness.NULLABLE;
     }
 
-    AccessPath ap = AccessPath.fromBaseAndElement(exprNodes.iterator().next(), variableElement);
+    AccessPath ap =
+        AccessPath.fromBaseAndElement(exprNodes.iterator().next(), variableElement, apContext);
 
     if (store != null && ap != null) {
-      if (store
-          .getAccessPathsWithValue(Nullness.NONNULL)
-          .stream()
+      if (store.getAccessPathsWithValue(Nullness.NONNULL).stream()
           .anyMatch(accessPath -> accessPath.equals(ap))) {
         return Nullness.NONNULL;
       }

@@ -26,11 +26,11 @@ import java.util.jar.JarFile;
 import java.util.jar.JarInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import jdk.internal.org.objectweb.asm.ClassReader;
-import jdk.internal.org.objectweb.asm.tree.AnnotationNode;
-import jdk.internal.org.objectweb.asm.tree.ClassNode;
-import jdk.internal.org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Type;
+import org.objectweb.asm.tree.AnnotationNode;
+import org.objectweb.asm.tree.ClassNode;
+import org.objectweb.asm.tree.MethodNode;
 
 /** Class to check if the methods in the given class / jar files have the expected annotations. */
 public class AnnotationChecker {
@@ -113,7 +113,9 @@ public class AnnotationChecker {
         return false;
       }
       List<AnnotationNode>[] paramAnnotations = method.visibleParameterAnnotations;
-      if (paramAnnotations == null) continue;
+      if (paramAnnotations == null) {
+        continue;
+      }
       for (List<AnnotationNode> annotations : paramAnnotations) {
         if (!checkExpectedAnnotations(annotations, expectedToActualAnnotations)
             && !checkTestMethodParamAnnotationByName(method)) {
@@ -207,7 +209,9 @@ public class AnnotationChecker {
 
   // Returns the number of times 'annotation' is present in the list 'annotations'.
   private static int countAnnotations(List<AnnotationNode> annotations, String annotation) {
-    if (annotations == null) return 0;
+    if (annotations == null) {
+      return 0;
+    }
     int count = 0;
     for (AnnotationNode annotationNode : annotations) {
       if (annotationNode.desc.equals(annotation)) {

@@ -24,6 +24,9 @@ package com.uber.nullaway;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
@@ -59,6 +62,8 @@ public class NullabilityUtil {
       org.jspecify.nullness.NullMarked.class;
 
   private static final NullMarkedCache nullMarkedCache = new NullMarkedCache();
+
+  private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
 
   private NullabilityUtil() {}
 
@@ -274,9 +279,7 @@ public class NullabilityUtil {
     Symbol.VarSymbol varSymbol = symbol.getParameters().get(paramInd);
     return Stream.concat(
         varSymbol.getAnnotationMirrors().stream(),
-        symbol
-            .getRawTypeAttributes()
-            .stream()
+        symbol.getRawTypeAttributes().stream()
             .filter(
                 t ->
                     t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
@@ -295,15 +298,15 @@ public class NullabilityUtil {
   /**
    * Check if a field might be null, based on the type.
    *
-   * @param symbol symbol for field
+   * @param symbol symbol for field; must be non-null
    * @param config NullAway config
    * @return true if based on the type, package, and name of the field, the analysis should assume
    *     the field might be null; false otherwise
+   * @throws NullPointerException if {@code symbol} is null
    */
-  public static boolean mayBeNullFieldFromType(@Nullable Symbol symbol, Config config) {
-    if (symbol == null) {
-      return true;
-    }
+  public static boolean mayBeNullFieldFromType(Symbol symbol, Config config) {
+    Preconditions.checkNotNull(
+        symbol, "mayBeNullFieldFromType should never be called with a null symbol");
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
             || isUnannotated(symbol, config))
@@ -422,5 +425,21 @@ public class NullabilityUtil {
   public static boolean isGenerated(Symbol symbol) {
     Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
     return ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated");
+  }
+
+  /**
+   * Checks if {@code symbol} is a method on {@code java.util.Map} (or a subtype) with name {@code
+   * methodName} and {@code numParams} parameters
+   */
+  public static boolean isMapMethod(
+      Symbol.MethodSymbol symbol, VisitorState state, String methodName, int numParams) {
+    if (!symbol.getSimpleName().toString().equals(methodName)) {
+      return false;
+    }
+    if (symbol.getParameters().size() != numParams) {
+      return false;
+    }
+    Symbol owner = symbol.owner;
+    return ASTHelpers.isSubtype(owner.type, MAP_TYPE_SUPPLIER.get(state), state);
   }
 }

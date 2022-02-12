@@ -181,6 +181,7 @@ class CompositeHandler implements Handler {
       MethodInvocationNode node,
       Types types,
       Context context,
+      AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
@@ -189,7 +190,7 @@ class CompositeHandler implements Handler {
     for (Handler h : handlers) {
       NullnessHint n =
           h.onDataflowVisitMethodInvocation(
-              node, types, context, inputs, thenUpdates, elseUpdates, bothUpdates);
+              node, types, context, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
       nullnessHint = nullnessHint.merge(n);
     }
     return nullnessHint;
@@ -217,7 +218,9 @@ class CompositeHandler implements Handler {
     Optional<ErrorMessage> optionalErrorMessage;
     for (Handler h : handlers) {
       optionalErrorMessage = h.onExpressionDereference(expr, baseExpr, state);
-      if (optionalErrorMessage.isPresent()) return optionalErrorMessage;
+      if (optionalErrorMessage.isPresent()) {
+        return optionalErrorMessage;
+      }
     }
     return Optional.empty();
   }
@@ -229,5 +232,14 @@ class CompositeHandler implements Handler {
       shouldFilter |= h.includeApInfoInSavedContext(accessPath, state);
     }
     return shouldFilter;
+  }
+
+  @Override
+  public ImmutableSet<String> onRegisterImmutableTypes() {
+    ImmutableSet.Builder<String> builder = ImmutableSet.<String>builder();
+    for (Handler h : handlers) {
+      builder.addAll(h.onRegisterImmutableTypes());
+    }
+    return builder.build();
   }
 }
