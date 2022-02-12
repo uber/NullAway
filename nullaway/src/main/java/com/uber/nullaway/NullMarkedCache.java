@@ -36,7 +36,7 @@ import com.sun.tools.javac.code.Symbol;
 final class NullMarkedCache {
   private static final int MAX_CACHE_SIZE = 200;
 
-  private final Cache<Symbol.ClassSymbol, Record> innerCache =
+  private final Cache<Symbol.ClassSymbol, NullMarkedCacheRecord> innerCache =
       CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE).build();
 
   public NullMarkedCache() {}
@@ -51,8 +51,8 @@ final class NullMarkedCache {
    *     boolean flag noting whether itself or any of the classes containing it are @NullMarked (See
    *     Record)
    */
-  public Record get(Symbol.ClassSymbol classSymbol) {
-    Record record = innerCache.getIfPresent(classSymbol);
+  public NullMarkedCacheRecord get(Symbol.ClassSymbol classSymbol) {
+    NullMarkedCacheRecord record = innerCache.getIfPresent(classSymbol);
     if (record != null) {
       return record;
     }
@@ -60,16 +60,17 @@ final class NullMarkedCache {
       Symbol.ClassSymbol enclosingClass = ASTHelpers.enclosingClass(classSymbol);
       // enclosingSymbol can be null in weird cases like for array methods
       if (enclosingClass != null) {
-        Record recordForEnclosing = get(enclosingClass);
+        NullMarkedCacheRecord recordForEnclosing = get(enclosingClass);
         record =
-            new Record(
+            new NullMarkedCacheRecord(
                 recordForEnclosing.outermostClassSymbol,
                 recordForEnclosing.isNullMarked || classSymbol.getAnnotation(NULLMARKED) != null);
       }
     }
     if (record == null) {
       // We are already at the outermost class (we can find), so let's create a record for it
-      record = new Record(classSymbol, classSymbol.getAnnotation(NULLMARKED) != null);
+      record =
+          new NullMarkedCacheRecord(classSymbol, classSymbol.getAnnotation(NULLMARKED) != null);
     }
     innerCache.put(classSymbol, record);
     return record;
@@ -83,11 +84,11 @@ final class NullMarkedCache {
    * <p>The class being referenced by the record is not represented by this object, but rather the
    * key used to retrieve it.
    */
-  public static final class Record {
+  public static final class NullMarkedCacheRecord {
     public final Symbol.ClassSymbol outermostClassSymbol;
     public final boolean isNullMarked;
 
-    public Record(Symbol.ClassSymbol outermostClassSymbol, boolean isAnnotated) {
+    public NullMarkedCacheRecord(Symbol.ClassSymbol outermostClassSymbol, boolean isAnnotated) {
       this.outermostClassSymbol = outermostClassSymbol;
       this.isNullMarked = isAnnotated;
     }

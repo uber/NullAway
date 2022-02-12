@@ -407,7 +407,8 @@ public class NullabilityUtil {
    * @return true if symbol represents an entity from a class that is unannotated; false otherwise
    */
   public static boolean isUnannotated(Symbol symbol, Config config) {
-    NullMarkedCache.Record record = nullMarkedCache.get(ASTHelpers.enclosingClass(symbol));
+    NullMarkedCache.NullMarkedCacheRecord record =
+        nullMarkedCache.get(ASTHelpers.enclosingClass(symbol));
     if (record.isNullMarked || fromAnnotatedPackage(record.outermostClassSymbol, config)) {
       return config.isUnannotatedClass(record.outermostClassSymbol);
     } else {
