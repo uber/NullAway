@@ -181,8 +181,28 @@ public class NullAway extends BugChecker
 
   private final Predicate<MethodInvocationNode> nonAnnotatedMethod;
 
-  /** should we match within the current top level class? */
-  private boolean matchWithinTopLevelClass = true;
+  /**
+   * Possible levels of null-marking / annotatedness for a class. This may be set to FULLY_MARKED or
+   * FULLY_UNMARKED optimistically but then adjusted to PARTIALLY_MARKED later based on annotations
+   * within the class; see {@link #matchClass(ClassTree, VisitorState)}
+   */
+  private enum NullMarking {
+    /** full class is annotated for nullness checking */
+    FULLY_MARKED,
+    /** full class is unannotated */
+    FULLY_UNMARKED,
+    /**
+     * class has a mix of annotatedness, depending on presence of {@link
+     * org.jspecify.nullness.NullMarked} annotations
+     */
+    PARTIALLY_MARKED
+  }
+
+  /**
+   * Null-marking level for the current top-level class. The initial value of this field doesn't
+   * matter, as it will be set appropriately in {@link #matchClass(ClassTree, VisitorState)}
+   */
+  private NullMarking nullMarkingForTopLevelClass = NullMarking.FULLY_MARKED;
 
   private final Config config;
 
@@ -266,11 +286,23 @@ public class NullAway extends BugChecker
   }
 
   private boolean withinAnnotatedCode(VisitorState state) {
-    if (matchWithinTopLevelClass) {
-      return true;
+    switch (nullMarkingForTopLevelClass) {
+      case FULLY_MARKED:
+        return true;
+      case FULLY_UNMARKED:
+        return false;
+      case PARTIALLY_MARKED:
+        return checkMarkingForPath(state.getPath());
+      default:
+        throw new IllegalStateException("unexpected marking state " + nullMarkingForTopLevelClass);
     }
+  }
+
+  // TODO this needs to traverse all the way up the path potentially, not just to the enclosing
+  // class, and to also check methods
+  private boolean checkMarkingForPath(TreePath path) {
     ClassTree enclosingClass;
-    Tree currentTree = state.getPath().getLeaf();
+    Tree currentTree = path.getLeaf();
     // We use instanceof, since there are multiple Kind's which represent ClassTree's: ENUM,
     // INTERFACE, etc, and
     // we are actually interested in all of them.
@@ -282,7 +314,7 @@ public class NullAway extends BugChecker
       // classes in general, or @NullMarked inner classes).
       enclosingClass = (ClassTree) currentTree;
     } else {
-      enclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+      enclosingClass = ASTHelpers.findEnclosingNode(path, ClassTree.class);
     }
     if (enclosingClass == null) {
       // e.g. an import statement
@@ -1208,7 +1240,12 @@ public class NullAway extends BugChecker
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(tree);
     NestingKind nestingKind = classSymbol.getNestingKind();
     if (!nestingKind.isNested()) {
-      matchWithinTopLevelClass = !isExcludedClass(classSymbol);
+      // Here we optimistically set the marking to either FULLY_UNMARKED or FULLY_MARKED.  If a
+      // nested entity has a contradicting annotation, at that point we update the marking level to
+      // PARTIALLY_MARKED, which will increase checking overhead for the remainder of the top-level
+      // class
+      nullMarkingForTopLevelClass =
+          isExcludedClass(classSymbol) ? NullMarking.FULLY_UNMARKED : NullMarking.FULLY_MARKED;
       // since we are processing a new top-level class, invalidate any cached
       // results for previous classes
       handler.onMatchTopLevelClass(this, tree, state, classSymbol);
@@ -1218,6 +1255,14 @@ public class NullAway extends BugChecker
       class2ConstructorUninit.clear();
       computedNullnessMap.clear();
       EnclosingEnvironmentNullness.instance(state.context).clear();
+    } else {
+      // handle the case where the top-class is unannotated, but there is a @NullMarked annotation
+      // on a nested class
+      // TODO handle @NullUnmarked once it is finalized
+      if (nullMarkingForTopLevelClass == NullMarking.FULLY_UNMARKED
+          && NullabilityUtil.isClassAnnotatedNullMarked(classSymbol)) {
+        nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
+      }
     }
     if (withinAnnotatedCode(state)) {
       // we need to update the environment before checking field initialization, as the latter
