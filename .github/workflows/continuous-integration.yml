@@ -46,7 +46,7 @@ jobs:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: build --no-daemon
+          arguments: build --no-daemon --no-parallel
         if: matrix.java == '8'
       - name: Build and test using Gradle, Java 11, and Error Prone ${{ matrix.epVersion }}
         env:
