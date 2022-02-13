@@ -7,7 +7,7 @@ import org.junit.Test;
 public class NullAwayJSpecifyTests extends NullAwayTestsBase {
 
   @Test
-  public void jspecifyNullMarkedBasicSupport() {
+  public void jspecifyNullMarkedPackageLevel() {
     defaultCompilationHelper
         .addSourceLines(
             "package-info.java",
@@ -72,11 +72,10 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
         .addSourceLines(
             "Foo.java",
             "package com.example.thirdparty;",
-            "import org.jspecify.nullness.Nullable;",
             "import org.jspecify.nullness.NullMarked;",
             "@NullMarked",
             "public class Foo {",
-            "  public static String foo( String s) {",
+            "  public static String foo(String s) {",
             "    return s;",
             "  }",
             "}")
@@ -99,11 +98,10 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
         .addSourceLines(
             "Foo.java",
             "package com.example.thirdparty;",
-            "import org.jspecify.nullness.Nullable;",
             "import org.jspecify.nullness.NullMarked;",
             "@NullMarked",
             "public class Foo {",
-            "  public static String foo( String s) {",
+            "  public static String foo(String s) {",
             "    return s;",
             "  }",
             "  public static void test(Object o) {",
@@ -158,6 +156,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "      return s;",
             "    }",
             "  }",
+            "  public static void unchecked(Object o) {}",
             "}")
         .addSourceLines(
             "Test.java",
@@ -167,6 +166,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "  public static void test(Object o) {",
             "    // BUG: Diagnostic contains: passing @Nullable parameter",
             "    Bar.Foo.foo(null);",
+            "    Bar.unchecked(null);",
             "  }",
             "}")
         .doTest();
@@ -186,11 +186,16 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "    public static String foo(String s) {",
             "      return s;",
             "    }",
-            // @NullMarked should also control checking of source.
+            "    // @NullMarked should also control checking of source",
             "    public static void test(Object o) {",
             "      // BUG: Diagnostic contains: passing @Nullable parameter",
             "      foo(null);",
             "    }",
+            "  }",
+            "  public static void unchecked() {",
+            "    Object x = null;",
+            "    // fine since this code is still unchecked",
+            "    x.toString();",
             "  }",
             "}")
         .doTest();
