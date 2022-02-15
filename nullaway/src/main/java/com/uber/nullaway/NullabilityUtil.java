@@ -125,27 +125,6 @@ public class NullabilityUtil {
     }
     return null;
   }
-  /**
-   * finds the symbol for the top-level class containing the given symbol
-   *
-   * @param symbol the given symbol
-   * @return symbol for the non-nested enclosing class
-   */
-  public static Symbol.ClassSymbol getOutermostClassSymbol(Symbol symbol) {
-    // get the symbol for the outermost enclosing class.  this handles
-    // the case of anonymous classes
-    Symbol.ClassSymbol outermostClassSymbol = ASTHelpers.enclosingClass(symbol);
-    while (outermostClassSymbol.getNestingKind().isNested()) {
-      Symbol.ClassSymbol enclosingSymbol = ASTHelpers.enclosingClass(outermostClassSymbol.owner);
-      if (enclosingSymbol != null) {
-        outermostClassSymbol = enclosingSymbol;
-      } else {
-        // enclosingSymbol can be null in weird cases like for array methods
-        break;
-      }
-    }
-    return outermostClassSymbol;
-  }
 
   /**
    * find the enclosing method, lambda expression or initializer block for the leaf of some tree
@@ -422,8 +401,9 @@ public class NullabilityUtil {
    * @return true if symbol represents an entity from a class annotated with {@code @Generated};
    *     false otherwise
    */
-  public static boolean isGenerated(Symbol symbol) {
-    Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
+  public static boolean isGenerated(Symbol symbol, NullMarkedCache nullMarkedCache) {
+    Symbol.ClassSymbol outermostClassSymbol =
+        nullMarkedCache.get(ASTHelpers.enclosingClass(symbol)).outermostClassSymbol;
     return ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated");
   }
 

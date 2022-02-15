@@ -72,11 +72,12 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) expr);
-      if (NullabilityUtil.isUnannotated(
-          methodSymbol, config, NullMarkedCache.instance(state.context))) {
+      NullMarkedCache nullMarkedCache = NullMarkedCache.instance(state.context);
+      if (NullabilityUtil.isUnannotated(methodSymbol, config, nullMarkedCache)) {
         // with the generated-as-unannotated option enabled, we want to ignore
         // annotations in generated code
-        if (config.treatGeneratedAsUnannotated() && NullabilityUtil.isGenerated(methodSymbol)) {
+        if (config.treatGeneratedAsUnannotated()
+            && NullabilityUtil.isGenerated(methodSymbol, nullMarkedCache)) {
           return exprMayBeNull;
         } else {
           return Nullness.hasNullableAnnotation(methodSymbol, config) || exprMayBeNull;
