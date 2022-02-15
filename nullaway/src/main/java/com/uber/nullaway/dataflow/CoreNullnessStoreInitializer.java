@@ -11,6 +11,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.NullMarkedCache;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
@@ -102,7 +103,8 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         // treat as non-null
         assumed = NONNULL;
       } else {
-        if (NullabilityUtil.isUnannotated(fiMethodSymbol, config)) {
+        if (NullabilityUtil.isUnannotated(
+            fiMethodSymbol, config, NullMarkedCache.instance(context))) {
           // assume parameter is non-null unless handler tells us otherwise
           assumed = nullableParamsFromHandler.contains(i) ? NULLABLE : NONNULL;
         } else {

@@ -28,19 +28,31 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.util.Context;
 
 /**
  * A helper cache class to keep track of (inner) classes marked with @NullMarked and to resolve
  * their outermost class. Used by {@link NullabilityUtil}.
  */
-final class NullMarkedCache {
+public final class NullMarkedCache {
+
+  private static final Context.Key<NullMarkedCache> NULL_MARKED_CACHE_KEY = new Context.Key<>();
+
   private static final int MAX_CACHE_SIZE = 200;
 
   private final Cache<Symbol.ClassSymbol, NullMarkedCacheRecord> innerCache =
       CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE).build();
 
-  public NullMarkedCache() {}
+  private NullMarkedCache() {}
 
+  public static NullMarkedCache instance(Context context) {
+    NullMarkedCache cache = context.get(NULL_MARKED_CACHE_KEY);
+    if (cache == null) {
+      cache = new NullMarkedCache();
+      context.put(NULL_MARKED_CACHE_KEY, cache);
+    }
+    return cache;
+  }
   /**
    * Retrieve the (outermostClass, isNullMarked) record for a given class symbol.
    *

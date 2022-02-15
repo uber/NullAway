@@ -31,6 +31,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.NullMarkedCache;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
@@ -710,12 +711,21 @@ public class AccessPathNullnessPropagation
     Symbol symbol = ASTHelpers.getSymbol(fieldAccessNode.getTree());
     setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
     Nullness nullness = NULLABLE;
-    if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config)) {
+    if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config, getNullMarkedCache(state))) {
       nullness = NONNULL;
     } else {
       nullness = input.getRegularStore().valueOfField(fieldAccessNode, nullness, apContext);
     }
     return updateRegularStore(nullness, input, updates);
+  }
+
+  private NullMarkedCache nullMarkedCache;
+
+  private NullMarkedCache getNullMarkedCache(VisitorState state) {
+    if (nullMarkedCache == null) {
+      nullMarkedCache = NullMarkedCache.instance(state.context);
+    }
+    return nullMarkedCache;
   }
 
   private void setReceiverNonnull(

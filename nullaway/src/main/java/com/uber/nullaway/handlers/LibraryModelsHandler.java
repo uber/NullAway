@@ -42,6 +42,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullMarkedCache;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
@@ -107,7 +108,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION) {
       OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
       Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr);
-      if (!NullabilityUtil.isUnannotated(methodSymbol, this.config)) {
+      if (!NullabilityUtil.isUnannotated(
+          methodSymbol, this.config, NullMarkedCache.instance(state.context))) {
         // We only look at library models for unannotated (i.e. third-party) code.
         return exprMayBeNull;
       } else if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes())
@@ -135,7 +137,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
-    if (!NullabilityUtil.isUnannotated(callee, this.config)) {
+    if (!NullabilityUtil.isUnannotated(callee, this.config, NullMarkedCache.instance(context))) {
       // Ignore annotated methods, library models should only apply to "unannotated" code.
       return NullnessHint.UNKNOWN;
     }

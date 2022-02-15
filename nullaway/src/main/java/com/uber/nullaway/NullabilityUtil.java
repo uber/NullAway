@@ -61,8 +61,6 @@ public class NullabilityUtil {
   public static final Class<? extends Annotation> NULLMARKED =
       org.jspecify.nullness.NullMarked.class;
 
-  private static final NullMarkedCache nullMarkedCache = new NullMarkedCache();
-
   private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
 
   private NullabilityUtil() {}
@@ -314,12 +312,13 @@ public class NullabilityUtil {
    *     the field might be null; false otherwise
    * @throws NullPointerException if {@code symbol} is null
    */
-  public static boolean mayBeNullFieldFromType(Symbol symbol, Config config) {
+  public static boolean mayBeNullFieldFromType(
+      Symbol symbol, Config config, NullMarkedCache nullMarkedCache) {
     Preconditions.checkNotNull(
         symbol, "mayBeNullFieldFromType should never be called with a null symbol");
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
-            || isUnannotated(symbol, config))
+            || isUnannotated(symbol, config, nullMarkedCache))
         && Nullness.hasNullableAnnotation(symbol, config);
   }
 
@@ -388,25 +387,14 @@ public class NullabilityUtil {
    *
    * <p>Important: This method ignores package-level annotations and annotated packages and classes
    * passed as configuration options. For proper resolution of whether code should be considered
-   * null-annotated, use {@link #isUnannotated(Symbol, Config)} or {@link #isAnnotated(Symbol,
-   * Config)} instead.
+   * null-annotated, use {@link #isUnannotated(Symbol, Config, NullMarkedCache)} instead.
    *
    * @param classSymbol The class to be checked
    * @return Whether this class or any of its enclosing classes are explicitly marked @NullMarked
    */
-  public static boolean isClassAnnotatedNullMarked(Symbol.ClassSymbol classSymbol) {
+  public static boolean isClassAnnotatedNullMarked(
+      Symbol.ClassSymbol classSymbol, NullMarkedCache nullMarkedCache) {
     return nullMarkedCache.get(classSymbol).isNullMarked;
-  }
-
-  /**
-   * Check if a symbol comes from annotated code.
-   *
-   * @param symbol symbol for entity
-   * @param config NullAway config
-   * @return true if symbol represents an entity from a class that is annotated; false otherwise
-   */
-  public static boolean isAnnotated(Symbol symbol, Config config) {
-    return !isUnannotated(symbol, config);
   }
 
   /**
@@ -416,7 +404,8 @@ public class NullabilityUtil {
    * @param config NullAway config
    * @return true if symbol represents an entity from a class that is unannotated; false otherwise
    */
-  public static boolean isUnannotated(Symbol symbol, Config config) {
+  public static boolean isUnannotated(
+      Symbol symbol, Config config, NullMarkedCache nullMarkedCache) {
     NullMarkedCache.NullMarkedCacheRecord record =
         nullMarkedCache.get(ASTHelpers.enclosingClass(symbol));
     if (record.isNullMarked || fromAnnotatedPackage(record.outermostClassSymbol, config)) {

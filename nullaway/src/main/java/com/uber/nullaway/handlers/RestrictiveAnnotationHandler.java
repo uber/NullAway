@@ -33,6 +33,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullMarkedCache;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -71,7 +72,8 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) expr);
-      if (NullabilityUtil.isUnannotated(methodSymbol, config)) {
+      if (NullabilityUtil.isUnannotated(
+          methodSymbol, config, NullMarkedCache.instance(state.context))) {
         // with the generated-as-unannotated option enabled, we want to ignore
         // annotations in generated code
         if (config.treatGeneratedAsUnannotated() && NullabilityUtil.isGenerated(methodSymbol)) {
@@ -118,7 +120,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-    if (NullabilityUtil.isUnannotated(methodSymbol, config)
+    if (NullabilityUtil.isUnannotated(methodSymbol, config, NullMarkedCache.instance(context))
         && Nullness.hasNullableAnnotation(methodSymbol, config)) {
       return NullnessHint.HINT_NULLABLE;
     }

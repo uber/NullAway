@@ -204,6 +204,8 @@ public class NullAway extends BugChecker
    */
   private NullMarking nullMarkingForTopLevelClass = NullMarking.FULLY_MARKED;
 
+  private NullMarkedCache nullMarkedCache;
+
   private final Config config;
 
   private final ErrorBuilder errorBuilder;
@@ -282,7 +284,8 @@ public class NullAway extends BugChecker
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
     return invocationNode == null
-        || NullabilityUtil.isUnannotated(ASTHelpers.getSymbol(invocationNode.getTree()), config);
+        || NullabilityUtil.isUnannotated(
+            ASTHelpers.getSymbol(invocationNode.getTree()), config, nullMarkedCache);
   }
 
   private boolean withinAnnotatedCode(VisitorState state) {
@@ -292,7 +295,7 @@ public class NullAway extends BugChecker
       case FULLY_UNMARKED:
         return false;
       case PARTIALLY_MARKED:
-        return checkMarkingForPath(state.getPath());
+        return checkMarkingForPath(state);
       default:
         throw new IllegalStateException("unexpected marking state " + nullMarkingForTopLevelClass);
     }
@@ -300,8 +303,9 @@ public class NullAway extends BugChecker
 
   // TODO this needs to traverse all the way up the path potentially, not just to the enclosing
   // class, and to also check methods
-  private boolean checkMarkingForPath(TreePath path) {
+  private boolean checkMarkingForPath(VisitorState state) {
     ClassTree enclosingClass;
+    TreePath path = state.getPath();
     Tree currentTree = path.getLeaf();
     // We use instanceof, since there are multiple Kind's which represent ClassTree's: ENUM,
     // INTERFACE, etc, and
@@ -321,7 +325,7 @@ public class NullAway extends BugChecker
       return false;
     }
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
-    return NullabilityUtil.isClassAnnotatedNullMarked(classSymbol);
+    return NullabilityUtil.isClassAnnotatedNullMarked(classSymbol, nullMarkedCache);
   }
 
   @Override
@@ -620,7 +624,7 @@ public class NullAway extends BugChecker
     if (unboundMemberRef) {
       boolean isFirstParamNull = false;
       // Two cases: for annotated code, look first at the annotation
-      if (!NullabilityUtil.isUnannotated(overriddenMethod, config)) {
+      if (!NullabilityUtil.isUnannotated(overriddenMethod, config, nullMarkedCache)) {
         isFirstParamNull = Nullness.hasNullableAnnotation(superParamSymbols.get(0), config);
       }
       // For both annotated and unannotated code, look then at handler overrides (e.g. Library
@@ -652,7 +656,7 @@ public class NullAway extends BugChecker
     int startParam = unboundMemberRef ? 1 : 0;
     // Collect @Nullable params of overriden method
     ImmutableSet<Integer> nullableParamsOfOverriden;
-    if (NullabilityUtil.isUnannotated(overriddenMethod, config)) {
+    if (NullabilityUtil.isUnannotated(overriddenMethod, config, nullMarkedCache)) {
       nullableParamsOfOverriden =
           handler.onUnannotatedInvocationGetExplicitlyNullablePositions(
               state.context, overriddenMethod, ImmutableSet.of());
@@ -723,7 +727,7 @@ public class NullAway extends BugChecker
     if (returnType.toString().equals("java.lang.Void")) {
       return Description.NO_MATCH;
     }
-    if (NullabilityUtil.isUnannotated(methodSymbol, config)
+    if (NullabilityUtil.isUnannotated(methodSymbol, config, nullMarkedCache)
         || Nullness.hasNullableAnnotation(methodSymbol, config)) {
       return Description.NO_MATCH;
     }
@@ -751,7 +755,7 @@ public class NullAway extends BugChecker
     // (like Rx nullability) run dataflow analysis
     updateEnvironmentMapping(tree, state);
     handler.onMatchLambdaExpression(this, tree, state, funcInterfaceMethod);
-    if (NullabilityUtil.isUnannotated(funcInterfaceMethod, config)) {
+    if (NullabilityUtil.isUnannotated(funcInterfaceMethod, config, nullMarkedCache)) {
       return Description.NO_MATCH;
     }
     Description description =
@@ -808,7 +812,7 @@ public class NullAway extends BugChecker
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
     final boolean isOverridenMethodUnannotated =
-        NullabilityUtil.isUnannotated(overriddenMethod, config);
+        NullabilityUtil.isUnannotated(overriddenMethod, config, nullMarkedCache);
     final boolean overriddenMethodReturnsNonNull =
         ((isOverridenMethodUnannotated
                 && handler.onUnannotatedInvocationGetExplicitlyNonNullReturn(
@@ -1223,6 +1227,9 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchClass(ClassTree tree, VisitorState state) {
+    if (nullMarkedCache == null) {
+      nullMarkedCache = NullMarkedCache.instance(state.context);
+    }
     // Check if the class is excluded according to the filter
     // if so, set the flag to match within the class to false
     // NOTE: for this mechanism to work, we rely on the enclosing ClassTree
@@ -1230,7 +1237,7 @@ public class NullAway extends BugChecker
     // assume that a single checker object is not being
     // used from multiple threads
     // We don't want to update the flag for nested classes.
-    // Ideally we would keep a stack of flags to handle nested types,
+    // Ideally we wou8ld keep a stack of flags to handle nested types,
     // but this is not easy within the Error Prone APIs.
     // Instead, we use this flag as an optimization, skipping work if the
     // top-level class is to be skipped. If a nested class should be
@@ -1260,7 +1267,7 @@ public class NullAway extends BugChecker
       // on a nested class
       // TODO handle @NullUnmarked once it is finalized
       if (nullMarkingForTopLevelClass == NullMarking.FULLY_UNMARKED
-          && NullabilityUtil.isClassAnnotatedNullMarked(classSymbol)) {
+          && NullabilityUtil.isClassAnnotatedNullMarked(classSymbol, nullMarkedCache)) {
         nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
       }
     }
@@ -1398,7 +1405,7 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams) {
     ImmutableSet<Integer> nonNullPositions = null;
-    if (NullabilityUtil.isUnannotated(methodSymbol, config)) {
+    if (NullabilityUtil.isUnannotated(methodSymbol, config, nullMarkedCache)) {
       nonNullPositions =
           handler.onUnannotatedInvocationGetNonNullPositions(
               this, state, methodSymbol, actualParams, ImmutableSet.of());
@@ -1968,7 +1975,7 @@ public class NullAway extends BugChecker
       return true;
     }
     if (!NullabilityUtil.fromAnnotatedPackage(classSymbol, config)
-        && !NullabilityUtil.isClassAnnotatedNullMarked(classSymbol)) {
+        && !NullabilityUtil.isClassAnnotatedNullMarked(classSymbol, nullMarkedCache)) {
       return true;
     }
     // check annotations
@@ -2091,7 +2098,7 @@ public class NullAway extends BugChecker
   private boolean mayBeNullMethodCall(
       VisitorState state, ExpressionTree expr, Symbol.MethodSymbol exprSymbol) {
     boolean exprMayBeNull = true;
-    if (NullabilityUtil.isUnannotated(exprSymbol, config)) {
+    if (NullabilityUtil.isUnannotated(exprSymbol, config, nullMarkedCache)) {
       exprMayBeNull = false;
     }
     if (!Nullness.hasNullableAnnotation(exprSymbol, config)) {
@@ -2118,7 +2125,7 @@ public class NullAway extends BugChecker
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
     boolean exprMayBeNull = true;
-    if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config)) {
+    if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, nullMarkedCache)) {
       exprMayBeNull = false;
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);
