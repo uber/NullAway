@@ -157,7 +157,7 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public boolean shouldTreatGeneratedAsUnannoatated() {
+  public boolean shouldTreatGeneratedAsUnannotated() {
     return treatGeneratedAsUnannotated;
   }
 

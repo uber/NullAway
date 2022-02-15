@@ -74,7 +74,7 @@ public interface Config {
    * @return true if code marked as generated code should be treated as unannotated, even if it
    *     comes from a package otherwise configured as annotated.
    */
-  boolean shouldTreatGeneratedAsUnannoatated();
+  boolean shouldTreatGeneratedAsUnannotated();
 
   /**
    * Checks if a class should be excluded.

@@ -65,7 +65,7 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public boolean shouldTreatGeneratedAsUnannoatated() {
+  public boolean shouldTreatGeneratedAsUnannotated() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 
