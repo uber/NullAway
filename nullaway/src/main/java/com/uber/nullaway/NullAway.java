@@ -301,21 +301,16 @@ public class NullAway extends BugChecker
     }
   }
 
-  // TODO this needs to traverse all the way up the path potentially, not just to the enclosing
-  // class, and to also check methods
   private boolean checkMarkingForPath(VisitorState state) {
     ClassTree enclosingClass;
     TreePath path = state.getPath();
     Tree currentTree = path.getLeaf();
     // We use instanceof, since there are multiple Kind's which represent ClassTree's: ENUM,
-    // INTERFACE, etc, and
-    // we are actually interested in all of them.
+    // INTERFACE, etc, and we are actually interested in all of them.
     if (currentTree instanceof ClassTree) {
       // For the purposes of determining whether we are inside annotated code or not, when matching
-      // a
-      // class its enclosing class is itself (otherwise we might not process initialization for
-      // top-level
-      // classes in general, or @NullMarked inner classes).
+      // a class its enclosing class is itself (otherwise we might not process initialization for
+      // top-level classes in general, or @NullMarked inner classes).
       enclosingClass = (ClassTree) currentTree;
     } else {
       enclosingClass = ASTHelpers.findEnclosingNode(path, ClassTree.class);
@@ -325,7 +320,7 @@ public class NullAway extends BugChecker
       return false;
     }
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
-    return NullabilityUtil.isClassAnnotatedNullMarked(classSymbol, nullMarkedCache);
+    return NullabilityUtil.isClassOrEnclosingAnnotatedNullMarked(classSymbol, nullMarkedCache);
   }
 
   @Override
@@ -1267,7 +1262,7 @@ public class NullAway extends BugChecker
       // on a nested class
       // TODO handle @NullUnmarked once it is finalized
       if (nullMarkingForTopLevelClass == NullMarking.FULLY_UNMARKED
-          && NullabilityUtil.isClassAnnotatedNullMarked(classSymbol, nullMarkedCache)) {
+          && NullabilityUtil.isClassOrEnclosingAnnotatedNullMarked(classSymbol, nullMarkedCache)) {
         nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
       }
     }
@@ -1975,7 +1970,7 @@ public class NullAway extends BugChecker
       return true;
     }
     if (!NullabilityUtil.fromAnnotatedPackage(classSymbol, config)
-        && !NullabilityUtil.isClassAnnotatedNullMarked(classSymbol, nullMarkedCache)) {
+        && !NullabilityUtil.isClassOrEnclosingAnnotatedNullMarked(classSymbol, nullMarkedCache)) {
       return true;
     }
     // check annotations

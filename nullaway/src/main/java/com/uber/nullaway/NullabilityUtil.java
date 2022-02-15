@@ -362,7 +362,7 @@ public class NullabilityUtil {
   }
 
   /**
-   * Check whether a class or any of its enclosing classes are explicitly marked @NullMarked
+   * Check whether a class or any of its enclosing classes are explicitly marked {@code @NullMarked}
    *
    * <p>Important: This method ignores package-level annotations and annotated packages and classes
    * passed as configuration options. For proper resolution of whether code should be considered
@@ -371,7 +371,7 @@ public class NullabilityUtil {
    * @param classSymbol The class to be checked
    * @return Whether this class or any of its enclosing classes are explicitly marked @NullMarked
    */
-  public static boolean isClassAnnotatedNullMarked(
+  public static boolean isClassOrEnclosingAnnotatedNullMarked(
       Symbol.ClassSymbol classSymbol, NullMarkedCache nullMarkedCache) {
     return nullMarkedCache.get(classSymbol).isNullMarked;
   }
