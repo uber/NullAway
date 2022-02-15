@@ -204,6 +204,10 @@ public class NullAway extends BugChecker
    */
   private NullMarking nullMarkingForTopLevelClass = NullMarking.FULLY_MARKED;
 
+  /**
+   * Cache for speeding up checking if a symbol is {@code @NullMarked}. We store the cache in a
+   * field for convenience; it is initialized in {@link #matchClass(ClassTree, VisitorState)}
+   */
   private NullMarkedCache nullMarkedCache;
 
   private final Config config;
@@ -1222,6 +1226,8 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchClass(ClassTree tree, VisitorState state) {
+    // Ensure nullMarkedCache is initialized here since it requires access to the Context,
+    // which is not available in the constructor
     if (nullMarkedCache == null) {
       nullMarkedCache = NullMarkedCache.instance(state.context);
     }
@@ -1232,7 +1238,7 @@ public class NullAway extends BugChecker
     // assume that a single checker object is not being
     // used from multiple threads
     // We don't want to update the flag for nested classes.
-    // Ideally we wou8ld keep a stack of flags to handle nested types,
+    // Ideally we would keep a stack of flags to handle nested types,
     // but this is not easy within the Error Prone APIs.
     // Instead, we use this flag as an optimization, skipping work if the
     // top-level class is to be skipped. If a nested class should be
@@ -1262,7 +1268,7 @@ public class NullAway extends BugChecker
       // on a nested class
       // TODO handle @NullUnmarked once it is finalized
       if (nullMarkingForTopLevelClass == NullMarking.FULLY_UNMARKED
-          && NullabilityUtil.isClassOrEnclosingAnnotatedNullMarked(classSymbol, nullMarkedCache)) {
+          && classSymbol.getAnnotation(NullabilityUtil.NULLMARKED) != null) {
         nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
       }
     }
