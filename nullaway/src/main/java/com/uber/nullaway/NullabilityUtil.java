@@ -136,7 +136,17 @@ public class NullabilityUtil {
   public static Symbol.ClassSymbol getOutermostClassSymbol(Symbol symbol) {
     // get the symbol for the outermost enclosing class.  this handles
     // the case of anonymous classes
-    return nullMarkedCache.get(ASTHelpers.enclosingClass(symbol)).outermostClassSymbol;
+    Symbol.ClassSymbol outermostClassSymbol = ASTHelpers.enclosingClass(symbol);
+    while (outermostClassSymbol.getNestingKind().isNested()) {
+      Symbol.ClassSymbol enclosingSymbol = ASTHelpers.enclosingClass(outermostClassSymbol.owner);
+      if (enclosingSymbol != null) {
+        outermostClassSymbol = enclosingSymbol;
+      } else {
+        // enclosingSymbol can be null in weird cases like for array methods
+        break;
+      }
+    }
+    return outermostClassSymbol;
   }
 
   /**
@@ -359,7 +369,7 @@ public class NullabilityUtil {
       // what.
       return false;
     }
-    if (config.shouldTreatGeneratedAsUnannoatated()
+    if (config.shouldTreatGeneratedAsUnannotated()
         && ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated")) {
       // Generated code is or isn't excluded, depending on configuration
       // Note: In the future, we might want finer grain controls to distinguish code that is
