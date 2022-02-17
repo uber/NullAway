@@ -719,7 +719,7 @@ public class AccessPathNullnessPropagation
     return updateRegularStore(nullness, input, updates);
   }
 
-  private NullMarkedCache nullMarkedCache;
+  @Nullable private NullMarkedCache nullMarkedCache;
 
   private NullMarkedCache getNullMarkedCache(VisitorState state) {
     if (nullMarkedCache == null) {

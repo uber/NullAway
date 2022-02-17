@@ -40,6 +40,7 @@ import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.HashSet;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
@@ -89,7 +90,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
     return exprMayBeNull;
   }
 
-  private NullMarkedCache nullMarkedCache;
+  @Nullable private NullMarkedCache nullMarkedCache;
 
   private NullMarkedCache getNullMarkedCache(Context context) {
     if (nullMarkedCache == null) {

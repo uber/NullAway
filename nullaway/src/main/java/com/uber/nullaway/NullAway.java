@@ -208,7 +208,7 @@ public class NullAway extends BugChecker
    * Cache for speeding up checking if a symbol is {@code @NullMarked}. We store the cache in a
    * field for convenience; it is initialized in {@link #matchClass(ClassTree, VisitorState)}
    */
-  private NullMarkedCache nullMarkedCache;
+  @Nullable private NullMarkedCache nullMarkedCache;
 
   private final Config config;
 

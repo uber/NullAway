@@ -125,7 +125,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     return exprMayBeNull;
   }
 
-  private NullMarkedCache nullMarkedCache;
+  @Nullable private NullMarkedCache nullMarkedCache;
 
   private NullMarkedCache getNullMarkedCache(Context context) {
     if (nullMarkedCache == null) {

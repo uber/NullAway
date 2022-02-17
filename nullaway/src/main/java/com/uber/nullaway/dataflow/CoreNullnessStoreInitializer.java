@@ -17,6 +17,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
 import java.util.Objects;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
@@ -126,7 +127,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     return result.build();
   }
 
-  private NullMarkedCache nullMarkedCache;
+  @Nullable private NullMarkedCache nullMarkedCache;
 
   private NullMarkedCache getNullMarkedCache(Context context) {
     if (nullMarkedCache == null) {
