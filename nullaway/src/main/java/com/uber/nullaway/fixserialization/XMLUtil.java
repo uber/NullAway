@@ -116,7 +116,7 @@ public class XMLUtil {
 
       // Field Initialization
       Element fieldInitInfoEnabled = doc.createElement("fieldInitInfo");
-      suggestElement.setAttribute("active", String.valueOf(config.fieldInitInfoEnabled));
+      fieldInitInfoEnabled.setAttribute("active", String.valueOf(config.fieldInitInfoEnabled));
       rootElement.appendChild(fieldInitInfoEnabled);
 
       // Annotations
