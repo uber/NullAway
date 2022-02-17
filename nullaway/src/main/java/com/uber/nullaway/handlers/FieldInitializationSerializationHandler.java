@@ -22,11 +22,16 @@
 
 package com.uber.nullaway.handlers;
 
+import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
+import java.util.Set;
+import java.util.stream.Collectors;
+import javax.lang.model.element.ElementKind;
 
 /**
  * This handler is used to serialize information regarding methods that initialize a class field.
@@ -46,5 +51,23 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
       Symbol.VarSymbol field,
       Trees trees,
       AccessPathNullnessAnalysis analysis,
-      VisitorState state) {}
+      VisitorState state) {
+    Preconditions.checkArgument(
+        field.getKind() == ElementKind.FIELD,
+        "Should only get called on class field initialization.");
+    Set<String> nonnullFieldsAtExitPoint =
+        analysis
+            .getNonnullFieldsOfReceiverAtExit(trees.getPath(methodSymbol), state.context)
+            .stream()
+            .map(element -> element.getSimpleName().toString())
+            .collect(Collectors.toSet());
+    if (!nonnullFieldsAtExitPoint.contains(field.getSimpleName().toString())) {
+      // Method does not keep the field @Nonnull at exit point and fails the post condition to be an
+      // Initializer.
+      return;
+    }
+    config
+        .getSerializer()
+        .serializeFieldInitializationInfo(new FieldInitializationInfo(methodSymbol, field));
+  }
 }
