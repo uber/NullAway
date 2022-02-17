@@ -39,7 +39,13 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     boolean isLambda = underlyingAST.getKind().equals(UnderlyingAST.Kind.LAMBDA);
     if (isLambda) {
       return lambdaInitialStore(
-          (UnderlyingAST.CFGLambda) underlyingAST, parameters, handler, context, types, config);
+          (UnderlyingAST.CFGLambda) underlyingAST,
+          parameters,
+          handler,
+          context,
+          types,
+          config,
+          getNullMarkedCache(context));
     } else {
       return methodInitialStore(
           (UnderlyingAST.CFGMethod) underlyingAST, parameters, handler, context, config);
@@ -71,7 +77,8 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       Handler handler,
       Context context,
       Types types,
-      Config config) {
+      Config config,
+      NullMarkedCache nullMarkedCache) {
     // include nullness info for locals from enclosing environment
     EnclosingEnvironmentNullness environmentNullness =
         EnclosingEnvironmentNullness.instance(context);
@@ -103,8 +110,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         // treat as non-null
         assumed = NONNULL;
       } else {
-        if (NullabilityUtil.isUnannotated(
-            fiMethodSymbol, config, NullMarkedCache.instance(context))) {
+        if (NullabilityUtil.isUnannotated(fiMethodSymbol, config, nullMarkedCache)) {
           // assume parameter is non-null unless handler tells us otherwise
           assumed = nullableParamsFromHandler.contains(i) ? NULLABLE : NONNULL;
         } else {
@@ -118,5 +124,14 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
     return result.build();
+  }
+
+  private NullMarkedCache nullMarkedCache;
+
+  private NullMarkedCache getNullMarkedCache(Context context) {
+    if (nullMarkedCache == null) {
+      nullMarkedCache = NullMarkedCache.instance(context);
+    }
+    return nullMarkedCache;
   }
 }

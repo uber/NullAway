@@ -109,7 +109,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
       Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr);
       if (!NullabilityUtil.isUnannotated(
-          methodSymbol, this.config, NullMarkedCache.instance(state.context))) {
+          methodSymbol, this.config, getNullMarkedCache(state.context))) {
         // We only look at library models for unannotated (i.e. third-party) code.
         return exprMayBeNull;
       } else if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes())
@@ -125,6 +125,15 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     return exprMayBeNull;
   }
 
+  private NullMarkedCache nullMarkedCache;
+
+  private NullMarkedCache getNullMarkedCache(Context context) {
+    if (nullMarkedCache == null) {
+      nullMarkedCache = NullMarkedCache.instance(context);
+    }
+    return nullMarkedCache;
+  }
+
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
@@ -137,7 +146,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
-    if (!NullabilityUtil.isUnannotated(callee, this.config, NullMarkedCache.instance(context))) {
+    if (!NullabilityUtil.isUnannotated(callee, this.config, getNullMarkedCache(context))) {
       // Ignore annotated methods, library models should only apply to "unannotated" code.
       return NullnessHint.UNKNOWN;
     }

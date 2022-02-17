@@ -72,7 +72,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) expr);
-      NullMarkedCache nullMarkedCache = NullMarkedCache.instance(state.context);
+      NullMarkedCache nullMarkedCache = getNullMarkedCache(state.context);
       if (NullabilityUtil.isUnannotated(methodSymbol, config, nullMarkedCache)) {
         // with the generated-as-unannotated option enabled, we want to ignore
         // annotations in generated code
@@ -87,6 +87,15 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       }
     }
     return exprMayBeNull;
+  }
+
+  private NullMarkedCache nullMarkedCache;
+
+  private NullMarkedCache getNullMarkedCache(Context context) {
+    if (nullMarkedCache == null) {
+      nullMarkedCache = NullMarkedCache.instance(context);
+    }
+    return nullMarkedCache;
   }
 
   @Override
@@ -121,7 +130,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-    if (NullabilityUtil.isUnannotated(methodSymbol, config, NullMarkedCache.instance(context))
+    if (NullabilityUtil.isUnannotated(methodSymbol, config, getNullMarkedCache(context))
         && Nullness.hasNullableAnnotation(methodSymbol, config)) {
       return NullnessHint.HINT_NULLABLE;
     }
