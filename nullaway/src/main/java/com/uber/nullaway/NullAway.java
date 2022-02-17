@@ -300,9 +300,9 @@ public class NullAway extends BugChecker
         return false;
       case PARTIALLY_MARKED:
         return checkMarkingForPath(state);
-      default:
-        throw new IllegalStateException("unexpected marking state " + nullMarkingForTopLevelClass);
     }
+    // unreachable but needed to make code compile
+    throw new IllegalStateException("unexpected marking state " + nullMarkingForTopLevelClass);
   }
 
   private boolean checkMarkingForPath(VisitorState state) {
