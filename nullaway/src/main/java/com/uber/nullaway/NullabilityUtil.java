@@ -351,13 +351,11 @@ public class NullabilityUtil {
         && ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated")) {
       // Generated code is or isn't excluded, depending on configuration
       // Note: In the future, we might want finer grain controls to distinguish code that is
-      // generated with nullability
-      // info and without.
+      // generated with nullability info and without.
       return false;
     }
     // Finally, if we are here, the code was marked as annotated (either by configuration or
-    // @NullMarked) and
-    // nothing overrides it.
+    // @NullMarked) and nothing overrides it.
     return true;
   }
 

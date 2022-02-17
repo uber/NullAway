@@ -90,7 +90,7 @@ public final class NullMarkedCache {
 
   /**
    * Immutable record holding the outermost class symbol and @NullMarked state (annotated or not)
-   * for a given (possibly inner) class. Note that this doesn't take into account classes take are
+   * for a given (possibly inner) class. Note that this doesn't take into account classes that are
    * null-annotated due to package level annotations or configuration flags.
    *
    * <p>The class being referenced by the record is not represented by this object, but rather the
