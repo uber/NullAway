@@ -51,6 +51,13 @@ public class FixSerializationConfig {
    * computed at request.
    */
   public final boolean suggestEnclosing;
+
+  /**
+   * If enabled, NullAway will serialize information about methods that initialize a field and leave
+   * it {@code @Nonnull} at exit point.
+   */
+  public final boolean fieldInitInfoEnabled;
+
   /** The directory where all files generated/read by Fix Serialization package resides. */
   public final String outputDirectory;
 
@@ -62,6 +69,7 @@ public class FixSerializationConfig {
   public FixSerializationConfig() {
     suggestEnabled = false;
     suggestEnclosing = false;
+    fieldInitInfoEnabled = false;
     annotationConfig = new AnnotationConfig();
     outputDirectory = null;
     serializer = null;
@@ -70,10 +78,12 @@ public class FixSerializationConfig {
   public FixSerializationConfig(
       boolean suggestEnabled,
       boolean suggestEnclosing,
+      boolean fieldInitInfoEnabled,
       AnnotationConfig annotationConfig,
       String outputDirectory) {
     this.suggestEnabled = suggestEnabled;
     this.suggestEnclosing = suggestEnclosing;
+    this.fieldInitInfoEnabled = fieldInitInfoEnabled;
     this.outputDirectory = outputDirectory;
     this.annotationConfig = annotationConfig;
     serializer = new Serializer(this);
@@ -110,6 +120,10 @@ public class FixSerializationConfig {
       throw new IllegalStateException(
           "Error in the fix serialization configuration, suggest flag must be enabled to activate enclosing method and class serialization.");
     }
+    fieldInitInfoEnabled =
+        XMLUtil.getValueFromAttribute(
+                document, "/serialization/fieldInitInfo", "active", Boolean.class)
+            .orElse(false);
     String nullableAnnot =
         XMLUtil.getValueFromTag(document, "/serialization/annotation/nullable", String.class)
             .orElse("javax.annotation.Nullable");
@@ -129,6 +143,7 @@ public class FixSerializationConfig {
 
     private boolean suggestEnabled;
     private boolean suggestEnclosing;
+    private boolean fieldInitInfo;
     private String nullable;
     private String nonnull;
     private String outputDir;
@@ -136,6 +151,7 @@ public class FixSerializationConfig {
     public Builder() {
       suggestEnabled = false;
       suggestEnclosing = false;
+      fieldInitInfo = false;
       nullable = "javax.annotation.Nullable";
       nonnull = "javax.annotation.Nonnull";
     }
@@ -149,6 +165,11 @@ public class FixSerializationConfig {
     public Builder setAnnotations(String nullable, String nonnull) {
       this.nullable = nullable;
       this.nonnull = nonnull;
+      return this;
+    }
+
+    public Builder setFieldInitInfo(boolean enabled) {
+      this.fieldInitInfo = enabled;
       return this;
     }
 
@@ -169,7 +190,11 @@ public class FixSerializationConfig {
 
     public FixSerializationConfig build() {
       return new FixSerializationConfig(
-          suggestEnabled, suggestEnclosing, new AnnotationConfig(nullable, nonnull), outputDir);
+          suggestEnabled,
+          suggestEnclosing,
+          fieldInitInfo,
+          new AnnotationConfig(nullable, nonnull),
+          outputDir);
     }
   }
 }

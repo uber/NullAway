@@ -34,9 +34,9 @@ public class FieldInitializationInfo {
   /** Symbol of the initializer method. */
   private final FixLocation initializerMethodLocation;
   /** Symbol of the initialized class field. */
-  private final Symbol.VarSymbol field;
+  private final Symbol field;
 
-  public FieldInitializationInfo(Symbol.MethodSymbol initializerMethod, Symbol.VarSymbol field) {
+  public FieldInitializationInfo(Symbol.MethodSymbol initializerMethod, Symbol field) {
     this.initializerMethodLocation = FixLocation.createFixLocationFromSymbol(initializerMethod);
     this.field = field;
   }

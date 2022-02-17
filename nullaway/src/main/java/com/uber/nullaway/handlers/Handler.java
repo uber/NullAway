@@ -329,7 +329,7 @@ public interface Handler {
    */
   void serializeClassFieldInitializationInfo(
       Symbol.MethodSymbol methodSymbol,
-      Symbol.VarSymbol field,
+      Symbol field,
       Trees trees,
       AccessPathNullnessAnalysis analysis,
       VisitorState state);

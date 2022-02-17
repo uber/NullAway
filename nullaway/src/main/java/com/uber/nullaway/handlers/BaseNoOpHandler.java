@@ -192,7 +192,7 @@ public abstract class BaseNoOpHandler implements Handler {
   @Override
   public void serializeClassFieldInitializationInfo(
       Symbol.MethodSymbol methodSymbol,
-      Symbol.VarSymbol field,
+      Symbol field,
       Trees trees,
       AccessPathNullnessAnalysis analysis,
       VisitorState state) {

@@ -48,12 +48,12 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
   @Override
   public void serializeClassFieldInitializationInfo(
       Symbol.MethodSymbol methodSymbol,
-      Symbol.VarSymbol field,
+      Symbol symbol,
       Trees trees,
       AccessPathNullnessAnalysis analysis,
       VisitorState state) {
     Preconditions.checkArgument(
-        field.getKind() == ElementKind.FIELD,
+        symbol.getKind() == ElementKind.FIELD,
         "Should only get called on class field initialization.");
     Set<String> nonnullFieldsAtExitPoint =
         analysis
@@ -61,13 +61,13 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
             .stream()
             .map(element -> element.getSimpleName().toString())
             .collect(Collectors.toSet());
-    if (!nonnullFieldsAtExitPoint.contains(field.getSimpleName().toString())) {
+    if (!nonnullFieldsAtExitPoint.contains(symbol.getSimpleName().toString())) {
       // Method does not keep the field @Nonnull at exit point and fails the post condition to be an
       // Initializer.
       return;
     }
     config
         .getSerializer()
-        .serializeFieldInitializationInfo(new FieldInitializationInfo(methodSymbol, field));
+        .serializeFieldInitializationInfo(new FieldInitializationInfo(methodSymbol, symbol));
   }
 }

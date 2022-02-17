@@ -114,6 +114,11 @@ public class XMLUtil {
       suggestElement.setAttribute("enclosing", String.valueOf(config.suggestEnclosing));
       rootElement.appendChild(suggestElement);
 
+      // Field Initialization
+      Element fieldInitInfoEnabled = doc.createElement("fieldInitInfo");
+      suggestElement.setAttribute("active", String.valueOf(config.fieldInitInfoEnabled));
+      rootElement.appendChild(fieldInitInfoEnabled);
+
       // Annotations
       Element annots = doc.createElement("annotation");
       Element nonnull = doc.createElement("nonnull");
