@@ -242,4 +242,12 @@ class CompositeHandler implements Handler {
     }
     return builder.build();
   }
+
+  @Override
+  public void serializeClassFieldInitializationInfo(
+      Symbol.MethodSymbol methodSymbol, Symbol.VarSymbol field) {
+    for (Handler h : handlers) {
+      h.serializeClassFieldInitializationInfo(methodSymbol, field);
+    }
+  }
 }

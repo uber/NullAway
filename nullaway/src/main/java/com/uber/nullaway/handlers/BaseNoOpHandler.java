@@ -186,4 +186,10 @@ public abstract class BaseNoOpHandler implements Handler {
   public ImmutableSet<String> onRegisterImmutableTypes() {
     return ImmutableSet.of();
   }
+
+  @Override
+  public void serializeClassFieldInitializationInfo(
+      Symbol.MethodSymbol methodSymbol, Symbol.VarSymbol field) {
+    // NoOp
+  }
 }

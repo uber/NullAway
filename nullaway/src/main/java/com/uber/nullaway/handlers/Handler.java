@@ -315,6 +315,16 @@ public interface Handler {
   ImmutableSet<String> onRegisterImmutableTypes();
 
   /**
+   * Called when a method initializes a class field, and it will serialize information regarding the
+   * initializer method and the class field. This method helps to detect initializer methods.
+   *
+   * @param methodSymbol Symbol of the initializer method.
+   * @param field Symbol of the initialized class field.
+   */
+  void serializeClassFieldInitializationInfo(
+      Symbol.MethodSymbol methodSymbol, Symbol.VarSymbol field);
+
+  /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
    * their knowledge of the method return nullability to the the rest of NullAway.
    */
