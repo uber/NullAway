@@ -50,7 +50,7 @@ public class Serializer {
     String outputDirectory = config.outputDirectory;
     this.errorOutputPath = Paths.get(outputDirectory, "errors.tsv");
     this.suggestedFixesOutputPath = Paths.get(outputDirectory, "fixes.tsv");
-    this.fieldInitializationOutputPath = Paths.get(outputDirectory, "field_init.csv");
+    this.fieldInitializationOutputPath = Paths.get(outputDirectory, "field_init.tsv");
     initializeOutputFiles(config);
   }
 
