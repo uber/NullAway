@@ -31,7 +31,7 @@ import com.uber.nullaway.fixserialization.FixSerializationConfig;
  */
 public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
 
-  FixSerializationConfig config;
+  private final FixSerializationConfig config;
 
   FieldInitializationSerializationHandler(FixSerializationConfig config) {
     this.config = config;
