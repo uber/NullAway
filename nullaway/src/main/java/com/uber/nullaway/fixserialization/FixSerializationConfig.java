@@ -133,8 +133,11 @@ public class FixSerializationConfig {
         XMLUtil.getValueFromAttribute(document, "/serialization/paramTest", "active", Boolean.class)
             .orElse(false);
     paramTestIndex =
-        XMLUtil.getValueFromAttribute(document, "/serialization/paramTest", "index", Integer.class)
-            .orElse(1000);
+        (int)
+            Math.round(
+                XMLUtil.getValueFromAttribute(
+                        document, "/serialization/paramTest", "index", Double.class)
+                    .orElse(1000.0));
     String nullableAnnot =
         XMLUtil.getValueFromTag(document, "/serialization/annotation/nullable", String.class)
             .orElse("javax.annotation.Nullable");

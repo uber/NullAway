@@ -31,6 +31,12 @@ import java.util.List;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 
+/**
+ * This handler transforms method parameter's state at index {@link
+ * FixSerializationConfig#paramTestIndex} for all methods to {@code @Nullable}. It provides the
+ * facility to measure protection of methods against nullability of each argument. This handler is
+ * activated only if {@link FixSerializationConfig#methodParamProtectionTestEnabled} is enabled.
+ */
 public class MethodParamNullableInjectorHandler extends BaseNoOpHandler {
 
   private final FixSerializationConfig config;

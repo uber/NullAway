@@ -576,9 +576,9 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
-            "com/uber/SubClass.java",
+            "com/uber/Test.java",
             "package com.uber;",
-            "public class SubClass {",
+            "public class Test {",
             "   Object test(boolean flag) {",
             "       if(flag) {",
             "           return new Object();",
@@ -593,8 +593,71 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "test(boolean)",
                 "null",
                 "METHOD",
-                "com.uber.SubClass",
-                "com/uber/SubClass.java"))
+                "com.uber.Test",
+                "com/uber/Test.java"))
+        .doTest();
+  }
+
+  @Test
+  public void testMethodParamProtectionTest() {
+    Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "custom_annot");
+    String output = tempRoot.toString();
+    try {
+      Files.createDirectories(tempRoot);
+      serializationTestHelper = new SerializationTestHelper(tempRoot);
+      FixSerializationConfig.Builder builder =
+          new FixSerializationConfig.Builder()
+              .setSuggest(true, false)
+              .setParamProtectionTest(true, 0)
+              .setOutputDirectory(output);
+      Path config = tempRoot.resolve("serializer.xml");
+      Files.createFile(config);
+      configPath = config.toString();
+      builder.writeAsXML(configPath);
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
+    serializationTestHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Test.java",
+            "package com.uber;",
+            "public class Test {",
+            "   Object test(Object foo) {",
+            "       // BUG: Diagnostic contains: returning @Nullable",
+            "       return foo;",
+            "   }",
+            "   Object test1(Object foo, Object bar) {",
+            "       // BUG: Diagnostic contains: dereferenced expression foo is @Nullable",
+            "       Integer hash = foo.hashCode();",
+            "       return bar;",
+            "   }",
+            "   void test2(Object f) {",
+            "       // BUG: Diagnostic contains: passing @Nullable",
+            "       test1(f, new Object());",
+            "   }",
+            "}")
+        .setExpectedFixes(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "test(java.lang.Object)",
+                "null",
+                "METHOD",
+                "com.uber.Test",
+                "com/uber/Test.java"),
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "test1(java.lang.Object,java.lang.Object)",
+                "foo",
+                "PARAMETER",
+                "com.uber.Test",
+                "com/uber/Test.java"))
         .doTest();
   }
 }

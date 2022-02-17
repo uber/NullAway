@@ -63,7 +63,13 @@ public class Handlers {
     handlerListBuilder.add(new GrpcHandler());
     handlerListBuilder.add(new RequiresNonNullHandler());
     handlerListBuilder.add(new EnsuresNonNullHandler());
-    if (config.getSerializationConfig().methodParamProtectionTestEnabled) {
+    if (config.serializationIsActive()) {
+      System.out.println(
+          "PARAM TEST: " + config.getSerializationConfig().methodParamProtectionTestEnabled);
+    }
+    System.out.println("Hello " + config.serializationIsActive());
+    if (config.serializationIsActive()
+        && config.getSerializationConfig().methodParamProtectionTestEnabled) {
       handlerListBuilder.add(new MethodParamNullableInjectorHandler(config));
     }
     if (config.checkOptionalEmptiness()) {
