@@ -32,12 +32,14 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
+import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.dataflow.AccessPath;
+import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
@@ -245,9 +247,13 @@ class CompositeHandler implements Handler {
 
   @Override
   public void serializeClassFieldInitializationInfo(
-      Symbol.MethodSymbol methodSymbol, Symbol.VarSymbol field) {
+      Symbol.MethodSymbol methodSymbol,
+      Symbol.VarSymbol field,
+      Trees trees,
+      AccessPathNullnessAnalysis analysis,
+      VisitorState state) {
     for (Handler h : handlers) {
-      h.serializeClassFieldInitializationInfo(methodSymbol, field);
+      h.serializeClassFieldInitializationInfo(methodSymbol, field, trees, analysis, state);
     }
   }
 }

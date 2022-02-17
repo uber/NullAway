@@ -22,7 +22,10 @@
 
 package com.uber.nullaway.handlers;
 
+import com.google.errorprone.VisitorState;
+import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 
 /**
@@ -39,7 +42,9 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
 
   @Override
   public void serializeClassFieldInitializationInfo(
-      Symbol.MethodSymbol methodSymbol, Symbol.VarSymbol field) {
-    super.serializeClassFieldInitializationInfo(methodSymbol, field);
-  }
+      Symbol.MethodSymbol methodSymbol,
+      Symbol.VarSymbol field,
+      Trees trees,
+      AccessPathNullnessAnalysis analysis,
+      VisitorState state) {}
 }

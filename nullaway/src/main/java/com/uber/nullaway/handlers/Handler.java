@@ -31,6 +31,7 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
+import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -38,6 +39,7 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
+import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
@@ -315,14 +317,22 @@ public interface Handler {
   ImmutableSet<String> onRegisterImmutableTypes();
 
   /**
-   * Called when a method initializes a class field, and it will serialize information regarding the
-   * initializer method and the class field. This method helps to detect initializer methods.
+   * Called when a method writes a {@code @Nonnull} value to a class field, if the method guarantees
+   * to leave the initialized class field to be {@code @Nonnull} at exit point, this method will
+   * serialize information regarding the initializer method and the class field.
    *
    * @param methodSymbol Symbol of the initializer method.
    * @param field Symbol of the initialized class field.
+   * @param trees Javac Trees instance.
+   * @param analysis nullness dataflow analysis
+   * @param state VisitorState.
    */
   void serializeClassFieldInitializationInfo(
-      Symbol.MethodSymbol methodSymbol, Symbol.VarSymbol field);
+      Symbol.MethodSymbol methodSymbol,
+      Symbol.VarSymbol field,
+      Trees trees,
+      AccessPathNullnessAnalysis analysis,
+      VisitorState state);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
