@@ -72,7 +72,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) expr);
-      ClassAnnotationInfo classAnnotationInfo = getNullMarkedCache(state.context);
+      ClassAnnotationInfo classAnnotationInfo = getClassAnnotationInfo(state.context);
       if (classAnnotationInfo.isSymbolUnannotated(methodSymbol, config)) {
         // with the generated-as-unannotated option enabled, we want to ignore
         // annotations in generated code
@@ -91,7 +91,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
 
   @Nullable private ClassAnnotationInfo classAnnotationInfo;
 
-  private ClassAnnotationInfo getNullMarkedCache(Context context) {
+  private ClassAnnotationInfo getClassAnnotationInfo(Context context) {
     if (classAnnotationInfo == null) {
       classAnnotationInfo = ClassAnnotationInfo.instance(context);
     }
@@ -130,7 +130,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-    if (getNullMarkedCache(context).isSymbolUnannotated(methodSymbol, config)
+    if (getClassAnnotationInfo(context).isSymbolUnannotated(methodSymbol, config)
         && Nullness.hasNullableAnnotation(methodSymbol, config)) {
       return NullnessHint.HINT_NULLABLE;
     }
