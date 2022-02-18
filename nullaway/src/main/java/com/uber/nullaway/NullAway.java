@@ -1268,7 +1268,8 @@ public class NullAway extends BugChecker
       // on a nested class
       // TODO handle @NullUnmarked once it is finalized
       if (nullMarkingForTopLevelClass == NullMarking.FULLY_UNMARKED
-          && classSymbol.getAnnotation(NullabilityUtil.NULLMARKED) != null) {
+          && ASTHelpers.hasDirectAnnotationWithSimpleName(
+              classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
         nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
       }
     }

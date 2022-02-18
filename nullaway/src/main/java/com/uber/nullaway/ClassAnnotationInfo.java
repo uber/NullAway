@@ -22,8 +22,6 @@
 
 package com.uber.nullaway;
 
-import static com.uber.nullaway.NullabilityUtil.NULLMARKED;
-
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.errorprone.util.ASTHelpers;
@@ -74,7 +72,8 @@ public final class ClassAnnotationInfo {
       Symbol.ClassSymbol outermostClassSymbol, Config config) {
     final String className = outermostClassSymbol.getQualifiedName().toString();
     if (!config.fromExplicitlyAnnotatedPackage(className)
-        && outermostClassSymbol.packge().getAnnotation(NULLMARKED) == null) {
+        && !ASTHelpers.hasDirectAnnotationWithSimpleName(
+            outermostClassSymbol.packge(), NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
       // By default, unknown code is unannotated unless @NullMarked or configured as annotated by
       // package name
       return false;
@@ -158,7 +157,8 @@ public final class ClassAnnotationInfo {
             new CacheRecord(
                 recordForEnclosing.outermostClassSymbol,
                 recordForEnclosing.isNullnessAnnotated
-                    || classSymbol.getAnnotation(NULLMARKED) != null);
+                    || ASTHelpers.hasDirectAnnotationWithSimpleName(
+                        classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME));
       }
     }
     if (record == null) {
@@ -166,7 +166,8 @@ public final class ClassAnnotationInfo {
       record =
           new CacheRecord(
               classSymbol,
-              (classSymbol.getAnnotation(NULLMARKED) != null
+              (ASTHelpers.hasDirectAnnotationWithSimpleName(
+                          classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)
                       || fromAnnotatedPackage(classSymbol, config))
                   && !config.isUnannotatedClass(classSymbol));
     }

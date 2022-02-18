@@ -44,7 +44,6 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
-import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -58,8 +57,7 @@ import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
-  public static final Class<? extends Annotation> NULLMARKED =
-      org.jspecify.nullness.NullMarked.class;
+  public static final String NULLMARKED_SIMPLE_NAME = "NullMarked";
 
   private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
 
