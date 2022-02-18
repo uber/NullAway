@@ -208,7 +208,7 @@ public class NullAway extends BugChecker
    * Cache for speeding up checking if a symbol is {@code @NullMarked}. We store the cache in a
    * field for convenience; it is initialized in {@link #matchClass(ClassTree, VisitorState)}
    */
-  @Nullable private NullMarkedCache nullMarkedCache;
+  @Nullable private ClassAnnotationInfo classAnnotationInfo;
 
   private final Config config;
 
@@ -288,8 +288,8 @@ public class NullAway extends BugChecker
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
     return invocationNode == null
-        || NullabilityUtil.isUnannotated(
-            ASTHelpers.getSymbol(invocationNode.getTree()), config, nullMarkedCache);
+        || classAnnotationInfo.isSymbolUnannotated(
+            ASTHelpers.getSymbol(invocationNode.getTree()), config);
   }
 
   private boolean withinAnnotatedCode(VisitorState state) {
@@ -324,7 +324,7 @@ public class NullAway extends BugChecker
       return false;
     }
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
-    return NullabilityUtil.isClassOrEnclosingAnnotatedNullMarked(classSymbol, nullMarkedCache);
+    return classAnnotationInfo.isClassNullAnnotated(classSymbol, config);
   }
 
   @Override
@@ -623,7 +623,7 @@ public class NullAway extends BugChecker
     if (unboundMemberRef) {
       boolean isFirstParamNull = false;
       // Two cases: for annotated code, look first at the annotation
-      if (!NullabilityUtil.isUnannotated(overriddenMethod, config, nullMarkedCache)) {
+      if (!classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config)) {
         isFirstParamNull = Nullness.hasNullableAnnotation(superParamSymbols.get(0), config);
       }
       // For both annotated and unannotated code, look then at handler overrides (e.g. Library
@@ -655,7 +655,7 @@ public class NullAway extends BugChecker
     int startParam = unboundMemberRef ? 1 : 0;
     // Collect @Nullable params of overriden method
     ImmutableSet<Integer> nullableParamsOfOverriden;
-    if (NullabilityUtil.isUnannotated(overriddenMethod, config, nullMarkedCache)) {
+    if (classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config)) {
       nullableParamsOfOverriden =
           handler.onUnannotatedInvocationGetExplicitlyNullablePositions(
               state.context, overriddenMethod, ImmutableSet.of());
@@ -726,7 +726,7 @@ public class NullAway extends BugChecker
     if (returnType.toString().equals("java.lang.Void")) {
       return Description.NO_MATCH;
     }
-    if (NullabilityUtil.isUnannotated(methodSymbol, config, nullMarkedCache)
+    if (classAnnotationInfo.isSymbolUnannotated(methodSymbol, config)
         || Nullness.hasNullableAnnotation(methodSymbol, config)) {
       return Description.NO_MATCH;
     }
@@ -754,7 +754,7 @@ public class NullAway extends BugChecker
     // (like Rx nullability) run dataflow analysis
     updateEnvironmentMapping(tree, state);
     handler.onMatchLambdaExpression(this, tree, state, funcInterfaceMethod);
-    if (NullabilityUtil.isUnannotated(funcInterfaceMethod, config, nullMarkedCache)) {
+    if (classAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config)) {
       return Description.NO_MATCH;
     }
     Description description =
@@ -811,7 +811,7 @@ public class NullAway extends BugChecker
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
     final boolean isOverridenMethodUnannotated =
-        NullabilityUtil.isUnannotated(overriddenMethod, config, nullMarkedCache);
+        classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
     final boolean overriddenMethodReturnsNonNull =
         ((isOverridenMethodUnannotated
                 && handler.onUnannotatedInvocationGetExplicitlyNonNullReturn(
@@ -1228,8 +1228,8 @@ public class NullAway extends BugChecker
   public Description matchClass(ClassTree tree, VisitorState state) {
     // Ensure nullMarkedCache is initialized here since it requires access to the Context,
     // which is not available in the constructor
-    if (nullMarkedCache == null) {
-      nullMarkedCache = NullMarkedCache.instance(state.context);
+    if (classAnnotationInfo == null) {
+      classAnnotationInfo = ClassAnnotationInfo.instance(state.context);
     }
     // Check if the class is excluded according to the filter
     // if so, set the flag to match within the class to false
@@ -1406,7 +1406,7 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams) {
     ImmutableSet<Integer> nonNullPositions = null;
-    if (NullabilityUtil.isUnannotated(methodSymbol, config, nullMarkedCache)) {
+    if (classAnnotationInfo.isSymbolUnannotated(methodSymbol, config)) {
       nonNullPositions =
           handler.onUnannotatedInvocationGetNonNullPositions(
               this, state, methodSymbol, actualParams, ImmutableSet.of());
@@ -1975,8 +1975,7 @@ public class NullAway extends BugChecker
     if (config.isExcludedClass(className)) {
       return true;
     }
-    if (!NullabilityUtil.fromAnnotatedPackage(classSymbol, config)
-        && !NullabilityUtil.isClassOrEnclosingAnnotatedNullMarked(classSymbol, nullMarkedCache)) {
+    if (!classAnnotationInfo.isClassNullAnnotated(classSymbol, config)) {
       return true;
     }
     // check annotations
@@ -2099,7 +2098,7 @@ public class NullAway extends BugChecker
   private boolean mayBeNullMethodCall(
       VisitorState state, ExpressionTree expr, Symbol.MethodSymbol exprSymbol) {
     boolean exprMayBeNull = true;
-    if (NullabilityUtil.isUnannotated(exprSymbol, config, nullMarkedCache)) {
+    if (classAnnotationInfo.isSymbolUnannotated(exprSymbol, config)) {
       exprMayBeNull = false;
     }
     if (!Nullness.hasNullableAnnotation(exprSymbol, config)) {
@@ -2126,7 +2125,7 @@ public class NullAway extends BugChecker
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
     boolean exprMayBeNull = true;
-    if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, nullMarkedCache)) {
+    if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, classAnnotationInfo)) {
       exprMayBeNull = false;
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);

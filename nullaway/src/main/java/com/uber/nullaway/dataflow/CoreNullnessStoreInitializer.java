@@ -10,8 +10,8 @@ import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.ClassAnnotationInfo;
 import com.uber.nullaway.Config;
-import com.uber.nullaway.NullMarkedCache;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
@@ -79,7 +79,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       Context context,
       Types types,
       Config config,
-      NullMarkedCache nullMarkedCache) {
+      ClassAnnotationInfo classAnnotationInfo) {
     // include nullness info for locals from enclosing environment
     EnclosingEnvironmentNullness environmentNullness =
         EnclosingEnvironmentNullness.instance(context);
@@ -111,7 +111,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         // treat as non-null
         assumed = NONNULL;
       } else {
-        if (NullabilityUtil.isUnannotated(fiMethodSymbol, config, nullMarkedCache)) {
+        if (classAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config)) {
           // assume parameter is non-null unless handler tells us otherwise
           assumed = nullableParamsFromHandler.contains(i) ? NULLABLE : NONNULL;
         } else {
@@ -127,12 +127,12 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     return result.build();
   }
 
-  @Nullable private NullMarkedCache nullMarkedCache;
+  @Nullable private ClassAnnotationInfo classAnnotationInfo;
 
-  private NullMarkedCache getNullMarkedCache(Context context) {
-    if (nullMarkedCache == null) {
-      nullMarkedCache = NullMarkedCache.instance(context);
+  private ClassAnnotationInfo getNullMarkedCache(Context context) {
+    if (classAnnotationInfo == null) {
+      classAnnotationInfo = ClassAnnotationInfo.instance(context);
     }
-    return nullMarkedCache;
+    return classAnnotationInfo;
   }
 }

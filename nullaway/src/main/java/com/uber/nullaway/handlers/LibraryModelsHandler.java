@@ -38,12 +38,11 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
+import com.uber.nullaway.ClassAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.NullMarkedCache;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.ArrayList;
@@ -108,8 +107,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION) {
       OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
       Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr);
-      if (!NullabilityUtil.isUnannotated(
-          methodSymbol, this.config, getNullMarkedCache(state.context))) {
+      if (!getNullMarkedCache(state.context).isSymbolUnannotated(methodSymbol, this.config)) {
         // We only look at library models for unannotated (i.e. third-party) code.
         return exprMayBeNull;
       } else if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes())
@@ -125,13 +123,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     return exprMayBeNull;
   }
 
-  @Nullable private NullMarkedCache nullMarkedCache;
+  @Nullable private ClassAnnotationInfo classAnnotationInfo;
 
-  private NullMarkedCache getNullMarkedCache(Context context) {
-    if (nullMarkedCache == null) {
-      nullMarkedCache = NullMarkedCache.instance(context);
+  private ClassAnnotationInfo getNullMarkedCache(Context context) {
+    if (classAnnotationInfo == null) {
+      classAnnotationInfo = ClassAnnotationInfo.instance(context);
     }
-    return nullMarkedCache;
+    return classAnnotationInfo;
   }
 
   @Override
@@ -146,7 +144,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
-    if (!NullabilityUtil.isUnannotated(callee, this.config, getNullMarkedCache(context))) {
+    if (!getNullMarkedCache(context).isSymbolUnannotated(callee, this.config)) {
       // Ignore annotated methods, library models should only apply to "unannotated" code.
       return NullnessHint.UNKNOWN;
     }

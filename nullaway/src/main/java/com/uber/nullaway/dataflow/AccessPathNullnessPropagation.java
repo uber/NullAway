@@ -30,8 +30,8 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
+import com.uber.nullaway.ClassAnnotationInfo;
 import com.uber.nullaway.Config;
-import com.uber.nullaway.NullMarkedCache;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
@@ -719,13 +719,13 @@ public class AccessPathNullnessPropagation
     return updateRegularStore(nullness, input, updates);
   }
 
-  @Nullable private NullMarkedCache nullMarkedCache;
+  @Nullable private ClassAnnotationInfo classAnnotationInfo;
 
-  private NullMarkedCache getNullMarkedCache(VisitorState state) {
-    if (nullMarkedCache == null) {
-      nullMarkedCache = NullMarkedCache.instance(state.context);
+  private ClassAnnotationInfo getNullMarkedCache(VisitorState state) {
+    if (classAnnotationInfo == null) {
+      classAnnotationInfo = ClassAnnotationInfo.instance(state.context);
     }
-    return nullMarkedCache;
+    return classAnnotationInfo;
   }
 
   private void setReceiverNonnull(

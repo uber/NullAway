@@ -292,12 +292,12 @@ public class NullabilityUtil {
    * @throws NullPointerException if {@code symbol} is null
    */
   public static boolean mayBeNullFieldFromType(
-      Symbol symbol, Config config, NullMarkedCache nullMarkedCache) {
+      Symbol symbol, Config config, ClassAnnotationInfo classAnnotationInfo) {
     Preconditions.checkNotNull(
         symbol, "mayBeNullFieldFromType should never be called with a null symbol");
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
-            || isUnannotated(symbol, config, nullMarkedCache))
+            || classAnnotationInfo.isSymbolUnannotated(symbol, config))
         && Nullness.hasNullableAnnotation(symbol, config);
   }
 
@@ -320,89 +320,6 @@ public class NullabilityUtil {
       default:
         throw new AssertionError("Impossible: " + nullness);
     }
-  }
-
-  /**
-   * Checks if a symbol comes from an annotated package, as determined by either configuration flags
-   * (e.g. {@code -XepOpt:NullAway::AnnotatedPackages}) or package level annotations (e.g. {@code
-   * org.jspecify.nullness.NullMarked}).
-   *
-   * @param outermostClassSymbol symbol for class (must be an outermost class)
-   * @param config NullAway config
-   * @return true if the class is from a package that should be treated as properly annotated
-   *     according to our convention (every possibly null parameter / return / field
-   *     annotated @Nullable), false otherwise
-   */
-  public static boolean fromAnnotatedPackage(
-      Symbol.ClassSymbol outermostClassSymbol, Config config) {
-    final String className = outermostClassSymbol.getQualifiedName().toString();
-    if (!config.fromExplicitlyAnnotatedPackage(className)
-        && outermostClassSymbol.packge().getAnnotation(NULLMARKED) == null) {
-      // By default, unknown code is unannotated unless @NullMarked or configured as annotated by
-      // package name
-      return false;
-    }
-    if (config.fromExplicitlyUnannotatedPackage(className)) {
-      // Any code explicitly marked as unannotated in our configuration is unannotated, no matter
-      // what.
-      return false;
-    }
-    if (config.shouldTreatGeneratedAsUnannotated()
-        && ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated")) {
-      // Generated code is or isn't excluded, depending on configuration
-      // Note: In the future, we might want finer grain controls to distinguish code that is
-      // generated with nullability info and without.
-      return false;
-    }
-    // Finally, if we are here, the code was marked as annotated (either by configuration or
-    // @NullMarked) and nothing overrides it.
-    return true;
-  }
-
-  /**
-   * Check whether a class or any of its enclosing classes are explicitly marked {@code @NullMarked}
-   *
-   * <p>Important: This method ignores package-level annotations and annotated packages and classes
-   * passed as configuration options. For proper resolution of whether code should be considered
-   * null-annotated, use {@link #isUnannotated(Symbol, Config, NullMarkedCache)} instead.
-   *
-   * @param classSymbol The class to be checked
-   * @return Whether this class or any of its enclosing classes are explicitly marked @NullMarked
-   */
-  public static boolean isClassOrEnclosingAnnotatedNullMarked(
-      Symbol.ClassSymbol classSymbol, NullMarkedCache nullMarkedCache) {
-    return nullMarkedCache.get(classSymbol).isNullMarked;
-  }
-
-  /**
-   * Check if a symbol comes from unannotated code.
-   *
-   * @param symbol symbol for entity
-   * @param config NullAway config
-   * @return true if symbol represents an entity from a class that is unannotated; false otherwise
-   */
-  public static boolean isUnannotated(
-      Symbol symbol, Config config, NullMarkedCache nullMarkedCache) {
-    NullMarkedCache.NullMarkedCacheRecord record =
-        nullMarkedCache.get(ASTHelpers.enclosingClass(symbol));
-    if (record.isNullMarked || fromAnnotatedPackage(record.outermostClassSymbol, config)) {
-      return config.isUnannotatedClass(record.outermostClassSymbol);
-    } else {
-      return true;
-    }
-  }
-
-  /**
-   * Check if a symbol comes from generated code.
-   *
-   * @param symbol symbol for entity
-   * @return true if symbol represents an entity from a class annotated with {@code @Generated};
-   *     false otherwise
-   */
-  public static boolean isGenerated(Symbol symbol, NullMarkedCache nullMarkedCache) {
-    Symbol.ClassSymbol outermostClassSymbol =
-        nullMarkedCache.get(ASTHelpers.enclosingClass(symbol)).outermostClassSymbol;
-    return ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated");
   }
 
   /**
