@@ -205,8 +205,8 @@ public class NullAway extends BugChecker
   private NullMarking nullMarkingForTopLevelClass = NullMarking.FULLY_MARKED;
 
   /**
-   * Cache for speeding up checking if a symbol is {@code @NullMarked}. We store the cache in a
-   * field for convenience; it is initialized in {@link #matchClass(ClassTree, VisitorState)}
+   * We store the ClassAnnotationInfo object in a field for convenience; it is initialized in {@link
+   * #matchClass(ClassTree, VisitorState)}
    */
   @Nullable private ClassAnnotationInfo classAnnotationInfo;
 
@@ -1226,7 +1226,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchClass(ClassTree tree, VisitorState state) {
-    // Ensure nullMarkedCache is initialized here since it requires access to the Context,
+    // Ensure classAnnotationInfo is initialized here since it requires access to the Context,
     // which is not available in the constructor
     if (classAnnotationInfo == null) {
       classAnnotationInfo = ClassAnnotationInfo.instance(state.context);
