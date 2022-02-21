@@ -60,7 +60,7 @@ jobs:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: eskatos/gradle-command-action@v1
         with:
-          arguments: build -x :sample-app:build -x :jar-infer:jar-infer-lib:build -x :jar-infer:nullaway-integration-test:build -x :jar-infer:test-java-lib-jarinfer:build
+          arguments: verGJF build -x :sample-app:build -x :jar-infer:jar-infer-lib:build -x :jar-infer:nullaway-integration-test:build -x :jar-infer:test-java-lib-jarinfer:build
         if: matrix.java == '17'
       - name: Report jacoco coverage
         uses: eskatos/gradle-command-action@v1
