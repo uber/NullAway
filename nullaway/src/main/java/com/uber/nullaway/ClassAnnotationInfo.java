@@ -83,13 +83,6 @@ public final class ClassAnnotationInfo {
       // what.
       return false;
     }
-    if (config.shouldTreatGeneratedAsUnannotated()
-        && ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated")) {
-      // Generated code is or isn't excluded, depending on configuration
-      // Note: In the future, we might want finer grain controls to distinguish code that is
-      // generated with nullability info and without.
-      return false;
-    }
     // Finally, if we are here, the code was marked as annotated (either by configuration or
     // @NullMarked) and nothing overrides it.
     return true;
@@ -163,16 +156,28 @@ public final class ClassAnnotationInfo {
     }
     if (record == null) {
       // We are already at the outermost class (we can find), so let's create a record for it
-      record =
-          new CacheRecord(
-              classSymbol,
-              (ASTHelpers.hasDirectAnnotationWithSimpleName(
-                          classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)
-                      || fromAnnotatedPackage(classSymbol, config))
-                  && !config.isUnannotatedClass(classSymbol));
+      record = new CacheRecord(classSymbol, isAnnotatedTopLevelClass(classSymbol, config));
     }
     cache.put(classSymbol, record);
     return record;
+  }
+
+  private boolean isAnnotatedTopLevelClass(Symbol.ClassSymbol classSymbol, Config config) {
+    // first, check if the class has a @NullMarked annotation or comes from an annotated package
+    if ((ASTHelpers.hasDirectAnnotationWithSimpleName(
+            classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)
+        || fromAnnotatedPackage(classSymbol, config))) {
+      if (config.shouldTreatGeneratedAsUnannotated()
+          && ASTHelpers.hasDirectAnnotationWithSimpleName(classSymbol, "Generated")) {
+        // Generated code is or isn't excluded, depending on configuration
+        // Note: In the future, we might want finer grain controls to distinguish code that is
+        // generated with nullability info and without.
+        return false;
+      }
+      // make sure it's not explicitly configured as unannotated
+      return !config.isUnannotatedClass(classSymbol);
+    }
+    return false;
   }
 
   /**
