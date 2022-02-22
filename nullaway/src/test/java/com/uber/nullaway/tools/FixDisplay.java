@@ -25,7 +25,10 @@ package com.uber.nullaway.tools;
 import com.google.common.base.Preconditions;
 import java.util.Objects;
 
-/** Helper class to represent a suggested fix contents in {@code String}. */
+/**
+ * Helper class to represent a {@link com.uber.nullaway.fixserialization.out.SuggestedFixInfo}
+ * contents in {@code String}.
+ */
 public class FixDisplay {
   public final String annotation;
   public final String method;

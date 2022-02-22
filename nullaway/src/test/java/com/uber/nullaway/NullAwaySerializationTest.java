@@ -22,7 +22,11 @@
 
 package com.uber.nullaway;
 
+import com.google.common.base.Preconditions;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.tools.ErrorDisplay;
+import com.uber.nullaway.tools.Factory;
+import com.uber.nullaway.tools.FieldInitializationDisplay;
 import com.uber.nullaway.tools.FixDisplay;
 import com.uber.nullaway.tools.SerializationTestHelper;
 import java.io.IOException;
@@ -41,21 +45,39 @@ import org.springframework.util.FileSystemUtils;
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
 public class NullAwaySerializationTest extends NullAwayTestsBase {
-
-  private SerializationTestHelper serializationTestHelper;
   private String configPath;
+  private Path root;
+  private final Factory<FixDisplay> fixDisplayFactory;
+  private Factory<ErrorDisplay> errorDisplayFactory;
+  private Factory<FieldInitializationDisplay> fieldInitializationDisplayFactory;
+
+  public NullAwaySerializationTest() {
+    fixDisplayFactory =
+        line -> {
+          String[] infos = line.split("\\t");
+          Preconditions.checkArgument(
+              infos.length == 10,
+              "Needs exactly 10 values to create FixDisplay object but found: " + infos.length);
+          // Fixes are written in Temp Directory and is not known at compile time, therefore,
+          // relative
+          // paths are getting compared.
+          FixDisplay fixDisplay =
+              new FixDisplay(infos[7], infos[2], infos[3], infos[0], infos[1], infos[5]);
+          fixDisplay.uri = fixDisplay.uri.substring(fixDisplay.uri.indexOf("com/uber/"));
+          return fixDisplay;
+        };
+  }
 
   @Before
   @Override
   public void setup() {
-    Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath());
-    String output = tempRoot.toString();
+    root = Paths.get(temporaryFolder.getRoot().getAbsolutePath());
+    String output = root.toString();
     try {
-      Files.createDirectories(tempRoot);
-      serializationTestHelper = new SerializationTestHelper(tempRoot);
+      Files.createDirectories(root);
       FixSerializationConfig.Builder builder =
           new FixSerializationConfig.Builder().setSuggest(true, false).setOutputDirectory(output);
-      Path config = tempRoot.resolve("serializer.xml");
+      Path config = root.resolve("serializer.xml");
       Files.createFile(config);
       configPath = config.toString();
       builder.writeAsXML(configPath);
@@ -71,7 +93,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void add_nullable_return_simple() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -91,7 +114,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "       else return null;",
             "   }",
             "}")
-        .setExpectedFixes(
+        .setExpectedOutputs(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "test(boolean)",
@@ -104,7 +127,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void add_nullable_return_superClass() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -136,7 +160,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "       else return null;",
             "   }",
             "}")
-        .setExpectedFixes(
+        .setExpectedOutputs(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "test(boolean)",
@@ -149,7 +173,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void add_nullable_param_simple() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -171,7 +196,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "     return run(0, o);",
             "   }",
             "}")
-        .setExpectedFixes(
+        .setExpectedOutputs(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "run(int,java.lang.Object)",
@@ -184,7 +209,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void add_nullable_param_subclass() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -216,7 +242,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "     return o.toString();",
             "   }",
             "}")
-        .setExpectedFixes(
+        .setExpectedOutputs(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "test(java.lang.Object)",
@@ -229,7 +255,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void add_nullable_param_this_constructor() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -252,7 +279,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "   }",
             "",
             "}")
-        .setExpectedFixes(
+        .setExpectedOutputs(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "Test(java.lang.Object)",
@@ -265,7 +292,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void add_nullable_param_generics() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -293,7 +321,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "     newStatement(null, op, true, true);",
             "   }",
             "}")
-        .setExpectedFixes(
+        .setExpectedOutputs(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "newStatement(T,java.util.ArrayList<T>,boolean,boolean)",
@@ -306,7 +334,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void add_nullable_field_simple() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -326,7 +355,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "      h = f;",
             "   }",
             "}")
-        .setExpectedFixes(
+        .setExpectedOutputs(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
@@ -339,7 +368,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void add_nullable_field_initialization() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -361,7 +391,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "     return null;",
             "   }",
             "}")
-        .setExpectedFixes(
+        .setExpectedOutputs(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
@@ -374,7 +404,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void add_nullable_field_control_flow() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -414,7 +445,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "      }",
             "   }",
             "}")
-        .setExpectedFixes(
+        .setExpectedOutputs(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
@@ -448,7 +479,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void add_nullable_no_initialization_field() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -463,7 +495,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "   // BUG: Diagnostic contains: field f not initialized",
             "   Object f;",
             "}")
-        .setExpectedFixes(
+        .setExpectedOutputs(
             new FixDisplay(
                 "javax.annotation.Nullable",
                 "null",
@@ -476,7 +508,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void skip_pass_nullable_param_explicit_nonnull() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -498,13 +531,14 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "     return test(0, o);",
             "   }",
             "}")
-        .expectNoFixSerialization()
+        .expectNoOutput()
         .doTest();
   }
 
   @Test
   public void skip_return_nullable_explicit_nonnull() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -522,13 +556,14 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "     return null;",
             "   }",
             "}")
-        .expectNoFixSerialization()
+        .expectNoOutput()
         .doTest();
   }
 
   @Test
   public void skip_field_nullable_explicit_nonnull() {
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -544,7 +579,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "   // BUG: Diagnostic contains: field f not initialized",
             "   @Nonnull Object f;",
             "}")
-        .expectNoFixSerialization()
+        .expectNoOutput()
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -554,7 +590,6 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
     String output = tempRoot.toString();
     try {
       Files.createDirectories(tempRoot);
-      serializationTestHelper = new SerializationTestHelper(tempRoot);
       FixSerializationConfig.Builder builder =
           new FixSerializationConfig.Builder()
               .setSuggest(true, false)
@@ -567,7 +602,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
     } catch (IOException ex) {
       throw new UncheckedIOException(ex);
     }
-    serializationTestHelper
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(tempRoot);
+    tester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -587,7 +623,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "       else return null;",
             "   }",
             "}")
-        .setExpectedFixes(
+        .setExpectedOutputs(
             new FixDisplay(
                 "Custom.Nullable",
                 "test(boolean)",
