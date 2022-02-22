@@ -42,8 +42,12 @@ public class ErrorDisplay {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof ErrorDisplay)) return false;
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof ErrorDisplay)) {
+      return false;
+    }
     ErrorDisplay that = (ErrorDisplay) o;
     return type.equals(that.type)
         && message.equals(that.message)

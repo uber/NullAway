@@ -24,9 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.base.Preconditions;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
-import com.uber.nullaway.tools.ErrorDisplay;
 import com.uber.nullaway.tools.Factory;
-import com.uber.nullaway.tools.FieldInitializationDisplay;
 import com.uber.nullaway.tools.FixDisplay;
 import com.uber.nullaway.tools.SerializationTestHelper;
 import java.io.IOException;
@@ -48,8 +46,6 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   private String configPath;
   private Path root;
   private final Factory<FixDisplay> fixDisplayFactory;
-  private Factory<ErrorDisplay> errorDisplayFactory;
-  private Factory<FieldInitializationDisplay> fieldInitializationDisplayFactory;
 
   public NullAwaySerializationTest() {
     fixDisplayFactory =
@@ -122,6 +118,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "METHOD",
                 "com.uber.SubClass",
                 "com/uber/SubClass.java"))
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -168,6 +165,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "METHOD",
                 "com.uber.Super",
                 "com/uber/android/Super.java"))
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -204,6 +202,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "PARAMETER",
                 "com.uber.Test",
                 "com/uber/android/Test.java"))
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -250,6 +249,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "PARAMETER",
                 "com.uber.SubClass",
                 "com/uber/test/SubClass.java"))
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -287,6 +287,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "PARAMETER",
                 "com.uber.Test",
                 "com/uber/test/Test.java"))
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -329,6 +330,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "PARAMETER",
                 "com.uber.Super",
                 "com/uber/Super.java"))
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -363,6 +365,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "FIELD",
                 "com.uber.Super",
                 "com/uber/android/Super.java"))
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -399,6 +402,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "FIELD",
                 "com.uber.Super",
                 "com/uber/android/Super.java"))
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -474,6 +478,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "FIELD",
                 "com.uber.Test",
                 "com/uber/android/Test.java"))
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -503,6 +508,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "FIELD",
                 "com.uber.Test",
                 "com/uber/android/Test.java"))
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -532,6 +538,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "   }",
             "}")
         .expectNoOutput()
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -557,6 +564,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "   }",
             "}")
         .expectNoOutput()
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 
@@ -631,6 +639,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "METHOD",
                 "com.uber.SubClass",
                 "com/uber/SubClass.java"))
+        .setFactory(fixDisplayFactory)
         .doTest();
   }
 }
