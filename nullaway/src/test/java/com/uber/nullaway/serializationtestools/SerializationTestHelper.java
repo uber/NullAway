@@ -149,7 +149,7 @@ public class SerializationTestHelper<T> {
       String line = reader.readLine();
       while (line != null) {
 
-        T fixDisplay = factory.fromStringWithDelimiter(line);
+        T fixDisplay = factory.fromValuesInString(line.split("\\t"));
         outputs.add(fixDisplay);
         line = reader.readLine();
       }

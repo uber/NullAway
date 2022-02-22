@@ -33,7 +33,7 @@ public class ErrorDisplay {
   public final String enclosingMethod;
   public final String enclosingClass;
 
-  public ErrorDisplay(String type, String message, String enclosingMethod, String enclosingClass) {
+  public ErrorDisplay(String type, String message, String enclosingClass, String enclosingMethod) {
     this.type = type;
     this.message = message;
     this.enclosingMethod = enclosingMethod;
@@ -50,7 +50,7 @@ public class ErrorDisplay {
     }
     ErrorDisplay that = (ErrorDisplay) o;
     return type.equals(that.type)
-        && message.equals(that.message)
+        && (message.contains(that.message) || that.message.contains(message))
         && enclosingMethod.equals(that.enclosingMethod)
         && enclosingClass.equals(that.enclosingClass);
   }

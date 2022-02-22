@@ -22,9 +22,9 @@
 package com.uber.nullaway.serializationtestools;
 
 /**
- * Factory class to enable {@link SerializationTestHelper} create a new instance from each line of
- * output files.
+ * Factory class to enable {@link SerializationTestHelper} to create a new instance from values
+ * written in string at each line of output files.
  */
 public interface Factory<T> {
-  T fromStringWithDelimiter(String line);
+  T fromValuesInString(String[] values);
 }
