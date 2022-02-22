@@ -53,13 +53,13 @@ public class FixSerializationConfig {
   public final boolean suggestEnclosing;
 
   /**
-   * If enabled, method parameters at index {@link FixSerializationConfig#paramTestIndex} in all
-   * methods, will be at {@code @Nullable} state at start point of the method.
+   * If enabled, the formal parameter at index {@link FixSerializationConfig#paramTestIndex} in all
+   * methods will be treated as {@code @Nullable}
    */
   public final boolean methodParamProtectionTestEnabled;
 
   /**
-   * Index of the parameter at methods argument list which will be considered {@code @Nullable}, if
+   * Index of the formal parameter of all methods which will be considered {@code @Nullable}, if
    * {@link FixSerializationConfig#methodParamProtectionTestEnabled} is enabled.
    */
   public final int paramTestIndex;
