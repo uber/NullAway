@@ -328,7 +328,7 @@ public interface Handler {
    * @param analysis nullness dataflow analysis
    * @param state VisitorState.
    */
-  void serializeClassFieldInitializationInfo(
+  void handleFieldAssignment(
       Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state);
 
   /**

@@ -246,10 +246,10 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public void serializeClassFieldInitializationInfo(
+  public void handleFieldAssignment(
       Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state) {
     for (Handler h : handlers) {
-      h.serializeClassFieldInitializationInfo(field, trees, analysis, state);
+      h.handleFieldAssignment(field, trees, analysis, state);
     }
   }
 }

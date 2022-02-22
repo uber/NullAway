@@ -190,7 +190,7 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public void serializeClassFieldInitializationInfo(
+  public void handleFieldAssignment(
       Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state) {
     // NoOp
   }
