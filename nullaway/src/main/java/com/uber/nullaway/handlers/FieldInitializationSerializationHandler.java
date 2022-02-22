@@ -36,8 +36,10 @@ import java.util.stream.Collectors;
 import javax.lang.model.element.ElementKind;
 
 /**
- * This handler is used to serialize information regarding methods that initialize a class field.
- * These information helps to detect initializer methods in class.
+ * This handler is used to serialize information regarding methods that initialize a class field. If
+ * a method guarantee to leave the initialized class field in the method body to be {@code @Nonnull}
+ * at exit point, this handler will serialize information regarding the initializer method and the
+ * class field. These information helps to detect initializer methods in classes.
  */
 public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
 
@@ -47,6 +49,11 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
     this.config = config;
   }
 
+  /**
+   * if the method guarantees to leave the initialized class field to be {@code @Nonnull} at exit
+   * point, this method will serialize information regarding the initializer method and the class
+   * field
+   */
   @Override
   public void handleFieldAssignment(
       Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state) {
