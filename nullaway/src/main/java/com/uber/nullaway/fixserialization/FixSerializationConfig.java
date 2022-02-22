@@ -134,7 +134,7 @@ public class FixSerializationConfig {
             .orElse(false);
     paramTestIndex =
         XMLUtil.getValueFromAttribute(document, "/serialization/paramTest", "index", Integer.class)
-            .orElse(1000);
+            .orElse(Integer.MAX_VALUE);
     String nullableAnnot =
         XMLUtil.getValueFromTag(document, "/serialization/annotation/nullable", String.class)
             .orElse("javax.annotation.Nullable");
