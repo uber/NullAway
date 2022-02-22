@@ -21,8 +21,73 @@
  */
 package com.uber.nullaway.serializationtestools;
 
+import java.util.Objects;
+
 /**
  * Helper class to represent a {@link
  * com.uber.nullaway.fixserialization.out.FieldInitializationInfo} contents in {@code String}.
  */
-public class FieldInitDisplay {}
+public class FieldInitDisplay {
+  public final String method;
+  public final String param;
+  public final String location;
+  public final String className;
+  public final String field;
+  public String uri;
+
+  public FieldInitDisplay(
+      String field, String method, String param, String location, String className, String uri) {
+    this.field = field;
+    this.method = method;
+    this.param = param;
+    this.location = location;
+    this.className = className;
+    this.uri = uri;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof FieldInitDisplay)) {
+      return false;
+    }
+    FieldInitDisplay that = (FieldInitDisplay) o;
+    return Objects.equals(method, that.method)
+        && Objects.equals(param, that.param)
+        && Objects.equals(location, that.location)
+        && Objects.equals(className, that.className)
+        && Objects.equals(field, that.field)
+        && Objects.equals(uri, that.uri);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(method, param, location, className, field, uri);
+  }
+
+  @Override
+  public String toString() {
+    return "\n  FieldInitDisplay{"
+        + "\n\tfield='"
+        + field
+        + '\''
+        + ", \n\tmethod='"
+        + method
+        + '\''
+        + ", \n\tparam='"
+        + param
+        + '\''
+        + ", \n\tlocation='"
+        + location
+        + '\''
+        + ", \n\tclassName='"
+        + className
+        + '\''
+        + ", \n\turi='"
+        + uri
+        + '\''
+        + "\n  }\n";
+  }
+}

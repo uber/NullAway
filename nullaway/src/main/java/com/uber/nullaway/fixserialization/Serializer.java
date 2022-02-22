@@ -104,6 +104,9 @@ public class Serializer {
       if (config.suggestEnabled) {
         initializeFile(suggestedFixesOutputPath, SuggestedFixInfo.header());
       }
+      if (config.fieldInitInfoEnabled) {
+        initializeFile(fieldInitializationOutputPath, FieldInitializationInfo.header());
+      }
       initializeFile(errorOutputPath, ErrorInfo.header());
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting serializer", e);

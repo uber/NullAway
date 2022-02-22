@@ -52,6 +52,10 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
       Trees trees,
       AccessPathNullnessAnalysis analysis,
       VisitorState state) {
+    // We are only looking for non-constructor methods that initializes a class field.
+    if (methodSymbol.getKind() == ElementKind.CONSTRUCTOR) {
+      return;
+    }
     Preconditions.checkArgument(
         field.getKind() == ElementKind.FIELD,
         "Expected field parameter to be of type FIELD but found: " + field.getKind());

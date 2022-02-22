@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.serializationtestools;
 
-import com.google.common.base.Preconditions;
 import java.util.Objects;
 
 /**
@@ -54,7 +53,7 @@ public class FixDisplay {
 
   @Override
   public String toString() {
-    return "\n  {"
+    return "\n  FixDisplay{"
         + "\n\tannotation='"
         + annotation
         + '\''
@@ -96,13 +95,5 @@ public class FixDisplay {
   @Override
   public int hashCode() {
     return Objects.hash(annotation, method, param, location, className, uri);
-  }
-
-  public static FixDisplay fromStringWithDelimiter(String line) {
-    String[] infos = line.split("\\t");
-    Preconditions.checkArgument(
-        infos.length == 10,
-        "Needs exactly 10 values to create FixDisplay object but found: " + infos.length);
-    return new FixDisplay(infos[7], infos[2], infos[3], infos[0], infos[1], infos[5]);
   }
 }
