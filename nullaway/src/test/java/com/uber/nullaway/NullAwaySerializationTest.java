@@ -599,7 +599,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void testMethodParamProtectionTest() {
+  public void test_method_param_protection_test() {
     Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "custom_annot");
     String output = tempRoot.toString();
     try {

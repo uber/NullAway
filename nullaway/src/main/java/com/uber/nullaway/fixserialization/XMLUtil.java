@@ -159,8 +159,8 @@ public class XMLUtil {
       } else {
         String content = value.toString();
         switch (klass.getSimpleName()) {
-          case "Double":
-            this.value = Double.valueOf(content);
+          case "Integer":
+            this.value = Integer.valueOf(content);
             break;
           case "Boolean":
             this.value = Boolean.valueOf(content);
