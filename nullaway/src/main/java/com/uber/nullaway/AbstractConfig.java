@@ -147,12 +147,18 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public boolean fromAnnotatedPackage(Symbol.ClassSymbol symbol) {
-    String className = symbol.getQualifiedName().toString();
-    return annotatedPackages.matcher(className).matches()
-        && !unannotatedSubPackages.matcher(className).matches()
-        && (!treatGeneratedAsUnannotated
-            || !ASTHelpers.hasDirectAnnotationWithSimpleName(symbol, "Generated"));
+  public boolean fromExplicitlyAnnotatedPackage(String className) {
+    return annotatedPackages.matcher(className).matches();
+  }
+
+  @Override
+  public boolean fromExplicitlyUnannotatedPackage(String className) {
+    return unannotatedSubPackages.matcher(className).matches();
+  }
+
+  @Override
+  public boolean shouldTreatGeneratedAsUnannotated() {
+    return treatGeneratedAsUnannotated;
   }
 
   @Override
