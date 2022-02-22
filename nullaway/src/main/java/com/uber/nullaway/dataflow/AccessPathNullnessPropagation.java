@@ -30,6 +30,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
+import com.uber.nullaway.ClassAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -710,12 +711,21 @@ public class AccessPathNullnessPropagation
     Symbol symbol = ASTHelpers.getSymbol(fieldAccessNode.getTree());
     setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
     Nullness nullness = NULLABLE;
-    if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config)) {
+    if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config, getClassAnnotationInfo(state))) {
       nullness = NONNULL;
     } else {
       nullness = input.getRegularStore().valueOfField(fieldAccessNode, nullness, apContext);
     }
     return updateRegularStore(nullness, input, updates);
+  }
+
+  @Nullable private ClassAnnotationInfo classAnnotationInfo;
+
+  private ClassAnnotationInfo getClassAnnotationInfo(VisitorState state) {
+    if (classAnnotationInfo == null) {
+      classAnnotationInfo = ClassAnnotationInfo.instance(state.context);
+    }
+    return classAnnotationInfo;
   }
 
   private void setReceiverNonnull(

@@ -55,17 +55,27 @@ public class DummyOptionsConfig implements Config {
   public DummyOptionsConfig() {}
 
   @Override
+  public boolean fromExplicitlyAnnotatedPackage(String className) {
+    throw new IllegalStateException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public boolean fromExplicitlyUnannotatedPackage(String className) {
+    throw new IllegalStateException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public boolean shouldTreatGeneratedAsUnannotated() {
+    throw new IllegalStateException(ERROR_MESSAGE);
+  }
+
+  @Override
   public boolean serializationIsActive() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 
   @Override
   public FixSerializationConfig getSerializationConfig() {
-    throw new IllegalStateException(ERROR_MESSAGE);
-  }
-
-  @Override
-  public boolean fromAnnotatedPackage(Symbol.ClassSymbol symbol) {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 
