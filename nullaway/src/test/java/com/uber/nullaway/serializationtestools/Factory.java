@@ -26,5 +26,12 @@ package com.uber.nullaway.serializationtestools;
  * written in string at each line of output files.
  */
 public interface Factory<T> {
+
+  /**
+   * Creates an instance of {@code T} from values in string.
+   *
+   * @param values values of instance {@code T} in string.
+   * @return instance of T.
+   */
   T fromValuesInString(String[] values);
 }
