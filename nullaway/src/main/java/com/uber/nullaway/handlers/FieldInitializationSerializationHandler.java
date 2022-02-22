@@ -24,6 +24,8 @@ package com.uber.nullaway.handlers;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
@@ -47,11 +49,12 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
 
   @Override
   public void serializeClassFieldInitializationInfo(
-      Symbol.MethodSymbol methodSymbol,
-      Symbol field,
-      Trees trees,
-      AccessPathNullnessAnalysis analysis,
-      VisitorState state) {
+      Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state) {
+    MethodTree initializerMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
+    if (initializerMethod == null) {
+      return;
+    }
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(initializerMethod);
     // We are only looking for non-constructor methods that initializes a class field.
     if (methodSymbol.getKind() == ElementKind.CONSTRUCTOR) {
       return;

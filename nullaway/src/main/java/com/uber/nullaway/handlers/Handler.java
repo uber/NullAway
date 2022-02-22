@@ -319,20 +319,17 @@ public interface Handler {
   /**
    * Called when a method writes a {@code @Nonnull} value to a class field, if the method guarantees
    * to leave the initialized class field to be {@code @Nonnull} at exit point, this method will
-   * serialize information regarding the initializer method and the class field.
+   * serialize information regarding the initializer method and the class field. Since traversing
+   * AST is costly, we do it only inside the handler when the feature is enabled and, this method
+   * accesses the initializer method through the leaf node in state parameter.
    *
-   * @param methodSymbol Symbol of the initializer method.
    * @param field Symbol of the initialized class field.
    * @param trees Javac Trees instance.
    * @param analysis nullness dataflow analysis
    * @param state VisitorState.
    */
   void serializeClassFieldInitializationInfo(
-      Symbol.MethodSymbol methodSymbol,
-      Symbol field,
-      Trees trees,
-      AccessPathNullnessAnalysis analysis,
-      VisitorState state);
+      Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
