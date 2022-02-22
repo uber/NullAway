@@ -49,12 +49,12 @@ public final class ClassAnnotationInfo {
    * context (as opposed to using static fields) to avoid memory leaks.
    */
   public static ClassAnnotationInfo instance(Context context) {
-    ClassAnnotationInfo cache = context.get(ANNOTATION_INFO_KEY);
-    if (cache == null) {
-      cache = new ClassAnnotationInfo();
-      context.put(ANNOTATION_INFO_KEY, cache);
+    ClassAnnotationInfo annotationInfo = context.get(ANNOTATION_INFO_KEY);
+    if (annotationInfo == null) {
+      annotationInfo = new ClassAnnotationInfo();
+      context.put(ANNOTATION_INFO_KEY, annotationInfo);
     }
-    return cache;
+    return annotationInfo;
   }
 
   /**
