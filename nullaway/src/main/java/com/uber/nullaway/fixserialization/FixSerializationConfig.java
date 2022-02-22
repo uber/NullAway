@@ -59,7 +59,7 @@ public class FixSerializationConfig {
   public final boolean methodParamProtectionTestEnabled;
 
   /**
-   * Index of the parameter at methods argument list which will be considered {@code @Nullable}, if
+   * Index of the formal parameter of all methods which will be considered {@code @Nullable}, if
    * {@link FixSerializationConfig#methodParamProtectionTestEnabled} is enabled.
    */
   public final int paramTestIndex;
