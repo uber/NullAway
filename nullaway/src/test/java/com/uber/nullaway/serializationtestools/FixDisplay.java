@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway.tools;
+package com.uber.nullaway.serializationtestools;
 
 import com.google.common.base.Preconditions;
 import java.util.Objects;

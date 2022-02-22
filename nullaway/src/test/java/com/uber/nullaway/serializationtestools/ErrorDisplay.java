@@ -19,7 +19,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.uber.nullaway.tools;
+package com.uber.nullaway.serializationtestools;
 
 import java.util.Objects;
 

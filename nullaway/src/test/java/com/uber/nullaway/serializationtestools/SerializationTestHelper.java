@@ -20,14 +20,13 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway.tools;
+package com.uber.nullaway.serializationtestools;
 
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -40,13 +39,16 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class SerializationTestHelper<T> {
+
+  private final Path outputDir;
   private List<T> expectedOutputs;
   private CompilationTestHelper compilationTestHelper;
-  Factory<T> factory;
-  private final Path outputPath;
+  private Factory<T> factory;
+  private String fileName;
+  private String header;
 
-  public SerializationTestHelper(Path outputPath) {
-    this.outputPath = outputPath.resolve("fixes.tsv");
+  public SerializationTestHelper(Path outputDir) {
+    this.outputDir = outputDir;
   }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")
@@ -77,20 +79,24 @@ public class SerializationTestHelper<T> {
     return this;
   }
 
-  public void doTest() {
-    Preconditions.checkNotNull(factory, "Factory cannot be null");
-    clearOutput();
-    compilationTestHelper.doTest();
-    List<T> actualOutputs = readActualOutputs();
-    compare(actualOutputs);
+  public SerializationTestHelper<T> setOutputFileName(String fileName, String header) {
+    this.fileName = fileName;
+    this.header = header;
+    return this;
   }
 
-  private void clearOutput() {
+  public void doTest() {
+    Preconditions.checkNotNull(factory, "Factory cannot be null");
+    Preconditions.checkNotNull(fileName, "File name cannot be null");
+    Path outputPath = outputDir.resolve(fileName);
     try {
       Files.deleteIfExists(outputPath);
     } catch (IOException ignored) {
-      throw new RuntimeException("Failed to delete older files.");
+      throw new RuntimeException("Failed to delete older file at: " + outputPath);
     }
+    compilationTestHelper.doTest();
+    List<T> actualOutputs = readActualOutputs(outputPath, header);
+    compare(actualOutputs);
   }
 
   private void compare(List<T> actualOutput) {
@@ -125,18 +131,20 @@ public class SerializationTestHelper<T> {
     fail(errorMessage.toString());
   }
 
-  private List<T> readActualOutputs() {
+  private List<T> readActualOutputs(Path output, String header) {
     List<T> outputs = new ArrayList<>();
     BufferedReader reader;
     try {
-      reader = Files.newBufferedReader(this.outputPath, Charset.defaultCharset());
-      String header = reader.readLine();
-      if (!header.equals(SuggestedFixInfo.header())) {
+      reader = Files.newBufferedReader(output, Charset.defaultCharset());
+      String actualHeader = reader.readLine();
+      if (!header.equals(actualHeader)) {
         fail(
-            "Expected header of fixes.tsv to be: "
-                + SuggestedFixInfo.header()
+            "Expected header of "
+                + output.getFileName()
+                + " to be: "
+                + header
                 + "\nBut found: "
-                + header);
+                + actualHeader);
       }
       String line = reader.readLine();
       while (line != null) {

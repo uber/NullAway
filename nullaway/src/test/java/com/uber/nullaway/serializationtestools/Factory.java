@@ -19,10 +19,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.uber.nullaway.tools;
+package com.uber.nullaway.serializationtestools;
 
 /**
- * Helper class to represent a {@link
- * com.uber.nullaway.fixserialization.out.FieldInitializationInfo} contents in {@code String}.
+ * Factory class to enable {@link SerializationTestHelper} create a new instance from each line of
+ * output files.
  */
-public class FieldInitDisplay {}
+public interface Factory<T> {
+  T fromStringWithDelimiter(String line);
+}
