@@ -58,8 +58,8 @@ public class SerializationTestHelper<T extends Display> {
   }
 
   @SafeVarargs
-  public final SerializationTestHelper<T> setExpectedOutputs(T... fixDisplays) {
-    this.expectedOutputs = Arrays.asList(fixDisplays);
+  public final SerializationTestHelper<T> setExpectedOutputs(T... outputs) {
+    this.expectedOutputs = Arrays.asList(outputs);
     return this;
   }
 
@@ -148,8 +148,8 @@ public class SerializationTestHelper<T extends Display> {
       }
       String line = reader.readLine();
       while (line != null) {
-        T fixDisplay = factory.fromValuesInString(line.split("\\t"));
-        outputs.add(fixDisplay);
+        T outputInstance = factory.fromValuesInString(line.split("\\t"));
+        outputs.add(outputInstance);
         line = reader.readLine();
       }
       reader.close();
