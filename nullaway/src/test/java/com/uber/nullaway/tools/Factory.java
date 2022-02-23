@@ -25,7 +25,7 @@ package com.uber.nullaway.tools;
  * Factory class to enable {@link SerializationTestHelper} to create a new instance from values
  * written in string at each line of output files.
  */
-public interface Factory<T> {
+public interface DisplayFactory<T> {
 
   /**
    * Creates an instance of {@code T} from values in string.
