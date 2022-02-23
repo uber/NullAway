@@ -57,7 +57,7 @@ public class XMLUtil {
     try {
       XPath xPath = XPathFactory.newInstance().newXPath();
       Node node = (Node) xPath.compile(key).evaluate(doc, XPathConstants.NODE);
-      if (node.getNodeType() == Node.ELEMENT_NODE) {
+      if (node != null && node.getNodeType() == Node.ELEMENT_NODE) {
         Element eElement = (Element) node;
         return new DefaultXMLValueProvider<>(eElement.getAttribute(attr), klass);
       }
@@ -82,7 +82,7 @@ public class XMLUtil {
     try {
       XPath xPath = XPathFactory.newInstance().newXPath();
       Node node = (Node) xPath.compile(key).evaluate(doc, XPathConstants.NODE);
-      if (node.getNodeType() == Node.ELEMENT_NODE) {
+      if (node != null && node.getNodeType() == Node.ELEMENT_NODE) {
         Element eElement = (Element) node;
         return new DefaultXMLValueProvider<>(eElement.getTextContent(), klass);
       }
@@ -118,6 +118,13 @@ public class XMLUtil {
       Element fieldInitInfoEnabled = doc.createElement("fieldInitInfo");
       fieldInitInfoEnabled.setAttribute("active", String.valueOf(config.fieldInitInfoEnabled));
       rootElement.appendChild(fieldInitInfoEnabled);
+
+      // Method Parameter Protection Test
+      Element paramTestElement = doc.createElement("paramTest");
+      paramTestElement.setAttribute(
+          "active", String.valueOf(config.methodParamProtectionTestEnabled));
+      paramTestElement.setAttribute("index", String.valueOf(config.paramTestIndex));
+      rootElement.appendChild(paramTestElement);
 
       // Annotations
       Element annots = doc.createElement("annotation");
@@ -157,8 +164,8 @@ public class XMLUtil {
       } else {
         String content = value.toString();
         switch (klass.getSimpleName()) {
-          case "Double":
-            this.value = Double.valueOf(content);
+          case "Integer":
+            this.value = Integer.valueOf(content);
             break;
           case "Boolean":
             this.value = Boolean.valueOf(content);

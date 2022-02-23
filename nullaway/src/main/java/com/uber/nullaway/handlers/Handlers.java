@@ -67,6 +67,10 @@ public class Handlers {
       handlerListBuilder.add(
           new FieldInitializationSerializationHandler(config.getSerializationConfig()));
     }
+    if (config.serializationIsActive()
+        && config.getSerializationConfig().methodParamProtectionTestEnabled) {
+      handlerListBuilder.add(new MethodParamNullableInjectorHandler(config));
+    }
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }

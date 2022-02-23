@@ -58,6 +58,18 @@ public class FixSerializationConfig {
    */
   public final boolean fieldInitInfoEnabled;
 
+  /**
+   * If enabled, the formal parameter at index {@link FixSerializationConfig#paramTestIndex} in all
+   * methods will be treated as {@code @Nullable}
+   */
+  public final boolean methodParamProtectionTestEnabled;
+
+  /**
+   * Index of the formal parameter of all methods which will be considered {@code @Nullable}, if
+   * {@link FixSerializationConfig#methodParamProtectionTestEnabled} is enabled.
+   */
+  public final int paramTestIndex;
+
   /** The directory where all files generated/read by Fix Serialization package resides. */
   public final String outputDirectory;
 
@@ -70,6 +82,8 @@ public class FixSerializationConfig {
     suggestEnabled = false;
     suggestEnclosing = false;
     fieldInitInfoEnabled = false;
+    methodParamProtectionTestEnabled = false;
+    paramTestIndex = Integer.MAX_VALUE;
     annotationConfig = new AnnotationConfig();
     outputDirectory = null;
     serializer = null;
@@ -79,11 +93,15 @@ public class FixSerializationConfig {
       boolean suggestEnabled,
       boolean suggestEnclosing,
       boolean fieldInitInfoEnabled,
+      boolean methodParamProtectionTestEnabled,
+      int paramTestIndex,
       AnnotationConfig annotationConfig,
       String outputDirectory) {
     this.suggestEnabled = suggestEnabled;
     this.suggestEnclosing = suggestEnclosing;
     this.fieldInitInfoEnabled = fieldInitInfoEnabled;
+    this.methodParamProtectionTestEnabled = methodParamProtectionTestEnabled;
+    this.paramTestIndex = paramTestIndex;
     this.outputDirectory = outputDirectory;
     this.annotationConfig = annotationConfig;
     serializer = new Serializer(this);
@@ -124,6 +142,12 @@ public class FixSerializationConfig {
         XMLUtil.getValueFromAttribute(
                 document, "/serialization/fieldInitInfo", "active", Boolean.class)
             .orElse(false);
+    methodParamProtectionTestEnabled =
+        XMLUtil.getValueFromAttribute(document, "/serialization/paramTest", "active", Boolean.class)
+            .orElse(false);
+    paramTestIndex =
+        XMLUtil.getValueFromAttribute(document, "/serialization/paramTest", "index", Integer.class)
+            .orElse(Integer.MAX_VALUE);
     String nullableAnnot =
         XMLUtil.getValueFromTag(document, "/serialization/annotation/nullable", String.class)
             .orElse("javax.annotation.Nullable");
@@ -144,6 +168,8 @@ public class FixSerializationConfig {
     private boolean suggestEnabled;
     private boolean suggestEnclosing;
     private boolean fieldInitInfo;
+    private boolean methodParamProtectionTestEnabled;
+    private int paramIndex;
     private String nullable;
     private String nonnull;
     private String outputDir;
@@ -178,6 +204,12 @@ public class FixSerializationConfig {
       return this;
     }
 
+    public Builder setParamProtectionTest(boolean value, int index) {
+      this.methodParamProtectionTestEnabled = value;
+      this.paramIndex = index;
+      return this;
+    }
+
     /**
      * Builds and writes the config with the state in builder at the given path as XML.
      *
@@ -193,6 +225,8 @@ public class FixSerializationConfig {
           suggestEnabled,
           suggestEnclosing,
           fieldInitInfo,
+          methodParamProtectionTestEnabled,
+          paramIndex,
           new AnnotationConfig(nullable, nonnull),
           outputDir);
     }

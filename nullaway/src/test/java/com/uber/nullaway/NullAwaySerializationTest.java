@@ -700,6 +700,71 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void test_method_param_protection_test() {
+    Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "custom_annot");
+    String output = tempRoot.toString();
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(tempRoot);
+    try {
+      Files.createDirectories(tempRoot);
+      FixSerializationConfig.Builder builder =
+          new FixSerializationConfig.Builder()
+              .setSuggest(true, false)
+              .setParamProtectionTest(true, 0)
+              .setOutputDirectory(output);
+      Path config = tempRoot.resolve("serializer.xml");
+      Files.createFile(config);
+      configPath = config.toString();
+      builder.writeAsXML(configPath);
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Test.java",
+            "package com.uber;",
+            "public class Test {",
+            "   Object test(Object foo) {",
+            "       // BUG: Diagnostic contains: returning @Nullable",
+            "       return foo;",
+            "   }",
+            "   Object test1(Object foo, Object bar) {",
+            "       // BUG: Diagnostic contains: dereferenced expression foo is @Nullable",
+            "       Integer hash = foo.hashCode();",
+            "       return bar;",
+            "   }",
+            "   void test2(Object f) {",
+            "       // BUG: Diagnostic contains: passing @Nullable",
+            "       test1(f, new Object());",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "test(java.lang.Object)",
+                "null",
+                "METHOD",
+                "com.uber.Test",
+                "com/uber/Test.java"),
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "test1(java.lang.Object,java.lang.Object)",
+                "foo",
+                "PARAMETER",
+                "com.uber.Test",
+                "com/uber/Test.java"))
+        .setFactory(fixDisplayFactory)
+        .setOutputFileName(SUGGEST_FIX.fileName, SUGGEST_FIX.header)
+        .doTest();
+  }
+
+  @Test
   public void test_error_serialization() {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
