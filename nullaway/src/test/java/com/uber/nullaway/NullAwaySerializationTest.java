@@ -73,8 +73,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
               values.length == 10,
               "Needs exactly 10 values to create FixDisplay object but found: " + values.length);
           // Fixes are written in Temp Directory and is not known at compile time, therefore,
-          // relative
-          // paths are getting compared.
+          // relative paths are getting compared.
           FixDisplay display =
               new FixDisplay(values[7], values[2], values[3], values[0], values[1], values[5]);
           display.uri = display.uri.substring(display.uri.indexOf("com/uber/"));
