@@ -19,19 +19,8 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+
 package com.uber.nullaway.tools;
 
-/**
- * Factory class to enable {@link SerializationTestHelper} to create a new instance from values
- * written in string at each line of output files.
- */
-public interface DisplayFactory<T extends Display> {
-
-  /**
-   * Creates an instance of {@code T} from values in string.
-   *
-   * @param values values of instance {@code T} in string.
-   * @return instance of T.
-   */
-  T fromValuesInString(String[] values);
-}
+/** Marker interface for defining expected output type of {@link SerializationTestHelper}. */
+public interface Display {}

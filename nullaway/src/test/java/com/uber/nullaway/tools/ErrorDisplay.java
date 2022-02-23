@@ -27,7 +27,7 @@ import java.util.Objects;
  * Helper class to represent a {@link com.uber.nullaway.fixserialization.out.ErrorInfo} contents in
  * {@code String}.
  */
-public class ErrorDisplay {
+public class ErrorDisplay implements Display {
   public final String type;
   public final String message;
   public final String enclosingMethod;

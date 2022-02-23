@@ -26,7 +26,7 @@ import com.google.common.base.Preconditions;
 import java.util.Objects;
 
 /** Helper class to represent a suggested fix contents in {@code String}. */
-public class FixDisplay {
+public class FixDisplay implements Display {
   public final String annotation;
   public final String method;
   public final String param;

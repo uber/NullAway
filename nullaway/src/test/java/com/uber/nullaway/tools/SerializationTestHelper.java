@@ -38,7 +38,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class SerializationTestHelper<T> {
+public class SerializationTestHelper<T extends Display> {
 
   private final Path outputDir;
   private List<T> expectedOutputs;
