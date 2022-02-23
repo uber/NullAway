@@ -43,7 +43,7 @@ public class SerializationTestHelper<T> {
   private final Path outputDir;
   private List<T> expectedOutputs;
   private CompilationTestHelper compilationTestHelper;
-  private Factory<T> factory;
+  private DisplayFactory<T> factory;
   private String fileName;
   private String header;
 
@@ -74,7 +74,7 @@ public class SerializationTestHelper<T> {
     return this;
   }
 
-  public SerializationTestHelper<T> setFactory(Factory<T> factory) {
+  public SerializationTestHelper<T> setFactory(DisplayFactory<T> factory) {
     this.factory = factory;
     return this;
   }

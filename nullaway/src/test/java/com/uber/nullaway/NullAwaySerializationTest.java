@@ -29,8 +29,8 @@ import com.google.common.base.Preconditions;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
+import com.uber.nullaway.tools.DisplayFactory;
 import com.uber.nullaway.tools.ErrorDisplay;
-import com.uber.nullaway.tools.Factory;
 import com.uber.nullaway.tools.FixDisplay;
 import com.uber.nullaway.tools.SerializationTestHelper;
 import java.io.IOException;
@@ -51,8 +51,8 @@ import org.springframework.util.FileSystemUtils;
 public class NullAwaySerializationTest extends NullAwayTestsBase {
   private String configPath;
   private Path root;
-  private final Factory<FixDisplay> fixDisplayFactory;
-  private final Factory<ErrorDisplay> errorDisplayFactory;
+  private final DisplayFactory<FixDisplay> fixDisplayFactory;
+  private final DisplayFactory<ErrorDisplay> errorDisplayFactory;
 
   enum Modes {
     SUGGEST_FIX("fixes.tsv", SuggestedFixInfo.header()),
