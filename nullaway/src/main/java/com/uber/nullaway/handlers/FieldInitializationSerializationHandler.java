@@ -50,9 +50,11 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
   }
 
   /**
-   * if the method guarantees to leave the initialized class field to be {@code @Nonnull} at exit
+   * If the method guarantees to leave the initialized class field to be {@code @Nonnull} at exit
    * point, this method will serialize information regarding the initializer method and the class
-   * field
+   * field. Since traversing AST is costly, we do it only inside the handler when the feature is
+   * enabled and, this method accesses the initializer method through the leaf node in state
+   * parameter.
    */
   @Override
   public void handleFieldAssignment(

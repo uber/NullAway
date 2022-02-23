@@ -317,9 +317,7 @@ public interface Handler {
   ImmutableSet<String> onRegisterImmutableTypes();
 
   /**
-   * Called when a method writes a {@code @Nonnull} value to a class field. Since traversing AST is
-   * costly, we do it only inside the handler when the feature is enabled and, this method accesses
-   * the initializer method through the leaf node in state parameter.
+   * Called when a method writes a {@code @Nonnull} value to a class field.
    *
    * @param field Symbol of the initialized class field.
    * @param trees Javac Trees instance.
