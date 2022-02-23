@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.handlers;
 
-import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MethodTree;
@@ -68,9 +67,6 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
     if (methodSymbol.getKind() == ElementKind.CONSTRUCTOR) {
       return;
     }
-    Preconditions.checkArgument(
-        field.getKind() == ElementKind.FIELD,
-        "Expected field parameter to be of type FIELD but found: " + field.getKind());
     Set<String> nonnullFieldsAtExitPoint =
         analysis
             .getNonnullFieldsOfReceiverAtExit(trees.getPath(methodSymbol), state.context)
