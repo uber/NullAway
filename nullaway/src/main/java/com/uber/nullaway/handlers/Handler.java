@@ -324,7 +324,7 @@ public interface Handler {
    * @param analysis nullness dataflow analysis
    * @param state VisitorState.
    */
-  void handleFieldAssignment(
+  void handleNonnullFieldAssignment(
       Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state);
 
   /**

@@ -246,10 +246,10 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public void handleFieldAssignment(
+  public void handleNonnullFieldAssignment(
       Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state) {
     for (Handler h : handlers) {
-      h.handleFieldAssignment(field, trees, analysis, state);
+      h.handleNonnullFieldAssignment(field, trees, analysis, state);
     }
   }
 }

@@ -475,7 +475,7 @@ public class NullAway extends BugChecker
           state,
           ASTHelpers.getSymbol(tree.getVariable()));
     }
-    handler.handleFieldAssignment(
+    handler.handleNonnullFieldAssignment(
         assigned, getTreesInstance(state), getNullnessAnalysis(state), state);
     return Description.NO_MATCH;
   }
