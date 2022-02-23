@@ -43,6 +43,7 @@ dependencies {
     testImplementation deps.test.junit5Jupiter
     testImplementation deps.test.cfQual
     testImplementation deps.test.cfCompatQual
+    testImplementation deps.build.jspecify
     testImplementation project(":test-java-lib")
     testImplementation deps.test.inferAnnotations
     testImplementation deps.apt.jakartaInject

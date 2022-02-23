@@ -63,6 +63,10 @@ public class Handlers {
     handlerListBuilder.add(new GrpcHandler());
     handlerListBuilder.add(new RequiresNonNullHandler());
     handlerListBuilder.add(new EnsuresNonNullHandler());
+    if (config.serializationIsActive()
+        && config.getSerializationConfig().methodParamProtectionTestEnabled) {
+      handlerListBuilder.add(new MethodParamNullableInjectorHandler(config));
+    }
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }

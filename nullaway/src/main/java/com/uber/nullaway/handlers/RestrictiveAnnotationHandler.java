@@ -22,8 +22,6 @@
 
 package com.uber.nullaway.handlers;
 
-import static com.uber.nullaway.NullabilityUtil.castToNonNull;
-
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -33,14 +31,15 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.ClassAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.HashSet;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
@@ -72,12 +71,13 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
-      Symbol.MethodSymbol methodSymbol =
-          castToNonNull(ASTHelpers.getSymbol((MethodInvocationTree) expr));
-      if (NullabilityUtil.isUnannotated(methodSymbol, config)) {
+      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) expr);
+      ClassAnnotationInfo classAnnotationInfo = getClassAnnotationInfo(state.context);
+      if (classAnnotationInfo.isSymbolUnannotated(methodSymbol, config)) {
         // with the generated-as-unannotated option enabled, we want to ignore
         // annotations in generated code
-        if (config.treatGeneratedAsUnannotated() && NullabilityUtil.isGenerated(methodSymbol)) {
+        if (config.treatGeneratedAsUnannotated()
+            && classAnnotationInfo.isGenerated(methodSymbol, config)) {
           return exprMayBeNull;
         } else {
           return Nullness.hasNullableAnnotation(methodSymbol, config) || exprMayBeNull;
@@ -87,6 +87,15 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       }
     }
     return exprMayBeNull;
+  }
+
+  @Nullable private ClassAnnotationInfo classAnnotationInfo;
+
+  private ClassAnnotationInfo getClassAnnotationInfo(Context context) {
+    if (classAnnotationInfo == null) {
+      classAnnotationInfo = ClassAnnotationInfo.instance(context);
+    }
+    return classAnnotationInfo;
   }
 
   @Override
@@ -120,8 +129,8 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    Symbol.MethodSymbol methodSymbol = castToNonNull(ASTHelpers.getSymbol(node.getTree()));
-    if (NullabilityUtil.isUnannotated(methodSymbol, config)
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
+    if (getClassAnnotationInfo(context).isSymbolUnannotated(methodSymbol, config)
         && Nullness.hasNullableAnnotation(methodSymbol, config)) {
       return NullnessHint.HINT_NULLABLE;
     }
