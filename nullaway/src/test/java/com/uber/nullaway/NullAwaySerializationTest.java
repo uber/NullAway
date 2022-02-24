@@ -620,7 +620,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void SuggestCustomAnnotTest() {
+  public void suggestCustomAnnotTest() {
     Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "custom_annot");
     String output = tempRoot.toString();
     try {
@@ -672,7 +672,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void ExamineMethodParamProtectionTest() {
+  public void examineMethodParamProtectionTest() {
     Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "custom_annot");
     String output = tempRoot.toString();
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(tempRoot);
