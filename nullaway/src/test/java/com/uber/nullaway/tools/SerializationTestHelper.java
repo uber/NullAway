@@ -79,7 +79,7 @@ public class SerializationTestHelper<T extends Display> {
     return this;
   }
 
-  public SerializationTestHelper<T> setOutputFileName(String fileName, String header) {
+  public SerializationTestHelper<T> setOutputFileNameAndHeader(String fileName, String header) {
     this.fileName = fileName;
     this.header = header;
     return this;
