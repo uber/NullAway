@@ -131,16 +131,16 @@ public class SerializationTestHelper<T extends Display> {
     fail(errorMessage.toString());
   }
 
-  private List<T> readActualOutputs(Path output, String header) {
+  private List<T> readActualOutputs(Path outputPath, String header) {
     List<T> outputs = new ArrayList<>();
     BufferedReader reader;
     try {
-      reader = Files.newBufferedReader(output, Charset.defaultCharset());
+      reader = Files.newBufferedReader(outputPath, Charset.defaultCharset());
       String actualHeader = reader.readLine();
       if (!header.equals(actualHeader)) {
         fail(
             "Expected header of "
-                + output.getFileName()
+                + outputPath.getFileName()
                 + " to be: "
                 + header
                 + "\nBut found: "
