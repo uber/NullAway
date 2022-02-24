@@ -34,7 +34,6 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -59,7 +58,7 @@ public class SerializationTestHelper<T extends Display> {
 
   @SafeVarargs
   public final SerializationTestHelper<T> setExpectedOutputs(T... outputs) {
-    this.expectedOutputs = ImmutableList.copyOf(Arrays.asList(outputs));
+    this.expectedOutputs = ImmutableList.copyOf(outputs);
     return this;
   }
 
