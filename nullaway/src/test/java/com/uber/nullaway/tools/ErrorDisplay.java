@@ -50,6 +50,8 @@ public class ErrorDisplay implements Display {
     }
     ErrorDisplay that = (ErrorDisplay) o;
     return type.equals(that.type)
+        // To increase readability, a shorter version of the actual message might be present in the
+        // expected output of tests.
         && (message.contains(that.message) || that.message.contains(message))
         && enclosingMethod.equals(that.enclosingMethod)
         && enclosingClass.equals(that.enclosingClass);
