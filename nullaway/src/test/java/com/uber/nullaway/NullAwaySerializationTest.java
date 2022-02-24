@@ -112,7 +112,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void add_nullable_return_simple() {
+  public void suggestNullableReturnSimpleTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -148,7 +148,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void add_nullable_return_superClass() {
+  public void suggestNullableReturnSuperClassTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -196,7 +196,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void add_nullable_param_simple() {
+  public void suggestNullableParamSimpleTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -234,7 +234,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void add_nullable_param_subclass() {
+  public void suggestNullableParamSubclassTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -282,7 +282,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void add_nullable_param_this_constructor() {
+  public void suggestNullableParamThisConstructorTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -321,7 +321,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void add_nullable_param_generics() {
+  public void suggestNullableParamGenericsTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -365,7 +365,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void add_nullable_field_simple() {
+  public void suggestNullableFieldSimpleTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -401,7 +401,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void add_nullable_field_initialization() {
+  public void suggestNullableFieldInitializationTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -439,7 +439,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void add_nullable_field_control_flow() {
+  public void suggestNullableFieldControlFlowTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -516,7 +516,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void add_nullable_no_initialization_field() {
+  public void suggestNullableNoInitializationFieldTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -547,7 +547,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void skip_pass_nullable_param_explicit_nonnull() {
+  public void skipSuggestPassNullableParamExplicitNonnullTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -578,7 +578,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void skip_return_nullable_explicit_nonnull() {
+  public void skipSuggestReturnNullableExplicitNonnullTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -605,7 +605,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void skip_field_nullable_explicit_nonnull() {
+  public void skipSuggestFieldNullableExplicitNonnullTest() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -630,7 +630,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void test_custom_annot() {
+  public void SuggestCustomAnnotTest() {
     Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "custom_annot");
     String output = tempRoot.toString();
     try {
@@ -682,7 +682,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void test_method_param_protection_test() {
+  public void ExamineMethodParamProtectionTest() {
     Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "custom_annot");
     String output = tempRoot.toString();
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(tempRoot);
@@ -747,7 +747,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void test_error_serialization() {
+  public void errorSerializationTest() {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
