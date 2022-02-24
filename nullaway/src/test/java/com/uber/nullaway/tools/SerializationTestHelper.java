@@ -95,7 +95,7 @@ public class SerializationTestHelper<T extends Display> {
       throw new RuntimeException("Failed to delete older file at: " + outputPath);
     }
     compilationTestHelper.doTest();
-    List<T> actualOutputs = readActualOutputs(outputPath, header);
+    List<T> actualOutputs = readActualOutputs(outputPath);
     compare(actualOutputs);
   }
 
@@ -131,7 +131,7 @@ public class SerializationTestHelper<T extends Display> {
     fail(errorMessage.toString());
   }
 
-  private List<T> readActualOutputs(Path outputPath, String header) {
+  private List<T> readActualOutputs(Path outputPath) {
     List<T> outputs = new ArrayList<>();
     BufferedReader reader;
     try {
