@@ -36,12 +36,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
-import org.springframework.util.FileSystemUtils;
 
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
@@ -94,11 +92,6 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
     } catch (IOException ex) {
       throw new UncheckedIOException(ex);
     }
-  }
-
-  @After
-  public void cleanup() {
-    FileSystemUtils.deleteRecursively(temporaryFolder.getRoot());
   }
 
   @Test
