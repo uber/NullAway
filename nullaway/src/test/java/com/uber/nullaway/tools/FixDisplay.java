@@ -22,11 +22,12 @@
 
 package com.uber.nullaway.tools;
 
-import com.google.common.base.Preconditions;
 import java.util.Objects;
 
-/** Helper class to represent a suggested fix contents in {@code String}. */
-public class FixDisplay {
+/**
+ * Helper class to represent a suggested fix contents in a test case's (expected or actual) output.
+ */
+public class FixDisplay implements Display {
   public final String annotation;
   public final String method;
   public final String param;
@@ -93,13 +94,5 @@ public class FixDisplay {
   @Override
   public int hashCode() {
     return Objects.hash(annotation, method, param, location, className, uri);
-  }
-
-  public static FixDisplay fromStringWithDelimiter(String line) {
-    String[] infos = line.split("\\t");
-    Preconditions.checkArgument(
-        infos.length == 10,
-        "Needs exactly 10 values to create FixDisplay object but found: " + infos.length);
-    return new FixDisplay(infos[7], infos[2], infos[3], infos[0], infos[1], infos[5]);
   }
 }
