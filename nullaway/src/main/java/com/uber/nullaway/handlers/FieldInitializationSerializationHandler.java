@@ -56,7 +56,7 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
    * parameter.
    */
   @Override
-  public void handleNonnullFieldAssignment(
+  public void onNonNullFieldAssignment(
       Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state) {
     MethodTree initializerMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
     if (initializerMethod == null) {

@@ -317,14 +317,14 @@ public interface Handler {
   ImmutableSet<String> onRegisterImmutableTypes();
 
   /**
-   * Called when a method writes a {@code @Nonnull} value to a class field.
+   * Called when a method writes a {@code @NonNull} value to a class field.
    *
    * @param field Symbol of the initialized class field.
    * @param trees Javac Trees instance.
    * @param analysis nullness dataflow analysis
    * @param state VisitorState.
    */
-  void handleNonnullFieldAssignment(
+  void onNonNullFieldAssignment(
       Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state);
 
   /**
