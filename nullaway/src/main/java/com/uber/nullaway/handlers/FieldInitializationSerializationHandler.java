@@ -24,14 +24,13 @@ package com.uber.nullaway.handlers;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.MethodTree;
-import com.sun.source.util.Trees;
+import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
-import java.util.Set;
-import java.util.stream.Collectors;
 import javax.lang.model.element.ElementKind;
 
 /**
@@ -57,29 +56,28 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
    */
   @Override
   public void onNonNullFieldAssignment(
-      Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state) {
-    MethodTree initializerMethod = ASTHelpers.findEnclosingNode(state.getPath(), MethodTree.class);
-    if (initializerMethod == null) {
+      Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state) {
+    TreePath pathToMethod =
+        NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath());
+    if (pathToMethod == null || pathToMethod.getLeaf().getKind() != Tree.Kind.METHOD) {
       return;
     }
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(initializerMethod);
+    Symbol.MethodSymbol symbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(pathToMethod.getLeaf());
     // We are only looking for non-constructor methods that initializes a class field.
-    if (methodSymbol.getKind() == ElementKind.CONSTRUCTOR) {
+    if (symbol.getKind() == ElementKind.CONSTRUCTOR) {
       return;
     }
-    Set<String> nonnullFieldsAtExitPoint =
-        analysis
-            .getNonnullFieldsOfReceiverAtExit(trees.getPath(methodSymbol), state.context)
-            .stream()
-            .map(element -> element.getSimpleName().toString())
-            .collect(Collectors.toSet());
-    if (!nonnullFieldsAtExitPoint.contains(field.getSimpleName().toString())) {
-      // Method does not keep the field @Nonnull at exit point and fails the post condition to be an
+    final String fieldName = field.getSimpleName().toString();
+    boolean leavesNonNullAtExitPoint =
+        analysis.getNonnullFieldsOfReceiverAtExit(pathToMethod, state.context).stream()
+            .anyMatch(element -> element.getSimpleName().toString().equals(fieldName));
+    if (!leavesNonNullAtExitPoint) {
+      // Method does not keep the field @NonNull at exit point and fails the post condition to be an
       // Initializer.
       return;
     }
     config
         .getSerializer()
-        .serializeFieldInitializationInfo(new FieldInitializationInfo(methodSymbol, field));
+        .serializeFieldInitializationInfo(new FieldInitializationInfo(symbol, field));
   }
 }

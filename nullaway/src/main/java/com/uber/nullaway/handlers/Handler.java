@@ -31,7 +31,6 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
-import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -320,12 +319,11 @@ public interface Handler {
    * Called when a method writes a {@code @NonNull} value to a class field.
    *
    * @param field Symbol of the initialized class field.
-   * @param trees Javac Trees instance.
    * @param analysis nullness dataflow analysis
    * @param state VisitorState.
    */
   void onNonNullFieldAssignment(
-      Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state);
+      Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate

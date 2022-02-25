@@ -31,7 +31,6 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
-import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -191,7 +190,7 @@ public abstract class BaseNoOpHandler implements Handler {
 
   @Override
   public void onNonNullFieldAssignment(
-      Symbol field, Trees trees, AccessPathNullnessAnalysis analysis, VisitorState state) {
+      Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state) {
     // NoOp
   }
 }
