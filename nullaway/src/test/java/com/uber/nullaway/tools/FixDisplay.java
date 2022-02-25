@@ -20,15 +20,14 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway.serializationtestools;
+package com.uber.nullaway.tools;
 
 import java.util.Objects;
 
 /**
- * Helper class to represent a {@link com.uber.nullaway.fixserialization.out.SuggestedFixInfo}
- * contents in {@code String}.
+ * Helper class to represent a suggested fix contents in a test case's (expected or actual) output.
  */
-public class FixDisplay {
+public class FixDisplay implements Display {
   public final String annotation;
   public final String method;
   public final String param;

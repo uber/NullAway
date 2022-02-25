@@ -19,15 +19,15 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.uber.nullaway.serializationtestools;
+package com.uber.nullaway.tools;
 
 import java.util.Objects;
 
 /**
  * Helper class to represent a {@link com.uber.nullaway.fixserialization.out.ErrorInfo} contents in
- * {@code String}.
+ * a test case's (expected or actual) output.
  */
-public class ErrorDisplay {
+public class ErrorDisplay implements Display {
   public final String type;
   public final String message;
   public final String enclosingMethod;
@@ -50,6 +50,8 @@ public class ErrorDisplay {
     }
     ErrorDisplay that = (ErrorDisplay) o;
     return type.equals(that.type)
+        // To increase readability, a shorter version of the actual message might be present in the
+        // expected output of tests.
         && (message.contains(that.message) || that.message.contains(message))
         && enclosingMethod.equals(that.enclosingMethod)
         && enclosingClass.equals(that.enclosingClass);

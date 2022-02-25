@@ -20,11 +20,12 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway.serializationtestools;
+package com.uber.nullaway.tools;
 
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.io.BufferedReader;
@@ -33,17 +34,15 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class SerializationTestHelper<T> {
+public class SerializationTestHelper<T extends Display> {
 
   private final Path outputDir;
-  private List<T> expectedOutputs;
+  private ImmutableList<T> expectedOutputs;
   private CompilationTestHelper compilationTestHelper;
-  private Factory<T> factory;
+  private DisplayFactory<T> factory;
   private String fileName;
   private String header;
 
@@ -58,13 +57,13 @@ public class SerializationTestHelper<T> {
   }
 
   @SafeVarargs
-  public final SerializationTestHelper<T> setExpectedOutputs(T... fixDisplays) {
-    this.expectedOutputs = Arrays.asList(fixDisplays);
+  public final SerializationTestHelper<T> setExpectedOutputs(T... outputs) {
+    this.expectedOutputs = ImmutableList.copyOf(outputs);
     return this;
   }
 
   public SerializationTestHelper<T> expectNoOutput() {
-    this.expectedOutputs = Collections.emptyList();
+    this.expectedOutputs = ImmutableList.of();
     return this;
   }
 
@@ -74,12 +73,12 @@ public class SerializationTestHelper<T> {
     return this;
   }
 
-  public SerializationTestHelper<T> setFactory(Factory<T> factory) {
+  public SerializationTestHelper<T> setFactory(DisplayFactory<T> factory) {
     this.factory = factory;
     return this;
   }
 
-  public SerializationTestHelper<T> setOutputFileName(String fileName, String header) {
+  public SerializationTestHelper<T> setOutputFileNameAndHeader(String fileName, String header) {
     this.fileName = fileName;
     this.header = header;
     return this;
@@ -95,7 +94,7 @@ public class SerializationTestHelper<T> {
       throw new RuntimeException("Failed to delete older file at: " + outputPath);
     }
     compilationTestHelper.doTest();
-    List<T> actualOutputs = readActualOutputs(outputPath, header);
+    List<T> actualOutputs = readActualOutputs(outputPath);
     compare(actualOutputs);
   }
 
@@ -131,16 +130,16 @@ public class SerializationTestHelper<T> {
     fail(errorMessage.toString());
   }
 
-  private List<T> readActualOutputs(Path output, String header) {
+  private List<T> readActualOutputs(Path outputPath) {
     List<T> outputs = new ArrayList<>();
     BufferedReader reader;
     try {
-      reader = Files.newBufferedReader(output, Charset.defaultCharset());
+      reader = Files.newBufferedReader(outputPath, Charset.defaultCharset());
       String actualHeader = reader.readLine();
       if (!header.equals(actualHeader)) {
         fail(
             "Expected header of "
-                + output.getFileName()
+                + outputPath.getFileName()
                 + " to be: "
                 + header
                 + "\nBut found: "
@@ -148,9 +147,8 @@ public class SerializationTestHelper<T> {
       }
       String line = reader.readLine();
       while (line != null) {
-
-        T fixDisplay = factory.fromValuesInString(line.split("\\t"));
-        outputs.add(fixDisplay);
+        T output = factory.fromValuesInString(line.split("\\t"));
+        outputs.add(output);
         line = reader.readLine();
       }
       reader.close();

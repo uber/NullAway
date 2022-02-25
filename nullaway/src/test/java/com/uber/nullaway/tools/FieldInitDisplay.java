@@ -19,15 +19,16 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.uber.nullaway.serializationtestools;
+package com.uber.nullaway.tools;
 
 import java.util.Objects;
 
 /**
  * Helper class to represent a {@link
- * com.uber.nullaway.fixserialization.out.FieldInitializationInfo} contents in {@code String}.
+ * com.uber.nullaway.fixserialization.out.FieldInitializationInfo} contents in * a test case's
+ * (expected or actual) output.
  */
-public class FieldInitDisplay {
+public class FieldInitDisplay implements Display {
   public final String method;
   public final String param;
   public final String location;
