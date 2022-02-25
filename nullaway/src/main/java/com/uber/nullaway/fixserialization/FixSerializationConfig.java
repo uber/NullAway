@@ -54,7 +54,7 @@ public class FixSerializationConfig {
 
   /**
    * If enabled, NullAway will serialize information about methods that initialize a field and leave
-   * it {@code @Nonnull} at exit point.
+   * it {@code @NonNull} at exit point.
    */
   public final boolean fieldInitInfoEnabled;
 

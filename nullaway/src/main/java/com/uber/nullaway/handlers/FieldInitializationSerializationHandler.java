@@ -36,7 +36,7 @@ import javax.lang.model.element.ElementKind;
 
 /**
  * This handler is used to serialize information regarding methods that initialize a class field. If
- * a method guarantee to leave the initialized class field in the method body to be {@code @Nonnull}
+ * a method guarantee to leave the initialized class field in the method body to be {@code @NonNull}
  * at exit point, this handler will serialize information regarding the initializer method and the
  * class field. These information helps to detect initializer methods in classes.
  */

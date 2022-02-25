@@ -26,7 +26,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.location.FixLocation;
 
 /**
- * Stores information regarding a method that initializes a class field and leaves it @Nonnull at
+ * Stores information regarding a method that initializes a class field and leaves it @NonNull at
  * exit point.
  */
 public class FieldInitializationInfo {
