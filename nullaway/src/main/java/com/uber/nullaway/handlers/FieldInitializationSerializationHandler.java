@@ -63,7 +63,7 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
       return;
     }
     Symbol.MethodSymbol symbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(pathToMethod.getLeaf());
-    // We are only looking for non-constructor methods that initializes a class field.
+    // We are only looking for non-constructor methods that initialize a class field.
     if (symbol.getKind() == ElementKind.CONSTRUCTOR) {
       return;
     }
