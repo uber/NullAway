@@ -34,10 +34,21 @@ import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import javax.lang.model.element.ElementKind;
 
 /**
- * This handler is used to serialize information regarding methods that initialize a class field. If
- * a method guarantee to leave the initialized class field in the method body to be {@code @NonNull}
- * at exit point, this handler will serialize information regarding the initializer method and the
- * class field. These information helps to detect initializer methods in classes.
+ * This handler is used to serialize information regarding methods that initialize a class field.
+ *
+ * <p>It uses the following heuristic: if a method assigns a {@code @NonNull} value to a field, and
+ * furthermore guarantees that said field is {@code @NonNull} on return from the method, then we
+ * serialize information for this method as a potential initializer for that field. This information
+ * can be used by an inference tool to detect initializer methods in classes.
+ *
+ * <p>Note that the above two conditions are both needed to eliminate the cases below:
+ *
+ * <ul>
+ *   <li>Methods that initialize a field conditionally through only some of their execution paths
+ *   <li>Methods which only check that the field is already initialized and terminate exceptionally
+ *       otherwise (these methods guarantee the field is initialized on return, but are rarely what
+ *       we are looking for when we look for candidates for @Initializer)
+ * </ul>
  */
 public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
 
