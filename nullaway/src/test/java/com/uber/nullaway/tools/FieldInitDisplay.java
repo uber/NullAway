@@ -25,7 +25,7 @@ import java.util.Objects;
 
 /**
  * Helper class to represent a {@link
- * com.uber.nullaway.fixserialization.out.FieldInitializationInfo} contents in * a test case's
+ * com.uber.nullaway.fixserialization.out.FieldInitializationInfo} contents in a test case's
  * (expected or actual) output.
  */
 public class FieldInitDisplay implements Display {
