@@ -48,7 +48,7 @@ import javax.lang.model.element.ElementKind;
  *   <li>Methods that initialize a field conditionally through only some of their execution paths
  *   <li>Methods which only check that the field is already initialized and terminate exceptionally
  *       otherwise (these methods guarantee the field is initialized on return, but are rarely what
- *       we are looking for when we look for candidates for @Initializer)
+ *       we are looking for when we look for candidates for {@code @Initializer})
  * </ul>
  */
 public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
