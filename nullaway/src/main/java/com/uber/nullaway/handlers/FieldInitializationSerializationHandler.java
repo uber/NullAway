@@ -59,15 +59,14 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
   }
 
   /**
-   * If the method guarantees to leave the initialized class field to be {@code @Nonnull} at exit
-   * point, this method will serialize information regarding the initializer method and the class
-   * field. Since traversing AST is costly, we do it only inside the handler when the feature is
-   * enabled and, this method accesses the initializer method through the leaf node in state
-   * parameter.
+   * Since traversing AST is costly, we do it only inside the handler when the feature is enabled
+   * and, this method accesses the initializer method through the leaf node in state parameter.
    */
   @Override
   public void onNonNullFieldAssignment(
       Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state) {
+    // Traversing AST is costly, therefore we access the initializer method through the leaf node in
+    // state parameter
     TreePath pathToMethod =
         NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath());
     if (pathToMethod == null || pathToMethod.getLeaf().getKind() != Tree.Kind.METHOD) {
