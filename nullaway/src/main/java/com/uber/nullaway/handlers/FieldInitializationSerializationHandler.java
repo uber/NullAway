@@ -24,7 +24,6 @@ package com.uber.nullaway.handlers;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
@@ -69,18 +68,17 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
     if (pathToMethod == null || pathToMethod.getLeaf().getKind() != Tree.Kind.METHOD) {
       return;
     }
-    Symbol.MethodSymbol symbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(pathToMethod.getLeaf());
+    Symbol.MethodSymbol methodSymbol =
+        (Symbol.MethodSymbol) ASTHelpers.getSymbol(pathToMethod.getLeaf());
 
     // Check if the method and the field are in the same class.
-    ClassTree methodEnclosingClass = ASTHelpers.findEnclosingNode(pathToMethod, ClassTree.class);
-    ClassTree fieldEnclosingClass = ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
-    if (fieldEnclosingClass == null || !fieldEnclosingClass.equals(methodEnclosingClass)) {
+    if (!field.enclClass().equals(methodSymbol.enclClass())) {
       // We don't want m in A.m() to be a candidate initializer for B.f unless A == B
       return;
     }
 
     // We are only looking for non-constructor methods that initialize a class field.
-    if (symbol.getKind() == ElementKind.CONSTRUCTOR) {
+    if (methodSymbol.getKind() == ElementKind.CONSTRUCTOR) {
       return;
     }
     final String fieldName = field.getSimpleName().toString();
@@ -94,6 +92,6 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
     }
     config
         .getSerializer()
-        .serializeFieldInitializationInfo(new FieldInitializationInfo(symbol, field));
+        .serializeFieldInitializationInfo(new FieldInitializationInfo(methodSymbol, field));
   }
 }
