@@ -58,10 +58,6 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
     this.config = config;
   }
 
-  /**
-   * Since traversing AST is costly, we do it only inside the handler when the feature is enabled
-   * and, this method accesses the initializer method through the leaf node in state parameter.
-   */
   @Override
   public void onNonNullFieldAssignment(
       Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state) {
