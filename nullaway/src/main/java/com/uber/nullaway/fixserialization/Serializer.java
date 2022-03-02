@@ -24,6 +24,7 @@ package com.uber.nullaway.fixserialization;
 
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
+import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -42,11 +43,14 @@ public class Serializer {
   private final Path errorOutputPath;
   /** Path to write suggested fix metadata. */
   private final Path suggestedFixesOutputPath;
+  /** Path to write suggested fix metadata. */
+  private final Path fieldInitializationOutputPath;
 
   public Serializer(FixSerializationConfig config) {
     String outputDirectory = config.outputDirectory;
     this.errorOutputPath = Paths.get(outputDirectory, "errors.tsv");
     this.suggestedFixesOutputPath = Paths.get(outputDirectory, "fixes.tsv");
+    this.fieldInitializationOutputPath = Paths.get(outputDirectory, "field_init.tsv");
     initializeOutputFiles(config);
   }
 
@@ -73,6 +77,10 @@ public class Serializer {
     appendToFile(errorInfo.tabSeparatedToString(), errorOutputPath);
   }
 
+  public void serializeFieldInitializationInfo(FieldInitializationInfo info) {
+    appendToFile(info.tabSeparatedToString(), fieldInitializationOutputPath);
+  }
+
   /** Cleared the content of the file if exists and writes the header in the first line. */
   private void initializeFile(Path path, String header) {
     try {
@@ -95,6 +103,9 @@ public class Serializer {
       Files.createDirectories(Paths.get(config.outputDirectory));
       if (config.suggestEnabled) {
         initializeFile(suggestedFixesOutputPath, SuggestedFixInfo.header());
+      }
+      if (config.fieldInitInfoEnabled) {
+        initializeFile(fieldInitializationOutputPath, FieldInitializationInfo.header());
       }
       initializeFile(errorOutputPath, ErrorInfo.header());
     } catch (IOException e) {

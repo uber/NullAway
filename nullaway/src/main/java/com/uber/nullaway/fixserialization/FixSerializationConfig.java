@@ -53,6 +53,12 @@ public class FixSerializationConfig {
   public final boolean suggestEnclosing;
 
   /**
+   * If enabled, NullAway will serialize information about methods that initialize a field and leave
+   * it {@code @NonNull} at exit point.
+   */
+  public final boolean fieldInitInfoEnabled;
+
+  /**
    * If enabled, the formal parameter at index {@link FixSerializationConfig#paramTestIndex} in all
    * methods will be treated as {@code @Nullable}
    */
@@ -75,6 +81,7 @@ public class FixSerializationConfig {
   public FixSerializationConfig() {
     suggestEnabled = false;
     suggestEnclosing = false;
+    fieldInitInfoEnabled = false;
     methodParamProtectionTestEnabled = false;
     paramTestIndex = Integer.MAX_VALUE;
     annotationConfig = new AnnotationConfig();
@@ -85,12 +92,14 @@ public class FixSerializationConfig {
   public FixSerializationConfig(
       boolean suggestEnabled,
       boolean suggestEnclosing,
+      boolean fieldInitInfoEnabled,
       boolean methodParamProtectionTestEnabled,
       int paramTestIndex,
       AnnotationConfig annotationConfig,
       String outputDirectory) {
     this.suggestEnabled = suggestEnabled;
     this.suggestEnclosing = suggestEnclosing;
+    this.fieldInitInfoEnabled = fieldInitInfoEnabled;
     this.methodParamProtectionTestEnabled = methodParamProtectionTestEnabled;
     this.paramTestIndex = paramTestIndex;
     this.outputDirectory = outputDirectory;
@@ -129,6 +138,10 @@ public class FixSerializationConfig {
       throw new IllegalStateException(
           "Error in the fix serialization configuration, suggest flag must be enabled to activate enclosing method and class serialization.");
     }
+    fieldInitInfoEnabled =
+        XMLUtil.getValueFromAttribute(
+                document, "/serialization/fieldInitInfo", "active", Boolean.class)
+            .orElse(false);
     methodParamProtectionTestEnabled =
         XMLUtil.getValueFromAttribute(document, "/serialization/paramTest", "active", Boolean.class)
             .orElse(false);
@@ -154,6 +167,7 @@ public class FixSerializationConfig {
 
     private boolean suggestEnabled;
     private boolean suggestEnclosing;
+    private boolean fieldInitInfo;
     private boolean methodParamProtectionTestEnabled;
     private int paramIndex;
     private String nullable;
@@ -163,6 +177,7 @@ public class FixSerializationConfig {
     public Builder() {
       suggestEnabled = false;
       suggestEnclosing = false;
+      fieldInitInfo = false;
       nullable = "javax.annotation.Nullable";
       nonnull = "javax.annotation.Nonnull";
     }
@@ -176,6 +191,11 @@ public class FixSerializationConfig {
     public Builder setAnnotations(String nullable, String nonnull) {
       this.nullable = nullable;
       this.nonnull = nonnull;
+      return this;
+    }
+
+    public Builder setFieldInitInfo(boolean enabled) {
+      this.fieldInitInfo = enabled;
       return this;
     }
 
@@ -204,6 +224,7 @@ public class FixSerializationConfig {
       return new FixSerializationConfig(
           suggestEnabled,
           suggestEnclosing,
+          fieldInitInfo,
           methodParamProtectionTestEnabled,
           paramIndex,
           new AnnotationConfig(nullable, nonnull),

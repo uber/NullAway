@@ -38,6 +38,7 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
+import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
@@ -313,6 +314,16 @@ public interface Handler {
    * @return A set of fully qualified immutable type names.
    */
   ImmutableSet<String> onRegisterImmutableTypes();
+
+  /**
+   * Called when a method writes a {@code @NonNull} value to a class field.
+   *
+   * @param field Symbol of the initialized class field.
+   * @param analysis nullness dataflow analysis
+   * @param state VisitorState.
+   */
+  void onNonNullFieldAssignment(
+      Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate

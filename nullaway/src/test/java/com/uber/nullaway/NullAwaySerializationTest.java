@@ -25,9 +25,11 @@ package com.uber.nullaway;
 import com.google.common.base.Preconditions;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
+import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 import com.uber.nullaway.tools.DisplayFactory;
 import com.uber.nullaway.tools.ErrorDisplay;
+import com.uber.nullaway.tools.FieldInitDisplay;
 import com.uber.nullaway.tools.FixDisplay;
 import com.uber.nullaway.tools.SerializationTestHelper;
 import java.io.IOException;
@@ -48,11 +50,14 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   private Path root;
   private final DisplayFactory<FixDisplay> fixDisplayFactory;
   private final DisplayFactory<ErrorDisplay> errorDisplayFactory;
+  private final DisplayFactory<FieldInitDisplay> fieldInitDisplayFactory;
 
   private static final String SUGGEST_FIX_FILE_NAME = "fixes.tsv";
   private static final String SUGGEST_FIX_FILE_HEADER = SuggestedFixInfo.header();
   private static final String ERROR_FILE_NAME = "errors.tsv";
   private static final String ERROR_FILE_HEADER = ErrorInfo.header();
+  private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
+  private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
 
   public NullAwaySerializationTest() {
     this.fixDisplayFactory =
@@ -73,6 +78,18 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
               values.length == 4,
               "Needs exactly 4 values to create ErrorDisplay object but found: " + values.length);
           return new ErrorDisplay(values[0], values[1], values[2], values[3]);
+        };
+    this.fieldInitDisplayFactory =
+        values -> {
+          Preconditions.checkArgument(
+              values.length == 7,
+              "Needs exactly 7 values to create FieldInitDisplay object but found: "
+                  + values.length);
+          FieldInitDisplay display =
+              new FieldInitDisplay(
+                  values[6], values[2], values[3], values[0], values[1], values[5]);
+          display.uri = display.uri.substring(display.uri.indexOf("com/uber/"));
+          return display;
         };
   }
 
@@ -808,6 +825,70 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "test(java.lang.Object)"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void fieldInitializationSerializationTest() {
+    Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "test_field_init");
+    String output = tempRoot.toString();
+    try {
+      Files.createDirectories(tempRoot);
+      FixSerializationConfig.Builder builder =
+          new FixSerializationConfig.Builder()
+              .setSuggest(true, false)
+              .setFieldInitInfo(true)
+              .setOutputDirectory(output);
+      Path config = tempRoot.resolve("serializer.xml");
+      Files.createFile(config);
+      configPath = config.toString();
+      builder.writeAsXML(configPath);
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
+    SerializationTestHelper<FieldInitDisplay> tester = new SerializationTestHelper<>(tempRoot);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "   Object foo;",
+            "   Object bar;",
+            "   @Nullable Object nullableFoo;",
+            "   // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field foo",
+            "   Test() {",
+            "       // We are not tracing initializations in constructors.",
+            "       bar = new Object();",
+            "   }",
+            "   void notInit() {",
+            "     if(foo == null){",
+            "         throw new RuntimeException();",
+            "     }",
+            "   }",
+            "   void actualInit() {",
+            "     foo = new Object();",
+            "     // We are not tracing initialization of @Nullable fields.",
+            "     nullableFoo = new Object();",
+            "   }",
+            "   void notInit2(@Nullable Object bar) {",
+            "     foo = new Object();",
+            "     // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "     foo = bar;",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new FieldInitDisplay(
+                "foo", "actualInit()", "null", "METHOD", "com.uber.Test", "com/uber/Test.java"))
+        .setOutputFileNameAndHeader(FIELD_INIT_FILE_NAME, FIELD_INIT_HEADER)
+        .setFactory(fieldInitDisplayFactory)
         .doTest();
   }
 }
