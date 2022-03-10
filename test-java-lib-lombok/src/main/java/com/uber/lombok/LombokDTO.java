@@ -32,7 +32,9 @@ import lombok.Data;
   "SameNameButDifferent" /* crashes with EP 2.6.0 */,
   "InlineMeInliner" /* crashes with EP 2.7.1 */
 })
-public class LombokBuilderInit {
+public class LombokDTO {
+  // Note: Field initialization is done by Lombok generated code. NullAway issues no error due to
+  // field being uninitialized.
   private String field;
   @Builder.Default private String fieldWithDefault = "Default";
   @Nullable private String nullableField;
