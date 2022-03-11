@@ -67,7 +67,7 @@ def build = [
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
     jspecify                : "org.jspecify:jspecify:0.2.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
-    commonsIO               : "commons-io:commons-io:2.4",
+    commonsIO               : "commons-io:commons-io:2.11.0",
     wala                    : ["com.ibm.wala:com.ibm.wala.util:${versions.wala}",
                                "com.ibm.wala:com.ibm.wala.shrike:${versions.wala}",
                                "com.ibm.wala:com.ibm.wala.core:${versions.wala}"],
