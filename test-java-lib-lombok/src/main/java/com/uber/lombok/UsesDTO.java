@@ -22,13 +22,20 @@
 
 package com.uber.lombok;
 
-class UsesBuilder {
-  public static String foo(LombokBuilderInit lbi) {
+import javax.annotation.Nullable;
+
+class UsesDTO {
+
+  public static LombokDTO getDTOInstance(@Nullable String s1, String s2) {
+    return LombokDTO.builder().nullableField(s1).field(s2).build();
+  }
+
+  public static String foo(LombokDTO ldto) {
     String s = "";
-    s += lbi.getField().toString();
+    s += ldto.getField().toString();
     s += " ";
     // Removing this nullness check produces a NullAway error
-    s += (lbi.getNullableField() == null ? "" : lbi.getNullableField().toString());
+    s += (ldto.getNullableField() == null ? "" : ldto.getNullableField().toString());
     return s;
   }
 }
