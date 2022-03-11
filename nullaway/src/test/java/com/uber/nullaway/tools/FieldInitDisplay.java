@@ -19,30 +19,26 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
 package com.uber.nullaway.tools;
 
 import java.util.Objects;
 
 /**
- * Helper class to represent a suggested fix contents in a test case's (expected or actual) output.
+ * Helper class to represent a {@link
+ * com.uber.nullaway.fixserialization.out.FieldInitializationInfo} contents in a test case's
+ * (expected or actual) output.
  */
-public class FixDisplay implements Display {
-  public final String annotation;
+public class FieldInitDisplay implements Display {
   public final String method;
   public final String param;
   public final String location;
   public final String className;
+  public final String field;
   public String uri;
 
-  public FixDisplay(
-      String annotation,
-      String method,
-      String param,
-      String location,
-      String className,
-      String uri) {
-    this.annotation = annotation;
+  public FieldInitDisplay(
+      String field, String method, String param, String location, String className, String uri) {
+    this.field = field;
     this.method = method;
     this.param = param;
     this.location = location;
@@ -51,10 +47,32 @@ public class FixDisplay implements Display {
   }
 
   @Override
+  public boolean equals(Object o) {
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof FieldInitDisplay)) {
+      return false;
+    }
+    FieldInitDisplay that = (FieldInitDisplay) o;
+    return Objects.equals(method, that.method)
+        && Objects.equals(param, that.param)
+        && Objects.equals(location, that.location)
+        && Objects.equals(className, that.className)
+        && Objects.equals(field, that.field)
+        && Objects.equals(uri, that.uri);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(method, param, location, className, field, uri);
+  }
+
+  @Override
   public String toString() {
-    return "\n  FixDisplay{"
-        + "\n\tannotation='"
-        + annotation
+    return "\n  FieldInitDisplay{"
+        + "\n\tfield='"
+        + field
         + '\''
         + ", \n\tmethod='"
         + method
@@ -72,27 +90,5 @@ public class FixDisplay implements Display {
         + uri
         + '\''
         + "\n  }\n";
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof FixDisplay)) {
-      return false;
-    }
-    FixDisplay fix = (FixDisplay) o;
-    return Objects.equals(annotation, fix.annotation)
-        && Objects.equals(method, fix.method)
-        && Objects.equals(param, fix.param)
-        && Objects.equals(location, fix.location)
-        && Objects.equals(className, fix.className)
-        && Objects.equals(uri, fix.uri);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(annotation, method, param, location, className, uri);
   }
 }

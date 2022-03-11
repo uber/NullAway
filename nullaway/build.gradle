@@ -56,6 +56,7 @@ dependencies {
     testImplementation deps.test.springBeans
     testImplementation deps.test.springContext
     testImplementation deps.test.grpcCore
+    testImplementation project(":test-java-lib-lombok")
 
     // This ends up being resolved to the NullAway jar under nullaway/build/libs
     nullawayJar "com.uber.nullaway:nullaway:$VERSION_NAME"

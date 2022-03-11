@@ -24,125 +24,137 @@ package com.uber.nullaway.tools;
 
 import static org.junit.Assert.fail;
 
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class SerializationTestHelper {
-  private FixDisplay[] expectedOutputFixes;
-  private final Path outputPath;
-  private CompilationTestHelper compilationTestHelper;
+public class SerializationTestHelper<T extends Display> {
 
-  public SerializationTestHelper(Path outputPath) {
-    this.outputPath = outputPath.resolve("fixes.tsv");
+  private final Path outputDir;
+  private ImmutableList<T> expectedOutputs;
+  private CompilationTestHelper compilationTestHelper;
+  private DisplayFactory<T> factory;
+  private String fileName;
+  private String header;
+
+  public SerializationTestHelper(Path outputDir) {
+    this.outputDir = outputDir;
   }
 
   @SuppressWarnings("ResultOfMethodCallIgnored")
-  public SerializationTestHelper addSourceLines(String path, String... lines) {
+  public SerializationTestHelper<T> addSourceLines(String path, String... lines) {
     compilationTestHelper.addSourceLines(path, lines);
     return this;
   }
 
-  public SerializationTestHelper setExpectedFixes(FixDisplay... fixDisplays) {
-    this.expectedOutputFixes = fixDisplays;
+  @SafeVarargs
+  public final SerializationTestHelper<T> setExpectedOutputs(T... outputs) {
+    this.expectedOutputs = ImmutableList.copyOf(outputs);
     return this;
   }
 
-  public SerializationTestHelper expectNoFixSerialization() {
-    this.expectedOutputFixes = new FixDisplay[0];
+  public SerializationTestHelper<T> expectNoOutput() {
+    this.expectedOutputs = ImmutableList.of();
     return this;
   }
 
-  public SerializationTestHelper setArgs(List<String> args) {
+  public SerializationTestHelper<T> setArgs(List<String> args) {
     compilationTestHelper =
         CompilationTestHelper.newInstance(NullAway.class, getClass()).setArgs(args);
     return this;
   }
 
-  public void doTest() {
-    clearOutput();
-    compilationTestHelper.doTest();
-    FixDisplay[] outputFixDisplays;
-    outputFixDisplays = readOutputFixes();
-    compareFixes(outputFixDisplays);
+  public SerializationTestHelper<T> setFactory(DisplayFactory<T> factory) {
+    this.factory = factory;
+    return this;
   }
 
-  private void clearOutput() {
+  public SerializationTestHelper<T> setOutputFileNameAndHeader(String fileName, String header) {
+    this.fileName = fileName;
+    this.header = header;
+    return this;
+  }
+
+  public void doTest() {
+    Preconditions.checkNotNull(factory, "Factory cannot be null");
+    Preconditions.checkNotNull(fileName, "File name cannot be null");
+    Path outputPath = outputDir.resolve(fileName);
     try {
       Files.deleteIfExists(outputPath);
     } catch (IOException ignored) {
-      throw new RuntimeException("Failed to delete older files.");
+      throw new RuntimeException("Failed to delete older file at: " + outputPath);
     }
+    compilationTestHelper.doTest();
+    List<T> actualOutputs = readActualOutputs(outputPath);
+    compare(actualOutputs);
   }
 
-  private void compareFixes(FixDisplay[] outputFixDisplays) {
-    ArrayList<FixDisplay> notFound = new ArrayList<>();
-    ArrayList<FixDisplay> output = new ArrayList<>(Arrays.asList(outputFixDisplays));
-    for (FixDisplay f : expectedOutputFixes) {
-      if (!output.contains(f)) {
-        notFound.add(f);
+  private void compare(List<T> actualOutput) {
+    List<T> notFound = new ArrayList<>();
+    for (T o : expectedOutputs) {
+      if (!actualOutput.contains(o)) {
+        notFound.add(o);
       } else {
-        output.remove(f);
+        actualOutput.remove(o);
       }
     }
-    if (notFound.size() == 0 && output.size() == 0) {
+    if (notFound.size() == 0 && actualOutput.size() == 0) {
       return;
     }
     StringBuilder errorMessage = new StringBuilder();
     if (notFound.size() != 0) {
       errorMessage
           .append(notFound.size())
-          .append(" expected fix suggestion(s) were NOT found:")
+          .append(" expected outputs were NOT found:")
           .append("\n")
-          .append(notFound.stream().map(FixDisplay::toString).collect(Collectors.toList()))
+          .append(notFound.stream().map(T::toString).collect(Collectors.toList()))
           .append("\n");
     }
-    if (output.size() != 0) {
+    if (actualOutput.size() != 0) {
       errorMessage
-          .append(output.size())
-          .append(" unexpected fix suggestion(s) were found:")
+          .append(actualOutput.size())
+          .append(" unexpected outputs were found:")
           .append("\n")
-          .append(output.stream().map(FixDisplay::toString).collect(Collectors.toList()))
+          .append(actualOutput.stream().map(T::toString).collect(Collectors.toList()))
           .append("\n");
     }
     fail(errorMessage.toString());
   }
 
-  private FixDisplay[] readOutputFixes() {
-    ArrayList<FixDisplay> fixDisplays = new ArrayList<>();
+  private List<T> readActualOutputs(Path outputPath) {
+    List<T> outputs = new ArrayList<>();
     BufferedReader reader;
     try {
-      reader = Files.newBufferedReader(this.outputPath, Charset.defaultCharset());
-      String header = reader.readLine();
-      if (!header.equals(SuggestedFixInfo.header())) {
+      reader = Files.newBufferedReader(outputPath, Charset.defaultCharset());
+      String actualHeader = reader.readLine();
+      if (!header.equals(actualHeader)) {
         fail(
-            "Expected header of fixes.tsv to be: "
-                + SuggestedFixInfo.header()
+            "Expected header of "
+                + outputPath.getFileName()
+                + " to be: "
+                + header
                 + "\nBut found: "
-                + header);
+                + actualHeader);
       }
       String line = reader.readLine();
       while (line != null) {
-        FixDisplay fixDisplay = FixDisplay.fromStringWithDelimiter(line);
-        // Fixes are written in Temp Directory and is not known at compile time, therefore, relative
-        // paths are getting compared.
-        fixDisplay.uri = fixDisplay.uri.substring(fixDisplay.uri.indexOf("com/uber/"));
-        fixDisplays.add(fixDisplay);
+        T output = factory.fromValuesInString(line.split("\\t"));
+        outputs.add(output);
         line = reader.readLine();
       }
       reader.close();
     } catch (IOException e) {
-      throw new RuntimeException("Error happened in reading the fixDisplays.", e);
+      throw new RuntimeException("Error happened in reading the outputs.", e);
     }
-    return fixDisplays.toArray(new FixDisplay[0]);
+    return outputs;
   }
 }

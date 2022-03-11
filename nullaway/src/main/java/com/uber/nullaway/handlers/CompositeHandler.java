@@ -38,6 +38,7 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.dataflow.AccessPath;
+import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
@@ -241,5 +242,13 @@ class CompositeHandler implements Handler {
       builder.addAll(h.onRegisterImmutableTypes());
     }
     return builder.build();
+  }
+
+  @Override
+  public void onNonNullFieldAssignment(
+      Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state) {
+    for (Handler h : handlers) {
+      h.onNonNullFieldAssignment(field, analysis, state);
+    }
   }
 }

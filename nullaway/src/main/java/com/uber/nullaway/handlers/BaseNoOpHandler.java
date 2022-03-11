@@ -37,6 +37,7 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.dataflow.AccessPath;
+import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
@@ -185,5 +186,11 @@ public abstract class BaseNoOpHandler implements Handler {
   @Override
   public ImmutableSet<String> onRegisterImmutableTypes() {
     return ImmutableSet.of();
+  }
+
+  @Override
+  public void onNonNullFieldAssignment(
+      Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state) {
+    // NoOp
   }
 }

@@ -114,6 +114,11 @@ public class XMLUtil {
       suggestElement.setAttribute("enclosing", String.valueOf(config.suggestEnclosing));
       rootElement.appendChild(suggestElement);
 
+      // Field Initialization
+      Element fieldInitInfoEnabled = doc.createElement("fieldInitInfo");
+      fieldInitInfoEnabled.setAttribute("active", String.valueOf(config.fieldInitInfoEnabled));
+      rootElement.appendChild(fieldInitInfoEnabled);
+
       // Method Parameter Protection Test
       Element paramTestElement = doc.createElement("paramTest");
       paramTestElement.setAttribute(
