@@ -1,5 +1,37 @@
 Changelog
 =========
+Version 0.9.6
+-------------
+* Initial support for JSpecify's @NullMarked annotation (#493)
+  - Fix bug in handling of TreatGeneratedAsUnannotated (#580)
+    (Note: this bug is not in any released NullAway version, but was temporarily
+     introduced to the main/master branch by #493)
+* Improved tracking of map nullness
+  - Improve nullness tracking of map calls in the presence of type casts (#537)
+  - Reason about iterating over a map's key set using an enhanced for loop (#554)
+  - Reason about key set iteration for subtypes of Map (#559)
+  - Add support for Map.putIfAbsent. (#568)
+* Add support for data serialization for Nullaway data for UCR's NullAwayAnnotator
+  - Serialization of Type Change Suggestions for Type Violations (#517)
+  - Measurement of Method protection against nullability of arguments (#575)
+  - Enhanced Serialization Test Infrastructure (#579)
+  - Field initialization serialization (#576)
+* Build / CI tooling for NullAway itself:
+  - Enable parallel builds (#549) (#555)
+  - Add dependence from coveralls task to codeCoverageReport (#552)
+  - Switch to temurin on CI (#553) 
+  - Separating NullAwayTests into smaller files (#550)
+  - Require braces for all conditionals and loops (#556)
+  - Enable build cache (#562)
+  - Fix JarInfer integration test on Java 11 (#529)
+  - Get Android sample apps building on JDK 11 (#531)
+  - Limit metaspace size (#563)
+  - Update CI jobs (#565)
+  - Set epApiVersion for jacoco coverage reporting (#566)
+  - Compile and test against Error Prone 2.11.0 (#567)
+  - Fix EP version for jacoco coverage step (#571) 
+  - Update to latest Google Java Format (#572)
+
 Version 0.9.5
 -------------
 * JDK17 support improvements:
