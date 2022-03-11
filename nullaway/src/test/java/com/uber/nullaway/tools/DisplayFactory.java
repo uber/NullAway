@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 Uber Technologies, Inc.
+ * Copyright (c) 2022 Uber Technologies, Inc.
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -19,21 +19,19 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+package com.uber.nullaway.tools;
 
-package com.uber.lombok;
+/**
+ * Factory class to enable {@link SerializationTestHelper} to create a new instance from values
+ * written in string at each line of output files.
+ */
+public interface DisplayFactory<T extends Display> {
 
-import javax.annotation.Nullable;
-import lombok.Builder;
-import lombok.Data;
-
-@Builder
-@Data
-@SuppressWarnings({
-  "SameNameButDifferent" /* crashes with EP 2.6.0 */,
-  "InlineMeInliner" /* crashes with EP 2.7.1 */
-})
-public class LombokBuilderInit {
-  private String field;
-  @Builder.Default private String fieldWithDefault = "Default";
-  @Nullable private String nullableField;
+  /**
+   * Creates an instance of {@code T} from values in string.
+   *
+   * @param values values of instance {@code T} in string.
+   * @return instance of T.
+   */
+  T fromValuesInString(String[] values);
 }

@@ -259,9 +259,7 @@ public class NullnessStore implements Store<NullnessStore> {
    */
   public NullnessStore filterAccessPaths(Predicate<AccessPath> pred) {
     return new NullnessStore(
-        contents
-            .entrySet()
-            .stream()
+        contents.entrySet().stream()
             .filter(e -> pred.test(e.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
   }

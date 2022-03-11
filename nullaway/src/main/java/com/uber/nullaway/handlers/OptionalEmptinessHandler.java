@@ -92,9 +92,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     this.analysis = analysis;
 
     optionalTypes =
-        config
-            .getOptionalClassPaths()
-            .stream()
+        config.getOptionalClassPaths().stream()
             .map(state::getTypeFromString)
             .filter(Objects::nonNull)
             .map(state.getTypes()::erasure)

@@ -24,10 +24,12 @@ package com.uber.nullaway;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -115,6 +117,27 @@ public abstract class AbstractConfig implements Config {
 
   protected Set<String> customNullableAnnotations;
 
+  /**
+   * If active, NullAway will write all reporting errors in output directory. The output directory
+   * along with the activation status of other serialization features are stored in {@link
+   * FixSerializationConfig}.
+   */
+  protected boolean serializationActivationFlag;
+
+  protected FixSerializationConfig fixSerializationConfig;
+
+  @Override
+  public boolean serializationIsActive() {
+    return serializationActivationFlag;
+  }
+
+  @Override
+  public FixSerializationConfig getSerializationConfig() {
+    Preconditions.checkArgument(
+        serializationActivationFlag, "Fix Serialization is not active, cannot access it's config.");
+    return fixSerializationConfig;
+  }
+
   protected static Pattern getPackagePattern(Set<String> packagePrefixes) {
     // noinspection ConstantConditions
     String choiceRegexp =
@@ -124,12 +147,18 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public boolean fromAnnotatedPackage(Symbol.ClassSymbol symbol) {
-    String className = symbol.getQualifiedName().toString();
-    return annotatedPackages.matcher(className).matches()
-        && !unannotatedSubPackages.matcher(className).matches()
-        && (!treatGeneratedAsUnannotated
-            || !ASTHelpers.hasDirectAnnotationWithSimpleName(symbol, "Generated"));
+  public boolean fromExplicitlyAnnotatedPackage(String className) {
+    return annotatedPackages.matcher(className).matches();
+  }
+
+  @Override
+  public boolean fromExplicitlyUnannotatedPackage(String className) {
+    return unannotatedSubPackages.matcher(className).matches();
+  }
+
+  @Override
+  public boolean shouldTreatGeneratedAsUnannotated() {
+    return treatGeneratedAsUnannotated;
   }
 
   @Override

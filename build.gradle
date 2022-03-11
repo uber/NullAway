@@ -75,9 +75,24 @@ subprojects { project ->
         }
     }
 
-    if (JavaVersion.current().java9Compatible) {
+    // We target Java 11 when building on JDK 11+, but Java 8 when building on JDK 8, since
+    // EP 2.11.0+ requires Java 11
+    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
         tasks.withType(JavaCompile) {
-            options.release = 8
+            java.sourceCompatibility = "11"
+            java.targetCompatibility = "11"
+        }
+    } else {
+        tasks.withType(JavaCompile) {
+            java.sourceCompatibility = "1.8"
+            java.targetCompatibility = "1.8"
+        }
+    }
+
+    // Ensure we are running on Java 8 whenever publishing to remote repos
+    tasks.withType(PublishToMavenRepository) {
+        doFirst {
+            assert JavaVersion.current() == JavaVersion.VERSION_1_8 : "Only publish to remote repos on JDK 1.8"
         }
     }
 
@@ -93,7 +108,7 @@ subprojects { project ->
 }
 
 googleJavaFormat {
-  toolVersion = "1.6"
+  toolVersion = "1.14.0"
   // don't enforce formatting for generated Java code under buildSrc
   exclude 'buildSrc/build/**/*.java'
 }
