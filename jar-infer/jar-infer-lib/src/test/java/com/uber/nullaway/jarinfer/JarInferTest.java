@@ -57,14 +57,15 @@ public class JarInferTest {
 
   private CompilationTestHelper compilationTestHelper;
 
-  @BugPattern(
-      name = "DummyChecker",
-      summary = "Dummy checker to use CompilationTestHelper",
-      severity = WARNING)
   /**
    * A dummy checker to allow us to use {@link CompilationTestHelper} to compile Java code for
    * testing, as it requires a {@link BugChecker} to run.
    */
+  @BugPattern(
+      name = "DummyChecker",
+      summary = "Dummy checker to use CompilationTestHelper",
+      severity = WARNING)
+  @SuppressWarnings("BugPatternNaming") // remove once we require EP 2.11+
   public static class DummyChecker extends BugChecker {
     public DummyChecker() {}
   }
@@ -173,13 +174,21 @@ public class JarInferTest {
     for (Map.Entry<String, Set<Integer>> entry : result.entrySet()) {
       String mtd_sign = entry.getKey();
       Set<Integer> ddParams = entry.getValue();
-      if (ddParams.isEmpty()) continue;
-      Set<Integer> xddParams = expected.get(mtd_sign);
-      if (xddParams == null) return false;
-      for (Integer var : ddParams) {
-        if (!xddParams.remove(var)) return false;
+      if (ddParams.isEmpty()) {
+        continue;
       }
-      if (!xddParams.isEmpty()) return false;
+      Set<Integer> xddParams = expected.get(mtd_sign);
+      if (xddParams == null) {
+        return false;
+      }
+      for (Integer var : ddParams) {
+        if (!xddParams.remove(var)) {
+          return false;
+        }
+      }
+      if (!xddParams.isEmpty()) {
+        return false;
+      }
       expected.remove(mtd_sign);
     }
     return expected.isEmpty();
@@ -427,6 +436,10 @@ public class JarInferTest {
 
   @Test
   public void toyAARAnnotatingClasses() throws Exception {
+    if (System.getProperty("java.version").startsWith("1.8")) {
+      // We only build the sample Android apps on JDK 11+
+      return;
+    }
     testAnnotationInAarTemplate(
         "toyAARAnnotatingClasses",
         "com.uber.nullaway.jarinfer.toys.unannotated",

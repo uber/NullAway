@@ -36,6 +36,8 @@ public class NullAwayModuleInfoTests {
         .addSourceLines(
             "module-info.java",
             "module com.uber.mymodule {",
+            "  // Important: two-level deep module tests matching of identifier `java` as base expression;",
+            "  // see further discussion at https://github.com/uber/NullAway/pull/544#discussion_r780829467",
             "  requires java.base;",
             "  requires static org.checkerframework.checker.qual;",
             "}")

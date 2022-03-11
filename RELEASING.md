@@ -1,3 +1,8 @@
+IMPORTANT: Make sure you are using a JDK 8 JVM by checking `java -version` before any
+of the steps below.  If you run the steps below on a JDK 11+ JVM, that will break Java
+8 support, as the released jars will only run on JDK 11.  We do not target Java 8 when
+building on JDK 11 since Error Prone has required Java 11 since version 2.11.0.
+
 (Recommended, but optional) Update JarInfer Android SDK Models
 ==============================================================
 

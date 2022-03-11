@@ -22,13 +22,21 @@
 
 package com.uber.lombok;
 
-class UsesBuilder {
-  public static String foo(LombokBuilderInit lbi) {
-    String s = "";
-    s += lbi.getField().toString();
-    s += " ";
-    // Removing this nullness check produces a NullAway error
-    s += (lbi.getNullableField() == null ? "" : lbi.getNullableField().toString());
-    return s;
-  }
+import javax.annotation.Nullable;
+import lombok.Builder;
+import lombok.Data;
+
+@Builder
+@Data
+@SuppressWarnings({
+  "SameNameButDifferent" /* crashes with EP 2.6.0 */,
+  "InlineMeInliner" /* crashes with EP 2.7.1 */
+})
+public class LombokDTO {
+  // Note: Lombok generates a constructor directly into this class that initializes this field, so
+  // NullAway does not
+  // issue an uninitialized field warning.
+  private String field;
+  @Builder.Default private String fieldWithDefault = "Default";
+  @Nullable private String nullableField;
 }

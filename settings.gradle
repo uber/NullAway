@@ -4,19 +4,11 @@ pluginManagement {
         gradlePluginPortal()
         google()
     }
-    resolutionStrategy {
-        eachPlugin {
-            if (requested.id.namespace == "com.android") {
-                useModule("com.android.tools.build:gradle:${requested.version}")
-            }
-        }
-    }
 }
 
 include ':nullaway'
 include ':sample-library-model'
 include ':sample'
-include ':sample-app'
 include ':test-java-lib'
 include ':test-java-lib-lombok'
 include ':test-library-models'
@@ -29,12 +21,12 @@ include ':jar-infer:jar-infer-lib'
 include ':jar-infer:jar-infer-cli'
 include ':jar-infer:test-java-lib-jarinfer'
 include ':jar-infer:nullaway-integration-test'
-include ':jar-infer:test-android-lib-jarinfer'
 include ':jmh'
 include ':jdk17-unit-tests'
 
-// On Java 8, the code-coverage-report module fails during Gradle configuration.  So, exclude it
-// on pre-JDK-11 JVMs
+// The following modules require JDK 11 and fail during Gradle configuration on JDK 8
 if (JavaVersion.current() >= JavaVersion.VERSION_11) {
     include ':code-coverage-report'
+    include ':sample-app'
+    include ':jar-infer:test-android-lib-jarinfer'
 }

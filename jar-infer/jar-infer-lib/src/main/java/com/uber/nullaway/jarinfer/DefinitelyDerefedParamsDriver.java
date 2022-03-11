@@ -74,7 +74,9 @@ public class DefinitelyDerefedParamsDriver {
   private static boolean VERBOSE = false;
 
   private static void LOG(boolean cond, String tag, String msg) {
-    if (cond) System.out.println("[JI " + tag + "] " + msg);
+    if (cond) {
+      System.out.println("[JI " + tag + "] " + msg);
+    }
   }
 
   String lastOutPath = "";
@@ -230,8 +232,11 @@ public class DefinitelyDerefedParamsDriver {
     scope.setExclusions(
         new FileOfClasses(
             new ByteArrayInputStream(DEFAULT_EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
-    if (jarIS != null) scope.addInputStreamForJarToScope(ClassLoaderReference.Application, jarIS);
-    else AnalysisScopeReader.addClassPathToScope(inPath, scope, ClassLoaderReference.Application);
+    if (jarIS != null) {
+      scope.addInputStreamForJarToScope(ClassLoaderReference.Application, jarIS);
+    } else {
+      AnalysisScopeReader.addClassPathToScope(inPath, scope, ClassLoaderReference.Application);
+    }
     AnalysisOptions options = new AnalysisOptions(scope, null);
     AnalysisCache cache = new AnalysisCacheImpl();
     IClassHierarchy cha = ClassHierarchyFactory.makeWithRoot(scope);
@@ -241,12 +246,18 @@ public class DefinitelyDerefedParamsDriver {
     for (IClassLoader cldr : cha.getLoaders()) {
       if (!cldr.getName().toString().equals("Primordial")) {
         for (IClass cls : Iterator2Iterable.make(cldr.iterateAllClasses())) {
-          if (cls instanceof PhantomClass) continue;
+          if (cls instanceof PhantomClass) {
+            continue;
+          }
           // Only process classes in specified classpath and not its dependencies.
           // TODO: figure the right way to do this
-          if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) continue;
+          if (!pkgName.isEmpty() && !cls.getName().toString().startsWith(pkgName)) {
+            continue;
+          }
           // Skip non-public / ABI classes
-          if (!cls.isPublic() && !includeNonPublicClasses) continue;
+          if (!cls.isPublic() && !includeNonPublicClasses) {
+            continue;
+          }
           LOG(DEBUG, "DEBUG", "analyzing class: " + cls.getName().toString());
           for (IMethod mtd : Iterator2Iterable.make(cls.getDeclaredMethods().iterator())) {
             // Skip methods without parameters, abstract methods, native methods
@@ -339,9 +350,13 @@ public class DefinitelyDerefedParamsDriver {
    * @return boolean True if all parameters and return value are of primitive type, otherwise false.
    */
   private static boolean isAllPrimitiveTypes(IMethod mtd) {
-    if (!mtd.getReturnType().isPrimitiveType()) return false;
+    if (!mtd.getReturnType().isPrimitiveType()) {
+      return false;
+    }
     for (int i = (mtd.isStatic() ? 0 : 1); i < mtd.getNumberOfParameters(); i++) {
-      if (!mtd.getParameterType(i).isPrimitiveType()) return false;
+      if (!mtd.getParameterType(i).isPrimitiveType()) {
+        return false;
+      }
     }
     return true;
   }
@@ -412,7 +427,9 @@ public class DefinitelyDerefedParamsDriver {
     for (Map.Entry<String, Set<Integer>> entry : nonnullParams.entrySet()) {
       String sign = entry.getKey();
       Set<Integer> ddParams = entry.getValue();
-      if (ddParams.isEmpty()) continue;
+      if (ddParams.isEmpty()) {
+        continue;
+      }
       Map<Integer, ImmutableSet<String>> argAnnotation = new HashMap<>();
       for (Integer param : ddParams) {
         argAnnotation.put(param, ImmutableSet.of("Nonnull"));
@@ -480,7 +497,9 @@ public class DefinitelyDerefedParamsDriver {
     int argi = mtd.isStatic() ? 0 : 1; // Skip 'this' parameter
     for (; argi < mtd.getNumberOfParameters(); argi++) {
       strArgTypes += getSimpleTypeName(mtd.getParameterType(argi));
-      if (argi < mtd.getNumberOfParameters() - 1) strArgTypes += ", ";
+      if (argi < mtd.getNumberOfParameters() - 1) {
+        strArgTypes += ", ";
+      }
     }
     return classType
         + ":"
@@ -508,7 +527,9 @@ public class DefinitelyDerefedParamsDriver {
             .put("S", "short")
             .put("Z", "boolean")
             .build();
-    if (typ.isArrayType()) return "Array";
+    if (typ.isArrayType()) {
+      return "Array";
+    }
     String typName = typ.getName().toString();
     if (typName.startsWith("L")) {
       typName = typName.split("<")[0].substring(1); // handle generics

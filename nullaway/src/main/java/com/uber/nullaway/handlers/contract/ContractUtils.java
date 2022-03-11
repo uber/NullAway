@@ -24,8 +24,7 @@ public class ContractUtils {
    * @return A set of trimmed field names.
    */
   public static Set<String> trimReceivers(Set<String> fieldNames) {
-    return fieldNames
-        .stream()
+    return fieldNames.stream()
         .map((Function<String, String>) input -> input.substring(input.lastIndexOf(".") + 1))
         .collect(Collectors.toSet());
   }
@@ -58,7 +57,8 @@ public class ContractUtils {
                   new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                   tree,
                   analysis.buildDescription(tree),
-                  state));
+                  state,
+                  null));
     }
     return parts[1].trim();
   }
@@ -105,7 +105,8 @@ public class ContractUtils {
                   new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                   tree,
                   analysis.buildDescription(tree),
-                  state));
+                  state,
+                  null));
     }
     return antecedent;
   }
