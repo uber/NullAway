@@ -44,26 +44,26 @@ jobs:
       - name: Build and test using Gradle, Java 8, and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
-        uses: eskatos/gradle-command-action@v1
+        uses: gradle/gradle-build-action@v2
         with:
           arguments: build
         if: matrix.java == '8'
       - name: Build and test using Gradle, Java 11, and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
-        uses: eskatos/gradle-command-action@v1
+        uses: gradle/gradle-build-action@v2
         with:
           arguments: verGJF build
         if: matrix.java == '11'
       - name: Build and test using Gradle, Java 17, and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
-        uses: eskatos/gradle-command-action@v1
+        uses: gradle/gradle-build-action@v2
         with:
           arguments: build -x :sample-app:build -x :jar-infer:jar-infer-lib:build -x :jar-infer:nullaway-integration-test:build -x :jar-infer:test-java-lib-jarinfer:build
         if: matrix.java == '17'
       - name: Report jacoco coverage
-        uses: eskatos/gradle-command-action@v1
+        uses: gradle/gradle-build-action@v2
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
           COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
@@ -81,25 +81,15 @@ jobs:
     steps:
       - name: 'Check out repository'
         uses: actions/checkout@v2
-      - name: Cache Gradle caches
-        uses: actions/cache@v1
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-caches-${{ hashFiles('**/*.gradle') }}
-          restore-keys: ${{ runner.os }}-gradle-caches-
-      - name: Cache Gradle wrapper
-        uses: actions/cache@v1
-        with:
-          path: ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradlew-wrapper-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties') }}
-          restore-keys: ${{ runner.os }}-gradlew-wrapper-
       - name: 'Set up JDK 8'
         uses: actions/setup-java@v2
         with:
           java-version: 8
           distribution: 'temurin'
       - name: 'Publish'
+        uses: gradle/gradle-build-action@v2
         env:
           ORG_GRADLE_PROJECT_mavenCentralRepositoryUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralRepositoryPassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
-        run: ./gradlew clean publish --no-daemon --no-parallel
+        with:
+          arguments: clean publish --no-daemon --no-parallel
