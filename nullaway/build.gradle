@@ -113,6 +113,9 @@ if (JavaVersion.current() >= JavaVersion.VERSION_11) {
     // Create a task to build NullAway with NullAway checking enabled
     // For some reason, this doesn't work on Java 8
     tasks.register('buildWithNullAway', JavaCompile) {
+        onlyIf {
+            deps.versions.errorProneApi == deps.versions.errorProneLatest
+        }
         // Configure compilation to run with Error Prone and NullAway
         source = sourceSets.main.java
         classpath = sourceSets.main.compileClasspath
