@@ -32,7 +32,7 @@ if (project.hasProperty("epApiVersion")) {
 }
 def versions = [
     asm                    : "7.1",
-    checkerFramework       : "3.21.1",
+    checkerFramework       : "3.21.3",
     // The version of Error Prone used to check NullAway's code.
     // EP 2.10.0 was the last version compatible with Java 8
     errorProne             : JavaVersion.current() >= JavaVersion.VERSION_11 ? "2.11.0" : "2.10.0",
@@ -67,7 +67,7 @@ def build = [
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
     jspecify                : "org.jspecify:jspecify:0.2.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
-    commonsIO               : "commons-io:commons-io:2.4",
+    commonsIO               : "commons-io:commons-io:2.11.0",
     wala                    : ["com.ibm.wala:com.ibm.wala.util:${versions.wala}",
                                "com.ibm.wala:com.ibm.wala.shrike:${versions.wala}",
                                "com.ibm.wala:com.ibm.wala.core:${versions.wala}"],
