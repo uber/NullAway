@@ -209,7 +209,10 @@ public class NullAway extends BugChecker
    * We store the ClassAnnotationInfo object in a field for convenience; it is initialized in {@link
    * #matchClass(ClassTree, VisitorState)}
    */
-  @Nullable private ClassAnnotationInfo classAnnotationInfo;
+  // suppress initialization warning rather than casting everywhere; we know matchClass() will
+  // always be called before the field gets dereferenced
+  @SuppressWarnings("NullAway.Init")
+  private ClassAnnotationInfo classAnnotationInfo;
 
   private final Config config;
 
@@ -440,7 +443,7 @@ public class NullAway extends BugChecker
       if (stmt instanceof ExpressionStatementTree) {
         ExpressionTree expression = ((ExpressionStatementTree) stmt).getExpression();
         if (expression instanceof MethodInvocationTree) {
-          return castToNonNull(ASTHelpers.getSymbol((MethodInvocationTree) expression));
+          return ASTHelpers.getSymbol((MethodInvocationTree) expression);
         }
       }
     }
@@ -788,7 +791,7 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
-    Symbol.MethodSymbol referencedMethod = castToNonNull(ASTHelpers.getSymbol(tree));
+    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(tree);
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
     handler.onMatchMethodReference(this, tree, state, referencedMethod);
@@ -936,7 +939,7 @@ public class NullAway extends BugChecker
       Tree parent = enclosingBlockPath.getParentPath().getLeaf();
       return ASTHelpers.getSymbol((ClassTree) parent);
     } else {
-      return ASTHelpers.enclosingClass(ASTHelpers.getSymbol(leaf));
+      return castToNonNull(ASTHelpers.enclosingClass(ASTHelpers.getSymbol(leaf)));
     }
   }
 
@@ -1189,7 +1192,7 @@ public class NullAway extends BugChecker
     } else if (parent instanceof MethodInvocationTree) {
       // ok if it's invoking castToNonNull and the read is the argument
       MethodInvocationTree methodInvoke = (MethodInvocationTree) parent;
-      Symbol.MethodSymbol methodSymbol = castToNonNull(ASTHelpers.getSymbol(methodInvoke));
+      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
       String qualifiedName =
           ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
       if (qualifiedName.equals(config.getCastToNonNullMethod())) {
@@ -1835,7 +1838,7 @@ public class NullAway extends BugChecker
             return false;
           }
           MethodInvocationTree methodInvocationTree = (MethodInvocationTree) expressionTree;
-          Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(methodInvocationTree));
+          Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
           Set<Modifier> modifiers = symbol.getModifiers();
           Set<Modifier> classModifiers = enclosingClassSymbol.getModifiers();
           if ((symbol.isPrivate()
@@ -1844,7 +1847,7 @@ public class NullAway extends BugChecker
               && !symbol.isStatic()
               && !modifiers.contains(Modifier.NATIVE)) {
             // check it's the same class (could be an issue with inner classes)
-            if (ASTHelpers.enclosingClass(symbol).equals(enclosingClassSymbol)) {
+            if (castToNonNull(ASTHelpers.enclosingClass(symbol)).equals(enclosingClassSymbol)) {
               // make sure the receiver is 'this'
               ExpressionTree receiver = ASTHelpers.getReceiver(expressionTree);
               return receiver == null || isThisIdentifier(receiver);

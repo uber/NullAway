@@ -41,7 +41,7 @@ def versions = [
     // EP 2.10.0 was the last version compatible with Java 8
     errorProne             : JavaVersion.current() >= JavaVersion.VERSION_11 ? latestErrorProneApi : "2.10.0",
     // The version of Error Prone that NullAway is compiled and tested against
-    errorProneApi          : project.hasProperty("epApiVersion") ? epApiVersion : oldestErrorProneApi,
+    errorProneApi          : project.hasProperty("epApiVersion") ? epApiVersion : latestErrorProneApi,
     support                : "27.1.1",
     wala                   : "1.5.4",
     commonscli             : "1.4",

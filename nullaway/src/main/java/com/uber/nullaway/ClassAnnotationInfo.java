@@ -22,6 +22,8 @@
 
 package com.uber.nullaway;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.errorprone.util.ASTHelpers;
@@ -97,7 +99,7 @@ public final class ClassAnnotationInfo {
    */
   public boolean isGenerated(Symbol symbol, Config config) {
     Symbol.ClassSymbol outermostClassSymbol =
-        get(ASTHelpers.enclosingClass(symbol), config).outermostClassSymbol;
+        get(castToNonNull(ASTHelpers.enclosingClass(symbol)), config).outermostClassSymbol;
     return ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated");
   }
 
@@ -110,7 +112,7 @@ public final class ClassAnnotationInfo {
    *     otherwise
    */
   public boolean isSymbolUnannotated(Symbol symbol, Config config) {
-    return !get(ASTHelpers.enclosingClass(symbol), config).isNullnessAnnotated;
+    return !get(castToNonNull(ASTHelpers.enclosingClass(symbol)), config).isNullnessAnnotated;
   }
 
   /**

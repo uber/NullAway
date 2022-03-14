@@ -629,7 +629,7 @@ public class AccessPathNullnessPropagation
       MethodInvocationNode baseInvocation = (MethodInvocationNode) receiver;
       // Check for a call to java.util.Map.keySet()
       if (NullabilityUtil.isMapMethod(
-          castToNonNull(ASTHelpers.getSymbol(baseInvocation.getTree())), state, "keySet", 0)) {
+          ASTHelpers.getSymbol(baseInvocation.getTree()), state, "keySet", 0)) {
         // receiver represents the map
         return baseInvocation.getTarget().getReceiver();
       }
@@ -796,9 +796,7 @@ public class AccessPathNullnessPropagation
     handler.onDataflowVisitLambdaResultExpression(
         resultNode.getTree(), input.getThenStore(), input.getElseStore());
     SubNodeValues values = values(input);
-    // result.getResult() actually can't be null; see
-    // https://github.com/typetools/checker-framework/pull/5017
-    Nullness nullness = values.valueOfSubNode(castToNonNull(resultNode.getResult()));
+    Nullness nullness = values.valueOfSubNode(resultNode.getResult());
     return noStoreChanges(nullness, input);
   }
 
