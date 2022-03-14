@@ -30,6 +30,7 @@ dependencies {
     compileOnly deps.apt.autoServiceAnnot
     annotationProcessor deps.apt.autoService
     compileOnly deps.test.inferAnnotations
+    compileOnly deps.build.jsr305Annotations
 
     compileOnly deps.build.errorProneCheckApi
     implementation deps.build.checkerDataflow

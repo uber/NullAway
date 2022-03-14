@@ -23,6 +23,7 @@
 package com.uber.nullaway.fixserialization;
 
 import java.io.File;
+import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -182,7 +183,7 @@ public class XMLUtil {
       }
     }
 
-    T orElse(T other) {
+    T orElse(@Nullable T other) {
       return value == null ? other : klass.cast(this.value);
     }
   }

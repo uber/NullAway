@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.fixserialization.qual;
 
+import com.uber.nullaway.annotations.EnsuresNonNull;
+
 /** Container object of any {@code @Nonnull} and {@code @Nullable} annotations. */
 public class AnnotationConfig {
 
@@ -64,6 +66,7 @@ public class AnnotationConfig {
     setFullNames(nonNull, nullable);
   }
 
+  @EnsuresNonNull({"this.nonNull", "this.nullable"})
   public void setFullNames(String nonnullFullName, String nullableFullName) {
     nonNull = new Annotation(nonnullFullName);
     nullable = new Annotation(nullableFullName);
