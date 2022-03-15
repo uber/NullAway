@@ -20,10 +20,12 @@ import org.gradle.util.VersionNumber
 def oldestErrorProneVersion = "2.4.0"
 // Latest released Error Prone version that we've tested with
 def latestErrorProneVersion = "2.11.0"
-// EP 2.10.0 was the last version compatible with Java 8
+// Default to using latest tested Error Prone version, except on Java 8, where 2.10.0 is the last version
+// that works
 def defaultErrorProneVersion =  JavaVersion.current() >= JavaVersion.VERSION_11 ? latestErrorProneVersion : "2.10.0"
 def errorProneVersionToCompileAgainst = defaultErrorProneVersion
 
+// If the epApiVersion project property is set, compile and test against that version of Error Prone
 if (project.hasProperty("epApiVersion")) {
     def epApiVNum = VersionNumber.parse(epApiVersion)
     if (epApiVNum.equals(VersionNumber.UNKNOWN)) {
