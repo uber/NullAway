@@ -21,8 +21,6 @@
  */
 package com.uber.nullaway.handlers;
 
-import static com.uber.nullaway.NullabilityUtil.castToNonNull;
-
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
@@ -77,7 +75,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(node.getTree()));
+    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(node.getTree());
     if (thriftIsSetCall(symbol, types)) {
       String methodName = symbol.getSimpleName().toString();
       // remove "isSet"

@@ -22,8 +22,6 @@ package com.uber.nullaway.handlers;
  * THE SOFTWARE.
  */
 
-import static com.uber.nullaway.NullabilityUtil.castToNonNull;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.VisitorState;
@@ -245,7 +243,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       // pass-through chain)
       if (observableCallToInnerMethodOrLambda.containsKey(outerCallInChain)) {
         // Update mapToFilterMap
-        Symbol.MethodSymbol mapMethod = castToNonNull(ASTHelpers.getSymbol(outerCallInChain));
+        Symbol.MethodSymbol mapMethod = ASTHelpers.getSymbol(outerCallInChain);
         if (streamType.isMapMethod(mapMethod)) {
           MaplikeToFilterInstanceRecord record =
               new MaplikeToFilterInstanceRecord(
@@ -255,7 +253,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       }
     } while (outerCallInChain != null
         && streamType.matchesType(ASTHelpers.getReceiverType(outerCallInChain), state)
-        && streamType.isPassthroughMethod(castToNonNull(ASTHelpers.getSymbol(outerCallInChain))));
+        && streamType.isPassthroughMethod(ASTHelpers.getSymbol(outerCallInChain)));
   }
 
   private void handleFilterAnonClass(

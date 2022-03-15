@@ -88,8 +88,7 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
       // Initializer.
       return;
     }
-    config
-        .getSerializer()
+    NullabilityUtil.castToNonNull(config.getSerializer())
         .serializeFieldInitializationInfo(new FieldInitializationInfo(methodSymbol, field));
   }
 }

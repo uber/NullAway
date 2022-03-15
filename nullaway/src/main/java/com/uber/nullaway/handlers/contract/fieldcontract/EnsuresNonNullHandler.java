@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.handlers.contract.fieldcontract;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.getAnnotationValueArray;
 
 import com.google.common.base.Preconditions;
@@ -141,7 +142,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     errorMessage
         .append(
             "postcondition inheritance is violated, this method must guarantee that all fields written in the @EnsuresNonNull annotation of overridden method ")
-        .append(ASTHelpers.enclosingClass(overriddenMethod).getSimpleName())
+        .append(castToNonNull(ASTHelpers.enclosingClass(overriddenMethod)).getSimpleName())
         .append(".")
         .append(overriddenMethod.getSimpleName())
         .append(" are @NonNull at exit point as well. Fields [");
@@ -195,7 +196,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       fieldNames = ContractUtils.trimReceivers(fieldNames);
       for (String fieldName : fieldNames) {
         VariableElement field =
-            getInstanceFieldOfClass(ASTHelpers.enclosingClass(methodSymbol), fieldName);
+            getInstanceFieldOfClass(
+                castToNonNull(ASTHelpers.enclosingClass(methodSymbol)), fieldName);
         if (field == null) {
           // Invalid annotation, will result in an error during validation. For now, skip field.
           continue;

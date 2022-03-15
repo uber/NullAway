@@ -22,8 +22,6 @@
 
 package com.uber.nullaway.handlers;
 
-import static com.uber.nullaway.NullabilityUtil.castToNonNull;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
@@ -175,7 +173,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    if (isReturnAnnotatedNullable(castToNonNull(ASTHelpers.getSymbol(node.getTree())))) {
+    if (isReturnAnnotatedNullable(ASTHelpers.getSymbol(node.getTree()))) {
       return NullnessHint.HINT_NULLABLE;
     }
     return NullnessHint.UNKNOWN;
@@ -186,8 +184,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
       return exprMayBeNull
-          || isReturnAnnotatedNullable(
-              castToNonNull(ASTHelpers.getSymbol((MethodInvocationTree) expr)));
+          || isReturnAnnotatedNullable(ASTHelpers.getSymbol((MethodInvocationTree) expr));
     }
     return exprMayBeNull;
   }

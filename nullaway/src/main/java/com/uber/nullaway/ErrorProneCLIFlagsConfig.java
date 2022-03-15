@@ -224,7 +224,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
      * field be @Nonnull, allowing us to avoid null checks in various places.
      */
     fixSerializationConfig =
-        serializationActivationFlag
+        serializationActivationFlag && fixSerializationConfigPath.isPresent()
             ? new FixSerializationConfig(fixSerializationConfigPath.get())
             : new FixSerializationConfig();
     if (serializationActivationFlag && isSuggestSuppressions) {

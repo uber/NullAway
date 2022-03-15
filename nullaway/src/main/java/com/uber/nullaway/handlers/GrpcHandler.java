@@ -88,7 +88,7 @@ public class GrpcHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     MethodInvocationTree tree = castToNonNull(node.getTree());
-    Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(tree));
+    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(tree);
     if (grpcIsMetadataContainsKeyCall(symbol, types)) {
       // On seeing o.containsKey(k), set AP for o.get(k) to @NonNull
       Element getter = getGetterForMetadataSubtype(symbol.enclClass(), types);

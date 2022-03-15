@@ -185,7 +185,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
             fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
           }
         }
-        Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
+        Symbol.ClassSymbol classSymbol = castToNonNull(ASTHelpers.enclosingClass(methodSymbol));
         VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
         if (field == null) {
           message =
