@@ -36,7 +36,7 @@ import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** abstract base class for null checker {@link Config} implementations */
-@SuppressWarnings("NullAway") // TEMPORARY
+@SuppressWarnings("NullAway") // TODO: get rid of this class to avoid suppression
 public abstract class AbstractConfig implements Config {
 
   /**
