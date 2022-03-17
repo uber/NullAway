@@ -336,6 +336,11 @@ public class NullabilityUtil {
     return ASTHelpers.isSubtype(owner.type, MAP_TYPE_SUPPLIER.get(state), state);
   }
 
+  /**
+   * Downcasts a {@code @Nullable} argument to {@code NonNull}, returning the argument
+   *
+   * @throws NullPointerException if argument is {@code null}
+   */
   public static <T> T castToNonNull(@Nullable T obj) {
     if (obj == null) {
       throw new NullPointerException("castToNonNull failed!");
