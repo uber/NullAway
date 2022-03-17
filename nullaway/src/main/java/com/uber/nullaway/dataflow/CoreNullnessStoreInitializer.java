@@ -62,13 +62,11 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     ClassTree classTree = underlyingAST.getClassTree();
     NullnessStore envStore = getEnvNullnessStoreForClass(classTree, context);
     NullnessStore.Builder result = envStore.toBuilder();
-    if (parameters != null) {
-      for (LocalVariableNode param : parameters) {
-        Element element = param.getElement();
-        Nullness assumed =
-            Nullness.hasNullableAnnotation((Symbol) element, config) ? NULLABLE : NONNULL;
-        result.setInformation(AccessPath.fromLocal(param), assumed);
-      }
+    for (LocalVariableNode param : parameters) {
+      Element element = param.getElement();
+      Nullness assumed =
+          Nullness.hasNullableAnnotation((Symbol) element, config) ? NULLABLE : NONNULL;
+      result.setInformation(AccessPath.fromLocal(param), assumed);
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
     return result.build();
