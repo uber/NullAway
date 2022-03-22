@@ -64,7 +64,7 @@ public class Serializer {
     if (enclosing) {
       suggestedFixInfo.initEnclosing();
     }
-    appendToFile(suggestedFixInfo.tabSeparatedToString(), suggestedFixesOutputPath);
+    appendToFile(suggestedFixInfo, suggestedFixesOutputPath);
   }
 
   /**
@@ -74,11 +74,11 @@ public class Serializer {
    */
   public void serializeErrorInfo(ErrorInfo errorInfo) {
     errorInfo.initEnclosing();
-    appendToFile(errorInfo.tabSeparatedToString(), errorOutputPath);
+    appendToFile(errorInfo, errorOutputPath);
   }
 
   public void serializeFieldInitializationInfo(FieldInitializationInfo info) {
-    appendToFile(info.tabSeparatedToString(), fieldInitializationOutputPath);
+    appendToFile(info, fieldInitializationOutputPath);
   }
 
   /** Cleared the content of the file if exists and writes the header in the first line. */
@@ -113,13 +113,15 @@ public class Serializer {
     }
   }
 
-  private void appendToFile(String row, Path path) {
+  private void appendToFile(Object info, Path path) {
     // Since there is no method available in API of either javac or errorprone to inform NullAway
     // that the analysis is finished, we cannot open a single stream and flush it within a finalize
     // method. Must open and close a new stream everytime we are appending a new line to a file.
+    String row = info.toString();
     if (row == null || row.equals("")) {
       return;
     }
+    row = row.replaceAll("\n", " ");
     row = row + "\n";
     try (OutputStream os = new FileOutputStream(path.toFile(), true)) {
       os.write(row.getBytes(Charset.defaultCharset()), 0, row.length());

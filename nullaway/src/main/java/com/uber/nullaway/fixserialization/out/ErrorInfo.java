@@ -37,15 +37,11 @@ public class ErrorInfo {
     this.errorMessage = errorMessage;
   }
 
-  /**
-   * returns string representation of content of an object.
-   *
-   * @return string representation of contents of an object in a line seperated by tabs.
-   */
-  public String tabSeparatedToString() {
+  @Override
+  public String toString() {
     return errorMessage.getMessageType().toString()
         + '\t'
-        + errorMessage.getMessage()
+        + errorMessage.getMessage().replaceAll("\t", " ").replaceAll("\n", " ")
         + '\t'
         + (enclosingInfo.getClazz() != null
             ? ASTHelpers.getSymbol(enclosingInfo.getClazz())
