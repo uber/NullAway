@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.fixserialization.location;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
@@ -47,7 +49,7 @@ public abstract class AbstractFixLocation implements FixLocation {
             + type
             + ".");
     this.type = type;
-    this.enclosingClass = ASTHelpers.enclosingClass(target);
+    this.enclosingClass = castToNonNull(ASTHelpers.enclosingClass(target));
     this.uri = enclosingClass.sourcefile.toUri();
   }
 }

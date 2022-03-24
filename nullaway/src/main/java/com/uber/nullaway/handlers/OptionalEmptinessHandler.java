@@ -21,6 +21,7 @@
  */
 package com.uber.nullaway.handlers;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -63,7 +64,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
   @Nullable private ImmutableSet<Type> optionalTypes;
-  private NullAway analysis;
+  private @Nullable NullAway analysis;
 
   private final Config config;
   private final MethodNameUtil methodNameUtil;
@@ -123,7 +124,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   @Override
   public Optional<ErrorMessage> onExpressionDereference(
       ExpressionTree expr, ExpressionTree baseExpr, VisitorState state) {
-
+    Preconditions.checkNotNull(analysis);
     if (ASTHelpers.getSymbol(expr) instanceof Symbol.MethodSymbol
         && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())
         && isOptionalContentNullable(state, baseExpr, analysis.getNullnessAnalysis(state))) {
@@ -196,6 +197,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   private boolean optionalIsPresentCall(Symbol.MethodSymbol symbol, Types types) {
+    Preconditions.checkNotNull(optionalTypes);
     for (Type optionalType : optionalTypes) {
       if (symbol.getSimpleName().toString().equals("isPresent")
           && symbol.getParameters().length() == 0
@@ -207,6 +209,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   private boolean optionalIsGetCall(Symbol.MethodSymbol symbol, Types types) {
+    Preconditions.checkNotNull(optionalTypes);
     for (Type optionalType : optionalTypes) {
       if (symbol.getSimpleName().toString().equals("get")
           && symbol.getParameters().length() == 0
@@ -217,59 +220,74 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     return false;
   }
 
+  /**
+   * A {@link VariableElement} for a dummy "field" holding the contents of an Optional object, used
+   * in dataflow analysis to track whether the Optional content is present.
+   */
   private static VariableElement getOptionalContentElement() {
     return new VariableElement() {
       @Override
+      @Nullable
       public Object getConstantValue() {
         return null;
       }
 
       @Override
+      @Nullable
       public Name getSimpleName() {
         return null;
       }
 
       @Override
+      @Nullable
       public Element getEnclosingElement() {
         return null;
       }
 
       @Override
+      @Nullable
       public List<? extends Element> getEnclosedElements() {
         return null;
       }
 
       @Override
+      @Nullable
       public List<? extends AnnotationMirror> getAnnotationMirrors() {
         return null;
       }
 
       @Override
+      @Nullable
       public <A extends Annotation> A getAnnotation(Class<A> aClass) {
         return null;
       }
 
       @Override
+      @Nullable
       public <A extends Annotation> A[] getAnnotationsByType(Class<A> aClass) {
         return null;
       }
 
       @Override
+      @Nullable
       public <R, P> R accept(ElementVisitor<R, P> elementVisitor, P p) {
         return null;
       }
 
       @Override
+      @Nullable
       public TypeMirror asType() {
         return null;
       }
 
       @Override
+      @Nullable
       public ElementKind getKind() {
         return null;
       }
 
       @Override
+      @Nullable
       public Set<Modifier> getModifiers() {
         return null;
       }

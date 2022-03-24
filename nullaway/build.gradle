@@ -29,6 +29,10 @@ dependencies {
     annotationProcessor deps.apt.autoValue
     compileOnly deps.apt.autoServiceAnnot
     annotationProcessor deps.apt.autoService
+    compileOnly deps.test.inferAnnotations
+    compileOnly deps.build.jsr305Annotations
+    compileOnly deps.test.jetbrainsAnnotations
+
 
     compileOnly deps.build.errorProneCheckApi
     implementation deps.build.checkerDataflow
@@ -112,6 +116,12 @@ if (JavaVersion.current() >= JavaVersion.VERSION_11) {
     // Create a task to build NullAway with NullAway checking enabled
     // For some reason, this doesn't work on Java 8
     tasks.register('buildWithNullAway', JavaCompile) {
+        onlyIf {
+            // We only do NullAway checks when compiling against the latest
+            // version of Error Prone (as nullability annotations on the APIs
+            // can change between versions)
+            deps.versions.errorProneApi == deps.versions.errorProneLatest
+        }
         // Configure compilation to run with Error Prone and NullAway
         source = sourceSets.main.java
         classpath = sourceSets.main.compileClasspath
@@ -123,7 +133,10 @@ if (JavaVersion.current() >= JavaVersion.VERSION_11) {
                 nullawayDeps)
         options.errorprone.enabled = true
         options.errorprone {
-            option("NullAway:AnnotatedPackages", "com.uber")
+            option("NullAway:AnnotatedPackages", "com.uber,org.checkerframework.nullaway")
+            option("NullAway:CastToNonNullMethod", "com.uber.nullaway.NullabilityUtil.castToNonNull")
+            option("NullAway:CheckOptionalEmptiness")
+            option("NullAway:AcknowledgeRestrictiveAnnotations")
         }
         // Make sure the jar has already been built
         dependsOn 'jar'
@@ -134,5 +147,9 @@ if (JavaVersion.current() >= JavaVersion.VERSION_11) {
                 assert f.exists()
             }
         }
+    }
+
+    project.tasks.named('check').configure {
+        dependsOn 'buildWithNullAway'
     }
 }

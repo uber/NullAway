@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
@@ -210,6 +211,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     return false;
   }
 
+  @Nullable
   private Map<Integer, Set<String>> lookupMethodInCache(String className, String methodSign) {
     if (!argAnnotCache.containsKey(className)) {
       return null;
@@ -332,12 +334,14 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     if (!argAnnotCache.containsKey(className)) {
       argAnnotCache.put(className, new LinkedHashMap<>());
     }
-    if (!argAnnotCache.get(className).containsKey(methodSig)) {
-      argAnnotCache.get(className).put(methodSig, new LinkedHashMap<>());
+    Map<String, Map<Integer, Set<String>>> cacheForClass = argAnnotCache.get(className);
+    if (!cacheForClass.containsKey(methodSig)) {
+      cacheForClass.put(methodSig, new LinkedHashMap<>());
     }
-    if (!argAnnotCache.get(className).get(methodSig).containsKey(argNum)) {
-      argAnnotCache.get(className).get(methodSig).put(argNum, new LinkedHashSet<>());
+    Map<Integer, Set<String>> cacheForMethod = cacheForClass.get(methodSig);
+    if (!cacheForMethod.containsKey(argNum)) {
+      cacheForMethod.put(argNum, new LinkedHashSet<>());
     }
-    argAnnotCache.get(className).get(methodSig).get(argNum).add(annotation);
+    cacheForMethod.get(argNum).add(annotation);
   }
 }

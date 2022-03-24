@@ -330,9 +330,18 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       // previous filter.
       MaplikeToFilterInstanceRecord callInstanceRecord = mapToFilterMap.get(tree);
       Tree filterTree = callInstanceRecord.getFilter();
-      assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
+      if (!(filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree)) {
+        throw new IllegalStateException(
+            "unexpected filterTree type "
+                + filterTree.getClass()
+                + " "
+                + state.getSourceForNode(filterTree));
+      }
       NullnessStore filterNullnessStore = filterToNSMap.get(filterTree);
-      assert filterNullnessStore != null;
+      if (filterNullnessStore == null) {
+        throw new IllegalStateException(
+            "null filterNullStore for tree " + state.getSourceForNode(filterTree));
+      }
       for (AccessPath ap : filterNullnessStore.getAccessPathsWithValue(Nullness.NONNULL)) {
         // Find the access path corresponding to the current unbound method reference after binding
         ImmutableList<AccessPathElement> elements = ap.getElements();
@@ -434,7 +443,9 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
               new LocalVariableNode(((LambdaExpressionTree) tree).getParameters().get(argIdx));
         }
         NullnessStore filterNullnessStore = filterToNSMap.get(filterTree);
-        assert filterNullnessStore != null;
+        if (filterNullnessStore == null) {
+          throw new IllegalStateException("null filterNullStore for tree");
+        }
         NullnessStore renamedRootsNullnessStore =
             filterNullnessStore.uprootAccessPaths(ImmutableMap.of(filterLocalName, mapLocalName));
         for (AccessPath ap : renamedRootsNullnessStore.getAccessPathsWithValue(Nullness.NONNULL)) {

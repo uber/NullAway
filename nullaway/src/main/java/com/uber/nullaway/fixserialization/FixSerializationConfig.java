@@ -27,6 +27,7 @@ import com.uber.nullaway.fixserialization.qual.AnnotationConfig;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -71,11 +72,11 @@ public class FixSerializationConfig {
   public final int paramTestIndex;
 
   /** The directory where all files generated/read by Fix Serialization package resides. */
-  public final String outputDirectory;
+  @Nullable public final String outputDirectory;
 
   public final AnnotationConfig annotationConfig;
 
-  private final Serializer serializer;
+  @Nullable private final Serializer serializer;
 
   /** Default Constructor, all features are disabled with this config. */
   public FixSerializationConfig() {
@@ -113,7 +114,6 @@ public class FixSerializationConfig {
    * @param configFilePath Path to the serialization config file written in xml.
    */
   public FixSerializationConfig(String configFilePath) {
-    Preconditions.checkNotNull(configFilePath);
     Document document;
     try {
       DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -158,6 +158,7 @@ public class FixSerializationConfig {
     serializer = new Serializer(this);
   }
 
+  @Nullable
   public Serializer getSerializer() {
     return serializer;
   }
@@ -172,7 +173,7 @@ public class FixSerializationConfig {
     private int paramIndex;
     private String nullable;
     private String nonnull;
-    private String outputDir;
+    @Nullable private String outputDir;
 
     public Builder() {
       suggestEnabled = false;
@@ -221,6 +222,9 @@ public class FixSerializationConfig {
     }
 
     public FixSerializationConfig build() {
+      if (outputDir == null) {
+        throw new IllegalStateException("did not set mandatory output directory");
+      }
       return new FixSerializationConfig(
           suggestEnabled,
           suggestEnclosing,
