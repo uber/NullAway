@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.dataflow;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -265,7 +267,7 @@ public final class AccessPath implements MapKey {
       argument = ((WideningConversionNode) argument).getOperand();
     }
     // A switch at the Tree level should be faster than multiple if checks at the Node level.
-    switch (argument.getTree().getKind()) {
+    switch (castToNonNull(argument.getTree()).getKind()) {
       case STRING_LITERAL:
         return new StringMapKey(((StringLiteralNode) argument).getValue());
       case INT_LITERAL:
@@ -279,7 +281,7 @@ public final class AccessPath implements MapKey {
         // Check for int/long boxing.
         if (target.getMethod().getSimpleName().toString().equals("valueOf")
             && arguments.size() == 1
-            && receiver.getTree().getKind().equals(Tree.Kind.IDENTIFIER)
+            && castToNonNull(receiver.getTree()).getKind().equals(Tree.Kind.IDENTIFIER)
             && (receiver.toString().equals("Integer") || receiver.toString().equals("Long"))) {
           return argumentToMapKeySpecifier(arguments.get(0), apContext);
         }
@@ -761,6 +763,9 @@ public final class AccessPath implements MapKey {
        * @return an access path context constructed from everything added to the builder
        */
       public AccessPathContext build() {
+        if (immutableTypes == null) {
+          throw new IllegalStateException("must set immutable types before building");
+        }
         return new AccessPathContext(immutableTypes);
       }
     }

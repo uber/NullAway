@@ -41,7 +41,9 @@ public class ContractNullnessStoreInitializer extends NullnessStoreInitializer {
     final Symbol.MethodSymbol callee = ASTHelpers.getSymbol(methodTree);
     final String contractString = ContractUtils.getContractString(callee, config);
 
-    assert contractString != null;
+    if (contractString == null) {
+      throw new IllegalStateException("expected non-null contractString");
+    }
 
     String[] clauses = contractString.split(";");
     String[] parts = clauses[0].split("->");

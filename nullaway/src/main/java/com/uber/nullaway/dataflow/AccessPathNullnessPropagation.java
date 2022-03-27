@@ -16,6 +16,7 @@
 package com.uber.nullaway.dataflow;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.BOTTOM;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
@@ -172,7 +173,12 @@ public class AccessPathNullnessPropagation
   }
 
   private static SubNodeValues values(final TransferInput<Nullness, NullnessStore> input) {
-    return input::getValueOfSubNode;
+    return new SubNodeValues() {
+      @Override
+      public Nullness valueOfSubNode(Node node) {
+        return castToNonNull(input.getValueOfSubNode(node));
+      }
+    };
   }
 
   /**
@@ -511,7 +517,7 @@ public class AccessPathNullnessPropagation
     Node target = node.getTarget();
 
     if (target instanceof LocalVariableNode
-        && !ASTHelpers.getType(target.getTree()).isPrimitive()) {
+        && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
       LocalVariableNode localVariableNode = (LocalVariableNode) target;
       updates.set(localVariableNode, value);
       handleEnhancedForOverKeySet(localVariableNode, rhs, input, updates);
@@ -529,7 +535,7 @@ public class AccessPathNullnessPropagation
       setNonnullIfAnalyzeable(updates, receiver);
       if ((receiver instanceof ThisNode || fieldAccessNode.isStatic())
           && fieldAccessNode.getElement().getKind().equals(ElementKind.FIELD)
-          && !ASTHelpers.getType(target.getTree()).isPrimitive()) {
+          && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
         updates.set(fieldAccessNode, value);
       }
     }

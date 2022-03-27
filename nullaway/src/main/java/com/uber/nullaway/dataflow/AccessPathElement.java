@@ -31,7 +31,7 @@ public final class AccessPathElement {
     return this.javaElement;
   }
 
-  public ImmutableList<String> getConstantArguments() {
+  public @Nullable ImmutableList<String> getConstantArguments() {
     return this.constantArguments;
   }
 

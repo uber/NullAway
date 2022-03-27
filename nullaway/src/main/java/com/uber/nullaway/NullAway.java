@@ -29,6 +29,7 @@ import static com.sun.source.tree.Tree.Kind.OTHER;
 import static com.sun.source.tree.Tree.Kind.PARENTHESIZED;
 import static com.sun.source.tree.Tree.Kind.TYPE_CAST;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
@@ -208,7 +209,10 @@ public class NullAway extends BugChecker
    * We store the ClassAnnotationInfo object in a field for convenience; it is initialized in {@link
    * #matchClass(ClassTree, VisitorState)}
    */
-  @Nullable private ClassAnnotationInfo classAnnotationInfo;
+  // suppress initialization warning rather than casting everywhere; we know matchClass() will
+  // always be called before the field gets dereferenced
+  @SuppressWarnings("NullAway.Init")
+  private ClassAnnotationInfo classAnnotationInfo;
 
   private final Config config;
 
@@ -823,7 +827,8 @@ public class NullAway extends BugChecker
     // overriding method better not return nullable
     if (overriddenMethodReturnsNonNull
         && Nullness.hasNullableAnnotation(overridingMethod, config)
-        && getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE)) {
+        && (memberReferenceTree == null
+            || getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE))) {
       String message;
       if (memberReferenceTree != null) {
         message =
@@ -913,7 +918,8 @@ public class NullAway extends BugChecker
     }
 
     // check that the field might actually be problematic to read
-    FieldInitEntities entities = class2Entities.get(enclosingClassSymbol(enclosingBlockPath));
+    FieldInitEntities entities =
+        castToNonNull(class2Entities.get(enclosingClassSymbol(enclosingBlockPath)));
     if (!(entities.nonnullInstanceFields().contains(symbol)
         || entities.nonnullStaticFields().contains(symbol))) {
       // field is either nullable or initialized at declaration
@@ -933,7 +939,7 @@ public class NullAway extends BugChecker
       Tree parent = enclosingBlockPath.getParentPath().getLeaf();
       return ASTHelpers.getSymbol((ClassTree) parent);
     } else {
-      return ASTHelpers.enclosingClass(ASTHelpers.getSymbol(leaf));
+      return castToNonNull(ASTHelpers.enclosingClass(ASTHelpers.getSymbol(leaf)));
     }
   }
 
@@ -949,13 +955,13 @@ public class NullAway extends BugChecker
       }
       if (ASTHelpers.getSymbol(methodTree).isStatic()) {
         Set<MethodTree> staticInitializerMethods =
-            class2Entities.get(enclosingClassSymbol(enclosingBlockPath)).staticInitializerMethods();
+            castToNonNull(class2Entities.get(enclosingClassSymbol(enclosingBlockPath)))
+                .staticInitializerMethods();
         return staticInitializerMethods.size() == 1
             && staticInitializerMethods.contains(methodTree);
       } else {
         Set<MethodTree> instanceInitializerMethods =
-            class2Entities
-                .get(enclosingClassSymbol(enclosingBlockPath))
+            castToNonNull(class2Entities.get(enclosingClassSymbol(enclosingBlockPath)))
                 .instanceInitializerMethods();
         return instanceInitializerMethods.size() == 1
             && instanceInitializerMethods.contains(methodTree);
@@ -1140,7 +1146,7 @@ public class NullAway extends BugChecker
     // all the initializer blocks have run before any code inside a constructor
     constructors.stream().forEach((c) -> builder.putAll(c, initThusFar));
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
-    FieldInitEntities entities = class2Entities.get(classSymbol);
+    FieldInitEntities entities = castToNonNull(class2Entities.get(classSymbol));
     if (entities.instanceInitializerMethods().size() == 1) {
       MethodTree initMethod = entities.instanceInitializerMethods().iterator().next();
       // collect the fields that may not be initialized by *some* constructor NC
@@ -1841,7 +1847,7 @@ public class NullAway extends BugChecker
               && !symbol.isStatic()
               && !modifiers.contains(Modifier.NATIVE)) {
             // check it's the same class (could be an issue with inner classes)
-            if (ASTHelpers.enclosingClass(symbol).equals(enclosingClassSymbol)) {
+            if (castToNonNull(ASTHelpers.enclosingClass(symbol)).equals(enclosingClassSymbol)) {
               // make sure the receiver is 'this'
               ExpressionTree receiver = ASTHelpers.getReceiver(expressionTree);
               return receiver == null || isThisIdentifier(receiver);
@@ -2181,7 +2187,8 @@ public class NullAway extends BugChecker
     MethodTree methodTree = (MethodTree) suggestTree;
     int countNullableAnnotations = 0;
     for (AnnotationTree annotationTree : methodTree.getModifiers().getAnnotations()) {
-      if (state.getSourceForNode(annotationTree.getAnnotationType()).endsWith("Nullable")) {
+      if (castToNonNull(state.getSourceForNode(annotationTree.getAnnotationType()))
+          .endsWith("Nullable")) {
         fixBuilder.delete(annotationTree);
         countNullableAnnotations += 1;
       }

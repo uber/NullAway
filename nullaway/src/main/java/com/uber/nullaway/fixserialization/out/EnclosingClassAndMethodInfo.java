@@ -26,6 +26,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
+import javax.annotation.Nullable;
 
 /** Container class of enclosing class and method of the element. */
 public class EnclosingClassAndMethodInfo {
@@ -36,9 +37,9 @@ public class EnclosingClassAndMethodInfo {
    * Finding values for these properties is costly and are not needed by default, hence, they are
    * not {@code final} and are only initialized at request.
    */
-  private MethodTree method;
+  @Nullable private MethodTree method;
 
-  private ClassTree clazz;
+  @Nullable private ClassTree clazz;
 
   public EnclosingClassAndMethodInfo(TreePath path) {
     this.path = path;
@@ -56,10 +57,12 @@ public class EnclosingClassAndMethodInfo {
     }
   }
 
+  @Nullable
   public MethodTree getMethod() {
     return method;
   }
 
+  @Nullable
   public ClassTree getClazz() {
     return clazz;
   }

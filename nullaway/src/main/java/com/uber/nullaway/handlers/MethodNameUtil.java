@@ -22,6 +22,7 @@ package com.uber.nullaway.handlers;
  * THE SOFTWARE.
  */
 
+import com.facebook.infer.annotation.Initializer;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.util.Name;
@@ -81,6 +82,7 @@ class MethodNameUtil {
   private Name notNullValueMatcher;
   private Name nullValueMatcher;
 
+  @Initializer
   void initializeMethodNames(Name.Table table) {
     isNotNull = table.fromString(IS_NOT_NULL_METHOD);
     isNotNullOwner = table.fromString(IS_NOT_NULL_OWNER);

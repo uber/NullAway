@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.predicates.TypePredicate;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.Nullable;
 
 /**
  * Used to produce a new list of StreamTypeRecord models, where each model represents a class from a
@@ -39,7 +40,7 @@ import java.util.List;
 public class StreamModelBuilder {
 
   private final List<StreamTypeRecord> typeRecords = new ArrayList<>();
-  private TypePredicate tp = null;
+  private @Nullable TypePredicate tp = null;
   private ImmutableSet.Builder<String> filterMethodSigs;
   private ImmutableSet.Builder<String> filterMethodSimpleNames;
   private ImmutableMap.Builder<String, MaplikeMethodRecord> mapMethodSigToRecord;
@@ -47,7 +48,10 @@ public class StreamModelBuilder {
   private ImmutableSet.Builder<String> passthroughMethodSigs;
   private ImmutableSet.Builder<String> passthroughMethodSimpleNames;
 
-  private StreamModelBuilder() {}
+  private StreamModelBuilder() {
+    // initialize here to avoid having the fields be @Nullable
+    initializeBuilders();
+  }
 
   /**
    * Get an empty StreamModelBuilder.
@@ -81,13 +85,17 @@ public class StreamModelBuilder {
   public StreamModelBuilder addStreamType(TypePredicate tp) {
     finalizeOpenStreamTypeRecord();
     this.tp = tp;
+    initializeBuilders();
+    return this;
+  }
+
+  private void initializeBuilders() {
     this.filterMethodSigs = ImmutableSet.builder();
     this.filterMethodSimpleNames = ImmutableSet.builder();
     this.mapMethodSigToRecord = ImmutableMap.builder();
     this.mapMethodSimpleNameToRecord = ImmutableMap.builder();
     this.passthroughMethodSigs = ImmutableSet.builder();
     this.passthroughMethodSimpleNames = ImmutableSet.builder();
-    return this;
   }
 
   /**
