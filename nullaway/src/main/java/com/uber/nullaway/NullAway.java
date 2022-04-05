@@ -49,7 +49,6 @@ import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.matchers.Matcher;
 import com.google.errorprone.matchers.Matchers;
-import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
@@ -178,8 +177,6 @@ public class NullAway extends BugChecker
   static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
   // Unmatched, used for when we only want full checker suppressions to work
   static final String CORE_CHECK_NAME = "NullAway.<core>";
-
-  private static final Supplier<Type> JAVA_LANG_VOID = Suppliers.typeFromString("java.lang.Void");
 
   private static final Matcher<ExpressionTree> THIS_MATCHER = NullAway::isThisIdentifierMatcher;
 
@@ -727,12 +724,9 @@ public class NullAway extends BugChecker
   private Description checkReturnExpression(
       Tree tree, ExpressionTree retExpr, Symbol.MethodSymbol methodSymbol, VisitorState state) {
     Type returnType = methodSymbol.getReturnType();
-    if (returnType.isPrimitive()) {
+    if (returnType.isPrimitiveOrVoid()) {
       // check for unboxing
-      return doUnboxingCheck(state, retExpr);
-    }
-    if (state.getTypes().isSameType(returnType, JAVA_LANG_VOID.get(state))) {
-      return Description.NO_MATCH;
+      return returnType.isPrimitive() ? doUnboxingCheck(state, retExpr) : Description.NO_MATCH;
     }
     if (classAnnotationInfo.isSymbolUnannotated(methodSymbol, config)
         || Nullness.hasNullableAnnotation(methodSymbol, config)) {
