@@ -603,4 +603,23 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void nullableOnJavaLangVoid() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  Void foo1() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    return null;",
+            "  }",
+            "  @Nullable Void foo2() {",
+            "    return null;",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
