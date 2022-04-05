@@ -22,8 +22,16 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.1.1'
+        classpath 'com.android.tools.build:gradle:7.0.4'
         classpath 'com.vanniktech:gradle-maven-publish-plugin:0.14.2'
+        // This restriction is needed due to our mix of Android and Java modules;
+        // without it, the build fails with a weird error.
+        // See https://stackoverflow.com/questions/70217853/how-to-include-android-project-in-a-gradle-multi-project-build
+        classpath('org.ow2.asm:asm') {
+            version {
+                strictly '9.2'
+            }
+        }
     }
 }
 plugins {
@@ -31,7 +39,6 @@ plugins {
   id "net.ltgt.errorprone" version "2.0.1" apply false
   id "com.github.johnrengelman.shadow" version "6.1.0" apply false
   id "com.github.kt3k.coveralls" version "2.12.0" apply false
-  id "com.android.application" version "3.5.0" apply false
   id "me.champeau.jmh" version "0.6.6" apply false
 }
 
@@ -64,15 +71,31 @@ subprojects { project ->
             // this check is too noisy
             check("StringSplitter", CheckSeverity.OFF)
             check("WildcardImport", CheckSeverity.ERROR)
+            check("MissingBraces", CheckSeverity.ERROR)
             check("TypeToString", CheckSeverity.ERROR)
             check("SymbolToString", CheckSeverity.ERROR)
             check("DescribeMatch", CheckSeverity.ERROR)
         }
     }
 
-    if (JavaVersion.current().java9Compatible) {
+    // We target Java 11 when building on JDK 11+, but Java 8 when building on JDK 8, since
+    // EP 2.11.0+ requires Java 11
+    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
         tasks.withType(JavaCompile) {
-            options.release = 8
+            java.sourceCompatibility = "11"
+            java.targetCompatibility = "11"
+        }
+    } else {
+        tasks.withType(JavaCompile) {
+            java.sourceCompatibility = "1.8"
+            java.targetCompatibility = "1.8"
+        }
+    }
+
+    // Ensure we are running on Java 8 whenever publishing to remote repos
+    tasks.withType(PublishToMavenRepository) {
+        doFirst {
+            assert JavaVersion.current() == JavaVersion.VERSION_1_8 : "Only publish to remote repos on JDK 1.8"
         }
     }
 
@@ -88,7 +111,7 @@ subprojects { project ->
 }
 
 googleJavaFormat {
-  toolVersion = "1.6"
+  toolVersion = "1.14.0"
   // don't enforce formatting for generated Java code under buildSrc
   exclude 'buildSrc/build/**/*.java'
 }

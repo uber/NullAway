@@ -15,10 +15,8 @@
  */
 plugins {
   id "java-library"
+  id "nullaway.jacoco-conventions"
 }
-
-sourceCompatibility = "1.8"
-targetCompatibility = "1.8"
 
 dependencies {
      testImplementation deps.test.junit4

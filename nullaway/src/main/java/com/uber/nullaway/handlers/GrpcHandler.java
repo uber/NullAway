@@ -21,6 +21,8 @@
  */
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
@@ -85,7 +87,7 @@ public class GrpcHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    MethodInvocationTree tree = node.getTree();
+    MethodInvocationTree tree = castToNonNull(node.getTree());
     Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(tree);
     if (grpcIsMetadataContainsKeyCall(symbol, types)) {
       // On seeing o.containsKey(k), set AP for o.get(k) to @NonNull

@@ -20,9 +20,6 @@ plugins {
   id 'nullaway.jacoco-conventions'
 }
 
-sourceCompatibility = "1.8"
-targetCompatibility = "1.8"
-
 configurations {
     nullawayJar
 }
@@ -32,6 +29,10 @@ dependencies {
     annotationProcessor deps.apt.autoValue
     compileOnly deps.apt.autoServiceAnnot
     annotationProcessor deps.apt.autoService
+    compileOnly deps.test.inferAnnotations
+    compileOnly deps.build.jsr305Annotations
+    compileOnly deps.test.jetbrainsAnnotations
+
 
     compileOnly deps.build.errorProneCheckApi
     implementation deps.build.checkerDataflow
@@ -45,6 +46,7 @@ dependencies {
     testImplementation deps.test.junit5Jupiter
     testImplementation deps.test.cfQual
     testImplementation deps.test.cfCompatQual
+    testImplementation deps.build.jspecify
     testImplementation project(":test-java-lib")
     testImplementation deps.test.inferAnnotations
     testImplementation deps.apt.jakartaInject
@@ -57,6 +59,7 @@ dependencies {
     testImplementation deps.test.springBeans
     testImplementation deps.test.springContext
     testImplementation deps.test.grpcCore
+    testImplementation project(":test-java-lib-lombok")
 
     // This ends up being resolved to the NullAway jar under nullaway/build/libs
     nullawayJar "com.uber.nullaway:nullaway:$VERSION_NAME"
@@ -92,10 +95,33 @@ test {
 
 apply plugin: 'com.vanniktech.maven.publish'
 
-// Create a task to build NullAway with NullAway checking enabled
-// For some reason, this doesn't work on Java 8
 if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+    // Required on Java 11+ since Error Prone and NullAway access a bunch of
+    // JDK-internal APIs that are not exposed otherwise
+    tasks.withType(JavaCompile).configureEach {
+        options.compilerArgs += [
+                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
+        ]
+    }
+    // Create a task to build NullAway with NullAway checking enabled
+    // For some reason, this doesn't work on Java 8
     tasks.register('buildWithNullAway', JavaCompile) {
+        onlyIf {
+            // We only do NullAway checks when compiling against the latest
+            // version of Error Prone (as nullability annotations on the APIs
+            // can change between versions)
+            deps.versions.errorProneApi == deps.versions.errorProneLatest
+        }
         // Configure compilation to run with Error Prone and NullAway
         source = sourceSets.main.java
         classpath = sourceSets.main.compileClasspath
@@ -107,7 +133,10 @@ if (JavaVersion.current() >= JavaVersion.VERSION_11) {
                 nullawayDeps)
         options.errorprone.enabled = true
         options.errorprone {
-            option("NullAway:AnnotatedPackages", "com.uber")
+            option("NullAway:AnnotatedPackages", "com.uber,org.checkerframework.nullaway")
+            option("NullAway:CastToNonNullMethod", "com.uber.nullaway.NullabilityUtil.castToNonNull")
+            option("NullAway:CheckOptionalEmptiness")
+            option("NullAway:AcknowledgeRestrictiveAnnotations")
         }
         // Make sure the jar has already been built
         dependsOn 'jar'
@@ -118,5 +147,9 @@ if (JavaVersion.current() >= JavaVersion.VERSION_11) {
                 assert f.exists()
             }
         }
+    }
+
+    project.tasks.named('check').configure {
+        dependsOn 'buildWithNullAway'
     }
 }

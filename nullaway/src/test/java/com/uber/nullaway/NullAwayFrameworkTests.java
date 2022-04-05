@@ -1,5 +1,6 @@
 package com.uber.nullaway;
 
+import java.util.Arrays;
 import org.junit.Test;
 
 public class NullAwayFrameworkTests extends NullAwayTestsBase {
@@ -269,6 +270,82 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
             "  }",
             "  public void Fun() {",
             "    f.setBar(\"hello\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testLombokBuilderWithGeneratedAsUnannotated() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lombok.LombokDTO;",
+            "class Test {",
+            "  void testSetters(LombokDTO ldto) {",
+            "     ldto.setNullableField(null);",
+            "     // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "     ldto.setField(null);",
+            "  }",
+            "  String testGetterSafe(LombokDTO ldto) {",
+            "     return ldto.getField();",
+            "  }",
+            "  String testGetterNullable(LombokDTO ldto) {",
+            "     // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "     return ldto.getNullableField();",
+            "  }",
+            "  LombokDTO testBuilderSafe(@Nullable String s1, String s2) {",
+            "     // Safe, because s2 is non-null and nullableField can take @Nullable",
+            "     return LombokDTO.builder().nullableField(s1).field(s2).build();",
+            "  }",
+            "  LombokDTO testBuilderUnsafe(@Nullable String s1, @Nullable String s2) {",
+            "     // No error, because the code of LombokDTO.Builder is @Generated and we are",
+            "     // building with TreatGeneratedAsUnannotated=true",
+            "     return LombokDTO.builder().nullableField(s1).field(s2).build();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testLombokBuilderWithoutGeneratedAsUnannotated() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.lombok.LombokDTO;",
+            "class Test {",
+            "  void testSetters(LombokDTO ldto) {",
+            "     ldto.setNullableField(null);",
+            "     // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "     ldto.setField(null);",
+            "  }",
+            "  String testGetterSafe(LombokDTO ldto) {",
+            "     return ldto.getField();",
+            "  }",
+            "  String testGetterNullable(LombokDTO ldto) {",
+            "     // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "     return ldto.getNullableField();",
+            "  }",
+            "  LombokDTO testBuilderSafe(@Nullable String s1, String s2) {",
+            "     // Safe, because s2 is non-null and nullableField can take @Nullable",
+            "     return LombokDTO.builder().nullableField(s1).field(s2).build();",
+            "  }",
+            "  LombokDTO testBuilderUnsafe(@Nullable String s1, @Nullable String s2) {",
+            "     // BUG: Diagnostic contains: passing @Nullable parameter 's2' where @NonNull is required",
+            "     return LombokDTO.builder().nullableField(s1).field(s2).build();",
             "  }",
             "}")
         .doTest();

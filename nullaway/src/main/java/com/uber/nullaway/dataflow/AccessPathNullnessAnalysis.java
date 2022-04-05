@@ -18,6 +18,8 @@
 
 package com.uber.nullaway.dataflow;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
@@ -62,7 +64,7 @@ public final class AccessPathNullnessAnalysis {
   // Use #instance to instantiate
   private AccessPathNullnessAnalysis(
       Predicate<MethodInvocationNode> methodReturnsNonNull,
-      Context context,
+      VisitorState state,
       Config config,
       Handler handler) {
     apContext =
@@ -73,7 +75,7 @@ public final class AccessPathNullnessAnalysis {
         new AccessPathNullnessPropagation(
             Nullness.NONNULL,
             methodReturnsNonNull,
-            context,
+            state,
             apContext,
             config,
             handler,
@@ -85,7 +87,7 @@ public final class AccessPathNullnessAnalysis {
           new AccessPathNullnessPropagation(
               Nullness.NONNULL,
               methodReturnsNonNull,
-              context,
+              state,
               apContext,
               config,
               handler,
@@ -96,20 +98,21 @@ public final class AccessPathNullnessAnalysis {
   /**
    * Get the per-Javac instance of the analysis.
    *
-   * @param context Javac context
+   * @param state visitor state for the compilation
    * @param methodReturnsNonNull predicate determining whether a method is assumed to return NonNull
    *     value
    * @param config analysis config
    * @return instance of the analysis
    */
   public static AccessPathNullnessAnalysis instance(
-      Context context,
+      VisitorState state,
       Predicate<MethodInvocationNode> methodReturnsNonNull,
       Config config,
       Handler handler) {
+    Context context = state.context;
     AccessPathNullnessAnalysis instance = context.get(FIELD_NULLNESS_ANALYSIS_KEY);
     if (instance == null) {
-      instance = new AccessPathNullnessAnalysis(methodReturnsNonNull, context, config, handler);
+      instance = new AccessPathNullnessAnalysis(methodReturnsNonNull, state, config, handler);
       context.put(FIELD_NULLNESS_ANALYSIS_KEY, instance);
     }
     return instance;
@@ -137,7 +140,8 @@ public final class AccessPathNullnessAnalysis {
    */
   @Nullable
   public Nullness getNullnessForContractDataflow(TreePath exprPath, Context context) {
-    return dataFlow.expressionDataflow(exprPath, context, contractNullnessPropagation);
+    return dataFlow.expressionDataflow(
+        exprPath, context, castToNonNull(contractNullnessPropagation));
   }
 
   /**
@@ -324,6 +328,7 @@ public final class AccessPathNullnessAnalysis {
    * @param context Javac context
    * @return the final NullnessStore on exit from the method.
    */
+  @Nullable
   public NullnessStore forceRunOnMethod(TreePath methodPath, Context context) {
     return dataFlow.finalResult(methodPath, context, nullnessPropagation);
   }
@@ -342,9 +347,10 @@ public final class AccessPathNullnessAnalysis {
 
     // We use the CFG to get the Node corresponding to the expression
     Set<Node> exprNodes =
-        dataFlow
-            .getControlFlowGraph(exprPath, context, nullnessPropagation)
-            .getNodesCorrespondingToTree(exprPath.getLeaf());
+        castToNonNull(
+            dataFlow
+                .getControlFlowGraph(exprPath, context, nullnessPropagation)
+                .getNodesCorrespondingToTree(exprPath.getLeaf()));
 
     if (exprNodes.size() != 1) {
       // Since the expression must have a single corresponding node
@@ -356,9 +362,7 @@ public final class AccessPathNullnessAnalysis {
         AccessPath.fromBaseAndElement(exprNodes.iterator().next(), variableElement, apContext);
 
     if (store != null && ap != null) {
-      if (store
-          .getAccessPathsWithValue(Nullness.NONNULL)
-          .stream()
+      if (store.getAccessPathsWithValue(Nullness.NONNULL).stream()
           .anyMatch(accessPath -> accessPath.equals(ap))) {
         return Nullness.NONNULL;
       }

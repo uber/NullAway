@@ -38,20 +38,17 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
+import com.uber.nullaway.jarinfer.JarInferStubxProvider;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.JarURLConnection;
-import java.net.URL;
-import java.net.URLClassLoader;
-import java.net.URLConnection;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.ServiceLoader;
 import java.util.Set;
-import java.util.jar.JarEntry;
-import java.util.jar.JarFile;
+import javax.annotation.Nullable;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
@@ -62,11 +59,12 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   private static boolean VERBOSE = false;
 
   private static void LOG(boolean cond, String tag, String msg) {
-    if (cond) System.out.println("[JI " + tag + "] " + msg);
+    if (cond) {
+      System.out.println("[JI " + tag + "] " + msg);
+    }
   }
 
   private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
-  private static final String DEFAULT_ASTUBX_LOCATION = "META-INF/nullaway/jarinfer.astubx";
   private static final String ANDROID_ASTUBX_LOCATION = "jarinfer.astubx";
   private static final String ANDROID_MODEL_CLASS =
       "com.uber.nullaway.jarinfer.AndroidJarInferModels";
@@ -74,8 +72,6 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   private static final int RETURN = -1; // '-1' indexes Return type in the Annotation Cache
 
   private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
-  private final Map<String, Set<String>> mapModelJarLocations;
-  private final Set<String> loadedJars;
 
   private final Config config;
 
@@ -83,8 +79,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     super();
     this.config = config;
     argAnnotCache = new LinkedHashMap<>();
-    mapModelJarLocations = new LinkedHashMap<>();
-    loadedJars = new LinkedHashSet<>();
+    loadStubxFiles();
     // Load Android SDK JarInfer models
     try {
       InputStream androidStubxIS =
@@ -107,20 +102,25 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     }
   }
 
-  /*
-   * Scan Java Classpath for JarInfer model jars and map their names to locations
+  /**
+   * Loads all stubx files discovered in the classpath. Stubx files are discovered via
+   * implementations of {@link JarInferStubxProvider} loaded using a {@link ServiceLoader}
    */
-  private void processClassPath() {
-    URL[] classLoaderUrls =
-        ((URLClassLoader) Thread.currentThread().getContextClassLoader()).getURLs();
-    for (URL url : classLoaderUrls) {
-      String path = url.getFile();
-      if (path.matches(config.getJarInferRegexStripModelJarName())) {
-        String name = path.replaceAll(config.getJarInferRegexStripModelJarName(), "$1");
-        LOG(DEBUG, "DEBUG", "model jar name: " + name + "\tjar path: " + path);
-        if (!mapModelJarLocations.containsKey(name))
-          mapModelJarLocations.put(name, new LinkedHashSet<>());
-        mapModelJarLocations.get(name).add(path);
+  private void loadStubxFiles() {
+    Iterable<JarInferStubxProvider> astubxProviders =
+        ServiceLoader.load(
+            JarInferStubxProvider.class, InferredJARModelsHandler.class.getClassLoader());
+    for (JarInferStubxProvider provider : astubxProviders) {
+      for (String astubxPath : provider.pathsToStubxFiles()) {
+        Class<? extends JarInferStubxProvider> providerClass = provider.getClass();
+        InputStream stubxInputStream = providerClass.getResourceAsStream(astubxPath);
+        String stubxLocation = providerClass + ":" + astubxPath;
+        try {
+          parseStubStream(stubxInputStream, stubxLocation);
+          LOG(DEBUG, "DEBUG", "loaded stubx file " + stubxLocation);
+        } catch (IOException e) {
+          throw new RuntimeException("could not parse stubx file " + stubxLocation, e);
+        }
       }
     }
   }
@@ -132,9 +132,6 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
       ImmutableSet<Integer> nonNullPositions) {
-    if (mapModelJarLocations.isEmpty()) {
-      processClassPath();
-    }
     Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
     String className = classSymbol.getQualifiedName().toString();
     if (methodSymbol.getModifiers().contains(Modifier.ABSTRACT)) {
@@ -144,10 +141,14 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
           "Skipping abstract method: " + className + " : " + methodSymbol.getQualifiedName());
       return nonNullPositions;
     }
-    if (!lookupAndBuildCache(classSymbol)) return nonNullPositions;
+    if (!argAnnotCache.containsKey(className)) {
+      return nonNullPositions;
+    }
     String methodSign = getMethodSignature(methodSymbol);
     Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
-    if (methodArgAnnotations == null) return nonNullPositions;
+    if (methodArgAnnotations == null) {
+      return nonNullPositions;
+    }
     Set<Integer> jiNonNullParams = new LinkedHashSet<>();
     for (Map.Entry<Integer, Set<String>> annotationEntry : methodArgAnnotations.entrySet()) {
       if (annotationEntry.getKey() != RETURN
@@ -156,8 +157,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         jiNonNullParams.add(annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1));
       }
     }
-    if (!jiNonNullParams.isEmpty())
+    if (!jiNonNullParams.isEmpty()) {
       LOG(DEBUG, "DEBUG", "Nonnull params: " + jiNonNullParams.toString() + " for " + methodSign);
+    }
     return Sets.union(nonNullPositions, jiNonNullParams).immutableCopy();
   }
 
@@ -192,7 +194,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       Preconditions.checkNotNull(methodSymbol);
       Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
       String className = classSymbol.getQualifiedName().toString();
-      if (lookupAndBuildCache(classSymbol)) {
+      if (argAnnotCache.containsKey(className)) {
         String methodSign = getMethodSignature(methodSymbol);
         Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
         if (methodArgAnnotations != null) {
@@ -209,82 +211,11 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     return false;
   }
 
-  private boolean lookupAndBuildCache(Symbol.ClassSymbol klass) {
-    String className = klass.getQualifiedName().toString();
-    try {
-      LOG(DEBUG, "DEBUG", "Looking for class: " + className);
-      if (klass.classfile == null) {
-        LOG(VERBOSE, "Warn", "Cannot resolve source for class: " + className);
-        return false;
-      }
-      // Annotation cache
-      String jarPath = "";
-      if (!argAnnotCache.containsKey(className)) {
-        // this works for aar !
-        URLConnection uc = klass.classfile.toUri().toURL().openConnection();
-        if (!(uc instanceof JarURLConnection)) return false;
-        JarURLConnection juc = (JarURLConnection) uc;
-        jarPath = juc.getJarFileURL().getPath();
-        LOG(DEBUG, "DEBUG", "Found source of class: " + className + ", jar: " + jarPath);
-        // Avoid reloading for classes w/o any stubs from already loaded jars.
-        if (!loadedJars.contains(jarPath)) {
-          loadedJars.add(jarPath);
-          String jarName = jarPath.replaceAll(config.getJarInferRegexStripCodeJarName(), "$1");
-          LOG(DEBUG, "DEBUG", "code jar name: " + jarName + "\tjar path: " + jarPath);
-          // Lookup model jar locations for jar name
-          if (!mapModelJarLocations.containsKey(jarName)) {
-            LOG(
-                VERBOSE,
-                "Warn",
-                "Cannot find model jar for class: " + className + ", jar: " + jarName);
-            return false;
-          }
-          // Load model jars
-          for (String modelJarPath : mapModelJarLocations.get(jarName)) {
-            JarFile jar = new JarFile(modelJarPath);
-            LOG(DEBUG, "DEBUG", "Found model jar at: " + modelJarPath);
-            JarEntry astubxJE = jar.getJarEntry(DEFAULT_ASTUBX_LOCATION);
-            if (astubxJE == null) {
-              LOG(VERBOSE, "Warn", "Cannot find jarinfer.astubx in jar: " + modelJarPath);
-              return false;
-            }
-            InputStream astubxIS = jar.getInputStream(astubxJE);
-            if (astubxIS == null) {
-              LOG(VERBOSE, "Warn", "Cannot load jarinfer.astubx in jar: " + modelJarPath);
-              return false;
-            }
-            parseStubStream(astubxIS, modelJarPath + ": " + DEFAULT_ASTUBX_LOCATION);
-            LOG(
-                DEBUG,
-                "DEBUG",
-                "Loaded "
-                    + argAnnotCache.keySet().size()
-                    + " astubx for class: "
-                    + className
-                    + " from jar: "
-                    + modelJarPath);
-          }
-        } else {
-          LOG(DEBUG, "DEBUG", "Skipping already loaded jar: " + jarPath);
-        }
-      } else {
-        LOG(DEBUG, "DEBUG", "Hit annotation cache for class: " + className);
-      }
-      if (!argAnnotCache.containsKey(className)) {
-        LOG(
-            VERBOSE,
-            "Warn",
-            "Cannot find Annotation Cache for class: " + className + ", jar: " + jarPath);
-        return false;
-      }
-    } catch (IOException e) {
-      throw new Error(e);
-    }
-    return true;
-  }
-
+  @Nullable
   private Map<Integer, Set<String>> lookupMethodInCache(String className, String methodSign) {
-    if (!argAnnotCache.containsKey(className)) return null;
+    if (!argAnnotCache.containsKey(className)) {
+      return null;
+    }
     Map<Integer, Set<String>> methodArgAnnotations = argAnnotCache.get(className).get(methodSign);
     if (methodArgAnnotations == null) {
       LOG(
@@ -330,9 +261,11 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   }
 
   private String getSimpleTypeName(Type typ) {
-    if (typ.getKind() == TypeKind.TYPEVAR)
+    if (typ.getKind() == TypeKind.TYPEVAR) {
       return typ.getUpperBound().tsym.getSimpleName().toString();
-    else return typ.tsym.getSimpleName().toString();
+    } else {
+      return typ.tsym.getSimpleName().toString();
+    }
   }
 
   private void parseStubStream(InputStream stubxInputStream, String stubxLocation)
@@ -398,11 +331,17 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   private void cacheAnnotation(String methodSig, Integer argNum, String annotation) {
     // TODO: handle inner classes properly
     String className = methodSig.split(":")[0].replace('$', '.');
-    if (!argAnnotCache.containsKey(className)) argAnnotCache.put(className, new LinkedHashMap<>());
-    if (!argAnnotCache.get(className).containsKey(methodSig))
-      argAnnotCache.get(className).put(methodSig, new LinkedHashMap<>());
-    if (!argAnnotCache.get(className).get(methodSig).containsKey(argNum))
-      argAnnotCache.get(className).get(methodSig).put(argNum, new LinkedHashSet<>());
-    argAnnotCache.get(className).get(methodSig).get(argNum).add(annotation);
+    if (!argAnnotCache.containsKey(className)) {
+      argAnnotCache.put(className, new LinkedHashMap<>());
+    }
+    Map<String, Map<Integer, Set<String>>> cacheForClass = argAnnotCache.get(className);
+    if (!cacheForClass.containsKey(methodSig)) {
+      cacheForClass.put(methodSig, new LinkedHashMap<>());
+    }
+    Map<Integer, Set<String>> cacheForMethod = cacheForClass.get(methodSig);
+    if (!cacheForMethod.containsKey(argNum)) {
+      cacheForMethod.put(argNum, new LinkedHashSet<>());
+    }
+    cacheForMethod.get(argNum).add(annotation);
   }
 }

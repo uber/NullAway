@@ -24,6 +24,9 @@ package com.uber.nullaway;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
+import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
@@ -54,6 +57,9 @@ import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
+  public static final String NULLMARKED_SIMPLE_NAME = "NullMarked";
+
+  private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
 
   private NullabilityUtil() {}
 
@@ -116,27 +122,6 @@ public class NullabilityUtil {
       }
     }
     return null;
-  }
-  /**
-   * finds the symbol for the top-level class containing the given symbol
-   *
-   * @param symbol the given symbol
-   * @return symbol for the non-nested enclosing class
-   */
-  public static Symbol.ClassSymbol getOutermostClassSymbol(Symbol symbol) {
-    // get the symbol for the outermost enclosing class.  this handles
-    // the case of anonymous classes
-    Symbol.ClassSymbol outermostClassSymbol = ASTHelpers.enclosingClass(symbol);
-    while (outermostClassSymbol.getNestingKind().isNested()) {
-      Symbol.ClassSymbol enclosingSymbol = ASTHelpers.enclosingClass(outermostClassSymbol.owner);
-      if (enclosingSymbol != null) {
-        outermostClassSymbol = enclosingSymbol;
-      } else {
-        // enclosingSymbol can be null in weird cases like for array methods
-        break;
-      }
-    }
-    return outermostClassSymbol;
   }
 
   /**
@@ -279,9 +264,7 @@ public class NullabilityUtil {
     Symbol.VarSymbol varSymbol = symbol.getParameters().get(paramInd);
     return Stream.concat(
         varSymbol.getAnnotationMirrors().stream(),
-        symbol
-            .getRawTypeAttributes()
-            .stream()
+        symbol.getRawTypeAttributes().stream()
             .filter(
                 t ->
                     t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
@@ -306,12 +289,13 @@ public class NullabilityUtil {
    *     the field might be null; false otherwise
    * @throws NullPointerException if {@code symbol} is null
    */
-  public static boolean mayBeNullFieldFromType(Symbol symbol, Config config) {
+  public static boolean mayBeNullFieldFromType(
+      Symbol symbol, Config config, ClassAnnotationInfo classAnnotationInfo) {
     Preconditions.checkNotNull(
         symbol, "mayBeNullFieldFromType should never be called with a null symbol");
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
-            || isUnannotated(symbol, config))
+            || classAnnotationInfo.isSymbolUnannotated(symbol, config))
         && Nullness.hasNullableAnnotation(symbol, config);
   }
 
@@ -337,27 +321,30 @@ public class NullabilityUtil {
   }
 
   /**
-   * Check if a symbol comes from unannotated code.
-   *
-   * @param symbol symbol for entity
-   * @param config NullAway config
-   * @return true if symbol represents an entity from a class that is unannotated; false otherwise
+   * Checks if {@code symbol} is a method on {@code java.util.Map} (or a subtype) with name {@code
+   * methodName} and {@code numParams} parameters
    */
-  public static boolean isUnannotated(Symbol symbol, Config config) {
-    Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
-    return !config.fromAnnotatedPackage(outermostClassSymbol)
-        || config.isUnannotatedClass(outermostClassSymbol);
+  public static boolean isMapMethod(
+      Symbol.MethodSymbol symbol, VisitorState state, String methodName, int numParams) {
+    if (!symbol.getSimpleName().toString().equals(methodName)) {
+      return false;
+    }
+    if (symbol.getParameters().size() != numParams) {
+      return false;
+    }
+    Symbol owner = symbol.owner;
+    return ASTHelpers.isSubtype(owner.type, MAP_TYPE_SUPPLIER.get(state), state);
   }
 
   /**
-   * Check if a symbol comes from generated code.
+   * Downcasts a {@code @Nullable} argument to {@code NonNull}, returning the argument
    *
-   * @param symbol symbol for entity
-   * @return true if symbol represents an entity from a class annotated with {@code @Generated};
-   *     false otherwise
+   * @throws NullPointerException if argument is {@code null}
    */
-  public static boolean isGenerated(Symbol symbol) {
-    Symbol.ClassSymbol outermostClassSymbol = getOutermostClassSymbol(symbol);
-    return ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated");
+  public static <T> T castToNonNull(@Nullable T obj) {
+    if (obj == null) {
+      throw new NullPointerException("castToNonNull failed!");
+    }
+    return obj;
   }
 }

@@ -507,6 +507,26 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testMapPutAndPutIfAbsent() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "class Test {",
+            "   Object testPut(String key, Object o, Map<String, Object> m){",
+            "     m.put(key, o);",
+            "     return m.get(key);",
+            "   }",
+            "   Object testPutIfAbsent(String key, Object o, Map<String, Object> m){",
+            "     m.putIfAbsent(key, o);",
+            "     return m.get(key);",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void tryFinallySupport() {
     defaultCompilationHelper.addSourceFile("NullAwayTryFinallyCases.java").doTest();
   }

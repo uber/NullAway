@@ -4,7 +4,9 @@ public class Foo {
   private String foo;
 
   public Foo(String str) {
-    if (str == null) str = "foo";
+    if (str == null) {
+      str = "foo";
+    }
     this.foo = str;
   }
 

@@ -24,6 +24,7 @@ package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import java.util.Set;
 import javax.annotation.Nullable;
 
@@ -31,14 +32,49 @@ import javax.annotation.Nullable;
 public interface Config {
 
   /**
-   * Checks if a symbol comes from an annotated package.
+   * Checks if Serialization feature is active.
    *
-   * @param symbol symbol for class
-   * @return true if the class is from a package that should be treated as properly annotated
-   *     according to our convention (every possibly null parameter / return / field
-   *     annotated @Nullable), false otherwise
+   * @return true, if Fix Serialization feature is active.
    */
-  boolean fromAnnotatedPackage(Symbol.ClassSymbol symbol);
+  boolean serializationIsActive();
+
+  /**
+   * Getter method for {@link FixSerializationConfig}.
+   *
+   * <p>Fix Serialization feature must be activated, otherwise calling this method will fail the
+   * execution.
+   *
+   * @return {@link FixSerializationConfig} instance in Config.
+   */
+  FixSerializationConfig getSerializationConfig();
+
+  /**
+   * Checks if a class comes from an explicitly annotated package.
+   *
+   * @param className fully qualified name for class
+   * @return true if the class is from a package that is explicitly configured to be treated as
+   *     properly annotated according to our convention (every possibly null parameter / return /
+   *     field annotated @Nullable), false otherwise
+   */
+  boolean fromExplicitlyAnnotatedPackage(String className);
+
+  /**
+   * Checks if a class comes from an explicitly unannotated (sub-)package.
+   *
+   * @param className fully qualified name for class
+   * @return true if the class is from a package that is explicitly configured to be treated as
+   *     unannotated (even if it is a subpackage of a package configured to be explicitly annotated
+   *     or if it's marked @NullMarked), false otherwise
+   */
+  boolean fromExplicitlyUnannotatedPackage(String className);
+
+  /**
+   * Checks if generated code should be considered always unannoatated.
+   *
+   * @return true if code marked as generated code should be treated as unannotated, even if it
+   *     comes from a package otherwise configured as annotated.
+   */
+  boolean shouldTreatGeneratedAsUnannotated();
 
   /**
    * Checks if a class should be excluded.

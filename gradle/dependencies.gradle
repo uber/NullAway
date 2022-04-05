@@ -17,26 +17,37 @@ import org.gradle.util.VersionNumber
  */
 
 // The oldest version of Error Prone that we support running on
-def oldestErrorProneApi = "2.4.0"
+def oldestErrorProneVersion = "2.4.0"
+// Latest released Error Prone version that we've tested with
+def latestErrorProneVersion = "2.11.0"
+// Default to using latest tested Error Prone version, except on Java 8, where 2.10.0 is the last version
+// that works
+def defaultErrorProneVersion =  JavaVersion.current() >= JavaVersion.VERSION_11 ? latestErrorProneVersion : "2.10.0"
+def errorProneVersionToCompileAgainst = defaultErrorProneVersion
 
+// If the epApiVersion project property is set, compile and test against that version of Error Prone
 if (project.hasProperty("epApiVersion")) {
     def epApiVNum = VersionNumber.parse(epApiVersion)
     if (epApiVNum.equals(VersionNumber.UNKNOWN)) {
         throw new IllegalArgumentException("Invalid Error Prone API version " + epApiVersion)
     }
-    if (epApiVNum.compareTo(VersionNumber.parse(oldestErrorProneApi)) < 0) {
+    if (epApiVNum.compareTo(VersionNumber.parse(oldestErrorProneVersion)) < 0) {
         throw new IllegalArgumentException(
                 "Error Prone API version " + epApiVersion + " is too old; "
-                + oldestErrorProneApi + " is the oldest supported version")
+                + oldestErrorProneVersion + " is the oldest supported version")
     }
+    errorProneVersionToCompileAgainst = epApiVersion
 }
+
 def versions = [
     asm                    : "7.1",
-    checkerFramework       : "3.21.1",
-    // The version of Error Prone used to check NullAway's code
-    errorProne             : "2.10.0",
+    checkerFramework       : "3.21.3",
+    // for comparisons in other parts of the build
+    errorProneLatest       : latestErrorProneVersion,
+    // The version of Error Prone used to check NullAway's code.
+    errorProne             : defaultErrorProneVersion,
     // The version of Error Prone that NullAway is compiled and tested against
-    errorProneApi          : project.hasProperty("epApiVersion") ? epApiVersion : oldestErrorProneApi,
+    errorProneApi          : errorProneVersionToCompileAgainst,
     support                : "27.1.1",
     wala                   : "1.5.4",
     commonscli             : "1.4",
@@ -64,15 +75,15 @@ def build = [
     checkerDataflow         : "org.checkerframework:dataflow-nullaway:${versions.checkerFramework}",
     guava                   : "com.google.guava:guava:24.1.1-jre",
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
+    jspecify                : "org.jspecify:jspecify:0.2.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
-    commonsIO               : "commons-io:commons-io:2.4",
+    commonsIO               : "commons-io:commons-io:2.11.0",
     wala                    : ["com.ibm.wala:com.ibm.wala.util:${versions.wala}",
                                "com.ibm.wala:com.ibm.wala.shrike:${versions.wala}",
                                "com.ibm.wala:com.ibm.wala.core:${versions.wala}"],
     commonscli              : "commons-cli:commons-cli:${versions.commonscli}",
 
     // android stuff
-    buildToolsVersion: "30.0.3",
     compileSdkVersion: 30,
     ci: "true" == System.getenv("CI"),
     minSdkVersion: 16,
