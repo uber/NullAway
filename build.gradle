@@ -74,7 +74,6 @@ subprojects { project ->
             check("MissingBraces", CheckSeverity.ERROR)
             check("TypeToString", CheckSeverity.ERROR)
             check("SymbolToString", CheckSeverity.ERROR)
-            check("DescribeMatch", CheckSeverity.ERROR)
         }
     }
 
