@@ -724,12 +724,9 @@ public class NullAway extends BugChecker
   private Description checkReturnExpression(
       Tree tree, ExpressionTree retExpr, Symbol.MethodSymbol methodSymbol, VisitorState state) {
     Type returnType = methodSymbol.getReturnType();
-    if (returnType.isPrimitive()) {
+    if (returnType.isPrimitiveOrVoid()) {
       // check for unboxing
-      return doUnboxingCheck(state, retExpr);
-    }
-    if (returnType.toString().equals("java.lang.Void")) {
-      return Description.NO_MATCH;
+      return returnType.isPrimitive() ? doUnboxingCheck(state, retExpr) : Description.NO_MATCH;
     }
     if (classAnnotationInfo.isSymbolUnannotated(methodSymbol, config)
         || Nullness.hasNullableAnnotation(methodSymbol, config)) {

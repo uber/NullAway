@@ -437,10 +437,6 @@ public class NullAwayNegativeCases {
     return TestAnnot.TEST_STR;
   }
 
-  static Void testVoidType() {
-    return null;
-  }
-
   static String stringConcat() {
     String x = "hello ";
     String y = "world";
