@@ -1,6 +1,5 @@
-package com.uber.nullaway.tools;
+package com.uber.nullaway;
 
-import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
 import org.junit.Test;
 
