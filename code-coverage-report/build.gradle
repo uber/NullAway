@@ -41,7 +41,7 @@ java.toolchain.languageVersion.set JavaLanguageVersion.of(17)
 //    }
 //}
 coveralls {
-    jacocoReportPath = "build/reports/jacoco/testCodeCoverageReport/testCodeCoverageReport.xml"
+    jacocoReportPath = "code-coverage-report/build/reports/jacoco/testCodeCoverageReport/testCodeCoverageReport.xml"
 //    afterEvaluate {
 //        sourceDirs = sourcesPath.incoming.artifactView { lenient(true) }.files as List<String>
 //    }
