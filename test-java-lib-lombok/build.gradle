@@ -37,8 +37,8 @@ tasks.withType(JavaCompile) {
   if (!name.toLowerCase().contains("test")) {
     options.errorprone {
       check("NullAway", CheckSeverity.ERROR)
-      check("UnusedVariable", CheckSeverity.OFF) // We are not the only checker that fails on Lombok
-      check("MissingBraces", CheckSeverity.OFF) // We are not the only checker that fails on Lombok
+//      check("UnusedVariable", CheckSeverity.OFF) // We are not the only checker that fails on Lombok
+//      check("MissingBraces", CheckSeverity.OFF) // We are not the only checker that fails on Lombok
       option("NullAway:AnnotatedPackages", "com.uber")
       option("NullAway:UnannotatedSubPackages", "com.uber.lib.unannotated")
     }
