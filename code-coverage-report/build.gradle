@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-// Mostly taken from official Gradle sample: https://docs.gradle.org/current/samples/sample_jvm_multi_project_with_code_coverage.html
 plugins {
     id 'java'
     id 'jacoco'
+    id 'jacoco-report-aggregation'
     id 'com.github.kt3k.coveralls'
 }
 
@@ -29,59 +29,28 @@ java.targetCompatibility = null
 java.toolchain.languageVersion.set JavaLanguageVersion.of(17)
 
 // A resolvable configuration to collect source code
-def sourcesPath = configurations.create("sourcesPath") {
-    visible = false
-    canBeResolved = true
-    canBeConsumed = false
-    extendsFrom(configurations.implementation)
-    attributes {
-        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
-        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
-        attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, 'source-folders'))
-    }
-}
-
-// A resolvable configuration to collect JaCoCo coverage data
-def coverageDataPath = configurations.create("coverageDataPath") {
-    visible = false
-    canBeResolved = true
-    canBeConsumed = false
-    extendsFrom(configurations.implementation)
-    attributes {
-        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
-        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
-        attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, 'jacoco-coverage-data'))
-    }
-}
-
-// Task to gather code coverage from multiple subprojects
-def codeCoverageReport = tasks.register('codeCoverageReport', JacocoReport) {
-    additionalClassDirs(configurations.runtimeClasspath.filter{it.path.contains(rootProject.name)  })
-    additionalSourceDirs(sourcesPath.incoming.artifactView { lenient(true) }.files)
-    executionData(coverageDataPath.incoming.artifactView { lenient(true) }.files.filter { it.exists() })
-
-    reports {
-        // xml is usually used to integrate code coverage with
-        // other tools like SonarQube, Coveralls or Codecov
-        xml.required = true
-
-        // HTML reports can be used to see code coverage
-        // without any external tools
-        html.required = true
-    }
-}
-
+//def sourcesPath = configurations.create("sourcesPath") {
+//    visible = false
+//    canBeResolved = true
+//    canBeConsumed = false
+//    extendsFrom(configurations.implementation)
+//    attributes {
+//        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+//        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
+//        attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, 'source-folders'))
+//    }
+//}
 coveralls {
-    jacocoReportPath = "build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
-    afterEvaluate {
-        sourceDirs = sourcesPath.incoming.artifactView { lenient(true) }.files as List<String>
-    }
+    jacocoReportPath = "code-coverage-report/build/reports/jacoco/testCodeCoverageReport/testCodeCoverageReport.xml"
+//    afterEvaluate {
+//        sourceDirs = sourcesPath.incoming.artifactView { lenient(true) }.files as List<String>
+//    }
 }
 
 def coverallsTask = tasks.named('coveralls')
 
 coverallsTask.configure {
-    dependsOn 'codeCoverageReport'
+    dependsOn tasks.named('testCodeCoverageReport', JacocoReport)
 }
 
 // These dependencies indicate which projects have tests or tested code we want to include
