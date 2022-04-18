@@ -19,7 +19,7 @@ import org.gradle.util.VersionNumber
 // The oldest version of Error Prone that we support running on
 def oldestErrorProneVersion = "2.4.0"
 // Latest released Error Prone version that we've tested with
-def latestErrorProneVersion = "2.12.0"
+def latestErrorProneVersion = "2.13.1"
 // Default to using latest tested Error Prone version, except on Java 8, where 2.10.0 is the last version
 // that works
 def defaultErrorProneVersion =  JavaVersion.current() >= JavaVersion.VERSION_11 ? latestErrorProneVersion : "2.10.0"
@@ -106,7 +106,7 @@ def test = [
     rxjava2                 : "io.reactivex.rxjava2:rxjava:2.1.2",
     commonsLang3            : "org.apache.commons:commons-lang3:3.8.1",
     commonsLang             : "commons-lang:commons-lang:2.6",
-    lombok                  : "org.projectlombok:lombok:1.18.12",
+    lombok                  : "org.projectlombok:lombok:1.18.22",
     springBeans             : "org.springframework:spring-beans:5.3.7",
     springContext           : "org.springframework:spring-context:5.3.7",
     grpcCore                : "io.grpc:grpc-core:1.15.1", // Should upgrade, but this matches our guava version

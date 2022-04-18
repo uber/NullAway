@@ -28,10 +28,7 @@ import lombok.Data;
 
 @Builder
 @Data
-@SuppressWarnings({
-  "SameNameButDifferent" /* crashes with EP 2.6.0 */,
-  "InlineMeInliner" /* crashes with EP 2.7.1 */
-})
+@SuppressWarnings({"MissingBraces" /* false positive warnings */})
 public class LombokDTO {
   // Note: Lombok generates a constructor directly into this class that initializes this field, so
   // NullAway does not
