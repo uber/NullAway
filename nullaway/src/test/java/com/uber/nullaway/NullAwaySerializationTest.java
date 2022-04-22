@@ -829,7 +829,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void errorSerializationEscapeSequencesTest() {
+  public void errorSerializationEscapeSpecialCharactersTest() {
     // Input source lines for this test are not correctly formatted intentionally to make sure error
     // serialization will not be affected by any existing white spaces in the source code.
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
@@ -855,7 +855,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setExpectedOutputs(
             new ErrorDisplay(
                 "PASS_NULLABLE",
-                "passing @Nullable parameter 'm.hashCode() == 2 || m.toString().equals('\\t') ? \\t\\n\\t\\n new Object() : null'",
+                "passing @Nullable parameter 'm.hashCode() == 2 || m.toString().equals('\\\\t') ? \\t\\n\\t\\n new Object() : null'",
                 "com.uber.Test",
                 "run()"))
         .setFactory(errorDisplayFactory)

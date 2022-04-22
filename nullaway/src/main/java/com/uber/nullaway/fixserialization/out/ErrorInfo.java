@@ -22,10 +22,12 @@
 
 package com.uber.nullaway.fixserialization.out;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.fixserialization.Serializer;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /** Stores information regarding an error which will be reported by NullAway. */
 public class ErrorInfo {
@@ -33,9 +35,38 @@ public class ErrorInfo {
   private final ErrorMessage errorMessage;
   private final EnclosingClassAndMethodInfo enclosingInfo;
 
+  /** Special characters that need to be escaped in TSV files. */
+  private static final ImmutableMap<Character, Character> escapes =
+      ImmutableMap.of(
+          '\n', 'n',
+          '\t', 't',
+          '\f', 'f',
+          '\b', 'b',
+          '\r', 'r');
+
   public ErrorInfo(TreePath path, ErrorMessage errorMessage) {
     this.enclosingInfo = new EnclosingClassAndMethodInfo(path);
     this.errorMessage = errorMessage;
+  }
+
+  /**
+   * Escapes special characters in string to conform with TSV file formats. The most common
+   * convention for lossless conversion is to escape special characters with a backslash according
+   * to <a
+   * href="https://en.wikipedia.org/wiki/Tab-separated_values#Conventions_for_lossless_conversion_to_TSV">
+   * Conventions for lossless conversion to TSV</a>
+   *
+   * @param str String to process.
+   * @return returns modified str which its special characters are escaped.
+   */
+  public static String escapeSpecialCharacters(String str) {
+    // escape existing backslashes
+    str = str.replaceAll(Pattern.quote("\\"), Matcher.quoteReplacement("\\\\"));
+    // escape special characters
+    for (Character key : escapes.keySet()) {
+      str = str.replaceAll(String.valueOf(key), "\\\\" + escapes.get(key));
+    }
+    return str;
   }
 
   /**
@@ -46,7 +77,7 @@ public class ErrorInfo {
   public String tabSeparatedToString() {
     return errorMessage.getMessageType().toString()
         + '\t'
-        + Serializer.encodeEscapeSequences(errorMessage.getMessage())
+        + escapeSpecialCharacters(errorMessage.getMessage())
         + '\t'
         + (enclosingInfo.getClazz() != null
             ? ASTHelpers.getSymbol(enclosingInfo.getClazz())

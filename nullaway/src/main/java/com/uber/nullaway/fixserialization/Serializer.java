@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.fixserialization;
 
-import com.google.common.collect.ImmutableMap;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
@@ -47,28 +46,12 @@ public class Serializer {
   /** Path to write suggested fix metadata. */
   private final Path fieldInitializationOutputPath;
 
-  public static final ImmutableMap<Character, Character> escapes =
-      ImmutableMap.of(
-          '\n', 'n',
-          '\t', 't',
-          '\f', 'f',
-          '\b', 'b',
-          '\r', 'r');
-  ;
-
   public Serializer(FixSerializationConfig config) {
     String outputDirectory = config.outputDirectory;
     this.errorOutputPath = Paths.get(outputDirectory, "errors.tsv");
     this.suggestedFixesOutputPath = Paths.get(outputDirectory, "fixes.tsv");
     this.fieldInitializationOutputPath = Paths.get(outputDirectory, "field_init.tsv");
     initializeOutputFiles(config);
-  }
-
-  public static String encodeEscapeSequences(String content) {
-    for (Character key : escapes.keySet()) {
-      content = content.replaceAll(String.valueOf(key), "\\\\" + escapes.get(key));
-    }
-    return content;
   }
 
   /**
