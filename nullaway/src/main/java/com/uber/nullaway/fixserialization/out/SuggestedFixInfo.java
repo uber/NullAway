@@ -73,6 +73,11 @@ public class SuggestedFixInfo {
     return Objects.hash(fixLocation, annotation, errorMessage.getMessageType().toString());
   }
 
+  /**
+   * Returns string representation of content of an object.
+   *
+   * @return string representation of contents of an object in a line seperated by tabs.
+   */
   public String tabSeparatedToString() {
     return fixLocation.tabSeparatedToString()
         + '\t'

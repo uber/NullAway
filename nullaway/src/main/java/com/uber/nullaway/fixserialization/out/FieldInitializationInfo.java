@@ -41,6 +41,11 @@ public class FieldInitializationInfo {
     this.field = field;
   }
 
+  /**
+   * Returns string representation of content of an object.
+   *
+   * @return string representation of contents of an object in a line seperated by tabs.
+   */
   public String tabSeparatedToString() {
     return initializerMethodLocation.tabSeparatedToString()
         + '\t'
