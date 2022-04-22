@@ -846,19 +846,20 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "package com.uber;",
             "public class Test {",
             "   public void run() {",
-            "     foo(",
-            "   \nX.m.hashCode() == 2\t\t\t  // BUG: Diagnostic contains: passing @Nullable\n?\t 'c'\n",
-            "\n\n\n\t : \t\tnull\n\n\t);",
+            "     // BUG: Diagnostic contains: passing @Nullable parameter 'X.m.hashCode()",
+            "     foo(X.m.hashCode() == 2 ? \t\n\tnew Object() : null);",
             "   }",
             "   public void foo(Object o) { }",
             "   static class X {",
             "        static Object m = new Object();",
-            "        static Object m2 = new Object();",
             "   }",
             "}")
         .setExpectedOutputs(
             new ErrorDisplay(
-                "PASS_NULLABLE", "passing @Nullable parameter", "com.uber.Test", "run()"))
+                "PASS_NULLABLE",
+                "passing @Nullable parameter 'X.m.hashCode() == 2 ? \\t\\n\\tnew Object() : null'",
+                "com.uber.Test",
+                "run()"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();

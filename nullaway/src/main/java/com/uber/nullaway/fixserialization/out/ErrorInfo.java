@@ -25,6 +25,7 @@ package com.uber.nullaway.fixserialization.out;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.fixserialization.Serializer;
 
 /** Stores information regarding an error which will be reported by NullAway. */
 public class ErrorInfo {
@@ -41,7 +42,7 @@ public class ErrorInfo {
   public String toString() {
     return errorMessage.getMessageType().toString()
         + '\t'
-        + errorMessage.getMessage().replaceAll("\t", " ").replaceAll("\n", " ")
+        + Serializer.encodeEscapeSequences(errorMessage.getMessage())
         + '\t'
         + (enclosingInfo.getClazz() != null
             ? ASTHelpers.getSymbol(enclosingInfo.getClazz())
