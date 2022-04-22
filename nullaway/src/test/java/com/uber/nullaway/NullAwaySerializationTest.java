@@ -829,7 +829,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void errorSerializationSkipLineBreaksTest() {
+  public void errorSerializationEscapeSequencesTest() {
     // Input source lines for this test are not correctly formatted intentionally to make sure error
     // serialization will not be affected by any existing white spaces in the source code.
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
