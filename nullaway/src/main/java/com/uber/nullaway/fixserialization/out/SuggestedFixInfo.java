@@ -73,8 +73,7 @@ public class SuggestedFixInfo {
     return Objects.hash(fixLocation, annotation, errorMessage.getMessageType().toString());
   }
 
-  @Override
-  public String toString() {
+  public String tabSeparatedToString() {
     return fixLocation.tabSeparatedToString()
         + '\t'
         + errorMessage.getMessageType().toString()

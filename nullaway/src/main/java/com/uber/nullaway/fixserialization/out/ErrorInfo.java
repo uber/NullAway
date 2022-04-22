@@ -38,8 +38,7 @@ public class ErrorInfo {
     this.errorMessage = errorMessage;
   }
 
-  @Override
-  public String toString() {
+  public String tabSeparatedToString() {
     return errorMessage.getMessageType().toString()
         + '\t'
         + Serializer.encodeEscapeSequences(errorMessage.getMessage())

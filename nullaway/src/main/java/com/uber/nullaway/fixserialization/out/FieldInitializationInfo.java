@@ -41,8 +41,7 @@ public class FieldInitializationInfo {
     this.field = field;
   }
 
-  @Override
-  public String toString() {
+  public String tabSeparatedToString() {
     return initializerMethodLocation.tabSeparatedToString()
         + '\t'
         + field.getSimpleName().toString();
