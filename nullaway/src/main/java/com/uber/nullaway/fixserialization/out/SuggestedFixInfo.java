@@ -74,7 +74,7 @@ public class SuggestedFixInfo {
   }
 
   /**
-   * Returns string representation of content of an object.
+   * returns string representation of content of an object.
    *
    * @return string representation of contents of an object in a line seperated by tabs.
    */
