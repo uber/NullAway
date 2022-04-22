@@ -92,12 +92,14 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
     this.analysis = analysis;
 
-    optionalTypes =
-        config.getOptionalClassPaths().stream()
-            .map(state::getTypeFromString)
-            .filter(Objects::nonNull)
-            .map(state.getTypes()::erasure)
-            .collect(ImmutableSet.toImmutableSet());
+    if (optionalTypes == null) {
+      optionalTypes =
+          config.getOptionalClassPaths().stream()
+              .map(state::getTypeFromString)
+              .filter(Objects::nonNull)
+              .map(state.getTypes()::erasure)
+              .collect(ImmutableSet.toImmutableSet());
+    }
   }
 
   @Override
@@ -114,6 +116,8 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
     if (optionalIsPresentCall(symbol, types)) {
       updateNonNullAPsForOptionalContent(thenUpdates, node.getTarget().getReceiver(), apContext);
+    } else if (optionalIsEmptyCall(symbol, types)) {
+      updateNonNullAPsForOptionalContent(elseUpdates, node.getTarget().getReceiver(), apContext);
     } else if (config.handleTestAssertionLibraries() && methodNameUtil.isMethodIsTrue(symbol)) {
       // we check for instance of AssertThat(optionalFoo.isPresent()).isTrue()
       updateIfAssertIsPresentTrueOnOptional(node, types, apContext, bothUpdates);
@@ -197,11 +201,22 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   private boolean optionalIsPresentCall(Symbol.MethodSymbol symbol, Types types) {
+    return isZeroArgOptionalMethod("isPresent", symbol, types);
+  }
+
+  private boolean optionalIsEmptyCall(Symbol.MethodSymbol symbol, Types types) {
+    return isZeroArgOptionalMethod("isEmpty", symbol, types);
+  }
+
+  private boolean isZeroArgOptionalMethod(
+      String methodName, Symbol.MethodSymbol symbol, Types types) {
     Preconditions.checkNotNull(optionalTypes);
+    if (!(symbol.getSimpleName().toString().equals(methodName)
+        && symbol.getParameters().length() == 0)) {
+      return false;
+    }
     for (Type optionalType : optionalTypes) {
-      if (symbol.getSimpleName().toString().equals("isPresent")
-          && symbol.getParameters().length() == 0
-          && types.isSubtype(symbol.owner.type, optionalType)) {
+      if (types.isSubtype(symbol.owner.type, optionalType)) {
         return true;
       }
     }
@@ -209,15 +224,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   private boolean optionalIsGetCall(Symbol.MethodSymbol symbol, Types types) {
-    Preconditions.checkNotNull(optionalTypes);
-    for (Type optionalType : optionalTypes) {
-      if (symbol.getSimpleName().toString().equals("get")
-          && symbol.getParameters().length() == 0
-          && types.isSubtype(symbol.owner.type, optionalType)) {
-        return true;
-      }
-    }
-    return false;
+    return isZeroArgOptionalMethod("get", symbol, types);
   }
 
   /**
