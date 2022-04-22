@@ -59,7 +59,7 @@ public class ErrorInfo {
    * @param str String to process.
    * @return returns modified str which its special characters are escaped.
    */
-  public static String escapeSpecialCharacters(String str) {
+  private static String escapeSpecialCharacters(String str) {
     // escape existing backslashes
     str = str.replaceAll(Pattern.quote("\\"), Matcher.quoteReplacement("\\\\"));
     // escape special characters
