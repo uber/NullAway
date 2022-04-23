@@ -848,7 +848,9 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "   Object m = new Object();",
             "   public void run() {",
             "     // BUG: Diagnostic contains: passing @Nullable parameter 'm.hashCode()",
-            "     foo(m.hashCode() == 2 || m.toString().equals('\\t') ? \t\n\t\n new Object() : null);",
+            "     foo(m.hashCode() == 2 || m.toString().equals('\\t') ? \t",
+            "\t",
+            " new Object() : null);",
             "   }",
             "   public void foo(Object o) { }",
             "}")
