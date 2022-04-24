@@ -60,6 +60,8 @@ public class ErrorInfo {
    * @return returns modified str which its special characters are escaped.
    */
   private static String escapeSpecialCharacters(String str) {
+    // regex needs "\\" to match character '\', each must also be escaped in string to create "\\",
+    // therefore we need four "\".
     // escape existing backslashes
     str = str.replaceAll(Pattern.quote("\\"), Matcher.quoteReplacement("\\\\"));
     // escape special characters
