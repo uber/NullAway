@@ -66,7 +66,7 @@ public class ErrorInfo {
     str = str.replaceAll(Pattern.quote("\\"), Matcher.quoteReplacement("\\\\"));
     // escape special characters
     for (Character key : escapes.keySet()) {
-      str = str.replaceAll(String.valueOf(key), "\\\\" + escapes.get(key));
+      str = str.replaceAll(String.valueOf(key), Matcher.quoteReplacement("\\" + escapes.get(key)));
     }
     return str;
   }
