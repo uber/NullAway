@@ -829,6 +829,43 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void errorSerializationEscapeSpecialCharactersTest() {
+    // Input source lines for this test are not correctly formatted intentionally to make sure error
+    // serialization will not be affected by any existing white spaces in the source code.
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Test.java",
+            "package com.uber;",
+            "public class Test {",
+            "   Object m = new Object();",
+            "   public void run() {",
+            "     // BUG: Diagnostic contains: passing @Nullable parameter 'm.hashCode()",
+            "     foo(m.hashCode() == 2 || m.toString().equals('\\t') ? \t",
+            "\t",
+            " new Object() : null);",
+            "   }",
+            "   public void foo(Object o) { }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter 'm.hashCode() == 2 || m.toString().equals('\\\\t') ? \\t\\n\\t\\n new Object() : null'",
+                "com.uber.Test",
+                "run()"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
   public void fieldInitializationSerializationTest() {
     Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "test_field_init");
     String output = tempRoot.toString();
