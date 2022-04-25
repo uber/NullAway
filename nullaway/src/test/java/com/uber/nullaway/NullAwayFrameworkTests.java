@@ -350,4 +350,19 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void systemConsoleNullable() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  void foo() {",
+            "     // BUG: Diagnostic contains: dereferenced expression System.console()",
+            "    System.console().toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

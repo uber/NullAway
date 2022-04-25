@@ -576,6 +576,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .add(methodRef("android.view.View", "getHandler()"))
             .add(methodRef("android.webkit.WebView", "getUrl()"))
             .add(methodRef("android.widget.TextView", "getLayout()"))
+            .add(methodRef("java.lang.System", "console()"))
             .build();
 
     private static final ImmutableSet<MethodRef> NONNULL_RETURNS =
