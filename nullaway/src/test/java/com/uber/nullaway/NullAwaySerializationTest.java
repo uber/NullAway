@@ -928,4 +928,110 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setFactory(fieldInitDisplayFactory)
         .doTest();
   }
+
+  @Test
+  public void errorSerializationTestLocalTypes() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/TestWithLocalType.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class TestWithLocalType {",
+            "   @Nullable String test(Object o) {",
+            "     class LocalType {",
+            "         public String returnsNullable() {",
+            "             // BUG: Diagnostic contains: returning @Nullable expression",
+            "             return null;",
+            "         }",
+            "     }",
+            "     LocalType local = new LocalType();",
+            "     return local.returnsNullable();",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression from method with @NonNull return type",
+                "com.uber.TestWithLocalType.test(java.lang.Object).LocalType",
+                "returnsNullable()"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void errorSerializationTestIdenticalLocalTypes() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/TestWithLocalTypes.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class TestWithLocalTypes {",
+            "   @Nullable String test(Object o) {",
+            "     class LocalType {",
+            "         public String returnsNullable() {",
+            "             // BUG: Diagnostic contains: returning @Nullable expression",
+            "             return null;",
+            "         }",
+            "     }",
+            "     LocalType local = new LocalType();",
+            "     return local.returnsNullable();",
+            "   }",
+            "   @Nullable String test2(Object o) {",
+            "     class LocalType {",
+            "         public String returnsNullable2() {",
+            "             // BUG: Diagnostic contains: returning @Nullable expression",
+            "             return null;",
+            "         }",
+            "     }",
+            "     LocalType local = new LocalType();",
+            "     return local.returnsNullable2();",
+            "   }",
+            "   @Nullable String test2() {",
+            "     class LocalType {",
+            "         public String returnsNullable2() {",
+            "             // BUG: Diagnostic contains: returning @Nullable expression",
+            "             return null;",
+            "         }",
+            "     }",
+            "     LocalType local = new LocalType();",
+            "     return local.returnsNullable2();",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression from method with @NonNull return type",
+                "com.uber.TestWithLocalTypes.test(java.lang.Object).LocalType",
+                "returnsNullable()"),
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression from method with @NonNull return type",
+                "com.uber.TestWithLocalTypes.test2(java.lang.Object).LocalType",
+                "returnsNullable2()"),
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression from method with @NonNull return type",
+                "com.uber.TestWithLocalTypes.test2().LocalType",
+                "returnsNullable2()"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
 }
