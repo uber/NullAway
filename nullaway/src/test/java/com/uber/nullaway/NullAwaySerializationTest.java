@@ -1034,4 +1034,68 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
+
+  @Test
+  public void errorSerializationTestLocalTypesHeinous() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/TestWithLocalTypes.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class TestWithLocalTypes {",
+            "   private Object o1;",
+            "   private Object o2;",
+            "   private Object o3;",
+            "   {",
+            "     class LocalType {",
+            "         public String returnsNullable() {",
+            "             // BUG: Diagnostic contains: returning @Nullable expression",
+            "             return null;",
+            "         }",
+            "     }",
+            "     o1 = new LocalType();",
+            "   }",
+            "   {",
+            "     class LocalType {",
+            "         public String returnsNullable() {",
+            "             return \"\";",
+            "         }",
+            "     }",
+            "     o2 = new LocalType();",
+            "   }",
+            "   {",
+            "     class LocalType {",
+            "         public String returnsNullable() {",
+            "             // BUG: Diagnostic contains: returning @Nullable expression",
+            "             return null;",
+            "         }",
+            "     }",
+            "     o3 = new LocalType();",
+            "   }",
+            "   void test(Object o) {",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression from method with @NonNull return type",
+                "LocalType", // TODO: How to FQN this?
+                "returnsNullable()"),
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression from method with @NonNull return type",
+                "LocalType", // TODO: How to FQN this?
+                "returnsNullable()"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
 }
