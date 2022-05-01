@@ -930,6 +930,55 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void errorSerializationTestAnonymousInnerClass() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/TestWithAnonymousRunnable.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class TestWithAnonymousRunnable {",
+            "   void takesNonNull(String s) { }",
+            "   void test(Object o) {",
+            "     Runnable r = new Runnable() {",
+            "         public String returnsNullable() {",
+            "             // BUG: Diagnostic contains: returning @Nullable expression",
+            "             return null;",
+            "         }",
+            "         @Override",
+            "         public void run() {",
+            "             takesNonNull(this.returnsNullable());",
+            "             // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "             takesNonNull(null);",
+            "         }",
+            "     };",
+            "     r.run();",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression from method with @NonNull return type",
+                "com.uber.TestWithAnonymousRunnable$1",
+                "returnsNullable()"),
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter 'null' where @NonNull is required",
+                "com.uber.TestWithAnonymousRunnable$1",
+                "run()"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
   public void errorSerializationTestLocalTypes() {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
@@ -960,7 +1009,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             new ErrorDisplay(
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
-                "com.uber.TestWithLocalType.test(java.lang.Object).LocalType",
+                "com.uber.TestWithLocalType$1LocalType",
                 "returnsNullable()"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
@@ -1018,17 +1067,17 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             new ErrorDisplay(
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
-                "com.uber.TestWithLocalTypes.test(java.lang.Object).LocalType",
+                "com.uber.TestWithLocalTypes$1LocalType",
                 "returnsNullable()"),
             new ErrorDisplay(
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
-                "com.uber.TestWithLocalTypes.test2(java.lang.Object).LocalType",
+                "com.uber.TestWithLocalTypes$2LocalType",
                 "returnsNullable2()"),
             new ErrorDisplay(
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
-                "com.uber.TestWithLocalTypes.test2().LocalType",
+                "com.uber.TestWithLocalTypes$3LocalType",
                 "returnsNullable2()"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
@@ -1036,7 +1085,52 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void errorSerializationTestLocalTypesHeinous() {
+  public void errorSerializationTestLocalTypesNested() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/TestWithLocalType.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class TestWithLocalType {",
+            "   @Nullable String test(Object o) {",
+            "     class LocalTypeA {",
+            "         @Nullable",
+            "         public String returnsNullable() {",
+            "             class LocalTypeB {",
+            "                 public String returnsNullable() {",
+            "                     // BUG: Diagnostic contains: returning @Nullable expression",
+            "                     return null;",
+            "                 }",
+            "             }",
+            "             LocalTypeB local = new LocalTypeB();",
+            "             return local.returnsNullable();",
+            "         }",
+            "     }",
+            "     LocalTypeA local = new LocalTypeA();",
+            "     return local.returnsNullable();",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression from method with @NonNull return type",
+                "com.uber.TestWithLocalType$1LocalTypeA$1LocalTypeB",
+                "returnsNullable()"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void errorSerializationTestLocalTypesInitializers() {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -1087,12 +1181,12 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             new ErrorDisplay(
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
-                "LocalType", // TODO: How to FQN this?
+                "com.uber.TestWithLocalTypes$1LocalType",
                 "returnsNullable()"),
             new ErrorDisplay(
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
-                "LocalType", // TODO: How to FQN this?
+                "com.uber.TestWithLocalTypes$3LocalType",
                 "returnsNullable()"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)

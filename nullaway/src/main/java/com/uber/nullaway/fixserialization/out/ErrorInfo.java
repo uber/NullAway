@@ -81,7 +81,9 @@ public class ErrorInfo {
         + '\t'
         + escapeSpecialCharacters(errorMessage.getMessage())
         + '\t'
-        + enclosingInfo.getClassFQN()
+        + (enclosingInfo.getClazz() != null
+            ? ASTHelpers.getSymbol(enclosingInfo.getClazz()).flatName()
+            : "null")
         + '\t'
         + (enclosingInfo.getMethod() != null
             ? ASTHelpers.getSymbol(enclosingInfo.getMethod())

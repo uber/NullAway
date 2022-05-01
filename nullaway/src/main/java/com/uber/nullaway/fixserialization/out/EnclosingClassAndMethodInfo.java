@@ -26,12 +26,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
-import com.sun.tools.javac.code.Symbol;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import javax.annotation.Nullable;
-import javax.lang.model.element.ElementKind;
 
 /** Container class of enclosing class and method of the element. */
 public class EnclosingClassAndMethodInfo {
@@ -70,27 +65,5 @@ public class EnclosingClassAndMethodInfo {
   @Nullable
   public ClassTree getClazz() {
     return clazz;
-  }
-
-  @Nullable
-  public String getClassFQN() {
-    if (clazz == null) {
-      return "null";
-    }
-    List<String> components = new ArrayList<>();
-    Symbol classSymbol = ASTHelpers.getSymbol(clazz);
-    while (classSymbol != null) {
-      components.add(classSymbol.getQualifiedName().toString());
-      if (classSymbol.getEnclosingElement() == null
-          || !classSymbol.getEnclosingElement().getKind().equals(ElementKind.METHOD)) {
-        break;
-      }
-      Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) classSymbol.getEnclosingElement();
-      // Warning: Relies on toString producing a reliable method signature!
-      components.add(methodSymbol.toString());
-      classSymbol = methodSymbol.getEnclosingElement();
-    }
-    Collections.reverse(components);
-    return String.join(".", components);
   }
 }
