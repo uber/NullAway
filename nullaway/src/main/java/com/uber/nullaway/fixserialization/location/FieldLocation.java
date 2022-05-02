@@ -40,7 +40,7 @@ public class FieldLocation extends AbstractFixLocation {
   public String tabSeparatedToString() {
     return type.toString()
         + '\t'
-        + enclosingClass
+        + enclosingClass.flatName()
         + '\t'
         + "null"
         + '\t'
