@@ -1018,8 +1018,44 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void errorSerializationTestIdenticalLocalTypes() {
-    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
-    tester
+    String[] sourceLines = {
+      "package com.uber;",
+      "import javax.annotation.Nullable;",
+      "public class TestWithLocalTypes {",
+      "   @Nullable String test(Object o) {",
+      "     class LocalType {",
+      "         public String returnsNullable() {",
+      "             // BUG: Diagnostic contains: returning @Nullable expression",
+      "             return null;",
+      "         }",
+      "     }",
+      "     LocalType local = new LocalType();",
+      "     return local.returnsNullable();",
+      "   }",
+      "   @Nullable String test2(Object o) {",
+      "     class LocalType {",
+      "         public String returnsNullable2() {",
+      "             // BUG: Diagnostic contains: returning @Nullable expression",
+      "             return null;",
+      "         }",
+      "     }",
+      "     LocalType local = new LocalType();",
+      "     return local.returnsNullable2();",
+      "   }",
+      "   @Nullable String test2() {",
+      "     class LocalType {",
+      "         public String returnsNullable2() {",
+      "             // BUG: Diagnostic contains: returning @Nullable expression",
+      "             return null;",
+      "         }",
+      "     }",
+      "     LocalType local = new LocalType();",
+      "     return local.returnsNullable2();",
+      "   }",
+      "}"
+    };
+    SerializationTestHelper<ErrorDisplay> errorTester = new SerializationTestHelper<>(root);
+    errorTester
         .setArgs(
             Arrays.asList(
                 "-d",
@@ -1027,42 +1063,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
-        .addSourceLines(
-            "com/uber/TestWithLocalTypes.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class TestWithLocalTypes {",
-            "   @Nullable String test(Object o) {",
-            "     class LocalType {",
-            "         public String returnsNullable() {",
-            "             // BUG: Diagnostic contains: returning @Nullable expression",
-            "             return null;",
-            "         }",
-            "     }",
-            "     LocalType local = new LocalType();",
-            "     return local.returnsNullable();",
-            "   }",
-            "   @Nullable String test2(Object o) {",
-            "     class LocalType {",
-            "         public String returnsNullable2() {",
-            "             // BUG: Diagnostic contains: returning @Nullable expression",
-            "             return null;",
-            "         }",
-            "     }",
-            "     LocalType local = new LocalType();",
-            "     return local.returnsNullable2();",
-            "   }",
-            "   @Nullable String test2() {",
-            "     class LocalType {",
-            "         public String returnsNullable2() {",
-            "             // BUG: Diagnostic contains: returning @Nullable expression",
-            "             return null;",
-            "         }",
-            "     }",
-            "     LocalType local = new LocalType();",
-            "     return local.returnsNullable2();",
-            "   }",
-            "}")
+        .addSourceLines("com/uber/TestWithLocalTypes.java", sourceLines)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "RETURN_NULLABLE",
@@ -1081,6 +1082,41 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "returnsNullable2()"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+    SerializationTestHelper<FixDisplay> fixTester = new SerializationTestHelper<>(root);
+    fixTester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines("com/uber/TestWithLocalTypes.java", sourceLines)
+        .setExpectedOutputs(
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "returnsNullable()",
+                "null",
+                "METHOD",
+                "com.uber.TestWithLocalTypes$1LocalType",
+                "com/uber/TestWithLocalTypes.java"),
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "returnsNullable2()",
+                "null",
+                "METHOD",
+                "com.uber.TestWithLocalTypes$2LocalType",
+                "com/uber/TestWithLocalTypes.java"),
+            new FixDisplay(
+                "javax.annotation.Nullable",
+                "returnsNullable2()",
+                "null",
+                "METHOD",
+                "com.uber.TestWithLocalTypes$3LocalType",
+                "com/uber/TestWithLocalTypes.java"))
+        .setFactory(fixDisplayFactory)
+        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
