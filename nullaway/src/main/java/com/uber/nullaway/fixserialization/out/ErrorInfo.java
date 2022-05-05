@@ -82,7 +82,7 @@ public class ErrorInfo {
         + escapeSpecialCharacters(errorMessage.getMessage())
         + '\t'
         + (enclosingInfo.getClazz() != null
-            ? ASTHelpers.getSymbol(enclosingInfo.getClazz())
+            ? ASTHelpers.getSymbol(enclosingInfo.getClazz()).flatName()
             : "null")
         + '\t'
         + (enclosingInfo.getMethod() != null

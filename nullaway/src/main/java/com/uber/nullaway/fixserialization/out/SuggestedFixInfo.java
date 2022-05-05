@@ -87,7 +87,7 @@ public class SuggestedFixInfo {
         + '\t'
         + (enclosingInfo.getClazz() == null
             ? "null"
-            : ASTHelpers.getSymbol(enclosingInfo.getClazz()))
+            : ASTHelpers.getSymbol(enclosingInfo.getClazz()).flatName())
         + '\t'
         + (enclosingInfo.getMethod() == null
             ? "null"
