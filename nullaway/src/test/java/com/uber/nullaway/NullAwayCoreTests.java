@@ -613,7 +613,7 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "import javax.annotation.Nullable;",
             "class Test {",
             "  Void foo1() {",
-            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    // temporarily, we treat a Void return type as if it was @Nullable Void",
             "    return null;",
             "  }",
             "  @Nullable Void foo2() {",
