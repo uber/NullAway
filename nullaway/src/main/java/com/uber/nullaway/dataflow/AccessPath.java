@@ -600,7 +600,7 @@ public final class AccessPath implements MapKey {
      * @return the element, if not representing 'this'
      */
     public Element getElement() {
-      return Preconditions.checkNotNull(element);
+      return element;
     }
 
     /**
