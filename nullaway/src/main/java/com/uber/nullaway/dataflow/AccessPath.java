@@ -38,6 +38,7 @@ import com.uber.nullaway.NullabilityUtil;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
@@ -387,7 +388,13 @@ public final class AccessPath implements MapKey {
       AccessPathElement accessPathElement;
       MethodAccessNode accessNode = invocation.getTarget();
       if (invocation.getArguments().size() == 0) {
-        accessPathElement = new AccessPathElement(accessNode.getMethod());
+        Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocation.getTree());
+        if (symbol.isStatic()) {
+          // a zero-argument static method call can be the root of an access path
+          return new Root(symbol);
+        } else {
+          accessPathElement = new AccessPathElement(accessNode.getMethod());
+        }
       } else {
         List<String> constantArgumentValues = new ArrayList<>();
         for (Node argumentNode : invocation.getArguments()) {
@@ -564,34 +571,36 @@ public final class AccessPath implements MapKey {
   }
 
   /**
-   * root of an access path; either a variable {@link javax.lang.model.element.Element} or <code>
-   * this</code> (enclosing method receiver)
+   * root of an access path; either an {@link javax.lang.model.element.Element} (representing a
+   * local variable, field, or zero-argument static method call) or {@code this} (enclosing method
+   * receiver)
    */
   public static final class Root {
 
     /** does this represent the receiver? */
     private final boolean isMethodReceiver;
 
-    @Nullable private final Element varElement;
+    /** if this does not represent the receiver, the element for this */
+    @Nullable private final Element element;
 
-    Root(Element varElement) {
+    Root(Element element) {
       this.isMethodReceiver = false;
-      this.varElement = Preconditions.checkNotNull(varElement);
+      this.element = element;
     }
 
     /** for case when it represents the receiver */
     Root() {
       this.isMethodReceiver = true;
-      this.varElement = null;
+      this.element = null;
     }
 
     /**
-     * Get the variable element of this access path root, if not representing <code>this</code>.
+     * Get the element of this access path root, if not representing <code>this</code>.
      *
-     * @return the variable, if not representing 'this'
+     * @return the element, if not representing 'this'
      */
-    public Element getVarElement() {
-      return Preconditions.checkNotNull(varElement);
+    public Element getElement() {
+      return Preconditions.checkNotNull(element);
     }
 
     /**
@@ -617,19 +626,19 @@ public final class AccessPath implements MapKey {
       if (isMethodReceiver != root.isMethodReceiver) {
         return false;
       }
-      return varElement != null ? varElement.equals(root.varElement) : root.varElement == null;
+      return Objects.equals(element, root.element);
     }
 
     @Override
     public int hashCode() {
       int result = (isMethodReceiver ? 1 : 0);
-      result = 31 * result + (varElement != null ? varElement.hashCode() : 0);
+      result = 31 * result + (element != null ? element.hashCode() : 0);
       return result;
     }
 
     @Override
     public String toString() {
-      return "Root{" + "isMethodReceiver=" + isMethodReceiver + ", varElement=" + varElement + '}';
+      return "Root{" + "isMethodReceiver=" + isMethodReceiver + ", element=" + element + '}';
     }
   }
 
