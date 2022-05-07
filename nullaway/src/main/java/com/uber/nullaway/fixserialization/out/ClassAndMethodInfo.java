@@ -26,10 +26,11 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
+import com.uber.nullaway.ErrorMessage;
 import javax.annotation.Nullable;
 
-/** Container class of enclosing class and method of the element. */
-public class EnclosingClassAndMethodInfo {
+/** Container class of class and method info of a program point. */
+public class ClassAndMethodInfo {
   /** Path to the element in source code. */
   public final TreePath path;
 
@@ -41,18 +42,33 @@ public class EnclosingClassAndMethodInfo {
 
   @Nullable private ClassTree clazz;
 
-  public EnclosingClassAndMethodInfo(TreePath path) {
+  public ClassAndMethodInfo(TreePath path) {
     this.path = path;
   }
 
-  /** Finds the enclosing class and method according to {@code path}. */
-  public void findEnclosing() {
+  /**
+   * Finds the class and method where the error is reported according to {@code path}. If the error
+   * is regarding inheritance violations, the method should be the target method itself.
+   *
+   * @param errorMessage reported error, used to determine if the error is of type inheritance
+   *     violation.
+   */
+  public void findValues(ErrorMessage errorMessage) {
     method = ASTHelpers.findEnclosingNode(path, MethodTree.class);
     clazz = ASTHelpers.findEnclosingNode(path, ClassTree.class);
     if (clazz == null && path.getLeaf() instanceof ClassTree) {
       clazz = (ClassTree) path.getLeaf();
     }
     if (method == null && path.getLeaf() instanceof MethodTree) {
+      method = (MethodTree) path.getLeaf();
+    }
+    if (errorMessage.getMessageType().equals(ErrorMessage.MessageTypes.WRONG_OVERRIDE_PARAM)
+        || errorMessage.getMessageType().equals(ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN)) {
+      if (!(path.getLeaf() instanceof MethodTree)) {
+        throw new IllegalStateException(
+            "Expected inheritance violation occur only at path leading to methods, but found: "
+                + path.getLeaf().getKind());
+      }
       method = (MethodTree) path.getLeaf();
     }
   }

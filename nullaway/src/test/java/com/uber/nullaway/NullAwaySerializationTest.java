@@ -1228,4 +1228,90 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
+
+  @Test
+  public void errorSerializationTestInheritanceViolationForParameter() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public interface Foo {",
+            "   void bar(@Nullable Object o);",
+            "}")
+        .addSourceLines(
+            "com/uber/Main.java",
+            "package com.uber;",
+            "public class Main {",
+            "   public void run(){",
+            "     Foo foo = new Foo() {",
+            "       @Override",
+            "       // BUG: Diagnostic contains: parameter o is @NonNull",
+            "       public void bar(Object o) {",
+            "       }",
+            "     };",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "WRONG_OVERRIDE_PARAM",
+                "parameter o is @NonNull, but parameter in superclass method com.uber.Foo.bar(java.lang.Object) is @Nullable",
+                "com.uber.Main$1",
+                "bar(java.lang.Object)"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void errorSerializationTestInheritanceViolationForMethod() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "public interface Foo {",
+            "   Object bar();",
+            "}")
+        .addSourceLines(
+            "com/uber/Main.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Main {",
+            "   public void run(){",
+            "     Foo foo = new Foo() {",
+            "       @Override",
+            "       @Nullable",
+            "       // BUG: Diagnostic contains: method returns @Nullable, but superclass",
+            "       public Object bar() {",
+            "           return null;",
+            "       }",
+            "     };",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "WRONG_OVERRIDE_RETURN",
+                "method returns @Nullable, but superclass method com.uber.Foo.bar() returns @NonNull",
+                "com.uber.Main$1",
+                "bar()"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
 }
