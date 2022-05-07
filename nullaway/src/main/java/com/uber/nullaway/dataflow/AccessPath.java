@@ -600,6 +600,9 @@ public final class AccessPath implements MapKey {
      * @return the element, if not representing 'this'
      */
     public Element getElement() {
+      if (element == null) {
+        throw new RuntimeException("attempting to access element of Root representing receiver");
+      }
       return element;
     }
 
