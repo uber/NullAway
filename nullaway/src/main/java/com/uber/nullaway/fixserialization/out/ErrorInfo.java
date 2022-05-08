@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
 public class ErrorInfo {
 
   private final ErrorMessage errorMessage;
-  private final EnclosingClassAndMethodInfo enclosingInfo;
+  private final ClassAndMethodInfo classAndMethodInfo;
 
   /** Special characters that need to be escaped in TSV files. */
   private static final ImmutableMap<Character, Character> escapes =
@@ -45,7 +45,7 @@ public class ErrorInfo {
           '\r', 'r');
 
   public ErrorInfo(TreePath path, ErrorMessage errorMessage) {
-    this.enclosingInfo = new EnclosingClassAndMethodInfo(path);
+    this.classAndMethodInfo = new ClassAndMethodInfo(path);
     this.errorMessage = errorMessage;
   }
 
@@ -81,18 +81,18 @@ public class ErrorInfo {
         + '\t'
         + escapeSpecialCharacters(errorMessage.getMessage())
         + '\t'
-        + (enclosingInfo.getClazz() != null
-            ? ASTHelpers.getSymbol(enclosingInfo.getClazz()).flatName()
+        + (classAndMethodInfo.getClazz() != null
+            ? ASTHelpers.getSymbol(classAndMethodInfo.getClazz()).flatName()
             : "null")
         + '\t'
-        + (enclosingInfo.getMethod() != null
-            ? ASTHelpers.getSymbol(enclosingInfo.getMethod())
+        + (classAndMethodInfo.getMethod() != null
+            ? ASTHelpers.getSymbol(classAndMethodInfo.getMethod())
             : "null");
   }
 
-  /** Finds the enclosing class and method of program point where the error is reported. */
+  /** Finds the class and method of program point where the error is reported. */
   public void initEnclosing() {
-    enclosingInfo.findEnclosing();
+    classAndMethodInfo.findValues();
   }
 
   /**

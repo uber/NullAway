@@ -30,14 +30,14 @@ import java.util.Objects;
 public class ErrorDisplay implements Display {
   public final String type;
   public final String message;
-  public final String enclosingMethod;
-  public final String enclosingClass;
+  public final String method;
+  public final String clazz;
 
-  public ErrorDisplay(String type, String message, String enclosingClass, String enclosingMethod) {
+  public ErrorDisplay(String type, String message, String clazz, String method) {
     this.type = type;
     this.message = message;
-    this.enclosingMethod = enclosingMethod;
-    this.enclosingClass = enclosingClass;
+    this.method = method;
+    this.clazz = clazz;
   }
 
   @Override
@@ -53,13 +53,13 @@ public class ErrorDisplay implements Display {
         // To increase readability, a shorter version of the actual message might be present in the
         // expected output of tests.
         && (message.contains(that.message) || that.message.contains(message))
-        && enclosingMethod.equals(that.enclosingMethod)
-        && enclosingClass.equals(that.enclosingClass);
+        && method.equals(that.method)
+        && clazz.equals(that.clazz);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(type, message, enclosingMethod, enclosingClass);
+    return Objects.hash(type, message, method, clazz);
   }
 
   @Override
@@ -71,11 +71,11 @@ public class ErrorDisplay implements Display {
         + "\n\tmessage='"
         + message
         + '\''
-        + "\n\tenclosingMethod='"
-        + enclosingMethod
+        + "\n\tmethod='"
+        + method
         + '\''
-        + "\n\tenclosingClass='"
-        + enclosingClass
+        + "\n\tclass='"
+        + clazz
         + '\''
         + '}';
   }

@@ -39,14 +39,14 @@ public class SuggestedFixInfo {
   /** Suggested annotation. */
   private final AnnotationConfig.Annotation annotation;
 
-  private final EnclosingClassAndMethodInfo enclosingInfo;
+  private final ClassAndMethodInfo classAndMethodInfo;
 
   public SuggestedFixInfo(
       TreePath path,
       FixLocation fixLocation,
       ErrorMessage errorMessage,
       AnnotationConfig.Annotation annotation) {
-    this.enclosingInfo = new EnclosingClassAndMethodInfo(path);
+    this.classAndMethodInfo = new ClassAndMethodInfo(path);
     this.fixLocation = fixLocation;
     this.errorMessage = errorMessage;
     this.annotation = annotation;
@@ -85,18 +85,18 @@ public class SuggestedFixInfo {
         + '\t'
         + annotation
         + '\t'
-        + (enclosingInfo.getClazz() == null
+        + (classAndMethodInfo.getClazz() == null
             ? "null"
-            : ASTHelpers.getSymbol(enclosingInfo.getClazz()).flatName())
+            : ASTHelpers.getSymbol(classAndMethodInfo.getClazz()).flatName())
         + '\t'
-        + (enclosingInfo.getMethod() == null
+        + (classAndMethodInfo.getMethod() == null
             ? "null"
-            : ASTHelpers.getSymbol(enclosingInfo.getMethod()));
+            : ASTHelpers.getSymbol(classAndMethodInfo.getMethod()));
   }
 
-  /** Finds the enclosing class and method of program point where triggered this type change. */
+  /** Finds the class and method of program point where triggered this type change. */
   public void initEnclosing() {
-    enclosingInfo.findEnclosing();
+    classAndMethodInfo.findValues();
   }
 
   /**
