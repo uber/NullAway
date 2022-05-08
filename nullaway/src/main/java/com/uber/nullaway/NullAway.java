@@ -728,6 +728,12 @@ public class NullAway extends BugChecker
       // check for unboxing
       return returnType.isPrimitive() ? doUnboxingCheck(state, retExpr) : Description.NO_MATCH;
     }
+    if (ASTHelpers.isSameType(returnType, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
+      // Temporarily treat a Void return type as if it were @Nullable Void.  Change this once
+      // we are confident that all use cases can be type checked reasonably (may require generics
+      // support)
+      return Description.NO_MATCH;
+    }
     if (classAnnotationInfo.isSymbolUnannotated(methodSymbol, config)
         || Nullness.hasNullableAnnotation(methodSymbol, config)) {
       return Description.NO_MATCH;

@@ -613,11 +613,38 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "import javax.annotation.Nullable;",
             "class Test {",
             "  Void foo1() {",
-            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    // temporarily, we treat a Void return type as if it was @Nullable Void",
             "    return null;",
             "  }",
             "  @Nullable Void foo2() {",
             "    return null;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void staticCallZeroArgsNullCheck() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable static Object nullableReturn() { return new Object(); }",
+            "  void foo() {",
+            "    if (nullableReturn() != null) {",
+            "      nullableReturn().toString();",
+            "    }",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    nullableReturn().toString();",
+            "  }",
+            "  void foo2() {",
+            "    if (Test.nullableReturn() != null) {",
+            "      nullableReturn().toString();",
+            "    }",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    Test.nullableReturn().toString();",
             "  }",
             "}")
         .doTest();

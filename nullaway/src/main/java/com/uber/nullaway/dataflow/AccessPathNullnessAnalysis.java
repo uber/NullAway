@@ -226,7 +226,7 @@ public final class AccessPathNullnessAnalysis {
           if (ap.getElements().size() == 0) {
             AccessPath.Root root = ap.getRoot();
             if (!root.isReceiver()) {
-              Element e = root.getVarElement();
+              Element e = root.getElement();
               return e.getKind().equals(ElementKind.PARAMETER)
                   || e.getKind().equals(ElementKind.LOCAL_VARIABLE);
             }
@@ -307,9 +307,9 @@ public final class AccessPathNullnessAnalysis {
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {
       assert !ap.getRoot().isReceiver();
-      Element varElement = ap.getRoot().getVarElement();
-      if (varElement.getKind().equals(ElementKind.FIELD)) {
-        result.add(varElement);
+      Element element = ap.getRoot().getElement();
+      if (element.getKind().equals(ElementKind.FIELD)) {
+        result.add(element);
       }
     }
     return result;
