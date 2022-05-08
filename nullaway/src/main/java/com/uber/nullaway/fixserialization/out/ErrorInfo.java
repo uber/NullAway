@@ -92,7 +92,7 @@ public class ErrorInfo {
 
   /** Finds the class and method of program point where the error is reported. */
   public void initEnclosing() {
-    classAndMethodInfo.findValues(errorMessage);
+    classAndMethodInfo.findValues();
   }
 
   /**

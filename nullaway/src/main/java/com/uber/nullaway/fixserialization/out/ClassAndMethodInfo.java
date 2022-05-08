@@ -25,8 +25,9 @@ package com.uber.nullaway.fixserialization.out;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
-import com.uber.nullaway.ErrorMessage;
+import com.sun.tools.javac.code.Symbol;
 import javax.annotation.Nullable;
 
 /** Container class of class and method info of a program point. */
@@ -46,31 +47,45 @@ public class ClassAndMethodInfo {
     this.path = path;
   }
 
-  /**
-   * Finds the class and method where the error is reported according to {@code path}. If the error
-   * is regarding inheritance violations, the method should be the target method itself.
-   *
-   * @param errorMessage reported error, used to determine if the error is of type inheritance
-   *     violation.
-   */
-  public void findValues(ErrorMessage errorMessage) {
+  /** Finds the class and method where the error is reported according to {@code path}. */
+  public void findValues() {
     method = ASTHelpers.findEnclosingNode(path, MethodTree.class);
-    clazz = ASTHelpers.findEnclosingNode(path, ClassTree.class);
+    clazz =
+        path.getLeaf().getKind().equals(Tree.Kind.CLASS)
+            ? (ClassTree) path.getLeaf()
+            : ASTHelpers.findEnclosingNode(path, ClassTree.class);
     if (clazz == null && path.getLeaf() instanceof ClassTree) {
       clazz = (ClassTree) path.getLeaf();
     }
-    if (method == null && path.getLeaf() instanceof MethodTree) {
+    if (path.getLeaf() instanceof MethodTree) {
       method = (MethodTree) path.getLeaf();
     }
-    if (errorMessage.getMessageType().equals(ErrorMessage.MessageTypes.WRONG_OVERRIDE_PARAM)
-        || errorMessage.getMessageType().equals(ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN)) {
-      if (!(path.getLeaf() instanceof MethodTree)) {
-        throw new IllegalStateException(
-            "Expected inheritance violation occur only at path leading to methods, but found: "
-                + path.getLeaf().getKind());
+    if (clazz != null && method != null) {
+      Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(clazz);
+      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(method);
+      if (methodIsEnclosingClass(classSymbol, methodSymbol)) {
+        method = null;
       }
-      method = (MethodTree) path.getLeaf();
     }
+  }
+
+  /**
+   * Returns true, if the method is enclosing the class.
+   *
+   * @param clazz class symbol.
+   * @param method method symbol.
+   * @return true, if method is enclosing class.
+   */
+  private static boolean methodIsEnclosingClass(
+      Symbol.ClassSymbol clazz, Symbol.MethodSymbol method) {
+    Symbol enclosingSymbol = method.getEnclosingElement();
+    while (enclosingSymbol != null) {
+      if (clazz.equals(enclosingSymbol)) {
+        return false;
+      }
+      enclosingSymbol = enclosingSymbol.getEnclosingElement();
+    }
+    return true;
   }
 
   @Nullable

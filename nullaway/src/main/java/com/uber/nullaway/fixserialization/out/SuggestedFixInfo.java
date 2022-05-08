@@ -96,7 +96,7 @@ public class SuggestedFixInfo {
 
   /** Finds the class and method of program point where triggered this type change. */
   public void initEnclosing() {
-    classAndMethodInfo.findValues(errorMessage);
+    classAndMethodInfo.findValues();
   }
 
   /**

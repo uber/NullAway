@@ -71,10 +71,10 @@ public class ErrorDisplay implements Display {
         + "\n\tmessage='"
         + message
         + '\''
-        + "\n\tenclosingMethod='"
+        + "\n\tmethod='"
         + method
         + '\''
-        + "\n\tenclosingClass='"
+        + "\n\tclass='"
         + clazz
         + '\''
         + '}';

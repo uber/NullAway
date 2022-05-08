@@ -1314,4 +1314,73 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
+
+  @Test
+  public void errorSerializationTestAnonymousClassField() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines("com/uber/Foo.java", "package com.uber;", "public interface Foo { }")
+        .addSourceLines(
+            "com/uber/Main.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Main {",
+            "   public void run(){",
+            "     Foo foo = new Foo() {",
+            "       // BUG: Diagnostic contains: @NonNull field Main$1.bar not initialized",
+            "       Object bar;",
+            "     };",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "FIELD_NO_INIT",
+                "@NonNull field Main$1.bar not initialized",
+                "com.uber.Main$1",
+                "null"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void errorSerializationTestLocalClassField() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Main.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Main {",
+            "   public void run(){",
+            "     class Foo {",
+            "       // BUG: Diagnostic contains: @NonNull field Main$1Foo.bar not initialized",
+            "       Object bar;",
+            "     };",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "FIELD_NO_INIT",
+                "@NonNull field Main$1Foo.bar not initialized",
+                "com.uber.Main$1Foo",
+                "null"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
 }
