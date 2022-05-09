@@ -151,8 +151,8 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
     if (accessPath.getElements().size() == 1) {
       AccessPath.Root root = accessPath.getRoot();
-      if (!root.isReceiver()) {
-        final Element e = root.getElement();
+      final Element e = root.getElement();
+      if (e != null) {
         return e.getKind().equals(ElementKind.LOCAL_VARIABLE)
             && accessPath.getElements().get(0).getJavaElement().equals(OPTIONAL_CONTENT);
       }

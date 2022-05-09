@@ -359,7 +359,7 @@ public final class AccessPath implements MapKey {
     Preconditions.checkArgument(
         element.getKind().isField(),
         "element must be of type: FIELD but received: " + element.getKind());
-    Root root = new Root();
+    Root root = new Root(null);
     return new AccessPath(root, Collections.singletonList(new AccessPathElement(element)));
   }
 
@@ -468,9 +468,9 @@ public final class AccessPath implements MapKey {
     } else if (node instanceof LocalVariableNode) {
       result = new Root(((LocalVariableNode) node).getElement());
     } else if (node instanceof ThisNode) {
-      result = new Root();
+      result = new Root(null);
     } else if (node instanceof SuperNode) {
-      result = new Root();
+      result = new Root(null);
     } else {
       // don't handle any other cases
       result = null;
@@ -577,21 +577,11 @@ public final class AccessPath implements MapKey {
    */
   public static final class Root {
 
-    /** does this represent the receiver? */
-    private final boolean isMethodReceiver;
-
     /** if this does not represent the receiver, the element for this */
     @Nullable private final Element element;
 
-    Root(Element element) {
-      this.isMethodReceiver = false;
+    Root(@Nullable Element element) {
       this.element = element;
-    }
-
-    /** for case when it represents the receiver */
-    Root() {
-      this.isMethodReceiver = true;
-      this.element = null;
     }
 
     /**
@@ -599,20 +589,9 @@ public final class AccessPath implements MapKey {
      *
      * @return the element, if not representing 'this'
      */
+    @Nullable
     public Element getElement() {
-      if (element == null) {
-        throw new RuntimeException("attempting to access element of Root representing receiver");
-      }
       return element;
-    }
-
-    /**
-     * Check whether this access path root represents the receiver (i.e. <code>this</code>). s
-     *
-     * @return <code>true</code> if representing 'this', <code>false</code> otherwise
-     */
-    public boolean isReceiver() {
-      return isMethodReceiver;
     }
 
     @Override
@@ -623,25 +602,18 @@ public final class AccessPath implements MapKey {
       if (o == null || getClass() != o.getClass()) {
         return false;
       }
-
       Root root = (Root) o;
-
-      if (isMethodReceiver != root.isMethodReceiver) {
-        return false;
-      }
       return Objects.equals(element, root.element);
     }
 
     @Override
     public int hashCode() {
-      int result = (isMethodReceiver ? 1 : 0);
-      result = 31 * result + (element != null ? element.hashCode() : 0);
-      return result;
+      return Objects.hash(element);
     }
 
     @Override
     public String toString() {
-      return "Root{" + "isMethodReceiver=" + isMethodReceiver + ", element=" + element + '}';
+      return "Root{" + "element=" + element + '}';
     }
   }
 
