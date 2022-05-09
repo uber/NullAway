@@ -1,5 +1,31 @@
 Changelog
 =========
+Version 0.9.7
+-------------
+* Allow zero-argument static method calls to be the root of an access path (#596)
+* Support for specific libraries/APIs
+  - Add support for Optional.isEmpty() (#590)
+  - Model System.console() as returning @nullable (#591)
+* JDK 17+ support improvements
+  - Add a test of binding patterns (#583)
+* JSpecify support:
+  - Move JSpecify tests to correct package (#587)
+* NullAwayInfer/Annotator data serialization support [experimental]
+  - Fixes line breaks and tabs in serializing errors. (#584)
+  - Using flatNames for LocalType/anon. classes in fix serialization (#592)
+  - Fixes to computing class and method info for error serialization (#599)
+* Dependency updates
+  - [JarInfer] Update Apache Commons IO dependency. (#582)
+  - Update to Checker Framework 3.21.3 (#564)
+* Build / CI tooling for NullAway itself:
+  - NullAway now builds with NullAway (#560)
+  - Switch to using gradle-build-action (#581)
+  - Compile and test against Error Prone 2.12.0 (#585)
+  - Enabled a few more EP checks on our code (#586)
+    (Note: the `Void` related portion of this changes was reverted)
+  - Update to Gradle 7.4.2 (#589)
+  - Update to Error Prone 2.13.1 and latest Lombok (#588)
+
 Version 0.9.6
 -------------
 * Initial support for JSpecify's @NullMarked annotation (#493)
