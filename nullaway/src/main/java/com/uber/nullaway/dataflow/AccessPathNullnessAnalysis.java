@@ -165,7 +165,7 @@ public final class AccessPathNullnessAnalysis {
     Set<AccessPath> nonnullAccessPaths = nullnessResult.getAccessPathsWithValue(Nullness.NONNULL);
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {
-      if (ap.getRoot().getElement() == null) {
+      if (ap.getRoot() == null) {
         ImmutableList<AccessPathElement> elements = ap.getElements();
         if (elements.size() == 1) {
           Element elem = elements.get(0).getJavaElement();
@@ -224,8 +224,7 @@ public final class AccessPathNullnessAnalysis {
     return store.filterAccessPaths(
         (ap) -> {
           if (ap.getElements().size() == 0) {
-            AccessPath.Root root = ap.getRoot();
-            Element e = root.getElement();
+            Element e = ap.getRoot();
             if (e != null) {
               return e.getKind().equals(ElementKind.PARAMETER)
                   || e.getKind().equals(ElementKind.LOCAL_VARIABLE);
@@ -306,7 +305,7 @@ public final class AccessPathNullnessAnalysis {
     Set<AccessPath> nonnullAccessPaths = nullnessResult.getAccessPathsWithValue(Nullness.NONNULL);
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {
-      Element element = ap.getRoot().getElement();
+      Element element = ap.getRoot();
       if (element != null && element.getKind().equals(ElementKind.FIELD)) {
         result.add(element);
       }
