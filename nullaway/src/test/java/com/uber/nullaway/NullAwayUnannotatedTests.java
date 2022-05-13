@@ -98,6 +98,43 @@ public class NullAwayUnannotatedTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void generatedAsUnannotatedCustomAnnotation() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CustomGeneratedCodeAnnotations=com.uber.MyGeneratedMarkerAnnotation",
+                "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true"))
+        .addSourceLines(
+            "MyGeneratedMarkerAnnotation.java",
+            "package com.uber;",
+            "import java.lang.annotation.Retention;",
+            "import java.lang.annotation.Target;",
+            "import static java.lang.annotation.ElementType.CONSTRUCTOR;",
+            "import static java.lang.annotation.ElementType.FIELD;",
+            "import static java.lang.annotation.ElementType.TYPE;",
+            "import static java.lang.annotation.ElementType.METHOD;",
+            "import static java.lang.annotation.ElementType.PACKAGE;",
+            "import static java.lang.annotation.RetentionPolicy.SOURCE;",
+            "@Retention(SOURCE)",
+            "@Target({PACKAGE, TYPE, METHOD, CONSTRUCTOR, FIELD})",
+            "public @interface MyGeneratedMarkerAnnotation {}")
+        .addSourceLines(
+            "Generated.java",
+            "package com.uber;",
+            "@MyGeneratedMarkerAnnotation",
+            "public class Generated { public void takeObj(Object o) {} }")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  void foo() { (new Generated()).takeObj(null); }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void unannotatedClass() {
     makeTestHelperWithArgs(
             Arrays.asList(
