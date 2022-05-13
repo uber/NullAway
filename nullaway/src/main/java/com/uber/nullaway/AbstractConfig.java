@@ -93,6 +93,8 @@ public abstract class AbstractConfig implements Config {
 
   protected Set<String> excludedClassAnnotations;
 
+  protected Set<String> generatedCodeAnnotations;
+
   protected Set<String> initializerAnnotations;
 
   protected Set<String> externalInitAnnotations;
@@ -158,7 +160,7 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public boolean shouldTreatGeneratedAsUnannotated() {
+  public boolean treatGeneratedAsUnannotated() {
     return treatGeneratedAsUnannotated;
   }
 
@@ -192,6 +194,11 @@ public abstract class AbstractConfig implements Config {
   @Override
   public ImmutableSet<String> getExcludedClassAnnotations() {
     return ImmutableSet.copyOf(excludedClassAnnotations);
+  }
+
+  @Override
+  public ImmutableSet<String> getGeneratedCodeAnnotations() {
+    return ImmutableSet.copyOf(generatedCodeAnnotations);
   }
 
   @Override
@@ -336,11 +343,6 @@ public abstract class AbstractConfig implements Config {
   @Override
   public String getErrorURL() {
     return errorURL;
-  }
-
-  @Override
-  public boolean treatGeneratedAsUnannotated() {
-    return treatGeneratedAsUnannotated;
   }
 
   @Override

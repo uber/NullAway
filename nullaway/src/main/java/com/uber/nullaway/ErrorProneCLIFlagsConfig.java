@@ -48,6 +48,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_CLASS_ANNOTATIONS_TO_EXCLUDE =
       EP_FL_NAMESPACE + ":ExcludedClassAnnotations";
   static final String FL_SUGGEST_SUPPRESSIONS = EP_FL_NAMESPACE + ":SuggestSuppressions";
+
+  static final String FL_CLASS_ANNOTATIONS_GENERATED =
+      EP_FL_NAMESPACE + ":CustomGeneratedCodeAnnotations";
   static final String FL_GENERATED_UNANNOTATED = EP_FL_NAMESPACE + ":TreatGeneratedAsUnannotated";
   static final String FL_ACKNOWLEDGE_ANDROID_RECENT = EP_FL_NAMESPACE + ":AcknowledgeAndroidRecent";
   static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
@@ -85,6 +88,13 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
 
   static final ImmutableSet<String> DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE =
       ImmutableSet.of("lombok.Generated");
+
+  // Annotations with simple name ".Generated" need not be manually listed, and are always matched
+  // by default
+  // TODO: org.apache.avro.specific.AvroGenerated should go here, but we are skipping it for the
+  // next release to better test the effect of this feature (users can always manually configure
+  // it).
+  static final ImmutableSet<String> DEFAULT_CLASS_ANNOTATIONS_GENERATED = ImmutableSet.of();
 
   static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS =
       ImmutableSet.of(
@@ -158,6 +168,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     excludedClassAnnotations =
         getFlagStringSet(
             flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE, DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE);
+    generatedCodeAnnotations =
+        getFlagStringSet(
+            flags, FL_CLASS_ANNOTATIONS_GENERATED, DEFAULT_CLASS_ANNOTATIONS_GENERATED);
     initializerAnnotations =
         getFlagStringSet(flags, FL_INITIALIZER_ANNOT, DEFAULT_INITIALIZER_ANNOT);
     customNullableAnnotations = getFlagStringSet(flags, FL_NULLABLE_ANNOT, ImmutableSet.of());
