@@ -91,8 +91,10 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
 
   // Annotations with simple name ".Generated" need not be manually listed, and are always matched
   // by default
-  static final ImmutableSet<String> DEFAULT_CLASS_ANNOTATIONS_GENERATED =
-      ImmutableSet.of("org.apache.avro.specific.AvroGenerated");
+  // TODO: org.apache.avro.specific.AvroGenerated should go here, but we are skipping it for the
+  // next
+  //  release it to better test the effect of this feature. (Users can always manually configure it)
+  static final ImmutableSet<String> DEFAULT_CLASS_ANNOTATIONS_GENERATED = ImmutableSet.of();
 
   static final ImmutableSet<String> DEFAULT_KNOWN_INITIALIZERS =
       ImmutableSet.of(
