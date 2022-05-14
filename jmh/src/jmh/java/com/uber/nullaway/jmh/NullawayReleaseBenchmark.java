@@ -26,7 +26,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collections;
+import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -37,26 +37,39 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.infra.Blackhole;
 
 @State(Scope.Benchmark)
-public class AutodisposeBenchmark {
+public class NullawayReleaseBenchmark {
 
   private NullawayJavac nullawayJavac;
 
   @Setup
   public void setup() throws IOException {
-    String sourceDir = System.getProperty("nullaway.autodispose.sources");
-    String classpath = System.getProperty("nullaway.autodispose.classpath");
+    String sourceDir = System.getProperty("nullaway.nullawayRelease.sources");
+    String classpath = System.getProperty("nullaway.nullawayRelease.classpath");
     try (Stream<Path> stream =
         Files.find(
             Paths.get(sourceDir), 100, (p, bfa) -> p.getFileName().toString().endsWith(".java"))) {
       List<String> sourceFileNames =
           stream.map(p -> p.toFile().getAbsolutePath()).collect(Collectors.toList());
+      List<String> extraNullAwayArgs =
+          Arrays.asList(
+              "-XepOpt:NullAway:CheckOptionalEmptiness=true",
+              "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+              "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.NullabilityUtil.castToNonNull");
       nullawayJavac =
-          NullawayJavac.create(sourceFileNames, "autodispose2", classpath, Collections.emptyList());
+          NullawayJavac.create(
+              sourceFileNames,
+              "com.uber,org.checkerframework.nullaway",
+              classpath,
+              extraNullAwayArgs);
     }
   }
 
   @Benchmark
   public void compile(Blackhole bh) throws Exception {
-    bh.consume(nullawayJavac.compile());
+    boolean compile = nullawayJavac.compile();
+    if (!compile) {
+      throw new RuntimeException("bad");
+    }
+    // bh.consume(compile);
   }
 }

@@ -25,6 +25,7 @@ package com.uber.nullaway.jmh;
 import com.google.common.collect.ImmutableList;
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -100,7 +101,10 @@ public class CaffeineBenchmark {
             .collect(Collectors.toList());
     nullawayJavac =
         NullawayJavac.create(
-            realSourceFileNames, "com.github.benmanes.caffeine", caffeineClasspath);
+            realSourceFileNames,
+            "com.github.benmanes.caffeine",
+            caffeineClasspath,
+            Collections.emptyList());
   }
 
   @Benchmark

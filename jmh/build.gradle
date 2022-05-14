@@ -26,6 +26,9 @@ configurations {
 
     autodisposeSources
     autodisposeDeps
+
+    nullawayReleaseSources
+    nullawayReleaseDeps
 }
 dependencies {
 
@@ -46,15 +49,21 @@ dependencies {
     autodisposeSources('com.uber.autodispose2:autodispose:2.1.0:sources') {
         transitive = false
     }
+    nullawayReleaseSources('com.uber.nullaway:nullaway:0.9.7:sources') {
+        transitive = false
+    }
 
     caffeineDeps 'com.github.ben-manes.caffeine:caffeine:3.0.2'
     autodisposeDeps 'com.uber.autodispose2:autodispose:2.1.0'
+    nullawayReleaseDeps 'com.uber.nullaway:nullaway:0.9.7'
+    nullawayReleaseDeps deps.build.errorProneCoreForApi
 
     testImplementation deps.test.junit4
 }
 
 def caffeineSourceDir = project.layout.buildDirectory.dir('caffeineSources')
 def autodisposeSourceDir = project.layout.buildDirectory.dir('autodisposeSources')
+def nullawayReleaseSourceDir = project.layout.buildDirectory.dir('nullawayReleaseSources')
 
 task extractCaffeineSources(type: Copy) {
     from zipTree(configurations.caffeineSources.singleFile)
@@ -66,8 +75,14 @@ task extractAutodisposeSources(type: Copy) {
     into autodisposeSourceDir
 }
 
+task extractNullawayReleaseSources(type: Copy) {
+    from zipTree(configurations.nullawayReleaseSources.singleFile)
+    into nullawayReleaseSourceDir
+}
+
 compileJava.dependsOn(extractCaffeineSources)
 compileJava.dependsOn(extractAutodisposeSources)
+compileJava.dependsOn(extractNullawayReleaseSources)
 
 // always run jmh
 tasks.getByName('jmh').outputs.upToDateWhen { false }
@@ -80,18 +95,22 @@ jmh {
     // then filter out the benchmark itself
     def caffeineClasspath = configurations.caffeineDeps.filter({f -> !f.toString().contains("caffeine-3.0.2")}).asPath
     def autodisposeClasspath = configurations.autodisposeDeps.filter({f -> !f.toString().contains("autodispose-2.1.0")}).asPath
+    def nullawayReleaseClasspath = configurations.nullawayReleaseDeps.filter({f -> !f.toString().contains("nullaway-0.9.7")}).asPath
 
     jvmArgsAppend = [
             "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()}",
             "-Dnullaway.caffeine.classpath=$caffeineClasspath",
             "-Dnullaway.autodispose.sources=${autodisposeSourceDir.get()}",
             "-Dnullaway.autodispose.classpath=$autodisposeClasspath",
+            "-Dnullaway.nullawayRelease.sources=${nullawayReleaseSourceDir.get()}",
+            "-Dnullaway.nullawayRelease.classpath=$nullawayReleaseClasspath",
     ]
 
     // commented-out examples of how to tweak other jmh parameters; they show the default values
     // for more examples see https://github.com/melix/jmh-gradle-plugin/blob/master/README.adoc#configuration-options
     // iterations = 5
     // fork = 5
+    includes = ['NullawayRelease']
 }
 
 // don't run test task on pre-JDK-11 VMs
