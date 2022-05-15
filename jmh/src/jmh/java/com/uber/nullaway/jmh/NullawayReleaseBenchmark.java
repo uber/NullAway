@@ -37,6 +37,7 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.infra.Blackhole;
 
 @State(Scope.Benchmark)
+// TODO refactor this code so we can test compilation success for each benchmark as a unit test
 public class NullawayReleaseBenchmark {
 
   private NullawayJavac nullawayJavac;
