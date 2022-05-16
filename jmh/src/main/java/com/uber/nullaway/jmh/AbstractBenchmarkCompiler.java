@@ -37,7 +37,11 @@ public abstract class AbstractBenchmarkCompiler {
   public AbstractBenchmarkCompiler() throws IOException {
     nullawayJavac =
         NullawayJavac.create(
-            getSourceFileNames(), getAnnotatedPackages(), getClasspath(), getExtraErrorProneArgs());
+            getSourceFileNames(),
+            getAnnotatedPackages(),
+            getClasspath(),
+            getExtraErrorProneArgs(),
+            getExtraProcessorPath());
   }
 
   public final boolean compile() {
@@ -63,5 +67,9 @@ public abstract class AbstractBenchmarkCompiler {
 
   protected List<String> getExtraErrorProneArgs() {
     return Collections.emptyList();
+  }
+
+  protected String getExtraProcessorPath() {
+    return "";
   }
 }

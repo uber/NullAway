@@ -29,6 +29,7 @@ configurations {
 
     nullawayReleaseSources
     nullawayReleaseDeps
+    nullawayReleaseProcessors
 }
 dependencies {
 
@@ -56,11 +57,14 @@ dependencies {
     caffeineDeps 'com.github.ben-manes.caffeine:caffeine:3.0.2'
     autodisposeDeps 'com.uber.autodispose2:autodispose:2.1.0'
     nullawayReleaseDeps 'com.uber.nullaway:nullaway:0.9.7'
-    // TODO use fixed versions since we are compiling a particular version of NullAway
-    nullawayReleaseDeps deps.build.errorProneCoreForApi
-    nullawayReleaseDeps deps.test.inferAnnotations
-    nullawayReleaseDeps deps.test.jetbrainsAnnotations
-    // TODO pull in right version of AutoValue for NullAway
+    // Add in the compile-only dependencies of NullAway
+    // Use fixed versions here since we are compiling a particular version of NullAway
+    nullawayReleaseDeps "com.google.errorprone:error_prone_core:2.13.1"
+    nullawayReleaseDeps "com.facebook.infer.annotation:infer-annotation:0.11.0"
+    nullawayReleaseDeps "org.jetbrains:annotations:13.0"
+
+    // To run AutoValue during NullAway compilation
+    nullawayReleaseProcessors "com.google.auto.value:auto-value:1.9"
 
     testImplementation deps.test.junit4
 }
@@ -96,6 +100,9 @@ tasks.getByName('jmh').outputs.upToDateWhen { false }
 def caffeineClasspath = configurations.caffeineDeps.filter({f -> !f.toString().contains("caffeine-3.0.2")}).asPath
 def autodisposeClasspath = configurations.autodisposeDeps.filter({f -> !f.toString().contains("autodispose-2.1.0")}).asPath
 def nullawayReleaseClasspath = configurations.nullawayReleaseDeps.filter({f -> !f.toString().contains("nullaway-0.9.7")}).asPath
+
+def nullawayReleaseProcessorpath = configurations.nullawayReleaseProcessors.asPath
+
 def extraJVMArgs = [
         "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()}",
         "-Dnullaway.caffeine.classpath=$caffeineClasspath",
@@ -103,6 +110,7 @@ def extraJVMArgs = [
         "-Dnullaway.autodispose.classpath=$autodisposeClasspath",
         "-Dnullaway.nullawayRelease.sources=${nullawayReleaseSourceDir.get()}",
         "-Dnullaway.nullawayRelease.classpath=$nullawayReleaseClasspath",
+        "-Dnullaway.nullawayRelease.processorpath=$nullawayReleaseProcessorpath",
 ]
 
 jmh {

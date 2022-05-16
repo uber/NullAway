@@ -53,4 +53,9 @@ public class NullawayReleaseCompiler extends AbstractBenchmarkCompiler {
   protected String getClasspath() {
     return System.getProperty("nullaway.nullawayRelease.classpath");
   }
+
+  @Override
+  protected String getExtraProcessorPath() {
+    return System.getProperty("nullaway.nullawayRelease.processorpath");
+  }
 }
