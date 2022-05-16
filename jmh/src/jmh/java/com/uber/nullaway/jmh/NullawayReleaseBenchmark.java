@@ -23,13 +23,6 @@
 package com.uber.nullaway.jmh;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
@@ -37,40 +30,17 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.infra.Blackhole;
 
 @State(Scope.Benchmark)
-// TODO refactor this code so we can test compilation success for each benchmark as a unit test
 public class NullawayReleaseBenchmark {
 
-  private NullawayJavac nullawayJavac;
+  private NullawayReleaseCompiler compiler;
 
   @Setup
   public void setup() throws IOException {
-    String sourceDir = System.getProperty("nullaway.nullawayRelease.sources");
-    String classpath = System.getProperty("nullaway.nullawayRelease.classpath");
-    try (Stream<Path> stream =
-        Files.find(
-            Paths.get(sourceDir), 100, (p, bfa) -> p.getFileName().toString().endsWith(".java"))) {
-      List<String> sourceFileNames =
-          stream.map(p -> p.toFile().getAbsolutePath()).collect(Collectors.toList());
-      List<String> extraNullAwayArgs =
-          Arrays.asList(
-              "-XepOpt:NullAway:CheckOptionalEmptiness=true",
-              "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
-              "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.NullabilityUtil.castToNonNull");
-      nullawayJavac =
-          NullawayJavac.create(
-              sourceFileNames,
-              "com.uber,org.checkerframework.nullaway",
-              classpath,
-              extraNullAwayArgs);
-    }
+    compiler = new NullawayReleaseCompiler();
   }
 
   @Benchmark
-  public void compile(Blackhole bh) throws Exception {
-    boolean compile = nullawayJavac.compile();
-    if (!compile) {
-      throw new RuntimeException("bad");
-    }
-    // bh.consume(compile);
+  public void compile(Blackhole bh) {
+    bh.consume(compiler.compile());
   }
 }

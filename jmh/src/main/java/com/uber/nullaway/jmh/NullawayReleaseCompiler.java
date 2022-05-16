@@ -19,28 +19,38 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
 package com.uber.nullaway.jmh;
 
 import java.io.IOException;
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.infra.Blackhole;
+import java.util.Arrays;
+import java.util.List;
 
-@State(Scope.Benchmark)
-public class AutodisposeBenchmark {
+public class NullawayReleaseCompiler extends AbstractBenchmarkCompiler {
 
-  private AutodisposeCompiler compiler;
-
-  @Setup
-  public void setup() throws IOException {
-    compiler = new AutodisposeCompiler();
+  public NullawayReleaseCompiler() throws IOException {
+    super();
   }
 
-  @Benchmark
-  public void compile(Blackhole bh) {
-    bh.consume(compiler.compile());
+  @Override
+  protected String getSourceDirectory() {
+    return System.getProperty("nullaway.nullawayRelease.sources");
+  }
+
+  @Override
+  protected List<String> getExtraErrorProneArgs() {
+    return Arrays.asList(
+        "-XepOpt:NullAway:CheckOptionalEmptiness=true",
+        "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+        "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.NullabilityUtil.castToNonNull");
+  }
+
+  @Override
+  protected String getAnnotatedPackages() {
+    return "com.uber,org.checkerframework.nullaway";
+  }
+
+  @Override
+  protected String getClasspath() {
+    return System.getProperty("nullaway.nullawayRelease.classpath");
   }
 }
