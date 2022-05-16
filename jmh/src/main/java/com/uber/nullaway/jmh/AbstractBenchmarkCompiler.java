@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+/** common logic for compiling a benchmark in JMH performance testing */
 public abstract class AbstractBenchmarkCompiler {
 
   private final NullawayJavac nullawayJavac;
@@ -48,6 +49,7 @@ public abstract class AbstractBenchmarkCompiler {
     return nullawayJavac.compile();
   }
 
+  /** Get the names of source files to be compiled */
   protected List<String> getSourceFileNames() throws IOException {
     String sourceDir = getSourceDirectory();
     try (Stream<Path> stream =
@@ -59,16 +61,21 @@ public abstract class AbstractBenchmarkCompiler {
     }
   }
 
+  /** Get the root directory containing the benchmark source files */
   protected abstract String getSourceDirectory();
 
+  /** Get the value to pass for {@code -XepOpt:NullAway:AnnotatedPackages} */
   protected abstract String getAnnotatedPackages();
 
+  /** Get the classpath required to compile the benchmark */
   protected abstract String getClasspath();
 
+  /** Get any extra arguments that should be passed to Error Prone */
   protected List<String> getExtraErrorProneArgs() {
     return Collections.emptyList();
   }
 
+  /** Get a path of additional jars to be included in the processor path when compiling */
   protected String getExtraProcessorPath() {
     return "";
   }

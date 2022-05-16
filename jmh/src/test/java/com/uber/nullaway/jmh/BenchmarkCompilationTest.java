@@ -5,6 +5,7 @@ import static org.junit.Assert.assertTrue;
 import java.io.IOException;
 import org.junit.Test;
 
+/** Tests that all our JMH benchmarks compile successfully */
 public class BenchmarkCompilationTest {
 
   @Test
