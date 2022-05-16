@@ -169,6 +169,8 @@ public class NullawayJavac {
             "-Xplugin:ErrorProne -XepDisableAllChecks -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages="
                 + annotatedPackages
                 + String.join(" ", extraErrorProneArgs)));
+    // add these options since we have at least one benchmark that only compiles with access to
+    // javac-internal APIs
     options.addAll(
         Arrays.asList(
             "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",

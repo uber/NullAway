@@ -103,6 +103,7 @@ def nullawayReleaseClasspath = configurations.nullawayReleaseDeps.filter({f -> !
 
 def nullawayReleaseProcessorpath = configurations.nullawayReleaseProcessors.asPath
 
+// Extra JVM arguments to expose relevant paths for compiling benchmarks
 def extraJVMArgs = [
         "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()}",
         "-Dnullaway.caffeine.classpath=$caffeineClasspath",
