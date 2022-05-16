@@ -95,7 +95,7 @@ public class CaffeineCompiler extends AbstractBenchmarkCompiler {
     String caffeineSourceDir = getSourceDirectory();
     List<String> realSourceFileNames =
         SOURCE_FILE_NAMES.stream()
-            .map(s -> caffeineSourceDir + File.separator + s.replaceAll("/", File.separator))
+            .map(s -> caffeineSourceDir + File.separator + s.replace("/", File.separator))
             .collect(Collectors.toList());
     return realSourceFileNames;
   }
