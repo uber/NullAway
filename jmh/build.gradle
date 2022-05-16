@@ -127,7 +127,7 @@ jmh {
 }
 
 // don't run test task on pre-JDK-11 VMs
-test {
+tasks.named('test') {
     onlyIf { JavaVersion.current() >= JavaVersion.VERSION_11 }
     jvmArgs extraJVMArgs
     // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
@@ -143,5 +143,8 @@ test {
             "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
             "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
     ]
+    testLogging {
+        exceptionFormat = 'full'
+    }
 }
 
