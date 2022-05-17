@@ -78,6 +78,7 @@ def build = [
     jspecify                : "org.jspecify:jspecify:0.2.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
     commonsIO               : "commons-io:commons-io:2.11.0",
+    pcollections            : "org.pcollections:pcollections:3.1.4",
     wala                    : ["com.ibm.wala:com.ibm.wala.util:${versions.wala}",
                                "com.ibm.wala:com.ibm.wala.shrike:${versions.wala}",
                                "com.ibm.wala:com.ibm.wala.core:${versions.wala}"],

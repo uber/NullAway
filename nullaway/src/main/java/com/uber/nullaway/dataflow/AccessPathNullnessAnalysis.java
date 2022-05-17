@@ -21,7 +21,6 @@ package com.uber.nullaway.dataflow;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
@@ -32,6 +31,7 @@ import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.contract.ContractNullnessStoreInitializer;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 import javax.annotation.Nullable;
@@ -166,7 +166,7 @@ public final class AccessPathNullnessAnalysis {
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {
       if (ap.getRoot() == null) {
-        ImmutableList<AccessPathElement> elements = ap.getElements();
+        List<AccessPathElement> elements = ap.getElements();
         if (elements.size() == 1) {
           Element elem = elements.get(0).getJavaElement();
           if (elem.getKind().equals(ElementKind.FIELD)) {

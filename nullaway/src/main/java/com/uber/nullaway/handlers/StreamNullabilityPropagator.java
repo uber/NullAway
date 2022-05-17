@@ -344,7 +344,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       }
       for (AccessPath ap : filterNullnessStore.getAccessPathsWithValue(Nullness.NONNULL)) {
         // Find the access path corresponding to the current unbound method reference after binding
-        ImmutableList<AccessPathElement> elements = ap.getElements();
+        List<AccessPathElement> elements = ap.getElements();
         if (elements.size() == 1) {
           // We only care for single method call chains (e.g. this.foo(), not this.f.bar())
           Element element = elements.get(0).getJavaElement();
