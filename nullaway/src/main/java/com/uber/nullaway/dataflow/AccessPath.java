@@ -562,53 +562,6 @@ public final class AccessPath implements MapKey {
         || NullabilityUtil.isMapMethod(symbol, state, "putIfAbsent", 2);
   }
 
-  /**
-   * root of an access path; either an {@link javax.lang.model.element.Element} (representing a
-   * local variable, field, or zero-argument static method call) or {@code this} (enclosing method
-   * receiver)
-   */
-  public static final class Root {
-
-    /** if this does not represent the receiver, the element for this */
-    @Nullable private final Element element;
-
-    Root(@Nullable Element element) {
-      this.element = element;
-    }
-
-    /**
-     * Get the element of this access path root, if not representing <code>this</code>.
-     *
-     * @return the element, if not representing 'this'
-     */
-    @Nullable
-    public Element getElement() {
-      return element;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      Root root = (Root) o;
-      return Objects.equals(element, root.element);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(element);
-    }
-
-    @Override
-    public String toString() {
-      return "Root{" + "element=" + element + '}';
-    }
-  }
-
   private static final class StringMapKey implements MapKey {
 
     private final String key;
