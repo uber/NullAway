@@ -65,7 +65,7 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public boolean shouldTreatGeneratedAsUnannotated() {
+  public boolean treatGeneratedAsUnannotated() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 
@@ -91,6 +91,11 @@ public class DummyOptionsConfig implements Config {
 
   @Override
   public ImmutableSet<String> getExcludedClassAnnotations() {
+    throw new IllegalStateException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public ImmutableSet<String> getGeneratedCodeAnnotations() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 
@@ -203,11 +208,6 @@ public class DummyOptionsConfig implements Config {
 
   @Override
   public String getErrorURL() {
-    throw new IllegalStateException(ERROR_MESSAGE);
-  }
-
-  @Override
-  public boolean treatGeneratedAsUnannotated() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 

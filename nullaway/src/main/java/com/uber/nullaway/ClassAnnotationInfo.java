@@ -26,6 +26,7 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.util.Context;
@@ -168,15 +169,22 @@ public final class ClassAnnotationInfo {
   private boolean shouldTreatAsUnannotated(Symbol.ClassSymbol classSymbol, Config config) {
     if (config.isUnannotatedClass(classSymbol)) {
       return true;
-    } else if (config.shouldTreatGeneratedAsUnannotated()
-        && ASTHelpers.hasDirectAnnotationWithSimpleName(classSymbol, "Generated")) {
+    } else if (config.treatGeneratedAsUnannotated()) {
       // Generated code is or isn't excluded, depending on configuration
       // Note: In the future, we might want finer grain controls to distinguish code that is
-      // generated with nullability info and without.
-      return true;
-    } else {
-      return false;
+      // generated with nullability info and without. Possibly using the same mechanism as we
+      // will need to support @NullUnmarked.
+      if (ASTHelpers.hasDirectAnnotationWithSimpleName(classSymbol, "Generated")) {
+        return true;
+      }
+      ImmutableSet<String> generatedCodeAnnotations = config.getGeneratedCodeAnnotations();
+      if (classSymbol.getAnnotationMirrors().stream()
+          .map(anno -> anno.getAnnotationType().toString())
+          .anyMatch(generatedCodeAnnotations::contains)) {
+        return true;
+      }
     }
+    return false;
   }
 
   private boolean isAnnotatedTopLevelClass(Symbol.ClassSymbol classSymbol, Config config) {

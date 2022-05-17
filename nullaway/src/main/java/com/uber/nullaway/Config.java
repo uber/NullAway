@@ -69,12 +69,12 @@ public interface Config {
   boolean fromExplicitlyUnannotatedPackage(String className);
 
   /**
-   * Checks if generated code should be considered always unannoatated.
+   * Checks if (tool) generated code should be considered always unannoatated.
    *
    * @return true if code marked as generated code should be treated as unannotated, even if it
    *     comes from a package otherwise configured as annotated.
    */
-  boolean shouldTreatGeneratedAsUnannotated();
+  boolean treatGeneratedAsUnannotated();
 
   /**
    * Checks if a class should be excluded.
@@ -100,6 +100,8 @@ public interface Config {
    * @return class annotations that should exclude a class from nullability analysis
    */
   ImmutableSet<String> getExcludedClassAnnotations();
+
+  ImmutableSet<String> getGeneratedCodeAnnotations();
 
   /**
    * Checks if the annotation is an @Initializer annotation.
@@ -281,13 +283,6 @@ public interface Config {
    * @return the URL to show with NullAway error messages
    */
   String getErrorURL();
-
-  /**
-   * Checks whether (tool-)generated code should be treated as unannotated.
-   *
-   * @return true if generated code should be treated as unannotated
-   */
-  boolean treatGeneratedAsUnannotated();
 
   /**
    * Checks if acknowledging {@code @RecentlyNullable} and {@code @RecentlyNonNull} annotations is
