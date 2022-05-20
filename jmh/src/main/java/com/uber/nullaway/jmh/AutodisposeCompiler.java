@@ -19,28 +19,27 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-
 package com.uber.nullaway.jmh;
 
 import java.io.IOException;
-import org.openjdk.jmh.annotations.Benchmark;
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
-import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.infra.Blackhole;
 
-@State(Scope.Benchmark)
-public class AutodisposeBenchmark {
-
-  private AutodisposeCompiler compiler;
-
-  @Setup
-  public void setup() throws IOException {
-    compiler = new AutodisposeCompiler();
+public class AutodisposeCompiler extends AbstractBenchmarkCompiler {
+  public AutodisposeCompiler() throws IOException {
+    super();
   }
 
-  @Benchmark
-  public void compile(Blackhole bh) {
-    bh.consume(compiler.compile());
+  @Override
+  protected String getSourceDirectory() {
+    return System.getProperty("nullaway.autodispose.sources");
+  }
+
+  @Override
+  protected String getAnnotatedPackages() {
+    return "autodispose2";
+  }
+
+  @Override
+  protected String getClasspath() {
+    return System.getProperty("nullaway.autodispose.classpath");
   }
 }
