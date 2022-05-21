@@ -30,13 +30,13 @@ import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.infra.Blackhole;
 
 @State(Scope.Benchmark)
-public class AutodisposeBenchmark {
+public class NullawayReleaseBenchmark {
 
-  private AutodisposeCompiler compiler;
+  private NullawayReleaseCompiler compiler;
 
   @Setup
   public void setup() throws IOException {
-    compiler = new AutodisposeCompiler();
+    compiler = new NullawayReleaseCompiler();
   }
 
   @Benchmark

@@ -79,7 +79,11 @@ public class NullawayJavac {
             + "  }\n"
             + "}\n";
     return new NullawayJavac(
-        Collections.singletonList(new JavaSourceFromString("Test", testClass)), "com.uber", null);
+        Collections.singletonList(new JavaSourceFromString("Test", testClass)),
+        "com.uber",
+        null,
+        Collections.emptyList(),
+        "");
   }
 
   /**
@@ -88,10 +92,17 @@ public class NullawayJavac {
    * @param sourceFileNames absolute paths to the source files to be compiled
    * @param annotatedPackages argument to pass for "-XepOpt:NullAway:AnnotatedPackages" option
    * @param classpath classpath for the benchmark
+   * @param extraErrorProneArgs extra arguments to pass to Error Prone
+   * @param extraProcessorPath additional elements to concatenate to the processor path
    * @throws IOException if a temporary output directory cannot be created
    */
   public static NullawayJavac create(
-      List<String> sourceFileNames, String annotatedPackages, String classpath) throws IOException {
+      List<String> sourceFileNames,
+      String annotatedPackages,
+      String classpath,
+      List<String> extraErrorProneArgs,
+      String extraProcessorPath)
+      throws IOException {
     List<JavaFileObject> compilationUnits = new ArrayList<>();
     for (String sourceFileName : sourceFileNames) {
       // we read every source file into memory in the prepare phase, to avoid some I/O during
@@ -103,7 +114,8 @@ public class NullawayJavac {
       compilationUnits.add(new JavaSourceFromString(classname, content));
     }
 
-    return new NullawayJavac(compilationUnits, annotatedPackages, classpath);
+    return new NullawayJavac(
+        compilationUnits, annotatedPackages, classpath, extraErrorProneArgs, extraProcessorPath);
   }
 
   /**
@@ -119,10 +131,16 @@ public class NullawayJavac {
    * @param compilationUnits input sources to be compiled
    * @param annotatedPackages argument to pass for "-XepOpt:NullAway:AnnotatedPackages" option
    * @param classpath classpath for the program to be compiled
+   * @param extraErrorProneArgs additional arguments to pass to Error Prone
+   * @param extraProcessorPath additional elements to concatenate to the processor path
    * @throws IOException if a temporary output directory cannot be created
    */
   private NullawayJavac(
-      List<JavaFileObject> compilationUnits, String annotatedPackages, @Nullable String classpath)
+      List<JavaFileObject> compilationUnits,
+      String annotatedPackages,
+      @Nullable String classpath,
+      List<String> extraErrorProneArgs,
+      String extraProcessorPath)
       throws IOException {
     this.compilationUnits = compilationUnits;
     this.compiler = ToolProvider.getSystemJavaCompiler();
@@ -139,15 +157,33 @@ public class NullawayJavac {
     if (classpath != null) {
       options.addAll(Arrays.asList("-classpath", classpath));
     }
+    String processorPath =
+        System.getProperty("java.class.path") + File.pathSeparator + extraProcessorPath;
     options.addAll(
         Arrays.asList(
             "-processorpath",
-            System.getProperty("java.class.path"),
+            processorPath,
             "-d",
             outputDir.toAbsolutePath().toString(),
             "-XDcompilePolicy=simple",
             "-Xplugin:ErrorProne -XepDisableAllChecks -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages="
-                + annotatedPackages));
+                + annotatedPackages
+                + String.join(" ", extraErrorProneArgs)));
+    // add these options since we have at least one benchmark that only compiles with access to
+    // javac-internal APIs
+    options.addAll(
+        Arrays.asList(
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED"));
   }
 
   /**

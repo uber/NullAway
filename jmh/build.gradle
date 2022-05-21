@@ -26,6 +26,10 @@ configurations {
 
     autodisposeSources
     autodisposeDeps
+
+    nullawayReleaseSources
+    nullawayReleaseDeps
+    nullawayReleaseProcessors
 }
 dependencies {
 
@@ -46,15 +50,28 @@ dependencies {
     autodisposeSources('com.uber.autodispose2:autodispose:2.1.0:sources') {
         transitive = false
     }
+    nullawayReleaseSources('com.uber.nullaway:nullaway:0.9.7:sources') {
+        transitive = false
+    }
 
     caffeineDeps 'com.github.ben-manes.caffeine:caffeine:3.0.2'
     autodisposeDeps 'com.uber.autodispose2:autodispose:2.1.0'
+    nullawayReleaseDeps 'com.uber.nullaway:nullaway:0.9.7'
+    // Add in the compile-only dependencies of NullAway
+    // Use fixed versions here since we are compiling a particular version of NullAway
+    nullawayReleaseDeps "com.google.errorprone:error_prone_core:2.13.1"
+    nullawayReleaseDeps "com.facebook.infer.annotation:infer-annotation:0.11.0"
+    nullawayReleaseDeps "org.jetbrains:annotations:13.0"
+
+    // To run AutoValue during NullAway compilation
+    nullawayReleaseProcessors "com.google.auto.value:auto-value:1.9"
 
     testImplementation deps.test.junit4
 }
 
 def caffeineSourceDir = project.layout.buildDirectory.dir('caffeineSources')
 def autodisposeSourceDir = project.layout.buildDirectory.dir('autodisposeSources')
+def nullawayReleaseSourceDir = project.layout.buildDirectory.dir('nullawayReleaseSources')
 
 task extractCaffeineSources(type: Copy) {
     from zipTree(configurations.caffeineSources.singleFile)
@@ -66,27 +83,43 @@ task extractAutodisposeSources(type: Copy) {
     into autodisposeSourceDir
 }
 
+task extractNullawayReleaseSources(type: Copy) {
+    from zipTree(configurations.nullawayReleaseSources.singleFile)
+    into nullawayReleaseSourceDir
+}
+
 compileJava.dependsOn(extractCaffeineSources)
 compileJava.dependsOn(extractAutodisposeSources)
+compileJava.dependsOn(extractNullawayReleaseSources)
 
 // always run jmh
 tasks.getByName('jmh').outputs.upToDateWhen { false }
+
+// a trick: to get the classpath for a benchmark, create a configuration that depends on the benchmark, and
+// then filter out the benchmark itself
+def caffeineClasspath = configurations.caffeineDeps.filter({f -> !f.toString().contains("caffeine-3.0.2")}).asPath
+def autodisposeClasspath = configurations.autodisposeDeps.filter({f -> !f.toString().contains("autodispose-2.1.0")}).asPath
+def nullawayReleaseClasspath = configurations.nullawayReleaseDeps.filter({f -> !f.toString().contains("nullaway-0.9.7")}).asPath
+
+def nullawayReleaseProcessorpath = configurations.nullawayReleaseProcessors.asPath
+
+// Extra JVM arguments to expose relevant paths for compiling benchmarks
+def extraJVMArgs = [
+        "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()}",
+        "-Dnullaway.caffeine.classpath=$caffeineClasspath",
+        "-Dnullaway.autodispose.sources=${autodisposeSourceDir.get()}",
+        "-Dnullaway.autodispose.classpath=$autodisposeClasspath",
+        "-Dnullaway.nullawayRelease.sources=${nullawayReleaseSourceDir.get()}",
+        "-Dnullaway.nullawayRelease.classpath=$nullawayReleaseClasspath",
+        "-Dnullaway.nullawayRelease.processorpath=$nullawayReleaseProcessorpath",
+]
 
 jmh {
     // seems we need more iterations to fully warm up the JIT
     warmupIterations = 10
 
-    // a trick: to get the classpath for a benchmark, create a configuration that depends on the benchmark, and
-    // then filter out the benchmark itself
-    def caffeineClasspath = configurations.caffeineDeps.filter({f -> !f.toString().contains("caffeine-3.0.2")}).asPath
-    def autodisposeClasspath = configurations.autodisposeDeps.filter({f -> !f.toString().contains("autodispose-2.1.0")}).asPath
 
-    jvmArgsAppend = [
-            "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()}",
-            "-Dnullaway.caffeine.classpath=$caffeineClasspath",
-            "-Dnullaway.autodispose.sources=${autodisposeSourceDir.get()}",
-            "-Dnullaway.autodispose.classpath=$autodisposeClasspath",
-    ]
+    jvmArgsAppend = extraJVMArgs
 
     // commented-out examples of how to tweak other jmh parameters; they show the default values
     // for more examples see https://github.com/melix/jmh-gradle-plugin/blob/master/README.adoc#configuration-options
@@ -95,4 +128,22 @@ jmh {
 }
 
 // don't run test task on pre-JDK-11 VMs
-test.onlyIf { JavaVersion.current() >= JavaVersion.VERSION_11 }
+tasks.named('test') {
+    onlyIf { JavaVersion.current() >= JavaVersion.VERSION_11 }
+    // pass the extra JVM args so we can compile benchmarks in unit tests
+    jvmArgs extraJVMArgs
+    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
+    jvmArgs += [
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+    ]
+}
+
