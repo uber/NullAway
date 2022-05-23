@@ -177,6 +177,11 @@ public class NullAwayStreamSupportNegativeCases {
             });
   }
 
+  private Stream<String> filterThenMapStreamOfMapsWithGet(
+      Stream<java.util.Map<String, Integer>> stream) {
+    return stream.filter(m -> m.get("hello") != null).map(n -> n.get("hello").toString());
+  }
+
   private static class NoOpFilterClass<T> implements Predicate<T> {
     public NoOpFilterClass() {}
 
