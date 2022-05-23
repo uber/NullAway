@@ -99,6 +99,7 @@ public final class AccessPath implements MapKey {
     return IMMUTABLE_FIELD_PREFIX + fieldFQN;
   }
 
+  /** Root of the access path. If {@code null}, the root is the receiver argument */
   @Nullable private final Element root;
 
   private final ImmutableList<AccessPathElement> elements;
@@ -157,7 +158,7 @@ public final class AccessPath implements MapKey {
 
   @Nullable
   private static AccessPath fromNodeAndContext(Node node, AccessPathContext apContext) {
-    return populateElementsRec(node, new ArrayDeque<>(), apContext, null);
+    return buildAccessPathRecursive(node, new ArrayDeque<>(), apContext, null);
   }
 
   /**
@@ -183,7 +184,11 @@ public final class AccessPath implements MapKey {
     return fromNodeAndContext(node, apContext);
   }
 
-  static AccessPath uprootAccessPath(AccessPath origAP, Element newRoot) {
+  /**
+   * Returns an access path rooted at {@code newRoot} with the same elements and map-get argument as
+   * {@code origAP}
+   */
+  static AccessPath switchRoot(AccessPath origAP, Element newRoot) {
     return new AccessPath(newRoot, origAP.elements, origAP.mapGetArg);
   }
   /**
@@ -206,7 +211,7 @@ public final class AccessPath implements MapKey {
       Node base, AccessPathElement apElement, AccessPathContext apContext) {
     ArrayDeque<AccessPathElement> elements = new ArrayDeque<>();
     elements.push(apElement);
-    return populateElementsRec(base, elements, apContext, null);
+    return buildAccessPathRecursive(base, elements, apContext, null);
   }
 
   /**
@@ -215,7 +220,7 @@ public final class AccessPath implements MapKey {
    * <p>IMPORTANT: Be careful with this method, the argument list is not the variable names of the
    * method arguments, but rather the string representation of primitive-type compile-time constants
    * or the name of static final fields of structurally immutable types (see {@link
-   * #populateElementsRec(Node, ArrayDeque, AccessPathContext, MapKey)}).
+   * #buildAccessPathRecursive(Node, ArrayDeque, AccessPathContext, MapKey)}).
    *
    * <p>This is used by a few specialized Handlers to set nullability around particular paths
    * involving constants.
@@ -304,7 +309,7 @@ public final class AccessPath implements MapKey {
     }
     MethodAccessNode target = node.getTarget();
     Node receiver = stripCasts(target.getReceiver());
-    return populateElementsRec(receiver, new ArrayDeque<>(), apContext, mapKey);
+    return buildAccessPathRecursive(receiver, new ArrayDeque<>(), apContext, mapKey);
   }
 
   /**
@@ -365,8 +370,17 @@ public final class AccessPath implements MapKey {
         && methodSymbol.enclClass().packge().fullname.contentEquals("java.lang");
   }
 
+  /**
+   * A helper function that recursively builds an AccessPath from a CFG node.
+   *
+   * @param node the CFG node
+   * @param elements elements to append to the final access path.
+   * @param apContext context information, used to handle cases with constant arguments
+   * @param mapKey map key to be used as the map-get argument, or {@code null} if there is no key
+   * @return the final access path
+   */
   @Nullable
-  private static AccessPath populateElementsRec(
+  private static AccessPath buildAccessPathRecursive(
       Node node,
       ArrayDeque<AccessPathElement> elements,
       AccessPathContext apContext,
@@ -381,7 +395,8 @@ public final class AccessPath implements MapKey {
         // instance field access
         elements.push(new AccessPathElement(fieldAccess.getElement()));
         result =
-            populateElementsRec(stripCasts(fieldAccess.getReceiver()), elements, apContext, mapKey);
+            buildAccessPathRecursive(
+                stripCasts(fieldAccess.getReceiver()), elements, apContext, mapKey);
       }
     } else if (node instanceof MethodInvocationNode) {
       MethodInvocationNode invocation = (MethodInvocationNode) node;
@@ -465,7 +480,8 @@ public final class AccessPath implements MapKey {
       }
       elements.push(accessPathElement);
       result =
-          populateElementsRec(stripCasts(accessNode.getReceiver()), elements, apContext, mapKey);
+          buildAccessPathRecursive(
+              stripCasts(accessNode.getReceiver()), elements, apContext, mapKey);
     } else if (node instanceof LocalVariableNode) {
       result =
           new AccessPath(
@@ -495,7 +511,7 @@ public final class AccessPath implements MapKey {
       Node mapNode, LocalVariableNode iterVar, AccessPathContext apContext) {
     IteratorContentsKey iterContentsKey =
         new IteratorContentsKey((VariableElement) iterVar.getElement());
-    return populateElementsRec(mapNode, new ArrayDeque<>(), apContext, iterContentsKey);
+    return buildAccessPathRecursive(mapNode, new ArrayDeque<>(), apContext, iterContentsKey);
   }
 
   /**
@@ -525,6 +541,10 @@ public final class AccessPath implements MapKey {
     return Objects.hash(root, elements, mapGetArg);
   }
 
+  /**
+   * Returns the root element of the access path. If the root is the receiver argument, returns
+   * {@code null}.
+   */
   @Nullable
   public Element getRoot() {
     return root;
