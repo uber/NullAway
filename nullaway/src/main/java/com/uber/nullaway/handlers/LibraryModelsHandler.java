@@ -493,8 +493,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
             .put(methodRef("com.google.common.base.Strings", "isNullOrEmpty(java.lang.String)"), 0)
             .put(
-              methodRef("com.google.api.client.util.Strings", "isNullOrEmpty(java.lang.String)"), 0
-              )
+                methodRef("com.google.api.client.util.Strings", "isNullOrEmpty(java.lang.String)"),
+                0)
             .put(methodRef("java.util.Objects", "isNull(java.lang.Object)"), 0)
             .put(
                 methodRef("org.springframework.util.ObjectUtils", "isEmpty(java.lang.Object[])"), 0)
