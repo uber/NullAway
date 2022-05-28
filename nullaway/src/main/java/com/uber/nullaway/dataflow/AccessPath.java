@@ -538,7 +538,11 @@ public final class AccessPath implements MapKey {
 
   @Override
   public int hashCode() {
-    return Objects.hash(root, elements, mapGetArg);
+    int result = 1;
+    result = 31 * result + (root == null ? 0 : root.hashCode());
+    result = 31 * result + elements.hashCode();
+    result = 31 * result + (mapGetArg == null ? 0 : mapGetArg.hashCode());
+    return result;
   }
 
   /**
