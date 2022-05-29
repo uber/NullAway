@@ -390,7 +390,7 @@ public final class AccessPath implements MapKey {
       FieldAccessNode fieldAccess = (FieldAccessNode) node;
       if (fieldAccess.isStatic()) {
         // this is the root
-        result = new AccessPath(fieldAccess.getElement(), convertToImmutableList(elements), mapKey);
+        result = new AccessPath(fieldAccess.getElement(), ImmutableList.copyOf(elements), mapKey);
       } else {
         // instance field access
         elements.push(new AccessPathElement(fieldAccess.getElement()));
@@ -406,7 +406,7 @@ public final class AccessPath implements MapKey {
         Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocation.getTree());
         if (symbol.isStatic()) {
           // a zero-argument static method call can be the root of an access path
-          return new AccessPath(symbol, convertToImmutableList(elements), mapKey);
+          return new AccessPath(symbol, ImmutableList.copyOf(elements), mapKey);
         } else {
           accessPathElement = new AccessPathElement(accessNode.getMethod());
         }
@@ -485,20 +485,14 @@ public final class AccessPath implements MapKey {
     } else if (node instanceof LocalVariableNode) {
       result =
           new AccessPath(
-              ((LocalVariableNode) node).getElement(), convertToImmutableList(elements), mapKey);
+              ((LocalVariableNode) node).getElement(), ImmutableList.copyOf(elements), mapKey);
     } else if (node instanceof ThisNode || node instanceof SuperNode) {
-      result = new AccessPath(null, convertToImmutableList(elements), mapKey);
+      result = new AccessPath(null, ImmutableList.copyOf(elements), mapKey);
     } else {
       // don't handle any other cases
       result = null;
     }
     return result;
-  }
-
-  private static <T> ImmutableList<T> convertToImmutableList(ArrayDeque<T> elements) {
-    // Pass the ArrayDeque iterator to create the list; otherwise, ImmutableList uses
-    // Collections.toArray() for the conversion, which makes another copy
-    return ImmutableList.copyOf(elements.iterator());
   }
 
   /**
