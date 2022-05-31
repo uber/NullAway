@@ -35,8 +35,8 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.NullabilityUtil;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -99,7 +99,8 @@ public final class AccessPath implements MapKey {
     return IMMUTABLE_FIELD_PREFIX + fieldFQN;
   }
 
-  private final Root root;
+  /** Root of the access path. If {@code null}, the root is the receiver argument */
+  @Nullable private final Element root;
 
   private final ImmutableList<AccessPathElement> elements;
 
@@ -108,15 +109,16 @@ public final class AccessPath implements MapKey {
    */
   @Nullable private final MapKey mapGetArg;
 
-  AccessPath(Root root, List<AccessPathElement> elements) {
-    this.root = root;
-    this.elements = ImmutableList.copyOf(elements);
-    this.mapGetArg = null;
+  private AccessPath(@Nullable Element root, ImmutableList<AccessPathElement> elements) {
+    this(root, elements, null);
   }
 
-  private AccessPath(Root root, List<AccessPathElement> elements, MapKey mapGetArg) {
+  private AccessPath(
+      @Nullable Element root,
+      ImmutableList<AccessPathElement> elements,
+      @Nullable MapKey mapGetArg) {
     this.root = root;
-    this.elements = ImmutableList.copyOf(elements);
+    this.elements = elements;
     this.mapGetArg = mapGetArg;
   }
 
@@ -127,7 +129,7 @@ public final class AccessPath implements MapKey {
    * @return access path representing the local
    */
   public static AccessPath fromLocal(LocalVariableNode node) {
-    return new AccessPath(new Root(node.getElement()), ImmutableList.of());
+    return new AccessPath(node.getElement(), ImmutableList.of());
   }
 
   /**
@@ -138,7 +140,7 @@ public final class AccessPath implements MapKey {
    */
   static AccessPath fromVarDecl(VariableDeclarationNode node) {
     Element elem = TreeUtils.elementFromDeclaration(node.getTree());
-    return new AccessPath(new Root(elem), ImmutableList.of());
+    return new AccessPath(elem, ImmutableList.of());
   }
 
   /**
@@ -151,9 +153,12 @@ public final class AccessPath implements MapKey {
    */
   @Nullable
   static AccessPath fromFieldAccess(FieldAccessNode node, AccessPathContext apContext) {
-    List<AccessPathElement> elements = new ArrayList<>();
-    Root root = populateElementsRec(node, elements, apContext);
-    return (root != null) ? new AccessPath(root, elements) : null;
+    return fromNodeAndContext(node, apContext);
+  }
+
+  @Nullable
+  private static AccessPath fromNodeAndContext(Node node, AccessPathContext apContext) {
+    return buildAccessPathRecursive(node, new ArrayDeque<>(), apContext, null);
   }
 
   /**
@@ -176,11 +181,16 @@ public final class AccessPath implements MapKey {
   @Nullable
   private static AccessPath fromVanillaMethodCall(
       MethodInvocationNode node, AccessPathContext apContext) {
-    List<AccessPathElement> elements = new ArrayList<>();
-    Root root = populateElementsRec(node, elements, apContext);
-    return (root != null) ? new AccessPath(root, elements) : null;
+    return fromNodeAndContext(node, apContext);
   }
 
+  /**
+   * Returns an access path rooted at {@code newRoot} with the same elements and map-get argument as
+   * {@code origAP}
+   */
+  static AccessPath switchRoot(AccessPath origAP, Element newRoot) {
+    return new AccessPath(newRoot, origAP.elements, origAP.mapGetArg);
+  }
   /**
    * Construct the access path given a {@code base.element} structure.
    *
@@ -193,13 +203,15 @@ public final class AccessPath implements MapKey {
   @Nullable
   public static AccessPath fromBaseAndElement(
       Node base, Element element, AccessPathContext apContext) {
-    List<AccessPathElement> elements = new ArrayList<>();
-    Root root = populateElementsRec(base, elements, apContext);
-    if (root == null) {
-      return null;
-    }
-    elements.add(new AccessPathElement(element));
-    return new AccessPath(root, elements);
+    return fromNodeElementAndContext(base, new AccessPathElement(element), apContext);
+  }
+
+  @Nullable
+  private static AccessPath fromNodeElementAndContext(
+      Node base, AccessPathElement apElement, AccessPathContext apContext) {
+    ArrayDeque<AccessPathElement> elements = new ArrayDeque<>();
+    elements.push(apElement);
+    return buildAccessPathRecursive(base, elements, apContext, null);
   }
 
   /**
@@ -208,7 +220,7 @@ public final class AccessPath implements MapKey {
    * <p>IMPORTANT: Be careful with this method, the argument list is not the variable names of the
    * method arguments, but rather the string representation of primitive-type compile-time constants
    * or the name of static final fields of structurally immutable types (see {@link
-   * #populateElementsRec(Node, List, AccessPathContext)}).
+   * #buildAccessPathRecursive(Node, ArrayDeque, AccessPathContext, MapKey)}).
    *
    * <p>This is used by a few specialized Handlers to set nullability around particular paths
    * involving constants.
@@ -223,13 +235,8 @@ public final class AccessPath implements MapKey {
   @Nullable
   public static AccessPath fromBaseMethodAndConstantArgs(
       Node base, Element method, List<String> constantArguments, AccessPathContext apContext) {
-    List<AccessPathElement> elements = new ArrayList<>();
-    Root root = populateElementsRec(base, elements, apContext);
-    if (root == null) {
-      return null;
-    }
-    elements.add(new AccessPathElement(method, constantArguments));
-    return new AccessPath(root, elements);
+    return fromNodeElementAndContext(
+        base, new AccessPathElement(method, constantArguments), apContext);
   }
 
   /**
@@ -302,12 +309,7 @@ public final class AccessPath implements MapKey {
     }
     MethodAccessNode target = node.getTarget();
     Node receiver = stripCasts(target.getReceiver());
-    List<AccessPathElement> elements = new ArrayList<>();
-    Root root = populateElementsRec(receiver, elements, apContext);
-    if (root == null) {
-      return null;
-    }
-    return new AccessPath(root, elements, mapKey);
+    return buildAccessPathRecursive(receiver, new ArrayDeque<>(), apContext, mapKey);
   }
 
   /**
@@ -359,8 +361,7 @@ public final class AccessPath implements MapKey {
     Preconditions.checkArgument(
         element.getKind().isField(),
         "element must be of type: FIELD but received: " + element.getKind());
-    Root root = new Root();
-    return new AccessPath(root, Collections.singletonList(new AccessPathElement(element)));
+    return new AccessPath(null, ImmutableList.of(new AccessPathElement(element)));
   }
 
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
@@ -369,19 +370,33 @@ public final class AccessPath implements MapKey {
         && methodSymbol.enclClass().packge().fullname.contentEquals("java.lang");
   }
 
+  /**
+   * A helper function that recursively builds an AccessPath from a CFG node.
+   *
+   * @param node the CFG node
+   * @param elements elements to append to the final access path.
+   * @param apContext context information, used to handle cases with constant arguments
+   * @param mapKey map key to be used as the map-get argument, or {@code null} if there is no key
+   * @return the final access path
+   */
   @Nullable
-  private static Root populateElementsRec(
-      Node node, List<AccessPathElement> elements, AccessPathContext apContext) {
-    Root result;
+  private static AccessPath buildAccessPathRecursive(
+      Node node,
+      ArrayDeque<AccessPathElement> elements,
+      AccessPathContext apContext,
+      @Nullable MapKey mapKey) {
+    AccessPath result;
     if (node instanceof FieldAccessNode) {
       FieldAccessNode fieldAccess = (FieldAccessNode) node;
       if (fieldAccess.isStatic()) {
         // this is the root
-        result = new Root(fieldAccess.getElement());
+        result = new AccessPath(fieldAccess.getElement(), ImmutableList.copyOf(elements), mapKey);
       } else {
         // instance field access
-        result = populateElementsRec(stripCasts(fieldAccess.getReceiver()), elements, apContext);
-        elements.add(new AccessPathElement(fieldAccess.getElement()));
+        elements.push(new AccessPathElement(fieldAccess.getElement()));
+        result =
+            buildAccessPathRecursive(
+                stripCasts(fieldAccess.getReceiver()), elements, apContext, mapKey);
       }
     } else if (node instanceof MethodInvocationNode) {
       MethodInvocationNode invocation = (MethodInvocationNode) node;
@@ -391,7 +406,7 @@ public final class AccessPath implements MapKey {
         Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocation.getTree());
         if (symbol.isStatic()) {
           // a zero-argument static method call can be the root of an access path
-          return new Root(symbol);
+          return new AccessPath(symbol, ImmutableList.copyOf(elements), mapKey);
         } else {
           accessPathElement = new AccessPathElement(accessNode.getMethod());
         }
@@ -463,14 +478,16 @@ public final class AccessPath implements MapKey {
         }
         accessPathElement = new AccessPathElement(accessNode.getMethod(), constantArgumentValues);
       }
-      result = populateElementsRec(stripCasts(accessNode.getReceiver()), elements, apContext);
-      elements.add(accessPathElement);
+      elements.push(accessPathElement);
+      result =
+          buildAccessPathRecursive(
+              stripCasts(accessNode.getReceiver()), elements, apContext, mapKey);
     } else if (node instanceof LocalVariableNode) {
-      result = new Root(((LocalVariableNode) node).getElement());
-    } else if (node instanceof ThisNode) {
-      result = new Root();
-    } else if (node instanceof SuperNode) {
-      result = new Root();
+      result =
+          new AccessPath(
+              ((LocalVariableNode) node).getElement(), ImmutableList.copyOf(elements), mapKey);
+    } else if (node instanceof ThisNode || node instanceof SuperNode) {
+      result = new AccessPath(null, ImmutableList.copyOf(elements), mapKey);
     } else {
       // don't handle any other cases
       result = null;
@@ -492,13 +509,9 @@ public final class AccessPath implements MapKey {
   @Nullable
   public static AccessPath mapWithIteratorContentsKey(
       Node mapNode, LocalVariableNode iterVar, AccessPathContext apContext) {
-    List<AccessPathElement> elems = new ArrayList<>();
-    Root root = populateElementsRec(mapNode, elems, apContext);
-    if (root != null) {
-      return new AccessPath(
-          root, elems, new IteratorContentsKey((VariableElement) iterVar.getElement()));
-    }
-    return null;
+    IteratorContentsKey iterContentsKey =
+        new IteratorContentsKey((VariableElement) iterVar.getElement());
+    return buildAccessPathRecursive(mapNode, new ArrayDeque<>(), apContext, iterContentsKey);
   }
 
   /**
@@ -514,32 +527,30 @@ public final class AccessPath implements MapKey {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof AccessPath)) {
+    if (o == null || getClass() != o.getClass()) {
       return false;
     }
-
     AccessPath that = (AccessPath) o;
-
-    if (!root.equals(that.root)) {
-      return false;
-    }
-    if (!elements.equals(that.elements)) {
-      return false;
-    }
-    return mapGetArg != null
-        ? (that.mapGetArg != null && mapGetArg.equals(that.mapGetArg))
-        : that.mapGetArg == null;
+    return Objects.equals(root, that.root)
+        && elements.equals(that.elements)
+        && Objects.equals(mapGetArg, that.mapGetArg);
   }
 
   @Override
   public int hashCode() {
-    int result = root.hashCode();
+    int result = 1;
+    result = 31 * result + (root != null ? root.hashCode() : 0);
     result = 31 * result + elements.hashCode();
     result = 31 * result + (mapGetArg != null ? mapGetArg.hashCode() : 0);
     return result;
   }
 
-  public Root getRoot() {
+  /**
+   * Returns the root element of the access path. If the root is the receiver argument, returns
+   * {@code null}.
+   */
+  @Nullable
+  public Element getRoot() {
     return root;
   }
 
@@ -554,7 +565,14 @@ public final class AccessPath implements MapKey {
 
   @Override
   public String toString() {
-    return "AccessPath{" + "root=" + root + ", elements=" + elements + '}';
+    return "AccessPath{"
+        + "root="
+        + (root == null ? "this" : root)
+        + ", elements="
+        + elements
+        + ", mapGetArg="
+        + mapGetArg
+        + '}';
   }
 
   private static boolean isMapGet(Symbol.MethodSymbol symbol, VisitorState state) {
@@ -568,81 +586,6 @@ public final class AccessPath implements MapKey {
   public static boolean isMapPut(Symbol.MethodSymbol symbol, VisitorState state) {
     return NullabilityUtil.isMapMethod(symbol, state, "put", 2)
         || NullabilityUtil.isMapMethod(symbol, state, "putIfAbsent", 2);
-  }
-
-  /**
-   * root of an access path; either an {@link javax.lang.model.element.Element} (representing a
-   * local variable, field, or zero-argument static method call) or {@code this} (enclosing method
-   * receiver)
-   */
-  public static final class Root {
-
-    /** does this represent the receiver? */
-    private final boolean isMethodReceiver;
-
-    /** if this does not represent the receiver, the element for this */
-    @Nullable private final Element element;
-
-    Root(Element element) {
-      this.isMethodReceiver = false;
-      this.element = element;
-    }
-
-    /** for case when it represents the receiver */
-    Root() {
-      this.isMethodReceiver = true;
-      this.element = null;
-    }
-
-    /**
-     * Get the element of this access path root, if not representing <code>this</code>.
-     *
-     * @return the element, if not representing 'this'
-     */
-    public Element getElement() {
-      if (element == null) {
-        throw new RuntimeException("attempting to access element of Root representing receiver");
-      }
-      return element;
-    }
-
-    /**
-     * Check whether this access path root represents the receiver (i.e. <code>this</code>). s
-     *
-     * @return <code>true</code> if representing 'this', <code>false</code> otherwise
-     */
-    public boolean isReceiver() {
-      return isMethodReceiver;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-
-      Root root = (Root) o;
-
-      if (isMethodReceiver != root.isMethodReceiver) {
-        return false;
-      }
-      return Objects.equals(element, root.element);
-    }
-
-    @Override
-    public int hashCode() {
-      int result = (isMethodReceiver ? 1 : 0);
-      result = 31 * result + (element != null ? element.hashCode() : 0);
-      return result;
-    }
-
-    @Override
-    public String toString() {
-      return "Root{" + "isMethodReceiver=" + isMethodReceiver + ", element=" + element + '}';
-    }
   }
 
   private static final class StringMapKey implements MapKey {
@@ -760,7 +703,7 @@ public final class AccessPath implements MapKey {
       /**
        * Passes the set of structurally immutable types registered into this AccessPathContext.
        *
-       * <p>See {@link com.uber.nullaway.handlers.Handler.onRegisterImmutableTypes} for more info.
+       * <p>See {@link com.uber.nullaway.handlers.Handler#onRegisterImmutableTypes} for more info.
        *
        * @param immutableTypes the immutable types known to our dataflow analysis.
        */
