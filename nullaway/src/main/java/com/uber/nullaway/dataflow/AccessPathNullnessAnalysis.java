@@ -165,6 +165,7 @@ public final class AccessPathNullnessAnalysis {
     Set<AccessPath> nonnullAccessPaths = nullnessResult.getAccessPathsWithValue(Nullness.NONNULL);
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {
+      // A null root represents the receiver
       if (ap.getRoot() == null) {
         ImmutableList<AccessPathElement> elements = ap.getElements();
         if (elements.size() == 1) {

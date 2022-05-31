@@ -567,7 +567,7 @@ public final class AccessPath implements MapKey {
   public String toString() {
     return "AccessPath{"
         + "root="
-        + root
+        + (root == null ? "this" : root)
         + ", elements="
         + elements
         + ", mapGetArg="

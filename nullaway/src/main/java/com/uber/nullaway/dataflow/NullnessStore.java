@@ -237,6 +237,7 @@ public class NullnessStore implements Store<NullnessStore> {
     for (AccessPath ap : contents.keySet()) {
       Element element = ap.getRoot();
       if (element == null) {
+        // Access path is rooted at the receiver, so we don't need to uproot it
         continue;
       }
       for (LocalVariableNode fromVar : localVarTranslations.keySet()) {
