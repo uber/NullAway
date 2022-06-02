@@ -47,6 +47,7 @@ import org.checkerframework.nullaway.dataflow.analysis.TransferInput;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.StringLiteralNode;
 
 /**
  * Provides a default (No-Op) implementation of every method defined by the Handler interface.
@@ -193,6 +194,12 @@ public abstract class BaseNoOpHandler implements Handler {
   @Override
   public void onNonNullFieldAssignment(
       Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state) {
+    // NoOp
+  }
+
+  @Override
+  public void ondataflowVisitStringLiteral(
+      StringLiteralNode node, TransferInput<Nullness, NullnessStore> input) {
     // NoOp
   }
 }

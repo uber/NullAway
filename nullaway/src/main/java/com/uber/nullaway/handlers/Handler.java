@@ -47,6 +47,7 @@ import org.checkerframework.nullaway.dataflow.analysis.TransferInput;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.StringLiteralNode;
 
 /**
  * The general interface representing a handler.
@@ -325,6 +326,9 @@ public interface Handler {
    */
   void onNonNullFieldAssignment(
       Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state);
+
+  void ondataflowVisitStringLiteral(
+      StringLiteralNode node, TransferInput<Nullness, NullnessStore> input);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate

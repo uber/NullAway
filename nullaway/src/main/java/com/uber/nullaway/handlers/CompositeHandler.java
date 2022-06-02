@@ -48,6 +48,7 @@ import org.checkerframework.nullaway.dataflow.analysis.TransferInput;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.StringLiteralNode;
 
 /**
  * Registry of all handlers registered on our analysis.
@@ -251,6 +252,14 @@ class CompositeHandler implements Handler {
       Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state) {
     for (Handler h : handlers) {
       h.onNonNullFieldAssignment(field, analysis, state);
+    }
+  }
+
+  @Override
+  public void ondataflowVisitStringLiteral(
+      StringLiteralNode node, TransferInput<Nullness, NullnessStore> input) {
+    for (Handler h : handlers) {
+      h.ondataflowVisitStringLiteral(node, input);
     }
   }
 }

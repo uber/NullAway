@@ -248,6 +248,7 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitStringLiteral(
       StringLiteralNode stringLiteralNode, TransferInput<Nullness, NullnessStore> input) {
+    handler.ondataflowVisitStringLiteral(stringLiteralNode, input);
     return noStoreChanges(NONNULL, input);
   }
 
