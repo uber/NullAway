@@ -43,6 +43,7 @@ import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.List;
 import java.util.Optional;
+import org.checkerframework.nullaway.dataflow.analysis.TransferInput;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
@@ -224,7 +225,7 @@ public interface Handler {
    * @param types {@link Types} for the current compilation
    * @param apContext the current access path context information (see {@link
    *     AccessPath.AccessPathContext}).
-   * @param inputs NullnessStore information known before the method invocation.
+   * @param input Nullness and NullnessStore information known before the method invocation.
    * @param thenUpdates NullnessStore updates to be added along the then path, handlers can add via
    *     the set() method.
    * @param elseUpdates NullnessStore updates to be added along the else path, handlers can add via
@@ -240,7 +241,7 @@ public interface Handler {
       Types types,
       Context context,
       AccessPath.AccessPathContext apContext,
-      AccessPathNullnessPropagation.SubNodeValues inputs,
+      TransferInput<Nullness, NullnessStore> input,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates);

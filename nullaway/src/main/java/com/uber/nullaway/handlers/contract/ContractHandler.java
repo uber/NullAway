@@ -40,8 +40,11 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
+import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
+import java.util.Objects;
 import javax.annotation.Nullable;
+import org.checkerframework.nullaway.dataflow.analysis.TransferInput;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 /**
@@ -99,7 +102,7 @@ public class ContractHandler extends BaseNoOpHandler {
       Types types,
       Context context,
       AccessPath.AccessPathContext apContext,
-      AccessPathNullnessPropagation.SubNodeValues inputs,
+      TransferInput<Nullness, NullnessStore> input,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
@@ -135,7 +138,7 @@ public class ContractHandler extends BaseNoOpHandler {
             supported = false;
             break;
           } else if (valueConstraint.equals("!null")
-              && inputs.valueOfSubNode(node.getArgument(i)).equals(Nullness.NONNULL)) {
+              && Objects.equals(input.getValueOfSubNode(node.getArgument(i)), Nullness.NONNULL)) {
             // We already know this argument can't be null, so we can treat it as not part of the
             // clause
             // for the purpose of deciding the non-nullness of the other arguments.

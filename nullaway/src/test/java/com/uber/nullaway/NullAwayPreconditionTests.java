@@ -40,6 +40,27 @@ public class NullAwayPreconditionTests extends NullAwayTestsBase {
             "import com.google.common.base.Preconditions;",
             "class Test {",
             "  private void foo(@Nullable Object a) {",
+            "    Preconditions.checkArgument(a != null);",
+            "    a.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void simpleCheckArgumentWithMessageTest() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Preconditions;",
+            "class Test {",
+            "  private void foo(@Nullable Object a) {",
             "    Preconditions.checkArgument(a != null, \"a ought to be non-null\");",
             "    a.toString();",
             "  }",
@@ -69,6 +90,27 @@ public class NullAwayPreconditionTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void compoundCheckArgumentLastTest() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Preconditions;",
+            "class Test {",
+            "  private void foo(@Nullable Object a) {",
+            "    Preconditions.checkArgument(this.hashCode() != 5 && a != null);",
+            "    a.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nestedCallCheckArgumentTest() {
     makeTestHelperWithArgs(
             Arrays.asList(
@@ -83,7 +125,7 @@ public class NullAwayPreconditionTests extends NullAwayTestsBase {
             "import com.google.common.base.Strings;",
             "class Test {",
             "  private void foo(@Nullable String a) {",
-            "    Preconditions.checkArgument(!Strings.isNullOrEmpty(a), \"a ought to be non-null\");",
+            "    Preconditions.checkArgument(!Strings.isNullOrEmpty(a));",
             "    a.toString();",
             "  }",
             "}")

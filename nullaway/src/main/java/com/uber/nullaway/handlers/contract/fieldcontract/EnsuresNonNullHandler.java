@@ -39,6 +39,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.annotations.EnsuresNonNull;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
+import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
@@ -46,6 +47,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.VariableElement;
+import org.checkerframework.nullaway.dataflow.analysis.TransferInput;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 /**
@@ -179,7 +181,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       Types types,
       Context context,
       AccessPath.AccessPathContext apContext,
-      AccessPathNullnessPropagation.SubNodeValues inputs,
+      TransferInput<Nullness, NullnessStore> input,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
@@ -187,7 +189,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       // A synthetic node might be inserted by the Checker Framework during CFG construction, it is
       // safer to do a null check here.
       return super.onDataflowVisitMethodInvocation(
-          node, types, context, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
+          node, types, context, apContext, input, thenUpdates, elseUpdates, bothUpdates);
     }
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(methodSymbol);
@@ -211,6 +213,6 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       }
     }
     return super.onDataflowVisitMethodInvocation(
-        node, types, context, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
+        node, types, context, apContext, input, thenUpdates, elseUpdates, bothUpdates);
   }
 }

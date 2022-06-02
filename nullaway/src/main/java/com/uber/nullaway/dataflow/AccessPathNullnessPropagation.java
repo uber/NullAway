@@ -897,7 +897,7 @@ public class AccessPathNullnessPropagation
             state.getTypes(),
             state.context,
             apContext,
-            values(input),
+            input,
             thenUpdates,
             elseUpdates,
             bothUpdates);

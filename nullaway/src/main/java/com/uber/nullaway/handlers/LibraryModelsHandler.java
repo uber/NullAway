@@ -43,16 +43,20 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
+import com.uber.nullaway.dataflow.NullnessStore;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nullable;
+import org.checkerframework.nullaway.dataflow.analysis.TransferInput;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 
@@ -138,7 +142,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       Types types,
       Context context,
       AccessPath.AccessPathContext apContext,
-      AccessPathNullnessPropagation.SubNodeValues inputs,
+      TransferInput<Nullness, NullnessStore> input,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
@@ -160,7 +164,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       // arguments is null, then the return should be non-null.
       boolean anyNull = false;
       for (int idx : nullImpliesNullIndexes) {
-        if (!inputs.valueOfSubNode(node.getArgument(idx)).equals(NONNULL)) {
+        if (!Objects.equals(input.getValueOfSubNode(node.getArgument(idx)), NONNULL)) {
           anyNull = true;
         }
       }
