@@ -5,13 +5,17 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.ThrowTree;
 import com.sun.source.tree.TreeVisitor;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.handlers.Handler;
 import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.Name;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Types;
 import org.checkerframework.nullaway.dataflow.cfg.ControlFlowGraph;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.builder.CFGBuilder;
@@ -24,6 +28,7 @@ import org.checkerframework.nullaway.dataflow.cfg.builder.Label;
 import org.checkerframework.nullaway.dataflow.cfg.builder.PhaseOneResult;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ThrowNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.nullaway.javacutil.AnnotationProvider;
 import org.checkerframework.nullaway.javacutil.BasicAnnotationProvider;
 import org.checkerframework.nullaway.javacutil.trees.TreeBuilder;
@@ -105,21 +110,41 @@ public class NullAwayCFGBuilder extends CFGBuilder {
     @Override
     public MethodInvocationNode visitMethodInvocation(MethodInvocationTree tree, Void p) {
       // Add nodes before
-      MethodInvocationNode originalNode = super.visitMethodInvocation(tree, p);
-      // Add nodes after
       // ToDo: Move to handler call
+      Types types = this.getProcessingEnvironment().getTypeUtils();
       Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
       if (preconditionsClass == null) {
         preconditionsClass = callee.name.table.fromString(PRECONDITIONS_CLASS_NAME);
         checkArgumentMethod = callee.name.table.fromString(CHECK_ARGUMENT_METHOD_NAME);
       }
+      MethodInvocationTree processedTree = tree;
+      if (callee.enclClass().getQualifiedName().equals(preconditionsClass)
+          && callee.name.equals(checkArgumentMethod)
+          && callee.getParameters().size() > 0) {
+        String localName = uniqueName("preconditionCheck");
+        Element owner = findOwner();
+        VariableTree condExprVarTree =
+            this.treeBuilder.buildVariableDecl(
+                types.getPrimitiveType(TypeKind.BOOLEAN),
+                localName,
+                owner,
+                tree.getArguments().get(0));
+        VariableDeclarationNode condExprVarNode = new VariableDeclarationNode(condExprVarTree);
+        condExprVarNode.setInSource(false);
+        extendWithNode(condExprVarNode);
+        ExpressionTree[] arguments = tree.getArguments().toArray(new ExpressionTree[0]);
+        // Replace expression with stored temporary
+        arguments[0] = this.treeBuilder.buildVariableUse(condExprVarTree);
+        processedTree = this.treeBuilder.buildMethodInvocation(tree.getMethodSelect(), arguments);
+      }
+      // ToDo: End of handler call
+      MethodInvocationNode originalNode = super.visitMethodInvocation(processedTree, p);
+      // Add nodes after
       if (callee.enclClass().getQualifiedName().equals(preconditionsClass)
           && callee.name.equals(checkArgumentMethod)
           && callee.getParameters().size() > 0) {
         Label falsePreconditionEntry = new Label();
         Label endPrecondition = new Label();
-        // Node preconditionExpressionNode = originalNode.getArgument(0);
-        // this.extendWithNode(preconditionExpressionNode);
         this.scan(tree.getArguments().get(0), (Void) null);
         ConditionalJump cjump = new ConditionalJump(endPrecondition, falsePreconditionEntry);
         this.extendWithExtendedNode(cjump);
