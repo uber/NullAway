@@ -38,6 +38,8 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullabilityUtil;
+import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
+import com.uber.nullaway.handlers.Handler;
 import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
@@ -49,7 +51,6 @@ import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.analysis.TransferFunction;
 import org.checkerframework.nullaway.dataflow.cfg.ControlFlowGraph;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
-import org.checkerframework.nullaway.dataflow.cfg.builder.CFGBuilder;
 
 /**
  * Provides a wrapper around {@link org.checkerframework.nullaway.dataflow.analysis.Analysis}.
@@ -70,8 +71,11 @@ public final class DataFlow {
 
   private final boolean assertsEnabled;
 
-  DataFlow(boolean assertsEnabled) {
+  private final Handler handler;
+
+  DataFlow(boolean assertsEnabled, Handler handler) {
     this.assertsEnabled = assertsEnabled;
+    this.handler = handler;
   }
 
   private final LoadingCache<AnalysisParams, Analysis<?, ?, ?>> analysisCache =
@@ -130,7 +134,8 @@ public final class DataFlow {
                     bodyPath = codePath;
                   }
 
-                  return CFGBuilder.build(bodyPath, ast, assertsEnabled, !assertsEnabled, env);
+                  return NullAwayCFGBuilder.build(
+                      bodyPath, ast, assertsEnabled, !assertsEnabled, env, handler);
                 }
               });
 
