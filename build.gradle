@@ -19,7 +19,6 @@ buildscript {
     repositories {
         mavenCentral()
         google() // For Gradle 4.0+
-        mavenLocal() // TODO: Remove!
     }
 
     dependencies {
@@ -46,7 +45,6 @@ plugins {
 repositories {
   // to get the google-java-format jar and dependencies
   mavenCentral()
-  mavenLocal() // TODO: Remove!
 }
 
 apply from: "gradle/dependencies.gradle"
@@ -107,7 +105,6 @@ subprojects { project ->
     repositories {
         mavenCentral()
         google()
-        mavenLocal() // TODO: Remove!
   }
 
 }
