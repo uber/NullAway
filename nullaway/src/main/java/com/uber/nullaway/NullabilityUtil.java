@@ -271,7 +271,7 @@ public class NullabilityUtil {
                         && t.position.parameter_index == paramInd));
   }
 
-  public static Stream<? extends AnnotationMirror> getTypeUseAnnotations(Symbol symbol) {
+  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(Symbol symbol) {
     Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
     if (symbol instanceof Symbol.MethodSymbol) {
       // for methods, we want the type-use annotations on the return type
