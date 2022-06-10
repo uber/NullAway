@@ -275,7 +275,13 @@ public class NullabilityUtil {
     Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
     if (symbol instanceof Symbol.MethodSymbol) {
       // for methods, we want the type-use annotations on the return type
-      return rawTypeAttributes.filter((t) -> t.position.type.equals(TargetType.METHOD_RETURN));
+      return rawTypeAttributes.filter(
+          (t) ->
+              // location is a list of TypePathEntry objects, indicating whether the annotation is
+              // on an array, inner type, wildcard, or type argument. If it's empty, then the
+              // annotation
+              // is directly on the return type.
+              t.position.type.equals(TargetType.METHOD_RETURN) && t.position.location.isEmpty());
     }
     return rawTypeAttributes;
   }
