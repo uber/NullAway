@@ -80,7 +80,7 @@ public final class AccessPathNullnessAnalysis {
             config,
             handler,
             new CoreNullnessStoreInitializer());
-    this.dataFlow = new DataFlow(config.assertsEnabled());
+    this.dataFlow = new DataFlow(config.assertsEnabled(), handler);
 
     if (config.checkContracts()) {
       this.contractNullnessPropagation =
