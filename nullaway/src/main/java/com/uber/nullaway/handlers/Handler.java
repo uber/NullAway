@@ -35,6 +35,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -341,6 +342,28 @@ public interface Handler {
       NullAwayCFGBuilder.NullAwayCFGTranslationPhaseOne phase,
       MethodInvocationTree tree,
       MethodInvocationNode originalNode);
+
+  /**
+   * Called to determine when a method acts as a cast-to-non-null operation on its parameters.
+   *
+   * <p>See {@link LibraryModels#castToNonNullMethods()} for more information about general
+   * configuration of <code>castToNonNull</code> methods.
+   *
+   * @param analysis A reference to the running NullAway analysis.
+   * @param state The current visitor state.
+   * @param methodSymbol The method symbol for the potential castToNonNull method.
+   * @param actualParams The actual parameters from the invocation node
+   * @param castToNonNullPositions The list of parameters for the method for which the method acts
+   *     as a cast, as computed by upstream handlers (the core analysis supplies a default set to
+   *     the first handler in the chain, based on CLI config).
+   * @return Updated parameter list computed by this handler
+   */
+  ImmutableSet<Integer> castToNonNullArgumentPositionsForMethod(
+      NullAway analysis,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      List<? extends ExpressionTree> actualParams,
+      ImmutableSet<Integer> castToNonNullPositions);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate

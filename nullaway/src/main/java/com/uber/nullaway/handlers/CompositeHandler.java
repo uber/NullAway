@@ -264,4 +264,19 @@ class CompositeHandler implements Handler {
     }
     return currentNode;
   }
+
+  @Override
+  public ImmutableSet<Integer> castToNonNullArgumentPositionsForMethod(
+      NullAway analysis,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      List<? extends ExpressionTree> actualParams,
+      ImmutableSet<Integer> castToNonNullPositions) {
+    for (Handler h : handlers) {
+      castToNonNullPositions =
+          h.castToNonNullArgumentPositionsForMethod(
+              analysis, state, methodSymbol, actualParams, castToNonNullPositions);
+    }
+    return castToNonNullPositions;
+  }
 }

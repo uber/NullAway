@@ -33,6 +33,21 @@ public class Util {
     return x;
   }
 
+  public static <T> T castToNonNull(@Nullable T x, String msg) {
+    if (x == null) {
+      throw new RuntimeException(msg);
+    }
+    return x;
+  }
+
+  public static <T> T castToNonNull(String msg, @Nullable T x, int counter) {
+    // counter is needed to distinguish this method from the previous one when T == String
+    if (x == null) {
+      throw new RuntimeException(msg);
+    }
+    return x;
+  }
+
   public static <T> T id(T x) {
     return x;
   }

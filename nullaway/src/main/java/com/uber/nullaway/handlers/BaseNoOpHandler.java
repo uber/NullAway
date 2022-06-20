@@ -202,4 +202,15 @@ public abstract class BaseNoOpHandler implements Handler {
       MethodInvocationNode originalNode) {
     return originalNode;
   }
+
+  @Override
+  public ImmutableSet<Integer> castToNonNullArgumentPositionsForMethod(
+      NullAway analysis,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      List<? extends ExpressionTree> actualParams,
+      ImmutableSet<Integer> castToNonNullPositions) {
+    // NoOp
+    return castToNonNullPositions;
+  }
 }

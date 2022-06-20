@@ -123,6 +123,27 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     return exprMayBeNull;
   }
 
+  @Override
+  public ImmutableSet<Integer> castToNonNullArgumentPositionsForMethod(
+      NullAway analysis,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      List<? extends ExpressionTree> actualParams,
+      ImmutableSet<Integer> castToNonNullPositions) {
+    OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
+    ImmutableSet<Integer> newPositions = optLibraryModels.castToNonNullMethod(methodSymbol);
+    if (newPositions.size() == 0) {
+      return castToNonNullPositions;
+    } else if (castToNonNullPositions.size() == 0) {
+      return newPositions;
+    } else {
+      return ImmutableSet.<Integer>builder()
+          .addAll(castToNonNullPositions)
+          .addAll(newPositions)
+          .build();
+    }
+  }
+
   @Nullable private ClassAnnotationInfo classAnnotationInfo;
 
   private ClassAnnotationInfo getClassAnnotationInfo(Context context) {
@@ -631,6 +652,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .add(methodRef("android.support.design.widget.TextInputLayout", "getEditText()"))
             .build();
 
+    private static final ImmutableSetMultimap<MethodRef, Integer> CAST_TO_NONNULL_METHODS =
+        new ImmutableSetMultimap.Builder<MethodRef, Integer>().build();
+
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
       return FAIL_IF_NULL_PARAMETERS;
@@ -670,6 +694,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     public ImmutableSet<MethodRef> nonNullReturns() {
       return NONNULL_RETURNS;
     }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
+      return CAST_TO_NONNULL_METHODS;
+    }
   }
 
   private static class CombinedLibraryModels implements LibraryModels {
@@ -690,6 +719,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSet<MethodRef> nonNullReturns;
 
+    private final ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods;
+
     public CombinedLibraryModels(Iterable<LibraryModels> models) {
       ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
@@ -705,6 +736,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           new ImmutableSetMultimap.Builder<>();
       ImmutableSet.Builder<MethodRef> nullableReturnsBuilder = new ImmutableSet.Builder<>();
       ImmutableSet.Builder<MethodRef> nonNullReturnsBuilder = new ImmutableSet.Builder<>();
+      ImmutableSetMultimap.Builder<MethodRef, Integer> castToNonNullMethodsBuilder =
+          new ImmutableSetMultimap.Builder<>();
       for (LibraryModels libraryModels : models) {
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.failIfNullParameters().entries()) {
           failIfNullParametersBuilder.put(entry);
@@ -734,6 +767,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         for (MethodRef name : libraryModels.nonNullReturns()) {
           nonNullReturnsBuilder.add(name);
         }
+        for (Map.Entry<MethodRef, Integer> entry : libraryModels.castToNonNullMethods().entries()) {
+          castToNonNullMethodsBuilder.put(entry);
+        }
       }
       failIfNullParameters = failIfNullParametersBuilder.build();
       explicitlyNullableParameters = explicitlyNullableParametersBuilder.build();
@@ -743,6 +779,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       nullImpliesNullParameters = nullImpliesNullParametersBuilder.build();
       nullableReturns = nullableReturnsBuilder.build();
       nonNullReturns = nonNullReturnsBuilder.build();
+      castToNonNullMethods = castToNonNullMethodsBuilder.build();
     }
 
     @Override
@@ -783,6 +820,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSet<MethodRef> nonNullReturns() {
       return nonNullReturns;
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
+      return castToNonNullMethods;
     }
   }
 
@@ -830,6 +872,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesNullParams;
     private final NameIndexedMap<Boolean> nullableRet;
     private final NameIndexedMap<Boolean> nonNullRet;
+    private final NameIndexedMap<ImmutableSet<Integer>> castToNonNullMethods;
 
     public OptimizedLibraryModels(LibraryModels models, Context context) {
       Names names = Names.instance(context);
@@ -843,6 +886,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       nullImpliesNullParams = makeOptimizedIntSetLookup(names, models.nullImpliesNullParameters());
       nullableRet = makeOptimizedBoolLookup(names, models.nullableReturns());
       nonNullRet = makeOptimizedBoolLookup(names, models.nonNullReturns());
+      castToNonNullMethods = makeOptimizedIntSetLookup(names, models.castToNonNullMethods());
     }
 
     public boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types) {
@@ -875,6 +919,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol) {
       return lookupImmutableSet(symbol, nullImpliesNullParams);
+    }
+
+    ImmutableSet<Integer> castToNonNullMethod(Symbol.MethodSymbol symbol) {
+      return lookupImmutableSet(symbol, castToNonNullMethods);
     }
 
     private ImmutableSet<Integer> lookupImmutableSet(

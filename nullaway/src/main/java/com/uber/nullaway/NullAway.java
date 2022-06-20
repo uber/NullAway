@@ -1512,12 +1512,20 @@ public class NullAway extends BugChecker
       List<? extends ExpressionTree> actualParams) {
     String qualifiedName =
         ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
-    if (qualifiedName.equals(config.getCastToNonNullMethod())) {
-      if (actualParams.size() != 1) {
-        throw new RuntimeException(
-            "Invalid number of parameters passed to configured CastToNonNullMethod.");
-      }
-      ExpressionTree actual = actualParams.get(0);
+    ImmutableSet<Integer> castToNonNullPositions;
+    if (qualifiedName.equals(config.getCastToNonNullMethod())
+        && methodSymbol.getParameters().size() == 1) {
+      // castToNonNull method passed to CLI config, it acts as a cast-to-non-null on its first
+      // argument.
+      // since this works only for the single argument method, we skip further querying of handlers.
+      castToNonNullPositions = ImmutableSet.of(0);
+    } else {
+      castToNonNullPositions =
+          handler.castToNonNullArgumentPositionsForMethod(
+              this, state, methodSymbol, actualParams, ImmutableSet.of());
+    }
+    for (Integer idx : castToNonNullPositions) {
+      ExpressionTree actual = actualParams.get(idx);
       TreePath enclosingMethodOrLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath());
       boolean isInitializer;
@@ -1538,7 +1546,9 @@ public class NullAway extends BugChecker
                 + state.getSourceForNode(actual)
                 + "' to CastToNonNullMethod ("
                 + qualifiedName
-                + "). This method should only take arguments that NullAway considers @Nullable "
+                + ") at position "
+                + idx
+                + ". This method argument should only take values that NullAway considers @Nullable "
                 + "at the invocation site, but which are known not to be null at runtime.";
         return errorBuilder.createErrorDescription(
             new ErrorMessage(MessageTypes.CAST_TO_NONNULL_ARG_NONNULL, message),
