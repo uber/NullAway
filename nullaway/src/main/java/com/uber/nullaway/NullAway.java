@@ -1445,6 +1445,16 @@ public class NullAway extends BugChecker
           } else {
             continue;
           }
+        } else if (ASTHelpers.isSameType(
+            param.type, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
+          // Temporarily treat a Void argument type as if it were @Nullable Void. Handling of Void
+          // without
+          // special-casing, as recommeded by JSpecify might: a) require generics support and, b)
+          // require
+          // checking that third-party libraries considered annotated adopt JSpecify semantics.
+          // See the suppression in https://github.com/uber/NullAway/pull/608 for an example of why
+          // this is needed.
+          continue;
         }
         // we need to call paramHasNullableAnnotation here since the invoked method may be defined
         // in a class file

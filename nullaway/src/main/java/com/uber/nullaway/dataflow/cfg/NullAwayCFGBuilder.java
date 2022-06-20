@@ -113,13 +113,11 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
       this.handler = handler;
     }
 
-    @SuppressWarnings("NullAway") // (Void)null issue
-    private void scanWithVoid(Tree tree) {
-      this.scan(tree, (Void) null);
-    }
-
     /**
      * Obtain the type mirror for a given class, used for exception throwing.
+     *
+     * <p>We use this method to expose the otherwise protected method {@link #getTypeMirror(Class)}
+     * to handlers.
      *
      * @param klass a Java class
      * @return the corresponding type mirror
@@ -144,7 +142,7 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
       Preconditions.checkNotNull(booleanExpressionTree);
       Label falsePreconditionEntry = new Label();
       Label endPrecondition = new Label();
-      this.scanWithVoid(booleanExpressionTree);
+      this.scan(booleanExpressionTree, (Void) null);
       ConditionalJump cjump = new ConditionalJump(endPrecondition, falsePreconditionEntry);
       this.extendWithExtendedNode(cjump);
       this.addLabelForNextNode(falsePreconditionEntry);

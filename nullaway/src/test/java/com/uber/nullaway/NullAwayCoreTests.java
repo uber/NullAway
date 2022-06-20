@@ -624,6 +624,29 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableOnJavaLangVoidWithCast() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  Void foo1() {",
+            "    // temporarily, we treat a Void return type as if it was @Nullable Void",
+            "    return (Void)null;",
+            "  }",
+            "  void consumeVoid(Void v) {",
+            "  }",
+            "  @Nullable Void foo2() {",
+            "    // temporarily, we treat a Void argument type as if it was @Nullable Void",
+            "    consumeVoid((Void)null);",
+            "    return (Void)null;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void staticCallZeroArgsNullCheck() {
     defaultCompilationHelper
         .addSourceLines(
