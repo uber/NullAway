@@ -913,7 +913,7 @@ public class NullAway extends BugChecker
         return Description.NO_MATCH;
       }
     }
-    if (okToReadBeforeInitialized(path)) {
+    if (okToReadBeforeInitialized(path, state)) {
       // writing the field, not reading it
       return Description.NO_MATCH;
     }
@@ -1169,10 +1169,11 @@ public class NullAway extends BugChecker
 
   /**
    * @param path tree path to read operation
+   * @param state the current VisitorState
    * @return true if it is permissible to perform this read before the field has been initialized,
    *     false otherwise
    */
-  private boolean okToReadBeforeInitialized(TreePath path) {
+  private boolean okToReadBeforeInitialized(TreePath path, VisitorState state) {
     TreePath parentPath = path.getParentPath();
     Tree leaf = path.getLeaf();
     Tree parent = parentPath.getLeaf();
@@ -1196,10 +1197,22 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
       String qualifiedName =
           ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
-      if (qualifiedName.equals(config.getCastToNonNullMethod())) {
-        List<? extends ExpressionTree> arguments = methodInvoke.getArguments();
-        return arguments.size() == 1 && leaf.equals(arguments.get(0));
+      List<? extends ExpressionTree> arguments = methodInvoke.getArguments();
+      ImmutableSet<Integer> castToNonNullArgs;
+      if (qualifiedName.equals(config.getCastToNonNullMethod())
+          && methodSymbol.getParameters().size() == 1) {
+        castToNonNullArgs = ImmutableSet.of(0);
+      } else {
+        castToNonNullArgs =
+            handler.castToNonNullArgumentPositionsForMethod(
+                this, state, methodSymbol, arguments, ImmutableSet.of());
       }
+      for (Integer castIdx : castToNonNullArgs) {
+        if (leaf.equals(arguments.get(castIdx))) {
+          return true;
+        }
+      }
+      return false;
     }
     return false;
   }
@@ -1516,8 +1529,7 @@ public class NullAway extends BugChecker
     if (qualifiedName.equals(config.getCastToNonNullMethod())
         && methodSymbol.getParameters().size() == 1) {
       // castToNonNull method passed to CLI config, it acts as a cast-to-non-null on its first
-      // argument.
-      // since this works only for the single argument method, we skip further querying of handlers.
+      // argument. Since this is a single argument method, we skip further querying of handlers.
       castToNonNullPositions = ImmutableSet.of(0);
     } else {
       castToNonNullPositions =

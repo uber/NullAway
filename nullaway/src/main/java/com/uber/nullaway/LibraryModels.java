@@ -114,8 +114,8 @@ public interface LibraryModels {
    * non-null.
    *
    * <p>We still provide the CLI configuration `-XepOpt:NullAway:CastToNonNullMethod` as the default
-   * way to define the common case of a single-argument <code>
-   * @NonNull Object castToNonNull(@Nullable Object o)}</code> cast method.
+   * way to define the common case of a single-argument {@code @NonNull Object
+   * castToNonNull(@Nullable Object o)}} cast method.
    *
    * <p>However, in some cases, the user might wish to have a cast method that takes multiple
    * arguments, in addition to the <code>@Nullable</code> value being cast. For these cases,
