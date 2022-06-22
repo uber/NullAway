@@ -1198,19 +1198,17 @@ public class NullAway extends BugChecker
       String qualifiedName =
           ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
       List<? extends ExpressionTree> arguments = methodInvoke.getArguments();
-      ImmutableSet<Integer> castToNonNullArgs;
+      Integer castToNonNullArg;
       if (qualifiedName.equals(config.getCastToNonNullMethod())
           && methodSymbol.getParameters().size() == 1) {
-        castToNonNullArgs = ImmutableSet.of(0);
+        castToNonNullArg = 0;
       } else {
-        castToNonNullArgs =
+        castToNonNullArg =
             handler.castToNonNullArgumentPositionsForMethod(
-                this, state, methodSymbol, arguments, ImmutableSet.of());
+                this, state, methodSymbol, arguments, null);
       }
-      for (Integer castIdx : castToNonNullArgs) {
-        if (leaf.equals(arguments.get(castIdx))) {
-          return true;
-        }
+      if (castToNonNullArg != null && leaf.equals(arguments.get(castToNonNullArg))) {
+        return true;
       }
       return false;
     }
@@ -1525,19 +1523,19 @@ public class NullAway extends BugChecker
       List<? extends ExpressionTree> actualParams) {
     String qualifiedName =
         ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
-    ImmutableSet<Integer> castToNonNullPositions;
+    Integer castToNonNullPosition;
     if (qualifiedName.equals(config.getCastToNonNullMethod())
         && methodSymbol.getParameters().size() == 1) {
       // castToNonNull method passed to CLI config, it acts as a cast-to-non-null on its first
       // argument. Since this is a single argument method, we skip further querying of handlers.
-      castToNonNullPositions = ImmutableSet.of(0);
+      castToNonNullPosition = 0;
     } else {
-      castToNonNullPositions =
+      castToNonNullPosition =
           handler.castToNonNullArgumentPositionsForMethod(
-              this, state, methodSymbol, actualParams, ImmutableSet.of());
+              this, state, methodSymbol, actualParams, null);
     }
-    for (Integer idx : castToNonNullPositions) {
-      ExpressionTree actual = actualParams.get(idx);
+    if (castToNonNullPosition != null) {
+      ExpressionTree actual = actualParams.get(castToNonNullPosition);
       TreePath enclosingMethodOrLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath());
       boolean isInitializer;
@@ -1559,7 +1557,7 @@ public class NullAway extends BugChecker
                 + "' to CastToNonNullMethod ("
                 + qualifiedName
                 + ") at position "
-                + idx
+                + castToNonNullPosition
                 + ". This method argument should only take values that NullAway considers @Nullable "
                 + "at the invocation site, but which are known not to be null at runtime.";
         return errorBuilder.createErrorDescription(

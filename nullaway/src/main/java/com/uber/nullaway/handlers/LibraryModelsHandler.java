@@ -124,24 +124,26 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public ImmutableSet<Integer> castToNonNullArgumentPositionsForMethod(
+  @Nullable
+  public Integer castToNonNullArgumentPositionsForMethod(
       NullAway analysis,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
-      ImmutableSet<Integer> castToNonNullPositions) {
+      @Nullable Integer previousArgumentPosition) {
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
     ImmutableSet<Integer> newPositions = optLibraryModels.castToNonNullMethod(methodSymbol);
-    if (newPositions.size() == 0) {
-      return castToNonNullPositions;
-    } else if (castToNonNullPositions.size() == 0) {
-      return newPositions;
-    } else {
-      return ImmutableSet.<Integer>builder()
-          .addAll(castToNonNullPositions)
-          .addAll(newPositions)
-          .build();
+    if (newPositions.size() > 1) {
+      // Library models sanity check
+      String qualifiedName =
+          ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
+      throw new IllegalStateException(
+          "Found multiple applicable castToNonNull library models for the same method signature: "
+              + qualifiedName);
     }
+    // Override if an argument position was found from the library models, otherwise propagate
+    // previousArgumentPosition
+    return newPositions.stream().findAny().orElse(previousArgumentPosition);
   }
 
   @Nullable private ClassAnnotationInfo classAnnotationInfo;

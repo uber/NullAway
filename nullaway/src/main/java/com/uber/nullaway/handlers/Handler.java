@@ -45,6 +45,7 @@ import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
@@ -353,17 +354,20 @@ public interface Handler {
    * @param state The current visitor state.
    * @param methodSymbol The method symbol for the potential castToNonNull method.
    * @param actualParams The actual parameters from the invocation node
-   * @param castToNonNullPositions The list of parameters for the method for which the method acts
-   *     as a cast, as computed by upstream handlers (the core analysis supplies a default set to
-   *     the first handler in the chain, based on CLI config).
-   * @return Updated parameter list computed by this handler
+   * @param previousArgumentPosition The result computed by the previous handler in the chain, if
+   *     any.
+   * @return The index of the parameter for which the method should act as a cast (if any). This
+   *     value can be set only once through the full chain of handlers, with each handler deciding
+   *     whether to propagate or override the value previousArgumentPosition passed by the previous
+   *     handler in the chain.
    */
-  ImmutableSet<Integer> castToNonNullArgumentPositionsForMethod(
+  @Nullable
+  Integer castToNonNullArgumentPositionsForMethod(
       NullAway analysis,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
-      ImmutableSet<Integer> castToNonNullPositions);
+      @Nullable Integer previousArgumentPosition);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
