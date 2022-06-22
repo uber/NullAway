@@ -84,7 +84,7 @@ public class ContractUtils {
 
     String[] parts = clause.split("->");
 
-    String[] antecedent = parts[0].split(",");
+    String[] antecedent = parts[0].isBlank() ? new String[0] : parts[0].split(",");
 
     if (antecedent.length != numOfArguments) {
       String message =
