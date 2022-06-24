@@ -70,4 +70,16 @@ public class TestLibraryModels implements LibraryModels {
   public ImmutableSet<MethodRef> nonNullReturns() {
     return ImmutableSet.of();
   }
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
+    return ImmutableSetMultimap.<MethodRef, Integer>builder()
+        .put(
+            methodRef("com.uber.nullaway.testdata.Util", "<T>castToNonNull(T,java.lang.String)"), 0)
+        .put(
+            methodRef(
+                "com.uber.nullaway.testdata.Util", "<T>castToNonNull(java.lang.String,T,int)"),
+            1)
+        .build();
+  }
 }

@@ -108,6 +108,26 @@ public interface LibraryModels {
   ImmutableSet<MethodRef> nonNullReturns();
 
   /**
+   * Get (method, parameter) pairs that act as castToNonNull(...) methods.
+   *
+   * <p>Here, the parameter index determines the argument position of the reference being cast to
+   * non-null.
+   *
+   * <p>We still provide the CLI configuration `-XepOpt:NullAway:CastToNonNullMethod` as the default
+   * way to define the common case of a single-argument {@code @NonNull Object
+   * castToNonNull(@Nullable Object o)}} cast method.
+   *
+   * <p>However, in some cases, the user might wish to have a cast method that takes multiple
+   * arguments, in addition to the <code>@Nullable</code> value being cast. For these cases,
+   * providing a library model allows for more precise error reporting whenever a known non-null
+   * value is passed to such method, rendering the cast unnecessary.
+   *
+   * <p>Note that we can't auto-add castToNonNull(...) methods taking more than one argument, simply
+   * because there might be no general, automated way of synthesizing the required arguments.
+   */
+  ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods();
+
+  /**
    * representation of a method as a qualified class name + a signature for the method
    *
    * <p>The formatting of a method signature should match the result of calling {@link

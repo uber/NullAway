@@ -254,6 +254,36 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testCastToNonNullExtraArgsWarning() {
+    defaultCompilationHelper
+        .addSourceFile("Util.java")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "class Test {",
+            "  Object test1(Object o) {",
+            "    // BUG: Diagnostic contains: passing known @NonNull parameter 'o' to CastToNonNullMethod",
+            "    return castToNonNull(o, \"o should be @Nullable but never actually null\");",
+            "  }",
+            "  Object test2(Object o) {",
+            "    // BUG: Diagnostic contains: passing known @NonNull parameter 'o' to CastToNonNullMethod",
+            "    return castToNonNull(\"o should be @Nullable but never actually null\", o, 0);",
+            "  }",
+            "  Object test3(@Nullable Object o) {",
+            "    // Expected use of cast",
+            "    return castToNonNull(o, \"o should be @Nullable but never actually null\");",
+            "  }",
+            "  Object test4(@Nullable Object o) {",
+            "    // Expected use of cast",
+            "    return castToNonNull(o, \"o should be @Nullable but never actually null\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testReadStaticInConstructor() {
     defaultCompilationHelper
         .addSourceLines(
