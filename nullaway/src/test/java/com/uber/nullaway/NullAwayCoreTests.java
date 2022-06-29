@@ -37,11 +37,6 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void dflowBench() {
-    defaultCompilationHelper.addSourceFile("DFlowBench.java").doTest();
-  }
-
-  @Test
   public void nullabilityAnonymousClass() {
     defaultCompilationHelper.addSourceFile("NullAwayAnonymousClass.java").doTest();
   }

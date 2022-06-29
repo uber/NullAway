@@ -123,9 +123,9 @@ jmh {
 
     // commented-out examples of how to tweak other jmh parameters; they show the default values
     // for more examples see https://github.com/melix/jmh-gradle-plugin/blob/master/README.adoc#configuration-options
-    iterations = 50
+    // iterations = 5
     // fork = 5
-    includes = ['DFlowMicro']
+    // includes = ['DFlowMicro']
 }
 
 // don't run test task on pre-JDK-11 VMs
