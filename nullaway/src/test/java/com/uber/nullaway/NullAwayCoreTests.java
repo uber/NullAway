@@ -629,6 +629,36 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableOnJavaLangVoidWithCast() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  // Currently unhandled. In fact, it *should* produce an error. This entire test case",
+            "  // needs to be rethought once we properly support generics, such that it works on T v",
+            "  // when T == @Nullable Void, but not when T == Void. Without generics, though, this is the",
+            "  // best we can do.",
+            "  @SuppressWarnings(\"NullAway\")",
+            "  private Void v = (Void)null;",
+            "  Void foo1() {",
+            "    // temporarily, we treat a Void return type as if it was @Nullable Void",
+            "    return (Void)null;",
+            "  }",
+            "  // Temporarily, we treat any Void formal as if it were @Nullable Void",
+            "  void consumeVoid(Void v) {",
+            "  }",
+            "  @Nullable Void foo2() {",
+            "    consumeVoid(null); // See comment on consumeVoid for why this is allowed",
+            "    consumeVoid((Void)null);",
+            "    return (Void)null;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void staticCallZeroArgsNullCheck() {
     defaultCompilationHelper
         .addSourceLines(

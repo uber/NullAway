@@ -41,6 +41,7 @@ import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
+import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
@@ -324,6 +325,22 @@ public interface Handler {
    */
   void onNonNullFieldAssignment(
       Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state);
+
+  /**
+   * Called during AST to CFG translation (CFGTranslationPhaseOne) immediately after translating a
+   * MethodInvocationTree.
+   *
+   * @param phase a reference to the NullAwayCFGTranslationPhaseOne object and its utility
+   *     functions.
+   * @param tree the MethodInvocationTree being translated.
+   * @param originalNode the resulting MethodInvocationNode right before this handler is called.
+   * @return a MethodInvocationNode which might be originalNode or a modified version, this is
+   *     passed to the next handler in the chain.
+   */
+  MethodInvocationNode onCFGBuildPhase1AfterVisitMethodInvocation(
+      NullAwayCFGBuilder.NullAwayCFGTranslationPhaseOne phase,
+      MethodInvocationTree tree,
+      MethodInvocationNode originalNode);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate

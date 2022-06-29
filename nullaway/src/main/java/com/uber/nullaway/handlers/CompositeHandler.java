@@ -41,6 +41,7 @@ import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
+import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
@@ -250,5 +251,17 @@ class CompositeHandler implements Handler {
     for (Handler h : handlers) {
       h.onNonNullFieldAssignment(field, analysis, state);
     }
+  }
+
+  @Override
+  public MethodInvocationNode onCFGBuildPhase1AfterVisitMethodInvocation(
+      NullAwayCFGBuilder.NullAwayCFGTranslationPhaseOne phase,
+      MethodInvocationTree tree,
+      MethodInvocationNode originalNode) {
+    MethodInvocationNode currentNode = originalNode;
+    for (Handler h : handlers) {
+      currentNode = h.onCFGBuildPhase1AfterVisitMethodInvocation(phase, tree, currentNode);
+    }
+    return currentNode;
   }
 }

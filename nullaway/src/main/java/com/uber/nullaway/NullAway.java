@@ -45,13 +45,11 @@ import com.google.errorprone.BugPattern;
 import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
-import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.matchers.Matcher;
 import com.google.errorprone.matchers.Matchers;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
@@ -1447,6 +1445,16 @@ public class NullAway extends BugChecker
           } else {
             continue;
           }
+        } else if (ASTHelpers.isSameType(
+            param.type, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
+          // Temporarily treat a Void argument type as if it were @Nullable Void. Handling of Void
+          // without
+          // special-casing, as recommeded by JSpecify might: a) require generics support and, b)
+          // require
+          // checking that third-party libraries considered annotated adopt JSpecify semantics.
+          // See the suppression in https://github.com/uber/NullAway/pull/608 for an example of why
+          // this is needed.
+          continue;
         }
         // we need to call paramHasNullableAnnotation here since the invoked method may be defined
         // in a class file
@@ -2178,50 +2186,6 @@ public class NullAway extends BugChecker
     }
 
     return Description.NO_MATCH;
-  }
-
-  @SuppressWarnings("unused")
-  private Description.Builder changeReturnNullabilityFix(
-      Tree suggestTree, Description.Builder builder, VisitorState state) {
-    if (suggestTree.getKind() != Tree.Kind.METHOD) {
-      throw new RuntimeException("This should be a MethodTree");
-    }
-    SuggestedFix.Builder fixBuilder = SuggestedFix.builder();
-    MethodTree methodTree = (MethodTree) suggestTree;
-    int countNullableAnnotations = 0;
-    for (AnnotationTree annotationTree : methodTree.getModifiers().getAnnotations()) {
-      if (castToNonNull(state.getSourceForNode(annotationTree.getAnnotationType()))
-          .endsWith("Nullable")) {
-        fixBuilder.delete(annotationTree);
-        countNullableAnnotations += 1;
-      }
-    }
-    assert countNullableAnnotations > 1;
-    return builder.addFix(fixBuilder.build());
-  }
-
-  @SuppressWarnings("unused")
-  private Description.Builder changeParamNullabilityFix(
-      Tree suggestTree, Description.Builder builder) {
-    return builder.addFix(SuggestedFix.prefixWith(suggestTree, "@Nullable "));
-  }
-
-  @SuppressWarnings("unused")
-  private int depth(ExpressionTree expression) {
-    switch (expression.getKind()) {
-      case MEMBER_SELECT:
-        MemberSelectTree selectTree = (MemberSelectTree) expression;
-        return 1 + depth(selectTree.getExpression());
-      case METHOD_INVOCATION:
-        MethodInvocationTree invTree = (MethodInvocationTree) expression;
-        return depth(invTree.getMethodSelect());
-      case IDENTIFIER:
-        IdentifierTree varTree = (IdentifierTree) expression;
-        Symbol symbol = ASTHelpers.getSymbol(varTree);
-        return symbol.getKind().equals(ElementKind.FIELD) ? 2 : 1;
-      default:
-        return 0;
-    }
   }
 
   private static boolean isThisIdentifier(ExpressionTree expressionTree) {
