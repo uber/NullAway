@@ -35,6 +35,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -44,6 +45,7 @@ import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
@@ -341,6 +343,31 @@ public interface Handler {
       NullAwayCFGBuilder.NullAwayCFGTranslationPhaseOne phase,
       MethodInvocationTree tree,
       MethodInvocationNode originalNode);
+
+  /**
+   * Called to determine when a method acts as a cast-to-non-null operation on its parameters.
+   *
+   * <p>See {@link LibraryModels#castToNonNullMethods()} for more information about general
+   * configuration of <code>castToNonNull</code> methods.
+   *
+   * @param analysis A reference to the running NullAway analysis.
+   * @param state The current visitor state.
+   * @param methodSymbol The method symbol for the potential castToNonNull method.
+   * @param actualParams The actual parameters from the invocation node
+   * @param previousArgumentPosition The result computed by the previous handler in the chain, if
+   *     any.
+   * @return The index of the parameter for which the method should act as a cast (if any). This
+   *     value can be set only once through the full chain of handlers, with each handler deciding
+   *     whether to propagate or override the value previousArgumentPosition passed by the previous
+   *     handler in the chain.
+   */
+  @Nullable
+  Integer castToNonNullArgumentPositionsForMethod(
+      NullAway analysis,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      List<? extends ExpressionTree> actualParams,
+      @Nullable Integer previousArgumentPosition);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
