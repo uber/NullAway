@@ -21,6 +21,10 @@ public class DataFlowMicroBenchmarkCompiler {
   private static final String SOURCE;
 
   static {
+    // For larger benchmarks, we pass file paths to NullawayJavac, based on JVM properties computed
+    // in build.gradle.  Here, to avoid creating and passing yet another JVM property, we just store
+    // the benchmark source code in a resource file and then load it eagerly into a String via the
+    // classloader
     ClassLoader classLoader = DataFlowMicroBenchmarkCompiler.class.getClassLoader();
     try (InputStream inputStream = classLoader.getResourceAsStream("DFlowBench.java")) {
       SOURCE = readFromInputStream(inputStream);
