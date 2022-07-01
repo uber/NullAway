@@ -125,6 +125,7 @@ jmh {
     // for more examples see https://github.com/melix/jmh-gradle-plugin/blob/master/README.adoc#configuration-options
     // iterations = 5
     // fork = 5
+    // includes = ['DFlowMicro']
 }
 
 // don't run test task on pre-JDK-11 VMs
