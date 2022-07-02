@@ -69,25 +69,6 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void contractArgsEmpty() {
-    makeTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import org.jetbrains.annotations.Contract;",
-            "class Test {",
-            "  @Contract(\" -> _\")",
-            "  static void foo() {}",
-            "  static { foo(); }",
-            "}")
-        .doTest();
-  }
-
-  @Test
   public void impliesNonNullContractAnnotation() {
     makeTestHelperWithArgs(
             Arrays.asList(
