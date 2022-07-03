@@ -22,4 +22,9 @@ public class BenchmarkCompilationTest {
   public void testNullawayRelease() throws IOException {
     assertTrue(new NullawayReleaseCompiler().compile());
   }
+
+  @Test
+  public void testDFlowMicro() throws IOException {
+    assertTrue(new DataFlowMicroBenchmarkCompiler().compile());
+  }
 }

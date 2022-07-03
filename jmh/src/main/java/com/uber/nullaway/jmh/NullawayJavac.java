@@ -119,6 +119,26 @@ public class NullawayJavac {
   }
 
   /**
+   * Create a NullawayJavac object to compile a single source file given as a String. This only
+   * supports cases where no additional classpath, Error Prone arguments, or processor path
+   * arguments need to be specified.
+   *
+   * @param className name of the class to compile
+   * @param source source code of the class to compile
+   * @param annotatedPackages argument to pass for "-XepOpt:NullAway:AnnotatedPackages" option
+   * @throws IOException if a temporary output directory cannot be created
+   */
+  public static NullawayJavac createFromSourceString(
+      String className, String source, String annotatedPackages) throws IOException {
+    return new NullawayJavac(
+        Collections.singletonList(new JavaSourceFromString(className, source)),
+        annotatedPackages,
+        null,
+        Collections.emptyList(),
+        "");
+  }
+
+  /**
    * Configures compilation with javac and NullAway.
    *
    * <p>To pass NullAway in the {@code -processorpath} argument to the spawned javac and ensure it
