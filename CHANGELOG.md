@@ -1,5 +1,23 @@
 Changelog
 =========
+Version 0.9.8
+-------------
+* Fix false positive involving type parameter @Nullable annotations (#609)
+* Add config option to register custom @Generated annotations. (#600)
+* Treat Void formal arguments as @Nullable (#613)
+* Generalize support for castToNonNull methods using library models (#614)
+* Support for specific libraries/APIs:
+  - Support for Preconditions.checkArgument (#608)
+  - Model for com.google.api.client.util.Strings.isNullOrEmpty (#605)
+* Refactoring:
+  - Cleanups to AccessPath representation and implementation (#603)
+  - Clean-up: Remove unused fix suggestion code. (#615)  
+* Dependency Updates:
+  - Update to Checker Framework 3.22.2 (#610)
+* Build / CI tooling for NullAway itself:
+  - Add NullAway 0.9.7 as a JMH benchmark (#602)
+  - Update to Error Prone 2.14.0 (#606)
+
 Version 0.9.7
 -------------
 * Allow zero-argument static method calls to be the root of an access path (#596)

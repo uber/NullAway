@@ -913,7 +913,7 @@ public class NullAway extends BugChecker
         return Description.NO_MATCH;
       }
     }
-    if (okToReadBeforeInitialized(path)) {
+    if (okToReadBeforeInitialized(path, state)) {
       // writing the field, not reading it
       return Description.NO_MATCH;
     }
@@ -1169,10 +1169,11 @@ public class NullAway extends BugChecker
 
   /**
    * @param path tree path to read operation
+   * @param state the current VisitorState
    * @return true if it is permissible to perform this read before the field has been initialized,
    *     false otherwise
    */
-  private boolean okToReadBeforeInitialized(TreePath path) {
+  private boolean okToReadBeforeInitialized(TreePath path, VisitorState state) {
     TreePath parentPath = path.getParentPath();
     Tree leaf = path.getLeaf();
     Tree parent = parentPath.getLeaf();
@@ -1196,10 +1197,20 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
       String qualifiedName =
           ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
-      if (qualifiedName.equals(config.getCastToNonNullMethod())) {
-        List<? extends ExpressionTree> arguments = methodInvoke.getArguments();
-        return arguments.size() == 1 && leaf.equals(arguments.get(0));
+      List<? extends ExpressionTree> arguments = methodInvoke.getArguments();
+      Integer castToNonNullArg;
+      if (qualifiedName.equals(config.getCastToNonNullMethod())
+          && methodSymbol.getParameters().size() == 1) {
+        castToNonNullArg = 0;
+      } else {
+        castToNonNullArg =
+            handler.castToNonNullArgumentPositionsForMethod(
+                this, state, methodSymbol, arguments, null);
       }
+      if (castToNonNullArg != null && leaf.equals(arguments.get(castToNonNullArg))) {
+        return true;
+      }
+      return false;
     }
     return false;
   }
@@ -1512,12 +1523,19 @@ public class NullAway extends BugChecker
       List<? extends ExpressionTree> actualParams) {
     String qualifiedName =
         ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
-    if (qualifiedName.equals(config.getCastToNonNullMethod())) {
-      if (actualParams.size() != 1) {
-        throw new RuntimeException(
-            "Invalid number of parameters passed to configured CastToNonNullMethod.");
-      }
-      ExpressionTree actual = actualParams.get(0);
+    Integer castToNonNullPosition;
+    if (qualifiedName.equals(config.getCastToNonNullMethod())
+        && methodSymbol.getParameters().size() == 1) {
+      // castToNonNull method passed to CLI config, it acts as a cast-to-non-null on its first
+      // argument. Since this is a single argument method, we skip further querying of handlers.
+      castToNonNullPosition = 0;
+    } else {
+      castToNonNullPosition =
+          handler.castToNonNullArgumentPositionsForMethod(
+              this, state, methodSymbol, actualParams, null);
+    }
+    if (castToNonNullPosition != null) {
+      ExpressionTree actual = actualParams.get(castToNonNullPosition);
       TreePath enclosingMethodOrLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath());
       boolean isInitializer;
@@ -1538,7 +1556,9 @@ public class NullAway extends BugChecker
                 + state.getSourceForNode(actual)
                 + "' to CastToNonNullMethod ("
                 + qualifiedName
-                + "). This method should only take arguments that NullAway considers @Nullable "
+                + ") at position "
+                + castToNonNullPosition
+                + ". This method argument should only take values that NullAway considers @Nullable "
                 + "at the invocation site, but which are known not to be null at runtime.";
         return errorBuilder.createErrorDescription(
             new ErrorMessage(MessageTypes.CAST_TO_NONNULL_ARG_NONNULL, message),

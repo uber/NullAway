@@ -43,6 +43,7 @@ import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
@@ -201,5 +202,17 @@ public abstract class BaseNoOpHandler implements Handler {
       MethodInvocationTree tree,
       MethodInvocationNode originalNode) {
     return originalNode;
+  }
+
+  @Override
+  @Nullable
+  public Integer castToNonNullArgumentPositionsForMethod(
+      NullAway analysis,
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      List<? extends ExpressionTree> actualParams,
+      @Nullable Integer previousArgumentPosition) {
+    // NoOp
+    return previousArgumentPosition;
   }
 }
