@@ -130,7 +130,14 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-    if (getClassAnnotationInfo(context).isSymbolUnannotated(methodSymbol, config)
+    ClassAnnotationInfo classAnnotationInfo = getClassAnnotationInfo(context);
+    // with the generated-as-unannotated option enabled, we want to ignore
+    // annotations in generated code
+    if (config.treatGeneratedAsUnannotated()
+        && classAnnotationInfo.isGenerated(methodSymbol, config)) {
+      return NullnessHint.UNKNOWN;
+    }
+    if (classAnnotationInfo.isSymbolUnannotated(methodSymbol, config)
         && Nullness.hasNullableAnnotation(methodSymbol, config)) {
       return NullnessHint.HINT_NULLABLE;
     }
