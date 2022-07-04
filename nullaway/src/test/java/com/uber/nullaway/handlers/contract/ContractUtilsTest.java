@@ -32,12 +32,6 @@ public class ContractUtilsTest {
     String[] antecedent = ContractUtils.getAntecedent("->_", tree, analysis, state, symbol, 0);
 
     assertArrayEquals(new String[0], antecedent);
-  }
-
-  @Test
-  public void getAntecedentCorrectNumOfArgs() {
-    ContractUtils.getAntecedent("->_", tree, analysis, state, symbol, 0);
-
     verifyNoInteractions(tree, state, analysis, symbol);
   }
 }
