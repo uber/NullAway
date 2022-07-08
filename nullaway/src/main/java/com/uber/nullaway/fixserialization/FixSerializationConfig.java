@@ -23,7 +23,7 @@
 package com.uber.nullaway.fixserialization;
 
 import com.google.common.base.Preconditions;
-import com.uber.nullaway.fixserialization.qual.AnnotationConfig;
+import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -41,9 +41,9 @@ public class FixSerializationConfig {
    * If enabled, the corresponding output file will be cleared and for all reported errors, NullAway
    * will serialize information and suggest type changes to resolve them, in case these errors could
    * be fixed by adding a {@code @Nullable} annotation. These type change suggestions are in form of
-   * {@link com.uber.nullaway.fixserialization.out.SuggestedFixInfo} instances and will be
-   * serialized at output directory. If deactivated, no {@code SuggestedFixInfo} will be created and
-   * the output file will remain untouched.
+   * {@link SuggestedNullableFixInfo} instances and will be serialized at output directory. If
+   * deactivated, no {@code SuggestedFixInfo} will be created and the output file will remain
+   * untouched.
    */
   public final boolean suggestEnabled;
   /**
@@ -74,8 +74,6 @@ public class FixSerializationConfig {
   /** The directory where all files generated/read by Fix Serialization package resides. */
   @Nullable public final String outputDirectory;
 
-  public final AnnotationConfig annotationConfig;
-
   @Nullable private final Serializer serializer;
 
   /** Default Constructor, all features are disabled with this config. */
@@ -85,7 +83,6 @@ public class FixSerializationConfig {
     fieldInitInfoEnabled = false;
     methodParamProtectionTestEnabled = false;
     paramTestIndex = Integer.MAX_VALUE;
-    annotationConfig = new AnnotationConfig();
     outputDirectory = null;
     serializer = null;
   }
@@ -96,7 +93,6 @@ public class FixSerializationConfig {
       boolean fieldInitInfoEnabled,
       boolean methodParamProtectionTestEnabled,
       int paramTestIndex,
-      AnnotationConfig annotationConfig,
       String outputDirectory) {
     this.suggestEnabled = suggestEnabled;
     this.suggestEnclosing = suggestEnclosing;
@@ -104,7 +100,6 @@ public class FixSerializationConfig {
     this.methodParamProtectionTestEnabled = methodParamProtectionTestEnabled;
     this.paramTestIndex = paramTestIndex;
     this.outputDirectory = outputDirectory;
-    this.annotationConfig = annotationConfig;
     serializer = new Serializer(this);
   }
 
@@ -148,13 +143,6 @@ public class FixSerializationConfig {
     paramTestIndex =
         XMLUtil.getValueFromAttribute(document, "/serialization/paramTest", "index", Integer.class)
             .orElse(Integer.MAX_VALUE);
-    String nullableAnnot =
-        XMLUtil.getValueFromTag(document, "/serialization/annotation/nullable", String.class)
-            .orElse("javax.annotation.Nullable");
-    String nonnullAnnot =
-        XMLUtil.getValueFromTag(document, "/serialization/annotation/nonnull", String.class)
-            .orElse("javax.annotation.Nonnull");
-    this.annotationConfig = new AnnotationConfig(nullableAnnot, nonnullAnnot);
     serializer = new Serializer(this);
   }
 
@@ -171,27 +159,17 @@ public class FixSerializationConfig {
     private boolean fieldInitInfo;
     private boolean methodParamProtectionTestEnabled;
     private int paramIndex;
-    private String nullable;
-    private String nonnull;
     @Nullable private String outputDir;
 
     public Builder() {
       suggestEnabled = false;
       suggestEnclosing = false;
       fieldInitInfo = false;
-      nullable = "javax.annotation.Nullable";
-      nonnull = "javax.annotation.Nonnull";
     }
 
     public Builder setSuggest(boolean value, boolean withEnclosing) {
       this.suggestEnabled = value;
       this.suggestEnclosing = withEnclosing && suggestEnabled;
-      return this;
-    }
-
-    public Builder setAnnotations(String nullable, String nonnull) {
-      this.nullable = nullable;
-      this.nonnull = nonnull;
       return this;
     }
 
@@ -231,7 +209,6 @@ public class FixSerializationConfig {
           fieldInitInfo,
           methodParamProtectionTestEnabled,
           paramIndex,
-          new AnnotationConfig(nullable, nonnull),
           outputDir);
     }
   }

@@ -26,30 +26,23 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.location.FixLocation;
-import com.uber.nullaway.fixserialization.qual.AnnotationConfig;
 import java.util.Objects;
 
-/** Stores information suggesting a type change of an element in source code. */
-public class SuggestedFixInfo {
+/** Stores information suggesting adding @Nullable on an element in source code. */
+public class SuggestedNullableFixInfo {
 
   /** FixLocation of the target element in source code. */
   private final FixLocation fixLocation;
   /** Error which will be resolved by this type change. */
   private final ErrorMessage errorMessage;
   /** Suggested annotation. */
-  private final AnnotationConfig.Annotation annotation;
-
   private final ClassAndMethodInfo classAndMethodInfo;
 
-  public SuggestedFixInfo(
-      TreePath path,
-      FixLocation fixLocation,
-      ErrorMessage errorMessage,
-      AnnotationConfig.Annotation annotation) {
+  public SuggestedNullableFixInfo(
+      TreePath path, FixLocation fixLocation, ErrorMessage errorMessage) {
     this.classAndMethodInfo = new ClassAndMethodInfo(path);
     this.fixLocation = fixLocation;
     this.errorMessage = errorMessage;
-    this.annotation = annotation;
   }
 
   @Override
@@ -57,33 +50,32 @@ public class SuggestedFixInfo {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof SuggestedFixInfo)) {
+    if (!(o instanceof SuggestedNullableFixInfo)) {
       return false;
     }
-    SuggestedFixInfo suggestedFixInfo = (SuggestedFixInfo) o;
-    return Objects.equals(fixLocation, suggestedFixInfo.fixLocation)
-        && Objects.equals(annotation, suggestedFixInfo.annotation)
+    SuggestedNullableFixInfo suggestedNullableFixInfo = (SuggestedNullableFixInfo) o;
+    return Objects.equals(fixLocation, suggestedNullableFixInfo.fixLocation)
         && Objects.equals(
             errorMessage.getMessageType().toString(),
-            suggestedFixInfo.errorMessage.getMessageType().toString());
+            suggestedNullableFixInfo.errorMessage.getMessageType().toString());
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(fixLocation, annotation, errorMessage.getMessageType().toString());
+    return Objects.hash(fixLocation, errorMessage.getMessageType().toString());
   }
 
   /**
    * returns string representation of content of an object.
    *
-   * @return string representation of contents of an object in a line seperated by tabs.
+   * @return string representation of contents of an object in a line separated by tabs.
    */
   public String tabSeparatedToString() {
     return fixLocation.tabSeparatedToString()
         + '\t'
         + errorMessage.getMessageType().toString()
         + '\t'
-        + annotation
+        + "nullable"
         + '\t'
         + (classAndMethodInfo.getClazz() == null
             ? "null"
@@ -100,8 +92,8 @@ public class SuggestedFixInfo {
   }
 
   /**
-   * Creates header of an output file containing all {@link SuggestedFixInfo} written in string
-   * which values are separated by tabs.
+   * Creates header of an output file containing all {@link SuggestedNullableFixInfo} written in
+   * string which values are separated by tabs.
    *
    * @return string representation of the header separated by tabs.
    */
