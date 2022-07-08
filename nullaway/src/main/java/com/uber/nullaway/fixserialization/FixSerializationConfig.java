@@ -24,9 +24,14 @@ package com.uber.nullaway.fixserialization;
 
 import com.google.common.base.Preconditions;
 import com.uber.nullaway.fixserialization.qual.AnnotationConfig;
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -66,6 +71,36 @@ public class FixSerializationConfig {
   public final boolean methodParamProtectionTestEnabled;
 
   /**
+   * If enabled, NullAway will assume all methods stored {@link
+   * FixSerializationConfig#upstreamDependencyAPIInfoFile} file returns {@code @Nullable}. This
+   * feature is used to compute effects of making methods in upstream dependencies {@code @Nullable}
+   * on downstream dependencies (current module).
+   */
+  public final boolean apiAnalysisFromUpstreamDependencyEnabled;
+
+  /**
+   * Path to {@code .tsv} file where contains set of methods available through upstream
+   * dependencies.
+   */
+  @Nullable public final String upstreamDependencyAPIInfoFile;
+
+  /** Container class to store information for methods available via upstream dependencies. */
+  private static class UpstreamMethod {
+    /** Containing class's symbol in String. */
+    final String clazz;
+    /** Method's symbol in String. */
+    final String method;
+
+    public UpstreamMethod(String clazz, String method) {
+      this.clazz = clazz;
+      this.method = method;
+    }
+  }
+
+  /** Set of all methods available via upstream dependencies. */
+  private final Set<UpstreamMethod> upstreamMethods;
+
+  /**
    * Index of the formal parameter of all methods which will be considered {@code @Nullable}, if
    * {@link FixSerializationConfig#methodParamProtectionTestEnabled} is enabled.
    */
@@ -86,6 +121,9 @@ public class FixSerializationConfig {
     methodParamProtectionTestEnabled = false;
     paramTestIndex = Integer.MAX_VALUE;
     annotationConfig = new AnnotationConfig();
+    apiAnalysisFromUpstreamDependencyEnabled = false;
+    upstreamDependencyAPIInfoFile = null;
+    upstreamMethods = Collections.emptySet();
     outputDirectory = null;
     serializer = null;
   }
@@ -96,6 +134,8 @@ public class FixSerializationConfig {
       boolean fieldInitInfoEnabled,
       boolean methodParamProtectionTestEnabled,
       int paramTestIndex,
+      boolean apiAnalysisFromUpstreamDependencyEnabled,
+      @Nullable String upstreamDependencyAPIInfoFile,
       AnnotationConfig annotationConfig,
       String outputDirectory) {
     this.suggestEnabled = suggestEnabled;
@@ -103,9 +143,14 @@ public class FixSerializationConfig {
     this.fieldInitInfoEnabled = fieldInitInfoEnabled;
     this.methodParamProtectionTestEnabled = methodParamProtectionTestEnabled;
     this.paramTestIndex = paramTestIndex;
+    this.apiAnalysisFromUpstreamDependencyEnabled = apiAnalysisFromUpstreamDependencyEnabled;
+    this.upstreamDependencyAPIInfoFile = upstreamDependencyAPIInfoFile;
+    this.upstreamMethods =
+        readUpstreamMethods(
+            apiAnalysisFromUpstreamDependencyEnabled, upstreamDependencyAPIInfoFile);
     this.outputDirectory = outputDirectory;
     this.annotationConfig = annotationConfig;
-    serializer = new Serializer(this);
+    this.serializer = new Serializer(this);
   }
 
   /**
@@ -127,10 +172,10 @@ public class FixSerializationConfig {
         XMLUtil.getValueFromTag(document, "/serialization/path", String.class).orElse(null);
     Preconditions.checkNotNull(
         this.outputDirectory, "Error in FixSerialization Config: Output path cannot be null");
-    suggestEnabled =
+    this.suggestEnabled =
         XMLUtil.getValueFromAttribute(document, "/serialization/suggest", "active", Boolean.class)
             .orElse(false);
-    suggestEnclosing =
+    this.suggestEnclosing =
         XMLUtil.getValueFromAttribute(
                 document, "/serialization/suggest", "enclosing", Boolean.class)
             .orElse(false);
@@ -138,7 +183,7 @@ public class FixSerializationConfig {
       throw new IllegalStateException(
           "Error in the fix serialization configuration, suggest flag must be enabled to activate enclosing method and class serialization.");
     }
-    fieldInitInfoEnabled =
+    this.fieldInitInfoEnabled =
         XMLUtil.getValueFromAttribute(
                 document, "/serialization/fieldInitInfo", "active", Boolean.class)
             .orElse(false);
@@ -148,6 +193,20 @@ public class FixSerializationConfig {
     paramTestIndex =
         XMLUtil.getValueFromAttribute(document, "/serialization/paramTest", "index", Integer.class)
             .orElse(Integer.MAX_VALUE);
+    this.apiAnalysisFromUpstreamDependencyEnabled =
+        XMLUtil.getValueFromAttribute(
+                document,
+                "/serialization/apiAnalysisFromUpstreamDependency",
+                "active",
+                Boolean.class)
+            .orElse(false);
+    this.upstreamDependencyAPIInfoFile =
+        XMLUtil.getValueFromAttribute(
+                document, "/serialization/apiAnalysisFromUpstreamDependency", "path", String.class)
+            .orElse(null);
+    this.upstreamMethods =
+        readUpstreamMethods(
+            apiAnalysisFromUpstreamDependencyEnabled, upstreamDependencyAPIInfoFile);
     String nullableAnnot =
         XMLUtil.getValueFromTag(document, "/serialization/annotation/nullable", String.class)
             .orElse("javax.annotation.Nullable");
@@ -155,12 +214,63 @@ public class FixSerializationConfig {
         XMLUtil.getValueFromTag(document, "/serialization/annotation/nonnull", String.class)
             .orElse("javax.annotation.Nonnull");
     this.annotationConfig = new AnnotationConfig(nullableAnnot, nonnullAnnot);
-    serializer = new Serializer(this);
+    this.serializer = new Serializer(this);
+  }
+
+  /**
+   * Reads all upstream methods stored as string in a file.
+   *
+   * @param apiAnalysisFromUpstreamDependencyEnabled if false, returns empty list, otherwise, it
+   *     will read the file.
+   * @param upstreamDependencyAPIInfoFile path to {@code .tsv} file containing methods information.
+   *     Header of this file is: CLASS\tMETHOD.
+   * @return Set of methods stored in {@link FixSerializationConfig#upstreamDependencyAPIInfoFile}.
+   */
+  private Set<UpstreamMethod> readUpstreamMethods(
+      boolean apiAnalysisFromUpstreamDependencyEnabled, String upstreamDependencyAPIInfoFile) {
+    if (!apiAnalysisFromUpstreamDependencyEnabled) {
+      return Collections.emptySet();
+    }
+    if (upstreamDependencyAPIInfoFile == null) {
+      throw new IllegalStateException(
+          "path to file containing info regarding api of upstream dependency should be set to activate apiAnalysisFromUpstreamDependency");
+    }
+    Set<UpstreamMethod> methods = new HashSet<>();
+    try (BufferedReader reader =
+        new BufferedReader(new FileReader(upstreamDependencyAPIInfoFile))) {
+      // to skip header
+      reader.readLine();
+      String line = reader.readLine();
+      while (line != null) {
+        String clazz = line.split("\\t")[0];
+        String method = line.split("\\t")[1];
+        methods.add(new UpstreamMethod(clazz, method));
+        line = reader.readLine();
+      }
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Error happened in reading file: " + upstreamDependencyAPIInfoFile, e);
+    }
+    return methods;
   }
 
   @Nullable
   public Serializer getSerializer() {
     return serializer;
+  }
+
+  /**
+   * Checks if method passed as arguments is coming from upstream dependencies.
+   *
+   * @param clazz containing class of method.
+   * @param method method.
+   * @return true, the method is available through upstream dependencies.
+   */
+  public boolean isUpstreamMethod(String clazz, String method) {
+    return upstreamMethods.stream()
+        .anyMatch(
+            upstreamMethod ->
+                upstreamMethod.clazz.equals(clazz) && upstreamMethod.method.equals(method));
   }
 
   /** Builder class for Serialization Config */
@@ -171,6 +281,8 @@ public class FixSerializationConfig {
     private boolean fieldInitInfo;
     private boolean methodParamProtectionTestEnabled;
     private int paramIndex;
+    private boolean apiAnalysisFromUpstreamDependencyEnabled;
+    @Nullable private String upstreamDependencyAPIInfoFile;
     private String nullable;
     private String nonnull;
     @Nullable private String outputDir;
@@ -179,6 +291,8 @@ public class FixSerializationConfig {
       suggestEnabled = false;
       suggestEnclosing = false;
       fieldInitInfo = false;
+      apiAnalysisFromUpstreamDependencyEnabled = false;
+      upstreamDependencyAPIInfoFile = null;
       nullable = "javax.annotation.Nullable";
       nonnull = "javax.annotation.Nonnull";
     }
@@ -211,6 +325,12 @@ public class FixSerializationConfig {
       return this;
     }
 
+    public Builder setAPIAnalysisFromUpstreamDependency(boolean enabled, String path) {
+      this.apiAnalysisFromUpstreamDependencyEnabled = enabled;
+      this.upstreamDependencyAPIInfoFile = path;
+      return this;
+    }
+
     /**
      * Builds and writes the config with the state in builder at the given path as XML.
      *
@@ -231,6 +351,8 @@ public class FixSerializationConfig {
           fieldInitInfo,
           methodParamProtectionTestEnabled,
           paramIndex,
+          apiAnalysisFromUpstreamDependencyEnabled,
+          upstreamDependencyAPIInfoFile,
           new AnnotationConfig(nullable, nonnull),
           outputDir);
     }

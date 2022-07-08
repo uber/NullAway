@@ -143,6 +143,14 @@ public class XMLUtil {
       outputDir.setTextContent(config.outputDirectory);
       rootElement.appendChild(outputDir);
 
+      // UP Stream API Analysis
+      Element upstreamAPIAnalysis =
+          doc.createElement("/serialization/apiAnalysisFromUpstreamDependency");
+      upstreamAPIAnalysis.setAttribute(
+          "active", String.valueOf(config.apiAnalysisFromUpstreamDependencyEnabled));
+      upstreamAPIAnalysis.setAttribute("path", config.upstreamDependencyAPIInfoFile);
+      rootElement.appendChild(upstreamAPIAnalysis);
+
       // Writings
       TransformerFactory transformerFactory = TransformerFactory.newInstance();
       Transformer transformer = transformerFactory.newTransformer();
