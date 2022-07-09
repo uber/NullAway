@@ -27,6 +27,7 @@ import com.uber.nullaway.fixserialization.qual.AnnotationConfig;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collections;
@@ -237,7 +238,8 @@ public class FixSerializationConfig {
     }
     Set<UpstreamMethod> methods = new HashSet<>();
     try (BufferedReader reader =
-        new BufferedReader(new FileReader(upstreamDependencyAPIInfoFile))) {
+        new BufferedReader(
+            new FileReader(upstreamDependencyAPIInfoFile, Charset.defaultCharset()))) {
       // to skip header
       reader.readLine();
       String line = reader.readLine();
@@ -267,10 +269,11 @@ public class FixSerializationConfig {
    * @return true, the method is available through upstream dependencies.
    */
   public boolean isUpstreamMethod(String clazz, String method) {
-    return upstreamMethods.stream()
-        .anyMatch(
-            upstreamMethod ->
-                upstreamMethod.clazz.equals(clazz) && upstreamMethod.method.equals(method));
+    return apiAnalysisFromUpstreamDependencyEnabled
+        && upstreamMethods.stream()
+            .anyMatch(
+                upstreamMethod ->
+                    upstreamMethod.clazz.equals(clazz) && upstreamMethod.method.equals(method));
   }
 
   /** Builder class for Serialization Config */

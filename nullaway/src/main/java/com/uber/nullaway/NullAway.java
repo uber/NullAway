@@ -2148,8 +2148,8 @@ public class NullAway extends BugChecker
   }
 
   public boolean nullnessFromDataflow(VisitorState state, ExpressionTree expr) {
-    Nullness nullness =
-        getNullnessAnalysis(state).getNullness(new TreePath(state.getPath(), expr), state.context);
+    AccessPathNullnessAnalysis analysis = getNullnessAnalysis(state);
+    Nullness nullness = analysis.getNullness(new TreePath(state.getPath(), expr), state.context);
     if (nullness == null) {
       // this may be unsound, like for field initializers
       // figure out if we care

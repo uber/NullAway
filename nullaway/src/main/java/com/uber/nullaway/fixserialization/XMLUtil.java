@@ -144,8 +144,7 @@ public class XMLUtil {
       rootElement.appendChild(outputDir);
 
       // UP Stream API Analysis
-      Element upstreamAPIAnalysis =
-          doc.createElement("/serialization/apiAnalysisFromUpstreamDependency");
+      Element upstreamAPIAnalysis = doc.createElement("apiAnalysisFromUpstreamDependency");
       upstreamAPIAnalysis.setAttribute(
           "active", String.valueOf(config.apiAnalysisFromUpstreamDependencyEnabled));
       upstreamAPIAnalysis.setAttribute("path", config.upstreamDependencyAPIInfoFile);
