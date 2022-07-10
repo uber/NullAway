@@ -1,5 +1,6 @@
 package com.uber.nullaway;
 
+import java.util.Arrays;
 import org.junit.Test;
 
 public class NullAwayThriftTests extends NullAwayTestsBase {
@@ -137,6 +138,54 @@ public class NullAwayThriftTests extends NullAwayTestsBase {
             "    }",
             "    Object x = g.getId();",
             "    if (x.toString() == null) return;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testThriftAndCastToNonNull() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                // We give the following in Regexp format to test that support
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
+                "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.nullaway.testdata.TestAnnot",
+                "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
+                "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceFile("Util.java")
+        .addSourceLines("TBase.java", "package org.apache.thrift;", "public interface TBase {}")
+        .addSourceLines(
+            "GeneratedClass.java",
+            "package com.uber.lib.unannotated;",
+            "import javax.annotation.Nullable;",
+            "import javax.annotation.Generated;",
+            "@Generated(\"test\")",
+            "public class GeneratedClass implements org.apache.thrift.TBase {",
+            "  public @Nullable Object id;",
+            "  @Nullable public Object getId() { return this.id; }",
+            "  // this is to ensure we don't crash on unions",
+            "  public boolean isSet() { return false; }",
+            "  public boolean isSetId() { return this.id != null; }",
+            "}")
+        .addSourceLines(
+            "Client.java",
+            "package com.uber;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "import com.uber.lib.unannotated.GeneratedClass;",
+            "public class Client {",
+            "  public void testPos(GeneratedClass g) {",
+            "    // g.getId() is @NonNull because it's treated as unannotated code and RestrictiveAnnotationHandler exempts it",
+            "    // BUG: Diagnostic contains: passing known @NonNull parameter 'g.getId()' to CastToNonNullMethod",
+            "    Object o = castToNonNull(g.getId());",
+            "    o.toString();",
+            "  }",
+            "  public void testNeg(GeneratedClass g) {",
+            "    Object o = g.getId();",
+            "    o.toString();",
             "  }",
             "}")
         .doTest();
