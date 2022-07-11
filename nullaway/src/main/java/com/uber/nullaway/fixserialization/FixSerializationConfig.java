@@ -228,7 +228,8 @@ public class FixSerializationConfig {
    * @return Set of methods stored in {@link FixSerializationConfig#upstreamDependencyAPIInfoFile}.
    */
   private Set<UpstreamMethod> readUpstreamMethods(
-      boolean apiAnalysisFromUpstreamDependencyEnabled, String upstreamDependencyAPIInfoFile) {
+      boolean apiAnalysisFromUpstreamDependencyEnabled,
+      @Nullable String upstreamDependencyAPIInfoFile) {
     if (!apiAnalysisFromUpstreamDependencyEnabled) {
       return Collections.emptySet();
     }

@@ -1443,21 +1443,19 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "class Test {",
             "  Object f = new Object();",
             "  void test() {",
-            "    UnAnnot annot = new UnAnnot();",
-            "    // BUG: Diagnostic contains: dereferenced expression annot.retNull() is @Nullable",
-            "    String t1 = annot.retNull().toString();",
+            "    UnAnnot unAnnot = new UnAnnot();",
+            "    // BUG: Diagnostic contains: dereferenced expression unAnnot.retNull() is @Nullable",
+            "    String t1 = unAnnot.retNull().toString();",
             "    // BUG: Diagnostic contains: dereferenced expression UnAnnot.staticRetNull() is @Nullable",
             "    String t2 = UnAnnot.staticRetNull().toString();",
             "    // BUG: Diagnostic contains: dereferenced expression importedRetNull() is @Nullable",
             "    String t3 = importedRetNull().toString();",
-            "    // BUG: Diagnostic contains: assigning @Nullable",
-            "    this.f = annot.retNull();",
             "  }",
             "}")
         .setExpectedOutputs(
             new ErrorDisplay(
                 "DEREFERENCE_NULLABLE",
-                "dereferenced expression annot.retNull() is @Nullable",
+                "dereferenced expression unAnnot.retNull() is @Nullable",
                 "com.uber.Test",
                 "test()"),
             new ErrorDisplay(
@@ -1468,6 +1466,74 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             new ErrorDisplay(
                 "DEREFERENCE_NULLABLE",
                 "dereferenced expression importedRetNull() is @Nullable",
+                "com.uber.Test",
+                "test()"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void errorSerializationTestForUpstreamMethodCallDataflow() {
+    try {
+      String output = root.toString();
+      Path upstreamAPIFilePath = root.resolve("upstream.tsv");
+      Path config = root.resolve("serializer.xml");
+      // Need to delete the config if exists since we are overriding config created in setup process
+      // for all serialization tests.
+      Files.deleteIfExists(config);
+      BufferedWriter writer =
+          new BufferedWriter(
+              new FileWriter(upstreamAPIFilePath.toFile(), Charset.defaultCharset()));
+      writer.write("CLASS\tMETHOD\n");
+      writer.write("com.uber.UnAnnot" + "\t" + "retNull()" + "\n");
+      writer.flush();
+      writer.close();
+      Files.createDirectories(root);
+      FixSerializationConfig.Builder builder =
+          new FixSerializationConfig.Builder()
+              .setSuggest(true, false)
+              .setAPIAnalysisFromUpstreamDependency(true, upstreamAPIFilePath.toFile().getPath())
+              .setOutputDirectory(output);
+      Files.createFile(config);
+      configPath = config.toString();
+      builder.writeAsXML(configPath);
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedClasses=com.uber.UnAnnot",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "UnAnnot.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class UnAnnot {",
+            "  public Object retNull() { return null; }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  Object f = new Object();",
+            "  void test() {",
+            "    UnAnnot unAnnot = new UnAnnot();",
+            "    Object tmp = unAnnot.retNull();",
+            "    // BUG: Diagnostic contains: assigning @Nullable",
+            "    this.f = tmp;",
+            "  }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
                 "com.uber.Test",
                 "test()"))
         .setFactory(errorDisplayFactory)
