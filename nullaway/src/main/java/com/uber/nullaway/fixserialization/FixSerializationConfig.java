@@ -25,7 +25,6 @@ package com.uber.nullaway.fixserialization;
 import com.google.common.base.Preconditions;
 import com.uber.nullaway.fixserialization.qual.AnnotationConfig;
 import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
@@ -239,8 +238,8 @@ public class FixSerializationConfig {
     }
     Set<UpstreamMethod> methods = new HashSet<>();
     try (BufferedReader reader =
-        new BufferedReader(
-            new FileReader(upstreamDependencyAPIInfoFile, Charset.defaultCharset()))) {
+        Files.newBufferedReader(
+            Paths.get(upstreamDependencyAPIInfoFile), Charset.defaultCharset())) {
       // to skip header
       reader.readLine();
       String line = reader.readLine();

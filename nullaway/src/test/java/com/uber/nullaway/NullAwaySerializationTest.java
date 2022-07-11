@@ -33,7 +33,6 @@ import com.uber.nullaway.tools.FieldInitDisplay;
 import com.uber.nullaway.tools.FixDisplay;
 import com.uber.nullaway.tools.SerializationTestHelper;
 import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.Charset;
@@ -1397,8 +1396,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
       // for all serialization tests.
       Files.deleteIfExists(config);
       BufferedWriter writer =
-          new BufferedWriter(
-              new FileWriter(upstreamAPIFilePath.toFile(), Charset.defaultCharset()));
+          Files.newBufferedWriter(upstreamAPIFilePath, Charset.defaultCharset());
       writer.write("CLASS\tMETHOD\n");
       writer.write("com.uber.UnAnnot" + "\t" + "retNull()" + "\n");
       writer.write("com.uber.UnAnnot" + "\t" + "staticRetNull()" + "\n");
@@ -1483,8 +1481,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
       // for all serialization tests.
       Files.deleteIfExists(config);
       BufferedWriter writer =
-          new BufferedWriter(
-              new FileWriter(upstreamAPIFilePath.toFile(), Charset.defaultCharset()));
+          Files.newBufferedWriter(upstreamAPIFilePath, Charset.defaultCharset());
       writer.write("CLASS\tMETHOD\n");
       writer.write("com.uber.UnAnnot" + "\t" + "retNull()" + "\n");
       writer.flush();
