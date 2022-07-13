@@ -63,7 +63,7 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSet<MethodRef> nullableReturns() {
-    return ImmutableSet.of();
+    return ImmutableSet.of(methodRef("com.uber.Foo", "bar()"));
   }
 
   @Override
