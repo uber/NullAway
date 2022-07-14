@@ -25,7 +25,7 @@ package com.uber.nullaway.fixserialization;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
-import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
+import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -55,16 +55,17 @@ public class Serializer {
   }
 
   /**
-   * Appends the string representation of the {@link SuggestedFixInfo}.
+   * Appends the string representation of the {@link SuggestedNullableFixInfo}.
    *
-   * @param suggestedFixInfo SuggestedFixInfo object.
+   * @param suggestedNullableFixInfo SuggestedFixInfo object.
    * @param enclosing Flag to control if enclosing method and class should be included.
    */
-  public void serializeSuggestedFixInfo(SuggestedFixInfo suggestedFixInfo, boolean enclosing) {
+  public void serializeSuggestedFixInfo(
+      SuggestedNullableFixInfo suggestedNullableFixInfo, boolean enclosing) {
     if (enclosing) {
-      suggestedFixInfo.initEnclosing();
+      suggestedNullableFixInfo.initEnclosing();
     }
-    appendToFile(suggestedFixInfo.tabSeparatedToString(), suggestedFixesOutputPath);
+    appendToFile(suggestedNullableFixInfo.tabSeparatedToString(), suggestedFixesOutputPath);
   }
 
   /**
@@ -102,7 +103,7 @@ public class Serializer {
     try {
       Files.createDirectories(Paths.get(config.outputDirectory));
       if (config.suggestEnabled) {
-        initializeFile(suggestedFixesOutputPath, SuggestedFixInfo.header());
+        initializeFile(suggestedFixesOutputPath, SuggestedNullableFixInfo.header());
       }
       if (config.fieldInitInfoEnabled) {
         initializeFile(fieldInitializationOutputPath, FieldInitializationInfo.header());
