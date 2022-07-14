@@ -35,7 +35,7 @@ public class SuggestedNullableFixInfo {
   private final FixLocation fixLocation;
   /** Error which will be resolved by this type change. */
   private final ErrorMessage errorMessage;
-  /** Suggested annotation. */
+
   private final ClassAndMethodInfo classAndMethodInfo;
 
   public SuggestedNullableFixInfo(
