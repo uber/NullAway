@@ -746,4 +746,38 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void allowLibraryModelsOverrideAnnotationsFlagTest() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-processorpath",
+                TestLibraryModels.class
+                    .getProtectionDomain()
+                    .getCodeSource()
+                    .getLocation()
+                    .getPath(),
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AllowLibraryModelsOverrideAnnotations=false"))
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "public class Foo {",
+            "   Object field = new Object();",
+            "   Object bar() {",
+            "      return new Object();",
+            "   }",
+            "   Object nullableReturn() {",
+            "       return bar();",
+            "   }",
+            "   void run() {",
+            "       // just to make sure, flow analysis is not impacted by library models information",
+            "      Object temp = bar();",
+            "      this.field = temp;",
+            "   }",
+            "}")
+        .doTest();
+  }
 }
