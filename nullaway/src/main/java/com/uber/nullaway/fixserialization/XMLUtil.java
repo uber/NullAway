@@ -121,13 +121,6 @@ public class XMLUtil {
       fieldInitInfoEnabled.setAttribute("active", String.valueOf(config.fieldInitInfoEnabled));
       rootElement.appendChild(fieldInitInfoEnabled);
 
-      // Method Parameter Protection Test
-      Element paramTestElement = doc.createElement("paramTest");
-      paramTestElement.setAttribute(
-          "active", String.valueOf(config.methodParamProtectionTestEnabled));
-      paramTestElement.setAttribute("index", String.valueOf(config.paramTestIndex));
-      rootElement.appendChild(paramTestElement);
-
       // Output dir
       Element outputDir = doc.createElement("path");
       outputDir.setTextContent(config.outputDirectory);

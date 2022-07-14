@@ -59,18 +59,6 @@ public class FixSerializationConfig {
    */
   public final boolean fieldInitInfoEnabled;
 
-  /**
-   * If enabled, the formal parameter at index {@link FixSerializationConfig#paramTestIndex} in all
-   * methods will be treated as {@code @Nullable}
-   */
-  public final boolean methodParamProtectionTestEnabled;
-
-  /**
-   * Index of the formal parameter of all methods which will be considered {@code @Nullable}, if
-   * {@link FixSerializationConfig#methodParamProtectionTestEnabled} is enabled.
-   */
-  public final int paramTestIndex;
-
   /** The directory where all files generated/read by Fix Serialization package resides. */
   @Nullable public final String outputDirectory;
 
@@ -81,8 +69,6 @@ public class FixSerializationConfig {
     suggestEnabled = false;
     suggestEnclosing = false;
     fieldInitInfoEnabled = false;
-    methodParamProtectionTestEnabled = false;
-    paramTestIndex = Integer.MAX_VALUE;
     outputDirectory = null;
     serializer = null;
   }
@@ -91,14 +77,10 @@ public class FixSerializationConfig {
       boolean suggestEnabled,
       boolean suggestEnclosing,
       boolean fieldInitInfoEnabled,
-      boolean methodParamProtectionTestEnabled,
-      int paramTestIndex,
-      String outputDirectory) {
+      @Nullable String outputDirectory) {
     this.suggestEnabled = suggestEnabled;
     this.suggestEnclosing = suggestEnclosing;
     this.fieldInitInfoEnabled = fieldInitInfoEnabled;
-    this.methodParamProtectionTestEnabled = methodParamProtectionTestEnabled;
-    this.paramTestIndex = paramTestIndex;
     this.outputDirectory = outputDirectory;
     serializer = new Serializer(this);
   }
@@ -137,12 +119,6 @@ public class FixSerializationConfig {
         XMLUtil.getValueFromAttribute(
                 document, "/serialization/fieldInitInfo", "active", Boolean.class)
             .orElse(false);
-    methodParamProtectionTestEnabled =
-        XMLUtil.getValueFromAttribute(document, "/serialization/paramTest", "active", Boolean.class)
-            .orElse(false);
-    paramTestIndex =
-        XMLUtil.getValueFromAttribute(document, "/serialization/paramTest", "index", Integer.class)
-            .orElse(Integer.MAX_VALUE);
     serializer = new Serializer(this);
   }
 
@@ -157,8 +133,6 @@ public class FixSerializationConfig {
     private boolean suggestEnabled;
     private boolean suggestEnclosing;
     private boolean fieldInitInfo;
-    private boolean methodParamProtectionTestEnabled;
-    private int paramIndex;
     @Nullable private String outputDir;
 
     public Builder() {
@@ -183,12 +157,6 @@ public class FixSerializationConfig {
       return this;
     }
 
-    public Builder setParamProtectionTest(boolean value, int index) {
-      this.methodParamProtectionTestEnabled = value;
-      this.paramIndex = index;
-      return this;
-    }
-
     /**
      * Builds and writes the config with the state in builder at the given path as XML.
      *
@@ -203,13 +171,7 @@ public class FixSerializationConfig {
       if (outputDir == null) {
         throw new IllegalStateException("did not set mandatory output directory");
       }
-      return new FixSerializationConfig(
-          suggestEnabled,
-          suggestEnclosing,
-          fieldInitInfo,
-          methodParamProtectionTestEnabled,
-          paramIndex,
-          outputDir);
+      return new FixSerializationConfig(suggestEnabled, suggestEnclosing, fieldInitInfo, outputDir);
     }
   }
 }
