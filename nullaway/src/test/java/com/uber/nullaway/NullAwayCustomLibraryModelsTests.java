@@ -32,10 +32,10 @@ import org.junit.Test;
 public class NullAwayCustomLibraryModelsTests extends NullAwayTestsBase {
 
   private CompilationTestHelper makeLibraryModelsTestHelperWithArgs(List<String> args) {
-    // Adding directly to args will throw an UnsupportedOperationException. Throughout all tests in
-    // NullAway, list of args are created via Arrays.asList which the returned list does not support
-    // addAll. To comply with the rest of the tests, we created tests arguments with the same
-    // manner.
+    // Adding directly to args will throw an UnsupportedOperationException, since that list is
+    // created by calling Arrays.asList (for consistency with the rest of NullAway's test cases),
+    // which produces a list which doesn't support add/addAll. Because of this, before we add our
+    // additional arguments, we must first copy the list into a mutable ArrayList.
     List<String> extendedArguments = new ArrayList<>(args);
     extendedArguments.addAll(
         0,
