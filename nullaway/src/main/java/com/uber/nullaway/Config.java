@@ -292,4 +292,12 @@ public interface Config {
    *     similarly for {@code @RecentlyNonNull}
    */
   boolean acknowledgeAndroidRecent();
+
+  /**
+   * Checks if {@link LibraryModels} can override annotations on annotated source code.
+   *
+   * @return true if NullAway should use information provided by {@link LibraryModels} on annotated
+   *     source code.
+   */
+  boolean acknowledgeLibraryModelsOfAnnotatedCode();
 }

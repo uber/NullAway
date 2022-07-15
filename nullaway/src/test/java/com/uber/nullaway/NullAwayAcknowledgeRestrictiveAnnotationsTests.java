@@ -1,6 +1,5 @@
 package com.uber.nullaway;
 
-import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
 import java.util.Arrays;
 import org.junit.Test;
 
@@ -288,46 +287,6 @@ public class NullAwayAcknowledgeRestrictiveAnnotationsTests extends NullAwayTest
             "      x.toString();",
             "      return new Object();",
             "    };",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void libraryModelsOverrideRestrictiveAnnotations() {
-    makeTestHelperWithArgs(
-            Arrays.asList(
-                "-processorpath",
-                TestLibraryModels.class
-                    .getProtectionDomain()
-                    .getCodeSource()
-                    .getLocation()
-                    .getPath(),
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import com.uber.lib.unannotated.RestrictivelyAnnotatedFIWithModelOverride;",
-            "import javax.annotation.Nullable;",
-            "public class Test {",
-            "  void bar(RestrictivelyAnnotatedFIWithModelOverride f) {",
-            "     // Param is @NullableDecl in bytecode, overridden by library model",
-            "     // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull",
-            "     f.apply(null);",
-            "  }",
-            "  void foo() {",
-            "    RestrictivelyAnnotatedFIWithModelOverride func = (x) -> {",
-            "     // Param is @NullableDecl in bytecode, overridden by library model, thus safe",
-            "     return x.toString();",
-            "    };",
-            "  }",
-            "  void baz() {",
-            "     // Safe to pass, since Function can't have a null instance parameter",
-            "     bar(Object::toString);",
             "  }",
             "}")
         .doTest();
