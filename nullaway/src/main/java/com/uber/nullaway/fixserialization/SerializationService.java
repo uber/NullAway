@@ -33,7 +33,7 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.fixserialization.location.FixLocation;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
-import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
+import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 
 /** A facade class to interact with fix serialization package. */
 public class SerializationService {
@@ -65,12 +65,13 @@ public class SerializationService {
       return;
     }
     FixLocation location = FixLocation.createFixLocationFromSymbol(target);
-    SuggestedFixInfo suggestedFixInfo =
-        buildFixMetadata(config, state.getPath(), errorMessage, location);
+    SuggestedNullableFixInfo suggestedNullableFixInfo =
+        buildFixMetadata(state.getPath(), errorMessage, location);
     Serializer serializer = serializationConfig.getSerializer();
     Preconditions.checkNotNull(
         serializer, "Serializer shouldn't be null at this point, error in configuration setting!");
-    serializer.serializeSuggestedFixInfo(suggestedFixInfo, serializationConfig.suggestEnclosing);
+    serializer.serializeSuggestedFixInfo(
+        suggestedNullableFixInfo, serializationConfig.suggestEnclosing);
   }
 
   /**
@@ -88,10 +89,12 @@ public class SerializationService {
     serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorMessage));
   }
 
-  /** Builds the {@link SuggestedFixInfo} instance based on the {@link ErrorMessage} type. */
-  private static SuggestedFixInfo buildFixMetadata(
-      Config config, TreePath path, ErrorMessage errorMessage, FixLocation location) {
-    SuggestedFixInfo suggestedFixInfo;
+  /**
+   * Builds the {@link SuggestedNullableFixInfo} instance based on the {@link ErrorMessage} type.
+   */
+  private static SuggestedNullableFixInfo buildFixMetadata(
+      TreePath path, ErrorMessage errorMessage, FixLocation location) {
+    SuggestedNullableFixInfo suggestedNullableFixInfo;
     switch (errorMessage.getMessageType()) {
       case RETURN_NULLABLE:
       case WRONG_OVERRIDE_RETURN:
@@ -100,17 +103,12 @@ public class SerializationService {
       case FIELD_NO_INIT:
       case ASSIGN_FIELD_NULLABLE:
       case METHOD_NO_INIT:
-        suggestedFixInfo =
-            new SuggestedFixInfo(
-                path,
-                location,
-                errorMessage,
-                config.getSerializationConfig().annotationConfig.getNullable());
+        suggestedNullableFixInfo = new SuggestedNullableFixInfo(path, location, errorMessage);
         break;
       default:
         throw new IllegalStateException(
             "Cannot suggest a type to resolve error of type: " + errorMessage.getMessageType());
     }
-    return suggestedFixInfo;
+    return suggestedNullableFixInfo;
   }
 }

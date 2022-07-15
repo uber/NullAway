@@ -121,16 +121,6 @@ public class XMLUtil {
       fieldInitInfoEnabled.setAttribute("active", String.valueOf(config.fieldInitInfoEnabled));
       rootElement.appendChild(fieldInitInfoEnabled);
 
-      // Annotations
-      Element annots = doc.createElement("annotation");
-      Element nonnull = doc.createElement("nonnull");
-      nonnull.setTextContent(config.annotationConfig.getNonNull().getFullName());
-      Element nullable = doc.createElement("nullable");
-      nullable.setTextContent(config.annotationConfig.getNullable().getFullName());
-      annots.appendChild(nullable);
-      annots.appendChild(nonnull);
-      rootElement.appendChild(annots);
-
       // Output dir
       Element outputDir = doc.createElement("path");
       outputDir.setTextContent(config.outputDirectory);

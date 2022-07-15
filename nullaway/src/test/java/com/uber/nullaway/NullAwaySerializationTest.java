@@ -26,7 +26,7 @@ import com.google.common.base.Preconditions;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
-import com.uber.nullaway.fixserialization.out.SuggestedFixInfo;
+import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import com.uber.nullaway.tools.DisplayFactory;
 import com.uber.nullaway.tools.ErrorDisplay;
 import com.uber.nullaway.tools.FieldInitDisplay;
@@ -53,7 +53,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   private final DisplayFactory<FieldInitDisplay> fieldInitDisplayFactory;
 
   private static final String SUGGEST_FIX_FILE_NAME = "fixes.tsv";
-  private static final String SUGGEST_FIX_FILE_HEADER = SuggestedFixInfo.header();
+  private static final String SUGGEST_FIX_FILE_HEADER = SuggestedNullableFixInfo.header();
   private static final String ERROR_FILE_NAME = "errors.tsv";
   private static final String ERROR_FILE_HEADER = ErrorInfo.header();
   private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
@@ -136,7 +136,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .setExpectedOutputs(
             new FixDisplay(
-                "javax.annotation.Nullable",
+                "nullable",
                 "test(boolean)",
                 "null",
                 "METHOD",
@@ -184,7 +184,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .setExpectedOutputs(
             new FixDisplay(
-                "javax.annotation.Nullable",
+                "nullable",
                 "test(boolean)",
                 "null",
                 "METHOD",
@@ -222,7 +222,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .setExpectedOutputs(
             new FixDisplay(
-                "javax.annotation.Nullable",
+                "nullable",
                 "run(int,java.lang.Object)",
                 "h",
                 "PARAMETER",
@@ -270,7 +270,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .setExpectedOutputs(
             new FixDisplay(
-                "javax.annotation.Nullable",
+                "nullable",
                 "test(java.lang.Object)",
                 "o",
                 "PARAMETER",
@@ -309,7 +309,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .setExpectedOutputs(
             new FixDisplay(
-                "javax.annotation.Nullable",
+                "nullable",
                 "Test(java.lang.Object)",
                 "o",
                 "PARAMETER",
@@ -353,7 +353,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .setExpectedOutputs(
             new FixDisplay(
-                "javax.annotation.Nullable",
+                "nullable",
                 "newStatement(T,java.util.ArrayList<T>,boolean,boolean)",
                 "lhs",
                 "PARAMETER",
@@ -389,12 +389,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .setExpectedOutputs(
             new FixDisplay(
-                "javax.annotation.Nullable",
-                "null",
-                "h",
-                "FIELD",
-                "com.uber.Super",
-                "com/uber/android/Super.java"))
+                "nullable", "null", "h", "FIELD", "com.uber.Super", "com/uber/android/Super.java"))
         .setFactory(fixDisplayFactory)
         .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
         .doTest();
@@ -427,12 +422,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .setExpectedOutputs(
             new FixDisplay(
-                "javax.annotation.Nullable",
-                "null",
-                "f",
-                "FIELD",
-                "com.uber.Super",
-                "com/uber/android/Super.java"))
+                "nullable", "null", "f", "FIELD", "com.uber.Super", "com/uber/android/Super.java"))
         .setFactory(fixDisplayFactory)
         .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
         .doTest();
@@ -483,33 +473,13 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .setExpectedOutputs(
             new FixDisplay(
-                "javax.annotation.Nullable",
-                "null",
-                "h",
-                "FIELD",
-                "com.uber.Test",
-                "com/uber/android/Test.java"),
+                "nullable", "null", "h", "FIELD", "com.uber.Test", "com/uber/android/Test.java"),
             new FixDisplay(
-                "javax.annotation.Nullable",
-                "null",
-                "f",
-                "FIELD",
-                "com.uber.Test",
-                "com/uber/android/Test.java"),
+                "nullable", "null", "f", "FIELD", "com.uber.Test", "com/uber/android/Test.java"),
             new FixDisplay(
-                "javax.annotation.Nullable",
-                "null",
-                "g",
-                "FIELD",
-                "com.uber.Test",
-                "com/uber/android/Test.java"),
+                "nullable", "null", "g", "FIELD", "com.uber.Test", "com/uber/android/Test.java"),
             new FixDisplay(
-                "javax.annotation.Nullable",
-                "null",
-                "i",
-                "FIELD",
-                "com.uber.Test",
-                "com/uber/android/Test.java"))
+                "nullable", "null", "i", "FIELD", "com.uber.Test", "com/uber/android/Test.java"))
         .setFactory(fixDisplayFactory)
         .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
         .doTest();
@@ -535,12 +505,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .setExpectedOutputs(
             new FixDisplay(
-                "javax.annotation.Nullable",
-                "null",
-                "f",
-                "FIELD",
-                "com.uber.Test",
-                "com/uber/android/Test.java"))
+                "nullable", "null", "f", "FIELD", "com.uber.Test", "com/uber/android/Test.java"))
         .setFactory(fixDisplayFactory)
         .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
         .doTest();
@@ -624,58 +589,6 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "   @Nonnull Object f;",
             "}")
         .expectNoOutput()
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
-        .doTest();
-  }
-
-  @Test
-  public void suggestCustomAnnotTest() {
-    Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "custom_annot");
-    String output = tempRoot.toString();
-    try {
-      Files.createDirectories(tempRoot);
-      FixSerializationConfig.Builder builder =
-          new FixSerializationConfig.Builder()
-              .setSuggest(true, false)
-              .setAnnotations("Custom.Nullable", "Custom.Nonnull")
-              .setOutputDirectory(output);
-      Path config = tempRoot.resolve("serializer.xml");
-      Files.createFile(config);
-      configPath = config.toString();
-      builder.writeAsXML(configPath);
-    } catch (IOException ex) {
-      throw new UncheckedIOException(ex);
-    }
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(tempRoot);
-    tester
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:SerializeFixMetadata=true",
-                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
-        .addSourceLines(
-            "com/uber/Test.java",
-            "package com.uber;",
-            "public class Test {",
-            "   Object test(boolean flag) {",
-            "       if(flag) {",
-            "           return new Object();",
-            "       } ",
-            "       // BUG: Diagnostic contains: returning @Nullable",
-            "       else return null;",
-            "   }",
-            "}")
-        .setExpectedOutputs(
-            new FixDisplay(
-                "Custom.Nullable",
-                "test(boolean)",
-                "null",
-                "METHOD",
-                "com.uber.Test",
-                "com/uber/Test.java"))
         .setFactory(fixDisplayFactory)
         .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
         .doTest();
@@ -1030,21 +943,21 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .addSourceLines("com/uber/TestWithLocalTypes.java", sourceLines)
         .setExpectedOutputs(
             new FixDisplay(
-                "javax.annotation.Nullable",
+                "nullable",
                 "returnsNullable()",
                 "null",
                 "METHOD",
                 "com.uber.TestWithLocalTypes$1LocalType",
                 "com/uber/TestWithLocalTypes.java"),
             new FixDisplay(
-                "javax.annotation.Nullable",
+                "nullable",
                 "returnsNullable2()",
                 "null",
                 "METHOD",
                 "com.uber.TestWithLocalTypes$2LocalType",
                 "com/uber/TestWithLocalTypes.java"),
             new FixDisplay(
-                "javax.annotation.Nullable",
+                "nullable",
                 "returnsNullable2()",
                 "null",
                 "METHOD",
