@@ -22,7 +22,6 @@
 
 package com.uber.nullaway;
 
-import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -707,76 +706,6 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: dereferenced expression",
             "    Test.nullableReturn().toString();",
             "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void allowLibraryModelsOverrideAnnotations() {
-    makeTestHelperWithArgs(
-            Arrays.asList(
-                "-processorpath",
-                TestLibraryModels.class
-                    .getProtectionDomain()
-                    .getCodeSource()
-                    .getLocation()
-                    .getPath(),
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AllowLibraryModelsOverrideAnnotations=true"))
-        .addSourceLines(
-            "Foo.java",
-            "package com.uber;",
-            "public class Foo {",
-            "   Object field = new Object();",
-            "   Object bar() {",
-            "      return new Object();",
-            "   }",
-            "   Object nullableReturn() {",
-            "       // BUG: Diagnostic contains: returning @Nullable",
-            "       return bar();",
-            "   }",
-            "   void run() {",
-            "       // just to make sure, flow analysis is also impacted by library models information",
-            "      Object temp = bar();",
-            "       // BUG: Diagnostic contains: assigning @Nullable",
-            "      this.field = temp;",
-            "   }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void allowLibraryModelsOverrideAnnotationsFlagTest() {
-    makeTestHelperWithArgs(
-            Arrays.asList(
-                "-processorpath",
-                TestLibraryModels.class
-                    .getProtectionDomain()
-                    .getCodeSource()
-                    .getLocation()
-                    .getPath(),
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AllowLibraryModelsOverrideAnnotations=false"))
-        .addSourceLines(
-            "Foo.java",
-            "package com.uber;",
-            "public class Foo {",
-            "   Object field = new Object();",
-            "   Object bar() {",
-            "      return new Object();",
-            "   }",
-            "   Object nullableReturn() {",
-            "       return bar();",
-            "   }",
-            "   void run() {",
-            "       // just to make sure, flow analysis is not impacted by library models information",
-            "      Object temp = bar();",
-            "      this.field = temp;",
-            "   }",
             "}")
         .doTest();
   }
