@@ -129,7 +129,7 @@ public abstract class AbstractConfig implements Config {
 
   protected FixSerializationConfig fixSerializationConfig;
 
-  protected boolean allowLibraryModelsOverrideAnnotationsActivation;
+  protected boolean acknowledgeLibraryModelsOfAnnotatedCode;
 
   @Override
   public boolean serializationIsActive() {
@@ -353,7 +353,7 @@ public abstract class AbstractConfig implements Config {
   }
 
   @Override
-  public boolean allowLibraryModelsOverrideAnnotations() {
-    return allowLibraryModelsOverrideAnnotationsActivation;
+  public boolean acknowledgeLibraryModelsOfAnnotatedCode() {
+    return acknowledgeLibraryModelsOfAnnotatedCode;
   }
 }

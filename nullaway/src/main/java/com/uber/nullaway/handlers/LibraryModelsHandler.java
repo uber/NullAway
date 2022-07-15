@@ -107,7 +107,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION) {
       OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
       Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr);
-      if (!config.allowLibraryModelsOverrideAnnotations()
+      if (!config.acknowledgeLibraryModelsOfAnnotatedCode()
           && !getClassAnnotationInfo(state.context)
               .isSymbolUnannotated(methodSymbol, this.config)) {
         // We only look at library models for unannotated (i.e. third-party) code.
@@ -169,7 +169,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
-    if (!config.allowLibraryModelsOverrideAnnotations()
+    if (!config.acknowledgeLibraryModelsOfAnnotatedCode()
         && !getClassAnnotationInfo(context).isSymbolUnannotated(callee, this.config)) {
       // Ignore annotated methods, library models should only apply to "unannotated" code.
       return NullnessHint.UNKNOWN;

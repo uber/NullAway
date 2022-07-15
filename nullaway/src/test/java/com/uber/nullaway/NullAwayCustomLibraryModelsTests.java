@@ -52,7 +52,7 @@ public class NullAwayCustomLibraryModelsTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AllowLibraryModelsOverrideAnnotations=true"))
+                "-XepOpt:NullAway:AcknowledgeLibraryModelsOfAnnotatedCode=true"))
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
@@ -82,7 +82,7 @@ public class NullAwayCustomLibraryModelsTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AllowLibraryModelsOverrideAnnotations=false"))
+                "-XepOpt:NullAway:AcknowledgeLibraryModelsOfAnnotatedCode=false"))
         .addSourceLines(
             "Foo.java",
             "package com.uber;",

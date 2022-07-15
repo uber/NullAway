@@ -85,7 +85,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
       EP_FL_NAMESPACE + ":FixSerializationConfigPath";
 
   static final String FL_ALLOW_LIBRARY_MODELS_OVERRIDE_ANNOTATIONS =
-      EP_FL_NAMESPACE + ":AllowLibraryModelsOverrideAnnotations";
+      EP_FL_NAMESPACE + ":AcknowledgeLibraryModelsOfAnnotatedCode";
 
   private static final String DELIMITER = ",";
 
@@ -251,7 +251,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + FL_SUGGEST_SUPPRESSIONS
               + ")");
     }
-    allowLibraryModelsOverrideAnnotationsActivation =
+    acknowledgeLibraryModelsOfAnnotatedCode =
         flags.getBoolean(FL_ALLOW_LIBRARY_MODELS_OVERRIDE_ANNOTATIONS).orElse(false);
   }
 

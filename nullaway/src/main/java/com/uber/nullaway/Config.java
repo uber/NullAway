@@ -299,5 +299,5 @@ public interface Config {
    * @return true if NullAway should use information provided by {@link LibraryModels} on annotated
    *     source codes.
    */
-  boolean allowLibraryModelsOverrideAnnotations();
+  boolean acknowledgeLibraryModelsOfAnnotatedCode();
 }

@@ -217,7 +217,7 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public boolean allowLibraryModelsOverrideAnnotations() {
+  public boolean acknowledgeLibraryModelsOfAnnotatedCode() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 }
