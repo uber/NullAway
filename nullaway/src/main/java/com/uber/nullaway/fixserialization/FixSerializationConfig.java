@@ -23,7 +23,7 @@
 package com.uber.nullaway.fixserialization;
 
 import com.google.common.base.Preconditions;
-import com.uber.nullaway.fixserialization.qual.AnnotationConfig;
+import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -41,9 +41,9 @@ public class FixSerializationConfig {
    * If enabled, the corresponding output file will be cleared and for all reported errors, NullAway
    * will serialize information and suggest type changes to resolve them, in case these errors could
    * be fixed by adding a {@code @Nullable} annotation. These type change suggestions are in form of
-   * {@link com.uber.nullaway.fixserialization.out.SuggestedFixInfo} instances and will be
-   * serialized at output directory. If deactivated, no {@code SuggestedFixInfo} will be created and
-   * the output file will remain untouched.
+   * {@link SuggestedNullableFixInfo} instances and will be serialized at output directory. If
+   * deactivated, no {@code SuggestedFixInfo} will be created and the output file will remain
+   * untouched.
    */
   public final boolean suggestEnabled;
   /**
@@ -62,8 +62,6 @@ public class FixSerializationConfig {
   /** The directory where all files generated/read by Fix Serialization package resides. */
   @Nullable public final String outputDirectory;
 
-  public final AnnotationConfig annotationConfig;
-
   @Nullable private final Serializer serializer;
 
   /** Default Constructor, all features are disabled with this config. */
@@ -71,7 +69,6 @@ public class FixSerializationConfig {
     suggestEnabled = false;
     suggestEnclosing = false;
     fieldInitInfoEnabled = false;
-    annotationConfig = new AnnotationConfig();
     outputDirectory = null;
     serializer = null;
   }
@@ -80,13 +77,11 @@ public class FixSerializationConfig {
       boolean suggestEnabled,
       boolean suggestEnclosing,
       boolean fieldInitInfoEnabled,
-      AnnotationConfig annotationConfig,
-      String outputDirectory) {
+      @Nullable String outputDirectory) {
     this.suggestEnabled = suggestEnabled;
     this.suggestEnclosing = suggestEnclosing;
     this.fieldInitInfoEnabled = fieldInitInfoEnabled;
     this.outputDirectory = outputDirectory;
-    this.annotationConfig = annotationConfig;
     serializer = new Serializer(this);
   }
 
@@ -124,13 +119,6 @@ public class FixSerializationConfig {
         XMLUtil.getValueFromAttribute(
                 document, "/serialization/fieldInitInfo", "active", Boolean.class)
             .orElse(false);
-    String nullableAnnot =
-        XMLUtil.getValueFromTag(document, "/serialization/annotation/nullable", String.class)
-            .orElse("javax.annotation.Nullable");
-    String nonnullAnnot =
-        XMLUtil.getValueFromTag(document, "/serialization/annotation/nonnull", String.class)
-            .orElse("javax.annotation.Nonnull");
-    this.annotationConfig = new AnnotationConfig(nullableAnnot, nonnullAnnot);
     serializer = new Serializer(this);
   }
 
@@ -145,27 +133,17 @@ public class FixSerializationConfig {
     private boolean suggestEnabled;
     private boolean suggestEnclosing;
     private boolean fieldInitInfo;
-    private String nullable;
-    private String nonnull;
     @Nullable private String outputDir;
 
     public Builder() {
       suggestEnabled = false;
       suggestEnclosing = false;
       fieldInitInfo = false;
-      nullable = "javax.annotation.Nullable";
-      nonnull = "javax.annotation.Nonnull";
     }
 
     public Builder setSuggest(boolean value, boolean withEnclosing) {
       this.suggestEnabled = value;
       this.suggestEnclosing = withEnclosing && suggestEnabled;
-      return this;
-    }
-
-    public Builder setAnnotations(String nullable, String nonnull) {
-      this.nullable = nullable;
-      this.nonnull = nonnull;
       return this;
     }
 
@@ -193,12 +171,7 @@ public class FixSerializationConfig {
       if (outputDir == null) {
         throw new IllegalStateException("did not set mandatory output directory");
       }
-      return new FixSerializationConfig(
-          suggestEnabled,
-          suggestEnclosing,
-          fieldInitInfo,
-          new AnnotationConfig(nullable, nonnull),
-          outputDir);
+      return new FixSerializationConfig(suggestEnabled, suggestEnclosing, fieldInitInfo, outputDir);
     }
   }
 }
