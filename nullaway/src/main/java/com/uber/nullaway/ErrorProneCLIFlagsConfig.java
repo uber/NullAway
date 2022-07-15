@@ -84,7 +84,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_FIX_SERIALIZATION_CONFIG_PATH =
       EP_FL_NAMESPACE + ":FixSerializationConfigPath";
 
-  static final String FL_ALLOW_LIBRARY_MODELS_OVERRIDE_ANNOTATIONS =
+  static final String FL_ACKNOWLEDGE_LIBRARY_MODELS_OF_ANNOTATED_CODE =
       EP_FL_NAMESPACE + ":AcknowledgeLibraryModelsOfAnnotatedCode";
 
   private static final String DELIMITER = ",";
@@ -252,7 +252,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + ")");
     }
     acknowledgeLibraryModelsOfAnnotatedCode =
-        flags.getBoolean(FL_ALLOW_LIBRARY_MODELS_OVERRIDE_ANNOTATIONS).orElse(false);
+        flags.getBoolean(FL_ACKNOWLEDGE_LIBRARY_MODELS_OF_ANNOTATED_CODE).orElse(false);
   }
 
   private static ImmutableSet<String> getFlagStringSet(ErrorProneFlags flags, String flagName) {
