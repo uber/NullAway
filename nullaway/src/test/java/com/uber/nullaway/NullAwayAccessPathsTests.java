@@ -115,4 +115,111 @@ public class NullAwayAccessPathsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testField() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Foo {",
+            " @Nullable public Object o;",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.ArrayList;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  public String testFieldCheck(Foo foo) {",
+            "    if (foo.o == null) {",
+            "      foo.o = new Object();",
+            "    }",
+            "    return foo.o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testArrayListField() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import java.util.List;",
+            "import javax.annotation.Nullable;",
+            "public class Foo {",
+            " @Nullable public List<Object> list;",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.ArrayList;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  public Object testFieldCheck(Foo foo) {",
+            "    if (foo.list == null) {",
+            "      foo.list = new ArrayList<Object>();",
+            "    }",
+            "    return foo.list.get(0);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testFieldWithoutValidAccessPath() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Foo {",
+            " @Nullable public Object o;",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.ArrayList;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  public String testFieldCheck(Foo foo) {",
+            "    if (foo.o == null) {",
+            "      (new Foo()).o = new Object();",
+            "    }",
+            "    // BUG: Diagnostic contains: dereferenced expression foo.o is @Nullable",
+            "    return foo.o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testFieldWithoutValidAccessPathLongChain() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Foo {",
+            " public Foo nonNull;",
+            " public Foo() {",
+            "   nonNull = this;",
+            " }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.ArrayList;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  public String testFieldCheck(Foo foo) {",
+            "    // Just checking that NullAway doesn't crash on a long but ultimately rootless access path",
+            "    return (new Foo()).nonNull.nonNull.toString().toLowerCase();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

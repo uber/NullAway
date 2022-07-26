@@ -528,15 +528,19 @@ public class AccessPathNullnessPropagation
     }
 
     if (target instanceof FieldAccessNode) {
-      // we don't allow arbitrary access paths to be tracked from assignments
-      // here we still require an access of a field of this, or a static field
       FieldAccessNode fieldAccessNode = (FieldAccessNode) target;
       Node receiver = fieldAccessNode.getReceiver();
       setNonnullIfAnalyzeable(updates, receiver);
-      if ((receiver instanceof ThisNode || fieldAccessNode.isStatic())
-          && fieldAccessNode.getElement().getKind().equals(ElementKind.FIELD)
+      if (fieldAccessNode.getElement().getKind().equals(ElementKind.FIELD)
           && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
-        updates.set(fieldAccessNode, value);
+        if (receiver instanceof ThisNode || fieldAccessNode.isStatic()) {
+          // Guaranteed to produce a valid access path, we call updates.set
+          updates.set(fieldAccessNode, value);
+        } else {
+          // Might not be a valid access path, e.g. it might ultimately be rooted at (new Foo).f or
+          // some other expression that's not a valid AP root.
+          updates.tryAndSet(fieldAccessNode, value);
+        }
       }
     }
 
@@ -1076,6 +1080,9 @@ public class AccessPathNullnessPropagation
 
     void set(FieldAccessNode node, Nullness value);
 
+    /** Like set, but ignore if node does not produce a valid access path */
+    void tryAndSet(FieldAccessNode node, Nullness value);
+
     void set(MethodInvocationNode node, Nullness value);
 
     void set(AccessPath ap, Nullness value);
@@ -1086,18 +1093,27 @@ public class AccessPathNullnessPropagation
 
     @Override
     public void set(LocalVariableNode node, Nullness value) {
-      values.put(AccessPath.fromLocal(node), checkNotNull(value));
+      values.put(AccessPath.fromLocal(node), value);
     }
 
     @Override
     public void set(VariableDeclarationNode node, Nullness value) {
-      values.put(AccessPath.fromVarDecl(node), checkNotNull(value));
+      values.put(AccessPath.fromVarDecl(node), value);
     }
 
     @Override
     public void set(FieldAccessNode node, Nullness value) {
       AccessPath accessPath = AccessPath.fromFieldAccess(node, apContext);
-      values.put(Preconditions.checkNotNull(accessPath), checkNotNull(value));
+      values.put(checkNotNull(accessPath), value);
+    }
+
+    @Override
+    public void tryAndSet(FieldAccessNode node, Nullness value) {
+      AccessPath accessPath = AccessPath.fromFieldAccess(node, apContext);
+      if (accessPath == null) {
+        return;
+      }
+      values.put(accessPath, value);
     }
 
     @Override
