@@ -48,9 +48,12 @@ public class Serializer {
 
   public Serializer(FixSerializationConfig config) {
     String outputDirectory = config.outputDirectory;
-    this.errorOutputPath = Paths.get(outputDirectory, "errors.tsv");
-    this.suggestedFixesOutputPath = Paths.get(outputDirectory, "fixes.tsv");
-    this.fieldInitializationOutputPath = Paths.get(outputDirectory, "field_init.tsv");
+    this.errorOutputPath =
+        Paths.get(outputDirectory, config.uuidPrefixForOutputFiles + "-errors.tsv");
+    this.suggestedFixesOutputPath =
+        Paths.get(outputDirectory, config.uuidPrefixForOutputFiles + "-fixes.tsv");
+    this.fieldInitializationOutputPath =
+        Paths.get(outputDirectory, config.uuidPrefixForOutputFiles + "-field_init.tsv");
     initializeOutputFiles(config);
   }
 

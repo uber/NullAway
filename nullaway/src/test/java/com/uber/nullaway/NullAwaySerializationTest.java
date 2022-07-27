@@ -52,11 +52,11 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   private final DisplayFactory<ErrorDisplay> errorDisplayFactory;
   private final DisplayFactory<FieldInitDisplay> fieldInitDisplayFactory;
 
-  private static final String SUGGEST_FIX_FILE_NAME = "fixes.tsv";
+  private static final String SUGGEST_FIX_FILE_NAME_POSTFIX = "fixes.tsv";
   private static final String SUGGEST_FIX_FILE_HEADER = SuggestedNullableFixInfo.header();
-  private static final String ERROR_FILE_NAME = "errors.tsv";
+  private static final String ERROR_FILE_NAME_POSTFIX = "errors.tsv";
   private static final String ERROR_FILE_HEADER = ErrorInfo.header();
-  private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
+  private static final String FIELD_INIT_FILE_NAME_POSTFIX = "field_init.tsv";
   private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
 
   public NullAwaySerializationTest() {
@@ -143,7 +143,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.SubClass",
                 "com/uber/SubClass.java"))
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -191,7 +191,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.Super",
                 "com/uber/android/Super.java"))
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -229,7 +229,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.Test",
                 "com/uber/android/Test.java"))
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -277,7 +277,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.SubClass",
                 "com/uber/test/SubClass.java"))
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -316,7 +316,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.Test",
                 "com/uber/test/Test.java"))
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -360,7 +360,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.Super",
                 "com/uber/Super.java"))
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -391,7 +391,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             new FixDisplay(
                 "nullable", "null", "h", "FIELD", "com.uber.Super", "com/uber/android/Super.java"))
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -424,7 +424,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             new FixDisplay(
                 "nullable", "null", "f", "FIELD", "com.uber.Super", "com/uber/android/Super.java"))
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -481,7 +481,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             new FixDisplay(
                 "nullable", "null", "i", "FIELD", "com.uber.Test", "com/uber/android/Test.java"))
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -507,7 +507,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             new FixDisplay(
                 "nullable", "null", "f", "FIELD", "com.uber.Test", "com/uber/android/Test.java"))
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -538,7 +538,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .expectNoOutput()
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -565,7 +565,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .expectNoOutput()
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -590,7 +590,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "}")
         .expectNoOutput()
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -672,7 +672,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.SubClass",
                 "test(java.lang.Object)"))
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
   }
 
@@ -709,7 +709,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.Test",
                 "run()"))
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
   }
 
@@ -772,7 +772,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setExpectedOutputs(
             new FieldInitDisplay(
                 "foo", "actualInit()", "null", "METHOD", "com.uber.Test", "com/uber/Test.java"))
-        .setOutputFileNameAndHeader(FIELD_INIT_FILE_NAME, FIELD_INIT_HEADER)
+        .setOutputFileNamePostfixAndHeader(FIELD_INIT_FILE_NAME_POSTFIX, FIELD_INIT_HEADER)
         .setFactory(fieldInitDisplayFactory)
         .doTest();
   }
@@ -822,7 +822,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.TestWithAnonymousRunnable$1",
                 "run()"))
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
   }
 
@@ -860,7 +860,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.TestWithLocalType$1LocalType",
                 "returnsNullable()"))
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
   }
 
@@ -929,7 +929,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.TestWithLocalTypes$3LocalType",
                 "returnsNullable2()"))
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
     SerializationTestHelper<FixDisplay> fixTester = new SerializationTestHelper<>(root);
     fixTester
@@ -964,7 +964,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.TestWithLocalTypes$3LocalType",
                 "com/uber/TestWithLocalTypes.java"))
         .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(SUGGEST_FIX_FILE_NAME_POSTFIX, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -1009,7 +1009,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.TestWithLocalType$1LocalTypeA$1LocalTypeB",
                 "returnsNullable()"))
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
   }
 
@@ -1073,7 +1073,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.TestWithLocalTypes$3LocalType",
                 "returnsNullable()"))
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
   }
 
@@ -1115,7 +1115,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.Main$1",
                 "bar(java.lang.Object)"))
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
   }
 
@@ -1159,7 +1159,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.Main$1",
                 "bar()"))
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
   }
 
@@ -1194,7 +1194,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.Main$1",
                 "null"))
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
   }
 
@@ -1228,7 +1228,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "com.uber.Main$1Foo",
                 "null"))
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
   }
 }

@@ -25,6 +25,7 @@ package com.uber.nullaway.tools;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
@@ -35,7 +36,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class SerializationTestHelper<T extends Display> {
 
@@ -43,7 +46,7 @@ public class SerializationTestHelper<T extends Display> {
   private ImmutableList<T> expectedOutputs;
   private CompilationTestHelper compilationTestHelper;
   private DisplayFactory<T> factory;
-  private String fileName;
+  private String fileNamePostfix;
   private String header;
 
   public SerializationTestHelper(Path outputDir) {
@@ -78,23 +81,18 @@ public class SerializationTestHelper<T extends Display> {
     return this;
   }
 
-  public SerializationTestHelper<T> setOutputFileNameAndHeader(String fileName, String header) {
-    this.fileName = fileName;
+  public SerializationTestHelper<T> setOutputFileNamePostfixAndHeader(
+      String fileNamePostfix, String header) {
+    this.fileNamePostfix = fileNamePostfix;
     this.header = header;
     return this;
   }
 
   public void doTest() {
     Preconditions.checkNotNull(factory, "Factory cannot be null");
-    Preconditions.checkNotNull(fileName, "File name cannot be null");
-    Path outputPath = outputDir.resolve(fileName);
-    try {
-      Files.deleteIfExists(outputPath);
-    } catch (IOException ignored) {
-      throw new RuntimeException("Failed to delete older file at: " + outputPath);
-    }
+    Preconditions.checkNotNull(fileNamePostfix, "File name postfix cannot be null");
     compilationTestHelper.doTest();
-    List<T> actualOutputs = readActualOutputs(outputPath);
+    List<T> actualOutputs = readActualOutputsFromFileWithPostfix(outputDir, fileNamePostfix);
     compare(actualOutputs);
   }
 
@@ -130,10 +128,28 @@ public class SerializationTestHelper<T extends Display> {
     fail(errorMessage.toString());
   }
 
-  private List<T> readActualOutputs(Path outputPath) {
+  private List<T> readActualOutputsFromFileWithPostfix(Path rootDirectory, String fileNamePostfix) {
     List<T> outputs = new ArrayList<>();
     BufferedReader reader;
-    try {
+    // Max depth is set to 1 as the output file should be the direct child of the defined output
+    // directory.
+    try (Stream<Path> paths = Files.walk(rootDirectory, 1)) {
+      Optional<Path> optional =
+          paths
+              .filter(
+                  (Predicate<Path>)
+                      path ->
+                          path.toFile().isFile()
+                              && path.getFileName().toString().endsWith(fileNamePostfix))
+              .findAny();
+      if (!optional.isPresent()) {
+        throw new RuntimeException(
+            "File name with postfix: "
+                + fileNamePostfix
+                + " was not found under directory: "
+                + rootDirectory);
+      }
+      Path outputPath = optional.get();
       reader = Files.newBufferedReader(outputPath, Charset.defaultCharset());
       String actualHeader = reader.readLine();
       if (!header.equals(actualHeader)) {
