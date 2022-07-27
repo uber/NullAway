@@ -25,7 +25,6 @@ package com.uber.nullaway.tools;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Predicate;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
@@ -91,9 +90,33 @@ public class SerializationTestHelper<T extends Display> {
   public void doTest() {
     Preconditions.checkNotNull(factory, "Factory cannot be null");
     Preconditions.checkNotNull(fileNamePostfix, "File name postfix cannot be null");
+    clearAnyExistingFileWithPostFixUnderOutputDirectory();
     compilationTestHelper.doTest();
-    List<T> actualOutputs = readActualOutputsFromFileWithPostfix(outputDir, fileNamePostfix);
+    List<T> actualOutputs = readActualOutputsFromFileWithPostfix();
     compare(actualOutputs);
+  }
+
+  private void clearAnyExistingFileWithPostFixUnderOutputDirectory() {
+    try (Stream<Path> paths = Files.walk(outputDir)) {
+      paths
+          .filter(
+              path ->
+                  path.toFile().isFile() && path.getFileName().toString().endsWith(fileNamePostfix))
+          .forEach(
+              path -> {
+                try {
+                  Files.deleteIfExists(path);
+                } catch (IOException e) {
+                  throw new RuntimeException("Error while deleting file at: " + path, e);
+                }
+              });
+    } catch (IOException exception) {
+      throw new RuntimeException(
+          "Error while deleting existing files with postfix: "
+              + fileNamePostfix
+              + " at: "
+              + outputDir);
+    }
   }
 
   private void compare(List<T> actualOutput) {
@@ -128,26 +151,25 @@ public class SerializationTestHelper<T extends Display> {
     fail(errorMessage.toString());
   }
 
-  private List<T> readActualOutputsFromFileWithPostfix(Path rootDirectory, String fileNamePostfix) {
+  private List<T> readActualOutputsFromFileWithPostfix() {
     List<T> outputs = new ArrayList<>();
     BufferedReader reader;
     // Max depth is set to 1 as the output file should be the direct child of the defined output
     // directory.
-    try (Stream<Path> paths = Files.walk(rootDirectory, 1)) {
+    try (Stream<Path> paths = Files.walk(outputDir, 1)) {
       Optional<Path> optional =
           paths
               .filter(
-                  (Predicate<Path>)
-                      path ->
-                          path.toFile().isFile()
-                              && path.getFileName().toString().endsWith(fileNamePostfix))
+                  path ->
+                      path.toFile().isFile()
+                          && path.getFileName().toString().endsWith(fileNamePostfix))
               .findAny();
       if (!optional.isPresent()) {
         throw new RuntimeException(
             "File name with postfix: "
                 + fileNamePostfix
                 + " was not found under directory: "
-                + rootDirectory);
+                + outputDir);
       }
       Path outputPath = optional.get();
       reader = Files.newBufferedReader(outputPath, Charset.defaultCharset());
