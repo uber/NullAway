@@ -155,5 +155,3 @@ if (JavaVersion.current() >= JavaVersion.VERSION_11) {
         dependsOn 'buildWithNullAway'
     }
 }
-sourceCompatibility = JavaVersion.VERSION_11
-targetCompatibility = JavaVersion.VERSION_11
