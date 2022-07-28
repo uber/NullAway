@@ -61,8 +61,8 @@ public class FixSerializationConfig {
   public final boolean fieldInitInfoEnabled;
 
   /**
-   * Prefix to all outputs serialized by this instance NullAway. Please note this prefix is constant
-   * across all outputs by this instance.
+   * Prefix for all outputs serialized by this instance of NullAway. Please note this prefix is
+   * constant across all outputs in this NullAway instance.
    */
   public final UUID uuidPrefixForOutputFiles = UUID.randomUUID();
 
