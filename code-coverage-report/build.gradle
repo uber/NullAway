@@ -91,5 +91,6 @@ dependencies {
     implementation project(':nullaway')
     implementation project(':jar-infer:jar-infer-lib')
     implementation project(':jar-infer:nullaway-integration-test')
+    implementation project(':guava-recent-unit-tests')
     implementation project(':jdk17-unit-tests')
 }

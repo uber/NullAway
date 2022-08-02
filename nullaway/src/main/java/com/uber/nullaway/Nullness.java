@@ -156,6 +156,12 @@ public enum Nullness implements AbstractValue<Nullness> {
         || annotName.endsWith(".checkerframework.checker.nullness.compatqual.NullableDecl")
         // matches javax.annotation.CheckForNull and edu.umd.cs.findbugs.annotations.CheckForNull
         || annotName.endsWith(".CheckForNull")
+        // matches any of the multiple @ParametricNullness annotations used within Guava
+        // (see https://github.com/google/guava/issues/6126)
+        // We check the simple name first and the package prefix second for boolean short
+        // circuiting, as Guava includes
+        // many annotations
+        || (annotName.endsWith(".ParametricNullness") && annotName.startsWith("com.google.common."))
         || (config.acknowledgeAndroidRecent()
             && annotName.equals("androidx.annotation.RecentlyNullable"))
         || config.isCustomNullableAnnotation(annotName);
