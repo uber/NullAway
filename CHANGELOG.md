@@ -1,5 +1,18 @@
 Changelog
 =========
+Version 0.9.9
+-------------
+* Fix handling of empty contract arguments (#616)
+* Fix inconsistent treament of generated code in RestrictiveAnnotationHandler (#618)
+* Allow Library Models to override annotations. (#624)
+* Allow tracking field accesses outside the this instance and static fields (#625)
+* Add Guava 31+ support by treating @ParametricNullness as @nullable (#629)
+* Refactoring:
+  - Clean up: Remove method parameter protection analysis (#622)
+  - Clean up: Remove nullable annotation configuration in fix serialization. (#621)
+* Build / CI tooling for NullAway itself:
+  - Add a microbenchmark for type inference / dataflow (#617)
+
 Version 0.9.8
 -------------
 * Fix false positive involving type parameter @Nullable annotations (#609)
