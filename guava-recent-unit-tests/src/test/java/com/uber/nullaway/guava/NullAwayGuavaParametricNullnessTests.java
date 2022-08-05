@@ -41,7 +41,8 @@ public class NullAwayGuavaParametricNullnessTests {
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common"));
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common",
+                    "-XepOpt:NullAway:AcknowledgeLibraryModelsOfAnnotatedCode=true"));
   }
 
   @Test
@@ -85,6 +86,34 @@ public class NullAwayGuavaParametricNullnessTests {
             "    }",
             "    public static @Nullable String test2() {",
             "        return Iterables.getFirst(ImmutableList.<String>of(), null);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testCloserParametricNullness() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.google.common.io.Closer;",
+            "import java.io.Closeable;",
+            "import java.io.FileInputStream;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "    public static FileInputStream test1(Closer closer, FileInputStream fis1) {",
+            "        // safe: non-null arg to non-null return",
+            "        return closer.register(fis1);",
+            "    }",
+            "    @Nullable",
+            "    public static FileInputStream test2(Closer closer, @Nullable FileInputStream fis2) {",
+            "        // safe: nullable arg to nullable return",
+            "        return closer.register(fis2);",
+            "    }",
+            "    public static FileInputStream test3(Closer closer, @Nullable FileInputStream fis3) {",
+            "        // BUG: Diagnostic contains: returning @Nullable expression",
+            "        return closer.register(fis3);",
             "    }",
             "}")
         .doTest();

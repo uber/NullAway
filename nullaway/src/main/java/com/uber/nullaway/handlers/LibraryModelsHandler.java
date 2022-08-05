@@ -583,6 +583,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_NULL_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
             .put(methodRef("java.util.Optional", "orElse(T)"), 0)
+            .put(methodRef("com.google.common.io.Closer", "<C>register(C)"), 0)
             .build();
 
     private static final ImmutableSet<MethodRef> NULLABLE_RETURNS =
