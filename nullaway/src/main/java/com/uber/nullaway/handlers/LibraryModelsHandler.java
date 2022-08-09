@@ -107,17 +107,22 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION) {
       OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
       Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr);
-      if (!config.acknowledgeLibraryModelsOfAnnotatedCode()
-          && !getClassAnnotationInfo(state.context)
-              .isSymbolUnannotated(methodSymbol, this.config)) {
-        // We only look at library models for unannotated (i.e. third-party) code.
-        return exprMayBeNull;
-      } else if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes())
+      // When looking up library models of annotated code, we match the exact method signature only,
+      // overriding implementations that share the same model must be explicitly given their own
+      // library model.
+      // When dealing with unannotated code, we default to generality: a model applies to a method
+      // and
+      // any of its overriding implementations.
+      // see https://github.com/uber/NullAway/issues/445 for why this is needed.
+      boolean isMethodAnnotated =
+          !getClassAnnotationInfo(state.context).isSymbolUnannotated(methodSymbol, this.config);
+      if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes(), !isMethodAnnotated)
           || !optLibraryModels.nullImpliesNullParameters(methodSymbol).isEmpty()) {
         // These mean the method might be null, depending on dataflow and arguments. We force
         // dataflow to run.
         return analysis.nullnessFromDataflow(state, expr) || exprMayBeNull;
-      } else if (optLibraryModels.hasNonNullReturn(methodSymbol, state.getTypes())) {
+      } else if (optLibraryModels.hasNonNullReturn(
+          methodSymbol, state.getTypes(), !isMethodAnnotated)) {
         // This means the method can't be null, so we return false outright.
         return false;
       }
@@ -169,11 +174,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
-    if (!config.acknowledgeLibraryModelsOfAnnotatedCode()
-        && !getClassAnnotationInfo(context).isSymbolUnannotated(callee, this.config)) {
-      // Ignore annotated methods, library models should only apply to "unannotated" code.
-      return NullnessHint.UNKNOWN;
-    }
+    boolean isMethodAnnotated =
+        !getClassAnnotationInfo(context).isSymbolUnannotated(callee, this.config);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, context, apContext);
     setConditionalArgumentNullness(
         thenUpdates, elseUpdates, node.getArguments(), callee, context, apContext);
@@ -192,9 +194,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       }
       return anyNull ? NullnessHint.HINT_NULLABLE : NullnessHint.FORCE_NONNULL;
     }
-    if (getOptLibraryModels(context).hasNonNullReturn(callee, types)) {
+    if (getOptLibraryModels(context).hasNonNullReturn(callee, types, !isMethodAnnotated)) {
       return NullnessHint.FORCE_NONNULL;
-    } else if (getOptLibraryModels(context).hasNullableReturn(callee, types)) {
+    } else if (getOptLibraryModels(context).hasNullableReturn(callee, types, !isMethodAnnotated)) {
       return NullnessHint.HINT_NULLABLE;
     } else {
       return NullnessHint.UNKNOWN;
@@ -895,12 +897,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       castToNonNullMethods = makeOptimizedIntSetLookup(names, models.castToNonNullMethods());
     }
 
-    public boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types) {
-      return lookupHandlingOverrides(symbol, types, nonNullRet) != null;
+    public boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
+      return lookupHandlingOverrides(symbol, types, nonNullRet, checkSuper) != null;
     }
 
-    public boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types) {
-      return lookupHandlingOverrides(symbol, types, nullableRet) != null;
+    public boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
+      return lookupHandlingOverrides(symbol, types, nullableRet, checkSuper) != null;
     }
 
     ImmutableSet<Integer> failIfNullParameters(Symbol.MethodSymbol symbol) {
@@ -968,7 +970,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
      */
     @Nullable
     private static Symbol.MethodSymbol lookupHandlingOverrides(
-        Symbol.MethodSymbol symbol, Types types, NameIndexedMap<Boolean> optLookup) {
+        Symbol.MethodSymbol symbol,
+        Types types,
+        NameIndexedMap<Boolean> optLookup,
+        boolean checkSuperTypes) {
       if (optLookup.nameNotPresent(symbol)) {
         // no model matching the method name, so we don't need to check for overridden methods
         return null;
@@ -976,6 +981,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       if (optLookup.get(symbol) != null) {
         return symbol;
       }
+      if (checkSuperTypes == false) {
+        // Consider only a model on the exact class and method, used when checking annotated code
+        return null;
+      }
+      // For unannotated code, we allow a single model to cover all overriding implementations /
+      // subtypes
       for (Symbol.MethodSymbol superSymbol : ASTHelpers.findSuperMethods(symbol, types)) {
         if (optLookup.get(superSymbol) != null) {
           return superSymbol;

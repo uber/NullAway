@@ -41,8 +41,7 @@ public class NullAwayGuavaParametricNullnessTests {
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common",
-                    "-XepOpt:NullAway:AcknowledgeLibraryModelsOfAnnotatedCode=true"));
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common"));
   }
 
   @Test
