@@ -111,8 +111,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       // overriding implementations that share the same model must be explicitly given their own
       // library model.
       // When dealing with unannotated code, we default to generality: a model applies to a method
-      // and
-      // any of its overriding implementations.
+      // and any of its overriding implementations.
       // see https://github.com/uber/NullAway/issues/445 for why this is needed.
       boolean isMethodAnnotated =
           !getClassAnnotationInfo(state.context).isSymbolUnannotated(methodSymbol, this.config);
