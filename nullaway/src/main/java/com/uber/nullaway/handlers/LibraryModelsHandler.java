@@ -107,9 +107,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION) {
       OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
       Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr);
-      // When looking up library models of annotated code, we match the exact method signature only,
-      // overriding implementations that share the same model must be explicitly given their own
-      // library model.
+      // When looking up library models of annotated code, we match the exact method signature only;
+      // overriding methods in subclasses must be explicitly given their own library model.
       // When dealing with unannotated code, we default to generality: a model applies to a method
       // and any of its overriding implementations.
       // see https://github.com/uber/NullAway/issues/445 for why this is needed.
