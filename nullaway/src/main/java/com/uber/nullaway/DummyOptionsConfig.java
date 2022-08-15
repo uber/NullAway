@@ -215,9 +215,4 @@ public class DummyOptionsConfig implements Config {
   public boolean acknowledgeAndroidRecent() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
-
-  @Override
-  public boolean acknowledgeLibraryModelsOfAnnotatedCode() {
-    throw new IllegalStateException(ERROR_MESSAGE);
-  }
 }
