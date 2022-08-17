@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.handlers;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
@@ -37,8 +36,7 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
-import java.util.HashSet;
-import java.util.List;
+import java.util.Map;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
@@ -48,23 +46,6 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
 
   RestrictiveAnnotationHandler(Config config) {
     this.config = config;
-  }
-
-  @Override
-  public ImmutableSet<Integer> onUnannotatedInvocationGetNonNullPositions(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
-      List<? extends ExpressionTree> actualParams,
-      ImmutableSet<Integer> nonNullPositions) {
-    HashSet<Integer> positions = new HashSet<Integer>();
-    positions.addAll(nonNullPositions);
-    for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {
-      if (Nullness.paramHasNonNullAnnotation(methodSymbol, i, config)) {
-        positions.add(i);
-      }
-    }
-    return ImmutableSet.copyOf(positions);
   }
 
   @Override
@@ -99,18 +80,23 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
+  public Map<Integer, Nullness> onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
-      ImmutableSet<Integer> explicitlyNullablePositions) {
-    HashSet<Integer> positions = new HashSet<Integer>();
-    positions.addAll(explicitlyNullablePositions);
+      boolean isAnnotated,
+      Map<Integer, Nullness> argumentPositionNullness) {
+    if (isAnnotated) {
+      // We ignore isAnnotated code here, since annotations in code considered isAnnotated are
+      // already handled
+      // by NullAway's core algorithm.
+      return argumentPositionNullness;
+    }
     for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {
       if (Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
-        positions.add(i);
+        argumentPositionNullness.put(i, Nullness.NULLABLE);
       }
     }
-    return ImmutableSet.copyOf(positions);
+    return argumentPositionNullness;
   }
 
   @Override

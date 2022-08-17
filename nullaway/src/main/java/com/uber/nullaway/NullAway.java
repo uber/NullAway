@@ -626,18 +626,26 @@ public class NullAway extends BugChecker
     if (unboundMemberRef) {
       boolean isFirstParamNull = false;
       // Two cases: for annotated code, look first at the annotation
-      if (!classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config)) {
+      boolean isOverridingMethodAnnotated =
+          !classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
+      if (isOverridingMethodAnnotated) {
         isFirstParamNull = Nullness.hasNullableAnnotation(superParamSymbols.get(0), config);
       }
       // For both annotated and unannotated code, look then at handler overrides (e.g. Library
       // Models)
+      Map<Integer, Nullness> argumentPositionNullness = new LinkedHashMap<>();
+      argumentPositionNullness.put(0, isFirstParamNull ? Nullness.NULLABLE : Nullness.NONNULL);
       isFirstParamNull =
           handler
-              .onUnannotatedInvocationGetExplicitlyNullablePositions(
+              .onOverrideMethodInvocationParametersNullability(
                   state.context,
                   overriddenMethod,
-                  isFirstParamNull ? ImmutableSet.of(0) : ImmutableSet.of())
-              .contains(0);
+                  isOverridingMethodAnnotated,
+                  argumentPositionNullness)
+              // Guaranteed to be set, but NullAway complains about plain get(x).foo() as a
+              // potential null deref
+              .getOrDefault(0, Nullness.NONNULL)
+              .equals(Nullness.NULLABLE);
       if (isFirstParamNull) {
         String message =
             "unbound instance method reference cannot be used, as first parameter of "
@@ -656,23 +664,25 @@ public class NullAway extends BugChecker
     // for unbound member references, we need to adjust parameter indices by 1 when matching with
     // overridden method
     int startParam = unboundMemberRef ? 1 : 0;
-    // Collect @Nullable params of overriden method
-    ImmutableSet<Integer> nullableParamsOfOverriden;
-    if (classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config)) {
-      nullableParamsOfOverriden =
-          handler.onUnannotatedInvocationGetExplicitlyNullablePositions(
-              state.context, overriddenMethod, ImmutableSet.of());
-    } else {
-      ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
-      for (int i = startParam; i < superParamSymbols.size(); i++) {
-        // we need to call paramHasNullableAnnotation here since overriddenMethod may be defined
-        // in a class file
-        if (Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)) {
-          builder.add(i);
-        }
+    // Collect @Nullable params of overridden method
+    Map<Integer, Nullness> argumentNullnessMap = new LinkedHashMap<>();
+    for (int i = startParam; i < superParamSymbols.size(); i++) {
+      if (Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)) {
+        argumentNullnessMap.put(i, Nullness.NULLABLE);
       }
-      nullableParamsOfOverriden = builder.build();
     }
+    // Check handlers for any further/overriding nullness information
+    argumentNullnessMap =
+        handler.onOverrideMethodInvocationParametersNullability(
+            state.context,
+            overriddenMethod,
+            !classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config),
+            argumentNullnessMap);
+    ImmutableSet<Integer> nullableParamsOfOverriden =
+        argumentNullnessMap.entrySet().stream()
+            .filter(e -> e.getValue().equals(Nullness.NULLABLE))
+            .map(e -> e.getKey())
+            .collect(ImmutableSet.toImmutableSet());
     for (int i : nullableParamsOfOverriden) {
       int methodParamInd = i - startParam;
       VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
@@ -1425,12 +1435,6 @@ public class NullAway extends BugChecker
       VisitorState state,
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams) {
-    ImmutableSet<Integer> nonNullPositions = null;
-    if (classAnnotationInfo.isSymbolUnannotated(methodSymbol, config)) {
-      nonNullPositions =
-          handler.onUnannotatedInvocationGetNonNullPositions(
-              this, state, methodSymbol, actualParams, ImmutableSet.of());
-    }
     List<VarSymbol> formalParams = methodSymbol.getParameters();
 
     if (formalParams.size() != actualParams.size()
@@ -1444,8 +1448,11 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    if (nonNullPositions == null) {
-      ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
+    final boolean isMethodAnnotated =
+        !classAnnotationInfo.isSymbolUnannotated(methodSymbol, config);
+    Map<Integer, Nullness> argumentPositionNullness = new LinkedHashMap<>();
+
+    if (isMethodAnnotated) {
       // compute which arguments are @NonNull
       for (int i = 0; i < formalParams.size(); i++) {
         VarSymbol param = formalParams.get(i);
@@ -1469,12 +1476,24 @@ public class NullAway extends BugChecker
         }
         // we need to call paramHasNullableAnnotation here since the invoked method may be defined
         // in a class file
-        if (!Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
-          builder.add(i);
-        }
+        argumentPositionNullness.put(
+            i,
+            Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
+                ? Nullness.NULLABLE
+                : Nullness.NONNULL);
       }
-      nonNullPositions = builder.build();
     }
+
+    // Allow handlers to override the list of non-null argument positions
+    argumentPositionNullness =
+        handler.onOverrideMethodInvocationParametersNullability(
+            state.context, methodSymbol, isMethodAnnotated, argumentPositionNullness);
+
+    ImmutableSet<Integer> nonNullPositions =
+        argumentPositionNullness.entrySet().stream()
+            .filter(e -> e.getValue().equals(Nullness.NONNULL))
+            .map(e -> e.getKey())
+            .collect(ImmutableSet.toImmutableSet());
 
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference

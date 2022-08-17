@@ -117,4 +117,26 @@ public class NullAwayGuavaParametricNullnessTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testFunctionMethodOverride() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.google.common.base.Function;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "    public static void testFoo() {",
+            "        Function<Object, Object> f = new Function<Object, Object>() {",
+            "            @Override",
+            "            @Nullable",
+            "            public Object apply(Object input) {",
+            "                return null;",
+            "             }",
+            "        };",
+            "    }",
+            "}")
+        .doTest();
+  }
 }
