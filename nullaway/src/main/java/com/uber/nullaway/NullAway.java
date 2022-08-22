@@ -664,20 +664,24 @@ public class NullAway extends BugChecker
     // for unbound member references, we need to adjust parameter indices by 1 when matching with
     // overridden method
     int startParam = unboundMemberRef ? 1 : 0;
-    // Collect @Nullable params of overridden method
+
+    // Collect @Nullable params of overridden method iff the overridden method is in annotated code
+    // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
+    // -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations flag and its handler).
+    boolean isOverridenMethodAnnotated =
+        !classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
     Map<Integer, Nullness> argumentNullnessMap = new LinkedHashMap<>();
-    for (int i = startParam; i < superParamSymbols.size(); i++) {
-      if (Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)) {
-        argumentNullnessMap.put(i, Nullness.NULLABLE);
+    if (isOverridenMethodAnnotated) {
+      for (int i = startParam; i < superParamSymbols.size(); i++) {
+        if (Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)) {
+          argumentNullnessMap.put(i, Nullness.NULLABLE);
+        }
       }
     }
     // Check handlers for any further/overriding nullness information
     argumentNullnessMap =
         handler.onOverrideMethodInvocationParametersNullability(
-            state.context,
-            overriddenMethod,
-            !classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config),
-            argumentNullnessMap);
+            state.context, overriddenMethod, isOverridenMethodAnnotated, argumentNullnessMap);
     ImmutableSet<Integer> nullableParamsOfOverriden =
         argumentNullnessMap.entrySet().stream()
             .filter(e -> e.getValue().equals(Nullness.NULLABLE))

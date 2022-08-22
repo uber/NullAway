@@ -95,17 +95,17 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     com.sun.tools.javac.util.List<Symbol.VarSymbol> fiMethodParameters =
         fiMethodSymbol.getParameters();
     Map<Integer, Nullness> fiArgumentPositionNullness = new LinkedHashMap<>();
-    for (int i = 0; i < fiMethodParameters.size(); i++) {
-      fiArgumentPositionNullness.put(
-          i,
-          Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config) ? NULLABLE : NONNULL);
+    final boolean isFIAnnotated = !classAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config);
+    if (isFIAnnotated) {
+      for (int i = 0; i < fiMethodParameters.size(); i++) {
+        fiArgumentPositionNullness.put(
+            i,
+            Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config) ? NULLABLE : NONNULL);
+      }
     }
     fiArgumentPositionNullness =
         handler.onOverrideMethodInvocationParametersNullability(
-            context,
-            fiMethodSymbol,
-            !classAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config),
-            fiArgumentPositionNullness);
+            context, fiMethodSymbol, isFIAnnotated, fiArgumentPositionNullness);
 
     for (int i = 0; i < parameters.size(); i++) {
       LocalVariableNode param = parameters.get(i);

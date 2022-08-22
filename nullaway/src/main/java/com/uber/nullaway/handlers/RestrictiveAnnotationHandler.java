@@ -92,7 +92,9 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       return argumentPositionNullness;
     }
     for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {
-      if (Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
+      if (Nullness.paramHasNonNullAnnotation(methodSymbol, i, config)) {
+        argumentPositionNullness.put(i, Nullness.NONNULL);
+      } else if (Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
         argumentPositionNullness.put(i, Nullness.NULLABLE);
       }
     }
