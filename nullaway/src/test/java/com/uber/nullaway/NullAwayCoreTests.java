@@ -557,6 +557,39 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testMapComputeIfAbsent() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "import java.util.function.Function;",
+            "import org.jspecify.nullness.Nullable;", // Need JSpecify (vs javax) for annotating
+                                                      // generics
+            "class Test {",
+            "   Object testComputeIfAbsent(String key, Function<String, Object> f, Map<String, Object> m){",
+            "     m.computeIfAbsent(key, f);",
+            "     return m.get(key);",
+            "   }",
+            "   Object testComputeIfAbsentLambda(String key, Map<String, Object> m){",
+            "     m.computeIfAbsent(key, k -> k);",
+            "     return m.get(key);",
+            "   }",
+            "   Object testComputeIfAbsentNull(String key, Function<String, @Nullable Object> f, Map<String, Object> m){",
+            "     m.computeIfAbsent(key, f);",
+            "     // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "     return m.get(key);",
+            "   }",
+            "   // ToDo: should error somewhere, but doesn't, due to limited checking of generics",
+            "   Object testComputeIfAbsentNullLambda(String key, Map<String, Object> m){",
+            "     m.computeIfAbsent(key, k -> null);",
+            "     return m.get(key);",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void tryFinallySupport() {
     defaultCompilationHelper.addSourceFile("NullAwayTryFinallyCases.java").doTest();
   }

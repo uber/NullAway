@@ -588,6 +588,10 @@ public final class AccessPath implements MapKey {
         || NullabilityUtil.isMapMethod(symbol, state, "putIfAbsent", 2);
   }
 
+  public static boolean isMapComputeIfAbsent(Symbol.MethodSymbol symbol, VisitorState state) {
+    return NullabilityUtil.isMapMethod(symbol, state, "computeIfAbsent", 2);
+  }
+
   private static final class StringMapKey implements MapKey {
 
     private final String key;

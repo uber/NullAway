@@ -128,14 +128,14 @@ public enum Nullness implements AbstractValue<Nullness> {
     return displayName;
   }
 
-  private static boolean hasNullableAnnotation(
+  public static boolean hasNullableAnnotation(
       Stream<? extends AnnotationMirror> annotations, Config config) {
     return annotations
         .map(anno -> anno.getAnnotationType().toString())
         .anyMatch(anno -> isNullableAnnotation(anno, config));
   }
 
-  private static boolean hasNonNullAnnotation(
+  public static boolean hasNonNullAnnotation(
       Stream<? extends AnnotationMirror> annotations, Config config) {
     return annotations
         .map(anno -> anno.getAnnotationType().toString())
