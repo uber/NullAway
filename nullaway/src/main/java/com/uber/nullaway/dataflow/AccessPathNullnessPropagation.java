@@ -942,8 +942,7 @@ public class AccessPathNullnessPropagation
       AccessPath getAccessPath = AccessPath.getForMapInvocation(node, apContext);
       if (getAccessPath != null) {
         // TODO: For now, Function<K, V> implies a @NonNull V. We need to revisit this once we
-        // support generics,
-        // but we do include a couple defensive tests below.
+        // support generics, but we do include a couple defensive tests below.
         if (arguments.size() < 2) {
           return;
         }
@@ -958,8 +957,7 @@ public class AccessPathNullnessPropagation
         Type functionReturnType = classType.getTypeArguments().get(1);
         // Unfortunately, functionReturnType.tsym seems to elide annotation info, so we can't call
         // the Nullness.* methods that deal with Symbol. We might have better APIs for this kind of
-        // check
-        // once we have real generics support.
+        // check once we have real generics support.
         if (!Nullness.hasNullableAnnotation(
             functionReturnType.getAnnotationMirrors().stream(), config)) {
           bothUpdates.set(getAccessPath, NONNULL);

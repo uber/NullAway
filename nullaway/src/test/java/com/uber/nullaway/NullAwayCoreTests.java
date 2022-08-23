@@ -564,8 +564,8 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "package com.uber;",
             "import java.util.Map;",
             "import java.util.function.Function;",
-            "import org.jspecify.nullness.Nullable;", // Need JSpecify (vs javax) for annotating
-                                                      // generics
+            // Need JSpecify (vs javax) for annotating generics
+            "import org.jspecify.nullness.Nullable;",
             "class Test {",
             "   Object testComputeIfAbsent(String key, Function<String, Object> f, Map<String, Object> m){",
             "     m.computeIfAbsent(key, f);",
