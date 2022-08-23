@@ -132,21 +132,15 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     if (isAnnotated) {
       // We currently do not load JarInfer models for code marked as annotated.
       // This is unlikely to change, as the behavior of JarInfer on arguments is to explicitly mark
-      // as @NonNull those
-      // arguments that are shallowly dereferenced within the analyzed method. By convention,
-      // annotated code has no
-      // use for explicit @NonNull annotations, since `T` already means `@NonNull T` within
-      // annotated code. The only
-      // case where we would want to enable this for annotated code is if we expect/want JarInfer
-      // results to override
-      // the results of another handler, such as restrictive annotations, but a library models is a
-      // safer place to
-      // perform such override.
+      // as @NonNull those arguments that are shallowly dereferenced within the analyzed method. By
+      // convention, annotated code has no use for explicit @NonNull annotations, since `T` already
+      // means `@NonNull T` within annotated code. The only case where we would want to enable this
+      // for annotated code is if we expect/want JarInfer results to override the results of another
+      // handler, such as restrictive annotations, but a library models is a safer place to perform
+      // such an override.
       // Additionally, by default, InferredJARModelsHandler is used only to load our Android SKD
-      // JarInfer models
-      // (i.e. `com.uber.nullaway:JarInferAndroidModelsSDK##`), since the default model of JarInfer
-      // on a normal jar/aar
-      // is to add bytecode annotations.
+      // JarInfer models (i.e. `com.uber.nullaway:JarInferAndroidModelsSDK##`), since the default
+      // model of JarInfer on a normal jar/aar is to add bytecode annotations.
       return argumentPositionNullness;
     }
     Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
