@@ -150,8 +150,9 @@ public interface Handler {
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull);
 
   /**
-   * Called when NullAway to potentially override the nullability of an annotated or unannotated
-   * method's return. This is used primarily for checking subtyping / method overrides.
+   * Called to potentially override the nullability of an annotated or unannotated method's return,
+   * when only the method symbol (and not a full invocation tree) is available. This is used
+   * primarily for checking subtyping / method overrides.
    *
    * @param methodSymbol The method symbol for the method in question.
    * @param state The current visitor state.
