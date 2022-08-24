@@ -109,6 +109,19 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
+  public Nullness onOverrideMethodInvocationReturnNullability(
+      Symbol.MethodSymbol methodSymbol,
+      VisitorState state,
+      boolean isAnnotated,
+      Nullness returnNullness) {
+    OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
+    if (optLibraryModels.hasNonNullReturn(methodSymbol, state.getTypes(), !isAnnotated)) {
+      return Nullness.NONNULL;
+    }
+    return returnNullness;
+  }
+
+  @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind() == Tree.Kind.METHOD_INVOCATION) {

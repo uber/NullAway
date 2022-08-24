@@ -824,17 +824,19 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol overridingMethod,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
-    final boolean isOverridenMethodUnannotated =
-        classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
-    final boolean overriddenMethodReturnsNonNull =
-        ((isOverridenMethodUnannotated
-                && handler.onUnannotatedInvocationGetExplicitlyNonNullReturn(
-                    overriddenMethod, false))
-            || (!isOverridenMethodUnannotated
-                && !Nullness.hasNullableAnnotation(overriddenMethod, config)));
+    final boolean isOverridenMethodAnnotated =
+        !classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
+    Nullness overriddenMethodReturnNullness =
+        Nullness.NULLABLE; // Permissive default for unannotated code.
+    if (isOverridenMethodAnnotated && !Nullness.hasNullableAnnotation(overriddenMethod, config)) {
+      overriddenMethodReturnNullness = Nullness.NONNULL;
+    }
+    overriddenMethodReturnNullness =
+        handler.onOverrideMethodInvocationReturnNullability(
+            overriddenMethod, state, isOverridenMethodAnnotated, overriddenMethodReturnNullness);
     // if the super method returns nonnull,
     // overriding method better not return nullable
-    if (overriddenMethodReturnsNonNull
+    if (overriddenMethodReturnNullness.equals(Nullness.NONNULL)
         && Nullness.hasNullableAnnotation(overridingMethod, config)
         && (memberReferenceTree == null
             || getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE))) {

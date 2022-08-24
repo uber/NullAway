@@ -60,6 +60,8 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
         if (config.treatGeneratedAsUnannotated()
             && classAnnotationInfo.isGenerated(methodSymbol, config)) {
           return exprMayBeNull;
+        } else if (Nullness.hasNonNullAnnotation(methodSymbol, config)) {
+          return false;
         } else {
           return Nullness.hasNullableAnnotation(methodSymbol, config) || exprMayBeNull;
         }
@@ -102,9 +104,15 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
-      Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
-    return Nullness.hasNonNullAnnotation(methodSymbol, config) || explicitlyNonNullReturn;
+  public Nullness onOverrideMethodInvocationReturnNullability(
+      Symbol.MethodSymbol methodSymbol,
+      VisitorState state,
+      boolean isAnnotated,
+      Nullness returnNullness) {
+    if (!isAnnotated && Nullness.hasNonNullAnnotation(methodSymbol, config)) {
+      return Nullness.NONNULL;
+    }
+    return returnNullness;
   }
 
   @Override

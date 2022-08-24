@@ -123,14 +123,17 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
-      Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
+  public Nullness onOverrideMethodInvocationReturnNullability(
+      Symbol.MethodSymbol methodSymbol,
+      VisitorState state,
+      boolean isAnnotated,
+      Nullness returnNullness) {
     for (Handler h : handlers) {
-      explicitlyNonNullReturn =
-          h.onUnannotatedInvocationGetExplicitlyNonNullReturn(
-              methodSymbol, explicitlyNonNullReturn);
+      returnNullness =
+          h.onOverrideMethodInvocationReturnNullability(
+              methodSymbol, state, isAnnotated, returnNullness);
     }
-    return explicitlyNonNullReturn;
+    return returnNullness;
   }
 
   @Override
