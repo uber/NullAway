@@ -36,12 +36,14 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
@@ -107,15 +109,6 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
-      Context context,
-      Symbol.MethodSymbol methodSymbol,
-      ImmutableSet<Integer> explicitlyNullablePositions) {
-    // NoOp
-    return explicitlyNullablePositions;
-  }
-
-  @Override
   public boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
       Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
     // NoOp
@@ -123,14 +116,13 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public ImmutableSet<Integer> onUnannotatedInvocationGetNonNullPositions(
-      NullAway analysis,
-      VisitorState state,
+  public Map<Integer, Nullness> onOverrideMethodInvocationParametersNullability(
+      Context context,
       Symbol.MethodSymbol methodSymbol,
-      List<? extends ExpressionTree> actualParams,
-      ImmutableSet<Integer> nonNullPositions) {
+      boolean isAnnotated,
+      Map<Integer, Nullness> argumentPositionNullness) {
     // NoOp
-    return nonNullPositions;
+    return argumentPositionNullness;
   }
 
   @Override

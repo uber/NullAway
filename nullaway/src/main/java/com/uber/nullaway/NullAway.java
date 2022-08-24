@@ -618,62 +618,70 @@ public class NullAway extends BugChecker
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
     com.sun.tools.javac.util.List<VarSymbol> superParamSymbols = overriddenMethod.getParameters();
-    boolean unboundMemberRef =
+    final boolean unboundMemberRef =
         (memberReferenceTree != null)
             && ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
-    // if we have an unbound method reference, the first parameter of the overridden method must be
-    // @NonNull, as this parameter will be used as a method receiver inside the generated lambda
-    if (unboundMemberRef) {
-      boolean isFirstParamNull = false;
-      // Two cases: for annotated code, look first at the annotation
-      if (!classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config)) {
-        isFirstParamNull = Nullness.hasNullableAnnotation(superParamSymbols.get(0), config);
-      }
-      // For both annotated and unannotated code, look then at handler overrides (e.g. Library
-      // Models)
-      isFirstParamNull =
-          handler
-              .onUnannotatedInvocationGetExplicitlyNullablePositions(
-                  state.context,
-                  overriddenMethod,
-                  isFirstParamNull ? ImmutableSet.of(0) : ImmutableSet.of())
-              .contains(0);
-      if (isFirstParamNull) {
-        String message =
-            "unbound instance method reference cannot be used, as first parameter of "
-                + "functional interface method "
-                + ASTHelpers.enclosingClass(overriddenMethod)
-                + "."
-                + overriddenMethod.toString()
-                + " is @Nullable";
-        return errorBuilder.createErrorDescription(
-            new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
-            buildDescription(memberReferenceTree),
-            state,
-            null);
+    final boolean isOverriddenMethodAnnotated =
+        !classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
+
+    // Get argument nullability for the overridden method:
+    Map<Integer, Nullness> overriddenMethodArgNullnessMap = new LinkedHashMap<>();
+
+    // Collect @Nullable params of overridden method iff the overridden method is in annotated code
+    // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
+    // -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations flag and its handler).
+    if (isOverriddenMethodAnnotated) {
+      for (int i = 0; i < superParamSymbols.size(); i++) {
+        overriddenMethodArgNullnessMap.put(
+            i,
+            Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)
+                ? Nullness.NULLABLE
+                : Nullness.NONNULL);
       }
     }
+
+    // Check handlers for any further/overriding nullness information
+    overriddenMethodArgNullnessMap =
+        handler.onOverrideMethodInvocationParametersNullability(
+            state.context,
+            overriddenMethod,
+            isOverriddenMethodAnnotated,
+            overriddenMethodArgNullnessMap);
+
+    // If we have an unbound method reference, the first parameter of the overridden method must be
+    // @NonNull, as this parameter will be used as a method receiver inside the generated lambda.
+    // e.g. String::length is implemented as (@NonNull s -> s.length()) when used as a
+    // SomeFunc<String> and thus incompatible with, for example, SomeFunc.apply(@Nullable T).
+    if (unboundMemberRef
+        && overriddenMethodArgNullnessMap
+            .getOrDefault(0, Nullness.NONNULL)
+            .equals(Nullness.NULLABLE)) {
+      String message =
+          "unbound instance method reference cannot be used, as first parameter of "
+              + "functional interface method "
+              + ASTHelpers.enclosingClass(overriddenMethod)
+              + "."
+              + overriddenMethod.toString()
+              + " is @Nullable";
+      return errorBuilder.createErrorDescription(
+          new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
+          buildDescription(memberReferenceTree),
+          state,
+          null);
+    }
+
     // for unbound member references, we need to adjust parameter indices by 1 when matching with
     // overridden method
-    int startParam = unboundMemberRef ? 1 : 0;
-    // Collect @Nullable params of overriden method
-    ImmutableSet<Integer> nullableParamsOfOverriden;
-    if (classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config)) {
-      nullableParamsOfOverriden =
-          handler.onUnannotatedInvocationGetExplicitlyNullablePositions(
-              state.context, overriddenMethod, ImmutableSet.of());
-    } else {
-      ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
-      for (int i = startParam; i < superParamSymbols.size(); i++) {
-        // we need to call paramHasNullableAnnotation here since overriddenMethod may be defined
-        // in a class file
-        if (Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)) {
-          builder.add(i);
-        }
+    final int startParam = unboundMemberRef ? 1 : 0;
+
+    for (int i = 0; i < superParamSymbols.size(); i++) {
+      if (overriddenMethodArgNullnessMap
+          .getOrDefault(i, Nullness.NONNULL)
+          .equals(Nullness.NONNULL)) {
+        // No need to check, unless the argument of the overridden method is effectively @Nullable,
+        // in which case it can't be overridding a @NonNull arg.
+        continue;
       }
-      nullableParamsOfOverriden = builder.build();
-    }
-    for (int i : nullableParamsOfOverriden) {
       int methodParamInd = i - startParam;
       VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
       // in the case where we have a parameter of a lambda expression, we do
@@ -1425,12 +1433,6 @@ public class NullAway extends BugChecker
       VisitorState state,
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams) {
-    ImmutableSet<Integer> nonNullPositions = null;
-    if (classAnnotationInfo.isSymbolUnannotated(methodSymbol, config)) {
-      nonNullPositions =
-          handler.onUnannotatedInvocationGetNonNullPositions(
-              this, state, methodSymbol, actualParams, ImmutableSet.of());
-    }
     List<VarSymbol> formalParams = methodSymbol.getParameters();
 
     if (formalParams.size() != actualParams.size()
@@ -1444,8 +1446,11 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    if (nonNullPositions == null) {
-      ImmutableSet.Builder<Integer> builder = ImmutableSet.builder();
+    final boolean isMethodAnnotated =
+        !classAnnotationInfo.isSymbolUnannotated(methodSymbol, config);
+    Map<Integer, Nullness> argumentPositionNullness = new LinkedHashMap<>();
+
+    if (isMethodAnnotated) {
       // compute which arguments are @NonNull
       for (int i = 0; i < formalParams.size(); i++) {
         VarSymbol param = formalParams.get(i);
@@ -1454,27 +1459,39 @@ public class NullAway extends BugChecker
           if (unboxingCheck != Description.NO_MATCH) {
             return unboxingCheck;
           } else {
-            continue;
+            argumentPositionNullness.put(i, Nullness.NONNULL);
           }
         } else if (ASTHelpers.isSameType(
             param.type, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
           // Temporarily treat a Void argument type as if it were @Nullable Void. Handling of Void
-          // without
-          // special-casing, as recommeded by JSpecify might: a) require generics support and, b)
-          // require
-          // checking that third-party libraries considered annotated adopt JSpecify semantics.
+          // without special-casing, as recommended by JSpecify might: a) require generics support
+          // and, b) require checking that third-party libraries considered annotated adopt
+          // JSpecify semantics.
           // See the suppression in https://github.com/uber/NullAway/pull/608 for an example of why
           // this is needed.
-          continue;
-        }
-        // we need to call paramHasNullableAnnotation here since the invoked method may be defined
-        // in a class file
-        if (!Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
-          builder.add(i);
+          argumentPositionNullness.put(i, Nullness.NULLABLE);
+        } else {
+          // we need to call paramHasNullableAnnotation here since the invoked method may be defined
+          // in a class file
+          argumentPositionNullness.put(
+              i,
+              Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
+                  ? Nullness.NULLABLE
+                  : Nullness.NONNULL);
         }
       }
-      nonNullPositions = builder.build();
     }
+
+    // Allow handlers to override the list of non-null argument positions
+    argumentPositionNullness =
+        handler.onOverrideMethodInvocationParametersNullability(
+            state.context, methodSymbol, isMethodAnnotated, argumentPositionNullness);
+
+    ImmutableSet<Integer> nonNullPositions =
+        argumentPositionNullness.entrySet().stream()
+            .filter(e -> e.getValue().equals(Nullness.NONNULL))
+            .map(e -> e.getKey())
+            .collect(ImmutableSet.toImmutableSet());
 
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference

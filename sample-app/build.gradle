@@ -52,7 +52,7 @@ android {
         }
     }
     
-    // If you want to disable NullAway in justs tests, you can do the below
+    // If you want to disable NullAway in just tests, you can do the below
 //    DomainObjectSet<BaseVariant> testVariants = getTestVariants()
 //    testVariants.addAll(getUnitTestVariants())
 //    testVariants.configureEach { variant ->

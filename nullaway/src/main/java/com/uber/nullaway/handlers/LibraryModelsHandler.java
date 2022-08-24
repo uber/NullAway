@@ -24,6 +24,7 @@ package com.uber.nullaway.handlers;
 
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 import static com.uber.nullaway.Nullness.NONNULL;
+import static com.uber.nullaway.Nullness.NULLABLE;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
@@ -43,9 +44,11 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,28 +80,32 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public ImmutableSet<Integer> onUnannotatedInvocationGetNonNullPositions(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
-      List<? extends ExpressionTree> actualParams,
-      ImmutableSet<Integer> nonNullPositions) {
-    return Sets.union(
-            nonNullPositions, getOptLibraryModels(state.context).nonNullParameters(methodSymbol))
-        .immutableCopy();
-  }
-
-  @Override
-  public ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
+  public Map<Integer, Nullness> onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
-      ImmutableSet<Integer> explicitlyNullablePositions) {
-    return Sets.union(
-            Sets.difference(
-                explicitlyNullablePositions,
-                getOptLibraryModels(context).nonNullParameters(methodSymbol)),
-            getOptLibraryModels(context).explicitlyNullableParameters(methodSymbol))
-        .immutableCopy();
+      boolean isAnnotated,
+      Map<Integer, Nullness> argumentPositionNullness) {
+    OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(context);
+    ImmutableSet<Integer> nullableParamsFromModel =
+        optimizedLibraryModels.explicitlyNullableParameters(methodSymbol);
+    ImmutableSet<Integer> nonNullParamsFromModel =
+        optimizedLibraryModels.nonNullParameters(methodSymbol);
+    Sets.SetView<Integer> intersection =
+        Sets.intersection(nonNullParamsFromModel, nullableParamsFromModel);
+    // Sanity check: $ nonNullParamsFromModel \cap nullableParamsFromModel $ should be empty
+    Preconditions.checkArgument(
+        intersection.isEmpty(),
+        String.format(
+            "Library models give conflicting nullability for the following parameters of method %s: %s",
+            methodSymbol.getQualifiedName().toString(),
+            Arrays.deepToString(intersection.toArray())));
+    for (Integer nullParam : nullableParamsFromModel) {
+      argumentPositionNullness.put(nullParam, NULLABLE);
+    }
+    for (Integer nonNullParam : nonNullParamsFromModel) {
+      argumentPositionNullness.put(nonNullParam, NONNULL);
+    }
+    return argumentPositionNullness;
   }
 
   @Override
