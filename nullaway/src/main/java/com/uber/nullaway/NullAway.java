@@ -678,7 +678,7 @@ public class NullAway extends BugChecker
       if (overriddenMethodArgNullnessMap
           .getOrDefault(i, Nullness.NONNULL)
           .equals(Nullness.NONNULL)) {
-        // No need to check, unless teh argument of the overridden method is effectively @Nullable,
+        // No need to check, unless the argument of the overridden method is effectively @Nullable,
         // in which case it can't be overridding a @NonNull arg.
         continue;
       }

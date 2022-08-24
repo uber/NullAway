@@ -138,7 +138,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       // for annotated code is if we expect/want JarInfer results to override the results of another
       // handler, such as restrictive annotations, but a library models is a safer place to perform
       // such an override.
-      // Additionally, by default, InferredJARModelsHandler is used only to load our Android SKD
+      // Additionally, by default, InferredJARModelsHandler is used only to load our Android SDK
       // JarInfer models (i.e. `com.uber.nullaway:JarInferAndroidModelsSDK##`), since the default
       // model of JarInfer on a normal jar/aar is to add bytecode annotations.
       return argumentPositionNullness;
