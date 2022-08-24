@@ -45,6 +45,7 @@ import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.analysis.ConditionalTransferResult;
 import org.checkerframework.nullaway.dataflow.analysis.ForwardTransferFunction;
 import org.checkerframework.nullaway.dataflow.analysis.RegularTransferResult;
@@ -936,6 +937,31 @@ public class AccessPathNullnessPropagation
       if (getAccessPath != null) {
         Nullness value = inputs.valueOfSubNode(arguments.get(1));
         bothUpdates.set(getAccessPath, value);
+      }
+    } else if (AccessPath.isMapComputeIfAbsent(callee, state)) {
+      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, apContext);
+      if (getAccessPath != null) {
+        // TODO: For now, Function<K, V> implies a @NonNull V. We need to revisit this once we
+        // support generics, but we do include a couple defensive tests below.
+        if (arguments.size() < 2) {
+          return;
+        }
+        Node funcNode = arguments.get(1);
+        if (!funcNode.getType().getKind().equals(TypeKind.DECLARED)) {
+          return;
+        }
+        Type.ClassType classType = (Type.ClassType) funcNode.getType();
+        if (classType.getTypeArguments().size() != 2) {
+          return;
+        }
+        Type functionReturnType = classType.getTypeArguments().get(1);
+        // Unfortunately, functionReturnType.tsym seems to elide annotation info, so we can't call
+        // the Nullness.* methods that deal with Symbol. We might have better APIs for this kind of
+        // check once we have real generics support.
+        if (!Nullness.hasNullableAnnotation(
+            functionReturnType.getAnnotationMirrors().stream(), config)) {
+          bothUpdates.set(getAccessPath, NONNULL);
+        }
       }
     }
   }
