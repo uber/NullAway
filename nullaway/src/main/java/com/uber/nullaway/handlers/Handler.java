@@ -358,7 +358,7 @@ public interface Handler {
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
-   * their knowledge of the method return nullability to the the rest of NullAway.
+   * their knowledge of the method return nullability to the rest of NullAway.
    */
   public enum NullnessHint {
     /**
