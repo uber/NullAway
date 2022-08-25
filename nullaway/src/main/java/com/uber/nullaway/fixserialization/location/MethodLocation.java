@@ -25,8 +25,8 @@ package com.uber.nullaway.fixserialization.location;
 import com.sun.tools.javac.code.Symbol;
 import javax.lang.model.element.ElementKind;
 
-/** subtype of {@link AbstractFixLocation} targeting methods. */
-public class MethodLocation extends AbstractFixLocation {
+/** subtype of {@link AbstractSymbolLocation} targeting methods. */
+public class MethodLocation extends AbstractSymbolLocation {
 
   /** Symbol of the targeted method. */
   protected final Symbol.MethodSymbol enclosingMethod;

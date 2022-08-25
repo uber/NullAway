@@ -24,11 +24,11 @@ package com.uber.nullaway.fixserialization.location;
 
 import com.sun.tools.javac.code.Symbol;
 
-/** Provides method for fix locations. */
-public interface FixLocation {
+/** Provides method for symbol locations. */
+public interface SymbolLocation {
 
   /**
-   * returns string representation of contents of the instance. It must have the format below: type
+   * returns string representation of contents of the instance. It must have the format below: kind
    * of the element, symbol of the containing class, symbol of the enclosing method, symbol of the
    * variable, index of the element and uri to containing file.
    *
@@ -37,32 +37,23 @@ public interface FixLocation {
   String tabSeparatedToString();
 
   /**
-   * Creates header of an output file containing all {@link FixLocation} written in string which
+   * Creates header of an output file containing all {@link SymbolLocation} written in string which
    * values are separated tabs.
    *
    * @return string representation of the header separated by tabs.
    */
   static String header() {
-    return "location"
-        + '\t'
-        + "class"
-        + '\t'
-        + "method"
-        + '\t'
-        + "param"
-        + '\t'
-        + "index"
-        + '\t'
+    return "kind" + '\t' + "class" + '\t' + "method" + '\t' + "param" + '\t' + "index" + '\t'
         + "uri";
   }
 
   /**
-   * returns the appropriate subtype of {@link FixLocation} based on the target kind.
+   * returns the appropriate subtype of {@link SymbolLocation} based on the target kind.
    *
    * @param target Target element.
-   * @return subtype of {@link FixLocation} matching target's type.
+   * @return subtype of {@link SymbolLocation} matching target's type.
    */
-  static FixLocation createFixLocationFromSymbol(Symbol target) {
+  static SymbolLocation createLocationFromSymbol(Symbol target) {
     switch (target.getKind()) {
       case PARAMETER:
         return new MethodParameterLocation(target);

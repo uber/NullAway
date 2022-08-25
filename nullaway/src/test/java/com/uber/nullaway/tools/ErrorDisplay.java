@@ -30,14 +30,41 @@ import java.util.Objects;
 public class ErrorDisplay implements Display {
   public final String type;
   public final String message;
-  public final String method;
+  public final String encMethod;
+  public final String encClass;
+  public final String kind;
   public final String clazz;
+  public final String method;
+  public final String variable;
+  public final String index;
+  public final String uri;
 
-  public ErrorDisplay(String type, String message, String clazz, String method) {
+  public ErrorDisplay(
+      String type,
+      String message,
+      String encClass,
+      String encMethod,
+      String kind,
+      String clazz,
+      String method,
+      String variable,
+      String index,
+      String uri) {
     this.type = type;
     this.message = message;
-    this.method = method;
+    this.encMethod = encMethod;
+    this.encClass = encClass;
+    this.kind = kind;
     this.clazz = clazz;
+    this.method = method;
+    this.variable = variable;
+    this.index = index;
+    // relative paths are getting compared.
+    this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
+  }
+
+  public ErrorDisplay(String type, String message, String encClass, String encMethod) {
+    this(type, message, encClass, encMethod, "null", "null", "null", "null", "null", "null");
   }
 
   @Override
@@ -50,16 +77,19 @@ public class ErrorDisplay implements Display {
     }
     ErrorDisplay that = (ErrorDisplay) o;
     return type.equals(that.type)
-        // To increase readability, a shorter version of the actual message might be present in the
-        // expected output of tests.
+        && encMethod.equals(that.encMethod)
+        && encClass.equals(that.encClass)
+        && kind.equals(that.kind)
+        && clazz.equals(that.clazz)
         && (message.contains(that.message) || that.message.contains(message))
-        && method.equals(that.method)
-        && clazz.equals(that.clazz);
+        && variable.equals(that.variable)
+        && index.equals(that.index)
+        && uri.equals(that.uri);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(type, message, method, clazz);
+    return Objects.hash(type, message, encMethod, encClass);
   }
 
   @Override
@@ -71,11 +101,29 @@ public class ErrorDisplay implements Display {
         + "\n\tmessage='"
         + message
         + '\''
+        + "\n\tencMethod='"
+        + encMethod
+        + '\''
+        + "\n\tencClass='"
+        + encClass
+        + '\''
+        + "\n\tkind='"
+        + kind
+        + '\''
+        + "\n\tclazz='"
+        + clazz
+        + '\''
         + "\n\tmethod='"
         + method
         + '\''
-        + "\n\tclass='"
-        + clazz
+        + "\n\tvariable='"
+        + variable
+        + '\''
+        + "\n\tindex='"
+        + index
+        + '\''
+        + "\n\turi='"
+        + uri
         + '\''
         + '}';
   }

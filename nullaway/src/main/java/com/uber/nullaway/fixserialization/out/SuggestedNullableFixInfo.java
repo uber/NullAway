@@ -25,23 +25,23 @@ package com.uber.nullaway.fixserialization.out;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.fixserialization.location.FixLocation;
+import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import java.util.Objects;
 
 /** Stores information suggesting adding @Nullable on an element in source code. */
 public class SuggestedNullableFixInfo {
 
   /** FixLocation of the target element in source code. */
-  private final FixLocation fixLocation;
+  private final SymbolLocation symbolLocation;
   /** Error which will be resolved by this type change. */
   private final ErrorMessage errorMessage;
 
   private final ClassAndMethodInfo classAndMethodInfo;
 
   public SuggestedNullableFixInfo(
-      TreePath path, FixLocation fixLocation, ErrorMessage errorMessage) {
+      TreePath path, SymbolLocation symbolLocation, ErrorMessage errorMessage) {
     this.classAndMethodInfo = new ClassAndMethodInfo(path);
-    this.fixLocation = fixLocation;
+    this.symbolLocation = symbolLocation;
     this.errorMessage = errorMessage;
   }
 
@@ -54,7 +54,7 @@ public class SuggestedNullableFixInfo {
       return false;
     }
     SuggestedNullableFixInfo suggestedNullableFixInfo = (SuggestedNullableFixInfo) o;
-    return Objects.equals(fixLocation, suggestedNullableFixInfo.fixLocation)
+    return Objects.equals(symbolLocation, suggestedNullableFixInfo.symbolLocation)
         && Objects.equals(
             errorMessage.getMessageType().toString(),
             suggestedNullableFixInfo.errorMessage.getMessageType().toString());
@@ -62,7 +62,7 @@ public class SuggestedNullableFixInfo {
 
   @Override
   public int hashCode() {
-    return Objects.hash(fixLocation, errorMessage.getMessageType().toString());
+    return Objects.hash(symbolLocation, errorMessage.getMessageType().toString());
   }
 
   /**
@@ -71,7 +71,7 @@ public class SuggestedNullableFixInfo {
    * @return string representation of contents of an object in a line separated by tabs.
    */
   public String tabSeparatedToString() {
-    return fixLocation.tabSeparatedToString()
+    return symbolLocation.tabSeparatedToString()
         + '\t'
         + errorMessage.getMessageType().toString()
         + '\t'
@@ -98,7 +98,7 @@ public class SuggestedNullableFixInfo {
    * @return string representation of the header separated by tabs.
    */
   public static String header() {
-    return FixLocation.header()
+    return SymbolLocation.header()
         + '\t'
         + "reason"
         + '\t'

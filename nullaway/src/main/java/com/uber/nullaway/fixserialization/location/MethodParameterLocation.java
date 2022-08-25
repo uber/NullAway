@@ -26,19 +26,19 @@ import com.google.common.base.Preconditions;
 import com.sun.tools.javac.code.Symbol;
 import javax.lang.model.element.ElementKind;
 
-/** subtype of {@link AbstractFixLocation} targeting a method parameter. */
-public class MethodParameterLocation extends AbstractFixLocation {
+/** subtype of {@link AbstractSymbolLocation} targeting a method parameter. */
+public class MethodParameterLocation extends AbstractSymbolLocation {
 
   /** Symbol of the targeted method. */
   private final Symbol.MethodSymbol enclosingMethod;
   /** Symbol of the targeted method parameter. */
-  private final Symbol.VarSymbol variableSymbol;
+  private final Symbol.VarSymbol paramSymbol;
   /** Index of the method parameter in the containing method's argument list. */
   private final int index;
 
   public MethodParameterLocation(Symbol target) {
     super(ElementKind.PARAMETER, target);
-    this.variableSymbol = (Symbol.VarSymbol) target;
+    this.paramSymbol = (Symbol.VarSymbol) target;
     Symbol cursor = target;
     // Look for the enclosing method.
     while (cursor != null
@@ -65,7 +65,7 @@ public class MethodParameterLocation extends AbstractFixLocation {
         + '\t'
         + enclosingMethod
         + '\t'
-        + variableSymbol
+        + paramSymbol
         + '\t'
         + index
         + '\t'

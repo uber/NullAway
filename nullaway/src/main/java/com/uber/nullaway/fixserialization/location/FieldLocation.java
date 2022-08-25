@@ -25,8 +25,8 @@ package com.uber.nullaway.fixserialization.location;
 import com.sun.tools.javac.code.Symbol;
 import javax.lang.model.element.ElementKind;
 
-/** subtype of {@link AbstractFixLocation} targeting class fields. */
-public class FieldLocation extends AbstractFixLocation {
+/** subtype of {@link AbstractSymbolLocation} targeting class fields. */
+public class FieldLocation extends AbstractSymbolLocation {
 
   /** Symbol of targeted class field */
   protected final Symbol.VarSymbol variableSymbol;

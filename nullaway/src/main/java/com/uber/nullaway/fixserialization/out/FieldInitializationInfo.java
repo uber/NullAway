@@ -23,7 +23,7 @@
 package com.uber.nullaway.fixserialization.out;
 
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.fixserialization.location.FixLocation;
+import com.uber.nullaway.fixserialization.location.SymbolLocation;
 
 /**
  * Stores information regarding a method that initializes a class field and leaves it
@@ -32,12 +32,12 @@ import com.uber.nullaway.fixserialization.location.FixLocation;
 public class FieldInitializationInfo {
 
   /** Symbol of the initializer method. */
-  private final FixLocation initializerMethodLocation;
+  private final SymbolLocation initializerMethodLocation;
   /** Symbol of the initialized class field. */
   private final Symbol field;
 
   public FieldInitializationInfo(Symbol.MethodSymbol initializerMethod, Symbol field) {
-    this.initializerMethodLocation = FixLocation.createFixLocationFromSymbol(initializerMethod);
+    this.initializerMethodLocation = SymbolLocation.createLocationFromSymbol(initializerMethod);
     this.field = field;
   }
 
@@ -59,6 +59,6 @@ public class FieldInitializationInfo {
    * @return string representation of the header separated by tabs.
    */
   public static String header() {
-    return FixLocation.header() + '\t' + "field";
+    return SymbolLocation.header() + '\t' + "field";
   }
 }
