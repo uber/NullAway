@@ -81,6 +81,8 @@ public class ErrorDisplay implements Display {
         && encClass.equals(that.encClass)
         && kind.equals(that.kind)
         && clazz.equals(that.clazz)
+        // To increase readability, a shorter version of the actual message might be present in the
+        // expected output of tests.
         && (message.contains(that.message) || that.message.contains(message))
         && variable.equals(that.variable)
         && index.equals(that.index)
