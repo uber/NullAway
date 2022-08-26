@@ -23,8 +23,6 @@
 package com.uber.nullaway.handlers;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Sets;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
@@ -36,6 +34,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.jarinfer.JarInferStubxProvider;
@@ -44,7 +43,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
@@ -126,12 +124,25 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public ImmutableSet<Integer> onUnannotatedInvocationGetNonNullPositions(
-      NullAway analysis,
-      VisitorState state,
+  public Map<Integer, Nullness> onOverrideMethodInvocationParametersNullability(
+      Context context,
       Symbol.MethodSymbol methodSymbol,
-      List<? extends ExpressionTree> actualParams,
-      ImmutableSet<Integer> nonNullPositions) {
+      boolean isAnnotated,
+      Map<Integer, Nullness> argumentPositionNullness) {
+    if (isAnnotated) {
+      // We currently do not load JarInfer models for code marked as annotated.
+      // This is unlikely to change, as the behavior of JarInfer on arguments is to explicitly mark
+      // as @NonNull those arguments that are shallowly dereferenced within the analyzed method. By
+      // convention, annotated code has no use for explicit @NonNull annotations, since `T` already
+      // means `@NonNull T` within annotated code. The only case where we would want to enable this
+      // for annotated code is if we expect/want JarInfer results to override the results of another
+      // handler, such as restrictive annotations, but a library models is a safer place to perform
+      // such an override.
+      // Additionally, by default, InferredJARModelsHandler is used only to load our Android SDK
+      // JarInfer models (i.e. `com.uber.nullaway:JarInferAndroidModelsSDK##`), since the default
+      // model of JarInfer on a normal jar/aar is to add bytecode annotations.
+      return argumentPositionNullness;
+    }
     Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
     String className = classSymbol.getQualifiedName().toString();
     if (methodSymbol.getModifiers().contains(Modifier.ABSTRACT)) {
@@ -139,28 +150,30 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
           VERBOSE,
           "Warn",
           "Skipping abstract method: " + className + " : " + methodSymbol.getQualifiedName());
-      return nonNullPositions;
+      return argumentPositionNullness;
     }
     if (!argAnnotCache.containsKey(className)) {
-      return nonNullPositions;
+      return argumentPositionNullness;
     }
     String methodSign = getMethodSignature(methodSymbol);
     Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
     if (methodArgAnnotations == null) {
-      return nonNullPositions;
+      return argumentPositionNullness;
     }
     Set<Integer> jiNonNullParams = new LinkedHashSet<>();
     for (Map.Entry<Integer, Set<String>> annotationEntry : methodArgAnnotations.entrySet()) {
       if (annotationEntry.getKey() != RETURN
           && annotationEntry.getValue().contains("javax.annotation.Nonnull")) {
         // Skip 'this' param for non-static methods
-        jiNonNullParams.add(annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1));
+        int nonNullPosition = annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1);
+        jiNonNullParams.add(nonNullPosition);
+        argumentPositionNullness.put(nonNullPosition, Nullness.NONNULL);
       }
     }
     if (!jiNonNullParams.isEmpty()) {
       LOG(DEBUG, "DEBUG", "Nonnull params: " + jiNonNullParams.toString() + " for " + methodSign);
     }
-    return Sets.union(nonNullPositions, jiNonNullParams).immutableCopy();
+    return argumentPositionNullness;
   }
 
   @Override

@@ -51,8 +51,7 @@ public class NullAwayCustomLibraryModelsTests extends NullAwayTestsBase {
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AcknowledgeLibraryModelsOfAnnotatedCode=true"))
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
@@ -69,34 +68,6 @@ public class NullAwayCustomLibraryModelsTests extends NullAwayTestsBase {
             "       // just to make sure, flow analysis is also impacted by library models information",
             "      Object temp = bar();",
             "       // BUG: Diagnostic contains: assigning @Nullable",
-            "      this.field = temp;",
-            "   }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void allowLibraryModelsOverrideAnnotationsFlagTest() {
-    makeLibraryModelsTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AcknowledgeLibraryModelsOfAnnotatedCode=false"))
-        .addSourceLines(
-            "Foo.java",
-            "package com.uber;",
-            "public class Foo {",
-            "   Object field = new Object();",
-            "   Object bar() {",
-            "      return new Object();",
-            "   }",
-            "   Object nullableReturn() {",
-            "       return bar();",
-            "   }",
-            "   void run() {",
-            "       // just to make sure, flow analysis is not impacted by library models information",
-            "      Object temp = bar();",
             "      this.field = temp;",
             "   }",
             "}")

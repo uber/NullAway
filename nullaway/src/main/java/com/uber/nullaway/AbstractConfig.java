@@ -129,8 +129,6 @@ public abstract class AbstractConfig implements Config {
 
   protected FixSerializationConfig fixSerializationConfig;
 
-  protected boolean acknowledgeLibraryModelsOfAnnotatedCode;
-
   @Override
   public boolean serializationIsActive() {
     return serializationActivationFlag;
@@ -350,10 +348,5 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean acknowledgeAndroidRecent() {
     return acknowledgeAndroidRecent;
-  }
-
-  @Override
-  public boolean acknowledgeLibraryModelsOfAnnotatedCode() {
-    return acknowledgeLibraryModelsOfAnnotatedCode;
   }
 }

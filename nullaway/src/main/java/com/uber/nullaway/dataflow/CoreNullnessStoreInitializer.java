@@ -3,7 +3,6 @@ package com.uber.nullaway.dataflow;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
-import com.google.common.collect.ImmutableSet;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.VariableTree;
@@ -15,7 +14,9 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
@@ -93,9 +94,18 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code, types);
     com.sun.tools.javac.util.List<Symbol.VarSymbol> fiMethodParameters =
         fiMethodSymbol.getParameters();
-    ImmutableSet<Integer> nullableParamsFromHandler =
-        handler.onUnannotatedInvocationGetExplicitlyNullablePositions(
-            context, fiMethodSymbol, ImmutableSet.of());
+    Map<Integer, Nullness> fiArgumentPositionNullness = new LinkedHashMap<>();
+    final boolean isFIAnnotated = !classAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config);
+    if (isFIAnnotated) {
+      for (int i = 0; i < fiMethodParameters.size(); i++) {
+        fiArgumentPositionNullness.put(
+            i,
+            Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config) ? NULLABLE : NONNULL);
+      }
+    }
+    fiArgumentPositionNullness =
+        handler.onOverrideMethodInvocationParametersNullability(
+            context, fiMethodSymbol, isFIAnnotated, fiArgumentPositionNullness);
 
     for (int i = 0; i < parameters.size(); i++) {
       LocalVariableNode param = parameters.get(i);
@@ -111,15 +121,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         // treat as non-null
         assumed = NONNULL;
       } else {
-        if (classAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config)) {
-          // assume parameter is non-null unless handler tells us otherwise
-          assumed = nullableParamsFromHandler.contains(i) ? NULLABLE : NONNULL;
-        } else {
-          assumed =
-              Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config)
-                  ? NULLABLE
-                  : NONNULL;
-        }
+        assumed = fiArgumentPositionNullness.getOrDefault(i, NONNULL);
       }
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }

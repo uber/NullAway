@@ -44,6 +44,7 @@ import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
@@ -135,27 +136,6 @@ public interface Handler {
   void onMatchReturn(NullAway analysis, ReturnTree tree, VisitorState state);
 
   /**
-   * Called when NullAway encounters an unannotated method and asks for params explicitly
-   * marked @Nullable
-   *
-   * <p>This is mostly used to force overriding methods to also use @Nullable, e.g. for callbacks
-   * that can get passed null values.
-   *
-   * <p>Note that this should be only used for parameters EXPLICLTY marked as @Nullable (e.g. by
-   * library models) rather than those considered @Nullable by NullAway's default optimistic
-   * assumptions.
-   *
-   * @param methodSymbol The method symbol for the unannotated method in question.
-   * @param explicitlyNullablePositions Parameter nullability computed by upstream handlers (the
-   *     core analysis supplies the empty set to the first handler in the chain).
-   * @return Updated parameter nullability computed by this handler.
-   */
-  ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
-      Context context,
-      Symbol.MethodSymbol methodSymbol,
-      ImmutableSet<Integer> explicitlyNullablePositions);
-
-  /**
    * Called when NullAway encounters an unannotated method and asks if return value is explicitly
    * marked @Nullable
    *
@@ -171,24 +151,6 @@ public interface Handler {
       Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn);
 
   /**
-   * Called when NullAway encounters an unannotated method and asks for params default nullability
-   *
-   * @param analysis A reference to the running NullAway analysis.
-   * @param state The current visitor state.
-   * @param methodSymbol The method symbol for the unannotated method in question.
-   * @param actualParams The actual parameters from the invocation node
-   * @param nonNullPositions Parameter nullability computed by upstream handlers (the core analysis
-   *     supplies the empty set to the first handler in the chain).
-   * @return Updated parameter nullability computed by this handler.
-   */
-  ImmutableSet<Integer> onUnannotatedInvocationGetNonNullPositions(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
-      List<? extends ExpressionTree> actualParams,
-      ImmutableSet<Integer> nonNullPositions);
-
-  /**
    * Called after the analysis determines if a expression can be null or not, allowing handlers to
    * override.
    *
@@ -201,6 +163,31 @@ public interface Handler {
    */
   boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull);
+
+  /**
+   * Called after the analysis determines the nullability of a method's arguments, allowing handlers
+   * to override.
+   *
+   * <p>The passed Map object maps argument positions to nullness information and is sparse, where
+   * the nullness of missing indexes is determined by base analysis and depends on if the code is
+   * considered isAnnotated or not. We use a mutable map for performance, but it should not outlive
+   * the chain of handler invocations.
+   *
+   * @param context The current context.
+   * @param methodSymbol The method symbol for the unannotated method in question.
+   * @param isAnnotated A boolean flag indicating whether the called method is considered to be
+   *     within isAnnotated or unannotated code, used to avoid querying for this information
+   *     multiple times within the same handler chain.
+   * @param argumentPositionNullness The argument position to nullness map computed by upstream
+   *     handlers and/or the base analysis (though information from the base analysis is allowed to
+   *     be incomplete/sparse at this point).
+   * @return The updated argument position to nullness map, as computed by the current handler.
+   */
+  Map<Integer, Nullness> onOverrideMethodInvocationParametersNullability(
+      Context context,
+      Symbol.MethodSymbol methodSymbol,
+      boolean isAnnotated,
+      Map<Integer, Nullness> argumentPositionNullness);
 
   /**
    * Called when the Dataflow analysis generates the initial NullnessStore for a method or lambda.
@@ -371,7 +358,7 @@ public interface Handler {
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
-   * their knowledge of the method return nullability to the the rest of NullAway.
+   * their knowledge of the method return nullability to the rest of NullAway.
    */
   public enum NullnessHint {
     /**
