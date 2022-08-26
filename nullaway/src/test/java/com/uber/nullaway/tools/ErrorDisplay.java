@@ -77,13 +77,14 @@ public class ErrorDisplay implements Display {
     }
     ErrorDisplay that = (ErrorDisplay) o;
     return type.equals(that.type)
+        // To increase readability, a shorter version of the actual message might be present in the
+        // expected output of tests.
+        && (message.contains(that.message) || that.message.contains(message))
         && encMethod.equals(that.encMethod)
         && encClass.equals(that.encClass)
         && kind.equals(that.kind)
         && clazz.equals(that.clazz)
-        // To increase readability, a shorter version of the actual message might be present in the
-        // expected output of tests.
-        && (message.contains(that.message) || that.message.contains(message))
+        && method.equals(that.method)
         && variable.equals(that.variable)
         && index.equals(that.index)
         && uri.equals(that.uri);

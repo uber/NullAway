@@ -676,7 +676,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "test(java.lang.Object)",
                 "METHOD",
                 "com.uber.Super",
-                "test(java.lang.Object",
+                "test(java.lang.Object)",
                 "null",
                 "null",
                 "com/uber/Super.java"),
