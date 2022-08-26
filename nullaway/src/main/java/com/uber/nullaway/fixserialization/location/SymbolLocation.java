@@ -43,8 +43,7 @@ public interface SymbolLocation {
    * @return string representation of the header separated by tabs.
    */
   static String header() {
-    return "kind" + '\t' + "class" + '\t' + "method" + '\t' + "param" + '\t' + "index" + '\t'
-        + "uri";
+    return String.join("\t", "kind", "class", "method", "param", "index", "uri");
   }
 
   /**

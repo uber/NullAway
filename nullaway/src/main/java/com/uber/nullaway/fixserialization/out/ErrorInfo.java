@@ -93,21 +93,19 @@ public class ErrorInfo {
    * @return string representation of contents of an object in a line seperated by tabs.
    */
   public String tabSeparatedToString() {
-    return errorMessage.getMessageType().toString()
-        + '\t'
-        + escapeSpecialCharacters(errorMessage.getMessage())
-        + '\t'
-        + (classAndMethodInfo.getClazz() != null
+    return String.join(
+        "\t",
+        errorMessage.getMessageType().toString(),
+        escapeSpecialCharacters(errorMessage.getMessage()),
+        (classAndMethodInfo.getClazz() != null
             ? ASTHelpers.getSymbol(classAndMethodInfo.getClazz()).flatName()
-            : "null")
-        + '\t'
-        + (classAndMethodInfo.getMethod() != null
-            ? ASTHelpers.getSymbol(classAndMethodInfo.getMethod())
-            : "null")
-        + '\t'
-        + (nonnullTarget != null
+            : "null"),
+        (classAndMethodInfo.getMethod() != null
+            ? ASTHelpers.getSymbol(classAndMethodInfo.getMethod()).toString()
+            : "null"),
+        (nonnullTarget != null
             ? SymbolLocation.createLocationFromSymbol(nonnullTarget).tabSeparatedToString()
-            : EMPTY_NONNULL_TARGET_LOCATION_STRING);
+            : EMPTY_NONNULL_TARGET_LOCATION_STRING));
   }
 
   /** Finds the class and method of program point where the error is reported. */
@@ -122,14 +120,7 @@ public class ErrorInfo {
    * @return string representation of the header separated by tabs.
    */
   public static String header() {
-    return "message_type"
-        + '\t'
-        + "message"
-        + '\t'
-        + "enc_class"
-        + '\t'
-        + "enc_method"
-        + '\t'
-        + SymbolLocation.header();
+    return String.join(
+        "\t", "message_type", "message", "enc_class", "enc_method", SymbolLocation.header());
   }
 }

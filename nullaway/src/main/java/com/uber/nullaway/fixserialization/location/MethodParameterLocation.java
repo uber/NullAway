@@ -59,16 +59,13 @@ public class MethodParameterLocation extends AbstractSymbolLocation {
 
   @Override
   public String tabSeparatedToString() {
-    return type.toString()
-        + '\t'
-        + enclosingClass.flatName()
-        + '\t'
-        + enclosingMethod
-        + '\t'
-        + paramSymbol
-        + '\t'
-        + index
-        + '\t'
-        + uri.toASCIIString();
+    return String.join(
+        "\t",
+        type.toString(),
+        enclosingClass.flatName(),
+        enclosingMethod.toString(),
+        paramSymbol.toString(),
+        String.valueOf(index),
+        uri.toASCIIString());
   }
 }

@@ -38,16 +38,13 @@ public class MethodLocation extends AbstractSymbolLocation {
 
   @Override
   public String tabSeparatedToString() {
-    return type.toString()
-        + '\t'
-        + enclosingClass.flatName()
-        + '\t'
-        + enclosingMethod
-        + '\t'
-        + "null"
-        + '\t'
-        + "null"
-        + '\t'
-        + uri.toASCIIString();
+    return String.join(
+        "\t",
+        type.toString(),
+        enclosingClass.flatName(),
+        enclosingMethod.toString(),
+        "null",
+        "null",
+        uri.toASCIIString());
   }
 }

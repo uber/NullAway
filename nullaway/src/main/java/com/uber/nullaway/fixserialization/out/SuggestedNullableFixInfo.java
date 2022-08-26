@@ -71,19 +71,17 @@ public class SuggestedNullableFixInfo {
    * @return string representation of contents of an object in a line separated by tabs.
    */
   public String tabSeparatedToString() {
-    return symbolLocation.tabSeparatedToString()
-        + '\t'
-        + errorMessage.getMessageType().toString()
-        + '\t'
-        + "nullable"
-        + '\t'
-        + (classAndMethodInfo.getClazz() == null
+    return String.join(
+        "\t",
+        symbolLocation.tabSeparatedToString(),
+        errorMessage.getMessageType().toString(),
+        "nullable",
+        (classAndMethodInfo.getClazz() == null
             ? "null"
-            : ASTHelpers.getSymbol(classAndMethodInfo.getClazz()).flatName())
-        + '\t'
-        + (classAndMethodInfo.getMethod() == null
+            : ASTHelpers.getSymbol(classAndMethodInfo.getClazz()).flatName()),
+        (classAndMethodInfo.getMethod() == null
             ? "null"
-            : ASTHelpers.getSymbol(classAndMethodInfo.getMethod()));
+            : ASTHelpers.getSymbol(classAndMethodInfo.getMethod()).toString()));
   }
 
   /** Finds the class and method of program point where triggered this type change. */
@@ -98,14 +96,7 @@ public class SuggestedNullableFixInfo {
    * @return string representation of the header separated by tabs.
    */
   public static String header() {
-    return SymbolLocation.header()
-        + '\t'
-        + "reason"
-        + '\t'
-        + "annotation"
-        + '\t'
-        + "rootClass"
-        + '\t'
-        + "rootMethod";
+    return String.join(
+        "\t", SymbolLocation.header(), "reason", "annotation", "rootClass", "rootMethod");
   }
 }

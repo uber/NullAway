@@ -38,16 +38,13 @@ public class FieldLocation extends AbstractSymbolLocation {
 
   @Override
   public String tabSeparatedToString() {
-    return type.toString()
-        + '\t'
-        + enclosingClass.flatName()
-        + '\t'
-        + "null"
-        + '\t'
-        + variableSymbol
-        + '\t'
-        + "null"
-        + '\t'
-        + uri.toASCIIString();
+    return String.join(
+        "\t",
+        type.toString(),
+        enclosingClass.flatName(),
+        "null",
+        variableSymbol.toString(),
+        "null",
+        uri.toASCIIString());
   }
 }
