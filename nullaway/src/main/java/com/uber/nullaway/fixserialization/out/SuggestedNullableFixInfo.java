@@ -31,7 +31,7 @@ import java.util.Objects;
 /** Stores information suggesting adding @Nullable on an element in source code. */
 public class SuggestedNullableFixInfo {
 
-  /** FixLocation of the target element in source code. */
+  /** SymbolLocation of the target element in source code. */
   private final SymbolLocation symbolLocation;
   /** Error which will be resolved by this type change. */
   private final ErrorMessage errorMessage;
