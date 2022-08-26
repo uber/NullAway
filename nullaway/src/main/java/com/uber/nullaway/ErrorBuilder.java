@@ -139,7 +139,7 @@ public class ErrorBuilder {
       if (nonNullTarget != null) {
         SerializationService.serializeFixSuggestion(config, state, nonNullTarget, errorMessage);
       }
-      SerializationService.serializeReportingError(config, state, errorMessage);
+      SerializationService.serializeReportingError(config, state, nonNullTarget, errorMessage);
     }
 
     // #letbuildersbuild

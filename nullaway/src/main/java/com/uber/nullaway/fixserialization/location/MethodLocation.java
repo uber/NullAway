@@ -25,8 +25,8 @@ package com.uber.nullaway.fixserialization.location;
 import com.sun.tools.javac.code.Symbol;
 import javax.lang.model.element.ElementKind;
 
-/** subtype of {@link AbstractFixLocation} targeting methods. */
-public class MethodLocation extends AbstractFixLocation {
+/** subtype of {@link AbstractSymbolLocation} targeting methods. */
+public class MethodLocation extends AbstractSymbolLocation {
 
   /** Symbol of the targeted method. */
   protected final Symbol.MethodSymbol enclosingMethod;
@@ -38,16 +38,13 @@ public class MethodLocation extends AbstractFixLocation {
 
   @Override
   public String tabSeparatedToString() {
-    return type.toString()
-        + '\t'
-        + enclosingClass.flatName()
-        + '\t'
-        + enclosingMethod
-        + '\t'
-        + "null"
-        + '\t'
-        + "null"
-        + '\t'
-        + uri.toASCIIString();
+    return String.join(
+        "\t",
+        type.toString(),
+        enclosingClass.flatName(),
+        enclosingMethod.toString(),
+        "null",
+        "null",
+        uri.toASCIIString());
   }
 }

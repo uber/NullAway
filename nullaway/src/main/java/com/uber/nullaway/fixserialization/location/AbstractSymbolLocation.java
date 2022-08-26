@@ -30,8 +30,8 @@ import com.sun.tools.javac.code.Symbol;
 import java.net.URI;
 import javax.lang.model.element.ElementKind;
 
-/** abstract base class for {@link FixLocation}. */
-public abstract class AbstractFixLocation implements FixLocation {
+/** abstract base class for {@link SymbolLocation}. */
+public abstract class AbstractSymbolLocation implements SymbolLocation {
 
   /** Element kind of the targeted symbol */
   protected final ElementKind type;
@@ -40,7 +40,7 @@ public abstract class AbstractFixLocation implements FixLocation {
   /** Enclosing class of the symbol. */
   protected final Symbol.ClassSymbol enclosingClass;
 
-  public AbstractFixLocation(ElementKind type, Symbol target) {
+  public AbstractSymbolLocation(ElementKind type, Symbol target) {
     Preconditions.checkArgument(
         type.equals(target.getKind()),
         "Cannot instantiate element of type: "

@@ -31,9 +31,10 @@ import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.Nullness;
-import com.uber.nullaway.fixserialization.location.FixLocation;
+import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
+import javax.annotation.Nullable;
 
 /** A facade class to interact with fix serialization package. */
 public class SerializationService {
@@ -64,7 +65,7 @@ public class SerializationService {
     if (trees.getPath(target) == null) {
       return;
     }
-    FixLocation location = FixLocation.createFixLocationFromSymbol(target);
+    SymbolLocation location = SymbolLocation.createLocationFromSymbol(target);
     SuggestedNullableFixInfo suggestedNullableFixInfo =
         buildFixMetadata(state.getPath(), errorMessage, location);
     Serializer serializer = serializationConfig.getSerializer();
@@ -82,18 +83,18 @@ public class SerializationService {
    * @param errorMessage Error caused by the target.
    */
   public static void serializeReportingError(
-      Config config, VisitorState state, ErrorMessage errorMessage) {
+      Config config, VisitorState state, @Nullable Symbol target, ErrorMessage errorMessage) {
     Serializer serializer = config.getSerializationConfig().getSerializer();
     Preconditions.checkNotNull(
         serializer, "Serializer shouldn't be null at this point, error in configuration setting!");
-    serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorMessage));
+    serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorMessage, target));
   }
 
   /**
    * Builds the {@link SuggestedNullableFixInfo} instance based on the {@link ErrorMessage} type.
    */
   private static SuggestedNullableFixInfo buildFixMetadata(
-      TreePath path, ErrorMessage errorMessage, FixLocation location) {
+      TreePath path, ErrorMessage errorMessage, SymbolLocation location) {
     SuggestedNullableFixInfo suggestedNullableFixInfo;
     switch (errorMessage.getMessageType()) {
       case RETURN_NULLABLE:
