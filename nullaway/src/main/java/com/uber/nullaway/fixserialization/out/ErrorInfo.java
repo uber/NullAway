@@ -121,6 +121,16 @@ public class ErrorInfo {
    */
   public static String header() {
     return String.join(
-        "\t", "message_type", "message", "enc_class", "enc_method", SymbolLocation.header());
+        "\t",
+        "message_type",
+        "message",
+        "enc_class",
+        "enc_method",
+        "target_kind",
+        "target_class",
+        "target_method",
+        "param",
+        "index",
+        "uri");
   }
 }
