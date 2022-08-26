@@ -91,7 +91,8 @@ public class ErrorDisplay implements Display {
 
   @Override
   public int hashCode() {
-    return Objects.hash(type, message, encMethod, encClass);
+    return Objects.hash(
+        type, message, encMethod, encClass, kind, clazz, method, variable, index, uri);
   }
 
   @Override
