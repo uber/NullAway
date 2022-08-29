@@ -41,7 +41,8 @@ public class NullAwayGuavaParametricNullnessTests {
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common"));
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common",
+                    "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"));
   }
 
   @Test
@@ -125,9 +126,11 @@ public class NullAwayGuavaParametricNullnessTests {
             "Test.java",
             "package com.uber;",
             "import com.google.common.base.Function;",
+            "import com.google.common.collect.Maps;",
+            "import java.util.Map;",
             "import javax.annotation.Nullable;",
             "class Test {",
-            "    public static void testFoo() {",
+            "    public static void testFunctionOverride() {",
             "        Function<Object, Object> f = new Function<Object, Object>() {",
             "            @Override",
             "            public Object apply(Object input) {",
@@ -135,7 +138,7 @@ public class NullAwayGuavaParametricNullnessTests {
             "             }",
             "        };",
             "    }",
-            "    public static void testFoo2() {",
+            "    public static void testFunctionOverrideNullableReturn() {",
             "        Function<Object, Object> f = new Function<Object, Object>() {",
             "            @Override",
             "            @Nullable",

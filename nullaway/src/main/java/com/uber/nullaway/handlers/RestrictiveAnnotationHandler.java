@@ -109,7 +109,15 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       VisitorState state,
       boolean isAnnotated,
       Nullness returnNullness) {
-    if (!isAnnotated && Nullness.hasNonNullAnnotation(methodSymbol, config)) {
+    // Note that, for the purposes of overriding/subtyping, either @Nullable or @NonNull
+    // can be considered restrictive annotations, depending on whether the unannotated method
+    // is overriding or being overridden.
+    if (isAnnotated) {
+      return returnNullness;
+    }
+    if (Nullness.hasNullableAnnotation(methodSymbol, config)) {
+      return Nullness.NULLABLE;
+    } else if (Nullness.hasNonNullAnnotation(methodSymbol, config)) {
       return Nullness.NONNULL;
     }
     return returnNullness;
