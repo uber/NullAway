@@ -60,8 +60,6 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
         if (config.treatGeneratedAsUnannotated()
             && classAnnotationInfo.isGenerated(methodSymbol, config)) {
           return exprMayBeNull;
-          /*} else if (Nullness.hasNonNullAnnotation(methodSymbol, config)) {
-          return false;*/
         } else {
           return Nullness.hasNullableAnnotation(methodSymbol, config) || exprMayBeNull;
         }
