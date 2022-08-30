@@ -126,8 +126,6 @@ public class NullAwayGuavaParametricNullnessTests {
             "Test.java",
             "package com.uber;",
             "import com.google.common.base.Function;",
-            "import com.google.common.collect.Maps;",
-            "import java.util.Map;",
             "import javax.annotation.Nullable;",
             "class Test {",
             "    public static void testFunctionOverride() {",

@@ -300,7 +300,7 @@ public class NullAwayAcknowledgeRestrictiveAnnotationsTests extends NullAwayTest
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
-                // Note: this if the OFF case.
+                // Note: this is the OFF case.
                 "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=false"))
         .addSourceLines(
             "AnnotatedStringIDFunctions.java",
