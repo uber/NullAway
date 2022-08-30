@@ -63,8 +63,6 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
         } else {
           return Nullness.hasNullableAnnotation(methodSymbol, config) || exprMayBeNull;
         }
-      } else {
-        return exprMayBeNull;
       }
     }
     return exprMayBeNull;
@@ -102,9 +100,23 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
-      Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
-    return Nullness.hasNonNullAnnotation(methodSymbol, config) || explicitlyNonNullReturn;
+  public Nullness onOverrideMethodInvocationReturnNullability(
+      Symbol.MethodSymbol methodSymbol,
+      VisitorState state,
+      boolean isAnnotated,
+      Nullness returnNullness) {
+    // Note that, for the purposes of overriding/subtyping, either @Nullable or @NonNull
+    // can be considered restrictive annotations, depending on whether the unannotated method
+    // is overriding or being overridden.
+    if (isAnnotated) {
+      return returnNullness;
+    }
+    if (Nullness.hasNullableAnnotation(methodSymbol, config)) {
+      return Nullness.NULLABLE;
+    } else if (Nullness.hasNonNullAnnotation(methodSymbol, config)) {
+      return Nullness.NONNULL;
+    }
+    return returnNullness;
   }
 
   @Override

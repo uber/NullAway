@@ -109,10 +109,13 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
-      Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
+  public Nullness onOverrideMethodInvocationReturnNullability(
+      Symbol.MethodSymbol methodSymbol,
+      VisitorState state,
+      boolean isAnnotated,
+      Nullness returnNullness) {
     // NoOp
-    return explicitlyNonNullReturn;
+    return returnNullness;
   }
 
   @Override

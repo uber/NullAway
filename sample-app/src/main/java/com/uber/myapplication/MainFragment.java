@@ -22,7 +22,6 @@ public class MainFragment extends Fragment {
     mOnCreateInitialisedField = new Object();
   }
 
-  @Nullable
   @Override
   public View onCreateView(
       @NonNull LayoutInflater inflater,

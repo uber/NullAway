@@ -136,21 +136,6 @@ public interface Handler {
   void onMatchReturn(NullAway analysis, ReturnTree tree, VisitorState state);
 
   /**
-   * Called when NullAway encounters an unannotated method and asks if return value is explicitly
-   * marked @Nullable
-   *
-   * <p>Note that this should be only used for return values EXPLICLTY marked as @NonNull (e.g. by
-   * library models) rather than those considered @Nullable by NullAway's default optimistic
-   * assumptions.
-   *
-   * @param methodSymbol The method symbol for the unannotated method in question.
-   * @param explicitlyNonNullReturn return nullability computed by upstream handlers.
-   * @return Updated return nullability computed by this handler.
-   */
-  boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
-      Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn);
-
-  /**
    * Called after the analysis determines if a expression can be null or not, allowing handlers to
    * override.
    *
@@ -165,6 +150,25 @@ public interface Handler {
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull);
 
   /**
+   * Called to potentially override the nullability of an annotated or unannotated method's return,
+   * when only the method symbol (and not a full invocation tree) is available. This is used
+   * primarily for checking subtyping / method overrides.
+   *
+   * @param methodSymbol The method symbol for the method in question.
+   * @param state The current visitor state.
+   * @param isAnnotated A boolean flag indicating whether the called method is considered to be
+   *     within isAnnotated or unannotated code, used to avoid querying for this information
+   *     multiple times within the same handler chain.
+   * @param returnNullness return nullness computed by upstream handlers or NullAway core.
+   * @return Updated return nullability computed by this handler.
+   */
+  Nullness onOverrideMethodInvocationReturnNullability(
+      Symbol.MethodSymbol methodSymbol,
+      VisitorState state,
+      boolean isAnnotated,
+      Nullness returnNullness);
+
+  /**
    * Called after the analysis determines the nullability of a method's arguments, allowing handlers
    * to override.
    *
@@ -174,7 +178,7 @@ public interface Handler {
    * the chain of handler invocations.
    *
    * @param context The current context.
-   * @param methodSymbol The method symbol for the unannotated method in question.
+   * @param methodSymbol The method symbol for the method in question.
    * @param isAnnotated A boolean flag indicating whether the called method is considered to be
    *     within isAnnotated or unannotated code, used to avoid querying for this information
    *     multiple times within the same handler chain.
