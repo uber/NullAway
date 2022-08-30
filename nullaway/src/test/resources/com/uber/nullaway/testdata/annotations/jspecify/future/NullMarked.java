@@ -15,14 +15,12 @@
  */
 package com.uber.nullaway.testdata.annotations.jspecify.future;
 
-// Note:
-// Copied from
+// Note: Copied from
 // https://github.com/jspecify/jspecify/blob/main/src/main/java/org/jspecify/nullness/NullMarked.java
 // used for testing JSpecify features (such as @NullMarked on methods), which aren't part of
 // JSpecify v0.2.0.
 // This annotation should be deleted and its references replaced with
-// org.jspecify.nullness.NullMarked once
-// JSpecify v0.3.0 is out.
+// org.jspecify.nullness.NullMarked once JSpecify v0.3.0 is out.
 // This test resource is not redistributed with NullAway.
 
 import static java.lang.annotation.ElementType.CONSTRUCTOR;

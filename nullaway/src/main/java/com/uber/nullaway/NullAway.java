@@ -313,8 +313,7 @@ public class NullAway extends BugChecker
     TreePath path = state.getPath();
     Tree currentTree = path.getLeaf();
     // Find the closest class or method symbol, since those are the only ones we have code
-    // annotation info
-    // for.
+    // annotation info for.
     // For the purposes of determining whether we are inside annotated code or not, when matching
     // a class its enclosing class is itself (otherwise we might not process initialization for
     // top-level classes in general, or @NullMarked inner classes), same for the enclosing method of
@@ -1005,11 +1004,9 @@ public class NullAway extends BugChecker
       final Symbol.ClassSymbol enclClassSymbol = enclosingClassSymbol(enclosingBlockPath);
 
       // Checking for initialization is only meaningful if the full class is null-annotated, which
-      // might not be
-      // the case with @NullMarked methods inside @NullUnmarked classes (note that, in those cases,
-      // we won't even have a
-      // populated class2Entities map). We skip this check if we are not inside a
-      // @NullMarked/annotated *class*:
+      // might not be the case with @NullMarked methods inside @NullUnmarked classes (note that,
+      // in those cases, we won't even have a populated class2Entities map). We skip this check if
+      // we are not inside a @NullMarked/annotated *class*:
       if (nullMarkingForTopLevelClass == NullMarking.PARTIALLY_MARKED
           && !codeAnnotationInfo.isClassNullAnnotated(enclClassSymbol, config)) {
         return false;

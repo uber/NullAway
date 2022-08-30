@@ -417,8 +417,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "  }",
             // This currently causes a crash, because updateEnvironmentMapping() is only called when
             // analyzing the class (which we don't do here, since Test$Foo is unmarked), but used
-            // within
-            // analysis of the null-marked method Test$Foo.foo(...).
+            // within analysis of the null-marked method Test$Foo.foo(...).
             "  public static Object test2() {",
             "    class Foo {",
             "      private Object o;", // No init checking, since Test$2Foo is unmarked.
