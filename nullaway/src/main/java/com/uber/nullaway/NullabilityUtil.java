@@ -296,12 +296,12 @@ public class NullabilityUtil {
    * @throws NullPointerException if {@code symbol} is null
    */
   public static boolean mayBeNullFieldFromType(
-      Symbol symbol, Config config, ClassAnnotationInfo classAnnotationInfo) {
+      Symbol symbol, Config config, CodeAnnotationInfo codeAnnotationInfo) {
     Preconditions.checkNotNull(
         symbol, "mayBeNullFieldFromType should never be called with a null symbol");
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
-            || classAnnotationInfo.isSymbolUnannotated(symbol, config))
+            || codeAnnotationInfo.isSymbolUnannotated(symbol, config))
         && Nullness.hasNullableAnnotation(symbol, config);
   }
 

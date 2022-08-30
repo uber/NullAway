@@ -38,7 +38,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
-import com.uber.nullaway.ClassAnnotationInfo;
+import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
@@ -171,13 +171,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     return newPositions.stream().findAny().orElse(previousArgumentPosition);
   }
 
-  @Nullable private ClassAnnotationInfo classAnnotationInfo;
+  @Nullable private CodeAnnotationInfo codeAnnotationInfo;
 
-  private ClassAnnotationInfo getClassAnnotationInfo(Context context) {
-    if (classAnnotationInfo == null) {
-      classAnnotationInfo = ClassAnnotationInfo.instance(context);
+  private CodeAnnotationInfo getClassAnnotationInfo(Context context) {
+    if (codeAnnotationInfo == null) {
+      codeAnnotationInfo = CodeAnnotationInfo.instance(context);
     }
-    return classAnnotationInfo;
+    return codeAnnotationInfo;
   }
 
   @Override

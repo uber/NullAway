@@ -201,6 +201,69 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullMarkedMethodLevel() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.example.thirdparty;",
+            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "public class Foo {",
+            "  @NullMarked",
+            "  public static String foo(String s) {",
+            "    return s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.thirdparty.Foo;",
+            "public class Test {",
+            "  public static void test(Object o) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    Foo.foo(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullMarkedOuterMethodLevelUsage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "IConsumer.java",
+            "package com.example.thirdparty;",
+            "public interface IConsumer {",
+            "  void consume(Object s);",
+            "}")
+        .addSourceLines(
+            "Foo.java",
+            "package com.example.thirdparty;",
+            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "public class Foo {",
+            "  @NullMarked",
+            "  public static IConsumer getConsumer() {",
+            "    return new IConsumer() {",
+            "      // Transitively null marked!",
+            "      public void consume(Object s) {",
+            "        System.out.println(s);",
+            "      }",
+            "    };",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.thirdparty.Foo;",
+            "public class Test {",
+            "  public static void test(Object o) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    Foo.getConsumer().consume(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void configUnannotatedOverridesNullMarked() {
     makeTestHelperWithArgs(
             Arrays.asList(

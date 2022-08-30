@@ -211,7 +211,7 @@ public class NullAway extends BugChecker
   // suppress initialization warning rather than casting everywhere; we know matchClass() will
   // always be called before the field gets dereferenced
   @SuppressWarnings("NullAway.Init")
-  private ClassAnnotationInfo classAnnotationInfo;
+  private CodeAnnotationInfo codeAnnotationInfo;
 
   private final Config config;
 
@@ -291,7 +291,7 @@ public class NullAway extends BugChecker
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
     return invocationNode == null
-        || classAnnotationInfo.isSymbolUnannotated(
+        || codeAnnotationInfo.isSymbolUnannotated(
             ASTHelpers.getSymbol(invocationNode.getTree()), config);
   }
 
@@ -327,7 +327,7 @@ public class NullAway extends BugChecker
       return false;
     }
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
-    return classAnnotationInfo.isClassNullAnnotated(classSymbol, config);
+    return codeAnnotationInfo.isClassNullAnnotated(classSymbol, config);
   }
 
   @Override
@@ -623,7 +623,7 @@ public class NullAway extends BugChecker
         (memberReferenceTree != null)
             && ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
     final boolean isOverriddenMethodAnnotated =
-        !classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
+        !codeAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
 
     // Get argument nullability for the overridden method.  If overriddenMethodArgNullnessMap[i] is
     // null, parameter i is treated as unannotated.
@@ -736,7 +736,7 @@ public class NullAway extends BugChecker
       // support)
       return Description.NO_MATCH;
     }
-    if (classAnnotationInfo.isSymbolUnannotated(methodSymbol, config)
+    if (codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config)
         || Nullness.hasNullableAnnotation(methodSymbol, config)) {
       return Description.NO_MATCH;
     }
@@ -764,7 +764,7 @@ public class NullAway extends BugChecker
     // (like Rx nullability) run dataflow analysis
     updateEnvironmentMapping(tree, state);
     handler.onMatchLambdaExpression(this, tree, state, funcInterfaceMethod);
-    if (classAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config)) {
+    if (codeAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config)) {
       return Description.NO_MATCH;
     }
     Description description =
@@ -1267,8 +1267,8 @@ public class NullAway extends BugChecker
   public Description matchClass(ClassTree tree, VisitorState state) {
     // Ensure classAnnotationInfo is initialized here since it requires access to the Context,
     // which is not available in the constructor
-    if (classAnnotationInfo == null) {
-      classAnnotationInfo = ClassAnnotationInfo.instance(state.context);
+    if (codeAnnotationInfo == null) {
+      codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
     }
     // Check if the class is excluded according to the filter
     // if so, set the flag to match within the class to false
@@ -1459,7 +1459,7 @@ public class NullAway extends BugChecker
     }
 
     final boolean isMethodAnnotated =
-        !classAnnotationInfo.isSymbolUnannotated(methodSymbol, config);
+        !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config);
     // If argumentPositionNullness[i] == null, parameter i is unannotated
     Nullness[] argumentPositionNullness = new Nullness[formalParams.size()];
 
@@ -2040,7 +2040,7 @@ public class NullAway extends BugChecker
     if (config.isExcludedClass(className)) {
       return true;
     }
-    if (!classAnnotationInfo.isClassNullAnnotated(classSymbol, config)) {
+    if (!codeAnnotationInfo.isClassNullAnnotated(classSymbol, config)) {
       return true;
     }
     // check annotations
@@ -2163,7 +2163,7 @@ public class NullAway extends BugChecker
   private boolean mayBeNullMethodCall(
       VisitorState state, ExpressionTree expr, Symbol.MethodSymbol exprSymbol) {
     boolean exprMayBeNull = true;
-    if (classAnnotationInfo.isSymbolUnannotated(exprSymbol, config)) {
+    if (codeAnnotationInfo.isSymbolUnannotated(exprSymbol, config)) {
       exprMayBeNull = false;
     }
     if (!Nullness.hasNullableAnnotation(exprSymbol, config)) {
@@ -2190,7 +2190,7 @@ public class NullAway extends BugChecker
 
   private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
     boolean exprMayBeNull = true;
-    if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, classAnnotationInfo)) {
+    if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, codeAnnotationInfo)) {
       exprMayBeNull = false;
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);

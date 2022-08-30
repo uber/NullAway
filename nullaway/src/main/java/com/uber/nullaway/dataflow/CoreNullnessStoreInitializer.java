@@ -9,7 +9,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
-import com.uber.nullaway.ClassAnnotationInfo;
+import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -78,7 +78,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       Context context,
       Types types,
       Config config,
-      ClassAnnotationInfo classAnnotationInfo) {
+      CodeAnnotationInfo codeAnnotationInfo) {
     // include nullness info for locals from enclosing environment
     EnclosingEnvironmentNullness environmentNullness =
         EnclosingEnvironmentNullness.instance(context);
@@ -94,7 +94,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         fiMethodSymbol.getParameters();
     // If fiArgumentPositionNullness[i] == null, parameter position i is unannotated
     Nullness[] fiArgumentPositionNullness = new Nullness[fiMethodParameters.size()];
-    final boolean isFIAnnotated = !classAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config);
+    final boolean isFIAnnotated = !codeAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config);
     if (isFIAnnotated) {
       for (int i = 0; i < fiMethodParameters.size(); i++) {
         fiArgumentPositionNullness[i] =
@@ -127,12 +127,12 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     return result.build();
   }
 
-  @Nullable private ClassAnnotationInfo classAnnotationInfo;
+  @Nullable private CodeAnnotationInfo codeAnnotationInfo;
 
-  private ClassAnnotationInfo getClassAnnotationInfo(Context context) {
-    if (classAnnotationInfo == null) {
-      classAnnotationInfo = ClassAnnotationInfo.instance(context);
+  private CodeAnnotationInfo getClassAnnotationInfo(Context context) {
+    if (codeAnnotationInfo == null) {
+      codeAnnotationInfo = CodeAnnotationInfo.instance(context);
     }
-    return classAnnotationInfo;
+    return codeAnnotationInfo;
   }
 }
