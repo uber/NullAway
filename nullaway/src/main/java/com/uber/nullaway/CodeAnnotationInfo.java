@@ -118,10 +118,16 @@ public final class CodeAnnotationInfo {
    *     otherwise
    */
   public boolean isSymbolUnannotated(Symbol symbol, Config config) {
-    final ClassCacheRecord classCacheRecord =
-        get(castToNonNull(ASTHelpers.enclosingClass(symbol)), config);
+    Symbol.ClassSymbol classSymbol;
+    if (symbol instanceof Symbol.ClassSymbol) {
+      classSymbol = (Symbol.ClassSymbol) symbol;
+    } else {
+      classSymbol = castToNonNull(ASTHelpers.enclosingClass(symbol));
+    }
+    final ClassCacheRecord classCacheRecord = get(classSymbol, config);
     boolean inAnnotatedClass = classCacheRecord.isNullnessAnnotated;
-    if (symbol.getKind().equals(ElementKind.METHOD)) {
+    if (symbol.getKind().equals(ElementKind.METHOD)
+        || symbol.getKind().equals(ElementKind.CONSTRUCTOR)) {
       return !classCacheRecord.isMethodNullnessAnnotated((Symbol.MethodSymbol) symbol);
     } else {
       return !inAnnotatedClass;

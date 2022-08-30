@@ -201,6 +201,40 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullMarkedClassLevelLocalAndEnvironment() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.example.thirdparty;",
+            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.nullness.NullMarked;",
+            "public class Test {",
+            "  public static Object test() {",
+            "    Object x = null;",
+            "    final Object y = new Object();",
+            "    @NullMarked",
+            "    class Local {",
+            "      public Object returnsNonNull() {",
+            "        return y;",
+            "      }",
+            "      @Nullable",
+            "      public Object returnsNullable() {",
+            "        return x;",
+            "      }",
+            "      public Object returnsNonNullWithError() {",
+            "        // BUG: Diagnostic contains: returning @Nullable expression",
+            "        return x;",
+            "      }",
+            "    }",
+            "    Local local = new Local();",
+            "    // Allowed, since unmarked",
+            "    return local.returnsNullable();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullMarkedMethodLevel() {
     defaultCompilationHelper
         .addSourceLines(
@@ -227,6 +261,70 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullMarkedMethodLevelScan() {
+    // Test that we turn on analysis/scanning within @NullMarked methods in a non-annotated
+    // package/class
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.example.thirdparty;",
+            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "public class Foo {",
+            "  @NullMarked",
+            "  public static String foo(String s) {",
+            "    return s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Bar.java",
+            "package com.example.thirdparty;",
+            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "public class Bar {",
+            "  public static void bar1() {",
+            "    // No report, unannotated caller!",
+            "    Foo.foo(null);",
+            "  }",
+            "  @NullMarked",
+            "  public static void bar2() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    Foo.foo(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullMarkedOuterMethodLevelWithAnonymousClass() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.example.thirdparty;",
+            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "public class Foo {",
+            "  @NullMarked",
+            "  public static String foo(String s) {",
+            "    return s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Bar.java",
+            "package com.example.thirdparty;",
+            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "public class Bar {",
+            "  @NullMarked",
+            "  public static Runnable runFoo() {",
+            "    return new Runnable() {",
+            "      public void run() {",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter",
+            "        Foo.foo(null);",
+            "      }",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullMarkedOuterMethodLevelUsage() {
     defaultCompilationHelper
         .addSourceLines(
@@ -243,7 +341,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "  @NullMarked",
             "  public static IConsumer getConsumer() {",
             "    return new IConsumer() {",
-            "      // Transitively null marked!",
+            "      // Transitively null marked! Explicitly non-null arg, which is a safe override of unknown-nullness.",
             "      public void consume(Object s) {",
             "        System.out.println(s);",
             "      }",
@@ -256,8 +354,81 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "import com.example.thirdparty.Foo;",
             "public class Test {",
             "  public static void test(Object o) {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    // Safe because IConsumer::consume is unmarked? And no static knowledge of Foo$1",
             "    Foo.getConsumer().consume(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullMarkedOuterMethodLevelWithLocalClass() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.example.thirdparty;",
+            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "public class Foo {",
+            "  @NullMarked",
+            "  public static String foo(String s) {",
+            "    return s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Bar.java",
+            "package com.example.thirdparty;",
+            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "public class Bar {",
+            "  @NullMarked",
+            "  public static Object bar() {",
+            "    class Baz {",
+            "      public void baz() {",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter",
+            "        Foo.foo(null);",
+            "      }",
+            "    }",
+            "    Baz b = new Baz();",
+            "    b.baz();",
+            "    return b;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullMarkedOuterMethodLevelWithLocalClassInit() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.example.thirdparty;",
+            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "public class Test {",
+            "  @NullMarked",
+            "  public static Object test() {",
+            "    class Foo {",
+            "      private Object o;",
+            "      // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field o",
+            "      public Foo() { }",
+            "      public String foo(String s) {",
+            "        return s;",
+            "      }",
+            "    }",
+            "    return new Foo();",
+            "  }",
+            // This currently causes a crash, because updateEnvironmentMapping() is only called when
+            // analyzing the class (which we don't do here, since Test$Foo is unmarked), but used
+            // within
+            // analysis of the null-marked method Test$Foo.foo(...).
+            "  public static Object test2() {",
+            "    class Foo {",
+            "      private Object o;", // No init checking, since Test$2Foo is unmarked.
+            "      public Foo() { }",
+            "      @NullMarked",
+            "      public String foo(String s) {",
+            "        return s;",
+            "      }",
+            "    }",
+            "    return new Foo();",
             "  }",
             "}")
         .doTest();

@@ -309,25 +309,28 @@ public class NullAway extends BugChecker
   }
 
   private boolean checkMarkingForPath(VisitorState state) {
-    ClassTree enclosingClass;
+    Symbol enclosingMarkableSymbol;
     TreePath path = state.getPath();
     Tree currentTree = path.getLeaf();
+    // Find the closest class or method symbol, since those are the only ones we have code
+    // annotation info
+    // for.
+    // For the purposes of determining whether we are inside annotated code or not, when matching
+    // a class its enclosing class is itself (otherwise we might not process initialization for
+    // top-level classes in general, or @NullMarked inner classes), same for the enclosing method of
+    // a method.
     // We use instanceof, since there are multiple Kind's which represent ClassTree's: ENUM,
     // INTERFACE, etc, and we are actually interested in all of them.
-    if (currentTree instanceof ClassTree) {
-      // For the purposes of determining whether we are inside annotated code or not, when matching
-      // a class its enclosing class is itself (otherwise we might not process initialization for
-      // top-level classes in general, or @NullMarked inner classes).
-      enclosingClass = (ClassTree) currentTree;
-    } else {
-      enclosingClass = ASTHelpers.findEnclosingNode(path, ClassTree.class);
+    while (!(currentTree instanceof ClassTree || currentTree instanceof MethodTree)) {
+      path = path.getParentPath();
+      if (path == null) {
+        // Not within a class or method (e.g. the package identifier or an import statement)
+        return false;
+      }
+      currentTree = path.getLeaf();
     }
-    if (enclosingClass == null) {
-      // e.g. an import statement
-      return false;
-    }
-    Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
-    return codeAnnotationInfo.isClassNullAnnotated(classSymbol, config);
+    enclosingMarkableSymbol = ASTHelpers.getSymbol(currentTree);
+    return !codeAnnotationInfo.isSymbolUnannotated(enclosingMarkableSymbol, config);
   }
 
   @Override
@@ -547,8 +550,31 @@ public class NullAway extends BugChecker
     return moduleElementClass != null && moduleElementClass.isAssignableFrom(symbol.getClass());
   }
 
+  /**
+   * Look for @NullMarked or @NullUnmarked annotations at the method level and adjust our scan for
+   * annotated code accordingly (fast scan for a fully annotated/unannotated top-level class or
+   * slower scan for mixed nullmarkedness code).
+   */
+  private void checkForMethodNullMarkedness(MethodTree tree) {
+    switch (nullMarkingForTopLevelClass) {
+      case FULLY_MARKED:
+        // TODO: Handle @NullUnmarked
+        break;
+      case FULLY_UNMARKED:
+        if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+            ASTHelpers.getSymbol(tree), NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
+          nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
+        }
+        break;
+      case PARTIALLY_MARKED:
+        // No-Op, already in partially marked mode
+        break;
+    }
+  }
+
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
+    checkForMethodNullMarkedness(tree);
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
@@ -923,6 +949,7 @@ public class NullAway extends BugChecker
     if (!symbol.getKind().equals(ElementKind.FIELD)) {
       return Description.NO_MATCH;
     }
+
     // for static fields, make sure the enclosing init is a static method or block
     if (symbol.isStatic()) {
       Tree enclosing = enclosingBlockPath.getLeaf();
@@ -974,16 +1001,28 @@ public class NullAway extends BugChecker
       if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) {
         return true;
       }
+
+      final Symbol.ClassSymbol enclClassSymbol = enclosingClassSymbol(enclosingBlockPath);
+
+      // Checking for initialization is only meaningful if the full class is null-annotated, which
+      // might not be
+      // the case with @NullMarked methods inside @NullUnmarked classes (note that, in those cases,
+      // we won't even have a
+      // populated class2Entities map). We skip this check if we are not inside a
+      // @NullMarked/annotated *class*:
+      if (nullMarkingForTopLevelClass == NullMarking.PARTIALLY_MARKED
+          && !codeAnnotationInfo.isClassNullAnnotated(enclClassSymbol, config)) {
+        return false;
+      }
+
       if (ASTHelpers.getSymbol(methodTree).isStatic()) {
         Set<MethodTree> staticInitializerMethods =
-            castToNonNull(class2Entities.get(enclosingClassSymbol(enclosingBlockPath)))
-                .staticInitializerMethods();
+            castToNonNull(class2Entities.get(enclClassSymbol)).staticInitializerMethods();
         return staticInitializerMethods.size() == 1
             && staticInitializerMethods.contains(methodTree);
       } else {
         Set<MethodTree> instanceInitializerMethods =
-            castToNonNull(class2Entities.get(enclosingClassSymbol(enclosingBlockPath)))
-                .instanceInitializerMethods();
+            castToNonNull(class2Entities.get(enclClassSymbol)).instanceInitializerMethods();
         return instanceInitializerMethods.size() == 1
             && instanceInitializerMethods.contains(methodTree);
       }
