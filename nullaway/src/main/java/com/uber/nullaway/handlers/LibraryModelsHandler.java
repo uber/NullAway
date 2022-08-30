@@ -29,7 +29,6 @@ import static com.uber.nullaway.Nullness.NULLABLE;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Sets;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
@@ -48,7 +47,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -90,19 +89,20 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         optimizedLibraryModels.explicitlyNullableParameters(methodSymbol);
     ImmutableSet<Integer> nonNullParamsFromModel =
         optimizedLibraryModels.nonNullParameters(methodSymbol);
-    Sets.SetView<Integer> intersection =
-        Sets.intersection(nonNullParamsFromModel, nullableParamsFromModel);
-    // Sanity check: $ nonNullParamsFromModel \cap nullableParamsFromModel $ should be empty
-    Preconditions.checkArgument(
-        intersection.isEmpty(),
-        String.format(
-            "Library models give conflicting nullability for the following parameters of method %s: %s",
-            methodSymbol.getQualifiedName().toString(),
-            Arrays.deepToString(intersection.toArray())));
+    // For sanity check: $ nonNullParamsFromModel \cap nullableParamsFromModel $ should be empty
+    Set<Integer> allPositions = new HashSet<>();
     for (Integer nullParam : nullableParamsFromModel) {
+      allPositions.add(nullParam);
       argumentPositionNullness.put(nullParam, NULLABLE);
     }
     for (Integer nonNullParam : nonNullParamsFromModel) {
+      if (!allPositions.add(nonNullParam)) {
+        // position was already marked as nullable
+        throw new IllegalStateException(
+            String.format(
+                "Library models give conflicting nullability for the following parameter of method %s: %s",
+                methodSymbol.getQualifiedName().toString(), nonNullParam.toString()));
+      }
       argumentPositionNullness.put(nonNullParam, NONNULL);
     }
     return argumentPositionNullness;
