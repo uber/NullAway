@@ -133,7 +133,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       // and any of its overriding implementations.
       // see https://github.com/uber/NullAway/issues/445 for why this is needed.
       boolean isMethodAnnotated =
-          !getClassAnnotationInfo(state.context).isSymbolUnannotated(methodSymbol, this.config);
+          !getCodeAnnotationInfo(state.context).isSymbolUnannotated(methodSymbol, this.config);
       if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes(), !isMethodAnnotated)
           || !optLibraryModels.nullImpliesNullParameters(methodSymbol).isEmpty()) {
         // These mean the method might be null, depending on dataflow and arguments. We force
@@ -173,7 +173,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
   @Nullable private CodeAnnotationInfo codeAnnotationInfo;
 
-  private CodeAnnotationInfo getClassAnnotationInfo(Context context) {
+  private CodeAnnotationInfo getCodeAnnotationInfo(Context context) {
     if (codeAnnotationInfo == null) {
       codeAnnotationInfo = CodeAnnotationInfo.instance(context);
     }
@@ -193,7 +193,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
     boolean isMethodAnnotated =
-        !getClassAnnotationInfo(context).isSymbolUnannotated(callee, this.config);
+        !getCodeAnnotationInfo(context).isSymbolUnannotated(callee, this.config);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, context, apContext);
     setConditionalArgumentNullness(
         thenUpdates, elseUpdates, node.getArguments(), callee, context, apContext);

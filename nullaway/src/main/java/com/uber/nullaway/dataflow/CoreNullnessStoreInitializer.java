@@ -45,7 +45,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
           context,
           types,
           config,
-          getClassAnnotationInfo(context));
+          getCodeAnnotationInfo(context));
     } else {
       return methodInitialStore(
           (UnderlyingAST.CFGMethod) underlyingAST, parameters, handler, context, config);
@@ -129,7 +129,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
 
   @Nullable private CodeAnnotationInfo codeAnnotationInfo;
 
-  private CodeAnnotationInfo getClassAnnotationInfo(Context context) {
+  private CodeAnnotationInfo getCodeAnnotationInfo(Context context) {
     if (codeAnnotationInfo == null) {
       codeAnnotationInfo = CodeAnnotationInfo.instance(context);
     }

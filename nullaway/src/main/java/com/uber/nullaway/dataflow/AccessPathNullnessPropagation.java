@@ -720,7 +720,7 @@ public class AccessPathNullnessPropagation
     Symbol symbol = ASTHelpers.getSymbol(fieldAccessNode.getTree());
     setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
     Nullness nullness = NULLABLE;
-    if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config, getClassAnnotationInfo(state))) {
+    if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config, getCodeAnnotationInfo(state))) {
       nullness = NONNULL;
     } else {
       nullness = input.getRegularStore().valueOfField(fieldAccessNode, nullness, apContext);
@@ -730,7 +730,7 @@ public class AccessPathNullnessPropagation
 
   @Nullable private CodeAnnotationInfo codeAnnotationInfo;
 
-  private CodeAnnotationInfo getClassAnnotationInfo(VisitorState state) {
+  private CodeAnnotationInfo getCodeAnnotationInfo(VisitorState state) {
     if (codeAnnotationInfo == null) {
       codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
     }

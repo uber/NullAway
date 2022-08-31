@@ -52,7 +52,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) expr);
-      CodeAnnotationInfo codeAnnotationInfo = getClassAnnotationInfo(state.context);
+      CodeAnnotationInfo codeAnnotationInfo = getCodeAnnotationInfo(state.context);
       if (codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config)) {
         // with the generated-as-unannotated option enabled, we want to ignore
         // annotations in generated code
@@ -69,7 +69,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
 
   @Nullable private CodeAnnotationInfo codeAnnotationInfo;
 
-  private CodeAnnotationInfo getClassAnnotationInfo(Context context) {
+  private CodeAnnotationInfo getCodeAnnotationInfo(Context context) {
     if (codeAnnotationInfo == null) {
       codeAnnotationInfo = CodeAnnotationInfo.instance(context);
     }
@@ -129,7 +129,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-    CodeAnnotationInfo codeAnnotationInfo = getClassAnnotationInfo(context);
+    CodeAnnotationInfo codeAnnotationInfo = getCodeAnnotationInfo(context);
     // with the generated-as-unannotated option enabled, we want to ignore
     // annotations in generated code
     if (config.treatGeneratedAsUnannotated()

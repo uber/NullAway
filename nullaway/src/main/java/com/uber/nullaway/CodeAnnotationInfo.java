@@ -53,7 +53,7 @@ public final class CodeAnnotationInfo {
   private CodeAnnotationInfo() {}
 
   /**
-   * Get the ClassAnnotationInfo for the given javac context. We ensure there is one instance per
+   * Get the CodeAnnotationInfo for the given javac context. We ensure there is one instance per
    * context (as opposed to using static fields) to avoid memory leaks.
    */
   public static CodeAnnotationInfo instance(Context context) {
