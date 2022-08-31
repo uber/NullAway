@@ -1503,12 +1503,6 @@ public class NullAway extends BugChecker
         handler.onOverrideMethodInvocationParametersNullability(
             state.context, methodSymbol, isMethodAnnotated, argumentPositionNullness);
 
-    //    ImmutableSet<Integer> nonNullPositions =
-    //        argumentPositionNullness.entrySet().stream()
-    //            .filter(e -> e.getValue().equals(Nullness.NONNULL))
-    //            .map(e -> e.getKey())
-    //            .collect(ImmutableSet.toImmutableSet());
-
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
@@ -1549,8 +1543,6 @@ public class NullAway extends BugChecker
                 errorMessage, actual, buildDescription(actual), state, formalParams.get(argPos)));
       }
     }
-    //    for (int argPos : nonNullPositions) {
-    //    }
     // Check for @NonNull being passed to castToNonNull (if configured)
     return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
   }
