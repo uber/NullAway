@@ -1503,16 +1503,14 @@ public class NullAway extends BugChecker
         handler.onOverrideMethodInvocationParametersNullability(
             state.context, methodSymbol, isMethodAnnotated, argumentPositionNullness);
 
-    ImmutableSet<Integer> nonNullPositions =
-        argumentPositionNullness.entrySet().stream()
-            .filter(e -> e.getValue().equals(Nullness.NONNULL))
-            .map(e -> e.getKey())
-            .collect(ImmutableSet.toImmutableSet());
-
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
-    for (int argPos : nonNullPositions) {
+    for (Map.Entry<Integer, Nullness> entry : argumentPositionNullness.entrySet()) {
+      if (!entry.getValue().equals(Nullness.NONNULL)) {
+        continue;
+      }
+      int argPos = entry.getKey();
       ExpressionTree actual = null;
       boolean mayActualBeNull = false;
       if (argPos == formalParams.size() - 1 && methodSymbol.isVarArgs()) {
