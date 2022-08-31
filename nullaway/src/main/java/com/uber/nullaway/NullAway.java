@@ -418,10 +418,10 @@ public class NullAway extends BugChecker
    * Updates the {@link EnclosingEnvironmentNullness} with an entry for lambda or anonymous class,
    * capturing nullability info for locals just before the declaration of the entity
    *
-   * @param tree either a lambda or a local / anonymous class
+   * @param treePath either a lambda or a local / anonymous class, identified by its tree path
    * @param state visitor state
    */
-  private void updateEnvironmentMapping(Tree tree, VisitorState state) {
+  private void updateEnvironmentMapping(TreePath treePath, VisitorState state) {
     AccessPathNullnessAnalysis analysis = getNullnessAnalysis(state);
     // two notes:
     // 1. we are free to take local variable information from the program point before
@@ -430,7 +430,7 @@ public class NullAway extends BugChecker
     // 2. we keep info on all locals rather than just effectively final ones for simplicity
     EnclosingEnvironmentNullness.instance(state.context)
         .addEnvironmentMapping(
-            tree, analysis.getNullnessInfoBeforeNewContext(state.getPath(), state, handler));
+            treePath.getLeaf(), analysis.getNullnessInfoBeforeNewContext(treePath, state, handler));
   }
 
   private Symbol.MethodSymbol getSymbolOfSuperConstructor(
@@ -554,26 +554,52 @@ public class NullAway extends BugChecker
    * annotated code accordingly (fast scan for a fully annotated/unannotated top-level class or
    * slower scan for mixed nullmarkedness code).
    */
-  private void checkForMethodNullMarkedness(MethodTree tree) {
+  private void checkForMethodNullMarkedness(MethodTree tree, VisitorState state) {
+    boolean markedMethodInUnmarkedContext = false;
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     switch (nullMarkingForTopLevelClass) {
       case FULLY_MARKED:
         // TODO: Handle @NullUnmarked
         break;
       case FULLY_UNMARKED:
         if (ASTHelpers.hasDirectAnnotationWithSimpleName(
-            ASTHelpers.getSymbol(tree), NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
+            methodSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
           nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
+          markedMethodInUnmarkedContext = true;
         }
         break;
       case PARTIALLY_MARKED:
-        // No-Op, already in partially marked mode
+        if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+            methodSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
+          // We still care here if this is a transition between @NullUnmarked and @NullMarked code,
+          // within
+          // partially marked code, see checks below for markedMethodInUnmarkedContext.
+          if (!codeAnnotationInfo.isClassNullAnnotated(methodSymbol.enclClass(), config)) {
+            markedMethodInUnmarkedContext = true;
+          }
+        }
         break;
+    }
+    if (markedMethodInUnmarkedContext) {
+      // If this is a @NullMarked method of a @NullUnmarked local or anonymous class, we need to set
+      // its environment
+      // mapping, since we skipped it during matchClass.
+      TreePath pathToEnclosingClass =
+          ASTHelpers.findPathFromEnclosingNodeToTopLevel(state.getPath(), ClassTree.class);
+      ClassTree enclosingClass = (ClassTree) pathToEnclosingClass.getLeaf();
+      if (enclosingClass == null) {
+        return;
+      }
+      NestingKind nestingKind = ASTHelpers.getSymbol(enclosingClass).getNestingKind();
+      if (nestingKind.equals(NestingKind.LOCAL) || nestingKind.equals(NestingKind.ANONYMOUS)) {
+        updateEnvironmentMapping(pathToEnclosingClass, state);
+      }
     }
   }
 
   @Override
   public Description matchMethod(MethodTree tree, VisitorState state) {
-    checkForMethodNullMarkedness(tree);
+    checkForMethodNullMarkedness(tree, state);
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
@@ -787,7 +813,7 @@ public class NullAway extends BugChecker
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
     // we need to update environment mapping before running the handler, as some handlers
     // (like Rx nullability) run dataflow analysis
-    updateEnvironmentMapping(tree, state);
+    updateEnvironmentMapping(state.getPath(), state);
     handler.onMatchLambdaExpression(this, tree, state, funcInterfaceMethod);
     if (codeAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config)) {
       return Description.NO_MATCH;
@@ -1352,7 +1378,7 @@ public class NullAway extends BugChecker
       // we need to update the environment before checking field initialization, as the latter
       // may run dataflow analysis
       if (nestingKind.equals(NestingKind.LOCAL) || nestingKind.equals(NestingKind.ANONYMOUS)) {
-        updateEnvironmentMapping(tree, state);
+        updateEnvironmentMapping(state.getPath(), state);
       }
       checkFieldInitialization(tree, state);
     }
