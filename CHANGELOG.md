@@ -1,5 +1,21 @@
 Changelog
 =========
+Version 0.9.10
+--------------
+* Improved support for library models on annotated code:
+  - Make library models override annotations by default. (#636)
+  - Generalize handler APIs for argument nullability on (un-)annotated code (#639)
+    - [Follow-up] Optimizations for parameter nullness handler / overriding (#646)
+  - Generalize handler APIs for return nullability on (un-)annotated code (#641)
+* Support for specific libraries/APIs:
+  - Add library model for Guava's Closer.register (#632)
+  - Support for Map.computeIfAbsent(...) (#640)
+* NullAwayInfer/Annotator data serialization support [experimental]
+  - Augment error serializarion info (#643)
+* Dependency Updates:
+  - Update to Checker Framework 3.24.0 (#631)
+* Fix javadoc and CONTRIBUTING.md typos (#642)
+
 Version 0.9.9
 -------------
 * Fix handling of empty contract arguments (#616)
