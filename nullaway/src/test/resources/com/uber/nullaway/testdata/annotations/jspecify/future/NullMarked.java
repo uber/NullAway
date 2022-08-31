@@ -25,7 +25,6 @@ package com.uber.nullaway.testdata.annotations.jspecify.future;
 
 import static java.lang.annotation.ElementType.CONSTRUCTOR;
 import static java.lang.annotation.ElementType.METHOD;
-import static java.lang.annotation.ElementType.MODULE;
 import static java.lang.annotation.ElementType.PACKAGE;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -46,6 +45,6 @@ import java.lang.annotation.Target;
  * this time.</b>
  */
 @Documented
-@Target({TYPE, METHOD, CONSTRUCTOR, PACKAGE, MODULE})
+@Target({TYPE, METHOD, CONSTRUCTOR, PACKAGE})
 @Retention(RUNTIME)
 public @interface NullMarked {}
