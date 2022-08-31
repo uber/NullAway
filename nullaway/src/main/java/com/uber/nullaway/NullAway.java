@@ -205,7 +205,7 @@ public class NullAway extends BugChecker
   private NullMarking nullMarkingForTopLevelClass = NullMarking.FULLY_MARKED;
 
   /**
-   * We store the ClassAnnotationInfo object in a field for convenience; it is initialized in {@link
+   * We store the CodeAnnotationInfo object in a field for convenience; it is initialized in {@link
    * #matchClass(ClassTree, VisitorState)}
    */
   // suppress initialization warning rather than casting everywhere; we know matchClass() will
@@ -870,7 +870,7 @@ public class NullAway extends BugChecker
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
     final boolean isOverriddenMethodAnnotated =
-        !classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
+        !codeAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
     Nullness overriddenMethodReturnNullness =
         Nullness.NULLABLE; // Permissive default for unannotated code.
     if (isOverriddenMethodAnnotated && !Nullness.hasNullableAnnotation(overriddenMethod, config)) {
@@ -883,7 +883,7 @@ public class NullAway extends BugChecker
     // overriding method better not return nullable
     if (overriddenMethodReturnNullness.equals(Nullness.NONNULL)) {
       final boolean isOverridingMethodAnnotated =
-          !classAnnotationInfo.isSymbolUnannotated(overridingMethod, config);
+          !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config);
       // Note that, for the overriding method, the permissive default is non-null.
       Nullness overridingMethodReturnNullness = Nullness.NONNULL;
       if (isOverridingMethodAnnotated && Nullness.hasNullableAnnotation(overridingMethod, config)) {
@@ -1325,7 +1325,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchClass(ClassTree tree, VisitorState state) {
-    // Ensure classAnnotationInfo is initialized here since it requires access to the Context,
+    // Ensure codeAnnotationInfo is initialized here since it requires access to the Context,
     // which is not available in the constructor
     if (codeAnnotationInfo == null) {
       codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
