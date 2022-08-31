@@ -572,8 +572,7 @@ public class NullAway extends BugChecker
         if (ASTHelpers.hasDirectAnnotationWithSimpleName(
             methodSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
           // We still care here if this is a transition between @NullUnmarked and @NullMarked code,
-          // within
-          // partially marked code, see checks below for markedMethodInUnmarkedContext.
+          // within partially marked code, see checks below for markedMethodInUnmarkedContext.
           if (!codeAnnotationInfo.isClassNullAnnotated(methodSymbol.enclClass(), config)) {
             markedMethodInUnmarkedContext = true;
           }
@@ -582,8 +581,7 @@ public class NullAway extends BugChecker
     }
     if (markedMethodInUnmarkedContext) {
       // If this is a @NullMarked method of a @NullUnmarked local or anonymous class, we need to set
-      // its environment
-      // mapping, since we skipped it during matchClass.
+      // its environment mapping, since we skipped it during matchClass.
       TreePath pathToEnclosingClass =
           ASTHelpers.findPathFromEnclosingNodeToTopLevel(state.getPath(), ClassTree.class);
       ClassTree enclosingClass = (ClassTree) pathToEnclosingClass.getLeaf();
