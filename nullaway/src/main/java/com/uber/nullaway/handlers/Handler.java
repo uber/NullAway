@@ -44,7 +44,6 @@ import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
@@ -187,11 +186,11 @@ public interface Handler {
    *     be incomplete/sparse at this point).
    * @return The updated argument position to nullness map, as computed by the current handler.
    */
-  Map<Integer, Nullness> onOverrideMethodInvocationParametersNullability(
+  Nullness[] onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      Map<Integer, Nullness> argumentPositionNullness);
+      Nullness[] argumentPositionNullness);
 
   /**
    * Called when the Dataflow analysis generates the initial NullnessStore for a method or lambda.

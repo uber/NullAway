@@ -124,11 +124,11 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public Map<Integer, Nullness> onOverrideMethodInvocationParametersNullability(
+  public Nullness[] onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      Map<Integer, Nullness> argumentPositionNullness) {
+      Nullness[] argumentPositionNullness) {
     if (isAnnotated) {
       // We currently do not load JarInfer models for code marked as annotated.
       // This is unlikely to change, as the behavior of JarInfer on arguments is to explicitly mark
@@ -167,7 +167,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
         // Skip 'this' param for non-static methods
         int nonNullPosition = annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1);
         jiNonNullParams.add(nonNullPosition);
-        argumentPositionNullness.put(nonNullPosition, Nullness.NONNULL);
+        argumentPositionNullness[nonNullPosition] = Nullness.NONNULL;
       }
     }
     if (!jiNonNullParams.isEmpty()) {
