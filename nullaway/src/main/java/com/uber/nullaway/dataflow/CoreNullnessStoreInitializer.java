@@ -92,6 +92,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code, types);
     com.sun.tools.javac.util.List<Symbol.VarSymbol> fiMethodParameters =
         fiMethodSymbol.getParameters();
+    // If fiArgumentPositionNullness[i] == null, parameter position i is unannotated
     Nullness[] fiArgumentPositionNullness = new Nullness[fiMethodParameters.size()];
     final boolean isFIAnnotated = !classAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config);
     if (isFIAnnotated) {
@@ -118,10 +119,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         // treat as non-null
         assumed = NONNULL;
       } else {
-        assumed = fiArgumentPositionNullness[i];
-        if (assumed == null) {
-          assumed = NONNULL;
-        }
+        assumed = fiArgumentPositionNullness[i] == null ? NONNULL : fiArgumentPositionNullness[i];
       }
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }

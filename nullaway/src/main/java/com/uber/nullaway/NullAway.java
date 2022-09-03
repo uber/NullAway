@@ -625,7 +625,8 @@ public class NullAway extends BugChecker
     final boolean isOverriddenMethodAnnotated =
         !classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
 
-    // Get argument nullability for the overridden method:
+    // Get argument nullability for the overridden method.  If overriddenMethodArgNullnessMap[i] is
+    // null, parameter i is treated as unannotated.
     Nullness[] overriddenMethodArgNullnessMap = new Nullness[superParamSymbols.size()];
 
     // Collect @Nullable params of overridden method iff the overridden method is in annotated code
@@ -672,7 +673,7 @@ public class NullAway extends BugChecker
     final int startParam = unboundMemberRef ? 1 : 0;
 
     for (int i = 0; i < superParamSymbols.size(); i++) {
-      if (overriddenMethodArgNullnessMap[i] == null
+      if (overriddenMethodArgNullnessMap[i] == null // unannotated
           || Nullness.NONNULL.equals(overriddenMethodArgNullnessMap[i])) {
         // No need to check, unless the argument of the overridden method is effectively @Nullable,
         // in which case it can't be overridding a @NonNull arg.
@@ -1460,6 +1461,7 @@ public class NullAway extends BugChecker
 
     final boolean isMethodAnnotated =
         !classAnnotationInfo.isSymbolUnannotated(methodSymbol, config);
+    // If argumentPositionNullness[i] == null, parameter i is unannotated
     Nullness[] argumentPositionNullness = new Nullness[formalParams.size()];
 
     if (isMethodAnnotated) {
