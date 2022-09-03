@@ -181,10 +181,11 @@ public interface Handler {
    * @param isAnnotated A boolean flag indicating whether the called method is considered to be
    *     within isAnnotated or unannotated code, used to avoid querying for this information
    *     multiple times within the same handler chain.
-   * @param argumentPositionNullness The argument position to nullness map computed by upstream
-   *     handlers and/or the base analysis (though information from the base analysis is allowed to
-   *     be incomplete/sparse at this point).
-   * @return The updated argument position to nullness map, as computed by the current handler.
+   * @param argumentPositionNullness Nullness info for each argument position as computed by
+   *     upstream handlers and/or the base analysis. Some entries may be {@code null}, indicating
+   *     upstream analysis and handlers model the parameter as unannotated.
+   * @return The updated nullness info for each argument position, as computed by the current
+   *     handler.
    */
   Nullness[] onOverrideMethodInvocationParametersNullability(
       Context context,
