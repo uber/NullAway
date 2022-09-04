@@ -673,8 +673,7 @@ public class NullAway extends BugChecker
     final int startParam = unboundMemberRef ? 1 : 0;
 
     for (int i = 0; i < superParamSymbols.size(); i++) {
-      if (overriddenMethodArgNullnessMap[i] == null // unannotated
-          || Nullness.NONNULL.equals(overriddenMethodArgNullnessMap[i])) {
+      if (!Objects.equals(overriddenMethodArgNullnessMap[i], Nullness.NULLABLE)) {
         // No need to check, unless the argument of the overridden method is effectively @Nullable,
         // in which case it can't be overridding a @NonNull arg.
         continue;
