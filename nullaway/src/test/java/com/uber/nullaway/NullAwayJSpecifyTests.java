@@ -240,7 +240,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
         .addSourceLines(
             "Foo.java",
             "package com.example.thirdparty;",
-            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
             "public class Foo {",
             "  @NullMarked",
             "  public static String foo(String s) {",
@@ -268,7 +268,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
         .addSourceLines(
             "Foo.java",
             "package com.example.thirdparty;",
-            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
             "public class Foo {",
             "  @NullMarked",
             "  public static String foo(String s) {",
@@ -278,7 +278,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
         .addSourceLines(
             "Bar.java",
             "package com.example.thirdparty;",
-            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
             "public class Bar {",
             "  public static void bar1() {",
             "    // No report, unannotated caller!",
@@ -299,7 +299,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
         .addSourceLines(
             "Foo.java",
             "package com.example.thirdparty;",
-            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
             "public class Foo {",
             "  @NullMarked",
             "  public static String foo(String s) {",
@@ -309,7 +309,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
         .addSourceLines(
             "Bar.java",
             "package com.example.thirdparty;",
-            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
             "public class Bar {",
             "  @NullMarked",
             "  public static Runnable runFoo() {",
@@ -336,7 +336,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
         .addSourceLines(
             "Foo.java",
             "package com.example.thirdparty;",
-            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
             "public class Foo {",
             "  @NullMarked",
             "  public static IConsumer getConsumer() {",
@@ -367,7 +367,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
         .addSourceLines(
             "Foo.java",
             "package com.example.thirdparty;",
-            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
             "public class Foo {",
             "  @NullMarked",
             "  public static String foo(String s) {",
@@ -377,7 +377,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
         .addSourceLines(
             "Bar.java",
             "package com.example.thirdparty;",
-            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
             "public class Bar {",
             "  @NullMarked",
             "  public static Object bar() {",
@@ -401,7 +401,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.example.thirdparty;",
-            "import com.uber.nullaway.testdata.annotations.jspecify.future.NullMarked;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
             "public class Test {",
             "  @NullMarked",
             "  public static Object test() {",
@@ -525,6 +525,41 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "    Outer.Inner.foo(null);",
             "    Outer.unchecked(null);",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void bytecodeNullMarkedMethodLevel() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.jspecify.unannotatedpackage.Methods;",
+            "public class Test {",
+            "  public static void test(Object o) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    Methods.foo(null);",
+            "    Methods.unchecked(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void bytecodeNullMarkedMethodLevelOverriding() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.jspecify.unannotatedpackage.Methods;",
+            "import org.jspecify.nullness.Nullable;",
+            "public class Test extends Methods.ExtendMe {",
+            "  @Nullable",
+            "  // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
+            "  public Object foo(@Nullable Object o) { return o; }",
+            "  @Nullable",
+            "  public Object unchecked(@Nullable Object o) { return o; }",
             "}")
         .doTest();
   }

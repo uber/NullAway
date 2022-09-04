@@ -38,8 +38,8 @@ import javax.lang.model.element.ElementKind;
 
 /**
  * Provides APIs for querying whether code is annotated for nullness checking, and for related
- * queries on what annotations are present on a class and/or enclosing classes. Makes use of caching
- * internally for performance.
+ * queries on what annotations are present on a class/method and/or on relevant enclosing scopes
+ * (i.e. enclosing classes or methods). Makes use of caching internally for performance.
  */
 public final class CodeAnnotationInfo {
 
@@ -168,7 +168,7 @@ public final class CodeAnnotationInfo {
       Symbol.MethodSymbol enclosingMethod = null;
       if (owner.getKind().equals(ElementKind.METHOD)
           || owner.getKind().equals(ElementKind.CONSTRUCTOR)) {
-        enclosingMethod = (Symbol.MethodSymbol) owner; // Potentially null!
+        enclosingMethod = (Symbol.MethodSymbol) owner;
       }
       Symbol.ClassSymbol enclosingClass = ASTHelpers.enclosingClass(classSymbol);
       // enclosingClass can be null in weird cases like for array methods

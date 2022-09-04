@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.uber.nullaway.testdata.annotations.jspecify.future;
+package com.example.jspecify.future.annotations;
 
 // Note: Copied from
 // https://github.com/jspecify/jspecify/blob/main/src/main/java/org/jspecify/nullness/NullMarked.java
