@@ -79,11 +79,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public Map<Integer, Nullness> onOverrideMethodInvocationParametersNullability(
+  public Nullness[] onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      Map<Integer, Nullness> argumentPositionNullness) {
+      Nullness[] argumentPositionNullness) {
     OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(context);
     ImmutableSet<Integer> nullableParamsFromModel =
         optimizedLibraryModels.explicitlyNullableParameters(methodSymbol);
@@ -93,7 +93,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     Set<Integer> allPositions = new HashSet<>();
     for (Integer nullParam : nullableParamsFromModel) {
       allPositions.add(nullParam);
-      argumentPositionNullness.put(nullParam, NULLABLE);
+      argumentPositionNullness[nullParam] = NULLABLE;
     }
     for (Integer nonNullParam : nonNullParamsFromModel) {
       if (!allPositions.add(nonNullParam)) {
@@ -103,7 +103,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 "Library models give conflicting nullability for the following parameter of method %s: %s",
                 methodSymbol.getQualifiedName().toString(), nonNullParam.toString()));
       }
-      argumentPositionNullness.put(nonNullParam, NONNULL);
+      argumentPositionNullness[nonNullParam] = NONNULL;
     }
     return argumentPositionNullness;
   }

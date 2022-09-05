@@ -44,7 +44,6 @@ import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
@@ -182,16 +181,18 @@ public interface Handler {
    * @param isAnnotated A boolean flag indicating whether the called method is considered to be
    *     within isAnnotated or unannotated code, used to avoid querying for this information
    *     multiple times within the same handler chain.
-   * @param argumentPositionNullness The argument position to nullness map computed by upstream
-   *     handlers and/or the base analysis (though information from the base analysis is allowed to
-   *     be incomplete/sparse at this point).
-   * @return The updated argument position to nullness map, as computed by the current handler.
+   * @param argumentPositionNullness Nullness info for each argument position as computed by
+   *     upstream handlers and/or the base analysis. Some entries may be {@code null}, indicating
+   *     upstream handlers and the base analysis consider the parameter to be nullness-unknown,
+   *     usually since the parameter is from unannotated code.
+   * @return The updated nullness info for each argument position, as computed by the current
+   *     handler.
    */
-  Map<Integer, Nullness> onOverrideMethodInvocationParametersNullability(
+  Nullness[] onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      Map<Integer, Nullness> argumentPositionNullness);
+      Nullness[] argumentPositionNullness);
 
   /**
    * Called when the Dataflow analysis generates the initial NullnessStore for a method or lambda.

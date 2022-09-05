@@ -96,6 +96,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -624,19 +625,19 @@ public class NullAway extends BugChecker
     final boolean isOverriddenMethodAnnotated =
         !classAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
 
-    // Get argument nullability for the overridden method:
-    Map<Integer, Nullness> overriddenMethodArgNullnessMap = new LinkedHashMap<>();
+    // Get argument nullability for the overridden method.  If overriddenMethodArgNullnessMap[i] is
+    // null, parameter i is treated as unannotated.
+    Nullness[] overriddenMethodArgNullnessMap = new Nullness[superParamSymbols.size()];
 
     // Collect @Nullable params of overridden method iff the overridden method is in annotated code
     // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
     // -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations flag and its handler).
     if (isOverriddenMethodAnnotated) {
       for (int i = 0; i < superParamSymbols.size(); i++) {
-        overriddenMethodArgNullnessMap.put(
-            i,
+        overriddenMethodArgNullnessMap[i] =
             Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)
                 ? Nullness.NULLABLE
-                : Nullness.NONNULL);
+                : Nullness.NONNULL;
       }
     }
 
@@ -652,10 +653,7 @@ public class NullAway extends BugChecker
     // @NonNull, as this parameter will be used as a method receiver inside the generated lambda.
     // e.g. String::length is implemented as (@NonNull s -> s.length()) when used as a
     // SomeFunc<String> and thus incompatible with, for example, SomeFunc.apply(@Nullable T).
-    if (unboundMemberRef
-        && overriddenMethodArgNullnessMap
-            .getOrDefault(0, Nullness.NONNULL)
-            .equals(Nullness.NULLABLE)) {
+    if (unboundMemberRef && Objects.equals(overriddenMethodArgNullnessMap[0], Nullness.NULLABLE)) {
       String message =
           "unbound instance method reference cannot be used, as first parameter of "
               + "functional interface method "
@@ -675,9 +673,7 @@ public class NullAway extends BugChecker
     final int startParam = unboundMemberRef ? 1 : 0;
 
     for (int i = 0; i < superParamSymbols.size(); i++) {
-      if (overriddenMethodArgNullnessMap
-          .getOrDefault(i, Nullness.NONNULL)
-          .equals(Nullness.NONNULL)) {
+      if (!Objects.equals(overriddenMethodArgNullnessMap[i], Nullness.NULLABLE)) {
         // No need to check, unless the argument of the overridden method is effectively @Nullable,
         // in which case it can't be overridding a @NonNull arg.
         continue;
@@ -1464,7 +1460,8 @@ public class NullAway extends BugChecker
 
     final boolean isMethodAnnotated =
         !classAnnotationInfo.isSymbolUnannotated(methodSymbol, config);
-    Map<Integer, Nullness> argumentPositionNullness = new LinkedHashMap<>();
+    // If argumentPositionNullness[i] == null, parameter i is unannotated
+    Nullness[] argumentPositionNullness = new Nullness[formalParams.size()];
 
     if (isMethodAnnotated) {
       // compute which arguments are @NonNull
@@ -1475,7 +1472,7 @@ public class NullAway extends BugChecker
           if (unboxingCheck != Description.NO_MATCH) {
             return unboxingCheck;
           } else {
-            argumentPositionNullness.put(i, Nullness.NONNULL);
+            argumentPositionNullness[i] = Nullness.NONNULL;
           }
         } else if (ASTHelpers.isSameType(
             param.type, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
@@ -1485,15 +1482,14 @@ public class NullAway extends BugChecker
           // JSpecify semantics.
           // See the suppression in https://github.com/uber/NullAway/pull/608 for an example of why
           // this is needed.
-          argumentPositionNullness.put(i, Nullness.NULLABLE);
+          argumentPositionNullness[i] = Nullness.NULLABLE;
         } else {
           // we need to call paramHasNullableAnnotation here since the invoked method may be defined
           // in a class file
-          argumentPositionNullness.put(
-              i,
+          argumentPositionNullness[i] =
               Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
                   ? Nullness.NULLABLE
-                  : Nullness.NONNULL);
+                  : Nullness.NONNULL;
         }
       }
     }
@@ -1506,11 +1502,10 @@ public class NullAway extends BugChecker
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
-    for (Map.Entry<Integer, Nullness> entry : argumentPositionNullness.entrySet()) {
-      if (!entry.getValue().equals(Nullness.NONNULL)) {
+    for (int argPos = 0; argPos < argumentPositionNullness.length; argPos++) {
+      if (!Objects.equals(Nullness.NONNULL, argumentPositionNullness[argPos])) {
         continue;
       }
-      int argPos = entry.getKey();
       ExpressionTree actual = null;
       boolean mayActualBeNull = false;
       if (argPos == formalParams.size() - 1 && methodSymbol.isVarArgs()) {

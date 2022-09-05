@@ -36,7 +36,6 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
-import java.util.Map;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
@@ -78,11 +77,11 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public Map<Integer, Nullness> onOverrideMethodInvocationParametersNullability(
+  public Nullness[] onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      Map<Integer, Nullness> argumentPositionNullness) {
+      Nullness[] argumentPositionNullness) {
     if (isAnnotated) {
       // We ignore isAnnotated code here, since annotations in code considered isAnnotated are
       // already handled
@@ -91,9 +90,9 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
     }
     for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {
       if (Nullness.paramHasNonNullAnnotation(methodSymbol, i, config)) {
-        argumentPositionNullness.put(i, Nullness.NONNULL);
+        argumentPositionNullness[i] = Nullness.NONNULL;
       } else if (Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
-        argumentPositionNullness.put(i, Nullness.NULLABLE);
+        argumentPositionNullness[i] = Nullness.NULLABLE;
       }
     }
     return argumentPositionNullness;

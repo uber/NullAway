@@ -14,9 +14,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
@@ -94,13 +92,13 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code, types);
     com.sun.tools.javac.util.List<Symbol.VarSymbol> fiMethodParameters =
         fiMethodSymbol.getParameters();
-    Map<Integer, Nullness> fiArgumentPositionNullness = new LinkedHashMap<>();
+    // If fiArgumentPositionNullness[i] == null, parameter position i is unannotated
+    Nullness[] fiArgumentPositionNullness = new Nullness[fiMethodParameters.size()];
     final boolean isFIAnnotated = !classAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config);
     if (isFIAnnotated) {
       for (int i = 0; i < fiMethodParameters.size(); i++) {
-        fiArgumentPositionNullness.put(
-            i,
-            Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config) ? NULLABLE : NONNULL);
+        fiArgumentPositionNullness[i] =
+            Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config) ? NULLABLE : NONNULL;
       }
     }
     fiArgumentPositionNullness =
@@ -121,7 +119,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         // treat as non-null
         assumed = NONNULL;
       } else {
-        assumed = fiArgumentPositionNullness.getOrDefault(i, NONNULL);
+        assumed = fiArgumentPositionNullness[i] == null ? NONNULL : fiArgumentPositionNullness[i];
       }
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }
