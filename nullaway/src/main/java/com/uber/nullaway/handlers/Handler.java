@@ -183,7 +183,8 @@ public interface Handler {
    *     multiple times within the same handler chain.
    * @param argumentPositionNullness Nullness info for each argument position as computed by
    *     upstream handlers and/or the base analysis. Some entries may be {@code null}, indicating
-   *     upstream analysis and handlers model the parameter as unannotated.
+   *     upstream handlers and the base analysis consider the parameter to be nullness-unknown,
+   *     usually since the parameter is from unannotated code.
    * @return The updated nullness info for each argument position, as computed by the current
    *     handler.
    */
