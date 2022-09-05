@@ -1518,8 +1518,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    final boolean isMethodAnnotated =
-        !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config);
+    final boolean isMethodAnnotated = !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config);
     // If argumentPositionNullness[i] == null, parameter i is unannotated
     Nullness[] argumentPositionNullness = new Nullness[formalParams.size()];
 
