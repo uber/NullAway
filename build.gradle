@@ -36,10 +36,10 @@ buildscript {
 }
 plugins {
   id "com.github.sherter.google-java-format" version "0.9"
-  id "net.ltgt.errorprone" version "2.0.1" apply false
+  id "net.ltgt.errorprone" version "2.0.2" apply false
   id "com.github.johnrengelman.shadow" version "6.1.0" apply false
   id "com.github.kt3k.coveralls" version "2.12.0" apply false
-  id "me.champeau.jmh" version "0.6.6" apply false
+  id "me.champeau.jmh" version "0.6.7" apply false
   id "com.github.ben-manes.versions" version "0.42.0"
 }
 
