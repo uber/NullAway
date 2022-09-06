@@ -675,9 +675,9 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "    return null;",
             "  }",
             "}")
+        // Note: Safe to have same-name files in recent Error Prone, but breaks EP 2.4.0
         .addSourceLines(
-            "Test2.java", // Note: Safe to have same-name files in recent Error Prone, but breaks EP
-                          // 2.4.0
+            "Test2.java",
             "package com.example.thirdparty.marked;",
             "import com.uber.foo.Foo;",
             "public class Test2 {",
