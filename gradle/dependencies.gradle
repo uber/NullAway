@@ -49,7 +49,7 @@ def versions = [
     // The version of Error Prone that NullAway is compiled and tested against
     errorProneApi          : errorProneVersionToCompileAgainst,
     support                : "27.1.1",
-    wala                   : "1.5.4",
+    wala                   : "1.5.8",
     commonscli             : "1.4",
     autoValue              : "1.9",
     autoService            : "1.0.1",
