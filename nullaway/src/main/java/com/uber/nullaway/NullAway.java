@@ -559,7 +559,10 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     switch (nullMarkingForTopLevelClass) {
       case FULLY_MARKED:
-        // TODO: Handle @NullUnmarked
+        if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+            methodSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
+          nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
+        }
         break;
       case FULLY_UNMARKED:
         if (ASTHelpers.hasDirectAnnotationWithSimpleName(
@@ -1364,11 +1367,15 @@ public class NullAway extends BugChecker
       EnclosingEnvironmentNullness.instance(state.context).clear();
     } else {
       // handle the case where the top-class is unannotated, but there is a @NullMarked annotation
-      // on a nested class
-      // TODO handle @NullUnmarked once it is finalized
+      // on a nested class, or, conversely the top-level is annotated but there is a @NullUnmarked
+      // annotation on a nested class.
       if (nullMarkingForTopLevelClass == NullMarking.FULLY_UNMARKED
           && ASTHelpers.hasDirectAnnotationWithSimpleName(
               classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
+        nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
+      } else if (nullMarkingForTopLevelClass == NullMarking.FULLY_MARKED
+          && ASTHelpers.hasDirectAnnotationWithSimpleName(
+              classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
         nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
       }
     }
