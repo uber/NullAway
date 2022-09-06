@@ -676,10 +676,11 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "  }",
             "}")
         .addSourceLines(
-            "Test.java",
+            "Test2.java", // Note: Safe to have same-name files in recent Error Prone, but breaks EP
+                          // 2.4.0
             "package com.example.thirdparty.marked;",
             "import com.uber.foo.Foo;",
-            "public class Test {",
+            "public class Test2 {",
             "  public static Object test(Object o) {",
             "    // No errors, because Foo is @NullUnmarked",
             "    Foo.takeNonNull(null);",
