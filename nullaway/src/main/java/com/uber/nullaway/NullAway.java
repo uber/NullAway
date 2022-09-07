@@ -1326,6 +1326,26 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
+  /**
+   * Returns true iff classSymbol has a direct @NullMarked or @NullUnmarked annotation which differs
+   * from the {@link NullMarking} of the top-level class, meaning the compilation unit is itself
+   * partially marked, and we need to switch to our slower mode for detecting whether we are in
+   * unannotated code.
+   *
+   * @param classSymbol a ClassSymbol representing an inner class within the current compilation
+   *     unit.
+   * @return true iff this inner class is @NullMarked and the top-level class unmarked or vice
+   *     versa.
+   */
+  private boolean classAnnotationIntroducesPartialMarking(Symbol.ClassSymbol classSymbol) {
+    return (nullMarkingForTopLevelClass == NullMarking.FULLY_UNMARKED
+            && ASTHelpers.hasDirectAnnotationWithSimpleName(
+                classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME))
+        || (nullMarkingForTopLevelClass == NullMarking.FULLY_MARKED
+            && ASTHelpers.hasDirectAnnotationWithSimpleName(
+                classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME));
+  }
+
   @Override
   public Description matchClass(ClassTree tree, VisitorState state) {
     // Ensure codeAnnotationInfo is initialized here since it requires access to the Context,
@@ -1365,19 +1385,11 @@ public class NullAway extends BugChecker
       class2ConstructorUninit.clear();
       computedNullnessMap.clear();
       EnclosingEnvironmentNullness.instance(state.context).clear();
-    } else {
-      // handle the case where the top-class is unannotated, but there is a @NullMarked annotation
+    } else if (classAnnotationIntroducesPartialMarking(classSymbol)) {
+      // Handle the case where the top-class is unannotated, but there is a @NullMarked annotation
       // on a nested class, or, conversely the top-level is annotated but there is a @NullUnmarked
       // annotation on a nested class.
-      if (nullMarkingForTopLevelClass == NullMarking.FULLY_UNMARKED
-          && ASTHelpers.hasDirectAnnotationWithSimpleName(
-              classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
-        nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
-      } else if (nullMarkingForTopLevelClass == NullMarking.FULLY_MARKED
-          && ASTHelpers.hasDirectAnnotationWithSimpleName(
-              classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
-        nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
-      }
+      nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
     }
     if (withinAnnotatedCode(state)) {
       // we need to update the environment before checking field initialization, as the latter
