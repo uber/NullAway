@@ -940,4 +940,50 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void nullUnmarkedAndAcknowledgeRestrictiveAnnotations() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                // Flag is required for now, but might no longer be need with @NullMarked!
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber.dontcare",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
+            "import com.example.jspecify.future.annotations.NullUnmarked;",
+            "import org.jspecify.nullness.Nullable;",
+            "@NullUnmarked",
+            "public class Foo {",
+            "  // No initialization warning, Foo is unmarked",
+            "  @Nullable public Object f;",
+            "  @Nullable",
+            "  public String callee(@Nullable Object o) {",
+            "    // No error, since this code is unannotated",
+            "    return o.toString() + f.toString();",
+            "  }",
+            "  @NullMarked",
+            "  public String caller() {",
+            "    // Error, since callee still has restrictive annotations!",
+            "    // BUG: Diagnostic contains: returning @Nullable expression from method",
+            "    return callee(null);",
+            "  }",
+            "  @NullMarked",
+            "  public Object getF() {",
+            "    // TODO: https://github.com/uber/NullAway/issues/573",
+            "    // Should be error, since callee still has restrictive annotations!",
+            "    return f;",
+            "  }",
+            "  @NullMarked",
+            "  public String derefUnmarkedField() {",
+            "    // TODO: https://github.com/uber/NullAway/issues/573",
+            "    // Should be error, since callee still has restrictive annotations!",
+            "    return f.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
