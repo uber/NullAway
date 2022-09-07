@@ -720,7 +720,30 @@ public class AccessPathNullnessPropagation
     Symbol symbol = ASTHelpers.getSymbol(fieldAccessNode.getTree());
     setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
     Nullness nullness = NULLABLE;
-    if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config, getCodeAnnotationInfo(state))) {
+    boolean fieldMayBeNull;
+    switch (handler.onDataflowVisitFieldAccess(
+        fieldAccessNode,
+        symbol,
+        state.getTypes(),
+        state.context,
+        apContext,
+        values(input),
+        updates)) {
+      case HINT_NULLABLE:
+        fieldMayBeNull = true;
+        break;
+      case FORCE_NONNULL:
+        fieldMayBeNull = false;
+        break;
+      case UNKNOWN:
+        fieldMayBeNull =
+            NullabilityUtil.mayBeNullFieldFromType(symbol, config, getCodeAnnotationInfo(state));
+        break;
+      default:
+        // Should be unreachable unless NullnessHint changes, cases above are exhaustive!
+        throw new RuntimeException("Unexpected NullnessHint from handler!");
+    }
+    if (!fieldMayBeNull) {
       nullness = NONNULL;
     } else {
       nullness = input.getRegularStore().valueOfField(fieldAccessNode, nullness, apContext);

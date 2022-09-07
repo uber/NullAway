@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
@@ -152,6 +153,19 @@ public abstract class BaseNoOpHandler implements Handler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
+    // NoOp
+    return NullnessHint.UNKNOWN;
+  }
+
+  @Override
+  public NullnessHint onDataflowVisitFieldAccess(
+      FieldAccessNode node,
+      Symbol symbol,
+      Types types,
+      Context context,
+      AccessPath.AccessPathContext apContext,
+      AccessPathNullnessPropagation.SubNodeValues inputs,
+      AccessPathNullnessPropagation.Updates updates) {
     // NoOp
     return NullnessHint.UNKNOWN;
   }

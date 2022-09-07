@@ -25,7 +25,6 @@ package com.uber.nullaway.handlers;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
@@ -37,6 +36,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import javax.annotation.Nullable;
+import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
@@ -47,22 +47,34 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
     this.config = config;
   }
 
+  /**
+   * Returns true iff the symbol is considered unannotated but restrictively annotated
+   * {@code @Nullable} under {@code AcknowledgeRestrictiveAnnotations=true} logic.
+   *
+   * <p>In particular, this means the symbol is explicitly annotated as {@code @Nullable} and, if
+   * {@code TreatGeneratedAsUnannotated=true}, it is not within generated code.
+   *
+   * @param symbol the symbol being checked
+   * @param context Javac Context or Error Prone SubContext
+   * @return whether this handler would generally override the nullness of {@code symbol} as
+   *     nullable.
+   */
+  private boolean isSymbolRestrictivelyNullable(Symbol symbol, Context context) {
+    CodeAnnotationInfo codeAnnotationInfo = getCodeAnnotationInfo(context);
+    return (codeAnnotationInfo.isSymbolUnannotated(symbol, config)
+        // with the generated-as-unannotated option enabled, we want to ignore annotations in
+        // generated code no matter what
+        && !(config.treatGeneratedAsUnannotated() && codeAnnotationInfo.isGenerated(symbol, config))
+        && Nullness.hasNullableAnnotation(symbol, config));
+  }
+
   @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
-    if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
-      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) expr);
-      CodeAnnotationInfo codeAnnotationInfo = getCodeAnnotationInfo(state.context);
-      if (codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config)) {
-        // with the generated-as-unannotated option enabled, we want to ignore
-        // annotations in generated code
-        if (config.treatGeneratedAsUnannotated()
-            && codeAnnotationInfo.isGenerated(methodSymbol, config)) {
-          return exprMayBeNull;
-        } else {
-          return Nullness.hasNullableAnnotation(methodSymbol, config) || exprMayBeNull;
-        }
-      }
+    Tree.Kind exprKind = expr.getKind();
+    if (exprKind.equals(Tree.Kind.METHOD_INVOCATION) || exprKind.equals(Tree.Kind.IDENTIFIER)) {
+      Symbol symbol = ASTHelpers.getSymbol(expr);
+      return exprMayBeNull || isSymbolRestrictivelyNullable(symbol, state.context);
     }
     return exprMayBeNull;
   }
@@ -84,8 +96,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       Nullness[] argumentPositionNullness) {
     if (isAnnotated) {
       // We ignore isAnnotated code here, since annotations in code considered isAnnotated are
-      // already handled
-      // by NullAway's core algorithm.
+      // already handled by NullAway's core algorithm.
       return argumentPositionNullness;
     }
     for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {
@@ -129,17 +140,23 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-    CodeAnnotationInfo codeAnnotationInfo = getCodeAnnotationInfo(context);
-    // with the generated-as-unannotated option enabled, we want to ignore
-    // annotations in generated code
-    if (config.treatGeneratedAsUnannotated()
-        && codeAnnotationInfo.isGenerated(methodSymbol, config)) {
-      return NullnessHint.UNKNOWN;
-    }
-    if (codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config)
-        && Nullness.hasNullableAnnotation(methodSymbol, config)) {
-      return NullnessHint.HINT_NULLABLE;
-    }
-    return NullnessHint.UNKNOWN;
+    return isSymbolRestrictivelyNullable(methodSymbol, context)
+        ? NullnessHint.HINT_NULLABLE
+        : NullnessHint.UNKNOWN;
+  }
+
+  @Override
+  public NullnessHint onDataflowVisitFieldAccess(
+      FieldAccessNode node,
+      Symbol symbol,
+      Types types,
+      Context context,
+      AccessPath.AccessPathContext apContext,
+      AccessPathNullnessPropagation.SubNodeValues inputs,
+      AccessPathNullnessPropagation.Updates updates) {
+    ;
+    return isSymbolRestrictivelyNullable(symbol, context)
+        ? NullnessHint.HINT_NULLABLE
+        : NullnessHint.UNKNOWN;
   }
 }

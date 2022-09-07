@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
@@ -217,6 +218,7 @@ public interface Handler {
    *
    * @param node The AST node for the method callsite.
    * @param types {@link Types} for the current compilation
+   * @param context the javac Context object (or Error Prone SubContext)
    * @param apContext the current access path context information (see {@link
    *     AccessPath.AccessPathContext}).
    * @param inputs NullnessStore information known before the method invocation.
@@ -239,6 +241,30 @@ public interface Handler {
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates);
+
+  /**
+   * Called when the Dataflow analysis visits each field access.
+   *
+   * @param node The AST node for the field access.
+   * @param symbol The {@link Symbol} object for the above node, provided for convenience.
+   * @param types {@link Types} for the current compilation
+   * @param context the javac Context object (or Error Prone SubContext)
+   * @param apContext the current access path context information (see {@link
+   *     AccessPath.AccessPathContext}).
+   * @param inputs NullnessStore information known before the method invocation.
+   * @param updates NullnessStore updates to be added, handlers can add via the set() method.
+   * @return The Nullness information for this field computed by this handler. See NullnessHint and
+   *     CompositeHandler for more information about how this values get merged into a final
+   *     Nullness value.
+   */
+  NullnessHint onDataflowVisitFieldAccess(
+      FieldAccessNode node,
+      Symbol symbol,
+      Types types,
+      Context context,
+      AccessPath.AccessPathContext apContext,
+      AccessPathNullnessPropagation.SubNodeValues inputs,
+      AccessPathNullnessPropagation.Updates updates);
 
   /**
    * Called when the Dataflow analysis visits a return statement.

@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
@@ -184,6 +185,24 @@ class CompositeHandler implements Handler {
       NullnessHint n =
           h.onDataflowVisitMethodInvocation(
               node, types, context, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
+      nullnessHint = nullnessHint.merge(n);
+    }
+    return nullnessHint;
+  }
+
+  @Override
+  public NullnessHint onDataflowVisitFieldAccess(
+      FieldAccessNode node,
+      Symbol symbol,
+      Types types,
+      Context context,
+      AccessPath.AccessPathContext apContext,
+      AccessPathNullnessPropagation.SubNodeValues inputs,
+      AccessPathNullnessPropagation.Updates updates) {
+    NullnessHint nullnessHint = NullnessHint.UNKNOWN;
+    for (Handler h : handlers) {
+      NullnessHint n =
+          h.onDataflowVisitFieldAccess(node, symbol, types, context, apContext, inputs, updates);
       nullnessHint = nullnessHint.merge(n);
     }
     return nullnessHint;
