@@ -58,6 +58,7 @@ import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
   public static final String NULLMARKED_SIMPLE_NAME = "NullMarked";
+  public static final String NULLUNMARKED_SIMPLE_NAME = "NullUnmarked";
 
   private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
 

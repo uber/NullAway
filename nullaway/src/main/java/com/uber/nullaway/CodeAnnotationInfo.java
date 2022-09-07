@@ -22,7 +22,6 @@
 
 package com.uber.nullaway;
 
-import static com.uber.nullaway.NullabilityUtil.NULLMARKED_SIMPLE_NAME;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
@@ -86,9 +85,12 @@ public final class CodeAnnotationInfo {
       // package name
       return false;
     }
-    if (config.fromExplicitlyUnannotatedPackage(className)) {
+    if (config.fromExplicitlyUnannotatedPackage(className)
+        || ASTHelpers.hasDirectAnnotationWithSimpleName(
+            outermostClassSymbol.packge(), NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
       // Any code explicitly marked as unannotated in our configuration is unannotated, no matter
-      // what.
+      // what. Similarly, any package annotated as @NullUnmarked is unannotated, even if
+      // explicitly passed to -XepOpt:NullAway::AnnotatedPackages
       return false;
     }
     // Finally, if we are here, the code was marked as annotated (either by configuration or
@@ -174,15 +176,22 @@ public final class CodeAnnotationInfo {
       // enclosingClass can be null in weird cases like for array methods
       if (enclosingClass != null) {
         ClassCacheRecord recordForEnclosing = get(enclosingClass, config);
-        record =
-            new ClassCacheRecord(
-                recordForEnclosing.outermostClassSymbol,
-                (recordForEnclosing.isNullnessAnnotated
-                        || (enclosingMethod != null
-                            && recordForEnclosing.isMethodNullnessAnnotated(enclosingMethod))
-                        || ASTHelpers.hasDirectAnnotationWithSimpleName(
-                            classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME))
-                    && !shouldTreatAsUnannotated(classSymbol, config));
+        // Check if this class is annotated, recall that enclosed scopes override enclosing scopes
+        boolean isAnnotated = recordForEnclosing.isNullnessAnnotated;
+        if (enclosingMethod != null) {
+          isAnnotated = recordForEnclosing.isMethodNullnessAnnotated(enclosingMethod);
+        }
+        if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+            classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
+          isAnnotated = false;
+        } else if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+            classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
+          isAnnotated = true;
+        }
+        if (shouldTreatAsUnannotated(classSymbol, config)) {
+          isAnnotated = false;
+        }
+        record = new ClassCacheRecord(recordForEnclosing.outermostClassSymbol, isAnnotated);
       }
     }
     if (record == null) {
@@ -199,8 +208,7 @@ public final class CodeAnnotationInfo {
     } else if (config.treatGeneratedAsUnannotated()) {
       // Generated code is or isn't excluded, depending on configuration
       // Note: In the future, we might want finer grain controls to distinguish code that is
-      // generated with nullability info and without. Possibly using the same mechanism as we
-      // will need to support @NullUnmarked.
+      // generated with nullability info and without.
       if (ASTHelpers.hasDirectAnnotationWithSimpleName(classSymbol, "Generated")) {
         return true;
       }
@@ -215,7 +223,12 @@ public final class CodeAnnotationInfo {
   }
 
   private boolean isAnnotatedTopLevelClass(Symbol.ClassSymbol classSymbol, Config config) {
-    // first, check if the class has a @NullMarked annotation or comes from an annotated package
+    // First, check for an explicitly @NullUnmarked top level class
+    if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+        classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
+      return false;
+    }
+    // Then, check if the class has a @NullMarked annotation or comes from an annotated package
     if ((ASTHelpers.hasDirectAnnotationWithSimpleName(
             classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)
         || fromAnnotatedPackage(classSymbol, config))) {
@@ -247,11 +260,14 @@ public final class CodeAnnotationInfo {
       methodNullnessCache.computeIfAbsent(
           methodSymbol,
           m -> {
-            if (this.isNullnessAnnotated) {
-              // ToDo: check for @NullUnmarked
+            if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+                m, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
+              return false;
+            } else if (this.isNullnessAnnotated) {
               return true;
             } else {
-              return ASTHelpers.hasDirectAnnotationWithSimpleName(m, NULLMARKED_SIMPLE_NAME);
+              return ASTHelpers.hasDirectAnnotationWithSimpleName(
+                  m, NullabilityUtil.NULLMARKED_SIMPLE_NAME);
             }
           });
       return methodNullnessCache.get(methodSymbol);
