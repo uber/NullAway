@@ -1327,10 +1327,12 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Returns true iff classSymbol has a direct @NullMarked or @NullUnmarked annotation which differs
-   * from the {@link NullMarking} of the top-level class, meaning the compilation unit is itself
-   * partially marked, and we need to switch to our slower mode for detecting whether we are in
-   * unannotated code.
+   * Check if an inner class's annotation means this Compilation Unit is partially annotated.
+   *
+   * <p>Returns true iff classSymbol has a direct @NullMarked or @NullUnmarked annotation which
+   * differs from the {@link NullMarking} of the top-level class, meaning the compilation unit is
+   * itself partially marked, and we need to switch to our slower mode for detecting whether we are
+   * in unannotated code.
    *
    * @param classSymbol a ClassSymbol representing an inner class within the current compilation
    *     unit.
