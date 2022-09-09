@@ -1,5 +1,18 @@
 Changelog
 =========
+Version 0.10.0
+--------------
+* Switch parameter overriding handler to use Nullness[] (#648) [performance opt!]
+* EXPERIMENTAL support for JSpecify's 0.3.0 @NullMarked and @NullUnmarked semantics
+  - [JSpecify] Support @NullMarked on methods. (#644)
+  - [JSpecify] Support @NullUnmarked. (#651)
+  - Allow AcknowledgeRestrictiveAnnotations to work on fields (#652)
+* Dependency Updates:
+  - Update to WALA 1.5.8 (#650)
+* Build / CI tooling for NullAway itself:
+  - Update to Gradle 7.5.1 (#647)
+  - Add Gradle versions plugin and update some "safe" dependencies (#649)
+
 Version 0.9.10
 --------------
 * Improved support for library models on annotated code:
