@@ -112,6 +112,22 @@ public final class CodeAnnotationInfo {
   }
 
   /**
+   * Check if the symbol represents the .class field of a primitive type.
+   *
+   * <p>e.g. int.class, boolean.class, void.class, etc.
+   *
+   * @param symbol symbol for entity
+   * @return true iff this symbol represents t.class for a primitive type t.
+   */
+  private static boolean isClassFieldOfPrimitiveType(Symbol symbol) {
+    return symbol.name.contentEquals("class")
+        && symbol.owner != null
+        && symbol.owner.getKind().equals(ElementKind.CLASS)
+        && symbol.owner.getQualifiedName().equals(symbol.owner.getSimpleName())
+        && symbol.owner.enclClass() == null;
+  }
+
+  /**
    * Check if a symbol comes from unannotated code.
    *
    * @param symbol symbol for entity
@@ -123,6 +139,13 @@ public final class CodeAnnotationInfo {
     Symbol.ClassSymbol classSymbol;
     if (symbol instanceof Symbol.ClassSymbol) {
       classSymbol = (Symbol.ClassSymbol) symbol;
+    } else if (isClassFieldOfPrimitiveType(symbol)) {
+      // As a special case, int.class, boolean.class, etc, cause ASTHelpers.enclosingClass(...) to
+      // return null, even though int/boolean/etc. are technically ClassSymbols. We consider this
+      // class "field" of primitive types to be always unannotated. (In the future, we could check
+      // here for whether java.lang is in the annotated packages, but if it is, I suspect we will
+      // have weirder problems than this)
+      return true;
     } else {
       classSymbol = castToNonNull(ASTHelpers.enclosingClass(symbol));
     }

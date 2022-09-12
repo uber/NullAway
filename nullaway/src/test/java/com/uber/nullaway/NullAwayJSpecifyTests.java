@@ -986,4 +986,99 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void nullMarkedStaticImports() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                // Flag is required for now, but might no longer be need with @NullMarked!
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber.dontcare",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "StaticMethods.java",
+            "package com.uber;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
+            "import org.jspecify.nullness.Nullable;",
+            "public final class StaticMethods {",
+            "  private StaticMethods() {}",
+            "  @NullMarked",
+            "  public static Object nonNullCallee(Object o) {",
+            "    return o;",
+            "  }",
+            "  @NullMarked",
+            "  @Nullable",
+            "  public static Object nullableCallee(@Nullable Object o) {",
+            "    return o;",
+            "  }",
+            "  public static Object unmarkedCallee(@Nullable Object o) {",
+            "    // no error, because unmarked",
+            "    return o;",
+            "  }",
+            "  @Nullable",
+            "  public static Object unmarkedNullableCallee(@Nullable Object o) {",
+            "    return o;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import static com.uber.StaticMethods.nonNullCallee;",
+            "import static com.uber.StaticMethods.nullableCallee;",
+            "import static com.uber.StaticMethods.unmarkedCallee;",
+            "import static com.uber.StaticMethods.unmarkedNullableCallee;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
+            "import org.jspecify.nullness.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  public Object getNewObject() {",
+            "    return new Object();",
+            "  }",
+            "  public void test() {",
+            "    Object o = getNewObject();",
+            "    nonNullCallee(o).toString();",
+            "    // BUG: Diagnostic contains: dereferenced expression nullableCallee(o) is @Nullable",
+            "    nullableCallee(o).toString();",
+            "    unmarkedCallee(o).toString();",
+            "    // BUG: Diagnostic contains: dereferenced expression unmarkedNullableCallee(o) is @Nullable",
+            "    unmarkedNullableCallee(o).toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void dotClassSanityTest() {
+    // Check that we do not crash while determining the nullmarked-ness of primitive.class (e.g.
+    // int.class)
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                // Flag is required for now, but might no longer be need with @NullMarked!
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber.dontcare",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
+            "import org.jspecify.nullness.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  public void takesClass(Class c) {",
+            "  }",
+            "  public Object test(boolean flag) {",
+            "    takesClass(Test.class);",
+            "    takesClass(String.class);",
+            "    takesClass(int.class);",
+            "    takesClass(boolean.class);",
+            "    takesClass(float.class);",
+            "    takesClass(void.class);",
+            "    // NEEDED TO TRIGGER DATAFLOW:",
+            "    return flag ? Test.class : new Object();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
