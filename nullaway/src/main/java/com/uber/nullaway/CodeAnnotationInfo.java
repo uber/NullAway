@@ -128,12 +128,10 @@ public final class CodeAnnotationInfo {
         && symbol.owner.getQualifiedName().equals(symbol.owner.getSimpleName())
         && symbol.owner.enclClass() == null) {
       // As an especial case, int.class, boolean.class, etc, cause ASTHelpers.enclosingClass(...) to
-      // return null,
-      // even though int/boolean/etc are technically ClassSymbols. We consider this class "field" of
-      // primitive
-      // types to be always unannotated (in the future, we could check here for whether java.lang is
-      // in the annotated
-      // packages, but if it is, I suspect we will have weirder problems than this)
+      // return null, even though int/boolean/etc. are technically ClassSymbols. We consider this
+      // class "field" of primitive types to be always unannotated. (In the future, we could check
+      // here for whether java.lang is in the annotated packages, but if it is, I suspect we will
+      // have weirder problems than this)
       return true;
     } else {
       classSymbol = castToNonNull(ASTHelpers.enclosingClass(symbol));
