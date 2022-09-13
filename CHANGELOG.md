@@ -1,5 +1,12 @@
 Changelog
 =========
+Version 0.10.1
+--------------
+This is a bug-fixing release for a crash introduced in 0.10.1 on type.class
+(for primitive type = boolean/int/void/etc.).
+* Fix crash when querying null-markedness of primitive.class expressions (#654)
+* Fix for querying for generated code w/ primitive.class expressions. (#655)
+
 Version 0.10.0
 --------------
 * Switch parameter overriding handler to use Nullness[] (#648) [performance opt!]
