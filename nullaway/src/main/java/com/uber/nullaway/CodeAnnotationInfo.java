@@ -106,8 +106,17 @@ public final class CodeAnnotationInfo {
    *     {@code @Generated}; false otherwise
    */
   public boolean isGenerated(Symbol symbol, Config config) {
-    Symbol.ClassSymbol outermostClassSymbol =
-        get(castToNonNull(ASTHelpers.enclosingClass(symbol)), config).outermostClassSymbol;
+    Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(symbol);
+    if (classSymbol == null) {
+      Preconditions.checkArgument(
+          isClassFieldOfPrimitiveType(
+              symbol), // One known case where this can happen: int.class, void.class, etc.
+          String.format(
+              "Unexpected symbol passed to CodeAnnotationInfo.isGenerated(...) with null enclosing class: %s",
+              symbol));
+      return false;
+    }
+    Symbol.ClassSymbol outermostClassSymbol = get(classSymbol, config).outermostClassSymbol;
     return ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated");
   }
 

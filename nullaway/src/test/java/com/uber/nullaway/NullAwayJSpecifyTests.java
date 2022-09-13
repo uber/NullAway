@@ -1049,7 +1049,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void dotClassSanityTest() {
+  public void dotClassSanityTest1() {
     // Check that we do not crash while determining the nullmarked-ness of primitive.class (e.g.
     // int.class)
     makeTestHelperWithArgs(
@@ -1064,6 +1064,7 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "package com.uber;",
             "import com.example.jspecify.future.annotations.NullMarked;",
             "import org.jspecify.nullness.Nullable;",
+            "import java.lang.reflect.Field;",
             "@NullMarked",
             "public class Test {",
             "  public void takesClass(Class c) {",
@@ -1077,6 +1078,54 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "    takesClass(void.class);",
             "    // NEEDED TO TRIGGER DATAFLOW:",
             "    return flag ? Test.class : new Object();",
+            "  }",
+            "  public boolean test2(Field field) {",
+            "    if (field.getType() == int.class || field.getType() == Integer.class) {",
+            "      return true;",
+            "    }",
+            "    return false;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void dotClassSanityTest2() {
+    // Check that we do not crash while determining the nullmarked-ness of primitive.class (e.g.
+    // int.class)
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                // Flag is required for now, but might no longer be need with @NullMarked!
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber.dontcare",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+                "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.jspecify.future.annotations.NullMarked;",
+            "import org.jspecify.nullness.Nullable;",
+            "import java.lang.reflect.Field;",
+            "@NullMarked",
+            "public class Test {",
+            "  public void takesClass(Class c) {",
+            "  }",
+            "  public Object test(boolean flag) {",
+            "    takesClass(Test.class);",
+            "    takesClass(String.class);",
+            "    takesClass(int.class);",
+            "    takesClass(boolean.class);",
+            "    takesClass(float.class);",
+            "    takesClass(void.class);",
+            "    // NEEDED TO TRIGGER DATAFLOW:",
+            "    return flag ? Test.class : new Object();",
+            "  }",
+            "  public boolean test2(Field field) {",
+            "    if (field.getType() == int.class || field.getType() == Integer.class) {",
+            "      return true;",
+            "    }",
+            "    return false;",
             "  }",
             "}")
         .doTest();
