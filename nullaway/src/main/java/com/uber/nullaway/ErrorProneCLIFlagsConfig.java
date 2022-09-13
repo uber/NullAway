@@ -163,8 +163,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     sourceClassesToExclude = getFlagStringSet(flags, FL_CLASSES_TO_EXCLUDE);
     unannotatedClasses = getFlagStringSet(flags, FL_UNANNOTATED_CLASSES);
     knownInitializers =
-        getKnownInitializers(
-            getFlagStringSet(flags, FL_KNOWN_INITIALIZERS, DEFAULT_KNOWN_INITIALIZERS));
+        getFlagStringSet(flags, FL_KNOWN_INITIALIZERS, DEFAULT_KNOWN_INITIALIZERS).stream()
+            .map(MethodClassAndName::fromClassDotMethod)
+            .collect(ImmutableSet.toImmutableSet());
     excludedClassAnnotations =
         getFlagStringSet(
             flags, FL_CLASS_ANNOTATIONS_TO_EXCLUDE, DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE);
