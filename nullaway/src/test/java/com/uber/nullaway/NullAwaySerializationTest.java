@@ -1455,7 +1455,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                   "x",
                   "PARAMETER",
                   "com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass",
-                  "null"))
+                  "null")) // <- ! the important bit
           .setFactory(fixDisplayFactory)
           .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
           .doTest();
