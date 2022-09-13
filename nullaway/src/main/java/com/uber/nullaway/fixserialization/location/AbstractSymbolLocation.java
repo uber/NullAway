@@ -28,6 +28,7 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import java.net.URI;
+import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
 
 /** abstract base class for {@link SymbolLocation}. */
@@ -35,8 +36,8 @@ public abstract class AbstractSymbolLocation implements SymbolLocation {
 
   /** Element kind of the targeted symbol */
   protected final ElementKind type;
-  /** URI of the file containing the symbol. */
-  protected final URI uri;
+  /** URI of the file containing the symbol, if available. */
+  @Nullable protected final URI uri;
   /** Enclosing class of the symbol. */
   protected final Symbol.ClassSymbol enclosingClass;
 
@@ -50,6 +51,9 @@ public abstract class AbstractSymbolLocation implements SymbolLocation {
             + ".");
     this.type = type;
     this.enclosingClass = castToNonNull(ASTHelpers.enclosingClass(target));
-    this.uri = enclosingClass.sourcefile.toUri();
+    this.uri =
+        enclosingClass.sourcefile != null
+            ? enclosingClass.sourcefile.toUri()
+            : (enclosingClass.classfile != null ? enclosingClass.classfile.toUri() : null);
   }
 }

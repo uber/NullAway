@@ -66,6 +66,6 @@ public class MethodParameterLocation extends AbstractSymbolLocation {
         enclosingMethod.toString(),
         paramSymbol.toString(),
         String.valueOf(index),
-        uri.toASCIIString());
+        uri != null ? uri.toASCIIString() : "null");
   }
 }
