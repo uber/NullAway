@@ -22,7 +22,11 @@
 
 package com.uber.nullaway;
 
+import static org.mockito.ArgumentMatchers.any;
+
 import com.google.common.base.Preconditions;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
@@ -42,6 +46,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.mockito.stubbing.Answer;
 
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
@@ -69,7 +76,9 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
           // relative paths are getting compared.
           FixDisplay display =
               new FixDisplay(values[7], values[2], values[3], values[0], values[1], values[5]);
-          display.uri = display.uri.substring(display.uri.indexOf("com/uber/"));
+          if (display.uri.contains("com/uber/")) {
+            display.uri = display.uri.substring(display.uri.indexOf("com/uber/"));
+          }
           return display;
         };
     this.errorDisplayFactory =
@@ -90,7 +99,9 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
           FieldInitDisplay display =
               new FieldInitDisplay(
                   values[6], values[2], values[3], values[0], values[1], values[5]);
-          display.uri = display.uri.substring(display.uri.indexOf("com/uber/"));
+          if (display.uri.contains("com/uber/")) {
+            display.uri = display.uri.substring(display.uri.indexOf("com/uber/"));
+          }
           return display;
         };
   }
@@ -1356,5 +1367,155 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
+  }
+
+  @Test
+  public void suggestNullableArgumentOnBytecode() {
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                // Explicitly avoid excluding com.uber.nullaway.testdata.unannotated,
+                // so we can suggest fixes there
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/UsesUnannotated.java",
+            "package com.uber;",
+            "import com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass;",
+            "public class UsesUnannotated {",
+            "   Object test(boolean flag) {",
+            "       // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "       return MinimalUnannotatedClass.foo(null);",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new FixDisplay(
+                "nullable",
+                "foo(java.lang.Object)",
+                "x",
+                "PARAMETER",
+                "com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass",
+                "com/uber/nullaway/testdata/unannotated/MinimalUnannotatedClass.java"))
+        .setFactory(fixDisplayFactory)
+        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void suggestNullableArgumentOnBytecodeNoFileInfo() {
+    // Simulate a build system which elides sourcefile/classfile info
+    try (MockedStatic<ASTHelpers> astHelpersMockedStatic =
+        Mockito.mockStatic(ASTHelpers.class, Mockito.CALLS_REAL_METHODS)) {
+      astHelpersMockedStatic
+          .when(() -> ASTHelpers.enclosingClass(any(Symbol.class)))
+          .thenAnswer(
+              (Answer<Symbol.ClassSymbol>)
+                  invocation -> {
+                    Symbol.ClassSymbol answer = (Symbol.ClassSymbol) invocation.callRealMethod();
+                    if (answer.sourcefile != null
+                        && answer
+                            .sourcefile
+                            .toUri()
+                            .toASCIIString()
+                            .contains("com/uber/nullaway/testdata/unannotated")) {
+                      answer.sourcefile = null;
+                      answer.classfile = null;
+                    }
+                    return answer;
+                  });
+      SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+      tester
+          .setArgs(
+              Arrays.asList(
+                  "-d",
+                  temporaryFolder.getRoot().getAbsolutePath(),
+                  "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                  // Explicitly avoid excluding com.uber.nullaway.testdata.unannotated,
+                  // so we can suggest fixes there
+                  "-XepOpt:NullAway:SerializeFixMetadata=true",
+                  "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+          .addSourceLines(
+              "com/uber/UsesUnannotated.java",
+              "package com.uber;",
+              "import com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass;",
+              "public class UsesUnannotated {",
+              "   Object test(boolean flag) {",
+              "       // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+              "       return MinimalUnannotatedClass.foo(null);",
+              "   }",
+              "}")
+          .setExpectedOutputs(
+              new FixDisplay(
+                  "nullable",
+                  "foo(java.lang.Object)",
+                  "x",
+                  "PARAMETER",
+                  "com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass",
+                  "null")) // <- ! the important bit
+          .setFactory(fixDisplayFactory)
+          .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+          .doTest();
+    }
+  }
+
+  @Test
+  public void suggestNullableArgumentOnBytecodeClassFileInfoOnly() {
+    // Simulate a build system which elides sourcefile/classfile info
+    try (MockedStatic<ASTHelpers> astHelpersMockedStatic =
+        Mockito.mockStatic(ASTHelpers.class, Mockito.CALLS_REAL_METHODS)) {
+      astHelpersMockedStatic
+          .when(() -> ASTHelpers.enclosingClass(any(Symbol.class)))
+          .thenAnswer(
+              (Answer<Symbol.ClassSymbol>)
+                  invocation -> {
+                    Symbol.ClassSymbol answer = (Symbol.ClassSymbol) invocation.callRealMethod();
+                    if (answer.sourcefile != null
+                        && answer
+                            .sourcefile
+                            .toUri()
+                            .toASCIIString()
+                            .contains("com/uber/nullaway/testdata/unannotated")) {
+                      answer.sourcefile = null;
+                    }
+                    return answer;
+                  });
+      SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+      tester
+          .setArgs(
+              Arrays.asList(
+                  "-d",
+                  temporaryFolder.getRoot().getAbsolutePath(),
+                  "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                  // Explicitly avoid excluding com.uber.nullaway.testdata.unannotated,
+                  // so we can suggest fixes there
+                  "-XepOpt:NullAway:SerializeFixMetadata=true",
+                  "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+          .addSourceLines(
+              "com/uber/UsesUnannotated.java",
+              "package com.uber;",
+              "import com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass;",
+              "public class UsesUnannotated {",
+              "   Object test(boolean flag) {",
+              "       // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+              "       return MinimalUnannotatedClass.foo(null);",
+              "   }",
+              "}")
+          .setExpectedOutputs(
+              new FixDisplay(
+                  "nullable",
+                  "foo(java.lang.Object)",
+                  "x",
+                  "PARAMETER",
+                  "com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass",
+                  // From Symbol.classfile!
+                  "com/uber/nullaway/testdata/unannotated/MinimalUnannotatedClass.java"))
+          .setFactory(fixDisplayFactory)
+          .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+          .doTest();
+    }
   }
 }
