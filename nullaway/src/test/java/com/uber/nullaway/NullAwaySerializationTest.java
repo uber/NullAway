@@ -1231,4 +1231,66 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
   }
+
+  @Test
+  public void errorSerializationTestEnclosedByFieldDeclaration() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Main.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Main {",
+            "   // BUG: Diagnostic contains: passing @Nullable parameter",
+            "   Foo f = new Foo(null);", // Member should be "f"
+            "   // BUG: Diagnostic contains: assigning @Nullable expression",
+            "   Foo f1 = null;", // Member should be "f1"
+            "   // BUG: Diagnostic contains: assigning @Nullable expression",
+            "   static Foo f2 = null;", // Member should be "f2"
+            "   static {",
+            "       // BUG: Diagnostic contains: assigning @Nullable expression",
+            "       f2 = null;", // Member should be "null" (not field or method)
+            "   }",
+            "   class Inner {",
+            "       // BUG: Diagnostic contains: passing @Nullable parameter",
+            "       Foo f = new Foo(null);", // Member should be "f" but class is Main$Inner
+            "   }",
+            "}")
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "public class Foo {",
+            "   public Foo(Object foo){",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay("PASS_NULLABLE", "passing @Nullable parameter", "com.uber.Main", "f"),
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.Main",
+                "f1"),
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.Main",
+                "f2"),
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.Main",
+                "null"),
+            new ErrorDisplay(
+                "PASS_NULLABLE", "passing @Nullable parameter", "com.uber.Main$Inner", "f"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
+        .doTest();
+  }
 }

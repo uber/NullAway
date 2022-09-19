@@ -33,7 +33,7 @@ import java.util.regex.Pattern;
 public class ErrorInfo {
 
   private final ErrorMessage errorMessage;
-  private final ClassAndMethodInfo classAndMethodInfo;
+  private final ClassAndMemberInfo classAndMemberInfo;
 
   /** Special characters that need to be escaped in TSV files. */
   private static final ImmutableMap<Character, Character> escapes =
@@ -45,7 +45,7 @@ public class ErrorInfo {
           '\r', 'r');
 
   public ErrorInfo(TreePath path, ErrorMessage errorMessage) {
-    this.classAndMethodInfo = new ClassAndMethodInfo(path);
+    this.classAndMemberInfo = new ClassAndMemberInfo(path);
     this.errorMessage = errorMessage;
   }
 
@@ -81,18 +81,16 @@ public class ErrorInfo {
         + '\t'
         + escapeSpecialCharacters(errorMessage.getMessage())
         + '\t'
-        + (classAndMethodInfo.getClazz() != null
-            ? ASTHelpers.getSymbol(classAndMethodInfo.getClazz()).flatName()
+        + (classAndMemberInfo.getClazz() != null
+            ? ASTHelpers.getSymbol(classAndMemberInfo.getClazz()).flatName()
             : "null")
         + '\t'
-        + (classAndMethodInfo.getMethod() != null
-            ? ASTHelpers.getSymbol(classAndMethodInfo.getMethod())
-            : "null");
+        + (classAndMemberInfo.getMember() != null ? classAndMemberInfo.getMember() : "null");
   }
 
-  /** Finds the class and method of program point where the error is reported. */
+  /** Finds the class and member of program point where the error is reported. */
   public void initEnclosing() {
-    classAndMethodInfo.findValues();
+    classAndMemberInfo.findValues();
   }
 
   /**
@@ -102,6 +100,6 @@ public class ErrorInfo {
    * @return string representation of the header separated by tabs.
    */
   public static String header() {
-    return "MESSAGE_TYPE" + '\t' + "MESSAGE" + '\t' + "CLASS" + '\t' + "METHOD";
+    return "MESSAGE_TYPE" + '\t' + "MESSAGE" + '\t' + "CLASS" + '\t' + "MEMBER";
   }
 }

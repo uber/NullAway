@@ -30,13 +30,13 @@ import java.util.Objects;
 public class ErrorDisplay implements Display {
   public final String type;
   public final String message;
-  public final String method;
+  public final String member;
   public final String clazz;
 
-  public ErrorDisplay(String type, String message, String clazz, String method) {
+  public ErrorDisplay(String type, String message, String clazz, String member) {
     this.type = type;
     this.message = message;
-    this.method = method;
+    this.member = member;
     this.clazz = clazz;
   }
 
@@ -53,13 +53,13 @@ public class ErrorDisplay implements Display {
         // To increase readability, a shorter version of the actual message might be present in the
         // expected output of tests.
         && (message.contains(that.message) || that.message.contains(message))
-        && method.equals(that.method)
+        && member.equals(that.member)
         && clazz.equals(that.clazz);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(type, message, method, clazz);
+    return Objects.hash(type, message, member, clazz);
   }
 
   @Override
@@ -71,8 +71,8 @@ public class ErrorDisplay implements Display {
         + "\n\tmessage='"
         + message
         + '\''
-        + "\n\tmethod='"
-        + method
+        + "\n\tmember='"
+        + member
         + '\''
         + "\n\tclass='"
         + clazz

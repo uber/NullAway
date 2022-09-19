@@ -36,11 +36,11 @@ public class SuggestedNullableFixInfo {
   /** Error which will be resolved by this type change. */
   private final ErrorMessage errorMessage;
 
-  private final ClassAndMethodInfo classAndMethodInfo;
+  private final ClassAndMemberInfo classAndMemberInfo;
 
   public SuggestedNullableFixInfo(
       TreePath path, FixLocation fixLocation, ErrorMessage errorMessage) {
-    this.classAndMethodInfo = new ClassAndMethodInfo(path);
+    this.classAndMemberInfo = new ClassAndMemberInfo(path);
     this.fixLocation = fixLocation;
     this.errorMessage = errorMessage;
   }
@@ -77,18 +77,16 @@ public class SuggestedNullableFixInfo {
         + '\t'
         + "nullable"
         + '\t'
-        + (classAndMethodInfo.getClazz() == null
+        + (classAndMemberInfo.getClazz() == null
             ? "null"
-            : ASTHelpers.getSymbol(classAndMethodInfo.getClazz()).flatName())
+            : ASTHelpers.getSymbol(classAndMemberInfo.getClazz()).flatName())
         + '\t'
-        + (classAndMethodInfo.getMethod() == null
-            ? "null"
-            : ASTHelpers.getSymbol(classAndMethodInfo.getMethod()));
+        + (classAndMemberInfo.getMember() == null ? "null" : classAndMemberInfo.getMember());
   }
 
   /** Finds the class and method of program point where triggered this type change. */
   public void initEnclosing() {
-    classAndMethodInfo.findValues();
+    classAndMemberInfo.findValues();
   }
 
   /**
