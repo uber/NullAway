@@ -32,7 +32,7 @@ import javax.annotation.Nullable;
 
 /** Class and member corresponding to a program point at which an error / fix was reported. */
 public class ClassAndMemberInfo {
-  /** Path to the program point of the reported error */
+  /** Path to the program point of the reported error / fix */
   public final TreePath path;
 
   /**
