@@ -63,7 +63,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   private static final String SUGGEST_FIX_FILE_HEADER = SuggestedNullableFixInfo.header();
   private static final String ERROR_FILE_NAME = "errors.tsv";
   private static final String ERROR_FILE_HEADER = ErrorInfo.header();
-  private static final String FIELD_INIT_FILE_NAME_POSTFIX = "field_init.tsv";
+  private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
   private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
 
   public NullAwaySerializationTest() {
@@ -831,7 +831,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setExpectedOutputs(
             new FieldInitDisplay(
                 "foo", "actualInit()", "null", "METHOD", "com.uber.Test", "com/uber/Test.java"))
-        .setOutputFileNameAndHeader(FIELD_INIT_FILE_NAME_POSTFIX_POSTFIX, FIELD_INIT_HEADER)
+        .setOutputFileNameAndHeader(FIELD_INIT_FILE_NAME, FIELD_INIT_HEADER)
         .setFactory(fieldInitDisplayFactory)
         .doTest();
   }
