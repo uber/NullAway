@@ -84,7 +84,7 @@ public class SuggestedNullableFixInfo {
             : classAndMemberInfo.getMember().toString()));
   }
 
-  /** Finds the class and method of program point where triggered this type change. */
+  /** Finds the class and member of program point where triggered this type change. */
   public void initEnclosing() {
     classAndMemberInfo.findValues();
   }
