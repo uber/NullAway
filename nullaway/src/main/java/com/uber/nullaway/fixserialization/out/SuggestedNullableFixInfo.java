@@ -25,24 +25,24 @@ package com.uber.nullaway.fixserialization.out;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.fixserialization.location.FixLocation;
+import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import java.util.Objects;
 
 /** Stores information suggesting adding @Nullable on an element in source code. */
 public class SuggestedNullableFixInfo {
 
-  /** FixLocation of the target element in source code. */
-  private final FixLocation fixLocation;
+  /** SymbolLocation of the target element in source code. */
+  private final SymbolLocation symbolLocation;
   /** Error which will be resolved by this type change. */
   private final ErrorMessage errorMessage;
 
   private final ClassAndMemberInfo classAndMemberInfo;
 
   public SuggestedNullableFixInfo(
-      TreePath path, FixLocation fixLocation, ErrorMessage errorMessage) {
-    this.classAndMemberInfo = new ClassAndMemberInfo(path);
-    this.fixLocation = fixLocation;
+      TreePath path, SymbolLocation symbolLocation, ErrorMessage errorMessage) {
+    this.symbolLocation = symbolLocation;
     this.errorMessage = errorMessage;
+    this.classAndMemberInfo = new ClassAndMemberInfo(path);
   }
 
   @Override
@@ -54,7 +54,7 @@ public class SuggestedNullableFixInfo {
       return false;
     }
     SuggestedNullableFixInfo suggestedNullableFixInfo = (SuggestedNullableFixInfo) o;
-    return Objects.equals(fixLocation, suggestedNullableFixInfo.fixLocation)
+    return Objects.equals(symbolLocation, suggestedNullableFixInfo.symbolLocation)
         && Objects.equals(
             errorMessage.getMessageType().toString(),
             suggestedNullableFixInfo.errorMessage.getMessageType().toString());
@@ -62,7 +62,7 @@ public class SuggestedNullableFixInfo {
 
   @Override
   public int hashCode() {
-    return Objects.hash(fixLocation, errorMessage.getMessageType().toString());
+    return Objects.hash(symbolLocation, errorMessage.getMessageType().toString());
   }
 
   /**
@@ -71,17 +71,17 @@ public class SuggestedNullableFixInfo {
    * @return string representation of contents of an object in a line separated by tabs.
    */
   public String tabSeparatedToString() {
-    return fixLocation.tabSeparatedToString()
-        + '\t'
-        + errorMessage.getMessageType().toString()
-        + '\t'
-        + "nullable"
-        + '\t'
-        + (classAndMemberInfo.getClazz() == null
+    return String.join(
+        "\t",
+        symbolLocation.tabSeparatedToString(),
+        errorMessage.getMessageType().toString(),
+        "nullable",
+        (classAndMemberInfo.getClazz() == null
             ? "null"
-            : ASTHelpers.getSymbol(classAndMemberInfo.getClazz()).flatName())
-        + '\t'
-        + (classAndMemberInfo.getMember() == null ? "null" : classAndMemberInfo.getMember());
+            : ASTHelpers.getSymbol(classAndMemberInfo.getClazz()).flatName()),
+        (classAndMemberInfo.getMember() == null
+            ? "null"
+            : classAndMemberInfo.getMember().toString()));
   }
 
   /** Finds the class and method of program point where triggered this type change. */
@@ -96,14 +96,7 @@ public class SuggestedNullableFixInfo {
    * @return string representation of the header separated by tabs.
    */
   public static String header() {
-    return FixLocation.header()
-        + '\t'
-        + "reason"
-        + '\t'
-        + "annotation"
-        + '\t'
-        + "rootClass"
-        + '\t'
-        + "rootMethod";
+    return String.join(
+        "\t", SymbolLocation.header(), "reason", "annotation", "rootClass", "rootMethod");
   }
 }

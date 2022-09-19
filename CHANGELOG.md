@@ -1,5 +1,54 @@
 Changelog
 =========
+Version 0.10.1
+--------------
+This is a bug-fixing release for a crash introduced in 0.10.1 on type.class
+(for primitive type = boolean/int/void/etc.).
+* Fix crash when querying null-markedness of primitive.class expressions (#654)
+* Fix for querying for generated code w/ primitive.class expressions. (#655)
+
+Version 0.10.0
+--------------
+* Switch parameter overriding handler to use Nullness[] (#648) [performance opt!]
+* EXPERIMENTAL support for JSpecify's 0.3.0 @NullMarked and @NullUnmarked semantics
+  - [JSpecify] Support @NullMarked on methods. (#644)
+  - [JSpecify] Support @NullUnmarked. (#651)
+  - Allow AcknowledgeRestrictiveAnnotations to work on fields (#652)
+* Dependency Updates:
+  - Update to WALA 1.5.8 (#650)
+* Build / CI tooling for NullAway itself:
+  - Update to Gradle 7.5.1 (#647)
+  - Add Gradle versions plugin and update some "safe" dependencies (#649)
+
+Version 0.9.10
+--------------
+* Improved support for library models on annotated code:
+  - Make library models override annotations by default. (#636)
+  - Generalize handler APIs for argument nullability on (un-)annotated code (#639)
+    - [Follow-up] Optimizations for parameter nullness handler / overriding (#646)
+  - Generalize handler APIs for return nullability on (un-)annotated code (#641)
+* Support for specific libraries/APIs:
+  - Add library model for Guava's Closer.register (#632)
+  - Support for Map.computeIfAbsent(...) (#640)
+* NullAwayInfer/Annotator data serialization support [experimental]
+  - Augment error serializarion info (#643)
+* Dependency Updates:
+  - Update to Checker Framework 3.24.0 (#631)
+* Fix javadoc and CONTRIBUTING.md typos (#642)
+
+Version 0.9.9
+-------------
+* Fix handling of empty contract arguments (#616)
+* Fix inconsistent treament of generated code in RestrictiveAnnotationHandler (#618)
+* Allow Library Models to override annotations. (#624)
+* Allow tracking field accesses outside the this instance and static fields (#625)
+* Add Guava 31+ support by treating @ParametricNullness as @nullable (#629)
+* Refactoring:
+  - Clean up: Remove method parameter protection analysis (#622)
+  - Clean up: Remove nullable annotation configuration in fix serialization. (#621)
+* Build / CI tooling for NullAway itself:
+  - Add a microbenchmark for type inference / dataflow (#617)
+
 Version 0.9.8
 -------------
 * Fix false positive involving type parameter @Nullable annotations (#609)

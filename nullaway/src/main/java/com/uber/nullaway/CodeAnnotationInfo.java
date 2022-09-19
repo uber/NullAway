@@ -24,37 +24,41 @@ package com.uber.nullaway;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
+import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.util.Context;
+import java.util.HashMap;
+import java.util.Map;
+import javax.lang.model.element.ElementKind;
 
 /**
  * Provides APIs for querying whether code is annotated for nullness checking, and for related
- * queries on what annotations are present on a class and/or enclosing classes. Makes use of caching
- * internally for performance.
+ * queries on what annotations are present on a class/method and/or on relevant enclosing scopes
+ * (i.e. enclosing classes or methods). Makes use of caching internally for performance.
  */
-public final class ClassAnnotationInfo {
+public final class CodeAnnotationInfo {
 
-  private static final Context.Key<ClassAnnotationInfo> ANNOTATION_INFO_KEY = new Context.Key<>();
+  private static final Context.Key<CodeAnnotationInfo> ANNOTATION_INFO_KEY = new Context.Key<>();
 
-  private static final int MAX_CACHE_SIZE = 200;
+  private static final int MAX_CLASS_CACHE_SIZE = 200;
 
-  private final Cache<Symbol.ClassSymbol, CacheRecord> cache =
-      CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE).build();
+  private final Cache<Symbol.ClassSymbol, ClassCacheRecord> classCache =
+      CacheBuilder.newBuilder().maximumSize(MAX_CLASS_CACHE_SIZE).build();
 
-  private ClassAnnotationInfo() {}
+  private CodeAnnotationInfo() {}
 
   /**
-   * Get the ClassAnnotationInfo for the given javac context. We ensure there is one instance per
+   * Get the CodeAnnotationInfo for the given javac context. We ensure there is one instance per
    * context (as opposed to using static fields) to avoid memory leaks.
    */
-  public static ClassAnnotationInfo instance(Context context) {
-    ClassAnnotationInfo annotationInfo = context.get(ANNOTATION_INFO_KEY);
+  public static CodeAnnotationInfo instance(Context context) {
+    CodeAnnotationInfo annotationInfo = context.get(ANNOTATION_INFO_KEY);
     if (annotationInfo == null) {
-      annotationInfo = new ClassAnnotationInfo();
+      annotationInfo = new CodeAnnotationInfo();
       context.put(ANNOTATION_INFO_KEY, annotationInfo);
     }
     return annotationInfo;
@@ -81,9 +85,12 @@ public final class ClassAnnotationInfo {
       // package name
       return false;
     }
-    if (config.fromExplicitlyUnannotatedPackage(className)) {
+    if (config.fromExplicitlyUnannotatedPackage(className)
+        || ASTHelpers.hasDirectAnnotationWithSimpleName(
+            outermostClassSymbol.packge(), NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
       // Any code explicitly marked as unannotated in our configuration is unannotated, no matter
-      // what.
+      // what. Similarly, any package annotated as @NullUnmarked is unannotated, even if
+      // explicitly passed to -XepOpt:NullAway::AnnotatedPackages
       return false;
     }
     // Finally, if we are here, the code was marked as annotated (either by configuration or
@@ -99,9 +106,34 @@ public final class ClassAnnotationInfo {
    *     {@code @Generated}; false otherwise
    */
   public boolean isGenerated(Symbol symbol, Config config) {
-    Symbol.ClassSymbol outermostClassSymbol =
-        get(castToNonNull(ASTHelpers.enclosingClass(symbol)), config).outermostClassSymbol;
+    Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(symbol);
+    if (classSymbol == null) {
+      Preconditions.checkArgument(
+          isClassFieldOfPrimitiveType(
+              symbol), // One known case where this can happen: int.class, void.class, etc.
+          String.format(
+              "Unexpected symbol passed to CodeAnnotationInfo.isGenerated(...) with null enclosing class: %s",
+              symbol));
+      return false;
+    }
+    Symbol.ClassSymbol outermostClassSymbol = get(classSymbol, config).outermostClassSymbol;
     return ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated");
+  }
+
+  /**
+   * Check if the symbol represents the .class field of a primitive type.
+   *
+   * <p>e.g. int.class, boolean.class, void.class, etc.
+   *
+   * @param symbol symbol for entity
+   * @return true iff this symbol represents t.class for a primitive type t.
+   */
+  private static boolean isClassFieldOfPrimitiveType(Symbol symbol) {
+    return symbol.name.contentEquals("class")
+        && symbol.owner != null
+        && symbol.owner.getKind().equals(ElementKind.CLASS)
+        && symbol.owner.getQualifiedName().equals(symbol.owner.getSimpleName())
+        && symbol.owner.enclClass() == null;
   }
 
   /**
@@ -113,7 +145,27 @@ public final class ClassAnnotationInfo {
    *     otherwise
    */
   public boolean isSymbolUnannotated(Symbol symbol, Config config) {
-    return !get(castToNonNull(ASTHelpers.enclosingClass(symbol)), config).isNullnessAnnotated;
+    Symbol.ClassSymbol classSymbol;
+    if (symbol instanceof Symbol.ClassSymbol) {
+      classSymbol = (Symbol.ClassSymbol) symbol;
+    } else if (isClassFieldOfPrimitiveType(symbol)) {
+      // As a special case, int.class, boolean.class, etc, cause ASTHelpers.enclosingClass(...) to
+      // return null, even though int/boolean/etc. are technically ClassSymbols. We consider this
+      // class "field" of primitive types to be always unannotated. (In the future, we could check
+      // here for whether java.lang is in the annotated packages, but if it is, I suspect we will
+      // have weirder problems than this)
+      return true;
+    } else {
+      classSymbol = castToNonNull(ASTHelpers.enclosingClass(symbol));
+    }
+    final ClassCacheRecord classCacheRecord = get(classSymbol, config);
+    boolean inAnnotatedClass = classCacheRecord.isNullnessAnnotated;
+    if (symbol.getKind().equals(ElementKind.METHOD)
+        || symbol.getKind().equals(ElementKind.CONSTRUCTOR)) {
+      return !classCacheRecord.isMethodNullnessAnnotated((Symbol.MethodSymbol) symbol);
+    } else {
+      return !inAnnotatedClass;
+    }
   }
 
   /**
@@ -139,30 +191,46 @@ public final class ClassAnnotationInfo {
    *     annotations on enclosing classes, the containing package, and other NullAway configuration
    *     like annotated packages
    */
-  private CacheRecord get(Symbol.ClassSymbol classSymbol, Config config) {
-    CacheRecord record = cache.getIfPresent(classSymbol);
+  private ClassCacheRecord get(Symbol.ClassSymbol classSymbol, Config config) {
+    ClassCacheRecord record = classCache.getIfPresent(classSymbol);
     if (record != null) {
       return record;
     }
     if (classSymbol.getNestingKind().isNested()) {
+      Symbol owner = classSymbol.owner;
+      Preconditions.checkNotNull(owner, "Symbol.owner should only be null for modules!");
+      Symbol.MethodSymbol enclosingMethod = null;
+      if (owner.getKind().equals(ElementKind.METHOD)
+          || owner.getKind().equals(ElementKind.CONSTRUCTOR)) {
+        enclosingMethod = (Symbol.MethodSymbol) owner;
+      }
       Symbol.ClassSymbol enclosingClass = ASTHelpers.enclosingClass(classSymbol);
-      // enclosingSymbol can be null in weird cases like for array methods
+      // enclosingClass can be null in weird cases like for array methods
       if (enclosingClass != null) {
-        CacheRecord recordForEnclosing = get(enclosingClass, config);
-        record =
-            new CacheRecord(
-                recordForEnclosing.outermostClassSymbol,
-                (recordForEnclosing.isNullnessAnnotated
-                        || ASTHelpers.hasDirectAnnotationWithSimpleName(
-                            classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME))
-                    && !shouldTreatAsUnannotated(classSymbol, config));
+        ClassCacheRecord recordForEnclosing = get(enclosingClass, config);
+        // Check if this class is annotated, recall that enclosed scopes override enclosing scopes
+        boolean isAnnotated = recordForEnclosing.isNullnessAnnotated;
+        if (enclosingMethod != null) {
+          isAnnotated = recordForEnclosing.isMethodNullnessAnnotated(enclosingMethod);
+        }
+        if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+            classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
+          isAnnotated = false;
+        } else if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+            classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
+          isAnnotated = true;
+        }
+        if (shouldTreatAsUnannotated(classSymbol, config)) {
+          isAnnotated = false;
+        }
+        record = new ClassCacheRecord(recordForEnclosing.outermostClassSymbol, isAnnotated);
       }
     }
     if (record == null) {
       // We are already at the outermost class (we can find), so let's create a record for it
-      record = new CacheRecord(classSymbol, isAnnotatedTopLevelClass(classSymbol, config));
+      record = new ClassCacheRecord(classSymbol, isAnnotatedTopLevelClass(classSymbol, config));
     }
-    cache.put(classSymbol, record);
+    classCache.put(classSymbol, record);
     return record;
   }
 
@@ -172,8 +240,7 @@ public final class ClassAnnotationInfo {
     } else if (config.treatGeneratedAsUnannotated()) {
       // Generated code is or isn't excluded, depending on configuration
       // Note: In the future, we might want finer grain controls to distinguish code that is
-      // generated with nullability info and without. Possibly using the same mechanism as we
-      // will need to support @NullUnmarked.
+      // generated with nullability info and without.
       if (ASTHelpers.hasDirectAnnotationWithSimpleName(classSymbol, "Generated")) {
         return true;
       }
@@ -188,7 +255,12 @@ public final class ClassAnnotationInfo {
   }
 
   private boolean isAnnotatedTopLevelClass(Symbol.ClassSymbol classSymbol, Config config) {
-    // first, check if the class has a @NullMarked annotation or comes from an annotated package
+    // First, check for an explicitly @NullUnmarked top level class
+    if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+        classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
+      return false;
+    }
+    // Then, check if the class has a @NullMarked annotation or comes from an annotated package
     if ((ASTHelpers.hasDirectAnnotationWithSimpleName(
             classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)
         || fromAnnotatedPackage(classSymbol, config))) {
@@ -205,13 +277,32 @@ public final class ClassAnnotationInfo {
    * <p>The class being referenced by the record is not represented by this object, but rather the
    * key used to retrieve it.
    */
-  private static final class CacheRecord {
+  private static final class ClassCacheRecord {
     public final Symbol.ClassSymbol outermostClassSymbol;
     public final boolean isNullnessAnnotated;
+    public final Map<Symbol.MethodSymbol, Boolean> methodNullnessCache;
 
-    public CacheRecord(Symbol.ClassSymbol outermostClassSymbol, boolean isAnnotated) {
+    public ClassCacheRecord(Symbol.ClassSymbol outermostClassSymbol, boolean isAnnotated) {
       this.outermostClassSymbol = outermostClassSymbol;
       this.isNullnessAnnotated = isAnnotated;
+      this.methodNullnessCache = new HashMap<>();
+    }
+
+    public boolean isMethodNullnessAnnotated(Symbol.MethodSymbol methodSymbol) {
+      methodNullnessCache.computeIfAbsent(
+          methodSymbol,
+          m -> {
+            if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+                m, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
+              return false;
+            } else if (this.isNullnessAnnotated) {
+              return true;
+            } else {
+              return ASTHelpers.hasDirectAnnotationWithSimpleName(
+                  m, NullabilityUtil.NULLMARKED_SIMPLE_NAME);
+            }
+          });
+      return methodNullnessCache.get(methodSymbol);
     }
   }
 }

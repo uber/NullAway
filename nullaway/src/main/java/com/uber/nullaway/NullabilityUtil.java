@@ -58,6 +58,7 @@ import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
   public static final String NULLMARKED_SIMPLE_NAME = "NullMarked";
+  public static final String NULLUNMARKED_SIMPLE_NAME = "NullUnmarked";
 
   private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
 
@@ -296,12 +297,12 @@ public class NullabilityUtil {
    * @throws NullPointerException if {@code symbol} is null
    */
   public static boolean mayBeNullFieldFromType(
-      Symbol symbol, Config config, ClassAnnotationInfo classAnnotationInfo) {
+      Symbol symbol, Config config, CodeAnnotationInfo codeAnnotationInfo) {
     Preconditions.checkNotNull(
         symbol, "mayBeNullFieldFromType should never be called with a null symbol");
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
-            || classAnnotationInfo.isSymbolUnannotated(symbol, config))
+            || codeAnnotationInfo.isSymbolUnannotated(symbol, config))
         && Nullness.hasNullableAnnotation(symbol, config);
   }
 

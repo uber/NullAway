@@ -22,7 +22,11 @@
 
 package com.uber.nullaway;
 
+import static org.mockito.ArgumentMatchers.any;
+
 import com.google.common.base.Preconditions;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
@@ -42,6 +46,9 @@ import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.mockito.stubbing.Answer;
 
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
@@ -69,15 +76,19 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
           // relative paths are getting compared.
           FixDisplay display =
               new FixDisplay(values[7], values[2], values[3], values[0], values[1], values[5]);
-          display.uri = display.uri.substring(display.uri.indexOf("com/uber/"));
+          if (display.uri.contains("com/uber/")) {
+            display.uri = display.uri.substring(display.uri.indexOf("com/uber/"));
+          }
           return display;
         };
     this.errorDisplayFactory =
         values -> {
           Preconditions.checkArgument(
-              values.length == 4,
-              "Needs exactly 4 values to create ErrorDisplay object but found: " + values.length);
-          return new ErrorDisplay(values[0], values[1], values[2], values[3]);
+              values.length == 10,
+              "Needs exactly 10 values to create ErrorDisplay object but found: " + values.length);
+          return new ErrorDisplay(
+              values[0], values[1], values[2], values[3], values[4], values[5], values[6],
+              values[7], values[8], values[9]);
         };
     this.fieldInitDisplayFactory =
         values -> {
@@ -88,7 +99,9 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
           FieldInitDisplay display =
               new FieldInitDisplay(
                   values[6], values[2], values[3], values[0], values[1], values[5]);
-          display.uri = display.uri.substring(display.uri.indexOf("com/uber/"));
+          if (display.uri.contains("com/uber/")) {
+            display.uri = display.uri.substring(display.uri.indexOf("com/uber/"));
+          }
           return display;
         };
   }
@@ -624,6 +637,9 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "     // BUG: Diagnostic contains: returning @Nullable expression",
             "     return null;",
             "   }",
+            "   protected void expectNonNull(Object o) {",
+            "     System.out.println(o);",
+            "   }",
             "}")
         .addSourceLines(
             "com/uber/SubClass.java",
@@ -634,6 +650,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "      super(b);",
             "      // BUG: Diagnostic contains: passing @Nullable parameter",
             "      test(null);",
+            "      // BUG: Diagnostic contains: passing @Nullable parameter",
+            "      expectNonNull(null);",
             "   }",
             "   // BUG: Diagnostic contains: method returns @Nullable, but superclass",
             "   @Nullable String test(Object o) {",
@@ -650,7 +668,13 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "ASSIGN_FIELD_NULLABLE",
                 "assigning @Nullable expression to @NonNull field",
                 "com.uber.Super",
-                "test(java.lang.Object)"),
+                "test(java.lang.Object)",
+                "FIELD",
+                "com.uber.Super",
+                "null",
+                "foo",
+                "null",
+                "com/uber/Super.java"),
             new ErrorDisplay(
                 "DEREFERENCE_NULLABLE",
                 "dereferenced expression o is @Nullable",
@@ -660,17 +684,46 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method",
                 "com.uber.Super",
-                "test(java.lang.Object)"),
+                "test(java.lang.Object)",
+                "METHOD",
+                "com.uber.Super",
+                "test(java.lang.Object)",
+                "null",
+                "null",
+                "com/uber/Super.java"),
             new ErrorDisplay(
                 "PASS_NULLABLE",
                 "passing @Nullable parameter",
                 "com.uber.SubClass",
-                "SubClass(boolean)"),
+                "SubClass(boolean)",
+                "PARAMETER",
+                "com.uber.SubClass",
+                "test(java.lang.Object)",
+                "o",
+                "0",
+                "com/uber/SubClass.java"),
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter",
+                "com.uber.SubClass",
+                "SubClass(boolean)",
+                "PARAMETER",
+                "com.uber.Super",
+                "expectNonNull(java.lang.Object)",
+                "o",
+                "0",
+                "com/uber/Super.java"),
             new ErrorDisplay(
                 "WRONG_OVERRIDE_RETURN",
                 "method returns @Nullable, but superclass",
                 "com.uber.SubClass",
-                "test(java.lang.Object)"))
+                "test(java.lang.Object)",
+                "METHOD",
+                "com.uber.Super",
+                "test(java.lang.Object)",
+                "null",
+                "null",
+                "com/uber/Super.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
@@ -707,7 +760,13 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "PASS_NULLABLE",
                 "passing @Nullable parameter 'm.hashCode() == 2 || m.toString().equals('\\\\t') ? \\t\\n\\t\\n new Object() : null'",
                 "com.uber.Test",
-                "run()"))
+                "run()",
+                "PARAMETER",
+                "com.uber.Test",
+                "foo(java.lang.Object)",
+                "o",
+                "0",
+                "com/uber/Test.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
@@ -815,12 +874,24 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
                 "com.uber.TestWithAnonymousRunnable$1",
-                "returnsNullable()"),
+                "returnsNullable()",
+                "METHOD",
+                "com.uber.TestWithAnonymousRunnable$1",
+                "returnsNullable()",
+                "null",
+                "null",
+                "com/uber/TestWithAnonymousRunnable.java"),
             new ErrorDisplay(
                 "PASS_NULLABLE",
                 "passing @Nullable parameter 'null' where @NonNull is required",
                 "com.uber.TestWithAnonymousRunnable$1",
-                "run()"))
+                "run()",
+                "PARAMETER",
+                "com.uber.TestWithAnonymousRunnable",
+                "takesNonNull(java.lang.String)",
+                "s",
+                "0",
+                "com/uber/TestWithAnonymousRunnable.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
@@ -858,7 +929,13 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
                 "com.uber.TestWithLocalType$1LocalType",
-                "returnsNullable()"))
+                "returnsNullable()",
+                "METHOD",
+                "com.uber.TestWithLocalType$1LocalType",
+                "returnsNullable()",
+                "null",
+                "null",
+                "com/uber/TestWithLocalType.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
@@ -917,17 +994,35 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
                 "com.uber.TestWithLocalTypes$1LocalType",
-                "returnsNullable()"),
+                "returnsNullable()",
+                "METHOD",
+                "com.uber.TestWithLocalTypes$1LocalType",
+                "returnsNullable()",
+                "null",
+                "null",
+                "com/uber/TestWithLocalTypes.java"),
             new ErrorDisplay(
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
                 "com.uber.TestWithLocalTypes$2LocalType",
-                "returnsNullable2()"),
+                "returnsNullable2()",
+                "METHOD",
+                "com.uber.TestWithLocalTypes$2LocalType",
+                "returnsNullable2()",
+                "null",
+                "null",
+                "com/uber/TestWithLocalTypes.java"),
             new ErrorDisplay(
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
                 "com.uber.TestWithLocalTypes$3LocalType",
-                "returnsNullable2()"))
+                "returnsNullable2()",
+                "METHOD",
+                "com.uber.TestWithLocalTypes$3LocalType",
+                "returnsNullable2()",
+                "null",
+                "null",
+                "com/uber/TestWithLocalTypes.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
@@ -1007,7 +1102,13 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
                 "com.uber.TestWithLocalType$1LocalTypeA$1LocalTypeB",
-                "returnsNullable()"))
+                "returnsNullable()",
+                "METHOD",
+                "com.uber.TestWithLocalType$1LocalTypeA$1LocalTypeB",
+                "returnsNullable()",
+                "null",
+                "null",
+                "com/uber/TestWithLocalType.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
@@ -1066,12 +1167,24 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
                 "com.uber.TestWithLocalTypes$1LocalType",
-                "returnsNullable()"),
+                "returnsNullable()",
+                "METHOD",
+                "com.uber.TestWithLocalTypes$1LocalType",
+                "returnsNullable()",
+                "null",
+                "null",
+                "com/uber/TestWithLocalTypes.java"),
             new ErrorDisplay(
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
                 "com.uber.TestWithLocalTypes$3LocalType",
-                "returnsNullable()"))
+                "returnsNullable()",
+                "METHOD",
+                "com.uber.TestWithLocalTypes$3LocalType",
+                "returnsNullable()",
+                "null",
+                "null",
+                "com/uber/TestWithLocalTypes.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
@@ -1113,7 +1226,13 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "WRONG_OVERRIDE_PARAM",
                 "parameter o is @NonNull, but parameter in superclass method com.uber.Foo.bar(java.lang.Object) is @Nullable",
                 "com.uber.Main$1",
-                "bar(java.lang.Object)"))
+                "bar(java.lang.Object)",
+                "PARAMETER",
+                "com.uber.Main$1",
+                "bar(java.lang.Object)",
+                "o",
+                "0",
+                "com/uber/Main.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
@@ -1157,7 +1276,13 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "WRONG_OVERRIDE_RETURN",
                 "method returns @Nullable, but superclass method com.uber.Foo.bar() returns @NonNull",
                 "com.uber.Main$1",
-                "bar()"))
+                "bar()",
+                "METHOD",
+                "com.uber.Foo",
+                "bar()",
+                "null",
+                "null",
+                "com/uber/Foo.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
@@ -1192,7 +1317,13 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "FIELD_NO_INIT",
                 "@NonNull field Main$1.bar not initialized",
                 "com.uber.Main$1",
-                "null"))
+                "null",
+                "FIELD",
+                "com.uber.Main$1",
+                "null",
+                "bar",
+                "null",
+                "com/uber/Main.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
@@ -1226,7 +1357,13 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "FIELD_NO_INIT",
                 "@NonNull field Main$1Foo.bar not initialized",
                 "com.uber.Main$1Foo",
-                "null"))
+                "null",
+                "FIELD",
+                "com.uber.Main$1Foo",
+                "null",
+                "bar",
+                "null",
+                "com/uber/Main.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
@@ -1292,5 +1429,155 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setFactory(errorDisplayFactory)
         .setOutputFileNamePostfixAndHeader(ERROR_FILE_NAME_POSTFIX, ERROR_FILE_HEADER)
         .doTest();
+  }
+
+  @Test
+  public void suggestNullableArgumentOnBytecode() {
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                // Explicitly avoid excluding com.uber.nullaway.testdata.unannotated,
+                // so we can suggest fixes there
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/UsesUnannotated.java",
+            "package com.uber;",
+            "import com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass;",
+            "public class UsesUnannotated {",
+            "   Object test(boolean flag) {",
+            "       // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "       return MinimalUnannotatedClass.foo(null);",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new FixDisplay(
+                "nullable",
+                "foo(java.lang.Object)",
+                "x",
+                "PARAMETER",
+                "com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass",
+                "com/uber/nullaway/testdata/unannotated/MinimalUnannotatedClass.java"))
+        .setFactory(fixDisplayFactory)
+        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void suggestNullableArgumentOnBytecodeNoFileInfo() {
+    // Simulate a build system which elides sourcefile/classfile info
+    try (MockedStatic<ASTHelpers> astHelpersMockedStatic =
+        Mockito.mockStatic(ASTHelpers.class, Mockito.CALLS_REAL_METHODS)) {
+      astHelpersMockedStatic
+          .when(() -> ASTHelpers.enclosingClass(any(Symbol.class)))
+          .thenAnswer(
+              (Answer<Symbol.ClassSymbol>)
+                  invocation -> {
+                    Symbol.ClassSymbol answer = (Symbol.ClassSymbol) invocation.callRealMethod();
+                    if (answer.sourcefile != null
+                        && answer
+                            .sourcefile
+                            .toUri()
+                            .toASCIIString()
+                            .contains("com/uber/nullaway/testdata/unannotated")) {
+                      answer.sourcefile = null;
+                      answer.classfile = null;
+                    }
+                    return answer;
+                  });
+      SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+      tester
+          .setArgs(
+              Arrays.asList(
+                  "-d",
+                  temporaryFolder.getRoot().getAbsolutePath(),
+                  "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                  // Explicitly avoid excluding com.uber.nullaway.testdata.unannotated,
+                  // so we can suggest fixes there
+                  "-XepOpt:NullAway:SerializeFixMetadata=true",
+                  "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+          .addSourceLines(
+              "com/uber/UsesUnannotated.java",
+              "package com.uber;",
+              "import com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass;",
+              "public class UsesUnannotated {",
+              "   Object test(boolean flag) {",
+              "       // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+              "       return MinimalUnannotatedClass.foo(null);",
+              "   }",
+              "}")
+          .setExpectedOutputs(
+              new FixDisplay(
+                  "nullable",
+                  "foo(java.lang.Object)",
+                  "x",
+                  "PARAMETER",
+                  "com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass",
+                  "null")) // <- ! the important bit
+          .setFactory(fixDisplayFactory)
+          .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+          .doTest();
+    }
+  }
+
+  @Test
+  public void suggestNullableArgumentOnBytecodeClassFileInfoOnly() {
+    // Simulate a build system which elides sourcefile/classfile info
+    try (MockedStatic<ASTHelpers> astHelpersMockedStatic =
+        Mockito.mockStatic(ASTHelpers.class, Mockito.CALLS_REAL_METHODS)) {
+      astHelpersMockedStatic
+          .when(() -> ASTHelpers.enclosingClass(any(Symbol.class)))
+          .thenAnswer(
+              (Answer<Symbol.ClassSymbol>)
+                  invocation -> {
+                    Symbol.ClassSymbol answer = (Symbol.ClassSymbol) invocation.callRealMethod();
+                    if (answer.sourcefile != null
+                        && answer
+                            .sourcefile
+                            .toUri()
+                            .toASCIIString()
+                            .contains("com/uber/nullaway/testdata/unannotated")) {
+                      answer.sourcefile = null;
+                    }
+                    return answer;
+                  });
+      SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+      tester
+          .setArgs(
+              Arrays.asList(
+                  "-d",
+                  temporaryFolder.getRoot().getAbsolutePath(),
+                  "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                  // Explicitly avoid excluding com.uber.nullaway.testdata.unannotated,
+                  // so we can suggest fixes there
+                  "-XepOpt:NullAway:SerializeFixMetadata=true",
+                  "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+          .addSourceLines(
+              "com/uber/UsesUnannotated.java",
+              "package com.uber;",
+              "import com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass;",
+              "public class UsesUnannotated {",
+              "   Object test(boolean flag) {",
+              "       // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+              "       return MinimalUnannotatedClass.foo(null);",
+              "   }",
+              "}")
+          .setExpectedOutputs(
+              new FixDisplay(
+                  "nullable",
+                  "foo(java.lang.Object)",
+                  "x",
+                  "PARAMETER",
+                  "com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass",
+                  // From Symbol.classfile!
+                  "com/uber/nullaway/testdata/unannotated/MinimalUnannotatedClass.java"))
+          .setFactory(fixDisplayFactory)
+          .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+          .doTest();
+    }
   }
 }

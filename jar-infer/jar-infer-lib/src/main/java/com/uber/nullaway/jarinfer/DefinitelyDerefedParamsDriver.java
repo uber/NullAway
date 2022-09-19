@@ -25,6 +25,8 @@ import com.ibm.wala.classLoader.IClassLoader;
 import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.classLoader.PhantomClass;
 import com.ibm.wala.classLoader.ShrikeCTMethod;
+import com.ibm.wala.core.util.config.AnalysisScopeReader;
+import com.ibm.wala.core.util.warnings.Warnings;
 import com.ibm.wala.ipa.callgraph.AnalysisCache;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
 import com.ibm.wala.ipa.callgraph.AnalysisOptions;
@@ -33,16 +35,14 @@ import com.ibm.wala.ipa.callgraph.impl.Everywhere;
 import com.ibm.wala.ipa.cha.ClassHierarchyException;
 import com.ibm.wala.ipa.cha.ClassHierarchyFactory;
 import com.ibm.wala.ipa.cha.IClassHierarchy;
-import com.ibm.wala.shrikeCT.InvalidClassFileException;
+import com.ibm.wala.shrike.shrikeCT.InvalidClassFileException;
 import com.ibm.wala.ssa.IR;
 import com.ibm.wala.ssa.ISSABasicBlock;
 import com.ibm.wala.ssa.SSAInstruction;
 import com.ibm.wala.types.ClassLoaderReference;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.util.collections.Iterator2Iterable;
-import com.ibm.wala.util.config.AnalysisScopeReader;
 import com.ibm.wala.util.config.FileOfClasses;
-import com.ibm.wala.util.warnings.Warnings;
 import java.io.ByteArrayInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -228,14 +228,15 @@ public class DefinitelyDerefedParamsDriver {
     } else if (!new File(inPath).exists()) {
       return;
     }
-    AnalysisScope scope = AnalysisScopeReader.makePrimordialScope(null);
+    AnalysisScope scope = AnalysisScopeReader.instance.makePrimordialScope(null);
     scope.setExclusions(
         new FileOfClasses(
             new ByteArrayInputStream(DEFAULT_EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
     if (jarIS != null) {
       scope.addInputStreamForJarToScope(ClassLoaderReference.Application, jarIS);
     } else {
-      AnalysisScopeReader.addClassPathToScope(inPath, scope, ClassLoaderReference.Application);
+      AnalysisScopeReader.instance.addClassPathToScope(
+          inPath, scope, ClassLoaderReference.Application);
     }
     AnalysisOptions options = new AnalysisOptions(scope, null);
     AnalysisCache cache = new AnalysisCacheImpl();

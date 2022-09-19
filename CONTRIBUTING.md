@@ -1,7 +1,7 @@
 Contributing to NullAway
 =======================
 
-Uber welcomes contributions of all kinds and sizes. This includes everything from from simple bug reports to large features.
+Uber welcomes contributions of all kinds and sizes. This includes everything from simple bug reports to large features.
 
 Workflow
 --------

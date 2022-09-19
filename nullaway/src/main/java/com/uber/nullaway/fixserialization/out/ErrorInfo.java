@@ -25,15 +25,30 @@ package com.uber.nullaway.fixserialization.out;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.annotation.Nullable;
 
 /** Stores information regarding an error which will be reported by NullAway. */
 public class ErrorInfo {
 
   private final ErrorMessage errorMessage;
   private final ClassAndMemberInfo classAndMemberInfo;
+
+  /**
+   * if non-null, this error involved a pseudo-assignment of a @Nullable expression into a @NonNull
+   * target, and this field is the Symbol for that target.
+   */
+  @Nullable private final Symbol nonnullTarget;
+  /**
+   * In cases where {@link ErrorInfo#nonnullTarget} is {@code null}, we serialize this value at its
+   * placeholder in the output tsv file.
+   */
+  private static final String EMPTY_NONNULL_TARGET_LOCATION_STRING =
+      "null\tnull\tnull\tnull\tnull\tnull";
 
   /** Special characters that need to be escaped in TSV files. */
   private static final ImmutableMap<Character, Character> escapes =
@@ -44,9 +59,10 @@ public class ErrorInfo {
           '\b', 'b',
           '\r', 'r');
 
-  public ErrorInfo(TreePath path, ErrorMessage errorMessage) {
+  public ErrorInfo(TreePath path, ErrorMessage errorMessage, @Nullable Symbol nonnullTarget) {
     this.classAndMemberInfo = new ClassAndMemberInfo(path);
     this.errorMessage = errorMessage;
+    this.nonnullTarget = nonnullTarget;
   }
 
   /**
@@ -77,15 +93,19 @@ public class ErrorInfo {
    * @return string representation of contents of an object in a line seperated by tabs.
    */
   public String tabSeparatedToString() {
-    return errorMessage.getMessageType().toString()
-        + '\t'
-        + escapeSpecialCharacters(errorMessage.getMessage())
-        + '\t'
-        + (classAndMemberInfo.getClazz() != null
+    return String.join(
+        "\t",
+        errorMessage.getMessageType().toString(),
+        escapeSpecialCharacters(errorMessage.getMessage()),
+        (classAndMemberInfo.getClazz() != null
             ? ASTHelpers.getSymbol(classAndMemberInfo.getClazz()).flatName()
-            : "null")
-        + '\t'
-        + (classAndMemberInfo.getMember() != null ? classAndMemberInfo.getMember() : "null");
+            : "null"),
+        (classAndMemberInfo.getMember() != null
+            ? classAndMemberInfo.getMember().toString()
+            : "null"),
+        (nonnullTarget != null
+            ? SymbolLocation.createLocationFromSymbol(nonnullTarget).tabSeparatedToString()
+            : EMPTY_NONNULL_TARGET_LOCATION_STRING));
   }
 
   /** Finds the class and member of program point where the error is reported. */
@@ -100,6 +120,17 @@ public class ErrorInfo {
    * @return string representation of the header separated by tabs.
    */
   public static String header() {
-    return "MESSAGE_TYPE" + '\t' + "MESSAGE" + '\t' + "CLASS" + '\t' + "MEMBER";
+    return String.join(
+        "\t",
+        "message_type",
+        "message",
+        "enc_class",
+        "enc_member",
+        "target_kind",
+        "target_class",
+        "target_method",
+        "param",
+        "index",
+        "uri");
   }
 }

@@ -30,14 +30,41 @@ import java.util.Objects;
 public class ErrorDisplay implements Display {
   public final String type;
   public final String message;
-  public final String member;
+  public final String encMember;
+  public final String encClass;
+  public final String kind;
   public final String clazz;
+  public final String method;
+  public final String variable;
+  public final String index;
+  public final String uri;
 
-  public ErrorDisplay(String type, String message, String clazz, String member) {
+  public ErrorDisplay(
+      String type,
+      String message,
+      String encClass,
+      String encMember,
+      String kind,
+      String clazz,
+      String method,
+      String variable,
+      String index,
+      String uri) {
     this.type = type;
     this.message = message;
-    this.member = member;
+    this.encMember = encMember;
+    this.encClass = encClass;
+    this.kind = kind;
     this.clazz = clazz;
+    this.method = method;
+    this.variable = variable;
+    this.index = index;
+    // relative paths are getting compared.
+    this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
+  }
+
+  public ErrorDisplay(String type, String message, String encClass, String encMethod) {
+    this(type, message, encClass, encMethod, "null", "null", "null", "null", "null", "null");
   }
 
   @Override
@@ -53,13 +80,20 @@ public class ErrorDisplay implements Display {
         // To increase readability, a shorter version of the actual message might be present in the
         // expected output of tests.
         && (message.contains(that.message) || that.message.contains(message))
-        && member.equals(that.member)
-        && clazz.equals(that.clazz);
+        && encMember.equals(that.encMember)
+        && clazz.equals(that.clazz)
+        && encClass.equals(that.encClass)
+        && kind.equals(that.kind)
+        && method.equals(that.method)
+        && variable.equals(that.variable)
+        && index.equals(that.index)
+        && uri.equals(that.uri);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(type, message, member, clazz);
+    return Objects.hash(
+        type, message, encMember, encClass, kind, clazz, method, variable, index, uri);
   }
 
   @Override
@@ -71,11 +105,29 @@ public class ErrorDisplay implements Display {
         + "\n\tmessage='"
         + message
         + '\''
-        + "\n\tmember='"
-        + member
+        + "\n\tencMember='"
+        + encMember
         + '\''
-        + "\n\tclass='"
+        + "\n\tencClass='"
+        + encClass
+        + '\''
+        + "\n\tkind='"
+        + kind
+        + '\''
+        + "\n\tclazz='"
         + clazz
+        + '\''
+        + "\n\tmethod='"
+        + method
+        + '\''
+        + "\n\tvariable='"
+        + variable
+        + '\''
+        + "\n\tindex='"
+        + index
+        + '\''
+        + "\n\turi='"
+        + uri
         + '\''
         + '}';
   }

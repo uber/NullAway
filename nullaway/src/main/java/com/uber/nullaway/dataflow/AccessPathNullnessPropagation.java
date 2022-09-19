@@ -31,7 +31,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
-import com.uber.nullaway.ClassAnnotationInfo;
+import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -45,6 +45,7 @@ import javax.annotation.CheckReturnValue;
 import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.analysis.ConditionalTransferResult;
 import org.checkerframework.nullaway.dataflow.analysis.ForwardTransferFunction;
 import org.checkerframework.nullaway.dataflow.analysis.RegularTransferResult;
@@ -719,7 +720,30 @@ public class AccessPathNullnessPropagation
     Symbol symbol = ASTHelpers.getSymbol(fieldAccessNode.getTree());
     setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
     Nullness nullness = NULLABLE;
-    if (!NullabilityUtil.mayBeNullFieldFromType(symbol, config, getClassAnnotationInfo(state))) {
+    boolean fieldMayBeNull;
+    switch (handler.onDataflowVisitFieldAccess(
+        fieldAccessNode,
+        symbol,
+        state.getTypes(),
+        state.context,
+        apContext,
+        values(input),
+        updates)) {
+      case HINT_NULLABLE:
+        fieldMayBeNull = true;
+        break;
+      case FORCE_NONNULL:
+        fieldMayBeNull = false;
+        break;
+      case UNKNOWN:
+        fieldMayBeNull =
+            NullabilityUtil.mayBeNullFieldFromType(symbol, config, getCodeAnnotationInfo(state));
+        break;
+      default:
+        // Should be unreachable unless NullnessHint changes, cases above are exhaustive!
+        throw new RuntimeException("Unexpected NullnessHint from handler!");
+    }
+    if (!fieldMayBeNull) {
       nullness = NONNULL;
     } else {
       nullness = input.getRegularStore().valueOfField(fieldAccessNode, nullness, apContext);
@@ -727,13 +751,13 @@ public class AccessPathNullnessPropagation
     return updateRegularStore(nullness, input, updates);
   }
 
-  @Nullable private ClassAnnotationInfo classAnnotationInfo;
+  @Nullable private CodeAnnotationInfo codeAnnotationInfo;
 
-  private ClassAnnotationInfo getClassAnnotationInfo(VisitorState state) {
-    if (classAnnotationInfo == null) {
-      classAnnotationInfo = ClassAnnotationInfo.instance(state.context);
+  private CodeAnnotationInfo getCodeAnnotationInfo(VisitorState state) {
+    if (codeAnnotationInfo == null) {
+      codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
     }
-    return classAnnotationInfo;
+    return codeAnnotationInfo;
   }
 
   private void setReceiverNonnull(
@@ -936,6 +960,31 @@ public class AccessPathNullnessPropagation
       if (getAccessPath != null) {
         Nullness value = inputs.valueOfSubNode(arguments.get(1));
         bothUpdates.set(getAccessPath, value);
+      }
+    } else if (AccessPath.isMapComputeIfAbsent(callee, state)) {
+      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, apContext);
+      if (getAccessPath != null) {
+        // TODO: For now, Function<K, V> implies a @NonNull V. We need to revisit this once we
+        // support generics, but we do include a couple defensive tests below.
+        if (arguments.size() < 2) {
+          return;
+        }
+        Node funcNode = arguments.get(1);
+        if (!funcNode.getType().getKind().equals(TypeKind.DECLARED)) {
+          return;
+        }
+        Type.ClassType classType = (Type.ClassType) funcNode.getType();
+        if (classType.getTypeArguments().size() != 2) {
+          return;
+        }
+        Type functionReturnType = classType.getTypeArguments().get(1);
+        // Unfortunately, functionReturnType.tsym seems to elide annotation info, so we can't call
+        // the Nullness.* methods that deal with Symbol. We might have better APIs for this kind of
+        // check once we have real generics support.
+        if (!Nullness.hasNullableAnnotation(
+            functionReturnType.getAnnotationMirrors().stream(), config)) {
+          bothUpdates.set(getAccessPath, NONNULL);
+        }
       }
     }
   }

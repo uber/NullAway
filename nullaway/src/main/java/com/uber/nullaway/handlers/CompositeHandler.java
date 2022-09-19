@@ -37,6 +37,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
@@ -46,6 +47,7 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
@@ -121,42 +123,31 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public ImmutableSet<Integer> onUnannotatedInvocationGetExplicitlyNullablePositions(
+  public Nullness onOverrideMethodInvocationReturnNullability(
+      Symbol.MethodSymbol methodSymbol,
+      VisitorState state,
+      boolean isAnnotated,
+      Nullness returnNullness) {
+    for (Handler h : handlers) {
+      returnNullness =
+          h.onOverrideMethodInvocationReturnNullability(
+              methodSymbol, state, isAnnotated, returnNullness);
+    }
+    return returnNullness;
+  }
+
+  @Override
+  public Nullness[] onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
-      ImmutableSet<Integer> explicitlyNullablePositions) {
+      boolean isAnnotated,
+      Nullness[] argumentPositionNullness) {
     for (Handler h : handlers) {
-      explicitlyNullablePositions =
-          h.onUnannotatedInvocationGetExplicitlyNullablePositions(
-              context, methodSymbol, explicitlyNullablePositions);
+      argumentPositionNullness =
+          h.onOverrideMethodInvocationParametersNullability(
+              context, methodSymbol, isAnnotated, argumentPositionNullness);
     }
-    return explicitlyNullablePositions;
-  }
-
-  @Override
-  public boolean onUnannotatedInvocationGetExplicitlyNonNullReturn(
-      Symbol.MethodSymbol methodSymbol, boolean explicitlyNonNullReturn) {
-    for (Handler h : handlers) {
-      explicitlyNonNullReturn =
-          h.onUnannotatedInvocationGetExplicitlyNonNullReturn(
-              methodSymbol, explicitlyNonNullReturn);
-    }
-    return explicitlyNonNullReturn;
-  }
-
-  @Override
-  public ImmutableSet<Integer> onUnannotatedInvocationGetNonNullPositions(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
-      List<? extends ExpressionTree> actualParams,
-      ImmutableSet<Integer> nonNullPositions) {
-    for (Handler h : handlers) {
-      nonNullPositions =
-          h.onUnannotatedInvocationGetNonNullPositions(
-              analysis, state, methodSymbol, actualParams, nonNullPositions);
-    }
-    return nonNullPositions;
+    return argumentPositionNullness;
   }
 
   @Override
@@ -194,6 +185,24 @@ class CompositeHandler implements Handler {
       NullnessHint n =
           h.onDataflowVisitMethodInvocation(
               node, types, context, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
+      nullnessHint = nullnessHint.merge(n);
+    }
+    return nullnessHint;
+  }
+
+  @Override
+  public NullnessHint onDataflowVisitFieldAccess(
+      FieldAccessNode node,
+      Symbol symbol,
+      Types types,
+      Context context,
+      AccessPath.AccessPathContext apContext,
+      AccessPathNullnessPropagation.SubNodeValues inputs,
+      AccessPathNullnessPropagation.Updates updates) {
+    NullnessHint nullnessHint = NullnessHint.UNKNOWN;
+    for (Handler h : handlers) {
+      NullnessHint n =
+          h.onDataflowVisitFieldAccess(node, symbol, types, context, apContext, inputs, updates);
       nullnessHint = nullnessHint.merge(n);
     }
     return nullnessHint;

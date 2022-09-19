@@ -41,7 +41,7 @@ if (project.hasProperty("epApiVersion")) {
 
 def versions = [
     asm                    : "9.3",
-    checkerFramework       : "3.22.2",
+    checkerFramework       : "3.24.0",
     // for comparisons in other parts of the build
     errorProneLatest       : latestErrorProneVersion,
     // The version of Error Prone used to check NullAway's code.
@@ -49,7 +49,7 @@ def versions = [
     // The version of Error Prone that NullAway is compiled and tested against
     errorProneApi          : errorProneVersionToCompileAgainst,
     support                : "27.1.1",
-    wala                   : "1.5.4",
+    wala                   : "1.5.8",
     commonscli             : "1.4",
     autoValue              : "1.9",
     autoService            : "1.0.1",
@@ -96,7 +96,7 @@ def support = [
 ]
 
 def test = [
-    junit4                  : "junit:junit:4.12",
+    junit4                  : "junit:junit:4.13.2",
     junit5Jupiter           : ["org.junit.jupiter:junit-jupiter-api:5.0.2","org.apiguardian:apiguardian-api:1.0.0"],
     jetbrainsAnnotations    : "org.jetbrains:annotations:13.0",
     inferAnnotations        : "com.facebook.infer.annotation:infer-annotation:0.11.0",
@@ -106,11 +106,12 @@ def test = [
     rxjava2                 : "io.reactivex.rxjava2:rxjava:2.1.2",
     commonsLang3            : "org.apache.commons:commons-lang3:3.8.1",
     commonsLang             : "commons-lang:commons-lang:2.6",
-    lombok                  : "org.projectlombok:lombok:1.18.22",
+    lombok                  : "org.projectlombok:lombok:1.18.24",
     springBeans             : "org.springframework:spring-beans:5.3.7",
     springContext           : "org.springframework:spring-context:5.3.7",
     grpcCore                : "io.grpc:grpc-core:1.15.1", // Should upgrade, but this matches our guava version
     mockito                 : "org.mockito:mockito-core:4.6.1",
+    mockitoInline           : "org.mockito:mockito-inline:4.6.1",
     javaxAnnotationApi      : "javax.annotation:javax.annotation-api:1.3.2",
 ]
 

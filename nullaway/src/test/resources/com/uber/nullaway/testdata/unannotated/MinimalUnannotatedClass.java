@@ -20,31 +20,23 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway.fixserialization.location;
+package com.uber.nullaway.testdata.unannotated;
 
-import com.sun.tools.javac.code.Symbol;
-import javax.lang.model.element.ElementKind;
+/**
+ * A minimal class, used from {@link com.uber.nullaway.NullAwaySerializationTest} to avoid extra
+ * fixes.
+ */
+public class MinimalUnannotatedClass {
 
-/** subtype of {@link AbstractSymbolLocation} targeting class fields. */
-public class FieldLocation extends AbstractSymbolLocation {
+  private MinimalUnannotatedClass() {}
 
-  /** Symbol of targeted class field */
-  protected final Symbol.VarSymbol variableSymbol;
-
-  public FieldLocation(Symbol target) {
-    super(ElementKind.FIELD, target);
-    variableSymbol = (Symbol.VarSymbol) target;
-  }
-
-  @Override
-  public String tabSeparatedToString() {
-    return String.join(
-        "\t",
-        type.toString(),
-        enclosingClass.flatName(),
-        "null",
-        variableSymbol.toString(),
-        "null",
-        uri != null ? uri.toASCIIString() : "null");
+  /**
+   * This is an identity method, without Nullability annotations.
+   *
+   * @param x
+   * @return
+   */
+  public static Object foo(Object x) {
+    return x;
   }
 }

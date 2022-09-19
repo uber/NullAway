@@ -23,7 +23,7 @@ plugins {
 }
 
 dependencies {
-  annotationProcessor "com.uber.nullaway:nullaway:0.9.8"
+  annotationProcessor "com.uber.nullaway:nullaway:0.10.1"
 
   // Optional, some source of nullability annotations.
   // Not required on Android if you use the support 
@@ -75,7 +75,7 @@ The configuration for an Android project is very similar to the Java case, with 
 
 ```gradle
 dependencies {
-  annotationProcessor "com.uber.nullaway:nullaway:0.9.8"
+  annotationProcessor "com.uber.nullaway:nullaway:0.10.1"
   errorprone "com.google.errorprone:error_prone_core:2.4.0"
   errorproneJavac "com.google.errorprone:javac:9+181-r4173-1"  
 }
