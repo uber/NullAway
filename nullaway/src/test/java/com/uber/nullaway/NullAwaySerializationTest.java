@@ -1408,24 +1408,61 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "   }",
             "}")
         .setExpectedOutputs(
-            new ErrorDisplay("PASS_NULLABLE", "passing @Nullable parameter", "com.uber.Main", "f"),
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter",
+                "com.uber.Main",
+                "f",
+                "PARAMETER",
+                "com.uber.Foo",
+                "Foo(java.lang.Object)",
+                "foo",
+                "0",
+                "com/uber/Foo.java"),
             new ErrorDisplay(
                 "ASSIGN_FIELD_NULLABLE",
                 "assigning @Nullable expression to @NonNull field",
                 "com.uber.Main",
-                "f1"),
+                "f1",
+                "FIELD",
+                "com.uber.Main",
+                "null",
+                "f1",
+                "null",
+                "com/uber/Main.java"),
             new ErrorDisplay(
                 "ASSIGN_FIELD_NULLABLE",
                 "assigning @Nullable expression to @NonNull field",
                 "com.uber.Main",
-                "f2"),
+                "f2",
+                "FIELD",
+                "com.uber.Main",
+                "null",
+                "f2",
+                "null",
+                "com/uber/Main.java"),
             new ErrorDisplay(
                 "ASSIGN_FIELD_NULLABLE",
                 "assigning @Nullable expression to @NonNull field",
                 "com.uber.Main",
-                "null"),
+                "null",
+                "FIELD",
+                "com.uber.Main",
+                "null",
+                "f2",
+                "null",
+                "com/uber/Main.java"),
             new ErrorDisplay(
-                "PASS_NULLABLE", "passing @Nullable parameter", "com.uber.Main$Inner", "f"))
+                "PASS_NULLABLE",
+                "passing @Nullable parameter",
+                "com.uber.Main$Inner",
+                "f",
+                "PARAMETER",
+                "com.uber.Foo",
+                "Foo(java.lang.Object)",
+                "foo",
+                "0",
+                "com/uber/Foo.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();

@@ -63,8 +63,8 @@ public class ErrorDisplay implements Display {
     this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
   }
 
-  public ErrorDisplay(String type, String message, String encClass, String encMethod) {
-    this(type, message, encClass, encMethod, "null", "null", "null", "null", "null", "null");
+  public ErrorDisplay(String type, String message, String encClass, String encMember) {
+    this(type, message, encClass, encMember, "null", "null", "null", "null", "null", "null");
   }
 
   @Override
