@@ -27,7 +27,6 @@ import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.UUID;
 import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -59,12 +58,6 @@ public class FixSerializationConfig {
    * it {@code @NonNull} at exit point.
    */
   public final boolean fieldInitInfoEnabled;
-
-  /**
-   * Prefix for all outputs serialized by this instance of NullAway. Please note this prefix is
-   * constant across all outputs in this NullAway instance.
-   */
-  public final UUID uuidPrefixForOutputFiles = UUID.randomUUID();
 
   /** The directory where all files generated/read by Fix Serialization package resides. */
   @Nullable public final String outputDirectory;

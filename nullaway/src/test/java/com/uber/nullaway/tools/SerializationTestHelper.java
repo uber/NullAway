@@ -35,9 +35,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class SerializationTestHelper<T extends Display> {
 
@@ -45,7 +43,7 @@ public class SerializationTestHelper<T extends Display> {
   private ImmutableList<T> expectedOutputs;
   private CompilationTestHelper compilationTestHelper;
   private DisplayFactory<T> factory;
-  private String fileNamePostfix;
+  private String fileName;
   private String header;
 
   public SerializationTestHelper(Path outputDir) {
@@ -80,43 +78,24 @@ public class SerializationTestHelper<T extends Display> {
     return this;
   }
 
-  public SerializationTestHelper<T> setOutputFileNamePostfixAndHeader(
-      String fileNamePostfix, String header) {
-    this.fileNamePostfix = fileNamePostfix;
+  public SerializationTestHelper<T> setOutputFileNameAndHeader(String fileName, String header) {
+    this.fileName = fileName;
     this.header = header;
     return this;
   }
 
   public void doTest() {
     Preconditions.checkNotNull(factory, "Factory cannot be null");
-    Preconditions.checkNotNull(fileNamePostfix, "File name postfix cannot be null");
-    clearAnyExistingFileWithPostFixUnderOutputDirectory();
-    compilationTestHelper.doTest();
-    List<T> actualOutputs = readActualOutputsFromFileWithPostfix();
-    compare(actualOutputs);
-  }
-
-  private void clearAnyExistingFileWithPostFixUnderOutputDirectory() {
-    try (Stream<Path> paths = Files.walk(outputDir)) {
-      paths
-          .filter(
-              path ->
-                  path.toFile().isFile() && path.getFileName().toString().endsWith(fileNamePostfix))
-          .forEach(
-              path -> {
-                try {
-                  Files.deleteIfExists(path);
-                } catch (IOException e) {
-                  throw new RuntimeException("Error while deleting file at: " + path, e);
-                }
-              });
-    } catch (IOException exception) {
-      throw new RuntimeException(
-          "Error while deleting existing files with postfix: "
-              + fileNamePostfix
-              + " at: "
-              + outputDir);
+    Preconditions.checkNotNull(fileName, "File name cannot be null");
+    Path outputPath = outputDir.resolve(fileName);
+    try {
+      Files.deleteIfExists(outputPath);
+    } catch (IOException ignored) {
+      throw new RuntimeException("Failed to delete older file at: " + outputPath);
     }
+    compilationTestHelper.doTest();
+    List<T> actualOutputs = readActualOutputs(outputPath);
+    compare(actualOutputs);
   }
 
   private void compare(List<T> actualOutput) {
@@ -151,27 +130,10 @@ public class SerializationTestHelper<T extends Display> {
     fail(errorMessage.toString());
   }
 
-  private List<T> readActualOutputsFromFileWithPostfix() {
+  private List<T> readActualOutputs(Path outputPath) {
     List<T> outputs = new ArrayList<>();
     BufferedReader reader;
-    // Max depth is set to 1 as the output file should be the direct child of the defined output
-    // directory.
-    try (Stream<Path> paths = Files.walk(outputDir, 1)) {
-      Optional<Path> optional =
-          paths
-              .filter(
-                  path ->
-                      path.toFile().isFile()
-                          && path.getFileName().toString().endsWith(fileNamePostfix))
-              .findAny();
-      if (!optional.isPresent()) {
-        throw new RuntimeException(
-            "File name with postfix: "
-                + fileNamePostfix
-                + " was not found under directory: "
-                + outputDir);
-      }
-      Path outputPath = optional.get();
+    try {
       reader = Files.newBufferedReader(outputPath, Charset.defaultCharset());
       String actualHeader = reader.readLine();
       if (!header.equals(actualHeader)) {
