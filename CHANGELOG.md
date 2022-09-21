@@ -1,5 +1,11 @@
 Changelog
 =========
+Version 0.10.2
+--------------
+* Make AbstractConfig collection fields explicity Immutable (#601) 
+* NullAwayInfer/Annotator data serialization support [experimental]
+  - Fix crash in fixserialization when ClassSymbol.sourcefile is null (#656)
+
 Version 0.10.1
 --------------
 This is a bug-fixing release for a crash introduced in 0.10.1 on type.class
