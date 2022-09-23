@@ -742,4 +742,26 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void primitiveCasts() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "    static void m() {",
+            "        Integer i = null;",
+            "        // BUG: Diagnostic contains: unboxing",
+            "        int i2 = (int) i;",
+            "        // this is fine",
+            "        int i3 = (int) Integer.valueOf(3);",
+            "        // try another type",
+            "        Double d = null;",
+            "        // BUG: Diagnostic contains: unboxing",
+            "        double d2 = (double) d;",
+            "    }",
+            "}")
+        .doTest();
+  }
 }
