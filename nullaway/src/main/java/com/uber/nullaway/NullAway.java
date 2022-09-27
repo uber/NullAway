@@ -81,6 +81,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
@@ -611,6 +612,13 @@ public class NullAway extends BugChecker
     // package)
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     handler.onMatchMethod(this, tree, state, methodSymbol);
+    // check parameter types
+    for (VariableTree varTree : tree.getParameters()) {
+      Type paramType = ASTHelpers.getType(varTree);
+      if (paramType.getTypeArguments().length() > 0) { // it's a generic type instantiation
+        checkInstantiatedType(paramType, state);
+      }
+    }
     boolean isOverriding = ASTHelpers.hasAnnotation(methodSymbol, Override.class, state);
     boolean exhaustiveOverride = config.exhaustiveOverride();
     if (isOverriding || !exhaustiveOverride) {
@@ -621,6 +629,35 @@ public class NullAway extends BugChecker
       }
     }
     return Description.NO_MATCH;
+  }
+
+  // check that type is a valid instantiation of its generic type
+  @SuppressWarnings("UnusedVariable")
+  private void checkInstantiatedType(Type type, VisitorState state) {
+    // typeArguments used in the instantiated type (like for Foo<String,Integer>, this gets
+    // [String,Integer])
+    com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
+    System.err.println(typeArguments);
+    // base type that is being instantiated (like for Foo<String,Integer>, this will get the
+    // declared type Foo<T,U>)
+    Type baseType = type.tsym.type;
+    // type arguments for base type
+    com.sun.tools.javac.util.List<Type> baseTypeArguments = baseType.getTypeArguments();
+    System.err.println(baseTypeArguments);
+    for (Type baseTypeArg : baseTypeArguments) {
+      // to get the upper bound of a type (like for Foo<T extends @Nullable Object>, returns
+      // @Nullable Object)
+      Type upperBound = baseTypeArg.getUpperBound();
+      System.err.println(upperBound);
+      // to get annotations on a type (like for @Nullable Object, returns [@Nullable])
+      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+          upperBound.getAnnotationMirrors();
+      System.err.println(annotationMirrors);
+      // checks if @Nullable is in a stream of annotations
+      boolean hasNullableAnnotation =
+          Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+      System.err.println(hasNullableAnnotation);
+    }
   }
 
   @Override
