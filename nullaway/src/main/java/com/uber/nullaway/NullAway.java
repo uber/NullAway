@@ -171,8 +171,7 @@ public class NullAway extends BugChecker
         BugChecker.IdentifierTreeMatcher,
         BugChecker.MemberReferenceTreeMatcher,
         BugChecker.CompoundAssignmentTreeMatcher,
-        BugChecker.SwitchTreeMatcher,
-        BugChecker.TypeCastTreeMatcher {
+        BugChecker.SwitchTreeMatcher {
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
   static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
@@ -616,7 +615,12 @@ public class NullAway extends BugChecker
     for (VariableTree varTree : tree.getParameters()) {
       Type paramType = ASTHelpers.getType(varTree);
       if (paramType.getTypeArguments().length() > 0) { // it's a generic type instantiation
-        checkInstantiatedType(paramType, state);
+        Description description = checkInstantiatedType(paramType, state, varTree);
+        if (description
+            != Description.NO_MATCH) { // there is an invalid instantiation, some error is generated
+          return description;
+        }
+        // if the instantiation is invalid for the generic type generate an error
       }
     }
     boolean isOverriding = ASTHelpers.hasAnnotation(methodSymbol, Override.class, state);
@@ -630,10 +634,12 @@ public class NullAway extends BugChecker
     }
     return Description.NO_MATCH;
   }
-
+ private Description invalidInstantiationError(VariableTree tree, VisitorState state) {
+    return errorBuilder.createErrorDescription("XXX", buildDescription(tree), state, tree);
+  }
   // check that type is a valid instantiation of its generic type
   @SuppressWarnings("UnusedVariable")
-  private void checkInstantiatedType(Type type, VisitorState state) {
+  private Description checkInstantiatedType(Type type, VisitorState state, VariableTree tree) {
     // typeArguments used in the instantiated type (like for Foo<String,Integer>, this gets
     // [String,Integer])
     com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
@@ -656,8 +662,13 @@ public class NullAway extends BugChecker
       // checks if @Nullable is in a stream of annotations
       boolean hasNullableAnnotation =
           Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+      if (hasNullableAnnotation) {
+        return invalidInstantiationError(tree, state);
+      }
       System.err.println(hasNullableAnnotation);
     }
+
+    return Description.NO_MATCH;
   }
 
   @Override
@@ -687,16 +698,6 @@ public class NullAway extends BugChecker
           null);
     }
 
-    return Description.NO_MATCH;
-  }
-
-  @Override
-  public Description matchTypeCast(TypeCastTree tree, VisitorState state) {
-    Type castExprType = ASTHelpers.getType(tree);
-    if (castExprType != null && castExprType.isPrimitive()) {
-      // casting to a primitive type performs unboxing
-      return doUnboxingCheck(state, tree.getExpression());
-    }
     return Description.NO_MATCH;
   }
 
