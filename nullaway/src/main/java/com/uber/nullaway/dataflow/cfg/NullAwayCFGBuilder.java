@@ -127,25 +127,44 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
     }
 
     /**
-     * Extend the CFG to throw an exception if the passed expression node evaluates to false.
+     * Extend the CFG to throw an exception if the passed expression node evaluates to {@code
+     * false}.
      *
      * @param booleanExpressionNode a CFG Node representing a boolean expression.
      * @param errorType the type of the exception to throw if booleanExpressionNode evaluates to
-     *     false.
+     *     {@code false}.
      */
     public void insertThrowOnFalse(Node booleanExpressionNode, TypeMirror errorType) {
+      insertThrowOn(false, booleanExpressionNode, errorType);
+    }
+
+    /**
+     * Extend the CFG to throw an exception if the passed expression node evaluates to {@code true}.
+     *
+     * @param booleanExpressionNode a CFG Node representing a boolean expression.
+     * @param errorType the type of the exception to throw if booleanExpressionNode evaluates to
+     *     {@code true}.
+     */
+    public void insertThrowOnTrue(Node booleanExpressionNode, TypeMirror errorType) {
+      insertThrowOn(true, booleanExpressionNode, errorType);
+    }
+
+    private void insertThrowOn(boolean throwOn, Node booleanExpressionNode, TypeMirror errorType) {
       Tree tree = booleanExpressionNode.getTree();
       Preconditions.checkArgument(
           tree instanceof ExpressionTree,
           "Argument booleanExpressionNode must represent a boolean expression");
       ExpressionTree booleanExpressionTree = (ExpressionTree) booleanExpressionNode.getTree();
       Preconditions.checkNotNull(booleanExpressionTree);
-      Label falsePreconditionEntry = new Label();
+      Label preconditionEntry = new Label();
       Label endPrecondition = new Label();
       this.scan(booleanExpressionTree, (Void) null);
-      ConditionalJump cjump = new ConditionalJump(endPrecondition, falsePreconditionEntry);
+      ConditionalJump cjump =
+          new ConditionalJump(
+              throwOn ? preconditionEntry : endPrecondition,
+              throwOn ? endPrecondition : preconditionEntry);
       this.extendWithExtendedNode(cjump);
-      this.addLabelForNextNode(falsePreconditionEntry);
+      this.addLabelForNextNode(preconditionEntry);
       ExtendedNode exNode =
           this.extendWithNodeWithException(
               new ThrowNode(
