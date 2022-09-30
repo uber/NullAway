@@ -172,7 +172,8 @@ public class NullAway extends BugChecker
         BugChecker.IdentifierTreeMatcher,
         BugChecker.MemberReferenceTreeMatcher,
         BugChecker.CompoundAssignmentTreeMatcher,
-        BugChecker.SwitchTreeMatcher {
+        BugChecker.SwitchTreeMatcher,
+        BugChecker.TypeCastTreeMatcher {
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
   static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
@@ -706,6 +707,16 @@ public class NullAway extends BugChecker
           null);
     }
 
+    return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchTypeCast(TypeCastTree tree, VisitorState state) {
+    Type castExprType = ASTHelpers.getType(tree);
+    if (castExprType != null && castExprType.isPrimitive()) {
+      // casting to a primitive type performs unboxing
+      return doUnboxingCheck(state, tree.getExpression());
+    }
     return Description.NO_MATCH;
   }
 
