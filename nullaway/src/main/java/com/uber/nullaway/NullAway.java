@@ -93,6 +93,7 @@ import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -615,12 +616,7 @@ public class NullAway extends BugChecker
     for (VariableTree varTree : tree.getParameters()) {
       Type paramType = ASTHelpers.getType(varTree);
       if (paramType.getTypeArguments().length() > 0) { // it's a generic type instantiation
-        Description description = checkInstantiatedType(paramType, state, varTree);
-        if (description
-            != Description.NO_MATCH) { // there is an invalid instantiation, some error is generated
-          return description;
-        }
-        // if the instantiation is invalid for the generic type generate an error
+        checkInstantiatedType(paramType, state, varTree);
       }
     }
     boolean isOverriding = ASTHelpers.hasAnnotation(methodSymbol, Override.class, state);
@@ -634,41 +630,54 @@ public class NullAway extends BugChecker
     }
     return Description.NO_MATCH;
   }
- private Description invalidInstantiationError(VariableTree tree, VisitorState state) {
-    return errorBuilder.createErrorDescription("XXX", buildDescription(tree), state, tree);
+
+  private void invalidInstantiationError(VariableTree tree, VisitorState state) {
+    ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, "XXX");
+    VarSymbol symbol = ASTHelpers.getSymbol(tree);
+    System.out.println(errorMessage);
+    state.reportMatch(
+        errorBuilder.createErrorDescriptionForNullAssignment(
+            errorMessage, tree, buildDescription(tree), state, symbol));
   }
   // check that type is a valid instantiation of its generic type
   @SuppressWarnings("UnusedVariable")
-  private Description checkInstantiatedType(Type type, VisitorState state, VariableTree tree) {
+  private void checkInstantiatedType(Type type, VisitorState state, VariableTree tree) {
     // typeArguments used in the instantiated type (like for Foo<String,Integer>, this gets
     // [String,Integer])
+
     com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
-    System.err.println(typeArguments);
-    // base type that is being instantiated (like for Foo<String,Integer>, this will get the
-    // declared type Foo<T,U>)
-    Type baseType = type.tsym.type;
-    // type arguments for base type
-    com.sun.tools.javac.util.List<Type> baseTypeArguments = baseType.getTypeArguments();
-    System.err.println(baseTypeArguments);
-    for (Type baseTypeArg : baseTypeArguments) {
-      // to get the upper bound of a type (like for Foo<T extends @Nullable Object>, returns
-      // @Nullable Object)
-      Type upperBound = baseTypeArg.getUpperBound();
-      System.err.println(upperBound);
-      // to get annotations on a type (like for @Nullable Object, returns [@Nullable])
-      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-          upperBound.getAnnotationMirrors();
-      System.err.println(annotationMirrors);
-      // checks if @Nullable is in a stream of annotations
-      boolean hasNullableAnnotation =
-          Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-      if (hasNullableAnnotation) {
-        return invalidInstantiationError(tree, state);
+    HashSet<Integer> typeArgsWithNullableAnnotations = new HashSet<Integer>();
+    int index = 0;
+    for (Type typArgument : typeArguments) {
+
+      Type upperBound = typArgument.getUpperBound();
+      if (upperBound == null) {
+        typeArgsWithNullableAnnotations.add(index);
       }
-      System.err.println(hasNullableAnnotation);
+      index++;
     }
 
-    return Description.NO_MATCH;
+    Type baseType = type.tsym.type;
+    com.sun.tools.javac.util.List<Type> baseTypeArguments = baseType.getTypeArguments();
+    index = 0;
+    for (Type baseTypeArg : baseTypeArguments) {
+      // if type argument at current index has @Nullable annotation base type argument at that index
+      // should also have
+      // the @Nullable annotation. check for the annotation
+      if (typeArgsWithNullableAnnotations.contains(index)) {
+        Type upperBound = baseTypeArg.getUpperBound();
+        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+            upperBound.getAnnotationMirrors();
+        boolean hasNullableAnnotation =
+            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+        // if base type argument does not have @Nullable annotation then the instantiation is
+        // invalid
+        if (!hasNullableAnnotation) {
+          invalidInstantiationError(tree, state);
+        }
+      }
+      index++;
+    }
   }
 
   @Override
