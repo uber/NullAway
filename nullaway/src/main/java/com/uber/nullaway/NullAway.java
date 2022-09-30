@@ -646,13 +646,16 @@ public class NullAway extends BugChecker
     // [String,Integer])
 
     com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
-    HashSet<Integer> typeArgsWithNullableAnnotations = new HashSet<Integer>();
+    HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
     int index = 0;
     for (Type typArgument : typeArguments) {
 
-      Type upperBound = typArgument.getUpperBound();
-      if (upperBound == null) {
-        typeArgsWithNullableAnnotations.add(index);
+      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+          typArgument.getAnnotationMirrors();
+      boolean hasNullableAnnotation =
+          Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+      if (hasNullableAnnotation) {
+        nullableTypeArguments.add(index);
       }
       index++;
     }
@@ -661,10 +664,12 @@ public class NullAway extends BugChecker
     com.sun.tools.javac.util.List<Type> baseTypeArguments = baseType.getTypeArguments();
     index = 0;
     for (Type baseTypeArg : baseTypeArguments) {
+
       // if type argument at current index has @Nullable annotation base type argument at that index
       // should also have
       // the @Nullable annotation. check for the annotation
-      if (typeArgsWithNullableAnnotations.contains(index)) {
+      if (nullableTypeArguments.contains(index)) {
+
         Type upperBound = baseTypeArg.getUpperBound();
         com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
             upperBound.getAnnotationMirrors();
