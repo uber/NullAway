@@ -633,12 +633,11 @@ public class NullAway extends BugChecker
   }
 
   private void invalidInstantiationError(VariableTree tree, VisitorState state) {
-    ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, "XXX");
-    VarSymbol symbol = ASTHelpers.getSymbol(tree);
-    System.err.println(errorMessage.message + "" + symbol);
+    ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ANNOTATION_VALUE_INVALID, "XXX");
+    //  System.err.println(errorMessage.message + "" + symbol);
     state.reportMatch(
         errorBuilder.createErrorDescriptionForNullAssignment(
-            errorMessage, tree, buildDescription(tree), state, symbol));
+            errorMessage, null, buildDescription(tree), state, null));
   }
   // check that type is a valid instantiation of its generic type
   private void checkInstantiatedType(Type type, VisitorState state, VariableTree tree) {
@@ -656,6 +655,7 @@ public class NullAway extends BugChecker
           Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
       if (hasNullableAnnotation) {
         nullableTypeArguments.add(index);
+        // System.out.println(typArgument + "--" + index);
       }
       index++;
     }
@@ -675,6 +675,7 @@ public class NullAway extends BugChecker
             upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
             Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+        System.out.println(hasNullableAnnotation + " " + index);
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation) {
