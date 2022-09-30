@@ -633,7 +633,7 @@ public class NullAway extends BugChecker
   }
 
   private void invalidInstantiationError(VariableTree tree, VisitorState state) {
-    ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ANNOTATION_VALUE_INVALID, "XXX");
+    ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, "XXX");
     //  System.err.println(errorMessage.message + "" + symbol);
     state.reportMatch(
         errorBuilder.createErrorDescriptionForNullAssignment(
