@@ -634,13 +634,12 @@ public class NullAway extends BugChecker
   private void invalidInstantiationError(VariableTree tree, VisitorState state) {
     ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, "XXX");
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
-    System.out.println(errorMessage);
+    System.err.println(errorMessage.message + "" + symbol);
     state.reportMatch(
         errorBuilder.createErrorDescriptionForNullAssignment(
             errorMessage, tree, buildDescription(tree), state, symbol));
   }
   // check that type is a valid instantiation of its generic type
-  @SuppressWarnings("UnusedVariable")
   private void checkInstantiatedType(Type type, VisitorState state, VariableTree tree) {
     // typeArguments used in the instantiated type (like for Foo<String,Integer>, this gets
     // [String,Integer])
