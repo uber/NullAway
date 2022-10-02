@@ -1377,6 +1377,11 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
+    // Check if the variable is generic
+    Type variableType = ASTHelpers.getType(tree);
+    if (variableType.getTypeArguments().length() > 0) { // it's a generic type instantiation
+      checkInstantiatedType(variableType, state, tree);
+    }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
       return doUnboxingCheck(state, tree.getInitializer());
