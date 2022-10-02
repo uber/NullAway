@@ -269,7 +269,7 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void pedanticEdgeCaseContract() {
+  public void contractDeclaringBothNotNull() {
     makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
@@ -282,7 +282,7 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
             "import org.jetbrains.annotations.Contract;",
             "public class NullnessChecker {",
             "  @Contract(\"null, _ -> false; _, null -> false\")",
-            "  static boolean check(@Nullable Object o1, @Nullable Object o2) {",
+            "  static boolean bothNotNull(@Nullable Object o1, @Nullable Object o2) {",
             "    // null, _ -> false",
             "    if (o1 == null) {",
             "      return false;",
@@ -291,7 +291,8 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
             "    if (o2 == null) {",
             "      return false;",
             "    }",
-            "    return true;",
+            "    // Function cannot declare a contract for true",
+            "    return System.currentTimeMillis() % 100 == 0;",
             "  }",
             "}")
         .addSourceLines(
@@ -300,7 +301,7 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
             "import javax.annotation.Nullable;",
             "class Test {",
             "  String test1(@Nullable Object o) {",
-            "    return NullnessChecker.check(\"\", o)",
+            "    return NullnessChecker.bothNotNull(\"\", o)",
             "      // BUG: Diagnostic contains: dereferenced expression",
             "      ? o.toString()",
             "      : \"null\";",
