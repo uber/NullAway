@@ -19,7 +19,8 @@ public class PreconditionsHandler extends BaseNoOpHandler {
   @Nullable private Name preconditionsClass;
   @Nullable private Name checkArgumentMethod;
   @Nullable private Name checkStateMethod;
-  @Nullable TypeMirror preconditionErrorType;
+  @Nullable TypeMirror preconditionCheckArgumentErrorType;
+  @Nullable TypeMirror preconditionCheckStateErrorType;
 
   @Override
   public MethodInvocationNode onCFGBuildPhase1AfterVisitMethodInvocation(
@@ -31,13 +32,23 @@ public class PreconditionsHandler extends BaseNoOpHandler {
       preconditionsClass = callee.name.table.fromString(PRECONDITIONS_CLASS_NAME);
       checkArgumentMethod = callee.name.table.fromString(CHECK_ARGUMENT_METHOD_NAME);
       checkStateMethod = callee.name.table.fromString(CHECK_STATE_METHOD_NAME);
-      preconditionErrorType = phase.classToErrorType(IllegalArgumentException.class);
+      preconditionCheckArgumentErrorType = phase.classToErrorType(IllegalArgumentException.class);
+      preconditionCheckStateErrorType = phase.classToErrorType(IllegalStateException.class);
     }
-    Preconditions.checkNotNull(preconditionErrorType);
+    Preconditions.checkNotNull(preconditionCheckArgumentErrorType);
+    Preconditions.checkNotNull(preconditionCheckStateErrorType);
     if (callee.enclClass().getQualifiedName().equals(preconditionsClass)
-        && (callee.name.equals(checkArgumentMethod) || callee.name.equals(checkStateMethod))
-        && callee.getParameters().size() > 0) {
-      phase.insertThrowOnFalse(originalNode.getArgument(0), preconditionErrorType);
+        && !callee.getParameters().isEmpty()) {
+      // Attempt to match Precondition check methods to the expected exception type, providing as
+      // much context as possible for static analysis.
+      // In practice this may not be strictly necessary because the conditional throw is inserted
+      // after the method invocation, thus analysis must assume that the preconditions call is
+      // capable of throwing any unchecked throwable.
+      if (callee.name.equals(checkArgumentMethod)) {
+        phase.insertThrowOnFalse(originalNode.getArgument(0), preconditionCheckArgumentErrorType);
+      } else if (callee.name.equals(checkStateMethod)) {
+        phase.insertThrowOnFalse(originalNode.getArgument(0), preconditionCheckStateErrorType);
+      }
     }
     return originalNode;
   }
