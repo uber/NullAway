@@ -207,7 +207,7 @@ public class ContractHandler extends BaseNoOpHandler {
           }
           // isNullTarget is equivalent to 'null ->' while notNullTarget is equivalent
           // to '!null ->'. However, the valueConstraint may reverse the check.
-          boolean inverted = isNullTarget.isEmpty() == valueConstraint.equals("true");
+          boolean inverted = isNullTarget.isPresent() == valueConstraint.equals("false");
           arg = nullTestTarget;
           argAntecedentNullness = inverted ? Nullness.NONNULL : Nullness.NULL;
         } else if (valueConstraint.equals("!null")
