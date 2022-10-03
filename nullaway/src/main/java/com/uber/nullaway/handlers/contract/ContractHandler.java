@@ -146,6 +146,9 @@ public class ContractHandler extends BaseNoOpHandler {
         if (runtimeExceptionType == null) {
           runtimeExceptionType = phase.classToErrorType(RuntimeException.class);
         }
+        // In practice the failure may not be RuntimeException, however the conditional
+        // throw is inserted after the method invocation where we must assume that
+        // any invocation is capable of throwing an unchecked throwable.
         Preconditions.checkNotNull(runtimeExceptionType);
         if (booleanConstraint) {
           phase.insertThrowOnTrue(arg, runtimeExceptionType);
