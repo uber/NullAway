@@ -633,12 +633,15 @@ public class NullAway extends BugChecker
   }
 
   private void invalidInstantiationError(VariableTree tree, VisitorState state) {
-    ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, "XXX");
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
+            "Generic type parameter cannot be @Nullable");
     //  System.err.println(errorMessage.message + "" + symbol);
     state.reportMatch(
-        errorBuilder.createErrorDescriptionForNullAssignment(
-            errorMessage, null, buildDescription(tree), state, null));
+        errorBuilder.createErrorDescription(errorMessage, buildDescription(tree), state, null));
   }
+
   // check that type is a valid instantiation of its generic type
   private void checkInstantiatedType(Type type, VisitorState state, VariableTree tree) {
     // typeArguments used in the instantiated type (like for Foo<String,Integer>, this gets
