@@ -645,7 +645,11 @@ public class NullAway extends BugChecker
   private void checkInstantiatedType(Type type, VisitorState state, VariableTree tree) {
     // typeArguments used in the instantiated type (like for Foo<String,Integer>, this gets
     // [String,Integer])
-
+    // if base type is unannotated do not check for generics
+    // temporary check to handle testMapComputeIfAbsent
+    if (codeAnnotationInfo.isSymbolUnannotated(type.tsym, config)) {
+      return;
+    }
     com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
     HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
     int index = 0;
