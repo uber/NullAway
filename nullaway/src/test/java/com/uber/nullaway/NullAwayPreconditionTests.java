@@ -222,4 +222,52 @@ public class NullAwayPreconditionTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void checkArgumentCatchException() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Preconditions;",
+            "class Test {",
+            "  private void foo(@Nullable Object a) {",
+            "    try {",
+            "      Preconditions.checkArgument(a != null);",
+            "    } catch (IllegalArgumentException e) {}",
+            "    // BUG: Diagnostic contains: dereferenced expression a is @Nullable",
+            "    a.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void checkStateCatchException() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Preconditions;",
+            "class Test {",
+            "  private void foo(@Nullable Object a) {",
+            "    try {",
+            "      Preconditions.checkState(a != null);",
+            "    } catch (IllegalStateException e) {}",
+            "    // BUG: Diagnostic contains: dereferenced expression a is @Nullable",
+            "    a.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
