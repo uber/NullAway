@@ -274,24 +274,30 @@ public class ContractHandler extends BaseNoOpHandler {
         continue;
       }
       if (consequent.equals("false") && argAntecedentNullness.equals(Nullness.NULL)) {
-        // Arg being null implies the return of the method being false.
-        elseUpdates.set(accessPath, Nullness.NULL);
-      } else if (consequent.equals("false") && argAntecedentNullness.equals(Nullness.NONNULL)) {
-        // Arg being non-null implies the return of the method being false.
-        elseUpdates.set(accessPath, Nullness.NONNULL);
-      } else if (consequent.equals("true") && argAntecedentNullness.equals(Nullness.NULL)) {
-        // Arg being null implies the return of the method being true.
-        thenUpdates.set(accessPath, Nullness.NULL);
-      } else if (consequent.equals("true") && argAntecedentNullness.equals(Nullness.NONNULL)) {
-        // Arg being non-null implies the return of the method being true.
+        // If arg being null implies the return of the method being false, then the return
+        // being true implies arg is not null and we must mark it as such in the then update.
         thenUpdates.set(accessPath, Nullness.NONNULL);
+      } else if (consequent.equals("false") && argAntecedentNullness.equals(Nullness.NONNULL)) {
+        // If arg being non-null implies the return of the method being false, then the return
+        // being true implies arg may be null and we must mark it as such in the then update.
+        thenUpdates.set(
+            accessPath, Nullness.NULLABLE.greatestLowerBound(inputs.valueOfSubNode(arg)));
+      } else if (consequent.equals("true") && argAntecedentNullness.equals(Nullness.NULL)) {
+        // If arg being null implies the return of the method being true, then the return being
+        // false implies arg is not null and we must mark it as such in the else update.
+        elseUpdates.set(accessPath, Nullness.NONNULL);
+      } else if (consequent.equals("true") && argAntecedentNullness.equals(Nullness.NONNULL)) {
+        // If arg being non-null implies the return of the method being true, then the return being
+        // false implies arg may be null and we must mark it as such in the else update.
+        elseUpdates.set(
+            accessPath, Nullness.NULLABLE.greatestLowerBound(inputs.valueOfSubNode(arg)));
       } else if (consequent.equals("fail") && argAntecedentNullness.equals(Nullness.NONNULL)) {
         // Arg being non-null implies the method throws an exception, then we can mark it as
         // null on both non-exceptional exits from the method.
         bothUpdates.set(accessPath, Nullness.NULL);
       } else if (consequent.equals("fail") && argAntecedentNullness.equals(Nullness.NULL)) {
-        // Arg being null implies the method throws an exception, then we can mark it as
-        // non-null on both non-exceptional exits from the method.
+        // If arg being null implies the method throws an exception, then we can mark it as
+        // non-null on both non-exceptional exits from the method
         bothUpdates.set(accessPath, Nullness.NONNULL);
       }
     }

@@ -42,9 +42,9 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
             "import javax.annotation.Nullable;",
             "import org.jetbrains.annotations.Contract;",
             "public class NullnessChecker {",
-            "  @Contract(\"_, null -> true; _, !null -> false\")",
+            "  @Contract(\"_, null -> true\")",
             "  static boolean isNull(boolean flag, @Nullable Object o) { return o == null; }",
-            "  @Contract(\"null -> false; !null -> true\")",
+            "  @Contract(\"null -> false\")",
             "  static boolean isNonNull(@Nullable Object o) { return o != null; }",
             "  @Contract(\"null -> fail\")",
             "  static void assertNonNull(@Nullable Object o) { if (o != null) throw new Error(); }",
@@ -302,9 +302,89 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
             "class Test {",
             "  String test1(@Nullable Object o) {",
             "    return NullnessChecker.bothNotNull(\"\", o)",
+            "      ? o.toString()",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      : o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void contractDeclaringEitherNull() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class NullnessChecker {",
+            "  @Contract(\"null, _ -> true; _, null -> true\")",
+            "  static boolean eitherIsNullOrRandom(@Nullable Object o1, @Nullable Object o2) {",
+            "    // null, _ -> true",
+            "    if (o1 == null) {",
+            "      return true;",
+            "    }",
+            "    // _, null -> true",
+            "    if (o2 == null) {",
+            "      return true;",
+            "    }",
+            "    // Function cannot declare a contract for false",
+            "    return System.currentTimeMillis() % 100 == 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test1(@Nullable Object o) {",
+            "    return NullnessChecker.eitherIsNullOrRandom(\"\", o)",
             "      // BUG: Diagnostic contains: dereferenced expression",
             "      ? o.toString()",
-            "      : \"null\";",
+            "      : o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void contractDeclaringNullOrRandomFalse() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class NullnessChecker {",
+            "  @Contract(\"null -> false\")",
+            "  static boolean isHashCodeZero(@Nullable Object o) {",
+            "    // null -> false",
+            "    if (o == null) {",
+            "      return false;",
+            "    }",
+            "    // Function cannot declare a contract for true",
+            "    return o.hashCode() == 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test1(@Nullable Object o) {",
+            "    return NullnessChecker.isHashCodeZero(o)",
+            "      ? o.toString()",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      : o.toString();",
             "  }",
             "}")
         .doTest();
