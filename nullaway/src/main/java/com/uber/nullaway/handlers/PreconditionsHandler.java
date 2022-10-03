@@ -39,6 +39,11 @@ public class PreconditionsHandler extends BaseNoOpHandler {
     Preconditions.checkNotNull(preconditionCheckStateErrorType);
     if (callee.enclClass().getQualifiedName().equals(preconditionsClass)
         && !callee.getParameters().isEmpty()) {
+      // Attempt to match Precondition check methods to the expected exception type, providing as
+      // much context as possible for static analysis.
+      // In practice this may not be strictly necessary because the conditional throw is inserted
+      // after the method invocation, thus analysis must assume that the preconditions call is
+      // capable of throwing any unchecked throwable.
       if (callee.name.equals(checkArgumentMethod)) {
         phase.insertThrowOnFalse(originalNode.getArgument(0), preconditionCheckArgumentErrorType);
       } else if (callee.name.equals(checkStateMethod)) {
