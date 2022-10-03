@@ -637,7 +637,6 @@ public class NullAway extends BugChecker
         new ErrorMessage(
             MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
             "Generic type parameter cannot be @Nullable");
-    //  System.err.println(errorMessage.message + "" + symbol);
     state.reportMatch(
         errorBuilder.createErrorDescription(errorMessage, buildDescription(tree), state, null));
   }
@@ -651,14 +650,12 @@ public class NullAway extends BugChecker
     HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
     int index = 0;
     for (Type typArgument : typeArguments) {
-
       com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
           typArgument.getAnnotationMirrors();
       boolean hasNullableAnnotation =
           Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
       if (hasNullableAnnotation) {
         nullableTypeArguments.add(index);
-        // System.out.println(typArgument + "--" + index);
       }
       index++;
     }
@@ -678,7 +675,6 @@ public class NullAway extends BugChecker
             upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
             Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-        System.out.println(hasNullableAnnotation + " " + index);
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation) {
