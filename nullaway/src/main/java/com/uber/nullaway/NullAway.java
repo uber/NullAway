@@ -632,7 +632,7 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
-  private void invalidInstantiationError(VariableTree tree, VisitorState state) {
+  private void invalidInstantiationError(Tree tree, VisitorState state) {
     ErrorMessage errorMessage =
         new ErrorMessage(
             MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
@@ -642,7 +642,7 @@ public class NullAway extends BugChecker
   }
 
   // check that type is a valid instantiation of its generic type
-  private void checkInstantiatedType(Type type, VisitorState state, VariableTree tree) {
+  private void checkInstantiatedType(Type type, VisitorState state, Tree tree) {
     // typeArguments used in the instantiated type (like for Foo<String,Integer>, this gets
     // [String,Integer])
     // if base type is unannotated do not check for generics
