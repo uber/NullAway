@@ -676,8 +676,8 @@ public class AccessPathNullnessPropagation
   }
 
   private static boolean hasNonNullConstantValue(LocalVariableNode node) {
-    if (node.getElement() instanceof VariableElement) {
-      VariableElement element = (VariableElement) node.getElement();
+    VariableElement element = node.getElement();
+    if (element != null) {
       return (element.getConstantValue() != null);
     }
     return false;
