@@ -199,10 +199,24 @@ public class ContractHandler extends BaseNoOpHandler {
             supported = false;
             break;
           }
+          // We handle boolean constraints in the case that the boolean argument is the result
+          // of a null or not-null check. For example,
+          // '@Contract("true -> true") boolean func(boolean v)'
+          // called with 'func(obj == null)'
+          // can be interpreted as equivalent to
+          // '@Contract("null -> true") boolean func(@Nullable Object v)'
+          // called with 'func(obj)'
+          // This path unwraps null reference equality and inequality checks
+          // to pass the target (in the above example, 'obj') as arg.
           Node argument = node.getArgument(i);
+          // isNullTarget is the variable side of a null check. For example, both 'e == null'
+          // and 'null == e' would return the node representing 'e'.
           Optional<Node> isNullTarget = argument.accept(NullEqualityVisitor.IS_NULL, None.INSTANCE);
+          // notNullTarget is the variable side of a not-null check. For example, both 'e != null'
+          // and 'null != e' would return the node representing 'e'.
           Optional<Node> notNullTarget =
               argument.accept(NullEqualityVisitor.NOT_NULL, None.INSTANCE);
+          // It is possible for at most one of isNullTarget and notNullTarget to be present.
           Node nullTestTarget = isNullTarget.orElse(notNullTarget.orElse(null));
           if (nullTestTarget == null) {
             supported = false;
@@ -304,6 +318,10 @@ public class ContractHandler extends BaseNoOpHandler {
     return NullnessHint.UNKNOWN;
   }
 
+  /**
+   * Visitor which returns {@code true} if the {@link Node} is {@link NullLiteralNode null},
+   * otherwise {@code false}.
+   */
   private static final class IsNullLiteralNodeVisitor extends AbstractNodeVisitor<Boolean, None> {
     private static final IsNullLiteralNodeVisitor INSTANCE = new IsNullLiteralNodeVisitor();
 
@@ -318,6 +336,14 @@ public class ContractHandler extends BaseNoOpHandler {
     }
   }
 
+  /**
+   * This visitor returns an {@link Optional<Node>} representing the non-null side of a null
+   * equality check. When the visited node is not an equality check (either {@link EqualToNode} or
+   * {@link NotEqualNode} based on {@link #equals} being {@code true} or {@code false} respectively)
+   * against a null value, {@link Optional#empty()} is returned. For example, visiting {@code e ==
+   * null} with {@code new NullEqualityVisitor(true)} would return an {@link Optional} of node
+   * {@code e}.
+   */
   private static final class NullEqualityVisitor extends AbstractNodeVisitor<Optional<Node>, None> {
 
     private static final NullEqualityVisitor IS_NULL = new NullEqualityVisitor(true);
