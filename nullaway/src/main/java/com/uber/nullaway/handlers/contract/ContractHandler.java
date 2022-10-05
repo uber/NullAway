@@ -120,7 +120,7 @@ public class ContractHandler extends BaseNoOpHandler {
       String[] antecedent =
           getAntecedent(clause, tree, analysis, state, callee, originalNode.getArguments().size());
       // Find a single value constraint that is not already known. If more than one argument with
-      // unknown nullness affect the method's result, then ignore this clause.
+      // unknown nullness affects the method's result, then ignore this clause.
       Node arg = null;
       // Set to false if the rule is detected to be one we don't yet support
       boolean supported = true;
@@ -183,7 +183,7 @@ public class ContractHandler extends BaseNoOpHandler {
 
       // Find a single value constraint that is not already known. If more than one arguments with
       // unknown
-      // nullness affect the method's result, then ignore this clause.
+      // nullness affects the method's result, then ignore this clause.
       Node arg = null;
       Nullness argAntecedentNullness = null;
       boolean supported =
