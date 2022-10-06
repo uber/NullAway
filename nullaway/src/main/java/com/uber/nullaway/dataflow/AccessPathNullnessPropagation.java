@@ -695,7 +695,8 @@ public class AccessPathNullnessPropagation
   }
 
   private static boolean isCatchVariable(VariableDeclarationNode node) {
-    return elementFromDeclaration(node.getTree()).getKind() == EXCEPTION_PARAMETER;
+    VariableElement variableElement = elementFromDeclaration(node.getTree());
+    return variableElement != null && variableElement.getKind() == EXCEPTION_PARAMETER;
   }
 
   @Override
