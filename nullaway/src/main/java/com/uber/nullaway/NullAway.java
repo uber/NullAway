@@ -414,6 +414,11 @@ public class NullAway extends BugChecker
       // see https://github.com/uber/NullAway/issues/102
       methodSymbol = getSymbolOfSuperConstructor(methodSymbol, state);
     }
+    // check if the class is generic
+    Type classType = ASTHelpers.getType(tree);
+    if (classType.getTypeArguments().length() > 0) {
+      checkInstantiatedType(classType, state, tree);
+    }
     return handleInvocation(tree, state, methodSymbol, actualParams);
   }
 
