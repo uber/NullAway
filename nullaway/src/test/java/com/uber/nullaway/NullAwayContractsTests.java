@@ -389,4 +389,39 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void contractUnreachablePath() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class NullnessChecker {",
+            "  @Contract(\"!null -> false\")",
+            "  static boolean isNull(@Nullable Object o) {",
+            "    // !null -> false",
+            "    if (o != null) {",
+            "      return false;",
+            "    }",
+            "    return true;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  String test(Object required) {",
+            "    return NullnessChecker.isNull(required)",
+            "      ? required.toString()",
+            "      : required.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

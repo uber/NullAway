@@ -51,7 +51,6 @@ import org.checkerframework.nullaway.dataflow.cfg.node.EqualToNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 import org.checkerframework.nullaway.dataflow.cfg.node.NotEqualNode;
-import org.checkerframework.nullaway.dataflow.cfg.node.NullLiteralNode;
 
 /**
  * This Handler parses the jetbrains @Contract annotation and honors the nullness spec defined there
@@ -194,11 +193,6 @@ public class ContractHandler extends BaseNoOpHandler {
         if (valueConstraint.equals("_")) {
           continue;
         } else if (valueConstraint.equals("false") || valueConstraint.equals("true")) {
-          if (arg != null) {
-            // More than one argument involved in the antecedent, ignore this rule
-            supported = false;
-            break;
-          }
           // We handle boolean constraints in the case that the boolean argument is the result
           // of a null or not-null check. For example,
           // '@Contract("true -> true") boolean func(boolean v)'
@@ -211,11 +205,10 @@ public class ContractHandler extends BaseNoOpHandler {
           Node argument = node.getArgument(i);
           // isNullTarget is the variable side of a null check. For example, both 'e == null'
           // and 'null == e' would return the node representing 'e'.
-          Optional<Node> isNullTarget = argument.accept(NullEqualityVisitor.IS_NULL, None.INSTANCE);
+          Optional<Node> isNullTarget = argument.accept(NullEqualityVisitor.IS_NULL, inputs);
           // notNullTarget is the variable side of a not-null check. For example, both 'e != null'
           // and 'null != e' would return the node representing 'e'.
-          Optional<Node> notNullTarget =
-              argument.accept(NullEqualityVisitor.NOT_NULL, None.INSTANCE);
+          Optional<Node> notNullTarget = argument.accept(NullEqualityVisitor.NOT_NULL, inputs);
           // It is possible for at most one of isNullTarget and notNullTarget to be present.
           Node nullTestTarget = isNullTarget.orElse(notNullTarget.orElse(null));
           if (nullTestTarget == null) {
@@ -225,8 +218,20 @@ public class ContractHandler extends BaseNoOpHandler {
           // isNullTarget is equivalent to 'null ->' while notNullTarget is equivalent
           // to '!null ->'. However, the valueConstraint may reverse the check.
           boolean inverted = isNullTarget.isPresent() == valueConstraint.equals("false");
+          Nullness antecedentNullness = inverted ? Nullness.NONNULL : Nullness.NULL;
+          Nullness targetNullness = inputs.valueOfSubNode(nullTestTarget);
+          if (antecedentNullness.equals(targetNullness)) {
+            // We already know this argument is satisfied so we can treat it as part of the
+            // clause for the purpose of deciding the nullness of the other arguments.
+            continue;
+          }
+          if (arg != null) {
+            // More than one argument involved in the antecedent, ignore this rule
+            supported = false;
+            break;
+          }
           arg = nullTestTarget;
-          argAntecedentNullness = inverted ? Nullness.NONNULL : Nullness.NULL;
+          argAntecedentNullness = antecedentNullness;
         } else if (valueConstraint.equals("!null")
             && inputs.valueOfSubNode(node.getArgument(i)).equals(Nullness.NONNULL)) {
           // We already know this argument can't be null, so we can treat it as not part of the
@@ -294,8 +299,7 @@ public class ContractHandler extends BaseNoOpHandler {
       } else if (consequent.equals("false") && argAntecedentNullness.equals(Nullness.NONNULL)) {
         // If arg being non-null implies the return of the method being false, then the return
         // being true implies arg may be null and we must mark it as such in the then update.
-        thenUpdates.set(
-            accessPath, Nullness.NULLABLE.greatestLowerBound(inputs.valueOfSubNode(arg)));
+        thenUpdates.set(accessPath, Nullness.NULLABLE);
       } else if (consequent.equals("true") && argAntecedentNullness.equals(Nullness.NULL)) {
         // If arg being null implies the return of the method being true, then the return being
         // false implies arg is not null and we must mark it as such in the else update.
@@ -303,8 +307,7 @@ public class ContractHandler extends BaseNoOpHandler {
       } else if (consequent.equals("true") && argAntecedentNullness.equals(Nullness.NONNULL)) {
         // If arg being non-null implies the return of the method being true, then the return being
         // false implies arg may be null and we must mark it as such in the else update.
-        elseUpdates.set(
-            accessPath, Nullness.NULLABLE.greatestLowerBound(inputs.valueOfSubNode(arg)));
+        elseUpdates.set(accessPath, Nullness.NULLABLE);
       } else if (consequent.equals("fail") && argAntecedentNullness.equals(Nullness.NONNULL)) {
         // Arg being non-null implies the method throws an exception, then we can mark it as
         // null on both non-exceptional exits from the method.
@@ -319,24 +322,6 @@ public class ContractHandler extends BaseNoOpHandler {
   }
 
   /**
-   * Visitor which returns {@code true} if the {@link Node} is {@link NullLiteralNode null},
-   * otherwise {@code false}.
-   */
-  private static final class IsNullLiteralNodeVisitor extends AbstractNodeVisitor<Boolean, None> {
-    private static final IsNullLiteralNodeVisitor INSTANCE = new IsNullLiteralNodeVisitor();
-
-    @Override
-    public Boolean visitNode(Node node, None unused) {
-      return false;
-    }
-
-    @Override
-    public Boolean visitNullLiteral(NullLiteralNode node, None unused) {
-      return true;
-    }
-  }
-
-  /**
    * This visitor returns an {@link Optional<Node>} representing the non-null side of a null
    * equality check. When the visited node is not an equality check (either {@link EqualToNode} or
    * {@link NotEqualNode} based on {@link #equals} being {@code true} or {@code false} respectively)
@@ -344,7 +329,8 @@ public class ContractHandler extends BaseNoOpHandler {
    * null} with {@code new NullEqualityVisitor(true)} would return an {@link Optional} of node
    * {@code e}.
    */
-  private static final class NullEqualityVisitor extends AbstractNodeVisitor<Optional<Node>, None> {
+  private static final class NullEqualityVisitor
+      extends AbstractNodeVisitor<Optional<Node>, AccessPathNullnessPropagation.SubNodeValues> {
 
     private static final NullEqualityVisitor IS_NULL = new NullEqualityVisitor(true);
     private static final NullEqualityVisitor NOT_NULL = new NullEqualityVisitor(false);
@@ -356,44 +342,43 @@ public class ContractHandler extends BaseNoOpHandler {
     }
 
     @Override
-    public Optional<Node> visitNode(Node node, None unused) {
+    public Optional<Node> visitNode(Node node, AccessPathNullnessPropagation.SubNodeValues unused) {
       return Optional.empty();
     }
 
     @Override
-    public Optional<Node> visitNotEqual(NotEqualNode notEqualNode, None unused) {
+    public Optional<Node> visitNotEqual(
+        NotEqualNode notEqualNode, AccessPathNullnessPropagation.SubNodeValues inputs) {
       if (equals) {
         return Optional.empty();
       } else {
-        return visit(notEqualNode);
+        return visit(notEqualNode, inputs);
       }
     }
 
     @Override
-    public Optional<Node> visitEqualTo(EqualToNode equalToNode, None unused) {
+    public Optional<Node> visitEqualTo(
+        EqualToNode equalToNode, AccessPathNullnessPropagation.SubNodeValues inputs) {
       if (equals) {
-        return visit(equalToNode);
+        return visit(equalToNode, inputs);
       } else {
         return Optional.empty();
       }
     }
 
-    private Optional<Node> visit(BinaryOperationNode comparison) {
+    private Optional<Node> visit(
+        BinaryOperationNode comparison, AccessPathNullnessPropagation.SubNodeValues inputs) {
       Node lhs = comparison.getLeftOperand();
       Node rhs = comparison.getRightOperand();
-      boolean lhsIsNullLiteral = lhs.accept(IsNullLiteralNodeVisitor.INSTANCE, None.INSTANCE);
-      boolean rhsIsNullLiteral = rhs.accept(IsNullLiteralNodeVisitor.INSTANCE, None.INSTANCE);
-      if (lhsIsNullLiteral && !rhsIsNullLiteral) {
+      Nullness lhsNullness = inputs.valueOfSubNode(lhs);
+      Nullness rhsNullness = inputs.valueOfSubNode(rhs);
+      if (Nullness.NULL.equals(lhsNullness)) {
         return Optional.of(rhs);
       }
-      if (!lhsIsNullLiteral && rhsIsNullLiteral) {
+      if (Nullness.NULL.equals(rhsNullness)) {
         return Optional.of(lhs);
       }
       return Optional.empty();
     }
-  }
-
-  private enum None {
-    INSTANCE
   }
 }

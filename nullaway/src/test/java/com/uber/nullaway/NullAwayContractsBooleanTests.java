@@ -319,6 +319,91 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void contractUnreachablePath() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  String test(Object required) {",
+            "    return Validation.identity(required == null)",
+            "      ? required.toString()",
+            "      : required.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void contractUnreachablePathAfterFailure() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test(@Nullable Object o) {",
+            "    Validation.checkTrue(o == null);",
+            "    return Validation.identity(o == null)",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      ? o.toString()",
+            "      : o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void complexContractUnreachablePathAfterFailure() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "class Test {",
+            "  @Contract(\"false, !null -> fail\")",
+            "  static void checkTrue(boolean value, @Nullable Object other) {",
+            "    if (!value) throw new RuntimeException();",
+            "  }",
+            "  String test(@Nullable Object o1, @Nullable Object o2, Object required) {",
+            // This case cannot be handled by the preferred conditional throw node insertion
+            // path due to reliance on nullness information from a second argument.
+            "    checkTrue(o1 == null, required);",
+            // o1 is guaranteed to be null based the previous check, allowing
+            // us to understand this expression as 'null == o2'.
+            "    return Validation.identity(o1 == o2)",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      ? o2.toString()",
+            "      : o2.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void contractNestedBooleanNullness() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test(@Nullable Object o) {",
+            "    return Validation.identity(o == null)",
+            "      ? (Validation.identity(o != null)",
+            "        ? o.toString()",
+            "        // BUG: Diagnostic contains: dereferenced expression",
+            "        : o.toString())",
+            "      : (Validation.identity(o != null)",
+            "        ? o.toString()",
+            "        : o.toString());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper helper() {
     return makeTestHelperWithArgs(
             Arrays.asList(
