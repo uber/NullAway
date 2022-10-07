@@ -69,6 +69,7 @@ import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
+import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.StatementTree;
@@ -397,6 +398,7 @@ public class NullAway extends BugChecker
   }
 
   @Override
+  @SuppressWarnings("UnusedVariable")
   public Description matchNewClass(NewClassTree tree, VisitorState state) {
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
@@ -417,11 +419,34 @@ public class NullAway extends BugChecker
     // check if the class is generic
     Type classType = ASTHelpers.getType(tree);
     if (classType.getTypeArguments().length() > 0) {
-      checkInstantiatedType(classType, state, tree);
+      ParameterizedTypeTree parameterizedTypeTree = (ParameterizedTypeTree) tree.getIdentifier();
+      checkInstantiationForParameterizedTypedTree(parameterizedTypeTree, state);
     }
     return handleInvocation(tree, state, methodSymbol, actualParams);
   }
-
+  /** Generics checks for parameterized typed trees * */
+  @SuppressWarnings("UnusedVariable")
+  public void checkInstantiationForParameterizedTypedTree(
+      ParameterizedTypeTree tree, VisitorState state) {
+    List<? extends Tree> typeArguments = tree.getTypeArguments();
+    HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
+    for (int i = 0; i < typeArguments.size(); i++) {
+      boolean hasNullableAnnotation = false;
+      if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
+        JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
+        for (JCTree.JCAnnotation annotation : annotatedType.getAnnotations()) {
+          Attribute.Compound attribute = annotation.attribute;
+          hasNullableAnnotation =
+              hasNullableAnnotation
+                  || attribute.toString().equals("@org.jspecify.nullness.Nullable");
+          if (hasNullableAnnotation) {
+            nullableTypeArguments.add(i);
+            break;
+          }
+        }
+      }
+    }
+  }
   /**
    * Updates the {@link EnclosingEnvironmentNullness} with an entry for lambda or anonymous class,
    * capturing nullability info for locals just before the declaration of the entity
@@ -655,6 +680,7 @@ public class NullAway extends BugChecker
     if (codeAnnotationInfo.isSymbolUnannotated(type.tsym, config)) {
       return;
     }
+
     com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
     HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
     int index = 0;
