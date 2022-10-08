@@ -58,13 +58,13 @@ subprojects { project ->
     }
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)
-        options.compilerArgs += [
-            "-Xlint:deprecation",
-            "-Xlint:rawtypes",
-            "-Xlint:unchecked",
-            "-Werror"
-        ]
         if (JavaVersion.current().isJava9Compatible()) {
+            options.compilerArgs += [
+                    "-Xlint:deprecation",
+                    "-Xlint:rawtypes",
+                    "-Xlint:unchecked",
+                    "-Werror"
+            ]
             options.errorprone {
                 // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
                 disableWarningsInGeneratedCode = true
