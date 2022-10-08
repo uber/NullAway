@@ -75,7 +75,7 @@ def build = [
     checkerDataflow         : "org.checkerframework:dataflow-nullaway:${versions.checkerFramework}",
     guava                   : "com.google.guava:guava:24.1.1-jre",
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
-    jspecify                : "org.jspecify:jspecify:0.2.0",
+    jspecify                : "org.jspecify:jspecify:0.3.0-alpha-1",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
     commonsIO               : "commons-io:commons-io:2.11.0",
     wala                    : ["com.ibm.wala:com.ibm.wala.util:${versions.wala}",
