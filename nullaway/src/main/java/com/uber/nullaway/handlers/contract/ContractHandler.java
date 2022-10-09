@@ -113,6 +113,9 @@ public class ContractHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
     Preconditions.checkNotNull(callee);
     for (String clause : ContractUtils.getContractClauses(callee, config)) {
+      // This method currently handles contracts of the form `(true|false) -> fail`, other
+      // contracts are handled by 'onDataflowVisitMethodInvocation' which has access to more
+      // dataflow information.
       if (!"fail".equals(getConsequent(clause, tree, analysis, state, callee))) {
         continue;
       }
@@ -129,12 +132,17 @@ public class ContractHandler extends BaseNoOpHandler {
         String valueConstraint = antecedent[i].trim();
         if ("false".equals(valueConstraint) || "true".equals(valueConstraint)) {
           if (arg != null) {
+            // We don't currently support contracts depending on the boolean value of more than one
+            // argument
+            // using the node-insertion method.
             supported = false;
             break;
           }
           booleanConstraint = Boolean.parseBoolean(valueConstraint);
           arg = originalNode.getArgument(i);
         } else if (!valueConstraint.equals("_")) {
+          // Found an unsupported type of constraint, only true, false, and '_' (wildcard) are
+          // supported.
           // No need to implement complex handling here, 'onDataflowVisitMethodInvocation' will
           // validate the contract.
           supported = false;
@@ -181,12 +189,11 @@ public class ContractHandler extends BaseNoOpHandler {
       String consequent = getConsequent(clause, tree, analysis, state, callee);
 
       // Find a single value constraint that is not already known. If more than one arguments with
-      // unknown
-      // nullness affects the method's result, then ignore this clause.
+      // unknown nullness affects the method's result, then ignore this clause.
       Node arg = null;
       Nullness argAntecedentNullness = null;
-      boolean supported =
-          true; // Set to false if the rule is detected to be one we don't yet support
+      // Set to false if the rule is detected to be one we don't yet support
+      boolean supported = true;
 
       for (int i = 0; i < antecedent.length; ++i) {
         String valueConstraint = antecedent[i].trim();
@@ -235,8 +242,7 @@ public class ContractHandler extends BaseNoOpHandler {
         } else if (valueConstraint.equals("!null")
             && inputs.valueOfSubNode(node.getArgument(i)).equals(Nullness.NONNULL)) {
           // We already know this argument can't be null, so we can treat it as not part of the
-          // clause
-          // for the purpose of deciding the non-nullness of the other arguments.
+          // clause for the purpose of deciding the non-nullness of the other arguments.
           continue;
         } else if (valueConstraint.equals("null") || valueConstraint.equals("!null")) {
           if (arg != null) {
@@ -270,8 +276,7 @@ public class ContractHandler extends BaseNoOpHandler {
         }
       }
       if (!supported) {
-        // Too many arguments involved, or unsupported @Contract features. On to next clause in
-        // the
+        // Too many arguments involved, or unsupported @Contract features. On to next clause in the
         // contract expression
         continue;
       }
