@@ -459,7 +459,7 @@ public class NullAway extends BugChecker
 
     if (!nullableTypeArguments
         .isEmpty()) { // there exist @nullable annotated parameters in the constructor call that do
-                      // not have corresponding @nullable annotations in the declaration
+      // not have corresponding @nullable annotations in the declaration
       invalidInstantiationError(tree, state);
     }
   }
@@ -1529,6 +1529,15 @@ public class NullAway extends BugChecker
         updateEnvironmentMapping(state.getPath(), state);
       }
       checkFieldInitialization(tree, state);
+    }
+    JCTree.JCClassDecl classTree = (JCTree.JCClassDecl) tree;
+    // check if the class extends any interface/Class
+    if (classTree.extending != null) {
+      Type extendedClassType = classTree.extending.type;
+      // check if the extended class is generic
+      if (extendedClassType.getTypeArguments().length() > 0) {
+        checkInstantiatedType(extendedClassType, state, classTree);
+      }
     }
     return Description.NO_MATCH;
   }
