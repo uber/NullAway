@@ -306,6 +306,12 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
             "      // BUG: Diagnostic contains: dereferenced expression",
             "      : o.toString();",
             "  }",
+            "  String test2(@Nullable Object o) {",
+            "    return NullnessChecker.bothNotNull(o, \"\")",
+            "      ? o.toString()",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      : o.toString();",
+            "  }",
             "}")
         .doTest();
   }
@@ -344,6 +350,12 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
             "class Test {",
             "  String test1(@Nullable Object o) {",
             "    return NullnessChecker.eitherIsNullOrRandom(\"\", o)",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      ? o.toString()",
+            "      : o.toString();",
+            "  }",
+            "  String test2(@Nullable Object o) {",
+            "    return NullnessChecker.eitherIsNullOrRandom(o, \"\")",
             "      // BUG: Diagnostic contains: dereferenced expression",
             "      ? o.toString()",
             "      : o.toString();",
