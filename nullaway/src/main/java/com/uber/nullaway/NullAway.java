@@ -456,7 +456,7 @@ public class NullAway extends BugChecker
       }
       if (hasNullableAnnotation) {
         if (!nullableTypeArguments.contains(i)) {
-          invalidInstantiationError(tree, state);
+          invalidInstantiationError(typeArguments.get(i), state);
         }
       }
     }
