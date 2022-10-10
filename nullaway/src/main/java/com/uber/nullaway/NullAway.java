@@ -1529,12 +1529,23 @@ public class NullAway extends BugChecker
       checkFieldInitialization(tree, state);
     }
     JCTree.JCClassDecl classTree = (JCTree.JCClassDecl) tree;
-    // check if the class extends any interface/Class
+    // check if the class extends any class
     if (classTree.extending != null) {
       Type extendedClassType = classTree.extending.type;
       // check if the extended class is generic
       if (extendedClassType.getTypeArguments().length() > 0) {
         checkInstantiatedType(extendedClassType, state, classTree);
+      }
+    }
+    // check if the class implements any interface
+    List<JCTree.JCExpression> interfaces = classTree.implementing;
+    if (interfaces.size() > 0) {
+      for (int i = 0; i < interfaces.size(); i++) {
+        Type implementedInterfaceType = interfaces.get(i).type;
+        // check if the interface is generic
+        if (implementedInterfaceType.getTypeArguments().size() > 0) {
+          checkInstantiatedType(implementedInterfaceType, state, classTree);
+        }
       }
     }
     return Description.NO_MATCH;
