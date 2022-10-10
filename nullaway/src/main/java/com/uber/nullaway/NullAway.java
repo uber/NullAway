@@ -88,6 +88,7 @@ import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.JCTree.JCTypeApply;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
@@ -398,7 +399,6 @@ public class NullAway extends BugChecker
   }
 
   @Override
-  @SuppressWarnings("UnusedVariable")
   public Description matchNewClass(NewClassTree tree, VisitorState state) {
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
@@ -425,7 +425,7 @@ public class NullAway extends BugChecker
     return handleInvocation(tree, state, methodSymbol, actualParams);
   }
   /** Generics checks for parameterized typed trees * */
-  @SuppressWarnings("UnusedVariable")
+  @SuppressWarnings("ModifiedButNotUsed")
   public void checkInstantiationForParameterizedTypedTree(
       ParameterizedTypeTree tree, VisitorState state) {
     List<? extends Tree> typeArguments = tree.getTypeArguments();
@@ -445,6 +445,22 @@ public class NullAway extends BugChecker
           }
         }
       }
+    }
+    JCTypeApply baseTypeTree = (JCTypeApply) tree;
+    Type t = baseTypeTree.type;
+    Type.ClassType classTyp = (Type.ClassType) t;
+    if (classTyp.tsym.getMetadata() != null) {
+      List<Attribute.TypeCompound> baseTypeAttributes =
+          classTyp.tsym.getMetadata().getTypeAttributes();
+      for (int i = 0; i < baseTypeAttributes.size(); i++) {
+        nullableTypeArguments.remove(baseTypeAttributes.get(i).position.parameter_index);
+      }
+    }
+
+    if (!nullableTypeArguments
+        .isEmpty()) { // there exist @nullable annotated parameters in the constructor call that do
+                      // not have corresponding @nullable annotations in the declaration
+      invalidInstantiationError(tree, state);
     }
   }
   /**
