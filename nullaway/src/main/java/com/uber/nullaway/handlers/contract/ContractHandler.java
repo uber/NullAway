@@ -332,8 +332,10 @@ public class ContractHandler extends BaseNoOpHandler {
 
   /**
    * This visitor returns an {@link Optional<Node>} representing the non-null side of a null
-   * equality check. When the visited node is not an equality check (either {@link EqualToNode} or
-   * {@link NotEqualNode} based on {@link #equals} being {@code true} or {@code false} respectively)
+   * comparison check.
+   *
+   * <p>When the visited node is not an equality check (either {@link EqualToNode} or {@link
+   * NotEqualNode} based on {@link #equals} being {@code true} or {@code false} respectively)
    * against a null value, {@link Optional#empty()} is returned. For example, visiting {@code e ==
    * null} with {@code new NullEqualityVisitor(true)} would return an {@link Optional} of node
    * {@code e}.
