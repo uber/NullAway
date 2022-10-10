@@ -430,6 +430,16 @@ public class NullAway extends BugChecker
       ParameterizedTypeTree tree, VisitorState state) {
     List<? extends Tree> typeArguments = tree.getTypeArguments();
     HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
+    JCTypeApply baseTypeTree = (JCTypeApply) tree;
+    Type t = baseTypeTree.type;
+    Type.ClassType classTyp = (Type.ClassType) t;
+    if (classTyp.tsym.getMetadata() != null) {
+      List<Attribute.TypeCompound> baseTypeAttributes =
+          classTyp.tsym.getMetadata().getTypeAttributes();
+      for (int i = 0; i < baseTypeAttributes.size(); i++) {
+        nullableTypeArguments.add(baseTypeAttributes.get(i).position.parameter_index);
+      }
+    }
     for (int i = 0; i < typeArguments.size(); i++) {
       boolean hasNullableAnnotation = false;
       if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
@@ -440,27 +450,15 @@ public class NullAway extends BugChecker
               hasNullableAnnotation
                   || attribute.toString().equals("@org.jspecify.nullness.Nullable");
           if (hasNullableAnnotation) {
-            nullableTypeArguments.add(i);
             break;
           }
         }
       }
-    }
-    JCTypeApply baseTypeTree = (JCTypeApply) tree;
-    Type t = baseTypeTree.type;
-    Type.ClassType classTyp = (Type.ClassType) t;
-    if (classTyp.tsym.getMetadata() != null) {
-      List<Attribute.TypeCompound> baseTypeAttributes =
-          classTyp.tsym.getMetadata().getTypeAttributes();
-      for (int i = 0; i < baseTypeAttributes.size(); i++) {
-        nullableTypeArguments.remove(baseTypeAttributes.get(i).position.parameter_index);
+      if (hasNullableAnnotation) {
+        if (!nullableTypeArguments.contains(i)) {
+          invalidInstantiationError(tree, state);
+        }
       }
-    }
-
-    if (!nullableTypeArguments
-        .isEmpty()) { // there exist @nullable annotated parameters in the constructor call that do
-      // not have corresponding @nullable annotations in the declaration
-      invalidInstantiationError(tree, state);
     }
   }
   /**
