@@ -348,6 +348,8 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
             "    return Validation.identity(o == null)",
             "      // BUG: Diagnostic contains: dereferenced expression",
             "      ? o.toString()",
+            // This path is unreachable because o is guaranteed to be null
+            // after checkTrue(o == null). No failures should be reported.
             "      : o.toString();",
             "  }",
             "}")
