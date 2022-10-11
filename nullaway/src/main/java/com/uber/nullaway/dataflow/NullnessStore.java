@@ -188,7 +188,7 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
     if (!(o instanceof NullnessStore)) {
       return false;
     }
