@@ -1,12 +1,14 @@
 package com.uber.nullaway;
 
+import com.google.errorprone.CompilationTestHelper;
+import java.util.Arrays;
 import org.junit.Test;
 
 public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void basicTypeParamInstantiation() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -25,7 +27,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void constructorTypeParamInstantiation() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -52,7 +54,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void extendedClassTypeParamInstantiation() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -70,7 +72,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void subClassTypeParamInstantiation() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -89,7 +91,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void interfaceImplementationTypeParamInstantiation() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -104,5 +106,11 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    static class ValidInterfaceImplementation implements NullableTypeParamInterface<String> {}",
             "}")
         .doTest();
+  }
+
+  private CompilationTestHelper makeHelper() {
+    return makeTestHelperWithArgs(
+        Arrays.asList(
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
   }
 }

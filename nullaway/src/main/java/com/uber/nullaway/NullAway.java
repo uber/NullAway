@@ -417,9 +417,9 @@ public class NullAway extends BugChecker
       methodSymbol = getSymbolOfSuperConstructor(methodSymbol, state);
     }
     // check if the class is generic
-    Type classType = ASTHelpers.getType(tree);
-    if (classType != null) {
-      if (classType.getTypeArguments().length() > 0) {
+    if (config.isJSpecifyMode()) {
+      Type classType = ASTHelpers.getType(tree);
+      if (classType != null && classType.getTypeArguments().length() > 0) {
         ParameterizedTypeTree parameterizedTypeTree = (ParameterizedTypeTree) tree.getIdentifier();
         checkInstantiationForParameterizedTypedTree(parameterizedTypeTree, state);
       }
@@ -430,6 +430,9 @@ public class NullAway extends BugChecker
   @SuppressWarnings("ModifiedButNotUsed")
   public void checkInstantiationForParameterizedTypedTree(
       ParameterizedTypeTree tree, VisitorState state) {
+    if (!config.isJSpecifyMode()) {
+      throw new IllegalStateException("should only check type instantiations in JSpecify mode");
+    }
     List<? extends Tree> typeArguments = tree.getTypeArguments();
     HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
     JCTypeApply baseTypeTree = (JCTypeApply) tree;
@@ -660,10 +663,10 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     handler.onMatchMethod(this, tree, state, methodSymbol);
     // check parameter types
-    for (VariableTree varTree : tree.getParameters()) {
-      Type paramType = ASTHelpers.getType(varTree);
-      if (paramType != null) {
-        if (paramType.getTypeArguments().length() > 0) { // it's a generic type instantiation
+    if (config.isJSpecifyMode()) {
+      for (VariableTree varTree : tree.getParameters()) {
+        Type paramType = ASTHelpers.getType(varTree);
+        if (paramType != null && paramType.getTypeArguments().length() > 0) {
           checkInstantiatedType(paramType, state, varTree);
         }
       }
@@ -691,6 +694,9 @@ public class NullAway extends BugChecker
 
   // check that type is a valid instantiation of its generic type
   private void checkInstantiatedType(Type type, VisitorState state, Tree tree) {
+    if (!config.isJSpecifyMode()) {
+      throw new IllegalStateException("should only check instantiated types in JSpecify mode");
+    }
     // typeArguments used in the instantiated type (like for Foo<String,Integer>, this gets
     // [String,Integer])
     // if base type is unannotated do not check for generics
@@ -1430,9 +1436,9 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     // Check if the variable is generic
-    Type variableType = ASTHelpers.getType(tree);
-    if (variableType != null) {
-      if (variableType.getTypeArguments().length() > 0) { // it's a generic type instantiation
+    if (config.isJSpecifyMode()) {
+      Type variableType = ASTHelpers.getType(tree);
+      if (variableType != null && variableType.getTypeArguments().length() > 0) {
         checkInstantiatedType(variableType, state, tree);
       }
     }
@@ -1536,22 +1542,24 @@ public class NullAway extends BugChecker
       checkFieldInitialization(tree, state);
     }
     JCTree.JCClassDecl classTree = (JCTree.JCClassDecl) tree;
-    // check if the class extends any class
-    if (classTree.extending != null) {
-      Type extendedClassType = classTree.extending.type;
-      // check if the extended class is generic
-      if (extendedClassType.getTypeArguments().length() > 0) {
-        checkInstantiatedType(extendedClassType, state, classTree);
+    if (config.isJSpecifyMode()) {
+      // check if the class extends any class
+      if (classTree.extending != null) {
+        Type extendedClassType = classTree.extending.type;
+        // check if the extended class is generic
+        if (extendedClassType.getTypeArguments().length() > 0) {
+          checkInstantiatedType(extendedClassType, state, classTree);
+        }
       }
-    }
-    // check if the class implements any interface
-    List<JCTree.JCExpression> interfaces = classTree.implementing;
-    if (interfaces.size() > 0) {
-      for (int i = 0; i < interfaces.size(); i++) {
-        Type implementedInterfaceType = interfaces.get(i).type;
-        // check if the interface is generic
-        if (implementedInterfaceType.getTypeArguments().size() > 0) {
-          checkInstantiatedType(implementedInterfaceType, state, classTree);
+      // check if the class implements any interface
+      List<JCTree.JCExpression> interfaces = classTree.implementing;
+      if (interfaces.size() > 0) {
+        for (int i = 0; i < interfaces.size(); i++) {
+          Type implementedInterfaceType = interfaces.get(i).type;
+          // check if the interface is generic
+          if (implementedInterfaceType.getTypeArguments().size() > 0) {
+            checkInstantiatedType(implementedInterfaceType, state, classTree);
+          }
         }
       }
     }
