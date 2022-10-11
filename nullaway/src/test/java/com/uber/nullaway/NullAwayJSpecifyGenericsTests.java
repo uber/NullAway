@@ -24,7 +24,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void ConstructorTypeParamInstantiation() {
+  public void constructorTypeParamInstantiation() {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
@@ -51,7 +51,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void ExtendedClassTypeParamInstantiation() {
+  public void extendedClassTypeParamInstantiation() {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
@@ -69,7 +69,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void SubClassTypeParamInstantiation() {
+  public void subClassTypeParamInstantiation() {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
@@ -88,7 +88,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void InterfaceImplementationTypeParamInstantiation() {
+  public void interfaceImplementationTypeParamInstantiation() {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
