@@ -418,9 +418,11 @@ public class NullAway extends BugChecker
     }
     // check if the class is generic
     Type classType = ASTHelpers.getType(tree);
-    if (classType.getTypeArguments().length() > 0) {
-      ParameterizedTypeTree parameterizedTypeTree = (ParameterizedTypeTree) tree.getIdentifier();
-      checkInstantiationForParameterizedTypedTree(parameterizedTypeTree, state);
+    if (classType != null) {
+      if (classType.getTypeArguments().length() > 0) {
+        ParameterizedTypeTree parameterizedTypeTree = (ParameterizedTypeTree) tree.getIdentifier();
+        checkInstantiationForParameterizedTypedTree(parameterizedTypeTree, state);
+      }
     }
     return handleInvocation(tree, state, methodSymbol, actualParams);
   }
@@ -660,8 +662,10 @@ public class NullAway extends BugChecker
     // check parameter types
     for (VariableTree varTree : tree.getParameters()) {
       Type paramType = ASTHelpers.getType(varTree);
-      if (paramType.getTypeArguments().length() > 0) { // it's a generic type instantiation
-        checkInstantiatedType(paramType, state, varTree);
+      if (paramType != null) {
+        if (paramType.getTypeArguments().length() > 0) { // it's a generic type instantiation
+          checkInstantiatedType(paramType, state, varTree);
+        }
       }
     }
     boolean isOverriding = ASTHelpers.hasAnnotation(methodSymbol, Override.class, state);
@@ -1427,9 +1431,12 @@ public class NullAway extends BugChecker
     }
     // Check if the variable is generic
     Type variableType = ASTHelpers.getType(tree);
-    if (variableType.getTypeArguments().length() > 0) { // it's a generic type instantiation
-      checkInstantiatedType(variableType, state, tree);
+    if (variableType != null) {
+      if (variableType.getTypeArguments().length() > 0) { // it's a generic type instantiation
+        checkInstantiatedType(variableType, state, tree);
+      }
     }
+
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
       return doUnboxingCheck(state, tree.getInitializer());
