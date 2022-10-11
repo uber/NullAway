@@ -14,16 +14,11 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "class Test {",
             "    static class NonNullTypeParam<E> {}",
             "    static class NullableTypeParam<E extends @Nullable Object> {}",
-            "    static interface NonNullTypeParamInterface<E>{}",
             "    // BUG: Diagnostic contains: Generic type parameter",
             "    static void testBadNonNull(NonNullTypeParam<@Nullable String> t) {",
             "        // BUG: Diagnostic contains: Generic type parameter",
             "        NonNullTypeParam<@Nullable String> t2 = null;",
             "    }",
-            "    // BUG: Diagnostic contains: Generic type parameter",
-            "    static class InvalidSubclass extends NonNullTypeParam<@Nullable String> {}",
-            "    // BUG: Diagnostic contains: Generic type parameter",
-            "    static class InvalidInterfaceImplementation implements NonNullTypeParamInterface<@Nullable String> {}",
             "}")
         .doTest();
   }
