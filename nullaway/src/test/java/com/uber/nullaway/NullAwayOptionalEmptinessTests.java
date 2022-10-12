@@ -505,4 +505,32 @@ public class NullAwayOptionalEmptinessTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void optionalOfMapResultTest() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "import java.util.Optional;",
+            "class Test {",
+            "  private Optional<String> f(Map<String, String> map1, Map<String, String> map2) {",
+            "    Optional<String> opt = Optional.ofNullable(map1.get(\"key\"));",
+            "    if (!opt.isPresent()) {",
+            "      return Optional.empty();",
+            "    }",
+            "    return map2.entrySet().stream()",
+            "      .filter(entry -> entry.getValue().equals(opt.get()))",
+            "      .map(Map.Entry::getKey)",
+            "      .findFirst();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
