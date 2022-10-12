@@ -397,7 +397,7 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
             "  }",
             "  @Contract(\"true -> fail\")",
             "  static void checkFalse(boolean value) {",
-            "    if (!value) throw new RuntimeException();",
+            "    if (value) throw new RuntimeException();",
             "  }",
             "  @Contract(\"true -> true; false -> false\")",
             "  static boolean identity(boolean value) {",
