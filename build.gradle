@@ -71,8 +71,6 @@ subprojects { project ->
                 check("StringSplitter", CheckSeverity.OFF)
                 // https://github.com/google/error-prone/issues/3366
                 check("CanIgnoreReturnValueSuggester", CheckSeverity.OFF)
-                // we need to bump our minimum-supported EP version before this check is useful
-                check("ASTHelpersSuggestions", CheckSeverity.OFF)
                 check("WildcardImport", CheckSeverity.ERROR)
                 check("MissingBraces", CheckSeverity.ERROR)
                 check("TypeToString", CheckSeverity.ERROR)

@@ -761,6 +761,7 @@ public class AccessPathNullnessPropagation
     return codeAnnotationInfo;
   }
 
+  @SuppressWarnings("ASTHelpersSuggestions") // remove once we require EP 2.16 or greater
   private void setReceiverNonnull(
       AccessPathNullnessPropagation.ReadableUpdates updates, Node receiver, Symbol symbol) {
     if (symbol != null && !symbol.isStatic()) {
