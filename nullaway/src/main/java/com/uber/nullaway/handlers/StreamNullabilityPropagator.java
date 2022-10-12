@@ -348,7 +348,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
         if (elements.size() == 1) {
           // We only care for single method call chains (e.g. this.foo(), not this.f.bar())
           Element element = elements.get(0).getJavaElement();
-          if (!element.getKind().equals(ElementKind.METHOD)) {
+          if (!ElementKind.METHOD.equals(element.getKind())) {
             // We are only looking for method APs
             continue;
           }
