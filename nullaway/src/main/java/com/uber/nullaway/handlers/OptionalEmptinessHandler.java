@@ -161,11 +161,8 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
       final Element e = accessPath.getRoot();
       if (e != null) {
         return e.getKind().equals(ElementKind.LOCAL_VARIABLE)
-            && accessPath
-                .getElements()
-                .get(0)
-                .getJavaElement()
-                .equals(OptionalContentVariableElement.instance(state.context));
+            && accessPath.getElements().get(0).getJavaElement()
+                instanceof OptionalContentVariableElement;
       }
     }
     return false;
@@ -245,6 +242,9 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   /**
    * A {@link VariableElement} for a dummy "field" holding the contents of an Optional object, used
    * in dataflow analysis to track whether the Optional content is present.
+   *
+   * <p>Instances of this type should be accessed using {@link #instance(Context)}, not instantiated
+   * directly.
    */
   private static final class OptionalContentVariableElement implements VariableElement {
     public static final Context.Key<OptionalContentVariableElement> contextKey =
@@ -286,7 +286,8 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     public Element getEnclosingElement() {
       // A field would have an enclosing element, however this method isn't guaranteed to
       // return non-null in all cases. It may be beneficial to implement this in a future
-      // improvement.
+      // improvement, but that will require tracking an instance per supported optional
+      // type (e.g. java.util.Optional and guava Optional).
       return null;
     }
 
@@ -313,13 +314,11 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     }
 
     @Override
-    @Nullable
     public <R, P> R accept(ElementVisitor<R, P> elementVisitor, P p) {
       return elementVisitor.visitVariable(this, p);
     }
 
     @Override
-    @Nullable
     public TypeMirror asType() {
       return asType;
     }
