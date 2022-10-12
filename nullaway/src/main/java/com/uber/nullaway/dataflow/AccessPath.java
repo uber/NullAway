@@ -365,9 +365,11 @@ public final class AccessPath implements MapKey {
   }
 
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
-    return methodSymbol.isStatic()
-        && methodSymbol.getSimpleName().contentEquals("valueOf")
-        && methodSymbol.enclClass().packge().fullname.contentEquals("java.lang");
+    if (methodSymbol.isStatic() && methodSymbol.getSimpleName().contentEquals("valueOf")) {
+      Symbol.PackageSymbol enclosingPackage = ASTHelpers.enclosingPackage(methodSymbol.enclClass());
+      return enclosingPackage != null && enclosingPackage.fullname.contentEquals("java.lang");
+    }
+    return false;
   }
 
   /**
