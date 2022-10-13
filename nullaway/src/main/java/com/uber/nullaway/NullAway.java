@@ -426,6 +426,7 @@ public class NullAway extends BugChecker
     }
     return handleInvocation(tree, state, methodSymbol, actualParams);
   }
+
   /** Generics checks for parameterized typed trees * */
   @SuppressWarnings("ModifiedButNotUsed")
   public void checkInstantiationForParameterizedTypedTree(
@@ -667,7 +668,8 @@ public class NullAway extends BugChecker
       for (VariableTree varTree : tree.getParameters()) {
         Type paramType = ASTHelpers.getType(varTree);
         if (paramType != null && paramType.getTypeArguments().length() > 0) {
-          checkInstantiatedType(paramType, state, varTree);
+          checkNestedParameterInstantiation(paramType, state, varTree);
+          //     checkInstantiatedType(paramType, state, varTree);
         }
       }
     }
@@ -1430,6 +1432,16 @@ public class NullAway extends BugChecker
     return false;
   }
 
+  public void checkNestedParameterInstantiation(Type type, VisitorState state, Tree tree) {
+    checkInstantiatedType(type, state, tree);
+    List<Type> typeArguments = type.getTypeArguments();
+    for (Type typeArgument : typeArguments) {
+      if (typeArgument.getTypeArguments().length() > 0) {
+        checkNestedParameterInstantiation(typeArgument, state, tree);
+      }
+    }
+  }
+
   @Override
   public Description matchVariable(VariableTree tree, VisitorState state) {
     if (!withinAnnotatedCode(state)) {
@@ -1439,9 +1451,11 @@ public class NullAway extends BugChecker
     if (config.isJSpecifyMode()) {
       Type variableType = ASTHelpers.getType(tree);
       if (variableType != null && variableType.getTypeArguments().length() > 0) {
-        checkInstantiatedType(variableType, state, tree);
+        checkNestedParameterInstantiation(variableType, state, tree);
       }
     }
+
+    // is nested variable
 
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
@@ -1548,7 +1562,8 @@ public class NullAway extends BugChecker
         Type extendedClassType = classTree.extending.type;
         // check if the extended class is generic
         if (extendedClassType.getTypeArguments().length() > 0) {
-          checkInstantiatedType(extendedClassType, state, classTree);
+          checkNestedParameterInstantiation(extendedClassType, state, tree);
+          //    checkInstantiatedType(extendedClassType, state, classTree);
         }
       }
       // check if the class implements any interface
