@@ -305,7 +305,7 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void compositeContractIdentityIsNull() {
+  public void complexContractIdentityIsNull() {
     helper()
         .addSourceLines(
             "Test.java",
@@ -362,6 +362,43 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void complexCheckAndReturn() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "class Test {",
+            "  @Contract(\"false, _ -> fail\")",
+            "  static boolean checkAndReturn(boolean value, Object other) {",
+            "    if (!value) {",
+            "      throw new RuntimeException();",
+            "    }",
+            "    return true;",
+            "  }",
+            "  String test1(@Nullable Object o1, @Nullable Object o2, Object other) {",
+            "    if (checkAndReturn(o1 != null, other) && o2 != null) {",
+            "      return o1.toString() + o2.toString();",
+            "    } else {",
+            "      return o1.toString() + ",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "        o2.toString();",
+            "    }",
+            "  }",
+            "  boolean test2(@Nullable Object o1, @Nullable Object o2, Object other) {",
+            "    return checkAndReturn(o1 != null, other) && o1.toString().isEmpty();",
+            "  }",
+            "  boolean test3(@Nullable Object o1, @Nullable Object o2, Object other) {",
+            "    return checkAndReturn(o1 == null, other) ",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      && o1.toString().isEmpty();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void contractUnreachablePath() {
     helper()
         .addSourceLines(
@@ -370,6 +407,22 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
             "class Test {",
             "  String test(Object required) {",
             "    return Validation.identity(required == null)",
+            "      ? required.toString()",
+            "      : required.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void complexContractUnreachablePath() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  String test(Object required, Object other) {",
+            "    return Validation.identity(required == null, other)",
             "      ? required.toString()",
             "      : required.toString();",
             "  }",
@@ -413,6 +466,28 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
             "        // BUG: Diagnostic contains: dereferenced expression",
             "        : o.toString())",
             "      : (Validation.identity(o != null)",
+            "        ? o.toString()",
+            "        : o.toString());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void complexContractNestedBooleanNullness() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test(@Nullable Object o, Object other) {",
+            "    return Validation.identity(o == null, other)",
+            "      ? (Validation.identity(o != null, other)",
+            "        ? o.toString()",
+            "        // BUG: Diagnostic contains: dereferenced expression",
+            "        : o.toString())",
+            "      : (Validation.identity(o != null, other)",
             "        ? o.toString()",
             "        : o.toString());",
             "  }",
