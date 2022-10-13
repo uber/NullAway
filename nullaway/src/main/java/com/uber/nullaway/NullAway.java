@@ -448,6 +448,16 @@ public class NullAway extends BugChecker
     }
     for (int i = 0; i < typeArguments.size(); i++) {
       boolean hasNullableAnnotation = false;
+      if (typeArguments.get(i).getClass().equals(JCTypeApply.class)) {
+        ParameterizedTypeTree parameterizedTypeTreeForTypeArgument =
+            (ParameterizedTypeTree) typeArguments.get(i);
+        Type argumentType = ASTHelpers.getType(parameterizedTypeTreeForTypeArgument);
+        if (argumentType != null
+            && argumentType.getTypeArguments() != null
+            && argumentType.getTypeArguments().length() > 0) { // Nested generics
+          checkInstantiationForParameterizedTypedTree(parameterizedTypeTreeForTypeArgument, state);
+        }
+      }
       if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
         JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
         for (JCTree.JCAnnotation annotation : annotatedType.getAnnotations()) {
