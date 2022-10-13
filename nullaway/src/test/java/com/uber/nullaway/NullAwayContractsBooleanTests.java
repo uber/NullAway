@@ -265,6 +265,26 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void complexIdentityNotNull() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test(@Nullable Object o1, Object o2) {",
+            "    if (Validation.identity(null != o1, o2)) {",
+            "      return o1.toString();",
+            "    } else {",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      return o1.toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void identityIsNull() {
     helper()
         .addSourceLines(
@@ -274,6 +294,26 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
             "class Test {",
             "  String test(@Nullable Object o1) {",
             "    if (Validation.identity(null == o1)) {",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      return o1.toString();",
+            "    } else {",
+            "      return o1.toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void compositeContractIdentityIsNull() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test(@Nullable Object o1, Object o2) {",
+            "    if (Validation.identity(null == o1, o2)) {",
             "      // BUG: Diagnostic contains: dereferenced expression",
             "      return o1.toString();",
             "    } else {",
@@ -390,6 +430,7 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
             "Validation.java",
             "package com.uber;",
             "import org.jetbrains.annotations.Contract;",
+            "import javax.annotation.Nullable;",
             "public final class Validation {",
             "  @Contract(\"false -> fail\")",
             "  static void checkTrue(boolean value) {",
@@ -401,6 +442,10 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
             "  }",
             "  @Contract(\"true -> true; false -> false\")",
             "  static boolean identity(boolean value) {",
+            "    return value;",
+            "  }",
+            "  @Contract(\"true, _ -> true; false, _ -> false\")",
+            "  static boolean identity(boolean value, @Nullable Object other) {",
             "    return value;",
             "  }",
             "}");
