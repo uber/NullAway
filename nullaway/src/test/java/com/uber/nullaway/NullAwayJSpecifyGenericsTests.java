@@ -131,6 +131,27 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void returnTypeParamInstantiation() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.nullness.Nullable;",
+            "class Test {",
+            "    static class NonNullTypeParam<E> {}",
+            "    static class NullableTypeParam<E extends @Nullable Object> {}",
+            "    // BUG: Diagnostic contains: Generic type parameter",
+            "    static NonNullTypeParam<@Nullable String> testBadNonNull(NonNullTypeParam<String> t) {",
+            "          return t;",
+            "    }",
+            "    static NullableTypeParam<@Nullable String> testOKNull(Nullable<@Nullable String> t) {",
+            "          return t;",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
