@@ -679,10 +679,23 @@ public class NullAway extends BugChecker
         Type paramType = ASTHelpers.getType(varTree);
         if (paramType != null && paramType.getTypeArguments().length() > 0) {
           checkNestedParameterInstantiation(paramType, state, varTree);
-          //     checkInstantiatedType(paramType, state, varTree);
         }
       }
     }
+
+    // generics check for function return type
+    Tree returnTypeTree = tree.getReturnType();
+    if (config.isJSpecifyMode()) {
+      if (tree.getReturnType() != null) {
+        Type returnType = ASTHelpers.getType(returnTypeTree);
+        if (returnType != null
+            && returnType.getTypeArguments() != null
+            && returnType.getTypeArguments().length() > 0) { // generics check
+          checkNestedParameterInstantiation(returnType, state, returnTypeTree);
+        }
+      }
+    }
+
     boolean isOverriding = ASTHelpers.hasAnnotation(methodSymbol, Override.class, state);
     boolean exhaustiveOverride = config.exhaustiveOverride();
     if (isOverriding || !exhaustiveOverride) {

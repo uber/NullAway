@@ -145,8 +145,8 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    static NonNullTypeParam<@Nullable String> testBadNonNull(NonNullTypeParam<String> t) {",
             "          return t;",
             "    }",
-            "    static NullableTypeParam<@Nullable String> testOKNull(Nullable<@Nullable String> t) {",
-            "          return t;",
+            "    static NullableTypeParam<@Nullable String> testOKNull() {",
+            "          return new NullableTypeParam<@Nullable String>();",
             "    }",
             "}")
         .doTest();
