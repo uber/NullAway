@@ -133,8 +133,7 @@ public class ContractHandler extends BaseNoOpHandler {
         if ("false".equals(valueConstraint) || "true".equals(valueConstraint)) {
           if (arg != null) {
             // We don't currently support contracts depending on the boolean value of more than one
-            // argument
-            // using the node-insertion method.
+            // argument using the node-insertion method.
             supported = false;
             break;
           }
@@ -188,7 +187,7 @@ public class ContractHandler extends BaseNoOpHandler {
           getAntecedent(clause, tree, analysis, state, callee, node.getArguments().size());
       String consequent = getConsequent(clause, tree, analysis, state, callee);
 
-      // Find a single value constraint that is not already known. If more than one arguments with
+      // Find a single value constraint that is not already known. If more than one argument with
       // unknown nullness affects the method's result, then ignore this clause.
       Node arg = null;
       Nullness argAntecedentNullness = null;

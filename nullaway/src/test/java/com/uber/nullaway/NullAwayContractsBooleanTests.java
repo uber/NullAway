@@ -495,6 +495,29 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nonNullBooleanDoubleContractTest() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "class Test {",
+            "  @Contract(\"false, false -> fail\")",
+            "  static void falseFalseFail(boolean b1, boolean b2) {",
+            "    if (!b1 && !b2) {",
+            "      throw new RuntimeException();",
+            "    }",
+            "  }",
+            "  String test1(@Nullable Object maybe, Object required) {",
+            "    falseFalseFail(maybe != null, required == null);",
+            "    return maybe.toString() + required.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper helper() {
     return makeTestHelperWithArgs(
             Arrays.asList(
