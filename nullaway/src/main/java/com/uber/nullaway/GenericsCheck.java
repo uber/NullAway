@@ -15,7 +15,7 @@ public class GenericsCheck {
 
   // check that type is a valid instantiation of its generic type
   public static void checkInstantiatedType(
-      Type type, VisitorState state, Tree tree, NullAway analysis, Config config) {
+      Type type, VisitorState state, Tree tree, NullAway currentState, Config config) {
     CodeAnnotationInfo codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
     if (!config.isJSpecifyMode()) {
       throw new IllegalStateException("should only check instantiated types in JSpecify mode");
@@ -60,7 +60,7 @@ public class GenericsCheck {
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation) {
-          GenericsCheck.invalidInstantiationError(tree, state, analysis, config);
+          GenericsCheck.invalidInstantiationError(tree, state, currentState, config);
         }
       }
       index++;
@@ -70,7 +70,7 @@ public class GenericsCheck {
   /** Generics checks for parameterized typed trees * */
   @SuppressWarnings("ModifiedButNotUsed")
   public static void checkInstantiationForParameterizedTypedTree(
-      ParameterizedTypeTree tree, VisitorState state, NullAway analysis, Config config) {
+      ParameterizedTypeTree tree, VisitorState state, NullAway currentState, Config config) {
     if (!config.isJSpecifyMode()) {
       throw new IllegalStateException("should only check type instantiations in JSpecify mode");
     }
@@ -96,7 +96,7 @@ public class GenericsCheck {
             && argumentType.getTypeArguments() != null
             && argumentType.getTypeArguments().length() > 0) { // Nested generics
           checkInstantiationForParameterizedTypedTree(
-              parameterizedTypeTreeForTypeArgument, state, analysis, config);
+              parameterizedTypeTreeForTypeArgument, state, currentState, config);
         }
       }
       if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
@@ -113,14 +113,15 @@ public class GenericsCheck {
       }
       if (hasNullableAnnotation) {
         if (!nullableTypeArguments.contains(i)) {
-          GenericsCheck.invalidInstantiationError(typeArguments.get(i), state, analysis, config);
+          GenericsCheck.invalidInstantiationError(
+              typeArguments.get(i), state, currentState, config);
         }
       }
     }
   }
 
   private static void invalidInstantiationError(
-      Tree tree, VisitorState state, NullAway analysis, Config config) {
+      Tree tree, VisitorState state, NullAway currentState, Config config) {
     ErrorBuilder errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
     ErrorMessage errorMessage =
         new ErrorMessage(
@@ -128,16 +129,16 @@ public class GenericsCheck {
             "Generic type parameter cannot be @Nullable");
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(tree), state, null));
+            errorMessage, currentState.buildDescription(tree), state, null));
   }
 
   public static void checkNestedParameterInstantiation(
-      Type type, VisitorState state, Tree tree, NullAway analysis, Config config) {
-    GenericsCheck.checkInstantiatedType(type, state, tree, analysis, config);
+      Type type, VisitorState state, Tree tree, NullAway currentState, Config config) {
+    GenericsCheck.checkInstantiatedType(type, state, tree, currentState, config);
     List<Type> typeArguments = type.getTypeArguments();
     for (Type typeArgument : typeArguments) {
       if (typeArgument.getTypeArguments().length() > 0) {
-        checkNestedParameterInstantiation(typeArgument, state, tree, analysis, config);
+        checkNestedParameterInstantiation(typeArgument, state, tree, currentState, config);
       }
     }
   }
