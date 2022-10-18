@@ -82,20 +82,17 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
-import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.tree.JCTree.JCTypeApply;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -421,62 +418,13 @@ public class NullAway extends BugChecker
       Type classType = ASTHelpers.getType(tree);
       if (classType != null && classType.getTypeArguments().length() > 0) {
         ParameterizedTypeTree parameterizedTypeTree = (ParameterizedTypeTree) tree.getIdentifier();
-        checkInstantiationForParameterizedTypedTree(parameterizedTypeTree, state);
+        GenericsCheck.checkInstantiationForParameterizedTypedTree(
+            parameterizedTypeTree, state, this, config);
       }
     }
     return handleInvocation(tree, state, methodSymbol, actualParams);
   }
 
-  /** Generics checks for parameterized typed trees * */
-  @SuppressWarnings("ModifiedButNotUsed")
-  public void checkInstantiationForParameterizedTypedTree(
-      ParameterizedTypeTree tree, VisitorState state) {
-    if (!config.isJSpecifyMode()) {
-      throw new IllegalStateException("should only check type instantiations in JSpecify mode");
-    }
-    List<? extends Tree> typeArguments = tree.getTypeArguments();
-    HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
-    JCTypeApply baseTypeTree = (JCTypeApply) tree;
-    Type t = baseTypeTree.type;
-    Type.ClassType classTyp = (Type.ClassType) t;
-    if (classTyp.tsym.getMetadata() != null) {
-      List<Attribute.TypeCompound> baseTypeAttributes =
-          classTyp.tsym.getMetadata().getTypeAttributes();
-      for (int i = 0; i < baseTypeAttributes.size(); i++) {
-        nullableTypeArguments.add(baseTypeAttributes.get(i).position.parameter_index);
-      }
-    }
-    for (int i = 0; i < typeArguments.size(); i++) {
-      boolean hasNullableAnnotation = false;
-      if (typeArguments.get(i).getClass().equals(JCTypeApply.class)) {
-        ParameterizedTypeTree parameterizedTypeTreeForTypeArgument =
-            (ParameterizedTypeTree) typeArguments.get(i);
-        Type argumentType = ASTHelpers.getType(parameterizedTypeTreeForTypeArgument);
-        if (argumentType != null
-            && argumentType.getTypeArguments() != null
-            && argumentType.getTypeArguments().length() > 0) { // Nested generics
-          checkInstantiationForParameterizedTypedTree(parameterizedTypeTreeForTypeArgument, state);
-        }
-      }
-      if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
-        JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
-        for (JCTree.JCAnnotation annotation : annotatedType.getAnnotations()) {
-          Attribute.Compound attribute = annotation.attribute;
-          hasNullableAnnotation =
-              hasNullableAnnotation
-                  || attribute.toString().equals("@org.jspecify.nullness.Nullable");
-          if (hasNullableAnnotation) {
-            break;
-          }
-        }
-      }
-      if (hasNullableAnnotation) {
-        if (!nullableTypeArguments.contains(i)) {
-          invalidInstantiationError(typeArguments.get(i), state);
-        }
-      }
-    }
-  }
   /**
    * Updates the {@link EnclosingEnvironmentNullness} with an entry for lambda or anonymous class,
    * capturing nullability info for locals just before the declaration of the entity
@@ -678,7 +626,7 @@ public class NullAway extends BugChecker
       for (VariableTree varTree : tree.getParameters()) {
         Type paramType = ASTHelpers.getType(varTree);
         if (paramType != null && paramType.getTypeArguments().length() > 0) {
-          checkNestedParameterInstantiation(paramType, state, varTree);
+          GenericsCheck.checkNestedParameterInstantiation(paramType, state, varTree, this, config);
         }
       }
     }
@@ -691,7 +639,8 @@ public class NullAway extends BugChecker
         if (returnType != null
             && returnType.getTypeArguments() != null
             && returnType.getTypeArguments().length() > 0) { // generics check
-          checkNestedParameterInstantiation(returnType, state, returnTypeTree);
+          GenericsCheck.checkNestedParameterInstantiation(
+              returnType, state, returnTypeTree, this, config);
         }
       }
     }
@@ -706,67 +655,6 @@ public class NullAway extends BugChecker
       }
     }
     return Description.NO_MATCH;
-  }
-
-  private void invalidInstantiationError(Tree tree, VisitorState state) {
-    ErrorMessage errorMessage =
-        new ErrorMessage(
-            MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
-            "Generic type parameter cannot be @Nullable");
-    state.reportMatch(
-        errorBuilder.createErrorDescription(errorMessage, buildDescription(tree), state, null));
-  }
-
-  // check that type is a valid instantiation of its generic type
-  private void checkInstantiatedType(Type type, VisitorState state, Tree tree) {
-    if (!config.isJSpecifyMode()) {
-      throw new IllegalStateException("should only check instantiated types in JSpecify mode");
-    }
-    // typeArguments used in the instantiated type (like for Foo<String,Integer>, this gets
-    // [String,Integer])
-    // if base type is unannotated do not check for generics
-    // temporary check to handle testMapComputeIfAbsent
-    if (codeAnnotationInfo.isSymbolUnannotated(type.tsym, config)) {
-      return;
-    }
-
-    com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
-    HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
-    int index = 0;
-    for (Type typArgument : typeArguments) {
-      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-          typArgument.getAnnotationMirrors();
-      boolean hasNullableAnnotation =
-          Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-      if (hasNullableAnnotation) {
-        nullableTypeArguments.add(index);
-      }
-      index++;
-    }
-
-    Type baseType = type.tsym.type;
-    com.sun.tools.javac.util.List<Type> baseTypeArguments = baseType.getTypeArguments();
-    index = 0;
-    for (Type baseTypeArg : baseTypeArguments) {
-
-      // if type argument at current index has @Nullable annotation base type argument at that index
-      // should also have
-      // the @Nullable annotation. check for the annotation
-      if (nullableTypeArguments.contains(index)) {
-
-        Type upperBound = baseTypeArg.getUpperBound();
-        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-            upperBound.getAnnotationMirrors();
-        boolean hasNullableAnnotation =
-            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-        // if base type argument does not have @Nullable annotation then the instantiation is
-        // invalid
-        if (!hasNullableAnnotation) {
-          invalidInstantiationError(tree, state);
-        }
-      }
-      index++;
-    }
   }
 
   @Override
@@ -1455,16 +1343,6 @@ public class NullAway extends BugChecker
     return false;
   }
 
-  public void checkNestedParameterInstantiation(Type type, VisitorState state, Tree tree) {
-    checkInstantiatedType(type, state, tree);
-    List<Type> typeArguments = type.getTypeArguments();
-    for (Type typeArgument : typeArguments) {
-      if (typeArgument.getTypeArguments().length() > 0) {
-        checkNestedParameterInstantiation(typeArgument, state, tree);
-      }
-    }
-  }
-
   @Override
   public Description matchVariable(VariableTree tree, VisitorState state) {
     if (!withinAnnotatedCode(state)) {
@@ -1474,7 +1352,7 @@ public class NullAway extends BugChecker
     if (config.isJSpecifyMode()) {
       Type variableType = ASTHelpers.getType(tree);
       if (variableType != null && variableType.getTypeArguments().length() > 0) {
-        checkNestedParameterInstantiation(variableType, state, tree);
+        GenericsCheck.checkNestedParameterInstantiation(variableType, state, tree, this, config);
       }
     }
 
@@ -1585,8 +1463,9 @@ public class NullAway extends BugChecker
         Type extendedClassType = classTree.extending.type;
         // check if the extended class is generic
         if (extendedClassType.getTypeArguments().length() > 0) {
-          checkNestedParameterInstantiation(extendedClassType, state, tree);
-          //    checkInstantiatedType(extendedClassType, state, classTree);
+
+          GenericsCheck.checkNestedParameterInstantiation(
+              extendedClassType, state, tree, this, config);
         }
       }
       // check if the class implements any interface
@@ -1596,7 +1475,8 @@ public class NullAway extends BugChecker
           Type implementedInterfaceType = interfaces.get(i).type;
           // check if the interface is generic
           if (implementedInterfaceType.getTypeArguments().size() > 0) {
-            checkInstantiatedType(implementedInterfaceType, state, classTree);
+            GenericsCheck.checkInstantiatedType(
+                implementedInterfaceType, state, classTree, this, config);
           }
         }
       }
