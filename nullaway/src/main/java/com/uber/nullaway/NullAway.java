@@ -1022,7 +1022,9 @@ public class NullAway extends BugChecker
     }
 
     // for static fields, make sure the enclosing init is a static method or block
-    if (symbol.isStatic()) {
+    @SuppressWarnings("ASTHelpersSuggestions") // remove once we require EP 2.16 or greater
+    boolean isStatic = symbol.isStatic();
+    if (isStatic) {
       Tree enclosing = enclosingBlockPath.getLeaf();
       if (enclosing instanceof MethodTree
           && !ASTHelpers.getSymbol((MethodTree) enclosing).isStatic()) {
@@ -1131,7 +1133,9 @@ public class NullAway extends BugChecker
       Symbol symbol, TreePath pathToRead, VisitorState state, TreePath enclosingBlockPath) {
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
     Set<Element> nonnullFields;
-    if (symbol.isStatic()) {
+    @SuppressWarnings("ASTHelpersSuggestions") // remove once we require EP 2.16 or greater
+    boolean isStatic = symbol.isStatic();
+    if (isStatic) {
       nonnullFields = nullnessAnalysis.getNonnullStaticFieldsBefore(pathToRead, state.context);
     } else {
       nonnullFields = new LinkedHashSet<>();
@@ -2132,7 +2136,9 @@ public class NullAway extends BugChecker
             // matchVariable()
             continue;
           }
-          if (fieldSymbol.isStatic()) {
+          @SuppressWarnings("ASTHelpersSuggestions") // remove once we require EP 2.16 or greater
+          boolean fieldIsStatic = fieldSymbol.isStatic();
+          if (fieldIsStatic) {
             nonnullStaticFields.add(fieldSymbol);
           } else {
             nonnullInstanceFields.add(fieldSymbol);
