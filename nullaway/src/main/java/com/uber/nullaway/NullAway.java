@@ -418,7 +418,7 @@ public class NullAway extends BugChecker
       Type classType = ASTHelpers.getType(tree);
       if (classType != null && classType.getTypeArguments().length() > 0) {
         ParameterizedTypeTree parameterizedTypeTree = (ParameterizedTypeTree) tree.getIdentifier();
-        GenericsCheck.checkInstantiationForParameterizedTypedTree(
+        GenericsChecks.checkInstantiationForParameterizedTypedTree(
             parameterizedTypeTree, state, this, config);
       }
     }
@@ -626,7 +626,7 @@ public class NullAway extends BugChecker
       for (VariableTree varTree : tree.getParameters()) {
         Type paramType = ASTHelpers.getType(varTree);
         if (paramType != null && paramType.getTypeArguments().length() > 0) {
-          GenericsCheck.checkNestedParameterInstantiation(paramType, state, varTree, this, config);
+          GenericsChecks.checkNestedParameterInstantiation(paramType, state, varTree, this, config);
         }
       }
     }
@@ -639,7 +639,7 @@ public class NullAway extends BugChecker
         if (returnType != null
             && returnType.getTypeArguments() != null
             && returnType.getTypeArguments().length() > 0) { // generics check
-          GenericsCheck.checkNestedParameterInstantiation(
+          GenericsChecks.checkNestedParameterInstantiation(
               returnType, state, returnTypeTree, this, config);
         }
       }
@@ -1356,7 +1356,7 @@ public class NullAway extends BugChecker
     if (config.isJSpecifyMode()) {
       Type variableType = ASTHelpers.getType(tree);
       if (variableType != null && variableType.getTypeArguments().length() > 0) {
-        GenericsCheck.checkNestedParameterInstantiation(variableType, state, tree, this, config);
+        GenericsChecks.checkNestedParameterInstantiation(variableType, state, tree, this, config);
       }
     }
 
@@ -1468,7 +1468,7 @@ public class NullAway extends BugChecker
         // check if the extended class is generic
         if (extendedClassType.getTypeArguments().length() > 0) {
 
-          GenericsCheck.checkNestedParameterInstantiation(
+          GenericsChecks.checkNestedParameterInstantiation(
               extendedClassType, state, tree, this, config);
         }
       }
@@ -1479,7 +1479,7 @@ public class NullAway extends BugChecker
           Type implementedInterfaceType = interfaces.get(i).type;
           // check if the interface is generic
           if (implementedInterfaceType.getTypeArguments().size() > 0) {
-            GenericsCheck.checkInstantiatedType(
+            GenericsChecks.checkInstantiatedType(
                 implementedInterfaceType, state, classTree, this, config);
           }
         }

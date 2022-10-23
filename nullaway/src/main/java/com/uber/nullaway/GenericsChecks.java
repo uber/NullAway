@@ -11,7 +11,7 @@ import com.sun.tools.javac.tree.JCTree;
 import java.util.HashSet;
 import java.util.List;
 
-public class GenericsCheck {
+public class GenericsChecks {
 
   // check that type is a valid instantiation of its generic type
   public static void checkInstantiatedType(
@@ -60,7 +60,7 @@ public class GenericsCheck {
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation) {
-          GenericsCheck.invalidInstantiationError(tree, state, currentState, config);
+          GenericsChecks.invalidInstantiationError(tree, state, currentState, config);
         }
       }
       index++;
@@ -68,7 +68,6 @@ public class GenericsCheck {
   }
 
   /** Generics checks for parameterized typed trees * */
-  @SuppressWarnings("ModifiedButNotUsed")
   public static void checkInstantiationForParameterizedTypedTree(
       ParameterizedTypeTree tree, VisitorState state, NullAway currentState, Config config) {
     if (!config.isJSpecifyMode()) {
@@ -113,7 +112,7 @@ public class GenericsCheck {
       }
       if (hasNullableAnnotation) {
         if (!nullableTypeArguments.contains(i)) {
-          GenericsCheck.invalidInstantiationError(
+          GenericsChecks.invalidInstantiationError(
               typeArguments.get(i), state, currentState, config);
         }
       }
@@ -134,7 +133,7 @@ public class GenericsCheck {
 
   public static void checkNestedParameterInstantiation(
       Type type, VisitorState state, Tree tree, NullAway currentState, Config config) {
-    GenericsCheck.checkInstantiatedType(type, state, tree, currentState, config);
+    GenericsChecks.checkInstantiatedType(type, state, tree, currentState, config);
     List<Type> typeArguments = type.getTypeArguments();
     for (Type typeArgument : typeArguments) {
       if (typeArgument.getTypeArguments().length() > 0) {
