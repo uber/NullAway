@@ -1,6 +1,5 @@
 package com.uber.nullaway;
 
-import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ParameterizedTypeTree;
@@ -60,7 +59,7 @@ public class GenericsChecks {
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation) {
-          GenericsChecks.invalidInstantiationError(tree, state, analysis, config);
+          GenericsChecks.invalidInstantiationError(tree, state, analysis);
         }
       }
       index++;
@@ -112,15 +111,14 @@ public class GenericsChecks {
       }
       if (hasNullableAnnotation) {
         if (!nullableTypeArguments.contains(i)) {
-          GenericsChecks.invalidInstantiationError(typeArguments.get(i), state, analysis, config);
+          GenericsChecks.invalidInstantiationError(typeArguments.get(i), state, analysis);
         }
       }
     }
   }
 
-  private static void invalidInstantiationError(
-      Tree tree, VisitorState state, NullAway analysis, Config config) {
-    ErrorBuilder errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
+  private static void invalidInstantiationError(Tree tree, VisitorState state, NullAway analysis) {
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
