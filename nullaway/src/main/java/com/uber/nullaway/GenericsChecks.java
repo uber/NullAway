@@ -47,8 +47,7 @@ public class GenericsChecks {
     for (Type baseTypeArg : baseTypeArguments) {
 
       // if type argument at current index has @Nullable annotation base type argument at that index
-      // should also have
-      // the @Nullable annotation. check for the annotation
+      // should also have a @Nullable annotation on its upper bound.
       if (nullableTypeArguments.contains(index)) {
 
         Type upperBound = baseTypeArg.getUpperBound();
@@ -59,7 +58,7 @@ public class GenericsChecks {
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation) {
-          GenericsChecks.invalidInstantiationError(tree, state, analysis);
+          invalidInstantiationError(tree, state, analysis);
         }
       }
       index++;
@@ -111,7 +110,7 @@ public class GenericsChecks {
       }
       if (hasNullableAnnotation) {
         if (!nullableTypeArguments.contains(i)) {
-          GenericsChecks.invalidInstantiationError(typeArguments.get(i), state, analysis);
+          invalidInstantiationError(typeArguments.get(i), state, analysis);
         }
       }
     }
