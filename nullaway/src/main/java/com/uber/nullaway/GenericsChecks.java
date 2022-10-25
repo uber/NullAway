@@ -1,5 +1,6 @@
 package com.uber.nullaway;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ParameterizedTypeTree;
@@ -117,20 +118,26 @@ public class GenericsChecks {
     }
   }
 
-  // tree - Tree on which the error needs to be shown
   private static void invalidInstantiationError(
       Tree tree, VisitorState state, NullAway analysis, Config config) {
+    ErrorBuilder errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
             "Generic type parameter cannot be @Nullable");
     state.reportMatch(
-        analysis.errorBuilder.createErrorDescription(
+        errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(tree), state, null));
   }
 
   public static void checkNestedParameterInstantiation(
       Type type, VisitorState state, Tree tree, NullAway analysis, Config config) {
     GenericsChecks.checkInstantiatedType(type, state, tree, analysis, config);
+    List<Type> typeArguments = type.getTypeArguments();
+    for (Type typeArgument : typeArguments) {
+      if (typeArgument.getTypeArguments().length() > 0) {
+        checkNestedParameterInstantiation(typeArgument, state, tree, analysis, config);
+      }
+    }
   }
 }
