@@ -27,6 +27,31 @@ public class NullAwayPreconditionTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void verifyNotNullTest() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Verify;",
+            "class Test {",
+            "  private void foo(@Nullable Object a) {",
+            "    Verify.verifyNotNull(a);",
+            "    a.toString();",
+            "  }",
+            "  private void bar(@Nullable Object a) {",
+            "    Verify.verifyNotNull(a, \"message\", new Object(), new Object());",
+            "    a.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void simpleCheckArgumentTest() {
     makeTestHelperWithArgs(
             Arrays.asList(

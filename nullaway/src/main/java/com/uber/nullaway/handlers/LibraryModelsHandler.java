@@ -411,6 +411,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                     "com.google.common.base.Preconditions",
                     "<T>checkNotNull(T,java.lang.String,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object)"),
                 0)
+            .put(methodRef("com.google.common.base.Verify", "<T>verifyNotNull(T)"), 0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Verify",
+                    "<T>verifyNotNull(T,java.lang.String,java.lang.Object...)"),
+                0)
             .put(methodRef("java.util.Objects", "<T>requireNonNull(T)"), 0)
             .put(methodRef("java.util.Objects", "<T>requireNonNull(T,java.lang.String)"), 0)
             .put(
