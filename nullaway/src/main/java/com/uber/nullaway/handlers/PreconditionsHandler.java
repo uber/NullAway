@@ -15,10 +15,14 @@ public class PreconditionsHandler extends BaseNoOpHandler {
   private static final String PRECONDITIONS_CLASS_NAME = "com.google.common.base.Preconditions";
   private static final String CHECK_ARGUMENT_METHOD_NAME = "checkArgument";
   private static final String CHECK_STATE_METHOD_NAME = "checkState";
+  private static final String VERIFY_CLASS_NAME = "com.google.common.base.Verify";
+  private static final String VERIFY_METHOD_NAME = "verify";
 
   @Nullable private Name preconditionsClass;
+  @Nullable private Name verifyClass;
   @Nullable private Name checkArgumentMethod;
   @Nullable private Name checkStateMethod;
+  @Nullable private Name verifyMethod;
   @Nullable TypeMirror preconditionCheckArgumentErrorType;
   @Nullable TypeMirror preconditionCheckStateErrorType;
 
@@ -30,8 +34,10 @@ public class PreconditionsHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
     if (preconditionsClass == null) {
       preconditionsClass = callee.name.table.fromString(PRECONDITIONS_CLASS_NAME);
+      verifyClass = callee.name.table.fromString(VERIFY_CLASS_NAME);
       checkArgumentMethod = callee.name.table.fromString(CHECK_ARGUMENT_METHOD_NAME);
       checkStateMethod = callee.name.table.fromString(CHECK_STATE_METHOD_NAME);
+      verifyMethod = callee.name.table.fromString(VERIFY_METHOD_NAME);
       preconditionCheckArgumentErrorType = phase.classToErrorType(IllegalArgumentException.class);
       preconditionCheckStateErrorType = phase.classToErrorType(IllegalStateException.class);
     }
