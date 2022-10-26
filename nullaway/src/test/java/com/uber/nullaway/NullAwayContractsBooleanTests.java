@@ -445,6 +445,8 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
             "      ? o.toString()",
             // This path is unreachable because o is guaranteed to be null
             // after checkTrue(o == null). No failures should be reported.
+            // Note that we're not doing general reachability analysis,
+            // rather ensuring that we don't incorrectly produce errors.
             "      : o.toString();",
             "  }",
             "}")
@@ -511,8 +513,25 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
             "    }",
             "  }",
             "  String test1(@Nullable Object maybe, Object required) {",
+            // 'required == null' is known to be false, so if we go past this line,
+            // we know 'maybe != null' evaluates to true, hence both args are @NonNull.
             "    falseFalseFail(maybe != null, required == null);",
             "    return maybe.toString() + required.toString();",
+            "  }",
+            "  String test2(@Nullable Object maybe) {",
+            "    String ref = null;",
+            // 'ref != null' is known to be false, so if we go past this line,
+            // we know 'maybe != null' evaluates to true.
+            "    falseFalseFail(maybe != null, ref != null);",
+            "    return maybe.toString();",
+            "  }",
+            "  String test3(@Nullable Object maybe) {",
+            "    String ref = \"\";",
+            "    ref = null;",
+            // 'ref != null' is known to be false, so if we go past this line,
+            // we know 'maybe != null' evaluates to true.
+            "    falseFalseFail(maybe != null, ref != null);",
+            "    return maybe.toString();",
             "  }",
             "}")
         .doTest();

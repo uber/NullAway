@@ -226,10 +226,15 @@ public class ContractHandler extends BaseNoOpHandler {
           // The following table illustrates expected antecedentNullness based on
           // null comparison direction and constraint:
           //                    | (obj == null)   | (obj != null)
-          // Constraint 'false' | NONNULL         | NULL
           // Constraint 'true'  | NULL            | NONNULL
-          boolean inverted = isNullTarget.isPresent() == valueConstraint.equals("false");
-          Nullness antecedentNullness = inverted ? Nullness.NONNULL : Nullness.NULL;
+          // Constraint 'false' | NONNULL         | NULL
+          boolean booleanConstraintValue = valueConstraint.equals("true");
+          Nullness antecedentNullness =
+              isNullTarget.isPresent()
+                  ? (booleanConstraintValue ? Nullness.NULL : Nullness.NONNULL)
+                  :
+                  // !isNullTarget.isPresent()  -> notNullTarget.present() must be true
+                  (booleanConstraintValue ? Nullness.NONNULL : Nullness.NULL);
           Nullness targetNullness = inputs.valueOfSubNode(nullTestTarget);
           if (antecedentNullness.equals(targetNullness)) {
             // We already know this argument is satisfied so we can treat it as part of the
