@@ -55,7 +55,7 @@ public class Handlers {
     if (config.handleTestAssertionLibraries()) {
       handlerListBuilder.add(new AssertionHandler(methodNameUtil));
     }
-    handlerListBuilder.add(new PreconditionsHandler());
+    handlerListBuilder.add(new GuavaAssertionsHandler());
     handlerListBuilder.add(new LibraryModelsHandler(config));
     handlerListBuilder.add(StreamNullabilityPropagatorFactory.getRxStreamNullabilityPropagator());
     handlerListBuilder.add(StreamNullabilityPropagatorFactory.getJavaStreamNullabilityPropagator());
