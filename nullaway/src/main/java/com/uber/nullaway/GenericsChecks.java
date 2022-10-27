@@ -62,6 +62,12 @@ public class GenericsChecks {
         }
         index++;
       }
+      // Generics check for nested type parameters
+      for (Type typeArgument : typeArguments) {
+        if (typeArgument.getTypeArguments().length() > 0) {
+          checkInstantiatedType(typeArgument, state, tree, analysis, config);
+        }
+      }
     }
   }
 
@@ -129,16 +135,5 @@ public class GenericsChecks {
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(tree), state, null));
-  }
-
-  public static void checkNestedParameterInstantiation(
-      Type type, VisitorState state, Tree tree, NullAway analysis, Config config) {
-    GenericsChecks.checkInstantiatedType(type, state, tree, analysis, config);
-    List<Type> typeArguments = type.getTypeArguments();
-    for (Type typeArgument : typeArguments) {
-      if (typeArgument.getTypeArguments().length() > 0) {
-        checkNestedParameterInstantiation(typeArgument, state, tree, analysis, config);
-      }
-    }
   }
 }

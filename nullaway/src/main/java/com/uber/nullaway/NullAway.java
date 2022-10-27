@@ -626,7 +626,7 @@ public class NullAway extends BugChecker
       for (VariableTree varTree : tree.getParameters()) {
         Type paramType = ASTHelpers.getType(varTree);
         if (paramType != null && paramType.getTypeArguments().length() > 0) {
-          GenericsChecks.checkNestedParameterInstantiation(paramType, state, varTree, this, config);
+          GenericsChecks.checkInstantiatedType(paramType, state, varTree, this, config);
         }
       }
     }
@@ -639,8 +639,7 @@ public class NullAway extends BugChecker
         if (returnType != null
             && returnType.getTypeArguments() != null
             && returnType.getTypeArguments().length() > 0) { // generics check
-          GenericsChecks.checkNestedParameterInstantiation(
-              returnType, state, returnTypeTree, this, config);
+          GenericsChecks.checkInstantiatedType(returnType, state, returnTypeTree, this, config);
         }
       }
     }
@@ -1356,12 +1355,11 @@ public class NullAway extends BugChecker
     if (config.isJSpecifyMode()) {
       Type variableType = ASTHelpers.getType(tree);
       if (variableType != null && variableType.getTypeArguments().length() > 0) {
-        GenericsChecks.checkNestedParameterInstantiation(variableType, state, tree, this, config);
+        GenericsChecks.checkInstantiatedType(variableType, state, tree, this, config);
       }
     }
 
     // is nested variable
-
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
       return doUnboxingCheck(state, tree.getInitializer());
@@ -1468,8 +1466,7 @@ public class NullAway extends BugChecker
         // check if the extended class is generic
         if (extendedClassType.getTypeArguments().length() > 0) {
 
-          GenericsChecks.checkNestedParameterInstantiation(
-              extendedClassType, state, tree, this, config);
+          GenericsChecks.checkInstantiatedType(extendedClassType, state, tree, this, config);
         }
       }
       // check if the class implements any interface
