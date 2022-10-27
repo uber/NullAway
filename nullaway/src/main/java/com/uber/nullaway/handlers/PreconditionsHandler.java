@@ -25,6 +25,7 @@ public class PreconditionsHandler extends BaseNoOpHandler {
   @Nullable private Name verifyMethod;
   @Nullable TypeMirror preconditionCheckArgumentErrorType;
   @Nullable TypeMirror preconditionCheckStateErrorType;
+  @Nullable TypeMirror verifyErrorType;
 
   @Override
   public MethodInvocationNode onCFGBuildPhase1AfterVisitMethodInvocation(
@@ -40,9 +41,14 @@ public class PreconditionsHandler extends BaseNoOpHandler {
       verifyMethod = callee.name.table.fromString(VERIFY_METHOD_NAME);
       preconditionCheckArgumentErrorType = phase.classToErrorType(IllegalArgumentException.class);
       preconditionCheckStateErrorType = phase.classToErrorType(IllegalStateException.class);
+      // We treat the Verify.* APIs as throwing a RuntimeException to avoid any issues with
+      // the VerifyException that they actually throw not being in the classpath (this will not
+      // affect the analysis result)
+      verifyErrorType = phase.classToErrorType(RuntimeException.class);
     }
     Preconditions.checkNotNull(preconditionCheckArgumentErrorType);
     Preconditions.checkNotNull(preconditionCheckStateErrorType);
+    Preconditions.checkNotNull(verifyErrorType);
     if (callee.enclClass().getQualifiedName().equals(preconditionsClass)
         && !callee.getParameters().isEmpty()) {
       // Attempt to match Precondition check methods to the expected exception type, providing as
@@ -54,6 +60,11 @@ public class PreconditionsHandler extends BaseNoOpHandler {
         phase.insertThrowOnFalse(originalNode.getArgument(0), preconditionCheckArgumentErrorType);
       } else if (callee.name.equals(checkStateMethod)) {
         phase.insertThrowOnFalse(originalNode.getArgument(0), preconditionCheckStateErrorType);
+      }
+    } else if (callee.enclClass().getQualifiedName().equals(verifyClass)
+        && !callee.getParameters().isEmpty()) {
+      if (callee.name.equals(verifyMethod)) {
+        phase.insertThrowOnFalse(originalNode.getArgument(0), verifyErrorType);
       }
     }
     return originalNode;
