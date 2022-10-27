@@ -75,11 +75,15 @@ public class GenericsChecks {
     HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
     JCTree.JCTypeApply baseTypeTree = (JCTree.JCTypeApply) tree;
     Type t = baseTypeTree.type;
-    Type.ClassType classTyp = (Type.ClassType) t;
-    if (classTyp.tsym.getMetadata() != null) {
+    Type.ClassType classType = (Type.ClassType) t;
+    // If none of the arguments are @Nullable annotated MetaData is empty
+    if (classType.tsym.getMetadata() != null) {
       List<Attribute.TypeCompound> baseTypeAttributes =
-          classTyp.tsym.getMetadata().getTypeAttributes();
+          classType.tsym.getMetadata().getTypeAttributes();
+      // Store the arguments in the base type that have @Nullable annotation in the set
       for (int i = 0; i < baseTypeAttributes.size(); i++) {
+        // position - index of the parameters in the list of base type attributes that have
+        // @Nullable annotations
         nullableTypeArguments.add(baseTypeAttributes.get(i).position.parameter_index);
       }
     }
