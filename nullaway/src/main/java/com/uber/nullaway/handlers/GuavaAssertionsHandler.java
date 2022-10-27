@@ -66,10 +66,9 @@ public class GuavaAssertionsHandler extends BaseNoOpHandler {
         phase.insertThrowOnFalse(originalNode.getArgument(0), preconditionCheckStateErrorType);
       }
     } else if (callee.enclClass().getQualifiedName().equals(verifyClass)
-        && !callee.getParameters().isEmpty()) {
-      if (callee.name.equals(verifyMethod)) {
-        phase.insertThrowOnFalse(originalNode.getArgument(0), verifyErrorType);
-      }
+        && !callee.getParameters().isEmpty()
+        && callee.name.equals(verifyMethod)) {
+      phase.insertThrowOnFalse(originalNode.getArgument(0), verifyErrorType);
     }
     return originalNode;
   }
