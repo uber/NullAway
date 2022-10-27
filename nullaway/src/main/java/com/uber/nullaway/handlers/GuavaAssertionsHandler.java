@@ -10,7 +10,7 @@ import javax.lang.model.element.Name;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
-public class PreconditionsHandler extends BaseNoOpHandler {
+public class GuavaAssertionsHandler extends BaseNoOpHandler {
 
   private static final String PRECONDITIONS_CLASS_NAME = "com.google.common.base.Preconditions";
   private static final String CHECK_ARGUMENT_METHOD_NAME = "checkArgument";
