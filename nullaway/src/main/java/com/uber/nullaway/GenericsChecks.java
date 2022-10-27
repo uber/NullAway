@@ -16,52 +16,52 @@ public class GenericsChecks {
   public static void checkInstantiatedType(
       Type type, VisitorState state, Tree tree, NullAway analysis, Config config) {
     CodeAnnotationInfo codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
-    if (!config.isJSpecifyMode()) {
-      throw new IllegalStateException("should only check instantiated types in JSpecify mode");
-    }
-    // typeArguments used in the instantiated type (like for Foo<String,Integer>, this gets
-    // [String,Integer])
-    // if base type is unannotated do not check for generics
-    // temporary check to handle testMapComputeIfAbsent
-    if (codeAnnotationInfo.isSymbolUnannotated(type.tsym, config)) {
-      return;
-    }
-
-    com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
-    HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
-    int index = 0;
-    for (Type typArgument : typeArguments) {
-      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-          typArgument.getAnnotationMirrors();
-      boolean hasNullableAnnotation =
-          Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-      if (hasNullableAnnotation) {
-        nullableTypeArguments.add(index);
+    if (config.isJSpecifyMode()) {
+      // typeArguments used in the instantiated type (like for Foo<String,Integer>, this gets
+      // [String,Integer])
+      // if base type is unannotated do not check for generics
+      // temporary check to handle testMapComputeIfAbsent
+      if (codeAnnotationInfo.isSymbolUnannotated(type.tsym, config)) {
+        return;
       }
-      index++;
-    }
 
-    Type baseType = type.tsym.type;
-    com.sun.tools.javac.util.List<Type> baseTypeArguments = baseType.getTypeArguments();
-    index = 0;
-    for (Type baseTypeArg : baseTypeArguments) {
-
-      // if type argument at current index has @Nullable annotation base type argument at that index
-      // should also have a @Nullable annotation on its upper bound.
-      if (nullableTypeArguments.contains(index)) {
-
-        Type upperBound = baseTypeArg.getUpperBound();
+      com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
+      HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
+      int index = 0;
+      for (Type typArgument : typeArguments) {
         com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-            upperBound.getAnnotationMirrors();
+            typArgument.getAnnotationMirrors();
         boolean hasNullableAnnotation =
             Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-        // if base type argument does not have @Nullable annotation then the instantiation is
-        // invalid
-        if (!hasNullableAnnotation) {
-          invalidInstantiationError(tree, state, analysis);
+        if (hasNullableAnnotation) {
+          nullableTypeArguments.add(index);
         }
+        index++;
       }
-      index++;
+
+      Type baseType = type.tsym.type;
+      com.sun.tools.javac.util.List<Type> baseTypeArguments = baseType.getTypeArguments();
+      index = 0;
+      for (Type baseTypeArg : baseTypeArguments) {
+
+        // if type argument at current index has @Nullable annotation base type argument at that
+        // index
+        // should also have a @Nullable annotation on its upper bound.
+        if (nullableTypeArguments.contains(index)) {
+
+          Type upperBound = baseTypeArg.getUpperBound();
+          com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+              upperBound.getAnnotationMirrors();
+          boolean hasNullableAnnotation =
+              Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+          // if base type argument does not have @Nullable annotation then the instantiation is
+          // invalid
+          if (!hasNullableAnnotation) {
+            invalidInstantiationError(tree, state, analysis);
+          }
+        }
+        index++;
+      }
     }
   }
 
