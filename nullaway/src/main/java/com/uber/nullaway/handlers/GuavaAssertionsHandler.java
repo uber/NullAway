@@ -10,6 +10,10 @@ import javax.lang.model.element.Name;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
+/**
+ * Handler to expose semantics of Guava routines like {@code checkState}, {@code checkArgument}, and
+ * {@code verify} that check a boolean condition and fail with an exception if it is false.
+ */
 public class GuavaAssertionsHandler extends BaseNoOpHandler {
 
   private static final String PRECONDITIONS_CLASS_NAME = "com.google.common.base.Preconditions";

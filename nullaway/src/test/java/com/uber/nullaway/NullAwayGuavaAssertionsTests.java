@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayPreconditionTests extends NullAwayTestsBase {
+public class NullAwayGuavaAssertionsTests extends NullAwayTestsBase {
 
   @Test
   public void checkNotNullTest() {
@@ -88,6 +88,27 @@ public class NullAwayPreconditionTests extends NullAwayTestsBase {
             "  @Nullable private Object a;",
             "  private void foo() {",
             "    Preconditions.checkState(this.a != null);",
+            "    a.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void simpleVerifyTest() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Verify;",
+            "class Test {",
+            "  private void foo(@Nullable Object a) {",
+            "    Verify.verify(a != null);",
             "    a.toString();",
             "  }",
             "}")
