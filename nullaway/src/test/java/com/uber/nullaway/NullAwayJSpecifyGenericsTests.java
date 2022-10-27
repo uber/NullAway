@@ -153,6 +153,23 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void testOKNewClassInstantiationForOtherAnnotations() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import lombok.NonNull;",
+            "class Test {",
+            " static class NonNullTypeParam<E> {}",
+            " static void testBadNonNull(NonNullTypeParam<String> t) {",
+            "        // should not show error for annotation other than @Nullable",
+            "        testBadNonNull(new NonNullTypeParam<@NonNull String>());",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
