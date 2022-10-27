@@ -66,6 +66,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    static class InvalidSubclass extends NonNullTypeParam<@Nullable String> {}",
             "    // BUG: Diagnostic contains: Generic type parameter",
             "     static class PartiallyInvalidSubclass extends MixedTypeParam<@Nullable String, String, String, String> {}",
+            "     static class ValidSubclass extends MixedTypeParam<String, @Nullable String, @Nullable String, String> {}",
             "}")
         .doTest();
   }
