@@ -1,5 +1,19 @@
 Changelog
 =========
+Version 0.10.3
+--------------
+* Report an error when casting @Nullable expression to primitive type (#663)
+* Fix an NPE in the optional emptiness handler (#678)
+* Add support for boolean constraints (about nullness) in Contract annotations (#669) 
+* Support for specific libraries/APIs:
+  - PreconditionsHandler reflects Guava Preconditions exception types (#668)
+  - Handle Guava Verify functions (#682) 
+* Dependency Updates:
+  - checkerframework 3.26.0 (#671)
+* Build / CI tooling for NullAway itself:
+  - Build and test against Error Prone 2.15.0 (#665)
+  - Bump Error Prone and EP plugin to 2.16 (#675)
+
 Version 0.10.2
 --------------
 * Make AbstractConfig collection fields explicity Immutable (#601) 
