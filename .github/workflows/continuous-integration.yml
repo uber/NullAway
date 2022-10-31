@@ -35,9 +35,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out NullAway sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: 'Set up JDK ${{ matrix.java }}'
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -80,9 +80,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 'Check out repository'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: 'Set up JDK 8'
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           java-version: 8
           distribution: 'temurin'
