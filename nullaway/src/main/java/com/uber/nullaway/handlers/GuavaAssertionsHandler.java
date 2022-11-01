@@ -10,17 +10,26 @@ import javax.lang.model.element.Name;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
-public class PreconditionsHandler extends BaseNoOpHandler {
+/**
+ * Handler to expose semantics of Guava routines like {@code checkState}, {@code checkArgument}, and
+ * {@code verify} that check a boolean condition and fail with an exception if it is false.
+ */
+public class GuavaAssertionsHandler extends BaseNoOpHandler {
 
   private static final String PRECONDITIONS_CLASS_NAME = "com.google.common.base.Preconditions";
   private static final String CHECK_ARGUMENT_METHOD_NAME = "checkArgument";
   private static final String CHECK_STATE_METHOD_NAME = "checkState";
+  private static final String VERIFY_CLASS_NAME = "com.google.common.base.Verify";
+  private static final String VERIFY_METHOD_NAME = "verify";
 
   @Nullable private Name preconditionsClass;
+  @Nullable private Name verifyClass;
   @Nullable private Name checkArgumentMethod;
   @Nullable private Name checkStateMethod;
+  @Nullable private Name verifyMethod;
   @Nullable TypeMirror preconditionCheckArgumentErrorType;
   @Nullable TypeMirror preconditionCheckStateErrorType;
+  @Nullable TypeMirror verifyErrorType;
 
   @Override
   public MethodInvocationNode onCFGBuildPhase1AfterVisitMethodInvocation(
@@ -30,13 +39,20 @@ public class PreconditionsHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
     if (preconditionsClass == null) {
       preconditionsClass = callee.name.table.fromString(PRECONDITIONS_CLASS_NAME);
+      verifyClass = callee.name.table.fromString(VERIFY_CLASS_NAME);
       checkArgumentMethod = callee.name.table.fromString(CHECK_ARGUMENT_METHOD_NAME);
       checkStateMethod = callee.name.table.fromString(CHECK_STATE_METHOD_NAME);
+      verifyMethod = callee.name.table.fromString(VERIFY_METHOD_NAME);
       preconditionCheckArgumentErrorType = phase.classToErrorType(IllegalArgumentException.class);
       preconditionCheckStateErrorType = phase.classToErrorType(IllegalStateException.class);
+      // We treat the Verify.* APIs as throwing a RuntimeException to avoid any issues with
+      // the VerifyException that they actually throw not being in the classpath (this will not
+      // affect the analysis result)
+      verifyErrorType = phase.classToErrorType(RuntimeException.class);
     }
     Preconditions.checkNotNull(preconditionCheckArgumentErrorType);
     Preconditions.checkNotNull(preconditionCheckStateErrorType);
+    Preconditions.checkNotNull(verifyErrorType);
     if (callee.enclClass().getQualifiedName().equals(preconditionsClass)
         && !callee.getParameters().isEmpty()) {
       // Attempt to match Precondition check methods to the expected exception type, providing as
@@ -49,6 +65,10 @@ public class PreconditionsHandler extends BaseNoOpHandler {
       } else if (callee.name.equals(checkStateMethod)) {
         phase.insertThrowOnFalse(originalNode.getArgument(0), preconditionCheckStateErrorType);
       }
+    } else if (callee.enclClass().getQualifiedName().equals(verifyClass)
+        && !callee.getParameters().isEmpty()
+        && callee.name.equals(verifyMethod)) {
+      phase.insertThrowOnFalse(originalNode.getArgument(0), verifyErrorType);
     }
     return originalNode;
   }

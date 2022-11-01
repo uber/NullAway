@@ -17,6 +17,8 @@ import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 /** An utility class for {@link ContractHandler} and {@link ContractCheckHandler}. */
 public class ContractUtils {
 
+  private static final String[] EMPTY_STRING_ARRAY = new String[0];
+
   /**
    * Returns a set of field names excluding their receivers (e.g. "this.a" will be "a")
    *
@@ -127,5 +129,17 @@ public class ContractUtils {
       }
     }
     return null;
+  }
+
+  static String[] getContractClauses(Symbol.MethodSymbol callee, Config config) {
+    // Check to see if this method has an @Contract annotation
+    String contractString = getContractString(callee, config);
+    if (contractString != null) {
+      String trimmedContractString = contractString.trim();
+      if (!trimmedContractString.isEmpty()) {
+        return trimmedContractString.split(";");
+      }
+    }
+    return EMPTY_STRING_ARRAY;
   }
 }
