@@ -90,11 +90,12 @@ public class GenericsChecks {
       for (int i = 0; i < baseTypeAttributes.size(); i++) {
         // position - index of the parameters in the list of base type attributes that have
         // @Nullable annotation
-        nullableTypeArguments.add(baseTypeAttributes.get(i).position.parameter_index);
+        if (baseTypeAttributes.get(i).toString().equals("@org.jspecify.nullness.Nullable")) {
+          nullableTypeArguments.add(baseTypeAttributes.get(i).position.parameter_index);
+        }
       }
     }
     for (int i = 0; i < typeArguments.size(); i++) {
-      boolean hasNullableAnnotation = false;
       if (typeArguments.get(i).getClass().equals(JCTree.JCTypeApply.class)) {
         ParameterizedTypeTree parameterizedTypeTreeForTypeArgument =
             (ParameterizedTypeTree) typeArguments.get(i);
@@ -106,6 +107,8 @@ public class GenericsChecks {
               parameterizedTypeTreeForTypeArgument, state, analysis, config);
         }
       }
+
+      boolean hasNullableAnnotation = false;
       if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
         JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
         for (JCTree.JCAnnotation annotation : annotatedType.getAnnotations()) {

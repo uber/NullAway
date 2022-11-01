@@ -164,14 +164,15 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "class Test {",
             " static class NonNullTypeParam<E> {}",
             " static class DifferentAnnotTypeParam1<E extends @NonNull Object> {}",
-            " static class DifferentAnnotTypeParam2<@NonNull Object> {}",
+            " static class DifferentAnnotTypeParam2<@NonNull E> {}",
             " static void testOKOtherAnnotation(NonNullTypeParam<String> t) {",
             "        // should not show error for annotation other than @Nullable",
             "        testOKOtherAnnotation(new NonNullTypeParam<@NonNull String>());",
             "        DifferentAnnotTypeParam1<String> t1 = new DifferentAnnotTypeParam1<String>();",
-            "        DifferentAnnotTypeParam1<String> t2 = new DifferentAnnotTypeParam1<String>();",
             "       // BUG: Diagnostic contains: Generic type parameter",
-            "        DifferentAnnotTypeParam2<String> t3 = new DifferentAnnotTypeParam2<@Nullable String>();",
+            "        DifferentAnnotTypeParam2<String> t2 = new DifferentAnnotTypeParam2<@Nullable String>();",
+            "       // BUG: Diagnostic contains: Generic type parameter",
+            "        DifferentAnnotTypeParam1<String> t3 = new DifferentAnnotTypeParam1<@Nullable String>();",
             "    }",
             "}")
         .doTest();
