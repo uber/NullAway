@@ -162,9 +162,9 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "import lombok.NonNull;",
             "class Test {",
             " static class NonNullTypeParam<E> {}",
-            " static void testBadNonNull(NonNullTypeParam<String> t) {",
+            " static void testOKOtherAnnotation(NonNullTypeParam<String> t) {",
             "        // should not show error for annotation other than @Nullable",
-            "        testBadNonNull(new NonNullTypeParam<@NonNull String>());",
+            "        testOKOtherAnnotation(new NonNullTypeParam<@NonNull String>());",
             "    }",
             "}")
         .doTest();

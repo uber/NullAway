@@ -89,12 +89,8 @@ public class GenericsChecks {
       // Store the arguments in the base type that have @Nullable annotation in the set
       for (int i = 0; i < baseTypeAttributes.size(); i++) {
         // position - index of the parameters in the list of base type attributes that have
-        // @Nullable annotations
-        boolean hasNullableAnnotation =
-            baseTypeAttributes.get(i).toString().equals("@org.jspecify.nullness.Nullable");
-        if (hasNullableAnnotation) {
-          nullableTypeArguments.add(baseTypeAttributes.get(i).position.parameter_index);
-        }
+        // @Nullable annotation
+        nullableTypeArguments.add(baseTypeAttributes.get(i).position.parameter_index);
       }
     }
     for (int i = 0; i < typeArguments.size(); i++) {
