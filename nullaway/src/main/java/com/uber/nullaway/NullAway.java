@@ -1426,20 +1426,35 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
+    // Perform unboxing checks on operands if needed
+    Type binaryExprType = ASTHelpers.getType(tree);
+    // If the type of the expression is not primitive, we do not need to do unboxing checks.  This
+    // handles the case of `+` used for string concatenation
+    if (binaryExprType == null || !binaryExprType.isPrimitive()) {
+      return Description.NO_MATCH;
+    }
+    Tree.Kind kind = tree.getKind();
     ExpressionTree leftOperand = tree.getLeftOperand();
     ExpressionTree rightOperand = tree.getRightOperand();
-    Type leftType = ASTHelpers.getType(leftOperand);
-    Type rightType = ASTHelpers.getType(rightOperand);
-    if (leftType == null || rightType == null) {
-      throw new RuntimeException();
+    if (kind.equals(Tree.Kind.EQUAL_TO) || kind.equals(Tree.Kind.NOT_EQUAL_TO)) {
+      // here we need a check if one operand is of primitive type and the other is not, as that will
+      // cause unboxing of the non-primitive operand
+      Type leftType = ASTHelpers.getType(leftOperand);
+      Type rightType = ASTHelpers.getType(rightOperand);
+      if (leftType == null || rightType == null) {
+        return Description.NO_MATCH;
+      }
+      if (leftType.isPrimitive() && !rightType.isPrimitive()) {
+        return doUnboxingCheck(state, rightOperand);
+      } else if (rightType.isPrimitive() && !leftType.isPrimitive()) {
+        return doUnboxingCheck(state, leftOperand);
+      } else {
+        return Description.NO_MATCH;
+      }
+    } else {
+      // in all other cases, both operands should be checked
+      return doUnboxingCheck(state, leftOperand, rightOperand);
     }
-    if (leftType.isPrimitive() && !rightType.isPrimitive()) {
-      return doUnboxingCheck(state, rightOperand);
-    }
-    if (rightType.isPrimitive() && !leftType.isPrimitive()) {
-      return doUnboxingCheck(state, leftOperand);
-    }
-    return Description.NO_MATCH;
   }
 
   @Override

@@ -771,6 +771,73 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void unboxingInBinaryTrees() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "    static void m1() {",
+            "        Integer i = null;",
+            "        Integer j = null;",
+            "        // BUG: Diagnostic contains: unboxing",
+            "        int i2 = i + j;",
+            "    }",
+            "    static void m2() {",
+            "        Integer i = null;",
+            "        // this is fine",
+            "        String s = i + \"hi\";",
+            "    }",
+            "    static void m3() {",
+            "        Integer i = null;",
+            "        Integer j = null;",
+            "        // BUG: Diagnostic contains: unboxing",
+            "        int i3 = i - j;",
+            "    }",
+            "    static void m4() {",
+            "        Integer i = null;",
+            "        Integer j = null;",
+            "        // BUG: Diagnostic contains: unboxing",
+            "        int i4 = i * j;",
+            "    }",
+            "    static void m5() {",
+            "        Integer i = null;",
+            "        // BUG: Diagnostic contains: unboxing",
+            "        int i5 = i << 2;",
+            "    }",
+            "    static void m6() {",
+            "        Integer i = null;",
+            "        Integer j = null;",
+            "        // BUG: Diagnostic contains: unboxing",
+            "        boolean b1 = i <= j;",
+            "    }",
+            "    static void m7() {",
+            "        Boolean x = null;",
+            "        Boolean y = null;",
+            "        // BUG: Diagnostic contains: unboxing",
+            "        boolean b2 = x && y;",
+            "    }",
+            "    static void m8() {",
+            "        Integer i = null;",
+            "        Integer j = null;",
+            "        // this is fine",
+            "        boolean b = i == j;",
+            "    }",
+            "    static void m9() {",
+            "        Integer i = null;",
+            "        // BUG: Diagnostic contains: unboxing",
+            "        boolean b = i != 0;",
+            "    }",
+            "    static void m10() {",
+            "        Integer i = null;",
+            "        // BUG: Diagnostic contains: unboxing",
+            "        int j = 3 - i;",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void primitiveCastsRememberNullChecks() {
     defaultCompilationHelper
         .addSourceLines(
