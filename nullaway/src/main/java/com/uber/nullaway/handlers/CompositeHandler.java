@@ -173,8 +173,7 @@ class CompositeHandler implements Handler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Types types,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
@@ -184,7 +183,7 @@ class CompositeHandler implements Handler {
     for (Handler h : handlers) {
       NullnessHint n =
           h.onDataflowVisitMethodInvocation(
-              node, types, context, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
+              node, state, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
       nullnessHint = nullnessHint.merge(n);
     }
     return nullnessHint;

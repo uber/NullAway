@@ -217,8 +217,7 @@ public interface Handler {
    * Called when the Dataflow analysis visits each method invocation.
    *
    * @param node The AST node for the method callsite.
-   * @param types {@link Types} for the current compilation
-   * @param context the javac Context object (or Error Prone SubContext)
+   * @param state The current visitor state.
    * @param apContext the current access path context information (see {@link
    *     AccessPath.AccessPathContext}).
    * @param inputs NullnessStore information known before the method invocation.
@@ -234,8 +233,7 @@ public interface Handler {
    */
   NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Types types,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
