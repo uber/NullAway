@@ -923,14 +923,7 @@ public class AccessPathNullnessPropagation
         node, callee, node.getArguments(), values(input), thenUpdates, bothUpdates);
     NullnessHint nullnessHint =
         handler.onDataflowVisitMethodInvocation(
-            node,
-            state.getTypes(),
-            state.context,
-            apContext,
-            values(input),
-            thenUpdates,
-            elseUpdates,
-            bothUpdates);
+            node, state, apContext, values(input), thenUpdates, elseUpdates, bothUpdates);
     Nullness nullness = returnValueNullness(node, input, nullnessHint);
     if (booleanReturnType(node)) {
       ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates, bothUpdates);

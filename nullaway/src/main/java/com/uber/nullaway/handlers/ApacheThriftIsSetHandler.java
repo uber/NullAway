@@ -30,7 +30,6 @@ import com.sun.source.tree.ClassTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
-import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -68,15 +67,14 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Types types,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(node.getTree());
-    if (thriftIsSetCall(symbol, types)) {
+    if (thriftIsSetCall(symbol, state.getTypes())) {
       String methodName = symbol.getSimpleName().toString();
       // remove "isSet"
       String capPropName = methodName.substring(5);
