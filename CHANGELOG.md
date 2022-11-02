@@ -1,5 +1,13 @@
 Changelog
 =========
+Version 0.10.4
+--------------
+(Bug fix release)
+* Fix LibraryModels recording of dataflow nullness for Map APs (#685)
+* Proper checking of unboxing in binary trees (#684)
+* Build / CI tooling for NullAway itself:
+  - Bump dependency versions in GitHub Actions config (#683)
+
 Version 0.10.3
 --------------
 * Report an error when casting @Nullable expression to primitive type (#663)
