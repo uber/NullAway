@@ -24,10 +24,9 @@ package com.uber.nullaway.handlers;
 
 import static com.uber.nullaway.Nullness.NONNULL;
 
+import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Types;
-import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.List;
@@ -46,8 +45,7 @@ public class AssertionHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Types types,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,

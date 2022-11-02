@@ -107,8 +107,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Types types,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
@@ -116,15 +115,16 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(node.getTree());
 
+    Types types = state.getTypes();
     if (optionalIsPresentCall(symbol, types)) {
       updateNonNullAPsForOptionalContent(
-          context, thenUpdates, node.getTarget().getReceiver(), apContext);
+          state.context, thenUpdates, node.getTarget().getReceiver(), apContext);
     } else if (optionalIsEmptyCall(symbol, types)) {
       updateNonNullAPsForOptionalContent(
-          context, elseUpdates, node.getTarget().getReceiver(), apContext);
+          state.context, elseUpdates, node.getTarget().getReceiver(), apContext);
     } else if (config.handleTestAssertionLibraries() && methodNameUtil.isMethodIsTrue(symbol)) {
       // we check for instance of AssertThat(optionalFoo.isPresent()).isTrue()
-      updateIfAssertIsPresentTrueOnOptional(context, node, types, apContext, bothUpdates);
+      updateIfAssertIsPresentTrueOnOptional(state.context, node, types, apContext, bothUpdates);
     }
     return NullnessHint.UNKNOWN;
   }

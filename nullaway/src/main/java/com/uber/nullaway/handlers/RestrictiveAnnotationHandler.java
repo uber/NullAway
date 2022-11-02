@@ -132,15 +132,14 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Types types,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-    return isSymbolRestrictivelyNullable(methodSymbol, context)
+    return isSymbolRestrictivelyNullable(methodSymbol, state.context)
         ? NullnessHint.HINT_NULLABLE
         : NullnessHint.UNKNOWN;
   }

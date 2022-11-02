@@ -27,6 +27,42 @@ public class NullAwayGuavaAssertionsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void checkNotNullComplexAccessPathsTest() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "TestField.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Preconditions;",
+            "class TestField {",
+            "  @Nullable private Object f = null;",
+            "  private void foo(@Nullable TestField a) {",
+            "    Preconditions.checkNotNull(a);",
+            "    Preconditions.checkNotNull(a.f);",
+            "    a.f.toString();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "TestMap.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "import javax.annotation.Nullable;",
+            "import com.google.common.base.Preconditions;",
+            "class TestMap {",
+            "  private void foo(@Nullable Map<String,Object> m) {",
+            "    Preconditions.checkNotNull(m);",
+            "    Preconditions.checkNotNull(m.get(\"foo\"));",
+            "    m.get(\"foo\").toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void verifyNotNullTest() {
     makeTestHelperWithArgs(
             Arrays.asList(

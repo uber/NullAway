@@ -34,7 +34,6 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
-import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -80,8 +79,7 @@ public class GrpcHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Types types,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
@@ -89,6 +87,7 @@ public class GrpcHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates bothUpdates) {
     MethodInvocationTree tree = castToNonNull(node.getTree());
     Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(tree);
+    Types types = state.getTypes();
     if (grpcIsMetadataContainsKeyCall(symbol, types)) {
       // On seeing o.containsKey(k), set AP for o.get(k) to @NonNull
       Element getter = getGetterForMetadataSubtype(symbol.enclClass(), types);
