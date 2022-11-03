@@ -253,7 +253,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       Preconditions.checkArgument(i >= 0 && i < arguments.size(), "Invalid argument index: " + i);
       if (i >= 0 && i < arguments.size()) {
         Node argument = arguments.get(i);
-        AccessPath ap = AccessPath.getAccessPathForNodeWithMapGet(argument, state, apContext);
+        AccessPath ap = AccessPath.getAccessPathForNode(argument, state, apContext);
         if (ap != null) {
           result.add(ap);
         }

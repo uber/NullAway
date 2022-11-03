@@ -456,14 +456,14 @@ public class AccessPathNullnessPropagation
     Node realLeftNode = unwrapAssignExpr(leftNode);
     Node realRightNode = unwrapAssignExpr(rightNode);
 
-    AccessPath leftAP = AccessPath.getAccessPathForNodeWithMapGet(realLeftNode, state, apContext);
+    AccessPath leftAP = AccessPath.getAccessPathForNode(realLeftNode, state, apContext);
     if (leftAP != null) {
       equalBranchUpdates.set(leftAP, equalBranchValue);
       notEqualBranchUpdates.set(
           leftAP, leftVal.greatestLowerBound(rightVal.deducedValueWhenNotEqual()));
     }
 
-    AccessPath rightAP = AccessPath.getAccessPathForNodeWithMapGet(realRightNode, state, apContext);
+    AccessPath rightAP = AccessPath.getAccessPathForNode(realRightNode, state, apContext);
     if (rightAP != null) {
       equalBranchUpdates.set(rightAP, equalBranchValue);
       notEqualBranchUpdates.set(
@@ -665,7 +665,7 @@ public class AccessPathNullnessPropagation
    * the updates
    */
   private void setNonnullIfAnalyzeable(Updates updates, Node node) {
-    AccessPath ap = AccessPath.getAccessPathForNodeWithMapGet(node, state, apContext);
+    AccessPath ap = AccessPath.getAccessPathForNode(node, state, apContext);
     if (ap != null) {
       updates.set(ap, NONNULL);
     }
@@ -885,7 +885,7 @@ public class AccessPathNullnessPropagation
     }
 
     AccessPath accessPath =
-        AccessPath.getAccessPathForNodeWithMapGet(
+        AccessPath.getAccessPathForNode(
             ((NotEqualNode) condition).getLeftOperand(), state, apContext);
 
     if (accessPath == null) {

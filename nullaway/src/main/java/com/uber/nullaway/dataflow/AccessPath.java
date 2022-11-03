@@ -297,8 +297,7 @@ public final class AccessPath implements MapKey {
         // Fine to fallthrough:
       default:
         // Every other type of expression, including variables, field accesses, new A(...), etc.
-        return getAccessPathForNodeWithMapGet(
-            argument, state, apContext); // Every AP is a MapKey too
+        return getAccessPathForNode(argument, state, apContext); // Every AP is a MapKey too
     }
   }
 
@@ -326,7 +325,7 @@ public final class AccessPath implements MapKey {
    * @return corresponding AccessPath if it exists; <code>null</code> otherwise
    */
   @Nullable
-  public static AccessPath getAccessPathForNodeWithMapGet(
+  public static AccessPath getAccessPathForNode(
       Node node, VisitorState state, AccessPathContext apContext) {
     if (node instanceof LocalVariableNode) {
       return fromLocal((LocalVariableNode) node);
