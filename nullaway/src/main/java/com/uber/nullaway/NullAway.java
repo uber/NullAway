@@ -787,7 +787,7 @@ public class NullAway extends BugChecker
   private Description checkReturnExpression(
       Tree tree, ExpressionTree retExpr, Symbol.MethodSymbol methodSymbol, VisitorState state) {
     Type returnType = methodSymbol.getReturnType();
-    if (returnType.isPrimitiveOrVoid()) {
+    if (returnType.isPrimitive()) {
       // check for unboxing
       doUnboxingCheck(state, retExpr);
       return Description.NO_MATCH;
