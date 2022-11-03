@@ -173,7 +173,7 @@ public final class AccessPath implements MapKey {
   static AccessPath fromMethodCall(
       MethodInvocationNode node, @Nullable VisitorState state, AccessPathContext apContext) {
     if (state != null && isMapGet(ASTHelpers.getSymbol(node.getTree()), state)) {
-      return fromMapGetCall(node, apContext);
+      return fromMapGetCall(node, state, apContext);
     }
     return fromVanillaMethodCall(node, apContext);
   }
@@ -251,14 +251,14 @@ public final class AccessPath implements MapKey {
    */
   @Nullable
   public static AccessPath getForMapInvocation(
-      MethodInvocationNode node, AccessPathContext apContext) {
+      MethodInvocationNode node, VisitorState state, AccessPathContext apContext) {
     // For the receiver type for get, use the declared type of the receiver of the containsKey()
     // call.
     // Note that this may differ from the containing class of the resolved containsKey() method,
     // which
     // can be in a superclass (e.g., LinkedHashMap does not override containsKey())
     // assumption: map type will not both override containsKey() and inherit get()
-    return fromMapGetCall(node, apContext);
+    return fromMapGetCall(node, state, apContext);
   }
 
   private static Node stripCasts(Node node) {
@@ -269,7 +269,8 @@ public final class AccessPath implements MapKey {
   }
 
   @Nullable
-  private static MapKey argumentToMapKeySpecifier(Node argument, AccessPathContext apContext) {
+  private static MapKey argumentToMapKeySpecifier(
+      Node argument, VisitorState state, AccessPathContext apContext) {
     // Required to have Node type match Tree type in some instances.
     if (argument instanceof WideningConversionNode) {
       argument = ((WideningConversionNode) argument).getOperand();
@@ -291,19 +292,21 @@ public final class AccessPath implements MapKey {
             && arguments.size() == 1
             && castToNonNull(receiver.getTree()).getKind().equals(Tree.Kind.IDENTIFIER)
             && (receiver.toString().equals("Integer") || receiver.toString().equals("Long"))) {
-          return argumentToMapKeySpecifier(arguments.get(0), apContext);
+          return argumentToMapKeySpecifier(arguments.get(0), state, apContext);
         }
         // Fine to fallthrough:
       default:
         // Every other type of expression, including variables, field accesses, new A(...), etc.
-        return getAccessPathForNodeNoMapGet(argument, apContext); // Every AP is a MapKey too
+        return getAccessPathForNodeWithMapGet(
+            argument, state, apContext); // Every AP is a MapKey too
     }
   }
 
   @Nullable
-  private static AccessPath fromMapGetCall(MethodInvocationNode node, AccessPathContext apContext) {
+  private static AccessPath fromMapGetCall(
+      MethodInvocationNode node, VisitorState state, AccessPathContext apContext) {
     Node argument = node.getArgument(0);
-    MapKey mapKey = argumentToMapKeySpecifier(argument, apContext);
+    MapKey mapKey = argumentToMapKeySpecifier(argument, state, apContext);
     if (mapKey == null) {
       return null;
     }
@@ -321,10 +324,11 @@ public final class AccessPath implements MapKey {
    *     AccessPath.AccessPathContext}).
    * @return corresponding AccessPath if it exists; <code>null</code> otherwise
    */
-  @Nullable
-  public static AccessPath getAccessPathForNodeNoMapGet(Node node, AccessPathContext apContext) {
-    return getAccessPathForNodeWithMapGet(node, null, apContext);
-  }
+  //  @Nullable
+  //  private static AccessPath getAccessPathForNodeNoMapGet(Node node, AccessPathContext apContext)
+  // {
+  //    return getAccessPathForNodeWithMapGet(node, null, apContext);
+  //  }
 
   /**
    * Gets corresponding AccessPath for node, if it exists. Handles calls to <code>Map.get()

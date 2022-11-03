@@ -885,8 +885,8 @@ public class AccessPathNullnessPropagation
     }
 
     AccessPath accessPath =
-        AccessPath.getAccessPathForNodeNoMapGet(
-            ((NotEqualNode) condition).getLeftOperand(), apContext);
+        AccessPath.getAccessPathForNodeWithMapGet(
+            ((NotEqualNode) condition).getLeftOperand(), state, apContext);
 
     if (accessPath == null) {
       return noStoreChanges(NULLABLE, input);
@@ -943,7 +943,7 @@ public class AccessPathNullnessPropagation
       AccessPathNullnessPropagation.Updates bothUpdates) {
     if (AccessPath.isContainsKey(callee, state)) {
       // make sure argument is a variable, and get its element
-      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, apContext);
+      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
       if (getAccessPath != null) {
         // in the then branch, we want the get() call with the same argument to be non-null
         // we assume that the declared target of the get() method will be in the same class
@@ -951,13 +951,13 @@ public class AccessPathNullnessPropagation
         thenUpdates.set(getAccessPath, NONNULL);
       }
     } else if (AccessPath.isMapPut(callee, state)) {
-      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, apContext);
+      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
       if (getAccessPath != null) {
         Nullness value = inputs.valueOfSubNode(arguments.get(1));
         bothUpdates.set(getAccessPath, value);
       }
     } else if (AccessPath.isMapComputeIfAbsent(callee, state)) {
-      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, apContext);
+      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
       if (getAccessPath != null) {
         // TODO: For now, Function<K, V> implies a @NonNull V. We need to revisit this once we
         // support generics, but we do include a couple defensive tests below.
