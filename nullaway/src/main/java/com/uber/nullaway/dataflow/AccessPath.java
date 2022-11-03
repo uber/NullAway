@@ -171,8 +171,8 @@ public final class AccessPath implements MapKey {
    */
   @Nullable
   static AccessPath fromMethodCall(
-      MethodInvocationNode node, @Nullable VisitorState state, AccessPathContext apContext) {
-    if (state != null && isMapGet(ASTHelpers.getSymbol(node.getTree()), state)) {
+      MethodInvocationNode node, VisitorState state, AccessPathContext apContext) {
+    if (isMapGet(ASTHelpers.getSymbol(node.getTree()), state)) {
       return fromMapGetCall(node, state, apContext);
     }
     return fromVanillaMethodCall(node, apContext);
@@ -316,21 +316,6 @@ public final class AccessPath implements MapKey {
   }
 
   /**
-   * Gets corresponding AccessPath for node, if it exists. Does <emph>not</emph> handle calls to
-   * <code>Map.get()</code>
-   *
-   * @param node AST node
-   * @param apContext the current access path context information (see {@link
-   *     AccessPath.AccessPathContext}).
-   * @return corresponding AccessPath if it exists; <code>null</code> otherwise
-   */
-  //  @Nullable
-  //  private static AccessPath getAccessPathForNodeNoMapGet(Node node, AccessPathContext apContext)
-  // {
-  //    return getAccessPathForNodeWithMapGet(node, null, apContext);
-  //  }
-
-  /**
    * Gets corresponding AccessPath for node, if it exists. Handles calls to <code>Map.get()
    * </code>
    *
@@ -342,7 +327,7 @@ public final class AccessPath implements MapKey {
    */
   @Nullable
   public static AccessPath getAccessPathForNodeWithMapGet(
-      Node node, @Nullable VisitorState state, AccessPathContext apContext) {
+      Node node, VisitorState state, AccessPathContext apContext) {
     if (node instanceof LocalVariableNode) {
       return fromLocal((LocalVariableNode) node);
     } else if (node instanceof FieldAccessNode) {
