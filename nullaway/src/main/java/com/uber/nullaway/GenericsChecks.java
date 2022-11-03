@@ -78,14 +78,16 @@ public class GenericsChecks {
       throw new IllegalStateException("should only check type instantiations in JSpecify mode");
     }
     List<? extends Tree> typeArguments = tree.getTypeArguments();
+    // which type parameters in the base type have a @Nullable upper bound
     HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
-    JCTree.JCTypeApply baseTypeTree = (JCTree.JCTypeApply) tree;
-    Type t = baseTypeTree.type;
-    Type.ClassType classType = (Type.ClassType) t;
+    // base type that is being instantiated
+    Type.ClassType baseType = (Type.ClassType) ((JCTree.JCTypeApply) tree).type;
+    com.sun.tools.javac.util.List<Type> baseTypeArgs = baseType.tsym.type.getTypeArguments();
+    // TODO: use baseTypeArgs; iterate through them and call getUpperBound(), as in the other method
     // If none of the arguments are @Nullable annotated MetaData is empty
-    if (classType.tsym.getMetadata() != null) {
+    if (baseType.tsym.getMetadata() != null) {
       List<Attribute.TypeCompound> baseTypeAttributes =
-          classType.tsym.getMetadata().getTypeAttributes();
+          baseType.tsym.getMetadata().getTypeAttributes();
       // Store the arguments in the base type that have @Nullable annotation in the set
       for (int i = 0; i < baseTypeAttributes.size(); i++) {
         // position - index of the parameters in the list of base type attributes that have
