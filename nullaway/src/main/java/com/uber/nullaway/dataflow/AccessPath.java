@@ -253,10 +253,8 @@ public final class AccessPath implements MapKey {
   public static AccessPath getForMapInvocation(
       MethodInvocationNode node, VisitorState state, AccessPathContext apContext) {
     // For the receiver type for get, use the declared type of the receiver of the containsKey()
-    // call.
-    // Note that this may differ from the containing class of the resolved containsKey() method,
-    // which
-    // can be in a superclass (e.g., LinkedHashMap does not override containsKey())
+    // call. Note that this may differ from the containing class of the resolved containsKey()
+    // method, which can be in a superclass (e.g., LinkedHashMap does not override containsKey())
     // assumption: map type will not both override containsKey() and inherit get()
     return fromMapGetCall(node, state, apContext);
   }
