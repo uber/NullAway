@@ -590,6 +590,27 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testMapWithMapGetKey() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "import java.util.function.Function;",
+            "class Test {",
+            "   String testMapWithMapGetKey(Map<String,String> m1, Map<String,String> m2) {",
+            "     if (m1.containsKey(\"s1\")) {",
+            "       if (m2.containsKey(m1.get(\"s1\"))) {",
+            "         return m2.get(m1.get(\"s1\")).toString();",
+            "       }",
+            "     }",
+            "     return \"no\";",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void tryFinallySupport() {
     defaultCompilationHelper.addSourceFile("NullAwayTryFinallyCases.java").doTest();
   }

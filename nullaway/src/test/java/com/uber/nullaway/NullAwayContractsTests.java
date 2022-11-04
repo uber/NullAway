@@ -64,6 +64,10 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
             "    NullnessChecker.assertNonNull(o);",
             "    return o.toString();",
             "  }",
+            "  String test4(java.util.Map<String,Object> m) {",
+            "    NullnessChecker.assertNonNull(m.get(\"foo\"));",
+            "    return m.get(\"foo\").toString();",
+            "  }",
             "}")
         .doTest();
   }
