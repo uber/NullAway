@@ -21,34 +21,35 @@ public class GenericsChecks {
   public static void checkInstantiatedType(
       Type type, VisitorState state, Tree tree, NullAway analysis, Config config) {
     CodeAnnotationInfo codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
-    if (config.isJSpecifyMode()) {
-      if (codeAnnotationInfo.isSymbolUnannotated(type.tsym, config)) {
-        return;
-      }
+    if (!config.isJSpecifyMode()) {
+      return;
+    }
+    if (codeAnnotationInfo.isSymbolUnannotated(type.tsym, config)) {
+      return;
+    }
 
-      com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
-      HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
-      int index = 0;
-      for (Type typArgument : typeArguments) {
-        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-            typArgument.getAnnotationMirrors();
-        boolean hasNullableAnnotation =
-            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-        if (hasNullableAnnotation) {
-          nullableTypeArguments.add(index);
-        }
-        index++;
+    com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
+    HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
+    int index = 0;
+    for (Type typArgument : typeArguments) {
+      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+          typArgument.getAnnotationMirrors();
+      boolean hasNullableAnnotation =
+          Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+      if (hasNullableAnnotation) {
+        nullableTypeArguments.add(index);
       }
+      index++;
+    }
 
-      Type baseType = type.tsym.type;
-      com.sun.tools.javac.util.List<Type> baseTypeArguments = baseType.getTypeArguments();
-      checkNullableTypeArgsAgainstUpperBounds(
-          state, tree, analysis, config, nullableTypeArguments, baseTypeArguments);
-      // Generics check for nested type parameters
-      for (Type typeArgument : typeArguments) {
-        if (typeArgument.getTypeArguments().length() > 0) {
-          checkInstantiatedType(typeArgument, state, tree, analysis, config);
-        }
+    Type baseType = type.tsym.type;
+    com.sun.tools.javac.util.List<Type> baseTypeArguments = baseType.getTypeArguments();
+    checkNullableTypeArgsAgainstUpperBounds(
+        state, tree, analysis, config, nullableTypeArguments, baseTypeArguments);
+    // Generics check for nested type parameters
+    for (Type typeArgument : typeArguments) {
+      if (typeArgument.getTypeArguments().length() > 0) {
+        checkInstantiatedType(typeArgument, state, tree, analysis, config);
       }
     }
   }
