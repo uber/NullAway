@@ -104,6 +104,9 @@ public class GenericsChecks {
     }
     // base type that is being instantiated
     Type baseType = ASTHelpers.getType(tree);
+    if (baseType == null) {
+      return;
+    }
     com.sun.tools.javac.util.List<Type> baseTypeArgs = baseType.tsym.type.getTypeArguments();
     checkNullableTypeArgsAgainstUpperBounds(
         state, tree, analysis, config, nullableTypeArguments, baseTypeArgs);
