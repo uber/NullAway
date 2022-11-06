@@ -41,27 +41,8 @@ public class GenericsChecks {
 
       Type baseType = type.tsym.type;
       com.sun.tools.javac.util.List<Type> baseTypeArguments = baseType.getTypeArguments();
-      index = 0;
-      for (Type baseTypeArg : baseTypeArguments) {
-
-        // if type argument at current index has @Nullable annotation base type argument at that
-        // index
-        // should also have a @Nullable annotation on its upper bound.
-        if (nullableTypeArguments.contains(index)) {
-
-          Type upperBound = baseTypeArg.getUpperBound();
-          com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-              upperBound.getAnnotationMirrors();
-          boolean hasNullableAnnotation =
-              Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-          // if base type argument does not have @Nullable annotation then the instantiation is
-          // invalid
-          if (!hasNullableAnnotation) {
-            invalidInstantiationError(tree, state, analysis);
-          }
-        }
-        index++;
-      }
+      checkNullableTypeArgsAgainstUpperBounds(
+          state, tree, analysis, config, nullableTypeArguments, baseTypeArguments);
       // Generics check for nested type parameters
       for (Type typeArgument : typeArguments) {
         if (typeArgument.getTypeArguments().length() > 0) {
@@ -71,32 +52,62 @@ public class GenericsChecks {
     }
   }
 
+  private static void checkNullableTypeArgsAgainstUpperBounds(
+      VisitorState state,
+      Tree tree,
+      NullAway analysis,
+      Config config,
+      HashSet<Integer> nullableTypeArguments,
+      com.sun.tools.javac.util.List<Type> baseTypeArguments) {
+    int index = 0;
+    for (Type baseTypeArg : baseTypeArguments) {
+
+      // if type argument at current index has @Nullable annotation base type argument at that
+      // index
+      // should also have a @Nullable annotation on its upper bound.
+      if (nullableTypeArguments.contains(index)) {
+
+        Type upperBound = baseTypeArg.getUpperBound();
+        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+            upperBound.getAnnotationMirrors();
+        boolean hasNullableAnnotation =
+            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+        // if base type argument does not have @Nullable annotation then the instantiation is
+        // invalid
+        if (!hasNullableAnnotation) {
+          invalidInstantiationError(tree, state, analysis);
+        }
+      }
+      index++;
+    }
+  }
+
   /** Generics checks for parameterized typed trees * */
   public static void checkInstantiationForParameterizedTypedTree(
       ParameterizedTypeTree tree, VisitorState state, NullAway analysis, Config config) {
     if (!config.isJSpecifyMode()) {
-      throw new IllegalStateException("should only check type instantiations in JSpecify mode");
+      return;
     }
     List<? extends Tree> typeArguments = tree.getTypeArguments();
-    // which type parameters in the base type have a @Nullable upper bound
     HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
-    // base type that is being instantiated
-    Type.ClassType baseType = (Type.ClassType) ((JCTree.JCTypeApply) tree).type;
-    com.sun.tools.javac.util.List<Type> baseTypeArgs = baseType.tsym.type.getTypeArguments();
-    // TODO: use baseTypeArgs; iterate through them and call getUpperBound(), as in the other method
-    // If none of the arguments are @Nullable annotated MetaData is empty
-    if (baseType.tsym.getMetadata() != null) {
-      List<Attribute.TypeCompound> baseTypeAttributes =
-          baseType.tsym.getMetadata().getTypeAttributes();
-      // Store the arguments in the base type that have @Nullable annotation in the set
-      for (int i = 0; i < baseTypeAttributes.size(); i++) {
-        // position - index of the parameters in the list of base type attributes that have
-        // @Nullable annotation
-        if (baseTypeAttributes.get(i).toString().equals("@org.jspecify.nullness.Nullable")) {
-          nullableTypeArguments.add(baseTypeAttributes.get(i).position.parameter_index);
+    for (int i = 0; i < typeArguments.size(); i++) {
+      if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
+        JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
+        for (JCTree.JCAnnotation annotation : annotatedType.getAnnotations()) {
+          Attribute.Compound attribute = annotation.attribute;
+          if (attribute.toString().equals("@org.jspecify.nullness.Nullable")) {
+            nullableTypeArguments.add(i);
+            break;
+          }
         }
       }
     }
+    // base type that is being instantiated
+    Type.ClassType baseType = (Type.ClassType) ((JCTree.JCTypeApply) tree).type;
+    com.sun.tools.javac.util.List<Type> baseTypeArgs = baseType.tsym.type.getTypeArguments();
+    checkNullableTypeArgsAgainstUpperBounds(
+        state, tree, analysis, config, nullableTypeArguments, baseTypeArgs);
+    // recursive check for nested parameterized types
     for (int i = 0; i < typeArguments.size(); i++) {
       if (typeArguments.get(i).getClass().equals(JCTree.JCTypeApply.class)) {
         ParameterizedTypeTree parameterizedTypeTreeForTypeArgument =
@@ -107,25 +118,6 @@ public class GenericsChecks {
             && argumentType.getTypeArguments().length() > 0) { // Nested generics
           checkInstantiationForParameterizedTypedTree(
               parameterizedTypeTreeForTypeArgument, state, analysis, config);
-        }
-      }
-
-      boolean hasNullableAnnotation = false;
-      if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
-        JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
-        for (JCTree.JCAnnotation annotation : annotatedType.getAnnotations()) {
-          Attribute.Compound attribute = annotation.attribute;
-          hasNullableAnnotation =
-              hasNullableAnnotation
-                  || attribute.toString().equals("@org.jspecify.nullness.Nullable");
-          if (hasNullableAnnotation) {
-            break;
-          }
-        }
-      }
-      if (hasNullableAnnotation) {
-        if (!nullableTypeArguments.contains(i)) {
-          invalidInstantiationError(typeArguments.get(i), state, analysis);
         }
       }
     }
