@@ -30,16 +30,14 @@ public class GenericsChecks {
 
     com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
     HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
-    int index = 0;
-    for (Type typArgument : typeArguments) {
+    for (int index = 0; index < typeArguments.size(); index++) {
       com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-          typArgument.getAnnotationMirrors();
+          typeArguments.get(index).getAnnotationMirrors();
       boolean hasNullableAnnotation =
           Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
       if (hasNullableAnnotation) {
         nullableTypeArguments.add(index);
       }
-      index++;
     }
 
     Type baseType = type.tsym.type;
