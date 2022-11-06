@@ -10,17 +10,18 @@ import com.sun.tools.javac.tree.JCTree;
 import java.util.HashSet;
 import java.util.List;
 
+/**
+ * GenericsChecks class adds Nullability checks for the generics types instantiation including
+ * generic and nested generic type functions, function parameters, variables, assignments, new class
+ * and subclass
+ */
 public class GenericsChecks {
 
-  // check that type is a valid instantiation of its generic type
+  /** check that type is a valid instantiation of its generic type */
   public static void checkInstantiatedType(
       Type type, VisitorState state, Tree tree, NullAway analysis, Config config) {
     CodeAnnotationInfo codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
     if (config.isJSpecifyMode()) {
-      // typeArguments used in the instantiated type (like for Foo<String,Integer>, this gets
-      // [String,Integer])
-      // if base type is unannotated do not check for generics
-      // temporary check to handle testMapComputeIfAbsent
       if (codeAnnotationInfo.isSymbolUnannotated(type.tsym, config)) {
         return;
       }
@@ -52,6 +53,15 @@ public class GenericsChecks {
     }
   }
 
+  /**
+   * checks if the arguments with @Nullable annotation in the instantiation have the @Nullable
+   * annotation in the declaration or not and generates errors if there are no matching @Nullable
+   * annotations.
+   *
+   * @param nullableTypeArguments the set of the arguments in the instantiation that have nullable
+   *     annotations
+   * @param baseTypeArguments the list of arguments in the declared type
+   */
   private static void checkNullableTypeArgsAgainstUpperBounds(
       VisitorState state,
       Tree tree,
@@ -82,7 +92,13 @@ public class GenericsChecks {
     }
   }
 
-  /** Generics checks for parameterized typed trees * */
+  /**
+   * Generics type checks for the parameterized typed tree. Needed to separate this method from
+   * checkInstantiatedType as the annotations are lost for the parameterized typed tree. Need to
+   * fetch annotations from the MetaData
+   *
+   * @param analysis Instance of the NullAway class
+   */
   public static void checkInstantiationForParameterizedTypedTree(
       ParameterizedTypeTree tree, VisitorState state, NullAway analysis, Config config) {
     if (!config.isJSpecifyMode()) {
