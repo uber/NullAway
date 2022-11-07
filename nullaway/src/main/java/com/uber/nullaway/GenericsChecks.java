@@ -10,14 +10,19 @@ import com.sun.tools.javac.tree.JCTree;
 import java.util.HashSet;
 import java.util.List;
 
-/**
- * GenericsChecks class adds Nullability checks for the generics types instantiation including
- * generic and nested generic type functions, function parameters, variables, assignments, new class
- * and subclass
- */
+/** Methods for performing checks related to generic types and nullability. */
 public class GenericsChecks {
 
-  /** check that type is a valid instantiation of its generic type */
+  /**
+   * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
+   * variables that have a {@code @Nullable} upper bound.
+   *
+   * @param type the instantiated type
+   * @param state the visitor state
+   * @param tree the tree in the AST representing the instantiated type
+   * @param analysis the analysis object
+   * @param config the analysis configuration
+   */
   public static void checkInstantiatedType(
       Type type, VisitorState state, Tree tree, NullAway analysis, Config config) {
     CodeAnnotationInfo codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
@@ -53,13 +58,15 @@ public class GenericsChecks {
   }
 
   /**
-   * checks if the arguments with @Nullable annotation in the instantiation have the @Nullable
-   * annotation in the declaration or not and generates errors if there are no matching @Nullable
-   * annotations.
+   * Checks if the type arguments with a {@code @Nullable} annotation in an instantiated type have a
+   * {@code @Nullable} upper bound in the declaration, and reports an error otherwise.
    *
-   * @param nullableTypeArguments the set of the arguments in the instantiation that have nullable
-   *     annotations
-   * @param baseTypeArguments the list of arguments in the declared type
+   * @param state the visitor state
+   * @param tree TODO not sure we need this
+   * @param analysis the analysis object
+   * @param config the analysis config
+   * @param nullableTypeArguments indices of {@code Nullable} type arguments
+   * @param baseTypeArguments list of type variables (with bounds) in the declared type
    */
   private static void checkNullableTypeArgsAgainstUpperBounds(
       VisitorState state,
@@ -92,11 +99,15 @@ public class GenericsChecks {
   }
 
   /**
-   * Generics type checks for the parameterized typed tree. Needed to separate this method from
-   * checkInstantiatedType as the annotations are lost for the parameterized typed tree. Need to
-   * fetch annotations from the MetaData
+   * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
+   * variables that have a {@code @Nullable} upper bound. Similar to {@link
+   * #checkInstantiatedType(Type, VisitorState, Tree, NullAway, Config)} but specialized for when
+   * the instantiated type is represented as a {@link ParameterizedTypeTree}.
    *
-   * @param analysis Instance of the NullAway class
+   * @param tree the tree representing the instantiated type
+   * @param state visitor state
+   * @param analysis the analysis object
+   * @param config the analysis config
    */
   public static void checkInstantiationForParameterizedTypedTree(
       ParameterizedTypeTree tree, VisitorState state, NullAway analysis, Config config) {
