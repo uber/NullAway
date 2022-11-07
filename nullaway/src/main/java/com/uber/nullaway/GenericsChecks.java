@@ -13,6 +13,10 @@ import java.util.List;
 /** Methods for performing checks related to generic types and nullability. */
 public class GenericsChecks {
 
+  private GenericsChecks() {
+    // just utility methods
+  }
+
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
    * variables that have a {@code @Nullable} upper bound.
