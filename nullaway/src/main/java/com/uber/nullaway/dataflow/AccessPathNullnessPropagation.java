@@ -456,14 +456,14 @@ public class AccessPathNullnessPropagation
     Node realLeftNode = unwrapAssignExpr(leftNode);
     Node realRightNode = unwrapAssignExpr(rightNode);
 
-    AccessPath leftAP = AccessPath.getAccessPathForNodeWithMapGet(realLeftNode, state, apContext);
+    AccessPath leftAP = AccessPath.getAccessPathForNode(realLeftNode, state, apContext);
     if (leftAP != null) {
       equalBranchUpdates.set(leftAP, equalBranchValue);
       notEqualBranchUpdates.set(
           leftAP, leftVal.greatestLowerBound(rightVal.deducedValueWhenNotEqual()));
     }
 
-    AccessPath rightAP = AccessPath.getAccessPathForNodeWithMapGet(realRightNode, state, apContext);
+    AccessPath rightAP = AccessPath.getAccessPathForNode(realRightNode, state, apContext);
     if (rightAP != null) {
       equalBranchUpdates.set(rightAP, equalBranchValue);
       notEqualBranchUpdates.set(
@@ -665,7 +665,7 @@ public class AccessPathNullnessPropagation
    * the updates
    */
   private void setNonnullIfAnalyzeable(Updates updates, Node node) {
-    AccessPath ap = AccessPath.getAccessPathForNodeWithMapGet(node, state, apContext);
+    AccessPath ap = AccessPath.getAccessPathForNode(node, state, apContext);
     if (ap != null) {
       updates.set(ap, NONNULL);
     }
@@ -676,8 +676,8 @@ public class AccessPathNullnessPropagation
   }
 
   private static boolean hasNonNullConstantValue(LocalVariableNode node) {
-    if (node.getElement() instanceof VariableElement) {
-      VariableElement element = (VariableElement) node.getElement();
+    VariableElement element = node.getElement();
+    if (element != null) {
       return (element.getConstantValue() != null);
     }
     return false;
@@ -695,7 +695,8 @@ public class AccessPathNullnessPropagation
   }
 
   private static boolean isCatchVariable(VariableDeclarationNode node) {
-    return elementFromDeclaration(node.getTree()).getKind() == EXCEPTION_PARAMETER;
+    VariableElement variableElement = elementFromDeclaration(node.getTree());
+    return variableElement != null && variableElement.getKind() == EXCEPTION_PARAMETER;
   }
 
   @Override
@@ -760,6 +761,7 @@ public class AccessPathNullnessPropagation
     return codeAnnotationInfo;
   }
 
+  @SuppressWarnings("ASTHelpersSuggestions") // remove once we require EP 2.16 or greater
   private void setReceiverNonnull(
       AccessPathNullnessPropagation.ReadableUpdates updates, Node receiver, Symbol symbol) {
     if (symbol != null && !symbol.isStatic()) {
@@ -883,8 +885,8 @@ public class AccessPathNullnessPropagation
     }
 
     AccessPath accessPath =
-        AccessPath.getAccessPathForNodeNoMapGet(
-            ((NotEqualNode) condition).getLeftOperand(), apContext);
+        AccessPath.getAccessPathForNode(
+            ((NotEqualNode) condition).getLeftOperand(), state, apContext);
 
     if (accessPath == null) {
       return noStoreChanges(NULLABLE, input);
@@ -921,14 +923,7 @@ public class AccessPathNullnessPropagation
         node, callee, node.getArguments(), values(input), thenUpdates, bothUpdates);
     NullnessHint nullnessHint =
         handler.onDataflowVisitMethodInvocation(
-            node,
-            state.getTypes(),
-            state.context,
-            apContext,
-            values(input),
-            thenUpdates,
-            elseUpdates,
-            bothUpdates);
+            node, state, apContext, values(input), thenUpdates, elseUpdates, bothUpdates);
     Nullness nullness = returnValueNullness(node, input, nullnessHint);
     if (booleanReturnType(node)) {
       ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates, bothUpdates);
@@ -948,7 +943,7 @@ public class AccessPathNullnessPropagation
       AccessPathNullnessPropagation.Updates bothUpdates) {
     if (AccessPath.isContainsKey(callee, state)) {
       // make sure argument is a variable, and get its element
-      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, apContext);
+      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
       if (getAccessPath != null) {
         // in the then branch, we want the get() call with the same argument to be non-null
         // we assume that the declared target of the get() method will be in the same class
@@ -956,13 +951,13 @@ public class AccessPathNullnessPropagation
         thenUpdates.set(getAccessPath, NONNULL);
       }
     } else if (AccessPath.isMapPut(callee, state)) {
-      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, apContext);
+      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
       if (getAccessPath != null) {
         Nullness value = inputs.valueOfSubNode(arguments.get(1));
         bothUpdates.set(getAccessPath, value);
       }
     } else if (AccessPath.isMapComputeIfAbsent(callee, state)) {
-      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, apContext);
+      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
       if (getAccessPath != null) {
         // TODO: For now, Function<K, V> implies a @NonNull V. We need to revisit this once we
         // support generics, but we do include a couple defensive tests below.

@@ -183,8 +183,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Types types,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
@@ -193,12 +192,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
     boolean isMethodAnnotated =
-        !getCodeAnnotationInfo(context).isSymbolUnannotated(callee, this.config);
-    setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, context, apContext);
+        !getCodeAnnotationInfo(state.context).isSymbolUnannotated(callee, this.config);
+    setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, state, apContext);
     setConditionalArgumentNullness(
-        thenUpdates, elseUpdates, node.getArguments(), callee, context, apContext);
+        thenUpdates, elseUpdates, node.getArguments(), callee, state, apContext);
     ImmutableSet<Integer> nullImpliesNullIndexes =
-        getOptLibraryModels(context).nullImpliesNullParameters(callee);
+        getOptLibraryModels(state.context).nullImpliesNullParameters(callee);
     if (!nullImpliesNullIndexes.isEmpty()) {
       // If the method is marked as having argument dependent nullability and any of the
       // corresponding arguments is null, then the return is nullable. If the method is
@@ -212,9 +211,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       }
       return anyNull ? NullnessHint.HINT_NULLABLE : NullnessHint.FORCE_NONNULL;
     }
-    if (getOptLibraryModels(context).hasNonNullReturn(callee, types, !isMethodAnnotated)) {
+    Types types = state.getTypes();
+    if (getOptLibraryModels(state.context).hasNonNullReturn(callee, types, !isMethodAnnotated)) {
       return NullnessHint.FORCE_NONNULL;
-    } else if (getOptLibraryModels(context).hasNullableReturn(callee, types, !isMethodAnnotated)) {
+    } else if (getOptLibraryModels(state.context)
+        .hasNullableReturn(callee, types, !isMethodAnnotated)) {
       return NullnessHint.HINT_NULLABLE;
     } else {
       return NullnessHint.UNKNOWN;
@@ -226,30 +227,33 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       List<Node> arguments,
       Symbol.MethodSymbol callee,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext) {
     Set<Integer> nullImpliesTrueParameters =
-        getOptLibraryModels(context).nullImpliesTrueParameters(callee);
+        getOptLibraryModels(state.context).nullImpliesTrueParameters(callee);
     Set<Integer> nullImpliesFalseParameters =
-        getOptLibraryModels(context).nullImpliesFalseParameters(callee);
+        getOptLibraryModels(state.context).nullImpliesFalseParameters(callee);
     for (AccessPath accessPath :
-        accessPathsAtIndexes(nullImpliesTrueParameters, arguments, apContext)) {
+        accessPathsAtIndexes(nullImpliesTrueParameters, arguments, state, apContext)) {
       elseUpdates.set(accessPath, NONNULL);
     }
     for (AccessPath accessPath :
-        accessPathsAtIndexes(nullImpliesFalseParameters, arguments, apContext)) {
+        accessPathsAtIndexes(nullImpliesFalseParameters, arguments, state, apContext)) {
       thenUpdates.set(accessPath, NONNULL);
     }
   }
 
   private static Iterable<AccessPath> accessPathsAtIndexes(
-      Set<Integer> indexes, List<Node> arguments, AccessPath.AccessPathContext apContext) {
+      Set<Integer> indexes,
+      List<Node> arguments,
+      VisitorState state,
+      AccessPath.AccessPathContext apContext) {
     List<AccessPath> result = new ArrayList<>();
     for (Integer i : indexes) {
       Preconditions.checkArgument(i >= 0 && i < arguments.size(), "Invalid argument index: " + i);
       if (i >= 0 && i < arguments.size()) {
         Node argument = arguments.get(i);
-        AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(argument, apContext);
+        AccessPath ap = AccessPath.getAccessPathForNode(argument, state, apContext);
         if (ap != null) {
           result.add(ap);
         }
@@ -269,12 +273,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates bothUpdates,
       List<Node> arguments,
       Symbol.MethodSymbol callee,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext) {
     Set<Integer> requiredNonNullParameters =
-        getOptLibraryModels(context).failIfNullParameters(callee);
+        getOptLibraryModels(state.context).failIfNullParameters(callee);
     for (AccessPath accessPath :
-        accessPathsAtIndexes(requiredNonNullParameters, arguments, apContext)) {
+        accessPathsAtIndexes(requiredNonNullParameters, arguments, state, apContext)) {
       bothUpdates.set(accessPath, NONNULL);
     }
   }
@@ -410,6 +414,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 methodRef(
                     "com.google.common.base.Preconditions",
                     "<T>checkNotNull(T,java.lang.String,java.lang.Object,java.lang.Object,java.lang.Object,java.lang.Object)"),
+                0)
+            .put(methodRef("com.google.common.base.Verify", "<T>verifyNotNull(T)"), 0)
+            .put(
+                methodRef(
+                    "com.google.common.base.Verify",
+                    "<T>verifyNotNull(T,java.lang.String,java.lang.Object...)"),
                 0)
             .put(methodRef("java.util.Objects", "<T>requireNonNull(T)"), 0)
             .put(methodRef("java.util.Objects", "<T>requireNonNull(T,java.lang.String)"), 0)

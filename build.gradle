@@ -36,7 +36,7 @@ buildscript {
 }
 plugins {
   id "com.github.sherter.google-java-format" version "0.9"
-  id "net.ltgt.errorprone" version "2.0.2" apply false
+  id "net.ltgt.errorprone" version "3.0.1" apply false
   id "com.github.johnrengelman.shadow" version "6.1.0" apply false
   id "com.github.kt3k.coveralls" version "2.12.0" apply false
   id "me.champeau.jmh" version "0.6.7" apply false
@@ -54,7 +54,6 @@ subprojects { project ->
     project.apply plugin: "net.ltgt.errorprone"
     project.dependencies {
         errorprone deps.build.errorProneCore
-        errorproneJavac deps.build.errorProneJavac
     }
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)
@@ -64,17 +63,22 @@ subprojects { project ->
             "-Xlint:unchecked",
             "-Werror"
         ]
-        options.errorprone {
-            // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
-            disableWarningsInGeneratedCode = true
-            // Triggers for generated Android code (R.java)
-            check("MutablePublicArray", CheckSeverity.OFF)
-            // this check is too noisy
-            check("StringSplitter", CheckSeverity.OFF)
-            check("WildcardImport", CheckSeverity.ERROR)
-            check("MissingBraces", CheckSeverity.ERROR)
-            check("TypeToString", CheckSeverity.ERROR)
-            check("SymbolToString", CheckSeverity.ERROR)
+        if (JavaVersion.current().isJava9Compatible()) {
+            options.errorprone {
+                // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
+                disableWarningsInGeneratedCode = true
+                // this check is too noisy
+                check("StringSplitter", CheckSeverity.OFF)
+                // https://github.com/google/error-prone/issues/3366
+                check("CanIgnoreReturnValueSuggester", CheckSeverity.OFF)
+                check("WildcardImport", CheckSeverity.ERROR)
+                check("MissingBraces", CheckSeverity.ERROR)
+                check("TypeToString", CheckSeverity.ERROR)
+                check("SymbolToString", CheckSeverity.ERROR)
+            }
+        } else {
+            // disable Error Prone checking of our code on JDK 8, as more recent versions don't run on JDK 8
+            options.errorprone.enabled = false
         }
     }
 

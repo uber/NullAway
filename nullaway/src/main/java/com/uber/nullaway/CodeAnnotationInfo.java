@@ -78,16 +78,19 @@ public final class CodeAnnotationInfo {
   private static boolean fromAnnotatedPackage(
       Symbol.ClassSymbol outermostClassSymbol, Config config) {
     final String className = outermostClassSymbol.getQualifiedName().toString();
+    Symbol.PackageSymbol enclosingPackage = ASTHelpers.enclosingPackage(outermostClassSymbol);
     if (!config.fromExplicitlyAnnotatedPackage(className)
-        && !ASTHelpers.hasDirectAnnotationWithSimpleName(
-            outermostClassSymbol.packge(), NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
+        && !(enclosingPackage != null
+            && ASTHelpers.hasDirectAnnotationWithSimpleName(
+                enclosingPackage, NullabilityUtil.NULLMARKED_SIMPLE_NAME))) {
       // By default, unknown code is unannotated unless @NullMarked or configured as annotated by
       // package name
       return false;
     }
     if (config.fromExplicitlyUnannotatedPackage(className)
-        || ASTHelpers.hasDirectAnnotationWithSimpleName(
-            outermostClassSymbol.packge(), NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
+        || (enclosingPackage != null
+            && ASTHelpers.hasDirectAnnotationWithSimpleName(
+                enclosingPackage, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME))) {
       // Any code explicitly marked as unannotated in our configuration is unannotated, no matter
       // what. Similarly, any package annotated as @NullUnmarked is unannotated, even if
       // explicitly passed to -XepOpt:NullAway::AnnotatedPackages
