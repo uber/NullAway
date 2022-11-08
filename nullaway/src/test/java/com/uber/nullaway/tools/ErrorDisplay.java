@@ -30,7 +30,7 @@ import java.util.Objects;
 public class ErrorDisplay implements Display {
   public final String type;
   public final String message;
-  public final String encMethod;
+  public final String encMember;
   public final String encClass;
   public final String kind;
   public final String clazz;
@@ -43,7 +43,7 @@ public class ErrorDisplay implements Display {
       String type,
       String message,
       String encClass,
-      String encMethod,
+      String encMember,
       String kind,
       String clazz,
       String method,
@@ -52,7 +52,7 @@ public class ErrorDisplay implements Display {
       String uri) {
     this.type = type;
     this.message = message;
-    this.encMethod = encMethod;
+    this.encMember = encMember;
     this.encClass = encClass;
     this.kind = kind;
     this.clazz = clazz;
@@ -63,8 +63,8 @@ public class ErrorDisplay implements Display {
     this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
   }
 
-  public ErrorDisplay(String type, String message, String encClass, String encMethod) {
-    this(type, message, encClass, encMethod, "null", "null", "null", "null", "null", "null");
+  public ErrorDisplay(String type, String message, String encClass, String encMember) {
+    this(type, message, encClass, encMember, "null", "null", "null", "null", "null", "null");
   }
 
   @Override
@@ -80,10 +80,10 @@ public class ErrorDisplay implements Display {
         // To increase readability, a shorter version of the actual message might be present in the
         // expected output of tests.
         && (message.contains(that.message) || that.message.contains(message))
-        && encMethod.equals(that.encMethod)
+        && encMember.equals(that.encMember)
+        && clazz.equals(that.clazz)
         && encClass.equals(that.encClass)
         && kind.equals(that.kind)
-        && clazz.equals(that.clazz)
         && method.equals(that.method)
         && variable.equals(that.variable)
         && index.equals(that.index)
@@ -93,7 +93,7 @@ public class ErrorDisplay implements Display {
   @Override
   public int hashCode() {
     return Objects.hash(
-        type, message, encMethod, encClass, kind, clazz, method, variable, index, uri);
+        type, message, encMember, encClass, kind, clazz, method, variable, index, uri);
   }
 
   @Override
@@ -105,8 +105,8 @@ public class ErrorDisplay implements Display {
         + "\n\tmessage='"
         + message
         + '\''
-        + "\n\tencMethod='"
-        + encMethod
+        + "\n\tencMember='"
+        + encMember
         + '\''
         + "\n\tencClass='"
         + encClass
