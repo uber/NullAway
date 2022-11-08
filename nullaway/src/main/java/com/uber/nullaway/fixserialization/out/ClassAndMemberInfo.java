@@ -35,10 +35,8 @@ public class ClassAndMemberInfo {
   /** Path to the program point of the reported error / fix */
   public final TreePath path;
 
-  /**
-   * Finding values for these properties is costly and are not needed by default, hence, they are
-   * not {@code final} and are only initialized at request.
-   */
+  // Finding values for these properties is costly and are not needed by default, hence, they are
+  // not final and are only initialized at request.
   @Nullable private Symbol member;
 
   @Nullable private ClassTree clazz;
