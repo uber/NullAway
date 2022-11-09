@@ -1659,7 +1659,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
       Preconditions.checkArgument(Integer.parseInt(lines.get(0)) == SERIALIZATION_VERSION);
     } catch (IOException e) {
       throw new RuntimeException(
-          "Could not ready serialization version at path: " + serializationVersionPath, e);
+          "Could not read serialization version at path: " + serializationVersionPath, e);
     }
   }
 }
