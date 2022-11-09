@@ -74,7 +74,6 @@ public class Serializer {
     try (Writer fileWriter =
         Files.newBufferedWriter(versionOutputPath.toFile().toPath(), Charset.defaultCharset())) {
       fileWriter.write(SERIALIZATION_VERSION + "");
-      fileWriter.flush();
     } catch (IOException exception) {
       throw new RuntimeException("Could not serialize output version", exception);
     }
