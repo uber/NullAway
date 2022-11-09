@@ -34,6 +34,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import javax.annotation.Nullable;
 
 /**
  * Serializer class where all generated files in Fix Serialization package is created through APIs
@@ -68,7 +69,7 @@ public class Serializer {
    *
    * @param outputDirectory Path to root directory for all serialized outputs.
    */
-  private void serializeVersion(String outputDirectory) {
+  private void serializeVersion(@Nullable String outputDirectory) {
     Path versionOutputPath = Paths.get(outputDirectory).resolve("serialization_version.txt");
     try (Writer fileWriter =
         Files.newBufferedWriter(versionOutputPath.toFile().toPath(), Charset.defaultCharset())) {
