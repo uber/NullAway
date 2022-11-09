@@ -52,7 +52,7 @@ public class Serializer {
    * Version for all serialized outputs. Outputs formats may change overtime, this version is
    * serialized to keep track of changes.
    */
-  private static final int SERIALIZATION_VERSION = 1;
+  public static final int SERIALIZATION_VERSION = 1;
 
   public Serializer(FixSerializationConfig config) {
     String outputDirectory = config.outputDirectory;

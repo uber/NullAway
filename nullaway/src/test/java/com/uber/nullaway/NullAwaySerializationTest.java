@@ -28,6 +28,7 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
@@ -66,8 +67,6 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   private static final String ERROR_FILE_HEADER = ErrorInfo.header();
   private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
   private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
-
-  private static final int SERIALIZATION_VERSION = 1;
 
   public NullAwaySerializationTest() {
     this.fixDisplayFactory =
@@ -1656,7 +1655,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
       // Check if it contains only one line.
       Preconditions.checkArgument(lines.size() == 1);
       // Check the serialized version.
-      Preconditions.checkArgument(Integer.parseInt(lines.get(0)) == SERIALIZATION_VERSION);
+      Preconditions.checkArgument(
+          Integer.parseInt(lines.get(0)) == Serializer.SERIALIZATION_VERSION);
     } catch (IOException e) {
       throw new RuntimeException(
           "Could not read serialization version at path: " + serializationVersionPath, e);
