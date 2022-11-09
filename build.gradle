@@ -77,8 +77,12 @@ subprojects { project ->
                 check("SymbolToString", CheckSeverity.ERROR)
             }
         } else {
-            // disable Error Prone checking of our code on JDK 8, as more recent versions don't run on JDK 8
-            options.errorprone.enabled = false
+            // Disable Error Prone checks on JDK 8, as more recent Error Prone versions don't run on JDK 8
+            // NOTE: we use disableAllChecks rather than the enabled flag because we still want to use the
+            // JDK 9 javac packaged with Error Prone, to work around the following bug with JDK 8 javac
+            // and use of the @NullMarked / @NullUnmarked annotations from jspecify:
+            // https://github.com/jspecify/jspecify/issues/302
+            options.errorprone.disableAllChecks = true
         }
     }
 
