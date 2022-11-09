@@ -21,23 +21,23 @@ jobs:
             epVersion: 2.4.0
           - os: macos-latest
             java: 11
-            epVersion: 2.15.0
+            epVersion: 2.16
           - os: ubuntu-latest
             java: 11
-            epVersion: 2.15.0
+            epVersion: 2.16
           - os: windows-latest
             java: 11
-            epVersion: 2.15.0
+            epVersion: 2.16
           - os: ubuntu-latest
             java: 17
-            epVersion: 2.15.0
+            epVersion: 2.16
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out NullAway sources
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: 'Set up JDK ${{ matrix.java }}'
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
@@ -70,7 +70,7 @@ jobs:
         with:
           arguments: coveralls
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.15.0' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.16' && github.repository == 'uber/NullAway'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
   publish_snapshot:
@@ -80,9 +80,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 'Check out repository'
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: 'Set up JDK 8'
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v3
         with:
           java-version: 8
           distribution: 'temurin'

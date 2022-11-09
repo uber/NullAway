@@ -64,6 +64,10 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
             "    NullnessChecker.assertNonNull(o);",
             "    return o.toString();",
             "  }",
+            "  String test4(java.util.Map<String,Object> m) {",
+            "    NullnessChecker.assertNonNull(m.get(\"foo\"));",
+            "    return m.get(\"foo\").toString();",
+            "  }",
             "}")
         .doTest();
   }
@@ -263,6 +267,175 @@ public class NullAwayContractsTests extends NullAwayTestsBase {
             "  String test2() {",
             "    // BUG: Diagnostic contains: dereferenced expression",
             "    return NullnessChecker.good(\"bar\", null).toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void contractDeclaringBothNotNull() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class NullnessChecker {",
+            "  @Contract(\"null, _ -> false; _, null -> false\")",
+            "  static boolean bothNotNull(@Nullable Object o1, @Nullable Object o2) {",
+            "    // null, _ -> false",
+            "    if (o1 == null) {",
+            "      return false;",
+            "    }",
+            "    // _, null -> false",
+            "    if (o2 == null) {",
+            "      return false;",
+            "    }",
+            "    // Function cannot declare a contract for true",
+            "    return System.currentTimeMillis() % 100 == 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test1(@Nullable Object o) {",
+            "    return NullnessChecker.bothNotNull(\"\", o)",
+            "      ? o.toString()",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      : o.toString();",
+            "  }",
+            "  String test2(@Nullable Object o) {",
+            "    return NullnessChecker.bothNotNull(o, \"\")",
+            "      ? o.toString()",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      : o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void contractDeclaringEitherNull() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class NullnessChecker {",
+            "  @Contract(\"null, _ -> true; _, null -> true\")",
+            "  static boolean eitherIsNullOrRandom(@Nullable Object o1, @Nullable Object o2) {",
+            "    // null, _ -> true",
+            "    if (o1 == null) {",
+            "      return true;",
+            "    }",
+            "    // _, null -> true",
+            "    if (o2 == null) {",
+            "      return true;",
+            "    }",
+            "    // Function cannot declare a contract for false",
+            "    return System.currentTimeMillis() % 100 == 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test1(@Nullable Object o) {",
+            "    return NullnessChecker.eitherIsNullOrRandom(\"\", o)",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      ? o.toString()",
+            "      : o.toString();",
+            "  }",
+            "  String test2(@Nullable Object o) {",
+            "    return NullnessChecker.eitherIsNullOrRandom(o, \"\")",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      ? o.toString()",
+            "      : o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void contractDeclaringNullOrRandomFalse() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class NullnessChecker {",
+            "  @Contract(\"null -> false\")",
+            "  static boolean isHashCodeZero(@Nullable Object o) {",
+            "    // null -> false",
+            "    if (o == null) {",
+            "      return false;",
+            "    }",
+            "    // Function cannot declare a contract for true",
+            "    return o.hashCode() == 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test1(@Nullable Object o) {",
+            "    return NullnessChecker.isHashCodeZero(o)",
+            "      ? o.toString()",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      : o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void contractUnreachablePath() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class NullnessChecker {",
+            "  @Contract(\"!null -> false\")",
+            "  static boolean isNull(@Nullable Object o) {",
+            "    // !null -> false",
+            "    if (o != null) {",
+            "      return false;",
+            "    }",
+            "    return true;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  String test(Object required) {",
+            "    return NullnessChecker.isNull(required)",
+            "      ? required.toString()",
+            "      : required.toString();",
             "  }",
             "}")
         .doTest();
