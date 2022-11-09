@@ -1653,7 +1653,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
     Path serializationVersionPath = root.resolve("serialization_version.txt");
     try {
       List<String> lines = Files.readAllLines(serializationVersionPath);
-      // Check it contains only one line.
+      // Check if it contains only one line.
       Preconditions.checkArgument(lines.size() == 1);
       // Check the serialized version.
       Preconditions.checkArgument(Integer.parseInt(lines.get(0)) == SERIALIZATION_VERSION);
