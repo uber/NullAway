@@ -18,50 +18,6 @@ public class GenericsChecks {
   }
 
   /**
-   * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
-   * variables that have a {@code @Nullable} upper bound.
-   *
-   * @param type the instantiated type
-   * @param state the visitor state
-   * @param tree the tree in the AST representing the instantiated type
-   * @param analysis the analysis object
-   * @param config the analysis configuration
-   */
-  public static void checkInstantiatedType(
-      Type type, VisitorState state, Tree tree, NullAway analysis, Config config) {
-    CodeAnnotationInfo codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
-    if (!config.isJSpecifyMode()) {
-      return;
-    }
-    if (codeAnnotationInfo.isSymbolUnannotated(type.tsym, config)) {
-      return;
-    }
-
-    com.sun.tools.javac.util.List<Type> typeArguments = type.getTypeArguments();
-    HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
-    for (int index = 0; index < typeArguments.size(); index++) {
-      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-          typeArguments.get(index).getAnnotationMirrors();
-      boolean hasNullableAnnotation =
-          Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-      if (hasNullableAnnotation) {
-        nullableTypeArguments.add(index);
-      }
-    }
-
-    Type baseType = type.tsym.type;
-    com.sun.tools.javac.util.List<Type> baseTypeArguments = baseType.getTypeArguments();
-    checkNullableTypeArgsAgainstUpperBounds(
-        state, tree, analysis, config, nullableTypeArguments, baseTypeArguments);
-    // Generics check for nested type parameters
-    for (Type typeArgument : typeArguments) {
-      if (typeArgument.getTypeArguments().length() > 0) {
-        checkInstantiatedType(typeArgument, state, tree, analysis, config);
-      }
-    }
-  }
-
-  /**
    * Checks if the type arguments with a {@code @Nullable} annotation in an instantiated type have a
    * {@code @Nullable} upper bound in the declaration, and reports an error otherwise.
    *
@@ -99,8 +55,9 @@ public class GenericsChecks {
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
    * variables that have a {@code @Nullable} upper bound. Similar to {@link
-   * #checkInstantiatedType(Type, VisitorState, Tree, NullAway, Config)} but specialized for when
-   * the instantiated type is represented as a {@link ParameterizedTypeTree}.
+   * #checkInstantiationForParameterizedTypedTree(ParameterizedTypeTree, VisitorState, NullAway,
+   * Config)} but specialized for when the instantiated type is represented as a {@link
+   * ParameterizedTypeTree}.
    *
    * @param tree the tree representing the instantiated type
    * @param state visitor state
