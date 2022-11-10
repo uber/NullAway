@@ -29,10 +29,12 @@ import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import javax.annotation.Nullable;
 
 /**
  * Serializer class where all generated files in Fix Serialization package is created through APIs
@@ -46,12 +48,35 @@ public class Serializer {
   /** Path to write suggested fix metadata. */
   private final Path fieldInitializationOutputPath;
 
+  /**
+   * Version for all serialized outputs. Outputs formats may change overtime, this version is
+   * serialized to keep track of changes.
+   */
+  public static final int SERIALIZATION_VERSION = 1;
+
   public Serializer(FixSerializationConfig config) {
     String outputDirectory = config.outputDirectory;
     this.errorOutputPath = Paths.get(outputDirectory, "errors.tsv");
     this.suggestedFixesOutputPath = Paths.get(outputDirectory, "fixes.tsv");
     this.fieldInitializationOutputPath = Paths.get(outputDirectory, "field_init.tsv");
     initializeOutputFiles(config);
+    serializeVersion(outputDirectory);
+  }
+
+  /**
+   * Serializes the {@link Serializer#SERIALIZATION_VERSION} as {@code string} in
+   * <b>serialization_version.txt</b> file under root output directory for all serialized outputs.
+   *
+   * @param outputDirectory Path to root directory for all serialized outputs.
+   */
+  private void serializeVersion(@Nullable String outputDirectory) {
+    Path versionOutputPath = Paths.get(outputDirectory).resolve("serialization_version.txt");
+    try (Writer fileWriter =
+        Files.newBufferedWriter(versionOutputPath.toFile().toPath(), Charset.defaultCharset())) {
+      fileWriter.write(SERIALIZATION_VERSION + "");
+    } catch (IOException exception) {
+      throw new RuntimeException("Could not serialize output version", exception);
+    }
   }
 
   /**
