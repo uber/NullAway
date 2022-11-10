@@ -7,7 +7,7 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.List;
 
 /** Methods for performing checks related to generic types and nullability. */
@@ -22,7 +22,6 @@ public class GenericsChecks {
    * {@code @Nullable} upper bound in the declaration, and reports an error otherwise.
    *
    * @param state the visitor state
-   * @param tree TODO not sure we need this
    * @param analysis the analysis object
    * @param config the analysis config
    * @param nullableTypeArguments indices of {@code Nullable} type arguments
@@ -30,13 +29,12 @@ public class GenericsChecks {
    */
   private static void checkNullableTypeArgsAgainstUpperBounds(
       VisitorState state,
-      Tree tree,
       NullAway analysis,
       Config config,
-      HashSet<Integer> nullableTypeArguments,
+      HashMap<Integer, Tree> nullableTypeArguments,
       com.sun.tools.javac.util.List<Type> baseTypeArguments) {
     for (int i = 0; i < baseTypeArguments.size(); i++) {
-      if (nullableTypeArguments.contains(i)) {
+      if (nullableTypeArguments.containsKey(i)) {
 
         Type upperBound = baseTypeArguments.get(i).getUpperBound();
         com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
@@ -46,7 +44,7 @@ public class GenericsChecks {
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation) {
-          invalidInstantiationError(tree, state, analysis);
+          invalidInstantiationError(nullableTypeArguments.get(i), state, analysis);
         }
       }
     }
@@ -70,14 +68,14 @@ public class GenericsChecks {
       return;
     }
     List<? extends Tree> typeArguments = tree.getTypeArguments();
-    HashSet<Integer> nullableTypeArguments = new HashSet<Integer>();
+    HashMap<Integer, Tree> nullableTypeArguments = new HashMap<Integer, Tree>();
     for (int i = 0; i < typeArguments.size(); i++) {
       if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
         JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
         for (JCTree.JCAnnotation annotation : annotatedType.getAnnotations()) {
           Attribute.Compound attribute = annotation.attribute;
           if (attribute.toString().equals("@org.jspecify.nullness.Nullable")) {
-            nullableTypeArguments.add(i);
+            nullableTypeArguments.put(i, typeArguments.get(i));
             break;
           }
         }
@@ -90,7 +88,7 @@ public class GenericsChecks {
     }
     com.sun.tools.javac.util.List<Type> baseTypeArgs = baseType.tsym.type.getTypeArguments();
     checkNullableTypeArgsAgainstUpperBounds(
-        state, tree, analysis, config, nullableTypeArguments, baseTypeArgs);
+        state, analysis, config, nullableTypeArguments, baseTypeArgs);
     // recursive check for nested parameterized types
     for (int i = 0; i < typeArguments.size(); i++) {
       if (typeArguments.get(i).getClass().equals(JCTree.JCTypeApply.class)) {
