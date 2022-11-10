@@ -79,15 +79,10 @@ public class GenericsChecks {
       Config config,
       HashSet<Integer> nullableTypeArguments,
       com.sun.tools.javac.util.List<Type> baseTypeArguments) {
-    int index = 0;
-    for (Type baseTypeArg : baseTypeArguments) {
+    for (int i = 0; i < baseTypeArguments.size(); i++) {
+      if (nullableTypeArguments.contains(i)) {
 
-      // if type argument at current index has @Nullable annotation base type argument at that
-      // index
-      // should also have a @Nullable annotation on its upper bound.
-      if (nullableTypeArguments.contains(index)) {
-
-        Type upperBound = baseTypeArg.getUpperBound();
+        Type upperBound = baseTypeArguments.get(i).getUpperBound();
         com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
             upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
@@ -98,7 +93,6 @@ public class GenericsChecks {
           invalidInstantiationError(tree, state, analysis);
         }
       }
-      index++;
     }
   }
 
