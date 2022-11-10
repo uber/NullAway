@@ -43,6 +43,9 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "       NonNullTypeParam<String> t2 = new NonNullTypeParam<@Nullable String>();",
             "        // BUG: Diagnostic contains: Generic type parameter",
             "        testBadNonNull(new NonNullTypeParam<@Nullable String>());",
+            "        testBadNonNull(new NonNullTypeParam<",
+            "              // BUG: Diagnostic contains: Generic type parameter",
+            "              @Nullable String>());",
             "    }",
             "    static void testOkNullable(NullableTypeParam<String> t1, NullableTypeParam<@Nullable String> t2) {",
             "        NullableTypeParam<String> t3 = new NullableTypeParam<String>();",
@@ -67,6 +70,9 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: Generic type parameter",
             "     static class PartiallyInvalidSubclass extends MixedTypeParam<@Nullable String, String, String, String> {}",
             "     static class ValidSubclass extends MixedTypeParam<String, @Nullable String, @Nullable String, String> {}",
+            "     static class PartiallyInvalidSubclass2 extends MixedTypeParam<String, String, String, ",
+            "         // BUG: Diagnostic contains: Generic type parameter",
+            "         @Nullable String> {}",
             "}")
         .doTest();
   }
