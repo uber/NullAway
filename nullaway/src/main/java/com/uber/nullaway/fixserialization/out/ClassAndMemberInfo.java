@@ -86,7 +86,7 @@ public class ClassAndMemberInfo {
         // Node is not enclosed by any method, can be a field declaration or enclosed by it.
         Symbol sym = ASTHelpers.getSymbol(path.getLeaf());
         Symbol.VarSymbol fieldSymbol = null;
-        if (sym != null && sym.getKind().isField()) {
+        if (sym != null && sym.getKind().isField() && sym.isEnclosedBy(classSymbol)) {
           // Directly on a field declaration.
           fieldSymbol = (Symbol.VarSymbol) sym;
         } else {
