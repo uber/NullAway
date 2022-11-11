@@ -1679,15 +1679,21 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "public class A {",
-            "   Other other1 = new Other();",
-            "   @Nullable Other other2 = null;",
+            "   B b1 = new B();",
+            "   @Nullable B b2 = null;",
             "   // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "   Object baz1 = other1.foo;",
-            "   // BUG: Diagnostic contains: dereferenced expression other2 is @Nullable",
-            "   Object baz2 = other2.foo;",
+            "   Object baz1 = b1.foo;",
+            "   // BUG: Diagnostic contains: dereferenced expression b2 is @Nullable",
+            "   Object baz2 = b2.foo;",
+            "   // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "   Object baz3 = b1.c.val;",
             "}",
-            "class Other {",
+            "class B {",
             "   @Nullable Object foo;",
+            "   C c = new C();",
+            "}",
+            "class C {",
+            "   @Nullable Object val;",
             "}")
         .setExpectedOutputs(
             new ErrorDisplay(
@@ -1713,8 +1719,19 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "null",
                 "com/uber/A.java"),
             new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.A",
+                "baz3",
+                "FIELD",
+                "com.uber.A",
+                "null",
+                "baz3",
+                "null",
+                "com/uber/A.java"),
+            new ErrorDisplay(
                 "DEREFERENCE_NULLABLE",
-                "dereferenced expression other2 is @Nullable",
+                "dereferenced expression b2 is @Nullable",
                 "com.uber.A",
                 "baz2"))
         .setFactory(errorDisplayFactory)
