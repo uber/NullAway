@@ -34,6 +34,9 @@ public class GenericsChecks {
       return;
     }
     List<? extends Tree> typeArguments = tree.getTypeArguments();
+    if (typeArguments.size() == 0) {
+      return;
+    }
     Map<Integer, Tree> nullableTypeArguments = new HashMap<>();
     for (int i = 0; i < typeArguments.size(); i++) {
       Tree curTypeArg = typeArguments.get(i);
@@ -73,12 +76,8 @@ public class GenericsChecks {
     // recursive check for nested parameterized types
     for (int i = 0; i < typeArguments.size(); i++) {
       if (typeArguments.get(i) instanceof ParameterizedTypeTree) {
-        ParameterizedTypeTree parameterizedTypeTreeForTypeArgument =
-            (ParameterizedTypeTree) typeArguments.get(i);
-        if (parameterizedTypeTreeForTypeArgument.getTypeArguments().size() > 0) {
-          checkInstantiationForParameterizedTypedTree(
-              parameterizedTypeTreeForTypeArgument, state, analysis, config);
-        }
+        checkInstantiationForParameterizedTypedTree(
+            (ParameterizedTypeTree) typeArguments.get(i), state, analysis, config);
       }
     }
   }
