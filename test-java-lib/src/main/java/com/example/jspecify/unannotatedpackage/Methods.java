@@ -1,9 +1,7 @@
 package com.example.jspecify.unannotatedpackage;
 
-// Needed for annotating methods, should be removed and replaced with the standard
-// JSpecify @NullMarked/@NullUnmarked annotations once v0.3.0 is out.
-import com.example.jspecify.future.annotations.NullMarked;
-import com.example.jspecify.future.annotations.NullUnmarked;
+import org.jspecify.nullness.NullMarked;
+import org.jspecify.nullness.NullUnmarked;
 
 public class Methods {
   @NullMarked
