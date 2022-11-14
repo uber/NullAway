@@ -1686,11 +1686,14 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
             "   // BUG: Diagnostic contains: dereferenced expression b2 is @Nullable",
             "   Object baz2 = b2.foo;",
             "   // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "   Object baz3 = b1.c.val;",
+            "   Object baz3 = b1.nonnullC.val;",
+            "   // BUG: Diagnostic contains: dereferenced expression b1.nullableC is @Nullable",
+            "   @Nullable Object baz4 = b1.nullableC.val;",
             "}",
             "class B {",
             "   @Nullable Object foo;",
-            "   C c = new C();",
+            "   C nonnullC = new C();",
+            "   @Nullable C nullableC = new C();",
             "}",
             "class C {",
             "   @Nullable Object val;",
@@ -1733,7 +1736,12 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "DEREFERENCE_NULLABLE",
                 "dereferenced expression b2 is @Nullable",
                 "com.uber.A",
-                "baz2"))
+                "baz2"),
+            new ErrorDisplay(
+                "DEREFERENCE_NULLABLE",
+                "dereferenced expression b1.nullableC is @Nullable",
+                "com.uber.A",
+                "baz4"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
