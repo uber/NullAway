@@ -61,7 +61,8 @@ public final class GenericsChecks {
     for (int i = 0; i < baseTypeArgs.size(); i++) {
       if (nullableTypeArguments.containsKey(i)) {
 
-        Type upperBound = baseTypeArgs.get(i).getUpperBound();
+        Type typeVariable = baseTypeArgs.get(i);
+        Type upperBound = typeVariable.getUpperBound();
         com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
             upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
@@ -69,18 +70,22 @@ public final class GenericsChecks {
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation) {
-          invalidInstantiationError(nullableTypeArguments.get(i), state, analysis);
+          invalidInstantiationError(
+              nullableTypeArguments.get(i), baseType, typeVariable, state, analysis);
         }
       }
     }
   }
 
-  private static void invalidInstantiationError(Tree tree, VisitorState state, NullAway analysis) {
+  private static void invalidInstantiationError(
+      Tree tree, Type baseType, Type baseTypeVariable, VisitorState state, NullAway analysis) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
-            "Generic type parameter cannot be @Nullable, as type variable does not have a @Nullable upper bound");
+            String.format(
+                "Generic type parameter cannot be @Nullable, as type variable %s of type %s does not have a @Nullable upper bound",
+                baseTypeVariable.tsym.toString(), baseType.tsym.toString()));
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(tree), state, null));
