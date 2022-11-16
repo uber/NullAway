@@ -28,6 +28,7 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
@@ -42,6 +43,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -1370,6 +1372,105 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void errorSerializationTestEnclosedByFieldDeclaration() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Main.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Main {",
+            "   // BUG: Diagnostic contains: passing @Nullable parameter",
+            "   Foo f = new Foo(null);", // Member should be "f"
+            "   // BUG: Diagnostic contains: assigning @Nullable expression",
+            "   Foo f1 = null;", // Member should be "f1"
+            "   // BUG: Diagnostic contains: assigning @Nullable expression",
+            "   static Foo f2 = null;", // Member should be "f2"
+            "   static {",
+            "       // BUG: Diagnostic contains: assigning @Nullable expression",
+            "       f2 = null;", // Member should be "null" (not field or method)
+            "   }",
+            "   class Inner {",
+            "       // BUG: Diagnostic contains: passing @Nullable parameter",
+            "       Foo f = new Foo(null);", // Member should be "f" but class is Main$Inner
+            "   }",
+            "}")
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "public class Foo {",
+            "   public Foo(Object foo){",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter",
+                "com.uber.Main",
+                "f",
+                "PARAMETER",
+                "com.uber.Foo",
+                "Foo(java.lang.Object)",
+                "foo",
+                "0",
+                "com/uber/Foo.java"),
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.Main",
+                "f1",
+                "FIELD",
+                "com.uber.Main",
+                "null",
+                "f1",
+                "null",
+                "com/uber/Main.java"),
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.Main",
+                "f2",
+                "FIELD",
+                "com.uber.Main",
+                "null",
+                "f2",
+                "null",
+                "com/uber/Main.java"),
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.Main",
+                "null",
+                "FIELD",
+                "com.uber.Main",
+                "null",
+                "f2",
+                "null",
+                "com/uber/Main.java"),
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter",
+                "com.uber.Main$Inner",
+                "f",
+                "PARAMETER",
+                "com.uber.Foo",
+                "Foo(java.lang.Object)",
+                "foo",
+                "0",
+                "com/uber/Foo.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
   public void suggestNullableArgumentOnBytecode() {
     SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
     tester
@@ -1517,5 +1618,195 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
           .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
           .doTest();
     }
+  }
+
+  @Test
+  public void verifySerializationVersionIsSerialized() {
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        // Just to run serialization features, the serialized fixes are not point of interest in
+        // this test.
+        .addSourceLines(
+            "com/uber/Test.java",
+            "package com.uber;",
+            "public class Test {",
+            "   Object run() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    return null;",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new FixDisplay(
+                "nullable", "run()", "null", "METHOD", "com.uber.Test", "com/uber/Test.java"))
+        .setFactory(fixDisplayFactory)
+        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .doTest();
+
+    Path serializationVersionPath = root.resolve("serialization_version.txt");
+    try {
+      List<String> lines = Files.readAllLines(serializationVersionPath);
+      // Check if it contains only one line.
+      Preconditions.checkArgument(lines.size() == 1);
+      // Check the serialized version.
+      Preconditions.checkArgument(
+          Integer.parseInt(lines.get(0)) == Serializer.SERIALIZATION_VERSION);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Could not read serialization version at path: " + serializationVersionPath, e);
+    }
+  }
+
+  @Test
+  public void fieldRegionComputationWithMemberSelectTest() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/A.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class A {",
+            "   B b1 = new B();",
+            "   @Nullable B b2 = null;",
+            "   // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "   Object baz1 = b1.foo;",
+            "   // BUG: Diagnostic contains: dereferenced expression b2 is @Nullable",
+            "   Object baz2 = b2.foo;",
+            "   // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "   Object baz3 = b1.nonnullC.val;",
+            "   // BUG: Diagnostic contains: dereferenced expression b1.nullableC is @Nullable",
+            "   @Nullable Object baz4 = b1.nullableC.val;",
+            "}",
+            "class B {",
+            "   @Nullable Object foo;",
+            "   C nonnullC = new C();",
+            "   @Nullable C nullableC = new C();",
+            "}",
+            "class C {",
+            "   @Nullable Object val;",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.A",
+                "baz1",
+                "FIELD",
+                "com.uber.A",
+                "null",
+                "baz1",
+                "null",
+                "com/uber/A.java"),
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.A",
+                "baz2",
+                "FIELD",
+                "com.uber.A",
+                "null",
+                "baz2",
+                "null",
+                "com/uber/A.java"),
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.A",
+                "baz3",
+                "FIELD",
+                "com.uber.A",
+                "null",
+                "baz3",
+                "null",
+                "com/uber/A.java"),
+            new ErrorDisplay(
+                "DEREFERENCE_NULLABLE",
+                "dereferenced expression b2 is @Nullable",
+                "com.uber.A",
+                "baz2"),
+            new ErrorDisplay(
+                "DEREFERENCE_NULLABLE",
+                "dereferenced expression b1.nullableC is @Nullable",
+                "com.uber.A",
+                "baz4"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void fieldRegionComputationWithMemberSelectForInnerClassTest() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/A.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class A {",
+            "   Other other1 = new Other();",
+            "   @Nullable Other other2 = null;",
+            "   public void bar(){",
+            "      class Foo {",
+            "          // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "          Object baz1 = other1.foo;",
+            "          // BUG: Diagnostic contains: dereferenced expression other2 is @Nullable",
+            "          Object baz2 = other2.foo;",
+            "      }",
+            "   }",
+            "}",
+            "class Other {",
+            "   @Nullable Object foo;",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.A$1Foo",
+                "baz1",
+                "FIELD",
+                "com.uber.A$1Foo",
+                "null",
+                "baz1",
+                "null",
+                "com/uber/A.java"),
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.A$1Foo",
+                "baz2",
+                "FIELD",
+                "com.uber.A$1Foo",
+                "null",
+                "baz2",
+                "null",
+                "com/uber/A.java"),
+            new ErrorDisplay(
+                "DEREFERENCE_NULLABLE",
+                "dereferenced expression other2 is @Nullable",
+                "com.uber.A$1Foo",
+                "baz2"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
   }
 }

@@ -461,7 +461,7 @@ public class NullAway extends BugChecker
     }
     Type lhsType = ASTHelpers.getType(tree.getVariable());
     if (lhsType != null && lhsType.isPrimitive()) {
-      return doUnboxingCheck(state, tree.getExpression());
+      doUnboxingCheck(state, tree.getExpression());
     }
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
     if (assigned == null || assigned.getKind() != ElementKind.FIELD) {
@@ -496,7 +496,7 @@ public class NullAway extends BugChecker
     Type stringType = Suppliers.STRING_TYPE.get(state);
     if (lhsType != null && !state.getTypes().isSameType(lhsType, stringType)) {
       // both LHS and RHS could get unboxed
-      return doUnboxingCheck(state, tree.getVariable(), tree.getExpression());
+      doUnboxingCheck(state, tree.getVariable(), tree.getExpression());
     }
     return Description.NO_MATCH;
   }
@@ -507,11 +507,9 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Description description = matchDereference(tree.getExpression(), tree, state);
-    if (!description.equals(Description.NO_MATCH)) {
-      return description;
-    }
     // also check for unboxing of array index expression
-    return doUnboxingCheck(state, tree.getIndex());
+    doUnboxingCheck(state, tree.getIndex());
+    return description;
   }
 
   @Override
@@ -660,7 +658,7 @@ public class NullAway extends BugChecker
     Type castExprType = ASTHelpers.getType(tree);
     if (castExprType != null && castExprType.isPrimitive()) {
       // casting to a primitive type performs unboxing
-      return doUnboxingCheck(state, tree.getExpression());
+      doUnboxingCheck(state, tree.getExpression());
     }
     return Description.NO_MATCH;
   }
@@ -797,9 +795,10 @@ public class NullAway extends BugChecker
   private Description checkReturnExpression(
       Tree tree, ExpressionTree retExpr, Symbol.MethodSymbol methodSymbol, VisitorState state) {
     Type returnType = methodSymbol.getReturnType();
-    if (returnType.isPrimitiveOrVoid()) {
+    if (returnType.isPrimitive()) {
       // check for unboxing
-      return returnType.isPrimitive() ? doUnboxingCheck(state, retExpr) : Description.NO_MATCH;
+      doUnboxingCheck(state, retExpr);
+      return Description.NO_MATCH;
     }
     if (ASTHelpers.isSameType(returnType, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
       // Temporarily treat a Void return type as if it were @Nullable Void.  Change this once
@@ -1328,7 +1327,7 @@ public class NullAway extends BugChecker
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
-      return doUnboxingCheck(state, tree.getInitializer());
+      doUnboxingCheck(state, tree.getInitializer());
     }
     if (!symbol.getKind().equals(ElementKind.FIELD)) {
       return Description.NO_MATCH;
@@ -1434,62 +1433,73 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
+    // Perform unboxing checks on operands if needed
+    Type binaryExprType = ASTHelpers.getType(tree);
+    // If the type of the expression is not primitive, we do not need to do unboxing checks.  This
+    // handles the case of `+` used for string concatenation
+    if (binaryExprType == null || !binaryExprType.isPrimitive()) {
+      return Description.NO_MATCH;
+    }
+    Tree.Kind kind = tree.getKind();
     ExpressionTree leftOperand = tree.getLeftOperand();
     ExpressionTree rightOperand = tree.getRightOperand();
-    Type leftType = ASTHelpers.getType(leftOperand);
-    Type rightType = ASTHelpers.getType(rightOperand);
-    if (leftType == null || rightType == null) {
-      throw new RuntimeException();
-    }
-    if (leftType.isPrimitive() && !rightType.isPrimitive()) {
-      return doUnboxingCheck(state, rightOperand);
-    }
-    if (rightType.isPrimitive() && !leftType.isPrimitive()) {
-      return doUnboxingCheck(state, leftOperand);
+    if (kind.equals(Tree.Kind.EQUAL_TO) || kind.equals(Tree.Kind.NOT_EQUAL_TO)) {
+      // here we need a check if one operand is of primitive type and the other is not, as that will
+      // cause unboxing of the non-primitive operand
+      Type leftType = ASTHelpers.getType(leftOperand);
+      Type rightType = ASTHelpers.getType(rightOperand);
+      if (leftType == null || rightType == null) {
+        return Description.NO_MATCH;
+      }
+      if (leftType.isPrimitive() && !rightType.isPrimitive()) {
+        doUnboxingCheck(state, rightOperand);
+      } else if (rightType.isPrimitive() && !leftType.isPrimitive()) {
+        doUnboxingCheck(state, leftOperand);
+      }
+    } else {
+      // in all other cases, both operands should be checked
+      doUnboxingCheck(state, leftOperand, rightOperand);
     }
     return Description.NO_MATCH;
   }
 
   @Override
   public Description matchUnary(UnaryTree tree, VisitorState state) {
-    if (!withinAnnotatedCode(state)) {
-      return Description.NO_MATCH;
+    if (withinAnnotatedCode(state)) {
+      doUnboxingCheck(state, tree.getExpression());
     }
-    return doUnboxingCheck(state, tree.getExpression());
+    return Description.NO_MATCH;
   }
 
   @Override
   public Description matchConditionalExpression(
       ConditionalExpressionTree tree, VisitorState state) {
-    if (!withinAnnotatedCode(state)) {
-      return Description.NO_MATCH;
+    if (withinAnnotatedCode(state)) {
+      doUnboxingCheck(state, tree.getCondition());
     }
-    return doUnboxingCheck(state, tree.getCondition());
+    return Description.NO_MATCH;
   }
 
   @Override
   public Description matchIf(IfTree tree, VisitorState state) {
-    if (!withinAnnotatedCode(state)) {
-      return Description.NO_MATCH;
+    if (withinAnnotatedCode(state)) {
+      doUnboxingCheck(state, tree.getCondition());
     }
-    return doUnboxingCheck(state, tree.getCondition());
+    return Description.NO_MATCH;
   }
 
   @Override
   public Description matchWhileLoop(WhileLoopTree tree, VisitorState state) {
-    if (!withinAnnotatedCode(state)) {
-      return Description.NO_MATCH;
+    if (withinAnnotatedCode(state)) {
+      doUnboxingCheck(state, tree.getCondition());
     }
-    return doUnboxingCheck(state, tree.getCondition());
+    return Description.NO_MATCH;
   }
 
   @Override
   public Description matchForLoop(ForLoopTree tree, VisitorState state) {
-    if (!withinAnnotatedCode(state)) {
-      return Description.NO_MATCH;
-    }
-    if (tree.getCondition() != null) {
-      return doUnboxingCheck(state, tree.getCondition());
+    if (withinAnnotatedCode(state) && tree.getCondition() != null) {
+      doUnboxingCheck(state, tree.getCondition());
     }
     return Description.NO_MATCH;
   }
@@ -1511,13 +1521,14 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * if any expression has non-primitive type, we should check that it can't be null as it is
-   * getting unboxed
+   * Checks that all given expressions cannot be null, and for those that are {@code @Nullable},
+   * reports an unboxing error.
    *
+   * @param state the visitor state, used to report errors via {@link
+   *     VisitorState#reportMatch(Description)}
    * @param expressions expressions to check
-   * @return error Description if an error is found, otherwise NO_MATCH
    */
-  private Description doUnboxingCheck(VisitorState state, ExpressionTree... expressions) {
+  private void doUnboxingCheck(VisitorState state, ExpressionTree... expressions) {
     for (ExpressionTree tree : expressions) {
       Type type = ASTHelpers.getType(tree);
       if (type == null) {
@@ -1527,12 +1538,12 @@ public class NullAway extends BugChecker
         if (mayBeNullExpr(state, tree)) {
           final ErrorMessage errorMessage =
               new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
-          return errorBuilder.createErrorDescription(
-              errorMessage, buildDescription(tree), state, null);
+          state.reportMatch(
+              errorBuilder.createErrorDescription(
+                  errorMessage, buildDescription(tree), state, null));
         }
       }
     }
-    return Description.NO_MATCH;
   }
 
   /**
@@ -1571,12 +1582,8 @@ public class NullAway extends BugChecker
       for (int i = 0; i < formalParams.size(); i++) {
         VarSymbol param = formalParams.get(i);
         if (param.type.isPrimitive()) {
-          Description unboxingCheck = doUnboxingCheck(state, actualParams.get(i));
-          if (unboxingCheck != Description.NO_MATCH) {
-            return unboxingCheck;
-          } else {
-            argumentPositionNullness[i] = Nullness.NONNULL;
-          }
+          doUnboxingCheck(state, actualParams.get(i));
+          argumentPositionNullness[i] = Nullness.NONNULL;
         } else if (ASTHelpers.isSameType(
             param.type, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
           // Temporarily treat a Void argument type as if it were @Nullable Void. Handling of Void

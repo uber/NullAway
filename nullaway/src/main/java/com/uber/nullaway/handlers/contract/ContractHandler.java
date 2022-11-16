@@ -32,8 +32,6 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Types;
-import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
@@ -88,7 +86,10 @@ public class ContractHandler extends BaseNoOpHandler {
   private final Config config;
 
   private @Nullable NullAway analysis;
-  private @Nullable VisitorState state;
+
+  // Cached on visiting the top-level class and used for onCFGBuildPhase1AfterVisitMethodInvocation,
+  // where no VisitorState is otherwise available.
+  private @Nullable VisitorState storedVisitorState;
 
   private @Nullable TypeMirror runtimeExceptionType;
 
@@ -100,7 +101,7 @@ public class ContractHandler extends BaseNoOpHandler {
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     this.analysis = analysis;
-    this.state = state;
+    this.storedVisitorState = state;
   }
 
   @Override
@@ -108,7 +109,7 @@ public class ContractHandler extends BaseNoOpHandler {
       NullAwayCFGBuilder.NullAwayCFGTranslationPhaseOne phase,
       MethodInvocationTree tree,
       MethodInvocationNode originalNode) {
-    Preconditions.checkNotNull(state);
+    Preconditions.checkNotNull(storedVisitorState);
     Preconditions.checkNotNull(analysis);
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
     Preconditions.checkNotNull(callee);
@@ -116,11 +117,17 @@ public class ContractHandler extends BaseNoOpHandler {
       // This method currently handles contracts of the form `(true|false) -> fail`, other
       // contracts are handled by 'onDataflowVisitMethodInvocation' which has access to more
       // dataflow information.
-      if (!"fail".equals(getConsequent(clause, tree, analysis, state, callee))) {
+      if (!"fail".equals(getConsequent(clause, tree, analysis, storedVisitorState, callee))) {
         continue;
       }
       String[] antecedent =
-          getAntecedent(clause, tree, analysis, state, callee, originalNode.getArguments().size());
+          getAntecedent(
+              clause,
+              tree,
+              analysis,
+              storedVisitorState,
+              callee,
+              originalNode.getArguments().size());
       // Find a single value constraint that is not already known. If more than one argument with
       // unknown nullness affects the method's result, then ignore this clause.
       Node arg = null;
@@ -169,14 +176,12 @@ public class ContractHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Types types,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    Preconditions.checkNotNull(state);
     Preconditions.checkNotNull(analysis);
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
     Preconditions.checkNotNull(callee);
@@ -301,7 +306,7 @@ public class ContractHandler extends BaseNoOpHandler {
           argAntecedentNullness != null, "argAntecedentNullness should have been set");
       // The nullness of one argument is all that matters for the antecedent, let's negate the
       // consequent to fix the nullness of this argument.
-      AccessPath accessPath = AccessPath.getAccessPathForNodeNoMapGet(arg, apContext);
+      AccessPath accessPath = AccessPath.getAccessPathForNode(arg, state, apContext);
       if (accessPath == null) {
         continue;
       }

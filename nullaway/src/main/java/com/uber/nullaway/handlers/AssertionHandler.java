@@ -24,10 +24,9 @@ package com.uber.nullaway.handlers;
 
 import static com.uber.nullaway.Nullness.NONNULL;
 
+import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Types;
-import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.List;
@@ -46,8 +45,7 @@ public class AssertionHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Types types,
-      Context context,
+      VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
@@ -71,7 +69,7 @@ public class AssertionHandler extends BaseNoOpHandler {
         Symbol.MethodSymbol receiver_symbol = ASTHelpers.getSymbol(receiver_method.getTree());
         if (methodNameUtil.isMethodAssertThat(receiver_symbol)) {
           Node arg = receiver_method.getArgument(0);
-          AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(arg, apContext);
+          AccessPath ap = AccessPath.getAccessPathForNode(arg, state, apContext);
           if (ap != null) {
             bothUpdates.set(ap, NONNULL);
           }
@@ -86,7 +84,7 @@ public class AssertionHandler extends BaseNoOpHandler {
         || methodNameUtil.isMethodJunitAssertThat(callee)) {
       List<Node> args = node.getArguments();
       if (args.size() == 2 && methodNameUtil.isMatcherIsNotNull(args.get(1))) {
-        AccessPath ap = AccessPath.getAccessPathForNodeNoMapGet(args.get(0), apContext);
+        AccessPath ap = AccessPath.getAccessPathForNode(args.get(0), state, apContext);
         if (ap != null) {
           bothUpdates.set(ap, NONNULL);
         }

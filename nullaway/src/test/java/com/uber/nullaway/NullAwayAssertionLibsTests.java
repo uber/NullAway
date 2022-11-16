@@ -53,6 +53,29 @@ public class NullAwayAssertionLibsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void supportTruthAssertThatIsNotNull_MapKey() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "import javax.annotation.Nullable;",
+            "import static com.google.common.truth.Truth.assertThat;",
+            "class Test {",
+            "  private void foo(Map<String,Object> m) {",
+            "    assertThat(m.get(\"foo\")).isNotNull();",
+            "    m.get(\"foo\").toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void doNotSupportTruthAssertThatWhenDisabled() {
     makeTestHelperWithArgs(
             Arrays.asList(
