@@ -69,6 +69,7 @@ import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
+import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.StatementTree;
@@ -171,7 +172,8 @@ public class NullAway extends BugChecker
         BugChecker.MemberReferenceTreeMatcher,
         BugChecker.CompoundAssignmentTreeMatcher,
         BugChecker.SwitchTreeMatcher,
-        BugChecker.TypeCastTreeMatcher {
+        BugChecker.TypeCastTreeMatcher,
+        BugChecker.ParameterizedTypeTreeMatcher {
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
   static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
@@ -658,6 +660,12 @@ public class NullAway extends BugChecker
       // casting to a primitive type performs unboxing
       doUnboxingCheck(state, tree.getExpression());
     }
+    return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchParameterizedType(ParameterizedTypeTree tree, VisitorState state) {
+    GenericsChecks.checkInstantiationForParameterizedTypedTree(tree, state, this, config);
     return Description.NO_MATCH;
   }
 

@@ -292,4 +292,7 @@ public interface Config {
    *     similarly for {@code @RecentlyNonNull}
    */
   boolean acknowledgeAndroidRecent();
+
+  /** Should new checks based on JSpecify (like checks for generic types) be enabled? */
+  boolean isJSpecifyMode();
 }

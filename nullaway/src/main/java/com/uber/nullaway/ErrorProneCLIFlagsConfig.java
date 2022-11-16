@@ -53,6 +53,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
       EP_FL_NAMESPACE + ":CustomGeneratedCodeAnnotations";
   static final String FL_GENERATED_UNANNOTATED = EP_FL_NAMESPACE + ":TreatGeneratedAsUnannotated";
   static final String FL_ACKNOWLEDGE_ANDROID_RECENT = EP_FL_NAMESPACE + ":AcknowledgeAndroidRecent";
+  static final String FL_JSPECIFY_MODE = EP_FL_NAMESPACE + ":JSpecifyMode";
   static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
   static final String FL_NULLABLE_ANNOT = EP_FL_NAMESPACE + ":CustomNullableAnnotations";
@@ -188,6 +189,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
         flags.getBoolean(FL_HANDLE_TEST_ASSERTION_LIBRARIES).orElse(false);
     treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
     acknowledgeAndroidRecent = flags.getBoolean(FL_ACKNOWLEDGE_ANDROID_RECENT).orElse(false);
+    jspecifyMode = flags.getBoolean(FL_JSPECIFY_MODE).orElse(false);
     assertsEnabled = flags.getBoolean(FL_ASSERTS_ENABLED).orElse(false);
     fieldAnnotPattern =
         getPackagePattern(

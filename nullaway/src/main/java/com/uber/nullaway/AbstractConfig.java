@@ -83,6 +83,8 @@ public abstract class AbstractConfig implements Config {
 
   protected boolean acknowledgeAndroidRecent;
 
+  protected boolean jspecifyMode;
+
   protected ImmutableSet<MethodClassAndName> knownInitializers;
 
   protected ImmutableSet<String> excludedClassAnnotations;
@@ -338,5 +340,10 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean acknowledgeAndroidRecent() {
     return acknowledgeAndroidRecent;
+  }
+
+  @Override
+  public boolean isJSpecifyMode() {
+    return jspecifyMode;
   }
 }
