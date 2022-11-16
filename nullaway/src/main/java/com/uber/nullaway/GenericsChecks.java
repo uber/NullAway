@@ -73,13 +73,6 @@ public final class GenericsChecks {
         }
       }
     }
-    // recursive check for nested parameterized types
-    for (int i = 0; i < typeArguments.size(); i++) {
-      if (typeArguments.get(i) instanceof ParameterizedTypeTree) {
-        checkInstantiationForParameterizedTypedTree(
-            (ParameterizedTypeTree) typeArguments.get(i), state, analysis, config);
-      }
-    }
   }
 
   private static void invalidInstantiationError(Tree tree, VisitorState state, NullAway analysis) {
