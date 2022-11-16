@@ -2,18 +2,16 @@ package com.uber.nullaway;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.AnnotatedTypeTree;
-import com.sun.source.tree.AnnotationTree;
-import com.sun.source.tree.ParameterizedTypeTree;
-import com.sun.source.tree.Tree;
+import com.sun.source.tree.*;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Methods for performing checks related to generic types and nullability. */
-public final class GenericsChecks {
+public final class GenericsChecks implements AnnotatedTypeWrapper {
 
   private GenericsChecks() {
     // just utility methods
@@ -90,4 +88,20 @@ public final class GenericsChecks {
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(tree), state, null));
   }
+
+  @Override
+  public Set<Integer> getNullableArgumentIndices() {
+    return null;
+  }
+
+  @Override
+  public List<AnnotatedTypeWrapper> getTypeArgumentWrappers() {
+    return null;
+  }
+
+  @Override
+  public void checkSameTypeArgNullability(
+      AnnotatedTypeWrapper lhsWrapper, AnnotatedTypeWrapper rhsWrapper) {}
+
+  public static void checkInstantiationForAssignments(AssignmentTree tree) {}
 }
