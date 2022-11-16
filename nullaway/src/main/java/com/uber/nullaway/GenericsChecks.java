@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 /** Methods for performing checks related to generic types and nullability. */
-public class GenericsChecks {
+public final class GenericsChecks {
 
   private GenericsChecks() {
     // just utility methods

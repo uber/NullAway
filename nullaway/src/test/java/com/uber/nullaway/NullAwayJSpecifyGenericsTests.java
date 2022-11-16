@@ -17,9 +17,10 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    static class NonNullTypeParam<E> {}",
             "    static class NullableTypeParam<E extends @Nullable Object> {}",
             "    // BUG: Diagnostic contains: Generic type parameter",
-            "    static void testBadNonNull(NonNullTypeParam<@Nullable String> t) {",
+            "    static void testBadNonNull(NonNullTypeParam<@Nullable String> t1) {",
             "        // BUG: Diagnostic contains: Generic type parameter",
             "        NonNullTypeParam<@Nullable String> t2 = null;",
+            "        NullableTypeParam<@Nullable String> t3 = null;",
             "    }",
             "}")
         .doTest();
@@ -69,10 +70,11 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    static class InvalidSubclass extends NonNullTypeParam<@Nullable String> {}",
             "    // BUG: Diagnostic contains: Generic type parameter",
             "     static class PartiallyInvalidSubclass extends MixedTypeParam<@Nullable String, String, String, String> {}",
-            "     static class ValidSubclass extends MixedTypeParam<String, @Nullable String, @Nullable String, String> {}",
+            "     static class ValidSubclass1 extends MixedTypeParam<String, @Nullable String, @Nullable String, String> {}",
             "     static class PartiallyInvalidSubclass2 extends MixedTypeParam<String, String, String, ",
             "         // BUG: Diagnostic contains: Generic type parameter",
             "         @Nullable String> {}",
+            "     static class ValidSubclass2 extends MixedTypeParam<String, String, String, String> {}",
             "}")
         .doTest();
   }
@@ -104,8 +106,6 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "package com.uber;",
             "import org.jspecify.nullness.Nullable;",
             "class Test {",
-            "    static class NonNullTypeParam<E> {}",
-            "    static class NullableTypeParam<E extends @Nullable Object> {}",
             "    static interface NonNullTypeParamInterface<E>{}",
             "    static interface NullableTypeParamInterface<E extends @Nullable Object>{}",
             "    // BUG: Diagnostic contains: Generic type parameter",
@@ -149,8 +149,8 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    static class NonNullTypeParam<E> {}",
             "    static class NullableTypeParam<E extends @Nullable Object> {}",
             "    // BUG: Diagnostic contains: Generic type parameter",
-            "    static NonNullTypeParam<@Nullable String> testBadNonNull(NonNullTypeParam<String> t) {",
-            "          return t;",
+            "    static NonNullTypeParam<@Nullable String> testBadNonNull() {",
+            "          return new NonNullTypeParam<String>();",
             "    }",
             "    static NullableTypeParam<@Nullable String> testOKNull() {",
             "          return new NullableTypeParam<@Nullable String>();",
