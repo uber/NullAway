@@ -262,7 +262,6 @@ public class NullAway extends BugChecker
    * <p>TODO remove this once NullAway requires JDK 11
    */
   @Nullable private final Class<?> moduleElementClass;
-
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
@@ -463,7 +462,12 @@ public class NullAway extends BugChecker
     if (lhsType != null && lhsType.isPrimitive()) {
       doUnboxingCheck(state, tree.getExpression());
     }
-    GenericsChecks.checkInstantiationForAssignments(tree);
+    // generics check
+    if (lhsType.getTypeArguments().length() > 0) {
+      GenericsChecks genericsChecks = new GenericsChecks();
+      genericsChecks.checkInstantiationForAssignments(tree, config, state, this);
+    }
+
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
     if (assigned == null || assigned.getKind() != ElementKind.FIELD) {
       // not a field of nullable type
@@ -666,7 +670,8 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchParameterizedType(ParameterizedTypeTree tree, VisitorState state) {
-    GenericsChecks.checkInstantiationForParameterizedTypedTree(tree, state, this, config);
+    GenericsChecks genericsChecks = new GenericsChecks();
+    genericsChecks.checkInstantiationForParameterizedTypedTree(tree, state, this, config);
     return Description.NO_MATCH;
   }
 

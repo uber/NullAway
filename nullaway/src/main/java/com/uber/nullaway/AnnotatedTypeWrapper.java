@@ -1,16 +1,13 @@
 package com.uber.nullaway;
 
-import com.sun.source.tree.ParameterizedTypeTree;
-import java.util.List;
-import java.util.Set;
+import com.google.errorprone.VisitorState;
+import com.sun.source.tree.AssignmentTree;
+import java.util.HashSet;
 
-public interface AnnotatedTypeWrapper {
-  ParameterizedTypeTree tree = null;
+public interface AnnotatedTypeWrapper<T1, T2> {
 
-  Set<Integer> getNullableArgumentIndices();
+  public HashSet<Integer> getNullableTypeArgIndices(T2 wrapper, Config config);
 
-  List<AnnotatedTypeWrapper> getTypeArgumentWrappers();
-
-  void checkSameTypeArgNullability(
-      AnnotatedTypeWrapper lhsWrapper, AnnotatedTypeWrapper rhsWrapper);
+  public void checkAssignmentTypeMatch(
+      AssignmentTree tree, T1 lhs, T2 rhs, Config config, VisitorState state, NullAway analysis);
 }

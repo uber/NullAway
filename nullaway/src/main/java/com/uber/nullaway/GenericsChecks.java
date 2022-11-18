@@ -2,18 +2,23 @@ package com.uber.nullaway;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.*;
+import com.sun.source.tree.AnnotatedTypeTree;
+import com.sun.source.tree.AnnotationTree;
+import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.ParameterizedTypeTree;
+import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.tree.JCTree;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /** Methods for performing checks related to generic types and nullability. */
-public final class GenericsChecks implements AnnotatedTypeWrapper {
+public final class GenericsChecks {
 
-  private GenericsChecks() {
+  public GenericsChecks() {
     // just utility methods
   }
 
@@ -26,7 +31,7 @@ public final class GenericsChecks implements AnnotatedTypeWrapper {
    * @param analysis the analysis object
    * @param config the analysis config
    */
-  public static void checkInstantiationForParameterizedTypedTree(
+  public void checkInstantiationForParameterizedTypedTree(
       ParameterizedTypeTree tree, VisitorState state, NullAway analysis, Config config) {
     if (!config.isJSpecifyMode()) {
       return;
@@ -75,7 +80,7 @@ public final class GenericsChecks implements AnnotatedTypeWrapper {
     }
   }
 
-  private static void invalidInstantiationError(
+  void invalidInstantiationError(
       Tree tree, Type baseType, Type baseTypeVariable, VisitorState state, NullAway analysis) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
@@ -89,19 +94,140 @@ public final class GenericsChecks implements AnnotatedTypeWrapper {
             errorMessage, analysis.buildDescription(tree), state, null));
   }
 
+  @SuppressWarnings("UnusedVariable")
+  public void checkInstantiationForAssignments(
+      AssignmentTree tree, Config config, VisitorState state, NullAway analysis) {
+    Tree lhsTree = tree.getVariable();
+    Tree rhsTree = tree.getExpression();
+    if (rhsTree.getClass().equals(JCTree.JCNewClass.class)) {
+      ParameterizedTypeTreeNullableArgIndices typeWrapper =
+          new ParameterizedTypeTreeNullableArgIndices();
+      typeWrapper.checkAssignmentTypeMatch(
+          tree,
+          ASTHelpers.getType(lhsTree),
+          (ParameterizedTypeTree) ((JCTree.JCNewClass) rhsTree).getIdentifier(),
+          config,
+          state,
+          analysis);
+    } else {
+      NormalTypeTreeNullableTypeArgIndices typeWrapper = new NormalTypeTreeNullableTypeArgIndices();
+      typeWrapper.checkAssignmentTypeMatch(
+          tree, ASTHelpers.getType(lhsTree), ASTHelpers.getType(rhsTree), config, state, analysis);
+    }
+  }
+}
+
+class ParameterizedTypeTreeNullableArgIndices
+    implements AnnotatedTypeWrapper<Type, ParameterizedTypeTree> {
+  @SuppressWarnings("UnusedVariable")
   @Override
-  public Set<Integer> getNullableArgumentIndices() {
-    return null;
+  public HashSet<Integer> getNullableTypeArgIndices(ParameterizedTypeTree tree, Config config) {
+    List<? extends Tree> typeArguments = tree.getTypeArguments();
+    HashSet<Integer> nullableTypeArgIndices = new HashSet<Integer>();
+    for (int i = 0; i < typeArguments.size(); i++) {
+      if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
+        JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
+        for (JCTree.JCAnnotation annotation : annotatedType.getAnnotations()) {
+          Attribute.Compound attribute = annotation.attribute;
+          if (attribute.toString().equals("@org.jspecify.nullness.Nullable")) {
+            nullableTypeArgIndices.add(i);
+            break;
+          }
+        }
+      }
+    }
+    return nullableTypeArgIndices;
   }
 
   @Override
-  public List<AnnotatedTypeWrapper> getTypeArgumentWrappers() {
-    return null;
+  public void checkAssignmentTypeMatch(
+      AssignmentTree tree,
+      Type lhs,
+      ParameterizedTypeTree rhs,
+      Config config,
+      VisitorState state,
+      NullAway analysis) {
+    NormalTypeTreeNullableTypeArgIndices normalTypeTreeNullableTypeArgIndices =
+        new NormalTypeTreeNullableTypeArgIndices();
+    HashSet<Integer> lhsNullableArgIndices =
+        normalTypeTreeNullableTypeArgIndices.getNullableTypeArgIndices(lhs, config);
+    HashSet<Integer> rhsNullableArgIndices = getNullableTypeArgIndices(rhs, config);
+    if (!lhsNullableArgIndices.equals(rhsNullableArgIndices)) {
+      GenericsChecks genericsChecks = new GenericsChecks();
+      genericsChecks.invalidInstantiationError(tree, lhs.baseType(), lhs, state, analysis);
+      return;
+    } else {
+      // check for nested types if an error is not already generated
+      List<? extends Tree> rhsTypeArguments = rhs.getTypeArguments();
+      List<Type> lhsTypeArguments = lhs.getTypeArguments();
+
+      for (int i = 0; i < rhsTypeArguments.size(); i++) {
+        if (rhsTypeArguments.get(i).getClass().equals(JCTree.JCTypeApply.class)) {
+          ParameterizedTypeTree parameterizedTypeTreeForTypeArgument =
+              (ParameterizedTypeTree) rhsTypeArguments.get(i);
+          Type argumentType = ASTHelpers.getType(parameterizedTypeTreeForTypeArgument);
+          if (argumentType != null
+              && argumentType.getTypeArguments() != null
+              && argumentType.getTypeArguments().length() > 0) { // Nested generics
+            checkAssignmentTypeMatch(
+                tree,
+                lhsTypeArguments.get(i),
+                parameterizedTypeTreeForTypeArgument,
+                config,
+                state,
+                analysis);
+          }
+        }
+      }
+    }
+  }
+}
+
+class NormalTypeTreeNullableTypeArgIndices implements AnnotatedTypeWrapper<Type, Type> {
+
+  @SuppressWarnings("UnusedVariable")
+  @Override
+  public HashSet<Integer> getNullableTypeArgIndices(Type type, Config config) {
+    HashSet<Integer> nullableTypeArgIndices = new HashSet<Integer>();
+    List<Type> typeArguments = type.getTypeArguments();
+    for (int index = 0; index < typeArguments.size(); index++) {
+      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+          typeArguments.get(index).getAnnotationMirrors();
+      boolean hasNullableAnnotation =
+          Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+      if (hasNullableAnnotation) {
+        nullableTypeArgIndices.add(index);
+      }
+    }
+    return nullableTypeArgIndices;
   }
 
   @Override
-  public void checkSameTypeArgNullability(
-      AnnotatedTypeWrapper lhsWrapper, AnnotatedTypeWrapper rhsWrapper) {}
+  public void checkAssignmentTypeMatch(
+      AssignmentTree tree,
+      Type lhs,
+      Type rhs,
+      Config config,
+      VisitorState state,
+      NullAway analysis) {
+    HashSet<Integer> lhsNullableArgIndices = getNullableTypeArgIndices(lhs, config);
+    HashSet<Integer> rhsNullableArgIndices = getNullableTypeArgIndices(rhs, config);
 
-  public static void checkInstantiationForAssignments(AssignmentTree tree) {}
+    if (!lhsNullableArgIndices.equals(rhsNullableArgIndices)) {
+      GenericsChecks genericsChecks = new GenericsChecks();
+      genericsChecks.invalidInstantiationError(tree, lhs.baseType(), lhs, state, analysis);
+      return;
+    } else {
+      List<Type> lhsTypeArgs = lhs.getTypeArguments();
+      List<Type> rhsTypeArgs = rhs.getTypeArguments();
+      // if an error is not already generated check for nested types
+      for (int i = 0; i < lhsTypeArgs.size(); i++) {
+        // nested generics
+        if (lhsTypeArgs.get(i).getTypeArguments().length() > 0) {
+          checkAssignmentTypeMatch(
+              tree, lhsTypeArgs.get(i), rhsTypeArgs.get(i), config, state, analysis);
+        }
+      }
+    }
+  }
 }
