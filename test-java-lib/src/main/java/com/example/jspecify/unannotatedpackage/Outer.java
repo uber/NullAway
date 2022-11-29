@@ -1,6 +1,6 @@
 package com.example.jspecify.unannotatedpackage;
 
-import org.jspecify.nullness.NullMarked;
+import org.jspecify.annotations.NullMarked;
 
 public class Outer {
   @NullMarked

@@ -196,7 +196,7 @@ public class NullAway extends BugChecker
     FULLY_UNMARKED,
     /**
      * class has a mix of annotatedness, depending on presence of {@link
-     * org.jspecify.nullness.NullMarked} annotations
+     * org.jspecify.annotations.NullMarked} annotations
      */
     PARTIALLY_MARKED
   }
