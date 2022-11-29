@@ -67,7 +67,7 @@ public final class CodeAnnotationInfo {
   /**
    * Checks if a symbol comes from an annotated package, as determined by either configuration flags
    * (e.g. {@code -XepOpt:NullAway::AnnotatedPackages}) or package level annotations (e.g. {@code
-   * org.jspecify.nullness.NullMarked}).
+   * org.jspecify.annotations.NullMarked}).
    *
    * @param outermostClassSymbol symbol for class (must be an outermost class)
    * @param config NullAway config

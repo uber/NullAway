@@ -1,6 +1,6 @@
 package com.example.jspecify.unannotatedpackage;
 
-import org.jspecify.nullness.NullMarked;
+import org.jspecify.annotations.NullMarked;
 
 @NullMarked
 public class TopLevel {

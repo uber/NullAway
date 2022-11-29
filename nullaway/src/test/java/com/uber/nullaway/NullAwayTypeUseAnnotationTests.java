@@ -9,7 +9,7 @@ public class NullAwayTypeUseAnnotationTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "import java.util.function.Supplier;",
             "public class Test {",
             "  public static <R> @Nullable Supplier<@Nullable R> getNullableSupplierOfNullable() {",

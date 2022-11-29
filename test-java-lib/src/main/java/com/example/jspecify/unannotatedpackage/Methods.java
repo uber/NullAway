@@ -1,7 +1,7 @@
 package com.example.jspecify.unannotatedpackage;
 
-import org.jspecify.nullness.NullMarked;
-import org.jspecify.nullness.NullUnmarked;
+import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.NullUnmarked;
 
 public class Methods {
   @NullMarked
