@@ -22,6 +22,18 @@ public final class GenericsChecks {
     // just utility methods
   }
 
+  @SuppressWarnings("UnusedVariable")
+  public Type supertypeMatchingLHS(Type.ClassType lhsType, Type.ClassType rhsType) {
+    List<Type> listOfDirectSuperTypes = rhsType.all_interfaces_field;
+
+    for (int i = 0; i < listOfDirectSuperTypes.size(); i++) {
+      if (listOfDirectSuperTypes.get(i).tsym.equals(lhsType.tsym)) {
+        return listOfDirectSuperTypes.get(i);
+      }
+    }
+    return lhsType;
+  }
+
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
    * variables that have a {@code @Nullable} upper bound.
@@ -99,7 +111,17 @@ public final class GenericsChecks {
       AssignmentTree tree, Config config, VisitorState state, NullAway analysis) {
     Tree lhsTree = tree.getVariable();
     Tree rhsTree = tree.getExpression();
-    if (rhsTree.getClass().equals(JCTree.JCNewClass.class)) {
+    if (((Type.ClassType) ASTHelpers.getType(rhsTree)).tsym
+        != ((Type.ClassType) ASTHelpers.getType(lhsTree)).tsym) {
+
+      Type matchingLHSType =
+          supertypeMatchingLHS(
+              (Type.ClassType) ASTHelpers.getType(lhsTree),
+              (Type.ClassType) ASTHelpers.getType(rhsTree));
+      NormalTypeTreeNullableTypeArgIndices typeWrapper = new NormalTypeTreeNullableTypeArgIndices();
+      typeWrapper.checkAssignmentTypeMatch(
+          tree, ASTHelpers.getType(lhsTree), matchingLHSType, config, state, analysis);
+    } else if (rhsTree.getClass().equals(JCTree.JCNewClass.class)) {
       ParameterizedTypeTreeNullableArgIndices typeWrapper =
           new ParameterizedTypeTreeNullableArgIndices();
       typeWrapper.checkAssignmentTypeMatch(

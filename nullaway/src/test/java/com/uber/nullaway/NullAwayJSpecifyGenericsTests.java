@@ -240,6 +240,25 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void superTypeAssignmentChecks() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.nullness.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object>{}",
+            "  class FnImpl implements Fn<@Nullable String, @Nullable String>{}",
+            " void sampleError() {",
+            "  Fn<@Nullable String, String> f = null;",
+            "    // BUG: Diagnostic contains: Generic type parameter",
+            "  f = new FnImpl();",
+            " }",
+            "  }")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
