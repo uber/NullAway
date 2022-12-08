@@ -41,21 +41,21 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
-      - name: Build and test using Gradle, Java 8, and Error Prone ${{ matrix.epVersion }}
+      - name: Build and test using Java 8 and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: gradle/gradle-build-action@v2
         with:
           arguments: build
         if: matrix.java == '8'
-      - name: Build and test using Gradle, Java 11, and Error Prone ${{ matrix.epVersion }}
+      - name: Build and test using Java 11 and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: gradle/gradle-build-action@v2
         with:
           arguments: verGJF build
         if: matrix.java == '11'
-      - name: Build and test using Gradle, Java 17, and Error Prone ${{ matrix.epVersion }}
+      - name: Build and test using Java 17 and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: gradle/gradle-build-action@v2
