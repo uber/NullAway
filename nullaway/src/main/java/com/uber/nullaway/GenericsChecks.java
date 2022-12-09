@@ -36,11 +36,11 @@ public final class GenericsChecks {
     // check for the super classes and interfaces implemented by the super classes
     Type current_super_type = rhsType;
     while (true) {
-      if (current_super_type == null) {
-        break;
-      }
       if (ASTHelpers.isSameType(current_super_type, lhsType, state)) {
         return current_super_type;
+      }
+      if (current_super_type.getClass().equals(Object.class)) {
+        break;
       }
       current_super_type = ((Type.ClassType) current_super_type).supertype_field;
     }
