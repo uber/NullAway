@@ -1,5 +1,18 @@
 Changelog
 =========
+Version 0.10.5
+--------------
+* Report more unboxing errors in a single compilation (#686)
+* Remove AccessPath.getAccessPathForNodeNoMapGet (#687)
+* NullAwayInfer/Annotator data serialization support [experimental]
+  - Fix Serialization: Split field initialization region into smaller regions (#658)
+  - Add serialization format version to fix serialization output (#688)
+  - Fix serialization field region computation bug fix (#689)
+* EXPERIMENTAL support for JSpecify's 0.3.0 annotations
+  - [Jspecify] Update tests to JSpecify 0.3.0-alpha-1 (#673)
+  - [Jspecify] Add checks for proper JSpecify generic type instantiations (#680)
+  - (Note: Annotation support for generics is not complete/useful just yet)
+
 Version 0.10.4
 --------------
 (Bug fix release)

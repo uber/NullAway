@@ -12,7 +12,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "    static class NonNullTypeParam<E> {}",
             "    static class NullableTypeParam<E extends @Nullable Object> {}",
@@ -32,7 +32,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "    static class NonNullTypeParam<E> {}",
             "    static class NullableTypeParam<E extends @Nullable Object> {}",
@@ -62,7 +62,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "    static class MixedTypeParam<E1, E2 extends @Nullable Object, E3 extends @Nullable Object, E4> {}",
             "    // BUG: Diagnostic contains: Generic type parameter",
@@ -82,7 +82,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "    static class NonNullTypeParam<E> {}",
             "    static class NullableTypeParam<E extends @Nullable Object> {}",
@@ -101,7 +101,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "    static interface NonNullTypeParamInterface<E>{}",
             "    static interface NullableTypeParamInterface<E extends @Nullable Object>{}",
@@ -118,7 +118,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "    static class NonNullTypeParam<E> {}",
             "    static class NullableTypeParam<E extends @Nullable Object> {}",
@@ -141,7 +141,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "    static class NonNullTypeParam<E> {}",
             "    static class NullableTypeParam<E extends @Nullable Object> {}",
@@ -163,7 +163,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "Test.java",
             "package com.uber;",
             "import lombok.NonNull;",
-            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             " static class NonNullTypeParam<E> {}",
             " static class DifferentAnnotTypeParam1<E extends @NonNull Object> {}",
@@ -187,7 +187,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "  static class NonNullTypeParam<E> { }",
             "  static void instOf(Object o) {",
@@ -197,7 +197,6 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
-
   @Test
   public void genericsChecksForAssignments() {
     makeHelper()
@@ -258,7 +257,6 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  }")
         .doTest();
   }
-
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

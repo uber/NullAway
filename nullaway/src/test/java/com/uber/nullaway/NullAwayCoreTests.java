@@ -565,7 +565,7 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "import java.util.Map;",
             "import java.util.function.Function;",
             // Need JSpecify (vs javax) for annotating generics
-            "import org.jspecify.nullness.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "   Object testComputeIfAbsent(String key, Function<String, Object> f, Map<String, Object> m){",
             "     m.computeIfAbsent(key, f);",

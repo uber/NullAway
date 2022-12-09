@@ -196,7 +196,7 @@ public class NullAway extends BugChecker
     FULLY_UNMARKED,
     /**
      * class has a mix of annotatedness, depending on presence of {@link
-     * org.jspecify.nullness.NullMarked} annotations
+     * org.jspecify.annotations.NullMarked} annotations
      */
     PARTIALLY_MARKED
   }
@@ -670,8 +670,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchParameterizedType(ParameterizedTypeTree tree, VisitorState state) {
-    GenericsChecks genericsChecks = new GenericsChecks();
-    genericsChecks.checkInstantiationForParameterizedTypedTree(tree, state, this, config);
+    GenericsChecks.checkInstantiationForParameterizedTypedTree(tree, state, this, config);
     return Description.NO_MATCH;
   }
 

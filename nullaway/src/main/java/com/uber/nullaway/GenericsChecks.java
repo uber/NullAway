@@ -18,10 +18,6 @@ import java.util.Map;
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
 
-  public GenericsChecks() {
-    // just utility methods
-  }
-
   @SuppressWarnings("UnusedVariable")
   public Type supertypeMatchingLHS(Type.ClassType lhsType, Type.ClassType rhsType) {
     List<Type> listOfDirectSuperTypes = rhsType.all_interfaces_field;
@@ -34,6 +30,11 @@ public final class GenericsChecks {
     return lhsType;
   }
 
+  private GenericsChecks() {
+    // just utility methods
+  }
+
+
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
    * variables that have a {@code @Nullable} upper bound.
@@ -43,7 +44,8 @@ public final class GenericsChecks {
    * @param analysis the analysis object
    * @param config the analysis config
    */
-  public void checkInstantiationForParameterizedTypedTree(
+
+  public static void checkInstantiationForParameterizedTypedTree(
       ParameterizedTypeTree tree, VisitorState state, NullAway analysis, Config config) {
     if (!config.isJSpecifyMode()) {
       return;
@@ -92,7 +94,8 @@ public final class GenericsChecks {
     }
   }
 
-  void invalidInstantiationError(
+  private static void invalidInstantiationError(
+
       Tree tree, Type baseType, Type baseTypeVariable, VisitorState state, NullAway analysis) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
@@ -252,4 +255,4 @@ class NormalTypeTreeNullableTypeArgIndices implements AnnotatedTypeWrapper<Type,
       }
     }
   }
-}
+
