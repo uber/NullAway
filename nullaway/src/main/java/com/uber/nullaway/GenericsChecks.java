@@ -17,34 +17,34 @@ import java.util.Map;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
+  private GenericsChecks() {
+    // just utility methods
+  }
 
   @SuppressWarnings("UnusedVariable")
-  public static Type supertypeMatchingLHS(Type.ClassType lhsType, Type.ClassType rhsType) {
+  public static Type supertypeMatchingLHS(
+      Type.ClassType lhsType, Type.ClassType rhsType, VisitorState state) {
     // interfaces
     List<Type> listOfDirectSuperTypes = rhsType.all_interfaces_field;
-
-    for (int i = 0; i < listOfDirectSuperTypes.size(); i++) {
-      if (listOfDirectSuperTypes.get(i).tsym.equals(lhsType.tsym)) {
-        return listOfDirectSuperTypes.get(i);
+    if (listOfDirectSuperTypes != null) {
+      for (int i = 0; i < listOfDirectSuperTypes.size(); i++) {
+        if (ASTHelpers.isSameType(listOfDirectSuperTypes.get(i), lhsType, state)) {
+          return listOfDirectSuperTypes.get(i);
+        }
       }
     }
-
     // check for the super classes and interfaces implemented by the super classes
     Type current_super_type = rhsType;
     while (true) {
-      current_super_type = ((Type.ClassType) current_super_type).supertype_field;
       if (current_super_type == null) {
         break;
       }
-      if (current_super_type.tsym.equals(lhsType.tsym)) {
+      if (ASTHelpers.isSameType(current_super_type, lhsType, state)) {
         return current_super_type;
       }
+      current_super_type = ((Type.ClassType) current_super_type).supertype_field;
     }
     return rhsType.baseType();
-  }
-
-  private GenericsChecks() {
-    // just utility methods
   }
 
   /**
@@ -130,7 +130,8 @@ public final class GenericsChecks {
       Type matchingLHSType =
           supertypeMatchingLHS(
               (Type.ClassType) ASTHelpers.getType(lhsTree),
-              (Type.ClassType) ASTHelpers.getType(rhsTree));
+              (Type.ClassType) ASTHelpers.getType(rhsTree),
+              state);
       NormalTypeTreeNullableTypeArgIndices typeWrapper = new NormalTypeTreeNullableTypeArgIndices();
       typeWrapper.checkAssignmentTypeMatch(
           tree, ASTHelpers.getType(lhsTree), matchingLHSType, config, state, analysis);
