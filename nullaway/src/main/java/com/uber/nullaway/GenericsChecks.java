@@ -20,6 +20,7 @@ public final class GenericsChecks {
 
   @SuppressWarnings("UnusedVariable")
   public static Type supertypeMatchingLHS(Type.ClassType lhsType, Type.ClassType rhsType) {
+    // interfaces
     List<Type> listOfDirectSuperTypes = rhsType.all_interfaces_field;
 
     for (int i = 0; i < listOfDirectSuperTypes.size(); i++) {
@@ -27,7 +28,19 @@ public final class GenericsChecks {
         return listOfDirectSuperTypes.get(i);
       }
     }
-    return lhsType;
+
+    // check for the super classes and interfaces implemented by the super classes
+    Type current_super_type = rhsType;
+    while (true) {
+      current_super_type = ((Type.ClassType) current_super_type).supertype_field;
+      if (current_super_type == null) {
+        break;
+      }
+      if (current_super_type.tsym.equals(lhsType.tsym)) {
+        return current_super_type;
+      }
+    }
+    return rhsType.baseType();
   }
 
   private GenericsChecks() {

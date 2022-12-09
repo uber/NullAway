@@ -279,6 +279,33 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void superTypeAssignmentChecksMultipleLevelInheritance() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.nullness.Nullable;",
+            "class Test {",
+            "  class SuperClassC<P1 extends @Nullable Object>{}",
+            "  class SuperClassB<P extends @Nullable Object> extends SuperClassC<P>{}",
+            "  class SubClassA<P extends @Nullable Object> extends SuperClassB<P>{}",
+            "  class FnImpl1 extends SubClassA<String>{}",
+            "  class FnImpl2 extends SubClassA<@Nullable String>{}",
+            "  void sampleError() {",
+            "  SuperClassC<@Nullable String> f = null;",
+            "    // BUG: Diagnostic contains: Generic type parameter",
+            "    f = new FnImpl1();",
+            "   }",
+            "  void sampleValidInstantiation() {",
+            "  SuperClassC<@Nullable String> f = null;",
+            "    // No error",
+            "    f = new FnImpl2();",
+            "  }",
+            "  }")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
