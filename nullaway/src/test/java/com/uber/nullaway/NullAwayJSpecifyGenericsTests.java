@@ -306,6 +306,32 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void NestedAssignmentChecks() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.nullness.Nullable;",
+            "class Test {",
+            "  class A<P1 extends @Nullable Object, P2 extends @Nullable Object>{}",
+            "  class D<P extends @Nullable Object> {}",
+            "  class B<P extends @Nullable Object> extends D<P>{}",
+            "  class C<p extends @Nullable Object>{}",
+            " void sampleError1() {",
+            "  C<B<String>> f = null;",
+            "    // BUG: Diagnostic contains: Generic type parameter",
+            "  f = new C<B<@Nullable String>>();",
+            " }",
+            " void sampleError2() {",
+            "  D<C<String>> f = null;",
+            "    // BUG: Diagnostic contains: Generic type parameter",
+            "  f = new B<C<@Nullable String>>();",
+            " }",
+            "  }")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

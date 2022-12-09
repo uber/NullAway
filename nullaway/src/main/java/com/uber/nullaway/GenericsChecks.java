@@ -245,6 +245,10 @@ class NormalTypeTreeNullableTypeArgIndices implements AnnotatedTypeWrapper<Type,
       Config config,
       VisitorState state,
       NullAway analysis) {
+    // if lhs and rhs are not of the same type check for the super types first
+    if (!ASTHelpers.isSameType(lhs, rhs, state)) {
+      rhs = GenericsChecks.supertypeMatchingLHS((Type.ClassType) lhs, (Type.ClassType) rhs, state);
+    }
     HashSet<Integer> lhsNullableArgIndices = getNullableTypeArgIndices(lhs, config);
     HashSet<Integer> rhsNullableArgIndices = getNullableTypeArgIndices(rhs, config);
 
