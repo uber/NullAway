@@ -197,6 +197,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
   @Test
   public void genericsChecksForAssignments() {
     makeHelper()
@@ -240,7 +241,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void superTypeAssignmentChecks() {
+  public void superTypeAssignmentChecksSingleInterface() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -257,6 +258,27 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  }")
         .doTest();
   }
+
+  @Test
+  public void superTypeAssignmentChecksMultipleInterface() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.nullness.Nullable;",
+            "class Test {",
+            "  interface Fn1<P1 extends @Nullable Object, P2 extends @Nullable Object>{}",
+            "  interface Fn2<P extends @Nullable Object>{}",
+            "  class FnImpl implements Fn1<@Nullable String, @Nullable String>, Fn2<String> {}",
+            " void sampleError() {",
+            "  Fn2<@Nullable String> f = null;",
+            "    // BUG: Diagnostic contains: Generic type parameter",
+            "  f = new FnImpl();",
+            " }",
+            "  }")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

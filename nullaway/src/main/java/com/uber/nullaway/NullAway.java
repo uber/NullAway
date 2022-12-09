@@ -464,8 +464,7 @@ public class NullAway extends BugChecker
     }
     // generics check
     if (lhsType.getTypeArguments().length() > 0) {
-      GenericsChecks genericsChecks = new GenericsChecks();
-      genericsChecks.checkInstantiationForAssignments(tree, config, state, this);
+      GenericsChecks.checkInstantiationForAssignments(tree, config, state, this);
     }
 
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());

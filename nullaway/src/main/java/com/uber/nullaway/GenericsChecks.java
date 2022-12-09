@@ -19,7 +19,7 @@ import java.util.Map;
 public final class GenericsChecks {
 
   @SuppressWarnings("UnusedVariable")
-  public Type supertypeMatchingLHS(Type.ClassType lhsType, Type.ClassType rhsType) {
+  public static Type supertypeMatchingLHS(Type.ClassType lhsType, Type.ClassType rhsType) {
     List<Type> listOfDirectSuperTypes = rhsType.all_interfaces_field;
 
     for (int i = 0; i < listOfDirectSuperTypes.size(); i++) {
@@ -34,7 +34,6 @@ public final class GenericsChecks {
     // just utility methods
   }
 
-
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
    * variables that have a {@code @Nullable} upper bound.
@@ -44,7 +43,6 @@ public final class GenericsChecks {
    * @param analysis the analysis object
    * @param config the analysis config
    */
-
   public static void checkInstantiationForParameterizedTypedTree(
       ParameterizedTypeTree tree, VisitorState state, NullAway analysis, Config config) {
     if (!config.isJSpecifyMode()) {
@@ -94,8 +92,7 @@ public final class GenericsChecks {
     }
   }
 
-  private static void invalidInstantiationError(
-
+  static void invalidInstantiationError(
       Tree tree, Type baseType, Type baseTypeVariable, VisitorState state, NullAway analysis) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
@@ -110,13 +107,13 @@ public final class GenericsChecks {
   }
 
   @SuppressWarnings("UnusedVariable")
-  public void checkInstantiationForAssignments(
+  public static void checkInstantiationForAssignments(
       AssignmentTree tree, Config config, VisitorState state, NullAway analysis) {
     Tree lhsTree = tree.getVariable();
     Tree rhsTree = tree.getExpression();
-    if (((Type.ClassType) ASTHelpers.getType(rhsTree)).tsym
-        != ((Type.ClassType) ASTHelpers.getType(lhsTree)).tsym) {
-
+    // if the lhs and rhs types are same then there is no need to check for the super types, we can
+    // directly match the annotations
+    if (ASTHelpers.getType(rhsTree).tsym != ASTHelpers.getType(lhsTree).tsym) {
       Type matchingLHSType =
           supertypeMatchingLHS(
               (Type.ClassType) ASTHelpers.getType(lhsTree),
@@ -178,8 +175,7 @@ class ParameterizedTypeTreeNullableArgIndices
         normalTypeTreeNullableTypeArgIndices.getNullableTypeArgIndices(lhs, config);
     HashSet<Integer> rhsNullableArgIndices = getNullableTypeArgIndices(rhs, config);
     if (!lhsNullableArgIndices.equals(rhsNullableArgIndices)) {
-      GenericsChecks genericsChecks = new GenericsChecks();
-      genericsChecks.invalidInstantiationError(tree, lhs.baseType(), lhs, state, analysis);
+      GenericsChecks.invalidInstantiationError(tree, lhs.baseType(), lhs, state, analysis);
       return;
     } else {
       // check for nested types if an error is not already generated
@@ -239,8 +235,7 @@ class NormalTypeTreeNullableTypeArgIndices implements AnnotatedTypeWrapper<Type,
     HashSet<Integer> rhsNullableArgIndices = getNullableTypeArgIndices(rhs, config);
 
     if (!lhsNullableArgIndices.equals(rhsNullableArgIndices)) {
-      GenericsChecks genericsChecks = new GenericsChecks();
-      genericsChecks.invalidInstantiationError(tree, lhs.baseType(), lhs, state, analysis);
+      GenericsChecks.invalidInstantiationError(tree, lhs.baseType(), lhs, state, analysis);
       return;
     } else {
       List<Type> lhsTypeArgs = lhs.getTypeArguments();
@@ -255,4 +250,4 @@ class NormalTypeTreeNullableTypeArgIndices implements AnnotatedTypeWrapper<Type,
       }
     }
   }
-
+}
