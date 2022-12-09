@@ -124,7 +124,8 @@ public final class GenericsChecks {
       AssignmentTree tree, Config config, VisitorState state, NullAway analysis) {
     Tree lhsTree = tree.getVariable();
     Tree rhsTree = tree.getExpression();
-    if (rhsTree.getClass().equals(JCTree.JCNewClass.class)) {
+    if (rhsTree.getClass().equals(JCTree.JCNewClass.class)
+        && !((JCTree.JCNewClass) rhsTree).getIdentifier().getClass().equals(JCTree.JCIdent.class)) {
       ParameterizedTypeTreeNullableArgIndices typeWrapper =
           new ParameterizedTypeTreeNullableArgIndices();
       typeWrapper.checkAssignmentTypeMatch(
