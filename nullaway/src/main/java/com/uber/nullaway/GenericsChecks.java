@@ -126,7 +126,7 @@ public final class GenericsChecks {
     Tree rhsTree = tree.getExpression();
     // if the lhs and rhs types are same then there is no need to check for the super types, we can
     // directly match the annotations
-    if (ASTHelpers.getType(rhsTree).tsym != ASTHelpers.getType(lhsTree).tsym) {
+    /*if (ASTHelpers.getType(rhsTree).tsym != ASTHelpers.getType(lhsTree).tsym) {
       Type matchingLHSType =
           supertypeMatchingLHS(
               (Type.ClassType) ASTHelpers.getType(lhsTree),
@@ -135,7 +135,7 @@ public final class GenericsChecks {
       NormalTypeTreeNullableTypeArgIndices typeWrapper = new NormalTypeTreeNullableTypeArgIndices();
       typeWrapper.checkAssignmentTypeMatch(
           tree, ASTHelpers.getType(lhsTree), matchingLHSType, config, state, analysis);
-    } else if (rhsTree.getClass().equals(JCTree.JCNewClass.class)) {
+    } else*/ if (rhsTree.getClass().equals(JCTree.JCNewClass.class)) {
       ParameterizedTypeTreeNullableArgIndices typeWrapper =
           new ParameterizedTypeTreeNullableArgIndices();
       typeWrapper.checkAssignmentTypeMatch(
@@ -175,6 +175,20 @@ class ParameterizedTypeTreeNullableArgIndices
     return nullableTypeArgIndices;
   }
 
+  public static void superTypeMatchingRHSParameterizedTypeTree(
+      AssignmentTree tree,
+      ParameterizedTypeTree rhs,
+      Type lhs,
+      VisitorState state,
+      Config config,
+      NullAway analysis) {
+    Type rhsType =
+        GenericsChecks.supertypeMatchingLHS(
+            (Type.ClassType) lhs, (Type.ClassType) ASTHelpers.getType(rhs), state);
+    NormalTypeTreeNullableTypeArgIndices typeWrapper = new NormalTypeTreeNullableTypeArgIndices();
+    typeWrapper.checkAssignmentTypeMatch(tree, lhs, rhsType, config, state, analysis);
+  }
+
   @Override
   public void checkAssignmentTypeMatch(
       AssignmentTree tree,
@@ -183,6 +197,9 @@ class ParameterizedTypeTreeNullableArgIndices
       Config config,
       VisitorState state,
       NullAway analysis) {
+    if (!ASTHelpers.isSameType(lhs, ASTHelpers.getType(rhs), state)) {
+      superTypeMatchingRHSParameterizedTypeTree(tree, rhs, lhs, state, config, analysis);
+    }
     NormalTypeTreeNullableTypeArgIndices normalTypeTreeNullableTypeArgIndices =
         new NormalTypeTreeNullableTypeArgIndices();
     HashSet<Integer> lhsNullableArgIndices =
