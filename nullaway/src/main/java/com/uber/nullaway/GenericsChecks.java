@@ -124,18 +124,7 @@ public final class GenericsChecks {
       AssignmentTree tree, Config config, VisitorState state, NullAway analysis) {
     Tree lhsTree = tree.getVariable();
     Tree rhsTree = tree.getExpression();
-    // if the lhs and rhs types are same then there is no need to check for the super types, we can
-    // directly match the annotations
-    /*if (ASTHelpers.getType(rhsTree).tsym != ASTHelpers.getType(lhsTree).tsym) {
-      Type matchingLHSType =
-          supertypeMatchingLHS(
-              (Type.ClassType) ASTHelpers.getType(lhsTree),
-              (Type.ClassType) ASTHelpers.getType(rhsTree),
-              state);
-      NormalTypeTreeNullableTypeArgIndices typeWrapper = new NormalTypeTreeNullableTypeArgIndices();
-      typeWrapper.checkAssignmentTypeMatch(
-          tree, ASTHelpers.getType(lhsTree), matchingLHSType, config, state, analysis);
-    } else*/ if (rhsTree.getClass().equals(JCTree.JCNewClass.class)) {
+    if (rhsTree.getClass().equals(JCTree.JCNewClass.class)) {
       ParameterizedTypeTreeNullableArgIndices typeWrapper =
           new ParameterizedTypeTreeNullableArgIndices();
       typeWrapper.checkAssignmentTypeMatch(
@@ -197,6 +186,7 @@ class ParameterizedTypeTreeNullableArgIndices
       Config config,
       VisitorState state,
       NullAway analysis) {
+    // if types are not same check for the super types
     if (!ASTHelpers.isSameType(lhs, ASTHelpers.getType(rhs), state)) {
       superTypeMatchingRHSParameterizedTypeTree(tree, rhs, lhs, state, config, analysis);
     }
