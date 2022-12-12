@@ -479,6 +479,8 @@ public class NullAwayNegativeCases {
       return b | a;
     } else if (b == 4) {
       return b ^ a;
+    } else if (b == 5) {
+      return ~a;
     } else {
       return 10;
     }
