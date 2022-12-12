@@ -914,6 +914,7 @@ public class NullAwayNegativeCases {
     s += boxAndDeref(n >>= 1);
     s += boxAndDeref(m >>>= 4);
     s += boxAndDeref(n >>> 3);
+    s += boxAndDeref(~n);
     return s;
   }
 
