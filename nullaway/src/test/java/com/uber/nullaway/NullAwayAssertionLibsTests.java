@@ -260,4 +260,99 @@ public class NullAwayAssertionLibsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void supportAssertJAssertThatIsNotNull_Object() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.assertj.core.api.Assertions.assertThat;",
+            "class Test {",
+            "  private void foo(@Nullable Object o) {",
+            "    assertThat(o).isNotNull();",
+            "    o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportAssertJAssertThatIsNotNull_String() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.assertj.core.api.Assertions.assertThat;",
+            "class Test {",
+            "  private void foo(@Nullable String s) {",
+            "    assertThat(s).isNotNull();",
+            "    s.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportAssertJAssertThatIsNotNull_MapKey() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "import javax.annotation.Nullable;",
+            "import static org.assertj.core.api.Assertions.assertThat;",
+            "class Test {",
+            "  private void foo(Map<String,Object> m) {",
+            "    assertThat(m.get(\"foo\")).isNotNull();",
+            "    m.get(\"foo\").toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void doNotSupportAssertJAssertThatWhenDisabled() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=false"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.assertj.core.api.Assertions.assertThat;",
+            "class Test {",
+            "  private void foo(@Nullable Object a) {",
+            "    assertThat(a).isNotNull();",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    a.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

@@ -63,6 +63,7 @@ dependencies {
     testImplementation deps.test.mockito
     testImplementation deps.test.mockitoInline
     testImplementation deps.test.javaxAnnotationApi
+    testImplementation deps.test.assertJ
 
     // This ends up being resolved to the NullAway jar under nullaway/build/libs
     nullawayJar "com.uber.nullaway:nullaway:$VERSION_NAME"
