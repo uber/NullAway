@@ -122,10 +122,19 @@ public final class GenericsChecks {
 
   @SuppressWarnings("UnusedVariable")
   public static void checkInstantiationForAssignments(
-      AssignmentTree tree, Config config, VisitorState state, NullAway analysis) {
-    Tree lhsTree = tree.getVariable();
-    Tree rhsTree = tree.getExpression();
-    if (rhsTree.getClass().equals(JCTree.JCNewClass.class)
+      Tree tree, Config config, VisitorState state, NullAway analysis) {
+    Tree lhsTree;
+    Tree rhsTree;
+    if (tree.getClass().equals(JCTree.JCVariableDecl.class)) {
+      lhsTree = ((JCTree.JCVariableDecl) tree).vartype;
+      rhsTree = ((JCTree.JCVariableDecl) tree).init;
+    } else {
+      lhsTree = ((AssignmentTree) tree).getVariable();
+      rhsTree = ((AssignmentTree) tree).getExpression();
+    }
+
+    if (rhsTree != null
+        && rhsTree.getClass().equals(JCTree.JCNewClass.class)
         && !((JCTree.JCNewClass) rhsTree).getIdentifier().getClass().equals(JCTree.JCIdent.class)) {
       ParameterizedTypeTreeNullableArgIndices typeWrapper =
           new ParameterizedTypeTreeNullableArgIndices();
@@ -136,7 +145,7 @@ public final class GenericsChecks {
           config,
           state,
           analysis);
-    } else {
+    } else if (rhsTree != null) {
       NormalTypeTreeNullableTypeArgIndices typeWrapper = new NormalTypeTreeNullableTypeArgIndices();
       typeWrapper.checkAssignmentTypeMatch(
           tree, ASTHelpers.getType(lhsTree), ASTHelpers.getType(rhsTree), config, state, analysis);
@@ -156,7 +165,7 @@ class ParameterizedTypeTreeNullableArgIndices
         JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
         for (JCTree.JCAnnotation annotation : annotatedType.getAnnotations()) {
           Attribute.Compound attribute = annotation.attribute;
-          if (attribute.toString().equals("@org.jspecify.nullness.Nullable")) {
+          if (attribute.toString().equals("@org.jspecify.annotations.Nullable")) {
             nullableTypeArgIndices.add(i);
             break;
           }
@@ -167,7 +176,7 @@ class ParameterizedTypeTreeNullableArgIndices
   }
 
   public static void superTypeMatchingRHSParameterizedTypeTree(
-      AssignmentTree tree,
+      Tree tree,
       ParameterizedTypeTree rhs,
       Type lhs,
       VisitorState state,
@@ -182,7 +191,7 @@ class ParameterizedTypeTreeNullableArgIndices
 
   @Override
   public void checkAssignmentTypeMatch(
-      AssignmentTree tree,
+      Tree tree,
       Type lhs,
       ParameterizedTypeTree rhs,
       Config config,
@@ -248,12 +257,7 @@ class NormalTypeTreeNullableTypeArgIndices implements AnnotatedTypeWrapper<Type,
 
   @Override
   public void checkAssignmentTypeMatch(
-      AssignmentTree tree,
-      Type lhs,
-      Type rhs,
-      Config config,
-      VisitorState state,
-      NullAway analysis) {
+      Tree tree, Type lhs, Type rhs, Config config, VisitorState state, NullAway analysis) {
     // if lhs and rhs are not of the same type check for the super types first
     if (!ASTHelpers.isSameType(lhs, rhs, state)) {
       rhs = GenericsChecks.supertypeMatchingLHS((Type.ClassType) lhs, (Type.ClassType) rhs, state);
