@@ -251,8 +251,9 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  interface Fn<P extends @Nullable Object, R extends @Nullable Object>{}",
             "  class FnImpl implements Fn<@Nullable String, @Nullable String>{}",
             " void sampleError() {",
+            "   Fn<@Nullable String, String> f;",
             "    // BUG: Diagnostic contains: Generic type parameter",
-            "   Fn<@Nullable String, String> f = new FnImpl();",
+            "   f  = new FnImpl();",
             " }",
             "  }")
         .doTest();
@@ -270,8 +271,9 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  interface Fn2<P extends @Nullable Object>{}",
             "  class FnImpl implements Fn1<@Nullable String, @Nullable String>, Fn2<String> {}",
             " void sampleError() {",
+            "  Fn2<@Nullable String> f;",
             "    // BUG: Diagnostic contains: Generic type parameter",
-            "  Fn2<@Nullable String> f = new FnImpl();",
+            "  f = new FnImpl();",
             " }",
             "  }")
         .doTest();
@@ -291,8 +293,9 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  class FnImpl1 extends SubClassA<String>{}",
             "  class FnImpl2 extends SubClassA<@Nullable String>{}",
             "  void sampleError() {",
+            "    SuperClassC<@Nullable String> f;",
             "    // BUG: Diagnostic contains: Generic type parameter",
-            "    SuperClassC<@Nullable String> f = new FnImpl1();",
+            "    f = new FnImpl1();",
             "   }",
             "  void sampleValidInstantiation() {",
             "  SuperClassC<@Nullable String> f;",
@@ -316,12 +319,14 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  class B<P extends @Nullable Object> extends D<P>{}",
             "  class C<p extends @Nullable Object>{}",
             " void sampleError1() {",
+            "  C<B<String>> f;",
             "    // BUG: Diagnostic contains: Generic type parameter",
-            "  C<B<String>> f = new C<B<@Nullable String>>();",
+            "    f = new C<B<@Nullable String>>();",
             " }",
             " void sampleError2() {",
+            "  D<C<String>> f;",
             "    // BUG: Diagnostic contains: Generic type parameter",
-            "  D<C<String>> f = new B<C<@Nullable String>>();",
+            "   f = new B<C<@Nullable String>>();",
             " }",
             "  }")
         .doTest();
