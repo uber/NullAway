@@ -36,7 +36,7 @@ public final class GenericsChecks {
     // check for the super classes and interfaces implemented by the super classes
     Type current_super_type = rhsType;
     while (true) {
-      if (ASTHelpers.isSameType(current_super_type, Type.noType, state)) {
+      if (current_super_type == null) {
         break;
       }
       if (ASTHelpers.isSameType(current_super_type, lhsType, state)) {
@@ -259,7 +259,7 @@ class NormalTypeTreeNullableTypeArgIndices implements AnnotatedTypeWrapper<Type,
   public void checkAssignmentTypeMatch(
       Tree tree, Type lhs, Type rhs, Config config, VisitorState state, NullAway analysis) {
     // if lhs and rhs are not of the same type check for the super types first
-    if (!ASTHelpers.isSameType(lhs, rhs, state)) {
+    if (!ASTHelpers.isSameType(lhs, rhs, state) && !rhs.toString().equals("null")) {
       rhs = GenericsChecks.supertypeMatchingLHS((Type.ClassType) lhs, (Type.ClassType) rhs, state);
     }
     HashSet<Integer> lhsNullableArgIndices = getNullableTypeArgIndices(lhs, config);

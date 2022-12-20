@@ -1330,9 +1330,11 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
-    if (ASTHelpers.constValue(tree.getInitializer()) != null) {
+    if (tree.getInitializer() != null
+        && !state.getSourceForNode(tree.getInitializer()).equals("null")) {
       GenericsChecks.checkInstantiationForAssignments(tree, config, state, this);
     }
+
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
       doUnboxingCheck(state, tree.getInitializer());
     }
