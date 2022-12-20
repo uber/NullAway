@@ -36,7 +36,8 @@ public final class GenericsChecks {
     // check for the super classes and interfaces implemented by the super classes
     Type current_super_type = rhsType;
     while (true) {
-      if (current_super_type == null) {
+      if (current_super_type == null
+          || ASTHelpers.isSameType(current_super_type, Type.noType, state)) {
         break;
       }
       if (ASTHelpers.isSameType(current_super_type, lhsType, state)) {
@@ -136,7 +137,8 @@ public final class GenericsChecks {
 
     if (rhsTree != null
         && rhsTree.getClass().equals(JCTree.JCNewClass.class)
-        && !((JCTree.JCNewClass) rhsTree).getIdentifier().getClass().equals(JCTree.JCIdent.class)) {
+        && !((JCTree.JCNewClass) rhsTree).getIdentifier().getClass().equals(JCTree.JCIdent.class)
+        && ((JCTree.JCNewClass) rhsTree).getIdentifier() instanceof ParameterizedTypeTree) {
       ParameterizedTypeTreeNullableArgIndices typeWrapper =
           new ParameterizedTypeTreeNullableArgIndices();
       typeWrapper.checkAssignmentTypeMatch(
