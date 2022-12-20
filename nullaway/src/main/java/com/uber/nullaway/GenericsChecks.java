@@ -42,8 +42,9 @@ public final class GenericsChecks {
       if (ASTHelpers.isSameType(current_super_type, lhsType, state)) {
         return current_super_type;
       }
-
-      current_super_type = ((Type.ClassType) current_super_type).supertype_field;
+      if (current_super_type instanceof Type.ClassType) {
+        current_super_type = ((Type.ClassType) current_super_type).supertype_field;
+      }
     }
     return rhsType.baseType();
   }
@@ -182,11 +183,13 @@ class ParameterizedTypeTreeNullableArgIndices
       VisitorState state,
       Config config,
       NullAway analysis) {
-    Type rhsType =
-        GenericsChecks.supertypeMatchingLHS(
-            (Type.ClassType) lhs, (Type.ClassType) ASTHelpers.getType(rhs), state);
-    NormalTypeTreeNullableTypeArgIndices typeWrapper = new NormalTypeTreeNullableTypeArgIndices();
-    typeWrapper.checkAssignmentTypeMatch(tree, lhs, rhsType, config, state, analysis);
+    if (lhs instanceof Type.ClassType && ASTHelpers.getType(rhs) instanceof Type.ClassType) {
+      Type rhsType =
+          GenericsChecks.supertypeMatchingLHS(
+              (Type.ClassType) lhs, (Type.ClassType) ASTHelpers.getType(rhs), state);
+      NormalTypeTreeNullableTypeArgIndices typeWrapper = new NormalTypeTreeNullableTypeArgIndices();
+      typeWrapper.checkAssignmentTypeMatch(tree, lhs, rhsType, config, state, analysis);
+    }
   }
 
   @Override
@@ -260,7 +263,10 @@ class NormalTypeTreeNullableTypeArgIndices implements AnnotatedTypeWrapper<Type,
       Tree tree, Type lhs, Type rhs, Config config, VisitorState state, NullAway analysis) {
     // if lhs and rhs are not of the same type check for the super types first
     if (!ASTHelpers.isSameType(lhs, rhs, state) && !rhs.toString().equals("null")) {
-      rhs = GenericsChecks.supertypeMatchingLHS((Type.ClassType) lhs, (Type.ClassType) rhs, state);
+      if (lhs instanceof Type.ClassType && rhs instanceof Type.ClassType) {
+        rhs =
+            GenericsChecks.supertypeMatchingLHS((Type.ClassType) lhs, (Type.ClassType) rhs, state);
+      }
     }
     HashSet<Integer> lhsNullableArgIndices = getNullableTypeArgIndices(lhs, config);
     HashSet<Integer> rhsNullableArgIndices = getNullableTypeArgIndices(rhs, config);
@@ -275,8 +281,10 @@ class NormalTypeTreeNullableTypeArgIndices implements AnnotatedTypeWrapper<Type,
       for (int i = 0; i < lhsTypeArgs.size(); i++) {
         // nested generics
         if (lhsTypeArgs.get(i).getTypeArguments().length() > 0) {
-          checkAssignmentTypeMatch(
-              tree, lhsTypeArgs.get(i), rhsTypeArgs.get(i), config, state, analysis);
+          if (rhsTypeArgs.size() > i) {
+            checkAssignmentTypeMatch(
+                tree, lhsTypeArgs.get(i), rhsTypeArgs.get(i), config, state, analysis);
+          }
         }
       }
     }
