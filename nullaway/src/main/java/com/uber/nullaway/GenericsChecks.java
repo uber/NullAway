@@ -5,8 +5,10 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
@@ -127,28 +129,31 @@ public final class GenericsChecks {
       Tree tree, Config config, VisitorState state, NullAway analysis) {
     Tree lhsTree;
     Tree rhsTree;
-    if (tree.getClass().equals(JCTree.JCVariableDecl.class)) {
-      lhsTree = ((JCTree.JCVariableDecl) tree).vartype;
-      rhsTree = ((JCTree.JCVariableDecl) tree).init;
+    if (tree instanceof VariableTree) {
+      VariableTree varTree = (VariableTree) tree;
+      lhsTree = varTree.getType();
+      rhsTree = varTree.getInitializer();
     } else {
-      lhsTree = ((AssignmentTree) tree).getVariable();
-      rhsTree = ((AssignmentTree) tree).getExpression();
+      AssignmentTree assignmentTree = (AssignmentTree) tree;
+      lhsTree = assignmentTree.getVariable();
+      rhsTree = assignmentTree.getExpression();
     }
-
-    if (rhsTree != null
-        && rhsTree.getClass().equals(JCTree.JCNewClass.class)
-        && !((JCTree.JCNewClass) rhsTree).getIdentifier().getClass().equals(JCTree.JCIdent.class)
-        && ((JCTree.JCNewClass) rhsTree).getIdentifier() instanceof ParameterizedTypeTree) {
+    if (rhsTree == null) {
+      // Possible for VariableTrees with no initializer
+      return;
+    }
+    if (rhsTree instanceof NewClassTree
+        && ((NewClassTree) rhsTree).getIdentifier() instanceof ParameterizedTypeTree) {
       ParameterizedTypeTreeNullableArgIndices typeWrapper =
           new ParameterizedTypeTreeNullableArgIndices();
       typeWrapper.checkAssignmentTypeMatch(
           tree,
           ASTHelpers.getType(lhsTree),
-          (ParameterizedTypeTree) ((JCTree.JCNewClass) rhsTree).getIdentifier(),
+          (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier(),
           config,
           state,
           analysis);
-    } else if (rhsTree != null) {
+    } else {
       NormalTypeTreeNullableTypeArgIndices typeWrapper = new NormalTypeTreeNullableTypeArgIndices();
       typeWrapper.checkAssignmentTypeMatch(
           tree, ASTHelpers.getType(lhsTree), ASTHelpers.getType(rhsTree), config, state, analysis);
