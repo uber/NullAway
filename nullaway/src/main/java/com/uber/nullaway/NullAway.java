@@ -2222,6 +2222,7 @@ public class NullAway extends BugChecker
       case REMAINDER:
       case CONDITIONAL_AND:
       case CONDITIONAL_OR:
+      case BITWISE_COMPLEMENT:
       case LOGICAL_COMPLEMENT:
       case INSTANCE_OF:
       case PREFIX_INCREMENT:

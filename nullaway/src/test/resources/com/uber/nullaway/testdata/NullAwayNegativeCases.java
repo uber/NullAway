@@ -479,6 +479,8 @@ public class NullAwayNegativeCases {
       return b | a;
     } else if (b == 4) {
       return b ^ a;
+    } else if (b == 5) {
+      return ~a;
     } else {
       return 10;
     }
@@ -914,6 +916,7 @@ public class NullAwayNegativeCases {
     s += boxAndDeref(n >>= 1);
     s += boxAndDeref(m >>>= 4);
     s += boxAndDeref(n >>> 3);
+    s += boxAndDeref(~n);
     return s;
   }
 

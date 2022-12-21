@@ -40,11 +40,13 @@ class MethodNameUtil {
   // Strings corresponding to the names of the methods (and their owners) used to identify
   // assertions in this handler.
   private static final String IS_NOT_NULL_METHOD = "isNotNull";
-  private static final String IS_NOT_NULL_OWNER = "com.google.common.truth.Subject";
+  private static final String IS_NOT_NULL_OWNER_TRUTH = "com.google.common.truth.Subject";
+  private static final String IS_NOT_NULL_OWNER_ASSERTJ = "org.assertj.core.api.AbstractAssert";
   private static final String IS_TRUE_METHOD = "isTrue";
   private static final String IS_TRUE_OWNER = "com.google.common.truth.BooleanSubject";
   private static final String ASSERT_THAT_METHOD = "assertThat";
-  private static final String ASSERT_THAT_OWNER = "com.google.common.truth.Truth";
+  private static final String ASSERT_THAT_OWNER_TRUTH = "com.google.common.truth.Truth";
+  private static final String ASSERT_THAT_OWNER_ASSERTJ = "org.assertj.core.api.Assertions";
 
   private static final String HAMCREST_ASSERT_CLASS = "org.hamcrest.MatcherAssert";
   private static final String JUNIT_ASSERT_CLASS = "org.junit.Assert";
@@ -61,13 +63,15 @@ class MethodNameUtil {
   // here refers to com.sun.tools.javac.util.Name. Comparing methods using Names is faster than
   // comparing using strings.
   private Name isNotNull;
-  private Name isNotNullOwner;
+  private Name isNotNullOwnerTruth;
+  private Name isNotNullOwnerAssertJ;
 
   private Name isTrue;
   private Name isTrueOwner;
 
   private Name assertThat;
-  private Name assertThatOwner;
+  private Name assertThatOwnerTruth;
+  private Name assertThatOwnerAssertJ;
 
   // Names for junit assertion libraries.
   private Name hamcrestAssertClass;
@@ -85,13 +89,15 @@ class MethodNameUtil {
   @Initializer
   void initializeMethodNames(Name.Table table) {
     isNotNull = table.fromString(IS_NOT_NULL_METHOD);
-    isNotNullOwner = table.fromString(IS_NOT_NULL_OWNER);
+    isNotNullOwnerTruth = table.fromString(IS_NOT_NULL_OWNER_TRUTH);
+    isNotNullOwnerAssertJ = table.fromString(IS_NOT_NULL_OWNER_ASSERTJ);
 
     isTrue = table.fromString(IS_TRUE_METHOD);
     isTrueOwner = table.fromString(IS_TRUE_OWNER);
 
     assertThat = table.fromString(ASSERT_THAT_METHOD);
-    assertThatOwner = table.fromString(ASSERT_THAT_OWNER);
+    assertThatOwnerTruth = table.fromString(ASSERT_THAT_OWNER_TRUTH);
+    assertThatOwnerAssertJ = table.fromString(ASSERT_THAT_OWNER_ASSERTJ);
 
     hamcrestAssertClass = table.fromString(HAMCREST_ASSERT_CLASS);
     junitAssertClass = table.fromString(JUNIT_ASSERT_CLASS);
@@ -106,7 +112,8 @@ class MethodNameUtil {
   }
 
   boolean isMethodIsNotNull(Symbol.MethodSymbol methodSymbol) {
-    return matchesMethod(methodSymbol, isNotNull, isNotNullOwner);
+    return matchesMethod(methodSymbol, isNotNull, isNotNullOwnerTruth)
+        || matchesMethod(methodSymbol, isNotNull, isNotNullOwnerAssertJ);
   }
 
   boolean isMethodIsTrue(Symbol.MethodSymbol methodSymbol) {
@@ -114,7 +121,8 @@ class MethodNameUtil {
   }
 
   boolean isMethodAssertThat(Symbol.MethodSymbol methodSymbol) {
-    return matchesMethod(methodSymbol, assertThat, assertThatOwner);
+    return matchesMethod(methodSymbol, assertThat, assertThatOwnerTruth)
+        || matchesMethod(methodSymbol, assertThat, assertThatOwnerAssertJ);
   }
 
   boolean isMethodHamcrestAssertThat(Symbol.MethodSymbol methodSymbol) {

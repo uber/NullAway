@@ -333,6 +333,9 @@ public class NullAwayPositiveCases {
     Boolean z = null;
     // BUG: Diagnostic contains: unboxing
     int d = z ? 3 : 4;
+    Integer w = null;
+    // BUG: Diagnostic contains: unboxing
+    int e = ~w;
   }
 
   static void unboxingTests2() {
