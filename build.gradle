@@ -73,6 +73,7 @@ subprojects { project ->
                 check("CanIgnoreReturnValueSuggester", CheckSeverity.OFF)
                 check("WildcardImport", CheckSeverity.ERROR)
                 check("MissingBraces", CheckSeverity.ERROR)
+                check("MultipleTopLevelClasses", CheckSeverity.ERROR)
                 check("TypeToString", CheckSeverity.ERROR)
                 check("SymbolToString", CheckSeverity.ERROR)
             }
