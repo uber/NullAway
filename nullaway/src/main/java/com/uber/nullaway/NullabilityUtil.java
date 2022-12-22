@@ -280,9 +280,12 @@ public class NullabilityUtil {
           (t) ->
               // location is a list of TypePathEntry objects, indicating whether the annotation is
               // on an array, inner type, wildcard, or type argument. If it's empty, then the
-              // annotation
-              // is directly on the return type.
+              // annotation is directly on the return type.
               t.position.type.equals(TargetType.METHOD_RETURN) && t.position.location.isEmpty());
+    } else if (symbol instanceof Symbol.VarSymbol) {
+      // again, we only want annotations directly on the type, so we check that location is empty
+      // (see comment above)
+      return rawTypeAttributes.filter((t) -> t.position.location.isEmpty());
     }
     return rawTypeAttributes;
   }
