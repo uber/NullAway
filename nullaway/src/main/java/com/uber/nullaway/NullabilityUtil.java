@@ -272,22 +272,27 @@ public class NullabilityUtil {
                         && t.position.parameter_index == paramInd));
   }
 
+  /**
+   * Gets the type use annotations on a symbol, ignoring annotations on components of the type (type
+   * arguments, wildcards, etc.)
+   */
   private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(Symbol symbol) {
     Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
     if (symbol instanceof Symbol.MethodSymbol) {
-      // for methods, we want the type-use annotations on the return type
+      // for methods, we want annotations on the return type
       return rawTypeAttributes.filter(
-          (t) ->
-              // location is a list of TypePathEntry objects, indicating whether the annotation is
-              // on an array, inner type, wildcard, or type argument. If it's empty, then the
-              // annotation is directly on the return type.
-              t.position.type.equals(TargetType.METHOD_RETURN) && t.position.location.isEmpty());
-    } else if (symbol instanceof Symbol.VarSymbol) {
-      // again, we only want annotations directly on the type, so we check that location is empty
-      // (see comment above)
-      return rawTypeAttributes.filter((t) -> t.position.location.isEmpty());
+          (t) -> t.position.type.equals(TargetType.METHOD_RETURN) && isDirectTypeUseAnnotation(t));
+    } else {
+      // filter for annotations directly on the type
+      return rawTypeAttributes.filter((t) -> isDirectTypeUseAnnotation(t));
     }
-    return rawTypeAttributes;
+  }
+
+  private static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t) {
+    // location is a list of TypePathEntry objects, indicating whether the annotation is
+    // on an array, inner type, wildcard, or type argument. If it's empty, then the
+    // annotation is directly on the type.
+    return t.position.location.isEmpty();
   }
 
   /**
