@@ -37,6 +37,7 @@ import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.analysis.AnalysisResult;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodAccessNode;
@@ -210,7 +211,7 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
-   * Get nullness info for local variables before some node
+   * Get nullness info for local variables (and final fields) before some node
    *
    * @param path tree path to some AST node within a method / lambda / initializer
    * @param state visitor state
@@ -224,12 +225,21 @@ public final class AccessPathNullnessAnalysis {
     }
     return store.filterAccessPaths(
         (ap) -> {
-          if (ap.getElements().size() == 0) {
-            Element e = ap.getRoot();
-            if (e != null) {
-              return e.getKind().equals(ElementKind.PARAMETER)
-                  || e.getKind().equals(ElementKind.LOCAL_VARIABLE);
+          boolean allAPNonRootElementsAreFinalFields = true;
+          for (AccessPathElement ape : ap.getElements()) {
+            Element e = ape.getJavaElement();
+            if (!e.getKind().equals(ElementKind.FIELD)
+                || !e.getModifiers().contains(Modifier.FINAL)) {
+              allAPNonRootElementsAreFinalFields = false;
             }
+          }
+          if (allAPNonRootElementsAreFinalFields) {
+            Element e = ap.getRoot();
+            return e == null // This is the case for: this(.f)* where each f is a final field.
+                || e.getKind().equals(ElementKind.PARAMETER)
+                || e.getKind().equals(ElementKind.LOCAL_VARIABLE)
+                || (e.getKind().equals(ElementKind.FIELD)
+                    && e.getModifiers().contains(Modifier.FINAL));
           }
 
           return handler.includeApInfoInSavedContext(ap, state);
