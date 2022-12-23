@@ -284,7 +284,7 @@ public class NullabilityUtil {
           (t) -> t.position.type.equals(TargetType.METHOD_RETURN) && isDirectTypeUseAnnotation(t));
     } else {
       // filter for annotations directly on the type
-      return rawTypeAttributes.filter((t) -> isDirectTypeUseAnnotation(t));
+      return rawTypeAttributes.filter(NullabilityUtil::isDirectTypeUseAnnotation);
     }
   }
 
