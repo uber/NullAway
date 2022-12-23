@@ -306,5 +306,14 @@ public class NullAwayStreamSupportNegativeCases {
       // Safe because ref is final!
       return stream.filter(s -> ref.equals(s));
     }
+
+    private Stream<T> test3(Stream<T> stream) {
+      if (ref != null) {
+        // Safe because ref is final!
+        return stream.filter(s -> ref.equals(s));
+      } else {
+        return stream.filter(s -> "CONST".equals(s.toString()));
+      }
+    }
   }
 }
