@@ -356,7 +356,6 @@ public class NullAwayAccessPathsTests extends NullAwayTestsBase {
             "  }",
             "  public boolean testReadFinalFromLambdaAfterCheckLocalClassWithNameCollision(String s) {",
             "    Preconditions.checkNotNull(foo);",
-            "    // safe!",
             "    class Inner {",
             "       @Nullable private Foo foo;",
             "       public Inner() { this.foo = null; }",
