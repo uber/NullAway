@@ -26,6 +26,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.util.JCDiagnostic;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import java.util.regex.Matcher;
@@ -59,10 +60,15 @@ public class ErrorInfo {
           '\b', 'b',
           '\r', 'r');
 
+  /** Offset of program point where this error is reported. */
+  private final int offset;
+
   public ErrorInfo(TreePath path, ErrorMessage errorMessage, @Nullable Symbol nonnullTarget) {
     this.classAndMemberInfo = new ClassAndMemberInfo(path);
     this.errorMessage = errorMessage;
     this.nonnullTarget = nonnullTarget;
+    JCDiagnostic.DiagnosticPosition treePosition = (JCDiagnostic.DiagnosticPosition) path.getLeaf();
+    this.offset = treePosition.getStartPosition();
   }
 
   /**
@@ -103,6 +109,7 @@ public class ErrorInfo {
         (classAndMemberInfo.getMember() != null
             ? classAndMemberInfo.getMember().toString()
             : "null"),
+        String.valueOf(offset),
         (nonnullTarget != null
             ? SymbolLocation.createLocationFromSymbol(nonnullTarget).tabSeparatedToString()
             : EMPTY_NONNULL_TARGET_LOCATION_STRING));
@@ -126,6 +133,7 @@ public class ErrorInfo {
         "message",
         "enc_class",
         "enc_member",
+        "offset",
         "target_kind",
         "target_class",
         "target_method",

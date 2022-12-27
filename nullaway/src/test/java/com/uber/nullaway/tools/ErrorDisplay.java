@@ -32,12 +32,39 @@ public class ErrorDisplay implements Display {
   public final String message;
   public final String encMember;
   public final String encClass;
+  public final int offset;
   public final String kind;
   public final String clazz;
   public final String method;
   public final String variable;
   public final String index;
   public final String uri;
+
+  public ErrorDisplay(
+      String type,
+      String message,
+      String encClass,
+      String encMember,
+      int offset,
+      String kind,
+      String clazz,
+      String method,
+      String variable,
+      String index,
+      String uri) {
+    this.type = type;
+    this.message = message;
+    this.encMember = encMember;
+    this.encClass = encClass;
+    this.offset = offset;
+    this.kind = kind;
+    this.clazz = clazz;
+    this.method = method;
+    this.variable = variable;
+    this.index = index;
+    // relative paths are getting compared.
+    this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
+  }
 
   public ErrorDisplay(
       String type,
@@ -54,6 +81,7 @@ public class ErrorDisplay implements Display {
     this.message = message;
     this.encMember = encMember;
     this.encClass = encClass;
+    this.offset = -1;
     this.kind = kind;
     this.clazz = clazz;
     this.method = method;
@@ -63,8 +91,13 @@ public class ErrorDisplay implements Display {
     this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
   }
 
+  public ErrorDisplay(String type, String message, String encClass, String encMember, int offset) {
+    this(
+        type, message, encClass, encMember, offset, "null", "null", "null", "null", "null", "null");
+  }
+
   public ErrorDisplay(String type, String message, String encClass, String encMember) {
-    this(type, message, encClass, encMember, "null", "null", "null", "null", "null", "null");
+    this(type, message, encClass, encMember, -1, "null", "null", "null", "null", "null", "null");
   }
 
   @Override
@@ -83,6 +116,7 @@ public class ErrorDisplay implements Display {
         && encMember.equals(that.encMember)
         && clazz.equals(that.clazz)
         && encClass.equals(that.encClass)
+        && offset == that.offset
         && kind.equals(that.kind)
         && method.equals(that.method)
         && variable.equals(that.variable)
@@ -93,7 +127,7 @@ public class ErrorDisplay implements Display {
   @Override
   public int hashCode() {
     return Objects.hash(
-        type, message, encMember, encClass, kind, clazz, method, variable, index, uri);
+        type, message, encMember, encClass, offset, kind, clazz, method, variable, index, uri);
   }
 
   @Override
@@ -110,6 +144,9 @@ public class ErrorDisplay implements Display {
         + '\''
         + "\n\tencClass='"
         + encClass
+        + '\''
+        + "\n\toffset='"
+        + offset
         + '\''
         + "\n\tkind='"
         + kind
