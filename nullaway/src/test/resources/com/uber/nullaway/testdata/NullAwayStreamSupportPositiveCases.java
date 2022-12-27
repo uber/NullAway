@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.testdata;
 
+import com.google.common.base.Preconditions;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.DoubleStream;
@@ -150,5 +151,25 @@ public class NullAwayStreamSupportPositiveCases {
   private void forEachOrdered(Stream<NullableContainer<String>> stream) {
     // BUG: Diagnostic contains: dereferenced expression
     stream.forEachOrdered(s -> System.out.println(s.get().length()));
+  }
+
+  private static class CheckNonfinalBeforeStream<T> {
+    @Nullable private T ref;
+
+    public CheckNonfinalBeforeStream(@Nullable T ref) {
+      this.ref = ref;
+    }
+
+    private Stream<T> test1(Stream<T> stream) {
+      Preconditions.checkNotNull(ref);
+      final T asLocal = ref;
+      return stream.filter(s -> asLocal.equals(s));
+    }
+
+    private Stream<T> test2(Stream<T> stream) {
+      Preconditions.checkNotNull(ref);
+      // BUG: Diagnostic contains: dereferenced expression ref is @Nullable
+      return stream.filter(s -> ref.equals(s));
+    }
   }
 }
