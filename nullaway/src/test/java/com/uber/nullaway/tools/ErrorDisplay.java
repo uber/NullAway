@@ -66,38 +66,9 @@ public class ErrorDisplay implements Display {
     this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
   }
 
-  public ErrorDisplay(
-      String type,
-      String message,
-      String encClass,
-      String encMember,
-      String kind,
-      String clazz,
-      String method,
-      String variable,
-      String index,
-      String uri) {
-    this.type = type;
-    this.message = message;
-    this.encMember = encMember;
-    this.encClass = encClass;
-    this.offset = -1;
-    this.kind = kind;
-    this.clazz = clazz;
-    this.method = method;
-    this.variable = variable;
-    this.index = index;
-    // relative paths are getting compared.
-    this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
-  }
-
   public ErrorDisplay(String type, String message, String encClass, String encMember, int offset) {
     this(
         type, message, encClass, encMember, offset, "null", "null", "null", "null", "null", "null");
-  }
-
-  public ErrorDisplay(String type, String message, String encClass, String encMember) {
-    this(type, message, encClass, encMember, -1, "null", "null", "null", "null", "null", "null");
   }
 
   @Override
