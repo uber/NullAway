@@ -28,6 +28,7 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV2Adapter;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
@@ -36,6 +37,7 @@ import com.uber.nullaway.tools.ErrorDisplay;
 import com.uber.nullaway.tools.FieldInitDisplay;
 import com.uber.nullaway.tools.FixDisplay;
 import com.uber.nullaway.tools.SerializationTestHelper;
+import com.uber.nullaway.tools.version1.ErrorDisplayV1;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -1809,6 +1811,154 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 405))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void errorSerializationVersion1() {
+    // Set serialization version to 1.
+    try {
+      FixSerializationConfig.Builder builder =
+          new FixSerializationConfig.Builder()
+              .setSuggest(true, false)
+              .setOutputDirectory(root.toString())
+              .setSerializationVersion(1);
+      Path config = root.resolve("serializer.xml");
+      Files.deleteIfExists(config);
+      Files.createFile(config);
+      configPath = config.toString();
+      builder.writeAsXML(configPath);
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
+    DisplayFactory<ErrorDisplayV1> errorDisplayV1Factor =
+        values -> {
+          Preconditions.checkArgument(
+              values.length == 10,
+              "Needs exactly 10 values to create ErrorDisplay for version 1 object but found: "
+                  + values.length);
+          return new ErrorDisplayV1(
+              values[0], values[1], values[2], values[3], values[4], values[5], values[6],
+              values[7], values[8], values[9]);
+        };
+    SerializationTestHelper<ErrorDisplayV1> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Super.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Super {",
+            "   Object foo;",
+            "   // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field foo",
+            "   Super(boolean b) {",
+            "   }",
+            "   String test(@Nullable Object o) {",
+            "     // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull",
+            "     foo = null;",
+            "     if(o == null) {",
+            "       // BUG: Diagnostic contains: dereferenced expression",
+            "       return o.toString();",
+            "     }",
+            "     // BUG: Diagnostic contains: returning @Nullable expression",
+            "     return null;",
+            "   }",
+            "   protected void expectNonNull(Object o) {",
+            "     System.out.println(o);",
+            "   }",
+            "}")
+        .addSourceLines(
+            "com/uber/SubClass.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class SubClass extends Super{",
+            "   SubClass(boolean b) {",
+            "      super(b);",
+            "      // BUG: Diagnostic contains: passing @Nullable parameter",
+            "      test(null);",
+            "      // BUG: Diagnostic contains: passing @Nullable parameter",
+            "      expectNonNull(null);",
+            "   }",
+            "   // BUG: Diagnostic contains: method returns @Nullable, but superclass",
+            "   @Nullable String test(Object o) {",
+            "     return null;",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplayV1(
+                "METHOD_NO_INIT",
+                "initializer method does not guarantee @NonNull field foo",
+                "com.uber.Super",
+                "null"),
+            new ErrorDisplayV1(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.Super",
+                "test(java.lang.Object)",
+                "FIELD",
+                "com.uber.Super",
+                "null",
+                "foo",
+                "null",
+                "com/uber/Super.java"),
+            new ErrorDisplayV1(
+                "DEREFERENCE_NULLABLE",
+                "dereferenced expression o is @Nullable",
+                "com.uber.Super",
+                "test(java.lang.Object)"),
+            new ErrorDisplayV1(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression from method",
+                "com.uber.Super",
+                "test(java.lang.Object)",
+                "METHOD",
+                "com.uber.Super",
+                "test(java.lang.Object)",
+                "null",
+                "null",
+                "com/uber/Super.java"),
+            new ErrorDisplayV1(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter",
+                "com.uber.SubClass",
+                "SubClass(boolean)",
+                "PARAMETER",
+                "com.uber.SubClass",
+                "test(java.lang.Object)",
+                "o",
+                "0",
+                "com/uber/SubClass.java"),
+            new ErrorDisplayV1(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter",
+                "com.uber.SubClass",
+                "SubClass(boolean)",
+                "PARAMETER",
+                "com.uber.Super",
+                "expectNonNull(java.lang.Object)",
+                "o",
+                "0",
+                "com/uber/Super.java"),
+            new ErrorDisplayV1(
+                "WRONG_OVERRIDE_RETURN",
+                "method returns @Nullable, but superclass",
+                "com.uber.SubClass",
+                "test(java.lang.Object)",
+                "METHOD",
+                "com.uber.Super",
+                "test(java.lang.Object)",
+                "null",
+                "null",
+                "com/uber/Super.java"))
+        .setFactory(errorDisplayV1Factor)
+        .setOutputFileNameAndHeader(
+            ERROR_FILE_NAME, new SerializationV1Adapter().getErrorsOutputFileHeader())
         .doTest();
   }
 }
