@@ -164,7 +164,7 @@ public class FixSerializationConfig {
       suggestEnabled = false;
       suggestEnclosing = false;
       fieldInitInfo = false;
-      // should be the most recent version.
+      // use most recent version by default.
       serializationVersion = Serializer.LATEST_VERSION;
     }
 
