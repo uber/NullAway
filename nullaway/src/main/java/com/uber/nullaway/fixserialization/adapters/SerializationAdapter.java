@@ -42,7 +42,7 @@ public interface SerializationAdapter {
 
   /**
    * Serializes contents of the given {@link ErrorInfo} according to the defined header into a
-   * string which each is separated by a tab.
+   * string with each field separated by a tab.
    *
    * @param errorInfo Given errorInfo to serialize.
    * @return String representation of the given {@link ErrorInfo}. The returned string should be
