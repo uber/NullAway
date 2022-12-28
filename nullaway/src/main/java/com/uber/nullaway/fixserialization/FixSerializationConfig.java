@@ -80,21 +80,23 @@ public class FixSerializationConfig {
       boolean suggestEnabled,
       boolean suggestEnclosing,
       boolean fieldInitInfoEnabled,
-      @Nullable String outputDirectory,
-      int serializationVersion) {
+      @Nullable String outputDirectory) {
     this.suggestEnabled = suggestEnabled;
     this.suggestEnclosing = suggestEnclosing;
     this.fieldInitInfoEnabled = fieldInitInfoEnabled;
     this.outputDirectory = outputDirectory;
-    serializer = new Serializer(this, initializeAdapter(serializationVersion));
+    serializer = new Serializer(this, initializeAdapter(SerializationAdapter.LATEST_VERSION));
   }
 
   /**
    * Sets all flags based on their values in the configuration file.
    *
    * @param configFilePath Path to the serialization config file written in xml.
+   * @param serializationVersion Requested serialization version, this value is configurable via
+   *     ErrorProne flags ("SerializeFixMetadataVersion"). If not defined by the user {@link
+   *     SerializationAdapter#LATEST_VERSION} will be used.
    */
-  public FixSerializationConfig(String configFilePath) {
+  public FixSerializationConfig(String configFilePath, int serializationVersion) {
     Document document;
     try {
       DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -123,11 +125,6 @@ public class FixSerializationConfig {
         XMLUtil.getValueFromAttribute(
                 document, "/serialization/fieldInitInfo", "active", Boolean.class)
             .orElse(false);
-    // Serialization version, if no version is defined, we will work with the latest version.
-    int serializationVersion =
-        XMLUtil.getValueFromTag(document, "/serialization/version", Integer.class)
-            // should always be the most recent version.
-            .orElse(SerializationAdapter.LATEST_VERSION);
     SerializationAdapter serializationAdapter = initializeAdapter(serializationVersion);
     serializer = new Serializer(this, serializationAdapter);
   }
@@ -163,14 +160,11 @@ public class FixSerializationConfig {
     private boolean suggestEnclosing;
     private boolean fieldInitInfo;
     @Nullable private String outputDir;
-    private int serializationVersion;
 
     public Builder() {
       suggestEnabled = false;
       suggestEnclosing = false;
       fieldInitInfo = false;
-      // use most recent version by default.
-      serializationVersion = SerializationAdapter.LATEST_VERSION;
     }
 
     public Builder setSuggest(boolean value, boolean withEnclosing) {
@@ -189,14 +183,6 @@ public class FixSerializationConfig {
       return this;
     }
 
-    public Builder setSerializationVersion(int version) {
-      if (version < 1 || version > SerializationAdapter.LATEST_VERSION) {
-        throw new RuntimeException("Version " + version + " is not recognized");
-      }
-      this.serializationVersion = version;
-      return this;
-    }
-
     /**
      * Builds and writes the config with the state in builder at the given path as XML.
      *
@@ -211,8 +197,7 @@ public class FixSerializationConfig {
       if (outputDir == null) {
         throw new IllegalStateException("did not set mandatory output directory");
       }
-      return new FixSerializationConfig(
-          suggestEnabled, suggestEnclosing, fieldInitInfo, outputDir, serializationVersion);
+      return new FixSerializationConfig(suggestEnabled, suggestEnclosing, fieldInitInfo, outputDir);
     }
   }
 }

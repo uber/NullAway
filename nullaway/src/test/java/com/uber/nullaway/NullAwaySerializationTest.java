@@ -44,6 +44,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -127,10 +128,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
     try {
       Files.createDirectories(root);
       FixSerializationConfig.Builder builder =
-          new FixSerializationConfig.Builder()
-              .setSuggest(true, false)
-              .setOutputDirectory(output)
-              .setSerializationVersion(2);
+          new FixSerializationConfig.Builder().setSuggest(true, false).setOutputDirectory(output);
       Path config = root.resolve("serializer.xml");
       Files.createFile(config);
       configPath = config.toString();
@@ -150,6 +148,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/SubClass.java",
@@ -186,6 +185,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Super.java",
@@ -234,6 +234,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Test.java",
@@ -272,6 +273,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Super.java",
@@ -320,6 +322,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/test/Test.java",
@@ -359,6 +362,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Super.java",
@@ -403,6 +407,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Super.java",
@@ -434,6 +439,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Super.java",
@@ -467,6 +473,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Test.java",
@@ -524,6 +531,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Test.java",
@@ -550,6 +558,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Test.java",
@@ -581,6 +590,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Base.java",
@@ -608,6 +618,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Base.java",
@@ -633,6 +644,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Super.java",
@@ -771,6 +783,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Test.java",
@@ -830,6 +843,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Test.java",
@@ -878,6 +892,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/TestWithAnonymousRunnable.java",
@@ -943,6 +958,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/TestWithLocalType.java",
@@ -1025,6 +1041,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines("com/uber/TestWithLocalTypes.java", sourceLines)
         .setExpectedOutputs(
@@ -1078,6 +1095,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines("com/uber/TestWithLocalTypes.java", sourceLines)
         .setExpectedOutputs(
@@ -1117,6 +1135,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/TestWithLocalType.java",
@@ -1170,6 +1189,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/TestWithLocalTypes.java",
@@ -1250,6 +1270,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Foo.java",
@@ -1300,6 +1321,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Foo.java",
@@ -1352,6 +1374,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines("com/uber/Foo.java", "package com.uber;", "public interface Foo { }")
         .addSourceLines(
@@ -1395,6 +1418,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Main.java",
@@ -1428,6 +1452,49 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void verifySerializationVersionIsSerialized() {
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        // Just to run serialization features, the serialized fixes are not point of interest in
+        // this test.
+        .addSourceLines(
+            "com/uber/Test.java",
+            "package com.uber;",
+            "public class Test {",
+            "   Object run() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    return null;",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new FixDisplay(
+                "nullable", "run()", "null", "METHOD", "com.uber.Test", "com/uber/Test.java"))
+        .setFactory(fixDisplayFactory)
+        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .doTest();
+
+    Path serializationVersionPath = root.resolve("serialization_version.txt");
+    try {
+      List<String> lines = Files.readAllLines(serializationVersionPath);
+      // Check if it contains only one line.
+      Preconditions.checkArgument(lines.size() == 1);
+      // Check the serialized version.
+      Preconditions.checkArgument(Integer.parseInt(lines.get(0)) == 2);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Could not read serialization version at path: " + serializationVersionPath, e);
+    }
+  }
+
+  @Test
   public void errorSerializationTestEnclosedByFieldDeclaration() {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
@@ -1437,6 +1504,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Main.java",
@@ -1548,6 +1616,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 // Explicitly avoid excluding com.uber.nullaway.testdata.unannotated,
                 // so we can suggest fixes there
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/UsesUnannotated.java",
@@ -1604,6 +1673,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                   // Explicitly avoid excluding com.uber.nullaway.testdata.unannotated,
                   // so we can suggest fixes there
                   "-XepOpt:NullAway:SerializeFixMetadata=true",
+                  "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                   "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
           .addSourceLines(
               "com/uber/UsesUnannotated.java",
@@ -1660,6 +1730,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                   // Explicitly avoid excluding com.uber.nullaway.testdata.unannotated,
                   // so we can suggest fixes there
                   "-XepOpt:NullAway:SerializeFixMetadata=true",
+                  "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                   "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
           .addSourceLines(
               "com/uber/UsesUnannotated.java",
@@ -1696,6 +1767,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/A.java",
@@ -1790,6 +1862,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=2",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/A.java",
@@ -1851,21 +1924,6 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void errorSerializationVersion1() {
-    // Set serialization version to 1.
-    try {
-      FixSerializationConfig.Builder builder =
-          new FixSerializationConfig.Builder()
-              .setSuggest(true, false)
-              .setOutputDirectory(root.toString())
-              .setSerializationVersion(1);
-      Path config = root.resolve("serializer.xml");
-      Files.deleteIfExists(config);
-      Files.createFile(config);
-      configPath = config.toString();
-      builder.writeAsXML(configPath);
-    } catch (IOException ex) {
-      throw new UncheckedIOException(ex);
-    }
     DisplayFactory<ErrorDisplayV1> errorDisplayV1Factor =
         values -> {
           Preconditions.checkArgument(
@@ -1884,6 +1942,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=1",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Super.java",

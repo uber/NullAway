@@ -30,10 +30,12 @@ import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import javax.annotation.Nullable;
 
 /**
  * Serializer class where all generated files in Fix Serialization package is created through APIs
@@ -59,6 +61,7 @@ public class Serializer {
     this.suggestedFixesOutputPath = Paths.get(outputDirectory, "fixes.tsv");
     this.fieldInitializationOutputPath = Paths.get(outputDirectory, "field_init.tsv");
     this.serializationAdapter = serializationAdapter;
+    serializeVersion(outputDirectory);
     initializeOutputFiles(config);
   }
   /**
@@ -112,6 +115,22 @@ public class Serializer {
    */
   public int getSerializationVersion() {
     return serializationAdapter.getSerializationVersion();
+  }
+
+  /**
+   * Serializes the using {@link SerializationAdapter} version as {@code string} in
+   * <b>serialization_version.txt</b> file under root output directory for all serialized outputs.
+   *
+   * @param outputDirectory Path to root directory for all serialized outputs.
+   */
+  private void serializeVersion(@Nullable String outputDirectory) {
+    Path versionOutputPath = Paths.get(outputDirectory).resolve("serialization_version.txt");
+    try (Writer fileWriter =
+        Files.newBufferedWriter(versionOutputPath.toFile().toPath(), Charset.defaultCharset())) {
+      fileWriter.write(serializationAdapter.getSerializationVersion() + "");
+    } catch (IOException exception) {
+      throw new RuntimeException("Could not serialize output version", exception);
+    }
   }
 
   /** Initializes every file which will be re-generated in the new run of NullAway. */
