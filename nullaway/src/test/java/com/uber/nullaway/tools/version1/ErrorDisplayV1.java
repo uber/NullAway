@@ -25,8 +25,9 @@ import com.uber.nullaway.tools.Display;
 import java.util.Objects;
 
 /**
- * Helper class to represent a {@link com.uber.nullaway.fixserialization.out.ErrorInfo} contents in
- * a test case's (expected or actual) output.
+ * Helper class to test backward compatibility of different serialization versions and to represent
+ * a {@link com.uber.nullaway.fixserialization.out.ErrorInfo} contents in a test case's (expected or
+ * actual) output <strong>specifically for serialization version 1.</strong>
  */
 public class ErrorDisplayV1 implements Display {
   public final String type;
