@@ -22,15 +22,11 @@
 
 package com.uber.nullaway.fixserialization.out;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.util.JCDiagnostic;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.fixserialization.location.SymbolLocation;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** Stores information regarding an error which will be reported by NullAway. */
@@ -48,17 +44,8 @@ public class ErrorInfo {
    * In cases where {@link ErrorInfo#nonnullTarget} is {@code null}, we serialize this value at its
    * placeholder in the output tsv file.
    */
-  private static final String EMPTY_NONNULL_TARGET_LOCATION_STRING =
+  public static final String EMPTY_NONNULL_TARGET_LOCATION_STRING =
       "null\tnull\tnull\tnull\tnull\tnull";
-
-  /** Special characters that need to be escaped in TSV files. */
-  private static final ImmutableMap<Character, Character> escapes =
-      ImmutableMap.of(
-          '\n', 'n',
-          '\t', 't',
-          '\f', 'f',
-          '\b', 'b',
-          '\r', 'r');
 
   /** Offset of program point where this error is reported. */
   private final int offset;
@@ -72,73 +59,59 @@ public class ErrorInfo {
   }
 
   /**
-   * Escapes special characters in string to conform with TSV file formats. The most common
-   * convention for lossless conversion is to escape special characters with a backslash according
-   * to <a
-   * href="https://en.wikipedia.org/wiki/Tab-separated_values#Conventions_for_lossless_conversion_to_TSV">
-   * Conventions for lossless conversion to TSV</a>
+   * Getter for error message.
    *
-   * @param str String to process.
-   * @return returns modified str which its special characters are escaped.
+   * @return Error message.
    */
-  private static String escapeSpecialCharacters(String str) {
-    // regex needs "\\" to match character '\', each must also be escaped in string to create "\\",
-    // therefore we need four "\".
-    // escape existing backslashes
-    str = str.replaceAll(Pattern.quote("\\"), Matcher.quoteReplacement("\\\\"));
-    // escape special characters
-    for (Character key : escapes.keySet()) {
-      str = str.replaceAll(String.valueOf(key), Matcher.quoteReplacement("\\" + escapes.get(key)));
-    }
-    return str;
+  public ErrorMessage getErrorMessage() {
+    return errorMessage;
   }
 
   /**
-   * returns string representation of content of an object.
+   * Region member where this error is reported by NullAway.
    *
-   * @return string representation of contents of an object in a line seperated by tabs.
+   * @return Enclosing region member. Returns {@code null} if the values are not computed yet.
    */
-  public String tabSeparatedToString() {
-    return String.join(
-        "\t",
-        errorMessage.getMessageType().toString(),
-        escapeSpecialCharacters(errorMessage.getMessage()),
-        (classAndMemberInfo.getClazz() != null
-            ? ASTHelpers.getSymbol(classAndMemberInfo.getClazz()).flatName()
-            : "null"),
-        (classAndMemberInfo.getMember() != null
-            ? classAndMemberInfo.getMember().toString()
-            : "null"),
-        String.valueOf(offset),
-        (nonnullTarget != null
-            ? SymbolLocation.createLocationFromSymbol(nonnullTarget).tabSeparatedToString()
-            : EMPTY_NONNULL_TARGET_LOCATION_STRING));
+  @Nullable
+  public Symbol getRegionMember() {
+    return classAndMemberInfo.getMember();
+  }
+
+  /**
+   * Region class where this error is reported by NullAway.
+   *
+   * @return Enclosing region class. Returns {@code null} if the values are not computed yet.
+   */
+  @Nullable
+  public Symbol getRegionClass() {
+    return classAndMemberInfo.getClazz() == null
+        ? null
+        : ASTHelpers.getSymbol(classAndMemberInfo.getClazz());
+  }
+
+  /**
+   * Returns the symbol of a {@code @Nonnull} element which was involved in a pseudo-assignment of a
+   * {@code @Nullable} expression into a {@code @Nonnull} target and caused this error to be
+   * reported if such element exists, otherwise, it will return {@code null}.
+   *
+   * @return The symbol of the {@code @Nonnull} element if exists, and {@code null} otherwise.
+   */
+  @Nullable
+  public Symbol getNonnullTarget() {
+    return nonnullTarget;
+  }
+
+  /**
+   * Returns offset of program point where this error is reported.
+   *
+   * @return Offset of program point where this error is reported.
+   */
+  public int getOffset() {
+    return offset;
   }
 
   /** Finds the class and member of program point where the error is reported. */
   public void initEnclosing() {
     classAndMemberInfo.findValues();
-  }
-
-  /**
-   * Creates header of an output file containing all {@link ErrorInfo} written in string which
-   * values are separated tabs.
-   *
-   * @return string representation of the header separated by tabs.
-   */
-  public static String header() {
-    return String.join(
-        "\t",
-        "message_type",
-        "message",
-        "enc_class",
-        "enc_member",
-        "offset",
-        "target_kind",
-        "target_class",
-        "target_method",
-        "param",
-        "index",
-        "uri");
   }
 }

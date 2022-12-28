@@ -23,18 +23,17 @@
 package com.uber.nullaway.fixserialization;
 
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.io.Writer;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import javax.annotation.Nullable;
 
 /**
  * Serializer class where all generated files in Fix Serialization package is created through APIs
@@ -47,38 +46,21 @@ public class Serializer {
   private final Path suggestedFixesOutputPath;
   /** Path to write suggested fix metadata. */
   private final Path fieldInitializationOutputPath;
-
   /**
-   * Version for all serialized outputs. Outputs formats may change overtime, this version is
-   * serialized to keep track of changes.
+   * Adapter used to serialize outputs. This adapter is capable of serializing outputs according to
+   * the requested serilization version and maintaining backward compatibility with previous
+   * versions of NullAway.
    */
-  public static final int SERIALIZATION_VERSION = 2;
+  private final SerializationAdapter serializationAdapter;
 
-  public Serializer(FixSerializationConfig config) {
+  public Serializer(FixSerializationConfig config, SerializationAdapter serializationAdapter) {
     String outputDirectory = config.outputDirectory;
     this.errorOutputPath = Paths.get(outputDirectory, "errors.tsv");
     this.suggestedFixesOutputPath = Paths.get(outputDirectory, "fixes.tsv");
     this.fieldInitializationOutputPath = Paths.get(outputDirectory, "field_init.tsv");
+    this.serializationAdapter = serializationAdapter;
     initializeOutputFiles(config);
-    serializeVersion(outputDirectory);
   }
-
-  /**
-   * Serializes the {@link Serializer#SERIALIZATION_VERSION} as {@code string} in
-   * <b>serialization_version.txt</b> file under root output directory for all serialized outputs.
-   *
-   * @param outputDirectory Path to root directory for all serialized outputs.
-   */
-  private void serializeVersion(@Nullable String outputDirectory) {
-    Path versionOutputPath = Paths.get(outputDirectory).resolve("serialization_version.txt");
-    try (Writer fileWriter =
-        Files.newBufferedWriter(versionOutputPath.toFile().toPath(), Charset.defaultCharset())) {
-      fileWriter.write(SERIALIZATION_VERSION + "");
-    } catch (IOException exception) {
-      throw new RuntimeException("Could not serialize output version", exception);
-    }
-  }
-
   /**
    * Appends the string representation of the {@link SuggestedNullableFixInfo}.
    *
@@ -100,7 +82,7 @@ public class Serializer {
    */
   public void serializeErrorInfo(ErrorInfo errorInfo) {
     errorInfo.initEnclosing();
-    appendToFile(errorInfo.tabSeparatedToString(), errorOutputPath);
+    appendToFile(serializationAdapter.serializeError(errorInfo), errorOutputPath);
   }
 
   public void serializeFieldInitializationInfo(FieldInitializationInfo info) {
@@ -123,6 +105,15 @@ public class Serializer {
     }
   }
 
+  /**
+   * Returns the serialization version.
+   *
+   * @return The serialization version.
+   */
+  public int getSerializationVersion() {
+    return serializationAdapter.getSerializationVersion();
+  }
+
   /** Initializes every file which will be re-generated in the new run of NullAway. */
   private void initializeOutputFiles(FixSerializationConfig config) {
     try {
@@ -133,7 +124,7 @@ public class Serializer {
       if (config.fieldInitInfoEnabled) {
         initializeFile(fieldInitializationOutputPath, FieldInitializationInfo.header());
       }
-      initializeFile(errorOutputPath, ErrorInfo.header());
+      initializeFile(errorOutputPath, serializationAdapter.getErrorsOutputFileHeader());
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting serializer", e);
     }

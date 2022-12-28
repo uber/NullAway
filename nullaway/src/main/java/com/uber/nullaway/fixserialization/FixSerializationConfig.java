@@ -23,6 +23,9 @@
 package com.uber.nullaway.fixserialization;
 
 import com.google.common.base.Preconditions;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
+import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
+import com.uber.nullaway.fixserialization.adapters.SerializationV2Adapter;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -77,12 +80,13 @@ public class FixSerializationConfig {
       boolean suggestEnabled,
       boolean suggestEnclosing,
       boolean fieldInitInfoEnabled,
-      @Nullable String outputDirectory) {
+      @Nullable String outputDirectory,
+      int serializationVersion) {
     this.suggestEnabled = suggestEnabled;
     this.suggestEnclosing = suggestEnclosing;
     this.fieldInitInfoEnabled = fieldInitInfoEnabled;
     this.outputDirectory = outputDirectory;
-    serializer = new Serializer(this);
+    serializer = new Serializer(this, initializeAdapter(serializationVersion));
   }
 
   /**
@@ -119,7 +123,27 @@ public class FixSerializationConfig {
         XMLUtil.getValueFromAttribute(
                 document, "/serialization/fieldInitInfo", "active", Boolean.class)
             .orElse(false);
-    serializer = new Serializer(this);
+    // Serialization version, if no version is defined, we will work with the latest version.
+    int serializationVersion =
+        XMLUtil.getValueFromTag(document, "/serialization/version", Integer.class)
+            // should always be the most recent version.
+            .orElse(2);
+    SerializationAdapter serializationAdapter = initializeAdapter(serializationVersion);
+    serializer = new Serializer(this, serializationAdapter);
+  }
+
+  /**
+   * Initializes NullAway serialization adapter according to the requested serialization version.
+   */
+  private SerializationAdapter initializeAdapter(int version) {
+    switch (version) {
+      case 1:
+        return new SerializationV1Adapter();
+      case 2:
+        return new SerializationV2Adapter();
+      default:
+        throw new RuntimeException("Unrecognized NullAway serialization version: " + version);
+    }
   }
 
   @Nullable
@@ -134,11 +158,14 @@ public class FixSerializationConfig {
     private boolean suggestEnclosing;
     private boolean fieldInitInfo;
     @Nullable private String outputDir;
+    private int serializationVersion;
 
     public Builder() {
       suggestEnabled = false;
       suggestEnclosing = false;
       fieldInitInfo = false;
+      // should be the most recent version.
+      serializationVersion = 2;
     }
 
     public Builder setSuggest(boolean value, boolean withEnclosing) {
@@ -157,6 +184,14 @@ public class FixSerializationConfig {
       return this;
     }
 
+    public Builder setSerializationVersion(int version) {
+      if (version < 1 || version > 2) {
+        throw new RuntimeException("Version " + version + " is not recognized");
+      }
+      this.serializationVersion = version;
+      return this;
+    }
+
     /**
      * Builds and writes the config with the state in builder at the given path as XML.
      *
@@ -171,7 +206,8 @@ public class FixSerializationConfig {
       if (outputDir == null) {
         throw new IllegalStateException("did not set mandatory output directory");
       }
-      return new FixSerializationConfig(suggestEnabled, suggestEnclosing, fieldInitInfo, outputDir);
+      return new FixSerializationConfig(
+          suggestEnabled, suggestEnclosing, fieldInitInfo, outputDir, serializationVersion);
     }
   }
 }

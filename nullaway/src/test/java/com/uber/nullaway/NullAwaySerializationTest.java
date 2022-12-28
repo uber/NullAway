@@ -28,8 +28,6 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
-import com.uber.nullaway.fixserialization.Serializer;
-import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import com.uber.nullaway.tools.DisplayFactory;
@@ -43,7 +41,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,7 +61,20 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   private static final String SUGGEST_FIX_FILE_NAME = "fixes.tsv";
   private static final String SUGGEST_FIX_FILE_HEADER = SuggestedNullableFixInfo.header();
   private static final String ERROR_FILE_NAME = "errors.tsv";
-  private static final String ERROR_FILE_HEADER = ErrorInfo.header();
+  private static final String ERROR_FILE_HEADER =
+      String.join(
+          "\t",
+          "message_type",
+          "message",
+          "enc_class",
+          "enc_member",
+          "offset",
+          "target_kind",
+          "target_class",
+          "target_method",
+          "param",
+          "index",
+          "uri");
   private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
   private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
 
@@ -125,7 +135,10 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
     try {
       Files.createDirectories(root);
       FixSerializationConfig.Builder builder =
-          new FixSerializationConfig.Builder().setSuggest(true, false).setOutputDirectory(output);
+          new FixSerializationConfig.Builder()
+              .setSuggest(true, false)
+              .setOutputDirectory(output)
+              .setSerializationVersion(2);
       Path config = root.resolve("serializer.xml");
       Files.createFile(config);
       configPath = config.toString();
@@ -1652,49 +1665,6 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
           .setFactory(fixDisplayFactory)
           .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
           .doTest();
-    }
-  }
-
-  @Test
-  public void verifySerializationVersionIsSerialized() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
-    tester
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:SerializeFixMetadata=true",
-                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
-        // Just to run serialization features, the serialized fixes are not point of interest in
-        // this test.
-        .addSourceLines(
-            "com/uber/Test.java",
-            "package com.uber;",
-            "public class Test {",
-            "   Object run() {",
-            "    // BUG: Diagnostic contains: returning @Nullable expression",
-            "    return null;",
-            "   }",
-            "}")
-        .setExpectedOutputs(
-            new FixDisplay(
-                "nullable", "run()", "null", "METHOD", "com.uber.Test", "com/uber/Test.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
-        .doTest();
-
-    Path serializationVersionPath = root.resolve("serialization_version.txt");
-    try {
-      List<String> lines = Files.readAllLines(serializationVersionPath);
-      // Check if it contains only one line.
-      Preconditions.checkArgument(lines.size() == 1);
-      // Check the serialized version.
-      Preconditions.checkArgument(
-          Integer.parseInt(lines.get(0)) == Serializer.SERIALIZATION_VERSION);
-    } catch (IOException e) {
-      throw new RuntimeException(
-          "Could not read serialization version at path: " + serializationVersionPath, e);
     }
   }
 
