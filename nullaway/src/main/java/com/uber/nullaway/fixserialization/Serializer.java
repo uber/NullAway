@@ -53,6 +53,8 @@ public class Serializer {
    */
   private final SerializationAdapter serializationAdapter;
 
+  public static final int LATEST_VERSION = 2;
+
   public Serializer(FixSerializationConfig config, SerializationAdapter serializationAdapter) {
     String outputDirectory = config.outputDirectory;
     this.errorOutputPath = Paths.get(outputDirectory, "errors.tsv");
