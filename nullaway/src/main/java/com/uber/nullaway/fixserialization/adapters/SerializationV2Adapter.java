@@ -36,6 +36,8 @@ import com.uber.nullaway.fixserialization.out.ErrorInfo;
  * <ul>
  *   <li>Serialized errors contain an extra column indicating the offset of the program point where
  *       the error is reported.
+ *   <li>Serialized errors contain an extra column indicating the path to the containing source file
+ *       where the error is reported
  * </ul>
  */
 public class SerializationV2Adapter implements SerializationAdapter {
@@ -49,12 +51,13 @@ public class SerializationV2Adapter implements SerializationAdapter {
         "enc_class",
         "enc_member",
         "offset",
+        "uri",
         "target_kind",
         "target_class",
         "target_method",
-        "param",
-        "index",
-        "uri");
+        "target_param",
+        "target_index",
+        "target_uri");
   }
 
   @Override
@@ -68,6 +71,7 @@ public class SerializationV2Adapter implements SerializationAdapter {
             : "null"),
         (errorInfo.getRegionMember() != null ? errorInfo.getRegionMember().toString() : "null"),
         String.valueOf(errorInfo.getOffset()),
+        errorInfo.getUri().getPath(),
         (errorInfo.getNonnullTarget() != null
             ? SymbolLocation.createLocationFromSymbol(errorInfo.getNonnullTarget())
                 .tabSeparatedToString()

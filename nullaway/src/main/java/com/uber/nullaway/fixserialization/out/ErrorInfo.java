@@ -27,6 +27,7 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.util.JCDiagnostic;
 import com.uber.nullaway.ErrorMessage;
+import java.net.URI;
 import javax.annotation.Nullable;
 
 /** Stores information regarding an error which will be reported by NullAway. */
@@ -49,6 +50,8 @@ public class ErrorInfo {
 
   /** Offset of program point where this error is reported. */
   private final int offset;
+  /** Uri to the containing source file where this error is reported. */
+  private final URI uri;
 
   public ErrorInfo(TreePath path, ErrorMessage errorMessage, @Nullable Symbol nonnullTarget) {
     this.classAndMemberInfo = new ClassAndMemberInfo(path);
@@ -56,6 +59,7 @@ public class ErrorInfo {
     this.nonnullTarget = nonnullTarget;
     JCDiagnostic.DiagnosticPosition treePosition = (JCDiagnostic.DiagnosticPosition) path.getLeaf();
     this.offset = treePosition.getStartPosition();
+    this.uri = path.getCompilationUnit().getSourceFile().toUri();
   }
 
   /**
@@ -108,6 +112,15 @@ public class ErrorInfo {
    */
   public int getOffset() {
     return offset;
+  }
+
+  /**
+   * Returns URI to the containing source file where this error is reported.
+   *
+   * @return URI to the containing source file where this error is reported.
+   */
+  public URI getUri() {
+    return uri;
   }
 
   /** Finds the class and member of program point where the error is reported. */

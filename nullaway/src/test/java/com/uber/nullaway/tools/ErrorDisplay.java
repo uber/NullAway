@@ -33,6 +33,7 @@ public class ErrorDisplay implements Display {
   public final String encMember;
   public final String encClass;
   public final int offset;
+  public final String path;
   public final String kind;
   public final String clazz;
   public final String method;
@@ -46,6 +47,7 @@ public class ErrorDisplay implements Display {
       String encClass,
       String encMember,
       int offset,
+      String path,
       String kind,
       String clazz,
       String method,
@@ -57,6 +59,8 @@ public class ErrorDisplay implements Display {
     this.encMember = encMember;
     this.encClass = encClass;
     this.offset = offset;
+    // relative paths are getting compared.
+    this.path = path.contains("com/uber/") ? path.substring(path.indexOf("com/uber/")) : path;
     this.kind = kind;
     this.clazz = clazz;
     this.method = method;
@@ -66,9 +70,11 @@ public class ErrorDisplay implements Display {
     this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
   }
 
-  public ErrorDisplay(String type, String message, String encClass, String encMember, int offset) {
+  public ErrorDisplay(
+      String type, String message, String encClass, String encMember, int offset, String path) {
     this(
-        type, message, encClass, encMember, offset, "null", "null", "null", "null", "null", "null");
+        type, message, encClass, encMember, offset, path, "null", "null", "null", "null", "null",
+        "null");
   }
 
   @Override
@@ -88,6 +94,7 @@ public class ErrorDisplay implements Display {
         && clazz.equals(that.clazz)
         && encClass.equals(that.encClass)
         && offset == that.offset
+        && path.equals(that.path)
         && kind.equals(that.kind)
         && method.equals(that.method)
         && variable.equals(that.variable)
@@ -98,7 +105,8 @@ public class ErrorDisplay implements Display {
   @Override
   public int hashCode() {
     return Objects.hash(
-        type, message, encMember, encClass, offset, kind, clazz, method, variable, index, uri);
+        type, message, encMember, encClass, offset, path, kind, clazz, method, variable, index,
+        uri);
   }
 
   @Override
@@ -118,6 +126,9 @@ public class ErrorDisplay implements Display {
         + '\''
         + "\n\toffset='"
         + offset
+        + '\''
+        + "\n\tpath='"
+        + path
         + '\''
         + "\n\tkind='"
         + kind
