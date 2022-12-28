@@ -142,7 +142,7 @@ public class FixSerializationConfig {
       case 2:
         return new SerializationV2Adapter();
       default:
-        throw new RuntimeException("Unrecognized NullAway serialization version: " + version);
+        throw new RuntimeException("Unrecognized NullAway serialization version: " + version + ". Supported versions: 1 to " + SerializationAdapter.LATEST_VERSION + ".");
     }
   }
 
