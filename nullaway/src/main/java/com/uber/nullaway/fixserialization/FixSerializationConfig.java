@@ -127,7 +127,7 @@ public class FixSerializationConfig {
     int serializationVersion =
         XMLUtil.getValueFromTag(document, "/serialization/version", Integer.class)
             // should always be the most recent version.
-            .orElse(Serializer.LATEST_VERSION);
+            .orElse(SerializationAdapter.LATEST_VERSION);
     SerializationAdapter serializationAdapter = initializeAdapter(serializationVersion);
     serializer = new Serializer(this, serializationAdapter);
   }
@@ -142,7 +142,12 @@ public class FixSerializationConfig {
       case 2:
         return new SerializationV2Adapter();
       default:
-        throw new RuntimeException("Unrecognized NullAway serialization version: " + version + ". Supported versions: 1 to " + SerializationAdapter.LATEST_VERSION + ".");
+        throw new RuntimeException(
+            "Unrecognized NullAway serialization version: "
+                + version
+                + ". Supported versions: 1 to "
+                + SerializationAdapter.LATEST_VERSION
+                + ".");
     }
   }
 
@@ -165,7 +170,7 @@ public class FixSerializationConfig {
       suggestEnclosing = false;
       fieldInitInfo = false;
       // use most recent version by default.
-      serializationVersion = Serializer.LATEST_VERSION;
+      serializationVersion = SerializationAdapter.LATEST_VERSION;
     }
 
     public Builder setSuggest(boolean value, boolean withEnclosing) {
@@ -185,7 +190,7 @@ public class FixSerializationConfig {
     }
 
     public Builder setSerializationVersion(int version) {
-      if (version < 1 || version > Serializer.LATEST_VERSION) {
+      if (version < 1 || version > SerializationAdapter.LATEST_VERSION) {
         throw new RuntimeException("Version " + version + " is not recognized");
       }
       this.serializationVersion = version;

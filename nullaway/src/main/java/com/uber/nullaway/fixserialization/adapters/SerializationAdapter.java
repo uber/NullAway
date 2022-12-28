@@ -32,6 +32,8 @@ import com.uber.nullaway.fixserialization.out.ErrorInfo;
  */
 public interface SerializationAdapter {
 
+  public final int LATEST_VERSION = 2;
+
   /**
    * Returns header of "errors.tsv" which contains all serialized {@link ErrorInfo} reported by
    * NullAway.
