@@ -32,7 +32,11 @@ import com.uber.nullaway.fixserialization.out.ErrorInfo;
  */
 public interface SerializationAdapter {
 
-  public final int LATEST_VERSION = 2;
+  /**
+   * Latest version number. If version is not defined by the user, NullAway will use the
+   * corresponding adapter to this version in its serialization.
+   */
+  int LATEST_VERSION = 2;
 
   /**
    * Returns header of "errors.tsv" which contains all serialized {@link ErrorInfo} reported by
