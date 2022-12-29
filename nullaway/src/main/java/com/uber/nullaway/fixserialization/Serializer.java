@@ -127,7 +127,7 @@ public class Serializer {
     Path versionOutputPath = Paths.get(outputDirectory).resolve("serialization_version.txt");
     try (Writer fileWriter =
         Files.newBufferedWriter(versionOutputPath.toFile().toPath(), Charset.defaultCharset())) {
-      fileWriter.write(serializationAdapter.getSerializationVersion() + "");
+      fileWriter.write(Integer.toString(serializationAdapter.getSerializationVersion()));
     } catch (IOException exception) {
       throw new RuntimeException("Could not serialize output version", exception);
     }
