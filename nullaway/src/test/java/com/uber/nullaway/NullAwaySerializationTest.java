@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 
 import com.google.common.base.Preconditions;
@@ -1427,44 +1428,10 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void verifySerializationVersionIsSerialized() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
-    tester
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:SerializeFixMetadata=true",
-                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
-        // Just to run serialization features, the serialized fixes are not point of interest in
-        // this test.
-        .addSourceLines(
-            "com/uber/Test.java",
-            "package com.uber;",
-            "public class Test {",
-            "   Object run() {",
-            "    // BUG: Diagnostic contains: returning @Nullable expression",
-            "    return null;",
-            "   }",
-            "}")
-        .setExpectedOutputs(
-            new FixDisplay(
-                "nullable", "run()", "null", "METHOD", "com.uber.Test", "com/uber/Test.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
-        .doTest();
-
-    Path serializationVersionPath = root.resolve("serialization_version.txt");
-    try {
-      List<String> lines = Files.readAllLines(serializationVersionPath);
-      // Check if it contains only one line.
-      Preconditions.checkArgument(lines.size() == 1);
-      // Check the serialized version.
-      Preconditions.checkArgument(Integer.parseInt(lines.get(0)) == 2);
-    } catch (IOException e) {
-      throw new RuntimeException(
-          "Could not read serialization version at path: " + serializationVersionPath, e);
-    }
+    // Check for serialization version 1.
+    checkVersionSerialization(1);
+    // Check for serialization version 2.
+    checkVersionSerialization(2);
   }
 
   @Test
@@ -2021,5 +1988,56 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setOutputFileNameAndHeader(
             ERROR_FILE_NAME, new SerializationV1Adapter().getErrorsOutputFileHeader())
         .doTest();
+  }
+
+  /**
+   * Helper method to verify the correct serialization version number is written in
+   * "serialization_version.txt". Version number can be configured via Error Prone flags by the
+   * user, and {@link com.uber.nullaway.fixserialization.Serializer} should write the exact number
+   * in "serialization_version.txt".
+   *
+   * @param version Version number to pass to NullAway via Error Prone flags and the expected number
+   *     to be read from "serialization_version.txt".
+   */
+  public void checkVersionSerialization(int version) {
+    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=" + version,
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        // Just to run serialization features, the serialized fixes are not point of interest in
+        // this test.
+        .addSourceLines(
+            "com/uber/Test.java",
+            "package com.uber;",
+            "public class Test {",
+            "   Object run() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    return null;",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new FixDisplay(
+                "nullable", "run()", "null", "METHOD", "com.uber.Test", "com/uber/Test.java"))
+        .setFactory(fixDisplayFactory)
+        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .doTest();
+
+    Path serializationVersionPath = root.resolve("serialization_version.txt");
+    try {
+      List<String> lines = Files.readAllLines(serializationVersionPath);
+      // Check if it contains only one line.
+      assertEquals(lines.size(), 1);
+      // Check the serialized version.
+      assertEquals(Integer.parseInt(lines.get(0)), version);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Could not read serialization version at path: " + serializationVersionPath, e);
+    }
   }
 }
