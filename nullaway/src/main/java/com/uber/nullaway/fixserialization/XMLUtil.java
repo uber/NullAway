@@ -126,6 +126,14 @@ public class XMLUtil {
       outputDir.setTextContent(config.outputDirectory);
       rootElement.appendChild(outputDir);
 
+      // Serialization version
+      if (config.getSerializer() != null) {
+        Element serializationVersion = doc.createElement("version");
+        serializationVersion.setTextContent(
+            String.valueOf(config.getSerializer().getSerializationVersion()));
+        rootElement.appendChild(serializationVersion);
+      }
+
       // Writings
       TransformerFactory transformerFactory = TransformerFactory.newInstance();
       Transformer transformer = transformerFactory.newTransformer();

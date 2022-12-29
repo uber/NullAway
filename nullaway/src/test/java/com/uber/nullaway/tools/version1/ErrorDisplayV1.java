@@ -19,21 +19,21 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-package com.uber.nullaway.tools;
+package com.uber.nullaway.tools.version1;
 
+import com.uber.nullaway.tools.Display;
 import java.util.Objects;
 
 /**
- * Helper class to represent a {@link com.uber.nullaway.fixserialization.out.ErrorInfo} contents in
- * a test case's (expected or actual) output.
+ * Helper class to test backward compatibility of different serialization versions and to represent
+ * a {@link com.uber.nullaway.fixserialization.out.ErrorInfo} contents in a test case's (expected or
+ * actual) output <strong>specifically for serialization version 1.</strong>
  */
-public class ErrorDisplay implements Display {
+public class ErrorDisplayV1 implements Display {
   public final String type;
   public final String message;
   public final String encMember;
   public final String encClass;
-  public final int offset;
-  public final String path;
   public final String kind;
   public final String clazz;
   public final String method;
@@ -41,13 +41,11 @@ public class ErrorDisplay implements Display {
   public final String index;
   public final String uri;
 
-  public ErrorDisplay(
+  public ErrorDisplayV1(
       String type,
       String message,
       String encClass,
       String encMember,
-      int offset,
-      String path,
       String kind,
       String clazz,
       String method,
@@ -58,9 +56,6 @@ public class ErrorDisplay implements Display {
     this.message = message;
     this.encMember = encMember;
     this.encClass = encClass;
-    this.offset = offset;
-    // relative paths are getting compared.
-    this.path = path.contains("com/uber/") ? path.substring(path.indexOf("com/uber/")) : path;
     this.kind = kind;
     this.clazz = clazz;
     this.method = method;
@@ -70,11 +65,8 @@ public class ErrorDisplay implements Display {
     this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
   }
 
-  public ErrorDisplay(
-      String type, String message, String encClass, String encMember, int offset, String path) {
-    this(
-        type, message, encClass, encMember, offset, path, "null", "null", "null", "null", "null",
-        "null");
+  public ErrorDisplayV1(String type, String message, String encClass, String encMember) {
+    this(type, message, encClass, encMember, "null", "null", "null", "null", "null", "null");
   }
 
   @Override
@@ -82,10 +74,10 @@ public class ErrorDisplay implements Display {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof ErrorDisplay)) {
+    if (!(o instanceof ErrorDisplayV1)) {
       return false;
     }
-    ErrorDisplay that = (ErrorDisplay) o;
+    ErrorDisplayV1 that = (ErrorDisplayV1) o;
     return type.equals(that.type)
         // To increase readability, a shorter version of the actual message might be present in the
         // expected output of tests.
@@ -93,8 +85,6 @@ public class ErrorDisplay implements Display {
         && encMember.equals(that.encMember)
         && clazz.equals(that.clazz)
         && encClass.equals(that.encClass)
-        && offset == that.offset
-        && path.equals(that.path)
         && kind.equals(that.kind)
         && method.equals(that.method)
         && variable.equals(that.variable)
@@ -105,8 +95,7 @@ public class ErrorDisplay implements Display {
   @Override
   public int hashCode() {
     return Objects.hash(
-        type, message, encMember, encClass, offset, path, kind, clazz, method, variable, index,
-        uri);
+        type, message, encMember, encClass, kind, clazz, method, variable, index, uri);
   }
 
   @Override
@@ -123,12 +112,6 @@ public class ErrorDisplay implements Display {
         + '\''
         + "\n\tencClass='"
         + encClass
-        + '\''
-        + "\n\toffset='"
-        + offset
-        + '\''
-        + "\n\tpath='"
-        + path
         + '\''
         + "\n\tkind='"
         + kind

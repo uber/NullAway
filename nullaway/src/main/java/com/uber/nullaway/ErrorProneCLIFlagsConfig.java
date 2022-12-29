@@ -25,6 +25,7 @@ package com.uber.nullaway;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.ErrorProneFlags;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -81,6 +82,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
   /** --- Serialization configs --- */
   static final String FL_FIX_SERIALIZATION = EP_FL_NAMESPACE + ":SerializeFixMetadata";
+
+  static final String FL_FIX_SERIALIZATION_VERSION =
+      EP_FL_NAMESPACE + ":SerializeFixMetadataVersion";
 
   static final String FL_FIX_SERIALIZATION_CONFIG_PATH =
       EP_FL_NAMESPACE + ":FixSerializationConfigPath";
@@ -234,6 +238,8 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
               + " flag.  If you feel you have gotten this message in error report an issue"
               + " at https://github.com/uber/NullAway/issues.");
     }
+    int serializationVersion =
+        flags.getInteger(FL_FIX_SERIALIZATION_VERSION).orElse(SerializationAdapter.LATEST_VERSION);
     /*
      * if fixSerializationActivationFlag is false, the default constructor is invoked for
      * creating FixSerializationConfig which all features are deactivated.  This lets the
@@ -241,7 +247,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
      */
     fixSerializationConfig =
         serializationActivationFlag && fixSerializationConfigPath.isPresent()
-            ? new FixSerializationConfig(fixSerializationConfigPath.get())
+            ? new FixSerializationConfig(fixSerializationConfigPath.get(), serializationVersion)
             : new FixSerializationConfig();
     if (serializationActivationFlag && isSuggestSuppressions) {
       throw new IllegalStateException(

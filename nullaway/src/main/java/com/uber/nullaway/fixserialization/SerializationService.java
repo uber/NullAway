@@ -23,6 +23,7 @@
 package com.uber.nullaway.fixserialization;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.VisitorState;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
@@ -34,10 +35,43 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.annotation.Nullable;
 
 /** A facade class to interact with fix serialization package. */
 public class SerializationService {
+
+  /** Special characters that need to be escaped in TSV files. */
+  private static final ImmutableMap<Character, Character> escapes =
+      ImmutableMap.of(
+          '\n', 'n',
+          '\t', 't',
+          '\f', 'f',
+          '\b', 'b',
+          '\r', 'r');
+
+  /**
+   * Escapes special characters in string to conform with TSV file formats. The most common
+   * convention for lossless conversion is to escape special characters with a backslash according
+   * to <a
+   * href="https://en.wikipedia.org/wiki/Tab-separated_values#Conventions_for_lossless_conversion_to_TSV">
+   * Conventions for lossless conversion to TSV</a>
+   *
+   * @param str String to process.
+   * @return returns modified str which its special characters are escaped.
+   */
+  public static String escapeSpecialCharacters(String str) {
+    // regex needs "\\" to match character '\', each must also be escaped in string to create "\\",
+    // therefore we need four "\".
+    // escape existing backslashes
+    str = str.replaceAll(Pattern.quote("\\"), Matcher.quoteReplacement("\\\\"));
+    // escape special characters
+    for (Character key : escapes.keySet()) {
+      str = str.replaceAll(String.valueOf(key), Matcher.quoteReplacement("\\" + escapes.get(key)));
+    }
+    return str;
+  }
 
   /**
    * Serializes the suggested type change of an element in the source code that can resolve the
