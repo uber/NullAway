@@ -41,6 +41,7 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeAnnotationPosition;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
@@ -292,7 +293,10 @@ public class NullabilityUtil {
     // location is a list of TypePathEntry objects, indicating whether the annotation is
     // on an array, inner type, wildcard, or type argument. If it's empty, then the
     // annotation is directly on the type.
-    return t.position.location.isEmpty();
+    // We care about both annotations directly on the outer type and also those on directly
+    // on an inner type, but wish to discard annotations on arrays, wildcards, or type arguments.
+    return t.position.location.stream()
+        .allMatch(l -> l.tag.equals(TypeAnnotationPosition.TypePathEntryKind.INNER_TYPE));
   }
 
   /**

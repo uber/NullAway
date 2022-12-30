@@ -990,4 +990,84 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void annotationAppliedToInnerTypeImplicitly() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "class Test {",
+            "  @Nullable Foo f;", // i.e. Test.@Nullable Foo
+            "  class Foo { }",
+            "  public void test() {",
+            "    // BUG: Diagnostic contains: dereferenced",
+            "    f.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void annotationAppliedToInnerTypeExplicitly() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "class Test {",
+            "  Test.@Nullable Foo f;",
+            "  class Foo { }",
+            "  public void test() {",
+            "    // BUG: Diagnostic contains: dereferenced",
+            "    f.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void annotationAppliedToInnerTypeExplicitly2() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Bar.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "class Bar {",
+            "  public class Foo { }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "class Test {",
+            "  Bar.@Nullable Foo f;",
+            "  public void test() {",
+            "    // BUG: Diagnostic contains: dereferenced",
+            "    f.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void annotationAppliedToInnerTypeOfTypeArgument() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Set;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "class Test {",
+            "  // BUG: Diagnostic contains: @NonNull field s not initialized",
+            "  Set<@Nullable Foo> s;", // i.e. Set<Test.@Nullable Foo>
+            "  class Foo { }",
+            "  public void test() {",
+            "    // safe because field is @NonNull",
+            "    s.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
