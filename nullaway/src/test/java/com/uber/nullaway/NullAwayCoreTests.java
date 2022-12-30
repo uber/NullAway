@@ -1017,11 +1017,14 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "package com.uber;",
             "import org.checkerframework.checker.nullness.qual.Nullable;",
             "class Test {",
-            "  Test.@Nullable Foo f;",
+            "  Test.@Nullable Foo f1;",
+            "  @Nullable Test.Foo f2;",
             "  class Foo { }",
             "  public void test() {",
             "    // BUG: Diagnostic contains: dereferenced",
-            "    f.hashCode();",
+            "    f1.hashCode();",
+            "    // BUG: Diagnostic contains: dereferenced",
+            "    f2.hashCode();",
             "  }",
             "}")
         .doTest();
@@ -1042,10 +1045,13 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "package com.uber;",
             "import org.checkerframework.checker.nullness.qual.Nullable;",
             "class Test {",
-            "  Bar.@Nullable Foo f;",
+            "  Bar.@Nullable Foo f1;",
+            "  @Nullable Bar.Foo f2;",
             "  public void test() {",
             "    // BUG: Diagnostic contains: dereferenced",
-            "    f.hashCode();",
+            "    f1.hashCode();",
+            "    // BUG: Diagnostic contains: dereferenced",
+            "    f2.hashCode();",
             "  }",
             "}")
         .doTest();
