@@ -1076,4 +1076,18 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void typeUseAnnotationOnArray() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "class Test {",
+            "  @Nullable Object[] foo1 = null;",
+            "  Object @Nullable[] foo2 = null;",
+            "}")
+        .doTest();
+  }
 }
