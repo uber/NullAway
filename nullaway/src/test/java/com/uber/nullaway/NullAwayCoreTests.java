@@ -1083,10 +1083,20 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
+            "import java.util.Set;",
             "import org.checkerframework.checker.nullness.qual.Nullable;",
             "class Test {",
+            "  // ok only for backwards compat",
             "  @Nullable Object[] foo1 = null;",
+            "  // ok according to spec",
             "  Object @Nullable[] foo2 = null;",
+            "  // ok only for backwards compat",
+            "  @Nullable Object [][] foo3 = null;",
+            "  // ok according to spec",
+            "  Object @Nullable [][] foo4 = null;",
+            "  // NOT ok; @Nullable applies to first array dimension",
+            "  // BUG: Diagnostic contains: assigning @Nullable expression",
+            "  Object [] @Nullable [] foo5 = null;",
             "}")
         .doTest();
   }
