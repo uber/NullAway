@@ -2447,50 +2447,46 @@ public class NullAway extends BugChecker
           ImmutableSet.copyOf(staticInitializerMethods));
     }
 
-    /**
-     * @return symbol for class
-     */
+    /** Returns symbol for class. */
     abstract Symbol.ClassSymbol classSymbol();
 
     /**
-     * @return <code>@NonNull</code> instance fields that are not directly initialized at
-     *     declaration
+     * Returns <code>@NonNull</code> instance fields that are not directly initialized at
+     * declaration.
      */
     abstract ImmutableSet<Symbol> nonnullInstanceFields();
 
     /**
-     * @return <code>@NonNull</code> static fields that are not directly initialized at declaration
+     * Returns <code>@NonNull</code> static fields that are not directly initialized at declaration.
      */
     abstract ImmutableSet<Symbol> nonnullStaticFields();
 
     /**
-     * @return the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
-     *     } } ), in the order in which they appear in the class
+     * Returns the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
+     * } } ), in the order in which they appear in the class.
      */
     abstract ImmutableList<BlockTree> instanceInitializerBlocks();
 
     /**
-     * @return the list of static initializer blocks (e.g. blocks of the form `class X { static {
-     *     //Code } } ), in the order in which they appear in the class
+     * Returns the list of static initializer blocks (e.g. blocks of the form `class X { static {
+     * //Code } } ), in the order in which they appear in the class.
      */
     abstract ImmutableList<BlockTree> staticInitializerBlocks();
 
-    /**
-     * @return the list of constructor
-     */
+    /** Returns constructors in the class. */
     abstract ImmutableSet<MethodTree> constructors();
 
     /**
-     * @return the list of non-static (instance) initializer methods. This includes methods
-     *     annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers
-     *     or annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations
+     * Returns the list of non-static (instance) initializer methods. This includes methods
+     * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
+     * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
      */
     abstract ImmutableSet<MethodTree> instanceInitializerMethods();
 
     /**
-     * @return the list of static initializer methods. This includes static methods
-     *     annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers
-     *     or annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations
+     * Returns the list of static initializer methods. This includes static methods
+     * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
+     * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
      */
     abstract ImmutableSet<MethodTree> staticInitializerMethods();
   }
