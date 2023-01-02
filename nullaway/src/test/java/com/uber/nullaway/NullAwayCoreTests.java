@@ -1083,7 +1083,6 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import java.util.Set;",
             "import org.checkerframework.checker.nullness.qual.Nullable;",
             "class Test {",
             "  // ok only for backwards compat",
@@ -1097,6 +1096,26 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "  // NOT ok; @Nullable applies to first array dimension",
             "  // BUG: Diagnostic contains: assigning @Nullable expression",
             "  Object [] @Nullable [] foo5 = null;",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void typeUseAnnotationOnInnerMultiLevel() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Set;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "class A { class B { class C {} } }",
+            "class Test {",
+            "  // At some point, we should only treat the last of these declarations",
+            "  // as making the field @Nullable.  For now, any of them makes the field",
+            "  // @Nullable.",
+            "  @Nullable A.B.C foo1 = null;",
+            "  A.@Nullable B.C foo2 = null;",
+            "  A.B.@Nullable C foo3 = null;",
             "}")
         .doTest();
   }
