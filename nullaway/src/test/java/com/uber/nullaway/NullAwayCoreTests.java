@@ -1110,12 +1110,13 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "import org.checkerframework.checker.nullness.qual.Nullable;",
             "class A { class B { class C {} } }",
             "class Test {",
-            "  // At some point, we should only treat the last of these declarations",
-            "  // as making the field @Nullable.  For now, any of them makes the field",
-            "  // @Nullable.",
+            "  // At some point, we should not treat the foo1 and foo2 as @Nullable.",
+            "  // For now we do, for ease of compatibility.",
             "  @Nullable A.B.C foo1 = null;",
             "  A.@Nullable B.C foo2 = null;",
             "  A.B.@Nullable C foo3 = null;",
+            "  // what should we do here?",
+            "  A.B.@Nullable C [][] foo4 = null;",
             "}")
         .doTest();
   }
