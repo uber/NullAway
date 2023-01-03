@@ -198,6 +198,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  // assignment tree tests
   @Test
   public void genericsChecksForAssignments() {
     makeHelper()
@@ -314,7 +315,6 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
             "class Test {",
-            "  class A<P1 extends @Nullable Object, P2 extends @Nullable Object>{}",
             "  class D<P extends @Nullable Object> {}",
             "  class B<P extends @Nullable Object> extends D<P>{}",
             "  class C<p extends @Nullable Object>{}",
@@ -324,9 +324,8 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    f = new C<B<@Nullable String>>();",
             " }",
             " void sampleError2() {",
-            "  D<C<String>> f;",
             "    // BUG: Diagnostic contains: Generic type parameter",
-            "   f = new B<C<@Nullable String>>();",
+            "    D<C<String>> f = new B<C<@Nullable String>>();",
             " }",
             "  }")
         .doTest();

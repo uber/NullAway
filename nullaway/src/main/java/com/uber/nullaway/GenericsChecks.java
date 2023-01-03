@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 
 /** Methods for performing checks related to generic types and nullability. */
-@SuppressWarnings("ClassCanBeStatic")
 public final class GenericsChecks {
   VisitorState state;
   Config config;
