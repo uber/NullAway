@@ -142,24 +142,20 @@ public final class GenericsChecks {
       typeWrapper.checkAssignmentTypeMatch(
           tree,
           ASTHelpers.getType(lhsTree),
-          (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier(),
-          config,
-          state,
-          analysis);
+          (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier());
     } else {
       NormalTypeTreeNullableTypeArgIndices typeWrapper = new NormalTypeTreeNullableTypeArgIndices();
       typeWrapper.checkAssignmentTypeMatch(
-          tree, ASTHelpers.getType(lhsTree), ASTHelpers.getType(rhsTree), config, state, analysis);
+          tree, ASTHelpers.getType(lhsTree), ASTHelpers.getType(rhsTree));
     }
   }
 
   class ParameterizedTypeTreeNullableArgIndices
       implements AnnotatedTypeWrapper<Type, ParameterizedTypeTree> {
-    ParameterizedTypeTreeNullableArgIndices() {}
 
     @SuppressWarnings("UnusedVariable")
     @Override
-    public HashSet<Integer> getNullableTypeArgIndices(ParameterizedTypeTree tree, Config config) {
+    public HashSet<Integer> getNullableTypeArgIndices(ParameterizedTypeTree tree) {
       List<? extends Tree> typeArguments = tree.getTypeArguments();
       HashSet<Integer> nullableTypeArgIndices = new HashSet<Integer>();
       for (int i = 0; i < typeArguments.size(); i++) {
@@ -178,39 +174,28 @@ public final class GenericsChecks {
     }
 
     public void superTypeMatchingRHSParameterizedTypeTree(
-        Tree tree,
-        ParameterizedTypeTree rhs,
-        Type lhs,
-        VisitorState state,
-        Config config,
-        NullAway analysis) {
+        Tree tree, ParameterizedTypeTree rhs, Type lhs) {
       if (lhs instanceof Type.ClassType && ASTHelpers.getType(rhs) instanceof Type.ClassType) {
         Type rhsType =
             GenericsChecks.supertypeMatchingLHS(
                 (Type.ClassType) lhs, (Type.ClassType) ASTHelpers.getType(rhs), state);
         NormalTypeTreeNullableTypeArgIndices typeWrapper =
             new NormalTypeTreeNullableTypeArgIndices();
-        typeWrapper.checkAssignmentTypeMatch(tree, lhs, rhsType, config, state, analysis);
+        typeWrapper.checkAssignmentTypeMatch(tree, lhs, rhsType);
       }
     }
 
     @Override
-    public void checkAssignmentTypeMatch(
-        Tree tree,
-        Type lhs,
-        ParameterizedTypeTree rhs,
-        Config config,
-        VisitorState state,
-        NullAway analysis) {
+    public void checkAssignmentTypeMatch(Tree tree, Type lhs, ParameterizedTypeTree rhs) {
       // if types are not same check for the super types
       if (!ASTHelpers.isSameType(lhs, ASTHelpers.getType(rhs), state)) {
-        superTypeMatchingRHSParameterizedTypeTree(tree, rhs, lhs, state, config, analysis);
+        superTypeMatchingRHSParameterizedTypeTree(tree, rhs, lhs);
       }
       NormalTypeTreeNullableTypeArgIndices normalTypeTreeNullableTypeArgIndices =
           new NormalTypeTreeNullableTypeArgIndices();
       HashSet<Integer> lhsNullableArgIndices =
-          normalTypeTreeNullableTypeArgIndices.getNullableTypeArgIndices(lhs, config);
-      HashSet<Integer> rhsNullableArgIndices = getNullableTypeArgIndices(rhs, config);
+          normalTypeTreeNullableTypeArgIndices.getNullableTypeArgIndices(lhs);
+      HashSet<Integer> rhsNullableArgIndices = getNullableTypeArgIndices(rhs);
       if (!lhsNullableArgIndices.equals(rhsNullableArgIndices)) {
         GenericsChecks.invalidInstantiationError(tree, lhs.baseType(), lhs, state, analysis);
         return;
@@ -228,12 +213,7 @@ public final class GenericsChecks {
                 && argumentType.getTypeArguments() != null
                 && argumentType.getTypeArguments().length() > 0) { // Nested generics
               checkAssignmentTypeMatch(
-                  tree,
-                  lhsTypeArguments.get(i),
-                  parameterizedTypeTreeForTypeArgument,
-                  config,
-                  state,
-                  analysis);
+                  tree, lhsTypeArguments.get(i), parameterizedTypeTreeForTypeArgument);
             }
           }
         }
@@ -244,7 +224,7 @@ public final class GenericsChecks {
   class NormalTypeTreeNullableTypeArgIndices implements AnnotatedTypeWrapper<Type, Type> {
     @SuppressWarnings("UnusedVariable")
     @Override
-    public HashSet<Integer> getNullableTypeArgIndices(Type type, Config config) {
+    public HashSet<Integer> getNullableTypeArgIndices(Type type) {
       HashSet<Integer> nullableTypeArgIndices = new HashSet<Integer>();
       List<Type> typeArguments = type.getTypeArguments();
       for (int index = 0; index < typeArguments.size(); index++) {
@@ -260,8 +240,7 @@ public final class GenericsChecks {
     }
 
     @Override
-    public void checkAssignmentTypeMatch(
-        Tree tree, Type lhs, Type rhs, Config config, VisitorState state, NullAway analysis) {
+    public void checkAssignmentTypeMatch(Tree tree, Type lhs, Type rhs) {
       // if lhs and rhs are not of the same type check for the super types first
       if (!ASTHelpers.isSameType(lhs, rhs, state) && !rhs.toString().equals("null")) {
         if (lhs instanceof Type.ClassType && rhs instanceof Type.ClassType) {
@@ -270,8 +249,8 @@ public final class GenericsChecks {
                   (Type.ClassType) lhs, (Type.ClassType) rhs, state);
         }
       }
-      HashSet<Integer> lhsNullableArgIndices = getNullableTypeArgIndices(lhs, config);
-      HashSet<Integer> rhsNullableArgIndices = getNullableTypeArgIndices(rhs, config);
+      HashSet<Integer> lhsNullableArgIndices = getNullableTypeArgIndices(lhs);
+      HashSet<Integer> rhsNullableArgIndices = getNullableTypeArgIndices(rhs);
 
       if (!lhsNullableArgIndices.equals(rhsNullableArgIndices)) {
         GenericsChecks.invalidInstantiationError(tree, lhs.baseType(), lhs, state, analysis);
@@ -284,8 +263,7 @@ public final class GenericsChecks {
           // nested generics
           if (lhsTypeArgs.get(i).getTypeArguments().length() > 0) {
             if (rhsTypeArgs.size() > i) {
-              checkAssignmentTypeMatch(
-                  tree, lhsTypeArgs.get(i), rhsTypeArgs.get(i), config, state, analysis);
+              checkAssignmentTypeMatch(tree, lhsTypeArgs.get(i), rhsTypeArgs.get(i));
             }
           }
         }
