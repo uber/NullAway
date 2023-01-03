@@ -464,7 +464,8 @@ public class NullAway extends BugChecker
     }
     // generics check
     if (lhsType.getTypeArguments().length() > 0) {
-      GenericsChecks.checkInstantiationForAssignments(tree, config, state, this);
+      GenericsChecks genericsChecks = new GenericsChecks(state, config, this);
+      genericsChecks.checkInstantiationForAssignments(tree);
     }
 
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
@@ -1335,7 +1336,8 @@ public class NullAway extends BugChecker
     if (tree.getInitializer() != null) {
       if (state.getSourceForNode(tree.getInitializer()) != null) {
         if (!state.getSourceForNode(tree.getInitializer()).equals("null")) {
-          GenericsChecks.checkInstantiationForAssignments(tree, config, state, this);
+          GenericsChecks genericsChecks = new GenericsChecks(state, config, this);
+          genericsChecks.checkInstantiationForAssignments(tree);
         }
       }
     }
