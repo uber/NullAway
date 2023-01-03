@@ -204,7 +204,7 @@ public class NullAwayTypeUseAnnotationsTests extends NullAwayTestsBase {
             "import org.checkerframework.checker.nullness.qual.Nullable;",
             "class A { class B { class C {} } }",
             "class Test {",
-            "  // At some point, we should not treat foo1, foo2, or foo4 as @Nullable.",
+            "  // At some point, we should not treat foo1 or foo2 as @Nullable.",
             "  // For now we do, for ease of compatibility.",
             "  // TODO: Fix this as part of https://github.com/uber/NullAway/issues/708",
             "  @Nullable A.B.C foo1 = null;",

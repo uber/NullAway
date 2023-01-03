@@ -308,15 +308,15 @@ public class NullabilityUtil {
     // proper deprecation of the incorrect behaviors for type use annotations when their
     // semantics don't match those of a declaration annotation in the same position.
     // See https://github.com/uber/NullAway/issues/708
-    boolean location_has_inner_types = false;
-    boolean location_has_array = false;
+    boolean locationHasInnerTypes = false;
+    boolean locationHasArray = false;
     for (TypePathEntry entry : t.position.location) {
       switch (entry.tag) {
         case INNER_TYPE:
-          location_has_inner_types = true;
+          locationHasInnerTypes = true;
           break;
         case ARRAY:
-          location_has_array = true;
+          locationHasArray = true;
           break;
         default:
           // Wildcard or type argument!
@@ -324,7 +324,7 @@ public class NullabilityUtil {
       }
     }
     // Make sure it's not a mix of inner types and arrays for this annotation's location
-    return !(location_has_inner_types && location_has_array);
+    return !(locationHasInnerTypes && locationHasArray);
   }
 
   /**
