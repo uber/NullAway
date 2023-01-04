@@ -135,6 +135,15 @@ public final class GenericsChecks {
       // Possible for VariableTrees with no initializer
       return;
     }
+    // check assignment instantiation only for the generics
+    if (rhsTree instanceof NewClassTree
+        && ((NewClassTree) rhsTree).getIdentifier() instanceof ParameterizedTypeTree) {
+      ParameterizedTypeTree paramTypedTree =
+          (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier();
+      if (paramTypedTree.getTypeArguments().size() <= 0) {
+        return;
+      }
+    }
 
     AnnotatedTypeWrapper lhsTypeWrapper = getAnnotatedTypeWrapper(lhsTree);
     AnnotatedTypeWrapper rhsTypeWrapper = getAnnotatedTypeWrapper(rhsTree);
@@ -208,11 +217,6 @@ public final class GenericsChecks {
       public boolean isParameterizedTypedWrapper() {
         return true;
       }
-
-      @Override
-      public boolean isGenericTypedWrapper() {
-        return tree.getTypeArguments().size() > 0;
-      }
     };
   }
 
@@ -261,21 +265,13 @@ public final class GenericsChecks {
       public boolean isParameterizedTypedWrapper() {
         return false;
       }
-
-      @Override
-      public boolean isGenericTypedWrapper() {
-        return type.getTypeArguments().length() > 0;
-      }
     };
   }
 
   public void checkIdenticalWrappers(
       Tree tree, AnnotatedTypeWrapper lhsWrapper, AnnotatedTypeWrapper rhsWrapper) {
     // non-nested typed wrappers
-    if (lhsWrapper == null
-        || rhsWrapper == null
-        || !lhsWrapper.isGenericTypedWrapper()
-        || !rhsWrapper.isGenericTypedWrapper()) {
+    if (lhsWrapper == null || rhsWrapper == null) {
       return;
     }
     Type lhs = lhsWrapper.getWrapped();

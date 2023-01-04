@@ -12,6 +12,4 @@ public interface AnnotatedTypeWrapper {
   public List<AnnotatedTypeWrapper> getWrappersForNestedTypes();
 
   public boolean isParameterizedTypedWrapper();
-
-  public boolean isGenericTypedWrapper();
 }
