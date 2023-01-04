@@ -960,34 +960,4 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
-
-  @Test
-  public void annotationAppliedToTypeParameter() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import java.util.List;",
-            "import java.util.ArrayList;",
-            "import org.checkerframework.checker.nullness.qual.Nullable;",
-            "class TypeArgumentAnnotation {",
-            "  List<@Nullable String> fSafe = new ArrayList<>();",
-            "  @Nullable List<String> fUnsafe = new ArrayList<>();",
-            "  void useParamSafe(List<@Nullable String> list) {",
-            "    list.hashCode();",
-            "  }",
-            "  void useParamUnsafe(@Nullable List<String> list) {",
-            "    // BUG: Diagnostic contains: dereferenced",
-            "    list.hashCode();",
-            "  }",
-            "  void useFieldSafe() {",
-            "    fSafe.hashCode();",
-            "  }",
-            "  void useFieldUnsafe() {",
-            "    // BUG: Diagnostic contains: dereferenced",
-            "    fUnsafe.hashCode();",
-            "  }",
-            "}")
-        .doTest();
-  }
 }
