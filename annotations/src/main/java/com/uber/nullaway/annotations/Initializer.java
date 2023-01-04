@@ -30,9 +30,9 @@ import java.lang.annotation.Target;
 /**
  * An annotation used to mark a method as an initializer.
  *
- * <p>During initialization checking (see {@see <a
+ * <p>During initialization checking (see <a
  * href=https://github.com/uber/NullAway/wiki/Error-Messages#initializer-method-does-not-guarantee-nonnull-field-is-initialized--nonnull-field--not-initialized>NullAway
- * Wiki</a>}), NullAway considers a method marked with any annotation with simple name
+ * Wiki</a>), NullAway considers a method marked with any annotation with simple name
  * {@code @Initializer} to denote an initializer method. Initializer methods are assumed by NullAway
  * to always be called before any other method of the class that is not a constructor or called from
  * a constructor. This means a non-null field is considered to be properly initialized if it's set
