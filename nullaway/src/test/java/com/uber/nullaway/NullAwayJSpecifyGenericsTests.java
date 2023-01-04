@@ -328,6 +328,24 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void subtypeWithParameters() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  class D<P extends @Nullable Object> {}",
+            "  class B<P extends @Nullable Object> extends D<P>{}",
+            " void test1() {",
+            "    // BUG: Diagnostic contains: Generic type parameter",
+            "    D<String> f = new B<@Nullable String>();",
+            " }",
+            "  }")
+        .doTest();
+  }
+
+  @Test
   public void nestedVariableDeclarationChecks() {
     makeHelper()
         .addSourceLines(
