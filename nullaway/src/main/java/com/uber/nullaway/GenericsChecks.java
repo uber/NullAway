@@ -17,7 +17,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
@@ -143,7 +142,7 @@ public final class GenericsChecks {
     checkIdenticalWrappers(tree, lhsTypeWrapper, rhsTypeWrapper);
   }
 
-  private @Nullable AnnotatedTypeWrapper getAnnotatedTypeWrapper(Tree tree) {
+  private AnnotatedTypeWrapper getAnnotatedTypeWrapper(Tree tree) {
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
       return getParameterizedTypeAnnotatedWrapper(
@@ -252,12 +251,14 @@ public final class GenericsChecks {
 
   public void checkIdenticalWrappers(
       Tree tree, AnnotatedTypeWrapper lhsWrapper, AnnotatedTypeWrapper rhsWrapper) {
+    // non-nested typed wrappers
     if (lhsWrapper == null || rhsWrapper == null) {
       return;
     }
     Type lhs = lhsWrapper.getWrapped();
     Type rhs = rhsWrapper.getWrapped();
 
+    AnnotatedTypeWrapper prevOriginalRHSWrapper = rhsWrapper;
     // if types don't match check for super types matching the lhs type
     if (!ASTHelpers.isSameType(lhsWrapper.getWrapped(), rhsWrapper.getWrapped(), state)) {
       if (lhs instanceof Type.ClassType && rhs instanceof Type.ClassType) {
@@ -287,6 +288,18 @@ public final class GenericsChecks {
       for (int i = 0; i < lhsNestedTypeWrappers.size(); i++) {
         checkIdenticalWrappers(tree, lhsNestedTypeWrappers.get(i), rhsNestedTypeWrappers.get(i));
       }
+    }
+
+    // for new class trees need to check everything with original rhsType wrapper. Need to find a
+    // better way to do this
+    List<AnnotatedTypeWrapper> lhsNestedTypeWrappers = lhsWrapper.getWrappersForNestedTypes();
+    List<AnnotatedTypeWrapper> rhsNestedTypeWrappers =
+        prevOriginalRHSWrapper.getWrappersForNestedTypes();
+    if (lhsNestedTypeWrappers.size() != rhsNestedTypeWrappers.size()) {
+      return;
+    }
+    for (int i = 0; i < lhsNestedTypeWrappers.size(); i++) {
+      checkIdenticalWrappers(tree, lhsNestedTypeWrappers.get(i), rhsNestedTypeWrappers.get(i));
     }
   }
 }

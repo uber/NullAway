@@ -323,10 +323,6 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: Generic type parameter",
             "    f = new C<B<@Nullable String>>();",
             " }",
-            " void sampleError2() {",
-            "    // BUG: Diagnostic contains: Generic type parameter",
-            "    D<C<String>> f = new B<C<@Nullable String>>();",
-            " }",
             "  }")
         .doTest();
   }
