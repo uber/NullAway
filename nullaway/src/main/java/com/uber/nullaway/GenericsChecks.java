@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
@@ -134,8 +135,10 @@ public final class GenericsChecks {
       // Possible for VariableTrees with no initializer
       return;
     }
-    if (rhsTree instanceof NewClassTree
-        && ((NewClassTree) rhsTree).getIdentifier() instanceof ParameterizedTypeTree) {
+
+    AnnotatedTypeWrapper annotatedTypeWrapper = getAnnotatedTypeWrapper(rhsTree);
+
+    if (annotatedTypeWrapper == null) {
       ParameterizedTypeTreeNullableArgIndices typeWrapper =
           new ParameterizedTypeTreeNullableArgIndices();
       typeWrapper.checkAssignmentTypeMatch(
@@ -143,14 +146,80 @@ public final class GenericsChecks {
           ASTHelpers.getType(lhsTree),
           (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier());
     } else {
-      NormalTypeTreeNullableTypeArgIndices typeWrapper = new NormalTypeTreeNullableTypeArgIndices();
-      typeWrapper.checkAssignmentTypeMatch(
+      annotatedTypeWrapper.checkAssignmentTypeMatch(
           tree, ASTHelpers.getType(lhsTree), ASTHelpers.getType(rhsTree));
+    }
+  }
+
+  private @Nullable AnnotatedTypeWrapper getAnnotatedTypeWrapper(Tree rhsTree) {
+    if (rhsTree instanceof NewClassTree
+        && ((NewClassTree) rhsTree).getIdentifier() instanceof ParameterizedTypeTree) {
+      return null;
+    } else {
+      return new AnnotatedTypeWrapper<Type, Type>() {
+
+        @Override
+        public Type getWrapped() {
+          return null;
+        }
+
+        @Override
+        public HashSet<Integer> getNullableTypeArgIndices(Type type) {
+          HashSet<Integer> nullableTypeArgIndices = new HashSet<Integer>();
+          List<Type> typeArguments = type.getTypeArguments();
+          for (int index = 0; index < typeArguments.size(); index++) {
+            com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+                typeArguments.get(index).getAnnotationMirrors();
+            boolean hasNullableAnnotation =
+                Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+            if (hasNullableAnnotation) {
+              nullableTypeArgIndices.add(index);
+            }
+          }
+          return nullableTypeArgIndices;
+        }
+
+        @Override
+        public void checkAssignmentTypeMatch(Tree tree, Type lhs, Type rhs) {
+          // if lhs and rhs are not of the same type check for the super types first
+          if (!ASTHelpers.isSameType(lhs, rhs, state) && !rhs.toString().equals("null")) {
+            if (lhs instanceof Type.ClassType && rhs instanceof Type.ClassType) {
+              rhs =
+                  GenericsChecks.supertypeMatchingLHS(
+                      (Type.ClassType) lhs, (Type.ClassType) rhs, state);
+            }
+          }
+          HashSet<Integer> lhsNullableArgIndices = getNullableTypeArgIndices(lhs);
+          HashSet<Integer> rhsNullableArgIndices = getNullableTypeArgIndices(rhs);
+
+          if (!lhsNullableArgIndices.equals(rhsNullableArgIndices)) {
+            GenericsChecks.invalidInstantiationError(tree, lhs.baseType(), lhs, state, analysis);
+            return;
+          } else {
+            List<Type> lhsTypeArgs = lhs.getTypeArguments();
+            List<Type> rhsTypeArgs = rhs.getTypeArguments();
+            // if an error is not already generated check for nested types
+            for (int i = 0; i < lhsTypeArgs.size(); i++) {
+              // nested generics
+              if (lhsTypeArgs.get(i).getTypeArguments().length() > 0) {
+                if (rhsTypeArgs.size() > i) {
+                  checkAssignmentTypeMatch(tree, lhsTypeArgs.get(i), rhsTypeArgs.get(i));
+                }
+              }
+            }
+          }
+        }
+      };
     }
   }
 
   class ParameterizedTypeTreeNullableArgIndices
       implements AnnotatedTypeWrapper<Type, ParameterizedTypeTree> {
+
+    @Override
+    public Type getWrapped() {
+      return null;
+    }
 
     @SuppressWarnings("UnusedVariable")
     @Override
@@ -213,56 +282,6 @@ public final class GenericsChecks {
                 && argumentType.getTypeArguments().length() > 0) { // Nested generics
               checkAssignmentTypeMatch(
                   tree, lhsTypeArguments.get(i), parameterizedTypeTreeForTypeArgument);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  class NormalTypeTreeNullableTypeArgIndices implements AnnotatedTypeWrapper<Type, Type> {
-    @SuppressWarnings("UnusedVariable")
-    @Override
-    public HashSet<Integer> getNullableTypeArgIndices(Type type) {
-      HashSet<Integer> nullableTypeArgIndices = new HashSet<Integer>();
-      List<Type> typeArguments = type.getTypeArguments();
-      for (int index = 0; index < typeArguments.size(); index++) {
-        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-            typeArguments.get(index).getAnnotationMirrors();
-        boolean hasNullableAnnotation =
-            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-        if (hasNullableAnnotation) {
-          nullableTypeArgIndices.add(index);
-        }
-      }
-      return nullableTypeArgIndices;
-    }
-
-    @Override
-    public void checkAssignmentTypeMatch(Tree tree, Type lhs, Type rhs) {
-      // if lhs and rhs are not of the same type check for the super types first
-      if (!ASTHelpers.isSameType(lhs, rhs, state) && !rhs.toString().equals("null")) {
-        if (lhs instanceof Type.ClassType && rhs instanceof Type.ClassType) {
-          rhs =
-              GenericsChecks.supertypeMatchingLHS(
-                  (Type.ClassType) lhs, (Type.ClassType) rhs, state);
-        }
-      }
-      HashSet<Integer> lhsNullableArgIndices = getNullableTypeArgIndices(lhs);
-      HashSet<Integer> rhsNullableArgIndices = getNullableTypeArgIndices(rhs);
-
-      if (!lhsNullableArgIndices.equals(rhsNullableArgIndices)) {
-        GenericsChecks.invalidInstantiationError(tree, lhs.baseType(), lhs, state, analysis);
-        return;
-      } else {
-        List<Type> lhsTypeArgs = lhs.getTypeArguments();
-        List<Type> rhsTypeArgs = rhs.getTypeArguments();
-        // if an error is not already generated check for nested types
-        for (int i = 0; i < lhsTypeArgs.size(); i++) {
-          // nested generics
-          if (lhsTypeArgs.get(i).getTypeArguments().length() > 0) {
-            if (rhsTypeArgs.size() > i) {
-              checkAssignmentTypeMatch(tree, lhsTypeArgs.get(i), rhsTypeArgs.get(i));
             }
           }
         }

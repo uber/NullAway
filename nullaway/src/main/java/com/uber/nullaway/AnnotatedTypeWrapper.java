@@ -4,6 +4,7 @@ import com.sun.source.tree.Tree;
 import java.util.HashSet;
 
 public interface AnnotatedTypeWrapper<T1, T2> {
+  public T1 getWrapped();
 
   public HashSet<Integer> getNullableTypeArgIndices(T2 wrapper);
 
