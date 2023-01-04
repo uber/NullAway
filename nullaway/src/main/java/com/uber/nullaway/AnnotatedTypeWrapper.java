@@ -1,15 +1,19 @@
 package com.uber.nullaway;
 
 import com.sun.tools.javac.code.Type;
-import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public interface AnnotatedTypeWrapper {
-  public Type getWrapped();
+  Type getWrapped();
 
-  public HashSet<Integer> getNullableTypeArgIndices();
+  Set<Integer> getNullableTypeArgIndices();
 
-  public List<AnnotatedTypeWrapper> getWrappersForNestedTypes();
+  List<AnnotatedTypeWrapper> getWrappersForNestedTypes();
 
-  public boolean isParameterizedTypedWrapper();
+  /**
+   * This method should return a new AnnotatedTypeWrapper that is a view of this as some supertype.
+   * Critically, the nullable type arg indices should still be correct.
+   */
+  AnnotatedTypeWrapper asSupertype(Type.ClassType superType);
 }
