@@ -11,6 +11,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.tree.JCTree;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -145,10 +146,64 @@ public final class GenericsChecks {
   private @Nullable AnnotatedTypeWrapper getAnnotatedTypeWrapper(Tree tree) {
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
-      return null;
+      return getParameterizedTypeAnnotatedWrapper((ParameterizedTypeTree) tree);
     } else {
       return getNormalTypeAnnotatedWrapper(ASTHelpers.getType(tree));
     }
+  }
+
+  private AnnotatedTypeWrapper getParameterizedTypeAnnotatedWrapper(ParameterizedTypeTree tree) {
+    return new AnnotatedTypeWrapper() {
+      Type wrappedObject = ASTHelpers.getType(tree);
+
+      @Override
+      public Type getWrapped() {
+        return wrappedObject;
+      }
+
+      @Override
+      public HashSet<Integer> getNullableTypeArgIndices() {
+        List<? extends Tree> typeArguments = tree.getTypeArguments();
+        HashSet<Integer> nullableTypeArgIndices = new HashSet<Integer>();
+        for (int i = 0; i < typeArguments.size(); i++) {
+          if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
+            JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
+            for (JCTree.JCAnnotation annotation : annotatedType.getAnnotations()) {
+              Attribute.Compound attribute = annotation.attribute;
+              if (attribute.toString().equals("@org.jspecify.annotations.Nullable")) {
+                nullableTypeArgIndices.add(i);
+                break;
+              }
+            }
+          }
+        }
+        return nullableTypeArgIndices;
+      }
+
+      @Override
+      public List<AnnotatedTypeWrapper> getWrappersForNestedTypes() {
+        List<AnnotatedTypeWrapper> wrappersForNestedTypes = new ArrayList<AnnotatedTypeWrapper>();
+        List<? extends Tree> typeArguments = tree.getTypeArguments();
+
+        for (int i = 0; i < typeArguments.size(); i++) {
+          if (typeArguments.get(i).getClass().equals(JCTree.JCTypeApply.class)) {
+            ParameterizedTypeTree parameterizedTypeTreeForTypeArgument =
+                (ParameterizedTypeTree) typeArguments.get(i);
+            Type argumentType = ASTHelpers.getType(parameterizedTypeTreeForTypeArgument);
+            if (argumentType != null
+                && argumentType.getTypeArguments() != null
+                && argumentType.getTypeArguments().length() > 0) { // Nested generics
+              wrappersForNestedTypes.add(
+                  getParameterizedTypeAnnotatedWrapper(
+                      (ParameterizedTypeTree) typeArguments.get(i)));
+            } else {
+              wrappersForNestedTypes.add(null);
+            }
+          }
+        }
+        return wrappersForNestedTypes;
+      }
+    };
   }
 
   private AnnotatedTypeWrapper getNormalTypeAnnotatedWrapper(Type type) {
