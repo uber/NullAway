@@ -208,6 +208,11 @@ public final class GenericsChecks {
       public boolean isParameterizedTypedWrapper() {
         return true;
       }
+
+      @Override
+      public boolean isGenericTypedWrapper() {
+        return tree.getTypeArguments().size() > 0;
+      }
     };
   }
 
@@ -256,13 +261,21 @@ public final class GenericsChecks {
       public boolean isParameterizedTypedWrapper() {
         return false;
       }
+
+      @Override
+      public boolean isGenericTypedWrapper() {
+        return type.getTypeArguments().length() > 0;
+      }
     };
   }
 
   public void checkIdenticalWrappers(
       Tree tree, AnnotatedTypeWrapper lhsWrapper, AnnotatedTypeWrapper rhsWrapper) {
     // non-nested typed wrappers
-    if (lhsWrapper == null || rhsWrapper == null) {
+    if (lhsWrapper == null
+        || rhsWrapper == null
+        || !lhsWrapper.isGenericTypedWrapper()
+        || !rhsWrapper.isGenericTypedWrapper()) {
       return;
     }
     Type lhs = lhsWrapper.getWrapped();
