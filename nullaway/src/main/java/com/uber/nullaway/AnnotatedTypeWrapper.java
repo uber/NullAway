@@ -10,4 +10,6 @@ public interface AnnotatedTypeWrapper {
   public HashSet<Integer> getNullableTypeArgIndices();
 
   public List<AnnotatedTypeWrapper> getWrappersForNestedTypes();
+
+  public boolean isParameterizedTypedWrapper();
 }

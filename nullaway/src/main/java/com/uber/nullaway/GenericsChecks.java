@@ -203,6 +203,11 @@ public final class GenericsChecks {
         }
         return wrappersForNestedTypes;
       }
+
+      @Override
+      public boolean isParameterizedTypedWrapper() {
+        return true;
+      }
     };
   }
 
@@ -246,6 +251,11 @@ public final class GenericsChecks {
         }
         return wrappersForNestedTypes;
       }
+
+      @Override
+      public boolean isParameterizedTypedWrapper() {
+        return false;
+      }
     };
   }
 
@@ -278,6 +288,7 @@ public final class GenericsChecks {
     if (!lhsNullableTypeArgIndices.equals(rhsNullableTypeArgIndices)) {
       // generate an error
       invalidInstantiationError(tree, lhs, rhs, state, analysis);
+      return;
     } else {
       // check for the nested types if and only if the error has not already been generated
       List<AnnotatedTypeWrapper> lhsNestedTypeWrappers = lhsWrapper.getWrappersForNestedTypes();
@@ -292,14 +303,16 @@ public final class GenericsChecks {
 
     // for new class trees need to check everything with original rhsType wrapper. Need to find a
     // better way to do this
-    List<AnnotatedTypeWrapper> lhsNestedTypeWrappers = lhsWrapper.getWrappersForNestedTypes();
-    List<AnnotatedTypeWrapper> rhsNestedTypeWrappers =
-        prevOriginalRHSWrapper.getWrappersForNestedTypes();
-    if (lhsNestedTypeWrappers.size() != rhsNestedTypeWrappers.size()) {
-      return;
-    }
-    for (int i = 0; i < lhsNestedTypeWrappers.size(); i++) {
-      checkIdenticalWrappers(tree, lhsNestedTypeWrappers.get(i), rhsNestedTypeWrappers.get(i));
+    if (prevOriginalRHSWrapper.isParameterizedTypedWrapper()) {
+      List<AnnotatedTypeWrapper> lhsNestedTypeWrappers = lhsWrapper.getWrappersForNestedTypes();
+      List<AnnotatedTypeWrapper> rhsNestedTypeWrappers =
+          prevOriginalRHSWrapper.getWrappersForNestedTypes();
+      if (lhsNestedTypeWrappers.size() != rhsNestedTypeWrappers.size()) {
+        return;
+      }
+      for (int i = 0; i < lhsNestedTypeWrappers.size(); i++) {
+        checkIdenticalWrappers(tree, lhsNestedTypeWrappers.get(i), rhsNestedTypeWrappers.get(i));
+      }
     }
   }
 }
