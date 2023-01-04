@@ -335,7 +335,6 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
             "class Test {",
-            "  class A<P1 extends @Nullable Object, P2 extends @Nullable Object>{}",
             "  class D<P extends @Nullable Object> {}",
             "  class B<P extends @Nullable Object> extends D<P>{}",
             "  class C<p extends @Nullable Object>{}",
