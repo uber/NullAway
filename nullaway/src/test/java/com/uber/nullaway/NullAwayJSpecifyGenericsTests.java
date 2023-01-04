@@ -308,7 +308,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void NestedAssignmentChecks() {
+  public void nestedAssignmentChecks() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -328,7 +328,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void NestedVariableDeclarationChecks() {
+  public void nestedVariableDeclarationChecks() {
     makeHelper()
         .addSourceLines(
             "Test.java",
