@@ -23,6 +23,9 @@
 package com.uber.nullaway.fixserialization;
 
 import com.google.common.base.Preconditions;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
+import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
+import com.uber.nullaway.fixserialization.adapters.SerializationV2Adapter;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -82,15 +85,18 @@ public class FixSerializationConfig {
     this.suggestEnclosing = suggestEnclosing;
     this.fieldInitInfoEnabled = fieldInitInfoEnabled;
     this.outputDirectory = outputDirectory;
-    serializer = new Serializer(this);
+    serializer = new Serializer(this, initializeAdapter(SerializationAdapter.LATEST_VERSION));
   }
 
   /**
    * Sets all flags based on their values in the configuration file.
    *
    * @param configFilePath Path to the serialization config file written in xml.
+   * @param serializationVersion Requested serialization version, this value is configurable via
+   *     ErrorProne flags ("SerializeFixMetadataVersion"). If not defined by the user {@link
+   *     SerializationAdapter#LATEST_VERSION} will be used.
    */
-  public FixSerializationConfig(String configFilePath) {
+  public FixSerializationConfig(String configFilePath, int serializationVersion) {
     Document document;
     try {
       DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -119,7 +125,27 @@ public class FixSerializationConfig {
         XMLUtil.getValueFromAttribute(
                 document, "/serialization/fieldInitInfo", "active", Boolean.class)
             .orElse(false);
-    serializer = new Serializer(this);
+    SerializationAdapter serializationAdapter = initializeAdapter(serializationVersion);
+    serializer = new Serializer(this, serializationAdapter);
+  }
+
+  /**
+   * Initializes NullAway serialization adapter according to the requested serialization version.
+   */
+  private SerializationAdapter initializeAdapter(int version) {
+    switch (version) {
+      case 1:
+        return new SerializationV1Adapter();
+      case 2:
+        return new SerializationV2Adapter();
+      default:
+        throw new RuntimeException(
+            "Unrecognized NullAway serialization version: "
+                + version
+                + ". Supported versions: 1 to "
+                + SerializationAdapter.LATEST_VERSION
+                + ".");
+    }
   }
 
   @Nullable

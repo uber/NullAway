@@ -22,6 +22,9 @@
 
 package com.uber.nullaway;
 
+import static com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntryKind.ARRAY;
+import static com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntryKind.INNER_TYPE;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
@@ -41,6 +44,7 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntry;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
@@ -272,19 +276,55 @@ public class NullabilityUtil {
                         && t.position.parameter_index == paramInd));
   }
 
+  /**
+   * Gets the type use annotations on a symbol, ignoring annotations on components of the type (type
+   * arguments, wildcards, etc.)
+   */
   private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(Symbol symbol) {
     Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
     if (symbol instanceof Symbol.MethodSymbol) {
-      // for methods, we want the type-use annotations on the return type
+      // for methods, we want annotations on the return type
       return rawTypeAttributes.filter(
-          (t) ->
-              // location is a list of TypePathEntry objects, indicating whether the annotation is
-              // on an array, inner type, wildcard, or type argument. If it's empty, then the
-              // annotation
-              // is directly on the return type.
-              t.position.type.equals(TargetType.METHOD_RETURN) && t.position.location.isEmpty());
+          (t) -> t.position.type.equals(TargetType.METHOD_RETURN) && isDirectTypeUseAnnotation(t));
+    } else {
+      // filter for annotations directly on the type
+      return rawTypeAttributes.filter(NullabilityUtil::isDirectTypeUseAnnotation);
     }
-    return rawTypeAttributes;
+  }
+
+  private static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t) {
+    // location is a list of TypePathEntry objects, indicating whether the annotation is
+    // on an array, inner type, wildcard, or type argument. If it's empty, then the
+    // annotation is directly on the type.
+    // We care about both annotations directly on the outer type and also those directly
+    // on an inner type or array dimension, but wish to discard annotations on wildcards,
+    // or type arguments.
+    // For arrays, we treat annotations on the outer type and on any dimension of the array
+    // as applying to the nullability of the array itself, not the elements.
+    // We don't allow mixing of inner types and array dimensions in the same location
+    // (i.e. `Foo.@Nullable Bar []` is meaningless).
+    // These aren't correct semantics for type use annotations, but a series of hacky
+    // compromises to keep some semblance of backwards compatibility until we can do a
+    // proper deprecation of the incorrect behaviors for type use annotations when their
+    // semantics don't match those of a declaration annotation in the same position.
+    // See https://github.com/uber/NullAway/issues/708
+    boolean locationHasInnerTypes = false;
+    boolean locationHasArray = false;
+    for (TypePathEntry entry : t.position.location) {
+      switch (entry.tag) {
+        case INNER_TYPE:
+          locationHasInnerTypes = true;
+          break;
+        case ARRAY:
+          locationHasArray = true;
+          break;
+        default:
+          // Wildcard or type argument!
+          return false;
+      }
+    }
+    // Make sure it's not a mix of inner types and arrays for this annotation's location
+    return !(locationHasInnerTypes && locationHasArray);
   }
 
   /**

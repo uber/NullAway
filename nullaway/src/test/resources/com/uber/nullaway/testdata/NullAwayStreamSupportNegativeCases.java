@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.testdata;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import java.util.function.Function;
 import java.util.function.Predicate;
@@ -285,5 +286,34 @@ public class NullAwayStreamSupportNegativeCases {
 
   private void filterThenForEachOrdered(Stream<NullableContainer<String>> stream) {
     stream.filter(s -> s.get() != null).forEachOrdered(s -> System.out.println(s.get().length()));
+  }
+
+  private static class CheckFinalBeforeStream<T> {
+    @Nullable private final T ref;
+
+    public CheckFinalBeforeStream(@Nullable T ref) {
+      this.ref = ref;
+    }
+
+    private Stream<T> test1(Stream<T> stream) {
+      Preconditions.checkNotNull(ref);
+      final T asLocal = ref;
+      return stream.filter(s -> asLocal.equals(s));
+    }
+
+    private Stream<T> test2(Stream<T> stream) {
+      Preconditions.checkNotNull(ref);
+      // Safe because ref is final!
+      return stream.filter(s -> ref.equals(s));
+    }
+
+    private Stream<T> test3(Stream<T> stream) {
+      if (ref != null) {
+        // Safe because ref is final!
+        return stream.filter(s -> ref.equals(s));
+      } else {
+        return stream.filter(s -> "CONST".equals(s.toString()));
+      }
+    }
   }
 }

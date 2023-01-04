@@ -1,5 +1,19 @@
 Changelog
 =========
+Version 0.10.6
+--------------
+* Handle BITWISE_COMPLEMENT operator (#696)
+* Add support for AssertJ (#698)
+* Fix logic for @Nullable annotation on type parameter (#702)
+* Preserve nullness checks in final fields when propagating nullness into inner contexts (#703)
+* NullAwayInfer/Annotator data serialization support [experimental]
+  - Add source offset and path to reported errors in error serialization. (#704) 
+* Build / CI tooling for NullAway itself:
+  - [Jspecify] Update test dep to final JSpecify 0.3.0 release (#700)
+     = Intermediate PRs: 0.3.0-alpha-3 (#692), 0.3-alpha2 (#691)
+  - Update to Gradle 7.6 (#690)
+
+
 Version 0.10.5
 --------------
 * Report more unboxing errors in a single compilation (#686)
