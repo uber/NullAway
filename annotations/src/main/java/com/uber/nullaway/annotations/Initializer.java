@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway;
+package com.uber.nullaway.annotations;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -30,16 +30,19 @@ import java.lang.annotation.Target;
 /**
  * An annotation used to mark a method as an initializer.
  *
- * <p>During initialization checking (see {@link
- * https://github.com/uber/NullAway/wiki/Error-Messages#initializer-method-does-not-guarantee-nonnull-field-is-initialized--nonnull-field--not-initialized}),
- * NullAway considers a method marked with any annotation with simple name {@code @Initializer} to
- * denote an initializer method. Initializer methods are assumed by NullAway to always be called
- * before any other method of the class that is not a constructor or called from a constructor. This
- * means a non-null field is considered to be properly initialized if it's set by such an
- * initializer method. By design, NullAway doesn't check for such initialization, since an important
- * use case of initializer methods is documenting methods used by annotation processors or external
- * frameworks as part of object set up (e.g. {@code android.app.Activity.onCreate} or {@code
- * javax.annotation.processing.Processor.init}).
+ * <p>During initialization checking (see {@see <a
+ * href=https://github.com/uber/NullAway/wiki/Error-Messages#initializer-method-does-not-guarantee-nonnull-field-is-initialized--nonnull-field--not-initialized>NullAway
+ * Wiki</a>}), NullAway considers a method marked with any annotation with simple name
+ * {@code @Initializer} to denote an initializer method. Initializer methods are assumed by NullAway
+ * to always be called before any other method of the class that is not a constructor or called from
+ * a constructor. This means a non-null field is considered to be properly initialized if it's set
+ * by such an initializer method. By design, NullAway doesn't check for such initialization, since
+ * an important use case of initializer methods is documenting methods used by annotation processors
+ * or external frameworks as part of object set up (e.g. {@code android.app.Activity.onCreate} or
+ * {@code javax.annotation.processing.Processor.init}). Note that there are other ways of defining
+ * initializer methods from external libraries (i.e. library models), and that a method overriding
+ * an initializer method is always considered an initializer method (again, for the sake of
+ * framework events such as {@code onCreate}).
  */
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.METHOD})
