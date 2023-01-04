@@ -140,13 +140,14 @@ public final class GenericsChecks {
     AnnotatedTypeWrapper lhsTypeWrapper = getAnnotatedTypeWrapper(lhsTree);
     AnnotatedTypeWrapper rhsTypeWrapper = getAnnotatedTypeWrapper(rhsTree);
 
-    checkIdenticalWrappers(lhsTypeWrapper, rhsTypeWrapper);
+    checkIdenticalWrappers(tree, lhsTypeWrapper, rhsTypeWrapper);
   }
 
   private @Nullable AnnotatedTypeWrapper getAnnotatedTypeWrapper(Tree tree) {
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
-      return getParameterizedTypeAnnotatedWrapper((ParameterizedTypeTree) tree);
+      return getParameterizedTypeAnnotatedWrapper(
+          (ParameterizedTypeTree) ((NewClassTree) tree).getIdentifier());
     } else {
       return getNormalTypeAnnotatedWrapper(ASTHelpers.getType(tree));
     }
@@ -250,7 +251,7 @@ public final class GenericsChecks {
   }
 
   public void checkIdenticalWrappers(
-      AnnotatedTypeWrapper lhsWrapper, AnnotatedTypeWrapper rhsWrapper) {
+      Tree tree, AnnotatedTypeWrapper lhsWrapper, AnnotatedTypeWrapper rhsWrapper) {
     if (lhsWrapper == null || rhsWrapper == null) {
       return;
     }
@@ -275,13 +276,16 @@ public final class GenericsChecks {
 
     if (!lhsNullableTypeArgIndices.equals(rhsNullableTypeArgIndices)) {
       // generate an error
+      invalidInstantiationError(tree, lhs, rhs, state, analysis);
     } else {
       // check for the nested types if and only if the error has not already been generated
       List<AnnotatedTypeWrapper> lhsNestedTypeWrappers = lhsWrapper.getWrappersForNestedTypes();
       List<AnnotatedTypeWrapper> rhsNestedTypeWrappers = rhsWrapper.getWrappersForNestedTypes();
-
+      if (lhsNestedTypeWrappers.size() != rhsNestedTypeWrappers.size()) {
+        return;
+      }
       for (int i = 0; i < lhsNestedTypeWrappers.size(); i++) {
-        checkIdenticalWrappers(lhsNestedTypeWrappers.get(i), rhsNestedTypeWrappers.get(i));
+        checkIdenticalWrappers(tree, lhsNestedTypeWrappers.get(i), rhsNestedTypeWrappers.get(i));
       }
     }
   }
