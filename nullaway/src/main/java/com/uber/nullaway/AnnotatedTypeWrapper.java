@@ -1,12 +1,13 @@
 package com.uber.nullaway;
 
-import com.sun.source.tree.Tree;
+import com.sun.tools.javac.code.Type;
 import java.util.HashSet;
+import java.util.List;
 
-public interface AnnotatedTypeWrapper<T1, T2> {
-  public T1 getWrapped();
+public interface AnnotatedTypeWrapper {
+  public Type getWrapped();
 
-  public HashSet<Integer> getNullableTypeArgIndices(T2 wrapper);
+  public HashSet<Integer> getNullableTypeArgIndices();
 
-  public void checkAssignmentTypeMatch(Tree tree, T1 lhs, T2 rhs);
+  public List<AnnotatedTypeWrapper> getWrappersForNestedTypes();
 }
