@@ -146,7 +146,9 @@ public final class GenericsChecks {
     Type rhsType = ASTHelpers.getType(rhsTree);
     if (rhsTree instanceof NewClassTree
         && ((NewClassTree) rhsTree).getIdentifier() instanceof ParameterizedTypeTree) {
-      rhsType = messAround((ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier());
+      rhsType =
+          typeWithPreservedAnnotations(
+              (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier());
 
       ParameterizedTypeTree paramTypedTree =
           (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier();
@@ -194,7 +196,7 @@ public final class GenericsChecks {
     }
   }
 
-  private Type.ClassType messAround(ParameterizedTypeTree rhsTree) {
+  private Type.ClassType typeWithPreservedAnnotations(ParameterizedTypeTree rhsTree) {
     Type.ClassType type = (Type.ClassType) ASTHelpers.getType(rhsTree);
     Type nullableType = NULLABLE_TYPE_SUPPLIER.get(state);
     List<? extends Tree> typeArguments = rhsTree.getTypeArguments();
@@ -215,7 +217,8 @@ public final class GenericsChecks {
       // nested generics checks
       Type currentArgType = ASTHelpers.getType(typeArguments.get(i));
       if (currentArgType.getTypeArguments().size() > 0) {
-        Type.ClassType nestedTyp = messAround((ParameterizedTypeTree) typeArguments.get(i));
+        Type.ClassType nestedTyp =
+            typeWithPreservedAnnotations((ParameterizedTypeTree) typeArguments.get(i));
         newTypeArgs.add(nestedTyp);
       } else {
         com.sun.tools.javac.util.List<Attribute.TypeCompound> annos =
@@ -229,8 +232,6 @@ public final class GenericsChecks {
     Type.ClassType finalType =
         new Type.ClassType(
             type.getEnclosingType(), com.sun.tools.javac.util.List.from(newTypeArgs), type.tsym);
-
-    System.err.println(finalType);
     return finalType;
   }
 }
