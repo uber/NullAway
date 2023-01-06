@@ -125,7 +125,6 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(tree), state, null));
   }
 
-  @SuppressWarnings("UnusedVariable")
   public void checkInstantiationForAssignments(Tree tree) {
     Tree lhsTree;
     Tree rhsTree;
@@ -146,6 +145,8 @@ public final class GenericsChecks {
     Type rhsType = ASTHelpers.getType(rhsTree);
     if (rhsTree instanceof NewClassTree
         && ((NewClassTree) rhsTree).getIdentifier() instanceof ParameterizedTypeTree) {
+      // for the parameterized typed tree ASTHelpers.getType() returns a type that does not have
+      // annotations preserved
       rhsType =
           typeWithPreservedAnnotations(
               (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier());
