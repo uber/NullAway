@@ -252,9 +252,8 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  interface Fn<P extends @Nullable Object, R extends @Nullable Object>{}",
             "  class FnImpl implements Fn<@Nullable String, @Nullable String>{}",
             " void sampleError() {",
-            "   Fn<@Nullable String, String> f;",
             "    // BUG: Diagnostic contains: Generic type parameter",
-            "   f  = new FnImpl();",
+            "   Fn<@Nullable String, String> f = new FnImpl();",
             " }",
             "  }")
         .doTest();
@@ -319,7 +318,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  class B<P extends @Nullable Object> extends D<P>{}",
             "  class C<p extends @Nullable Object>{}",
             " void sampleError1() {",
-            "  C<B<String>> f;",
+            "    C<B<String>> f = new C<B<String>>();",
             "    // BUG: Diagnostic contains: Generic type parameter",
             "    f = new C<B<@Nullable String>>();",
             " }",
