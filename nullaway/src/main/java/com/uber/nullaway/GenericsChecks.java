@@ -40,19 +40,25 @@ public final class GenericsChecks {
     this.analysis = analysis;
   }
 
-  private static Type supertypeMatchingLHS(
-      Type.ClassType lhsType, Type.ClassType rhsType, VisitorState state) {
+  private Type supertypeMatchingLHS(Type.ClassType lhsType, Type.ClassType rhsType) {
+    if (ASTHelpers.isSameType(lhsType, rhsType, state)) {
+      return rhsType;
+    }
     // all supertypes including classes as well as interfaces
-    List<Type> listOfDirectSuperTypes = state.getTypes().closure(rhsType);
-    if (listOfDirectSuperTypes != null) {
-      for (int i = 0; i < listOfDirectSuperTypes.size(); i++) {
-        if (ASTHelpers.isSameType(listOfDirectSuperTypes.get(i), lhsType, state)) {
-          return listOfDirectSuperTypes.get(i);
+    List<Type> superTypes = state.getTypes().closure(rhsType);
+    Type result = null;
+    if (superTypes != null) {
+      for (Type superType : superTypes) {
+        if (ASTHelpers.isSameType(superType, lhsType, state)) {
+          result = superType;
+          break;
         }
       }
     }
-
-    return rhsType.baseType();
+    if (result == null) {
+      throw new RuntimeException("did not find supertype of " + rhsType + " matching " + lhsType);
+    }
+    return result;
   }
 
   /**
@@ -188,10 +194,8 @@ public final class GenericsChecks {
   }
 
   private void compareAnnotations(Type lhsType, Type rhsType, Tree tree) {
-    if (!ASTHelpers.isSameType(lhsType, rhsType, state)) {
-      if (lhsType instanceof Type.ClassType && rhsType instanceof Type.ClassType) {
-        rhsType = supertypeMatchingLHS((Type.ClassType) lhsType, (Type.ClassType) rhsType, state);
-      }
+    if (lhsType instanceof Type.ClassType && rhsType instanceof Type.ClassType) {
+      rhsType = supertypeMatchingLHS((Type.ClassType) lhsType, (Type.ClassType) rhsType);
     }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
     List<Type> rhsTypeArguments = rhsType.getTypeArguments();
