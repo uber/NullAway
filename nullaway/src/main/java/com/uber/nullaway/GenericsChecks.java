@@ -38,7 +38,7 @@ public final class GenericsChecks {
   }
 
   @SuppressWarnings("UnusedVariable")
-  public static Type supertypeMatchingLHS(
+  private static Type supertypeMatchingLHS(
       Type.ClassType lhsType, Type.ClassType rhsType, VisitorState state) {
     // all supertypes including classes as well as interfaces
     List<Type> listOfDirectSuperTypes = state.getTypes().closure(rhsType);
@@ -126,6 +126,9 @@ public final class GenericsChecks {
   }
 
   public void checkInstantiationForAssignments(Tree tree) {
+    if (!config.isJSpecifyMode()) {
+      return;
+    }
     Tree lhsTree;
     Tree rhsTree;
     if (tree instanceof VariableTree) {
