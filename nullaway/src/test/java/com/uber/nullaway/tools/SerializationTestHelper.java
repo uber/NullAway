@@ -90,8 +90,8 @@ public class SerializationTestHelper<T extends Display> {
     Path outputPath = outputDir.resolve(fileName);
     try {
       Files.deleteIfExists(outputPath);
-    } catch (IOException ignored) {
-      throw new RuntimeException("Failed to delete older file at: " + outputPath);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to delete older file at: " + outputPath, e);
     }
     compilationTestHelper.doTest();
     List<T> actualOutputs = readActualOutputs(outputPath);
