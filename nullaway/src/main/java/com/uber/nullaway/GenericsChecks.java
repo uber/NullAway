@@ -40,7 +40,6 @@ public final class GenericsChecks {
     this.analysis = analysis;
   }
 
-  @SuppressWarnings("UnusedVariable")
   private static Type supertypeMatchingLHS(
       Type.ClassType lhsType, Type.ClassType rhsType, VisitorState state) {
     // all supertypes including classes as well as interfaces
