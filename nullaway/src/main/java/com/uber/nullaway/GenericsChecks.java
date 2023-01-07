@@ -119,7 +119,7 @@ public final class GenericsChecks {
     }
   }
 
-  static void invalidInstantiationError(
+  private static void invalidInstantiationError(
       Tree tree, Type baseType, Type baseTypeVariable, VisitorState state, NullAway analysis) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
