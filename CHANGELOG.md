@@ -1,5 +1,10 @@
 Changelog
 =========
+Version 0.10.7
+--------------
+(Bug fix release)
+* Resolve regression for type annotations directly on inner types. (#706)
+
 Version 0.10.6
 --------------
 * Handle BITWISE_COMPLEMENT operator (#696)

@@ -22,7 +22,7 @@
 
 package com.uber.nullaway.testdata;
 
-import com.facebook.infer.annotation.Initializer;
+import com.uber.nullaway.annotations.Initializer;
 
 public class ReadBeforeInitPositiveCases {
 
