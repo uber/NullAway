@@ -133,7 +133,7 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(tree), state, null));
   }
 
-  static void invalidAssignmentInstantiationError(
+  private static void invalidAssignmentInstantiationError(
       Tree tree,
       String lhsAnnotation,
       String rhsAnnotation,
