@@ -463,7 +463,7 @@ public class NullAway extends BugChecker
       doUnboxingCheck(state, tree.getExpression());
     }
     // generics check
-    if (lhsType.getTypeArguments().length() > 0) {
+    if (lhsType != null && lhsType.getTypeArguments().length() > 0) {
       GenericsChecks genericsChecks = new GenericsChecks(state, config, this);
       genericsChecks.checkInstantiationForAssignments(tree);
     }
@@ -1334,12 +1334,8 @@ public class NullAway extends BugChecker
     // working on this. This part is needed to avoid assignment checks where the variable is
     // assigned to null
     if (tree.getInitializer() != null) {
-      if (state.getSourceForNode(tree.getInitializer()) != null) {
-        if (!state.getSourceForNode(tree.getInitializer()).equals("null")) {
-          GenericsChecks genericsChecks = new GenericsChecks(state, config, this);
-          genericsChecks.checkInstantiationForAssignments(tree);
-        }
-      }
+      GenericsChecks genericsChecks = new GenericsChecks(state, config, this);
+      genericsChecks.checkInstantiationForAssignments(tree);
     }
 
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {

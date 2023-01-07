@@ -1,5 +1,8 @@
 package com.uber.nullaway;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
+import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
@@ -140,8 +143,9 @@ public final class GenericsChecks {
       lhsTree = assignmentTree.getVariable();
       rhsTree = assignmentTree.getExpression();
     }
-    if (rhsTree == null) {
-      // Possible for VariableTrees with no initializer
+    // rhsTree can be null for a VariableTree.  Also, we don't need to do a check
+    // if rhsTree is the null literal
+    if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
     Type lhsType = ASTHelpers.getType(lhsTree);
@@ -161,7 +165,9 @@ public final class GenericsChecks {
         return;
       }
     }
-    compareAnnotations(lhsType, rhsType, tree);
+    if (lhsType != null && rhsType != null) {
+      compareAnnotations(lhsType, rhsType, tree);
+    }
   }
 
   private void compareAnnotations(Type lhsType, Type rhsType, Tree tree) {
@@ -203,6 +209,7 @@ public final class GenericsChecks {
    */
   private Type.ClassType typeWithPreservedAnnotations(ParameterizedTypeTree tree) {
     Type.ClassType type = (Type.ClassType) ASTHelpers.getType(tree);
+    Preconditions.checkNotNull(type);
     Type nullableType = NULLABLE_TYPE_SUPPLIER.get(state);
     List<? extends Tree> typeArguments = tree.getTypeArguments();
     List<Type> newTypeArgs = new ArrayList<>();
@@ -221,7 +228,7 @@ public final class GenericsChecks {
       }
       // nested generics checks
       Type currentArgType = ASTHelpers.getType(typeArguments.get(i));
-      if (currentArgType.getTypeArguments().size() > 0) {
+      if (currentArgType != null && currentArgType.getTypeArguments().size() > 0) {
         Type.ClassType nestedTyp =
             typeWithPreservedAnnotations((ParameterizedTypeTree) typeArguments.get(i));
         newTypeArgs.add(nestedTyp);
@@ -230,7 +237,7 @@ public final class GenericsChecks {
             com.sun.tools.javac.util.List.from(myAnnos);
         TypeMetadata md = new TypeMetadata(new TypeMetadata.Annotations(annos));
         Type arg = ASTHelpers.getType(typeArguments.get(i));
-        Type.ClassType newArg = (Type.ClassType) arg.cloneWithMetadata(md);
+        Type.ClassType newArg = (Type.ClassType) castToNonNull(arg).cloneWithMetadata(md);
         newTypeArgs.add(newArg);
       }
     }
