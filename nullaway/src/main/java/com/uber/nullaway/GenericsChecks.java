@@ -236,7 +236,7 @@ public final class GenericsChecks {
     List<? extends Tree> typeArguments = tree.getTypeArguments();
     List<Type> newTypeArgs = new ArrayList<>();
     for (int i = 0; i < typeArguments.size(); i++) {
-      List<Attribute.TypeCompound> myAnnos = new ArrayList<>();
+      List<Attribute.TypeCompound> allAnnotations = new ArrayList<>();
       List<JCTree.JCAnnotation> annotations = new ArrayList<>();
       if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
         JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
@@ -250,13 +250,13 @@ public final class GenericsChecks {
       for (JCTree.JCAnnotation annotation : annotations) {
         Attribute.Compound attribute = annotation.attribute;
         if (attribute.toString().equals(NULLABLE_TYPE)) {
-          myAnnos.add(
+          allAnnotations.add(
               new Attribute.TypeCompound(nullableType, com.sun.tools.javac.util.List.nil(), null));
         }
       }
 
       com.sun.tools.javac.util.List<Attribute.TypeCompound> annos =
-          com.sun.tools.javac.util.List.from(myAnnos);
+          com.sun.tools.javac.util.List.from(allAnnotations);
       TypeMetadata md = new TypeMetadata(new TypeMetadata.Annotations(annos));
       // nested generics checks
       Type currentArgType = ASTHelpers.getType(typeArguments.get(i));
