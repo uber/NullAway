@@ -1330,8 +1330,6 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
-    // working on this. This part is needed to avoid assignment checks where the variable is
-    // assigned to null
     if (tree.getInitializer() != null) {
       new GenericsChecks(state, config, this).checkInstantiationForAssignments(tree);
     }
