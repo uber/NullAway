@@ -28,6 +28,7 @@ public final class GenericsChecks {
 
   private static final String NULLABLE_NAME = "org.jspecify.annotations.Nullable";
 
+  private static final String NULLABLE_TYPE = "@org.jspecify.annotations.Nullable";
   private static final Supplier<Type> NULLABLE_TYPE_SUPPLIER =
       Suppliers.typeFromString(NULLABLE_NAME);
   VisitorState state;
@@ -240,7 +241,7 @@ public final class GenericsChecks {
         JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
         for (JCTree.JCAnnotation annotation : annotatedType.getAnnotations()) {
           Attribute.Compound attribute = annotation.attribute;
-          if (attribute.toString().equals("@org.jspecify.annotations.Nullable")) {
+          if (attribute.toString().equals(NULLABLE_TYPE)) {
             myAnnos.add(
                 new Attribute.TypeCompound(
                     nullableType, com.sun.tools.javac.util.List.nil(), null));
