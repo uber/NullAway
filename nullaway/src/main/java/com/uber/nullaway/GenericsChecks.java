@@ -257,17 +257,17 @@ public final class GenericsChecks {
 
       com.sun.tools.javac.util.List<Attribute.TypeCompound> annos =
           com.sun.tools.javac.util.List.from(allAnnotations);
-      TypeMetadata md = new TypeMetadata(new TypeMetadata.Annotations(annos));
+      TypeMetadata metaData = new TypeMetadata(new TypeMetadata.Annotations(annos));
       // nested generics checks
       Type currentArgType = ASTHelpers.getType(typeArguments.get(i));
       if (currentArgType != null && currentArgType.getTypeArguments().size() > 0) {
         Type.ClassType nestedTyp =
             typeWithPreservedAnnotations((ParameterizedTypeTree) typeArguments.get(i));
-        Type.ClassType nestedTypArg = castToNonNull(nestedTyp).cloneWithMetadata(md);
+        Type.ClassType nestedTypArg = castToNonNull(nestedTyp).cloneWithMetadata(metaData);
         newTypeArgs.add(nestedTypArg);
       } else {
         Type arg = ASTHelpers.getType(typeArguments.get(i));
-        Type.ClassType newArg = (Type.ClassType) castToNonNull(arg).cloneWithMetadata(md);
+        Type.ClassType newArg = (Type.ClassType) castToNonNull(arg).cloneWithMetadata(metaData);
         newTypeArgs.add(newArg);
       }
     }
