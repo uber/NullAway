@@ -237,27 +237,35 @@ public final class GenericsChecks {
     List<Type> newTypeArgs = new ArrayList<>();
     for (int i = 0; i < typeArguments.size(); i++) {
       List<Attribute.TypeCompound> myAnnos = new ArrayList<>();
+      List<JCTree.JCAnnotation> annotations = new ArrayList<>();
       if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
         JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
-        for (JCTree.JCAnnotation annotation : annotatedType.getAnnotations()) {
-          Attribute.Compound attribute = annotation.attribute;
-          if (attribute.toString().equals(NULLABLE_TYPE)) {
-            myAnnos.add(
-                new Attribute.TypeCompound(
-                    nullableType, com.sun.tools.javac.util.List.nil(), null));
-          }
+        annotations = annotatedType.getAnnotations();
+      } else if (typeArguments.get(i) instanceof JCTree.JCTypeApply
+          && ((JCTree.JCTypeApply) typeArguments.get(i)).clazz instanceof AnnotatedTypeTree) {
+        JCTree.JCAnnotatedType annotatedType =
+            (JCTree.JCAnnotatedType) ((JCTree.JCTypeApply) typeArguments.get(i)).clazz;
+        annotations = annotatedType.getAnnotations();
+      }
+      for (JCTree.JCAnnotation annotation : annotations) {
+        Attribute.Compound attribute = annotation.attribute;
+        if (attribute.toString().equals(NULLABLE_TYPE)) {
+          myAnnos.add(
+              new Attribute.TypeCompound(nullableType, com.sun.tools.javac.util.List.nil(), null));
         }
       }
+
+      com.sun.tools.javac.util.List<Attribute.TypeCompound> annos =
+          com.sun.tools.javac.util.List.from(myAnnos);
+      TypeMetadata md = new TypeMetadata(new TypeMetadata.Annotations(annos));
       // nested generics checks
       Type currentArgType = ASTHelpers.getType(typeArguments.get(i));
       if (currentArgType != null && currentArgType.getTypeArguments().size() > 0) {
         Type.ClassType nestedTyp =
             typeWithPreservedAnnotations((ParameterizedTypeTree) typeArguments.get(i));
-        newTypeArgs.add(nestedTyp);
+        Type.ClassType nestedTypArg = castToNonNull(nestedTyp).cloneWithMetadata(md);
+        newTypeArgs.add(nestedTypArg);
       } else {
-        com.sun.tools.javac.util.List<Attribute.TypeCompound> annos =
-            com.sun.tools.javac.util.List.from(myAnnos);
-        TypeMetadata md = new TypeMetadata(new TypeMetadata.Annotations(annos));
         Type arg = ASTHelpers.getType(typeArguments.get(i));
         Type.ClassType newArg = (Type.ClassType) castToNonNull(arg).cloneWithMetadata(md);
         newTypeArgs.add(newArg);
