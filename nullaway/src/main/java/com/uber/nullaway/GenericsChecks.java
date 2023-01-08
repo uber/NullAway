@@ -134,18 +134,17 @@ public final class GenericsChecks {
   }
 
   private static void invalidAssignmentInstantiationError(
-      Tree tree,
-      String lhsAnnotation,
-      String rhsAnnotation,
-      VisitorState state,
-      NullAway analysis) {
+      Tree tree, Type lhsType, Type rhsType, VisitorState state, NullAway analysis) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
             String.format(
-                "Invalid Assignment, as assigning a %s value to a %s field",
-                rhsAnnotation, lhsAnnotation));
+                "Cannot assign from type "
+                    + rhsType
+                    + " to type "
+                    + lhsType
+                    + " due to mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(tree), state, null));
@@ -214,9 +213,7 @@ public final class GenericsChecks {
       boolean isRHSNullableAnnotated =
           Nullness.hasNullableAnnotation(annotationMirrorsRHS.stream(), config);
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
-        String lhsAnnotation = isLHSNullableAnnotated ? "Nullable" : "NonNull";
-        String rhsAnnotation = isRHSNullableAnnotated ? "Nullable" : "NonNull";
-        invalidAssignmentInstantiationError(tree, lhsAnnotation, rhsAnnotation, state, analysis);
+        invalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
         return;
       }
       // nested generics
