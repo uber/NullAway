@@ -99,7 +99,6 @@ def test = [
     junit4                  : "junit:junit:4.13.2",
     junit5Jupiter           : ["org.junit.jupiter:junit-jupiter-api:5.0.2","org.apiguardian:apiguardian-api:1.0.0"],
     jetbrainsAnnotations    : "org.jetbrains:annotations:13.0",
-    inferAnnotations        : "com.facebook.infer.annotation:infer-annotation:0.11.0",
     cfQual                  : "org.checkerframework:checker-qual:${versions.checkerFramework}",
     // 2.5.5 is the last release to contain this artifact
     cfCompatQual            : "org.checkerframework:checker-compat-qual:2.5.5",
