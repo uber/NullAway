@@ -142,7 +142,7 @@ public final class GenericsChecks {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
-            ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
+            ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
             String.format(
                 "Invalid Assignment, as assigning a %s value to a %s field",
                 rhsAnnotation, lhsAnnotation));
