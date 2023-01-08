@@ -378,10 +378,13 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  class D<P extends @Nullable Object> {}",
             "  class B<P extends @Nullable Object> extends D<P>{}",
-            "  class C<p extends @Nullable Object>{}",
+            "  class C<P extends @Nullable Object>{}",
+            "  class A<T extends C<P>, P extends @Nullable Object>{}",
             " void sampleError() {",
             "    // BUG: Diagnostic contains: Cannot assign from type",
-            "   D<C<String>> f = new B<C<@Nullable String>>();",
+            "   D<C<String>> f1 = new B<C<@Nullable String>>();",
+            "   // BUG: Diagnostic contains: Cannot assign from type",
+            "A<C<String>, String> f2 = new A<C<String>, @Nullable String>();",
             " }",
             "  }")
         .doTest();
