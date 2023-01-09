@@ -17,6 +17,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
+import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,27 +40,6 @@ public final class GenericsChecks {
     this.state = state;
     this.config = config;
     this.analysis = analysis;
-  }
-
-  private Type.ClassType supertypeMatchingLHS(Type.ClassType lhsType, Type.ClassType rhsType) {
-    if (ASTHelpers.isSameType(lhsType, rhsType, state)) {
-      return rhsType;
-    }
-    // all supertypes including classes as well as interfaces
-    List<Type> superTypes = state.getTypes().closure(rhsType);
-    Type result = null;
-    if (superTypes != null) {
-      for (Type superType : superTypes) {
-        if (ASTHelpers.isSameType(superType, lhsType, state)) {
-          result = superType;
-          break;
-        }
-      }
-    }
-    if (result == null) {
-      throw new RuntimeException("did not find supertype of " + rhsType + " matching " + lhsType);
-    }
-    return (Type.ClassType) result;
   }
 
   /**
@@ -193,7 +173,11 @@ public final class GenericsChecks {
   }
 
   private void compareAnnotations(Type.ClassType lhsType, Type.ClassType rhsType, Tree tree) {
-    rhsType = supertypeMatchingLHS((Type.ClassType) lhsType, (Type.ClassType) rhsType);
+    Types types = state.getTypes();
+    rhsType = (Type.ClassType) types.asSuper(rhsType, lhsType.tsym);
+    if (rhsType == null) {
+      throw new RuntimeException("did not find supertype of " + rhsType + " matching " + lhsType);
+    }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
     List<Type> rhsTypeArguments = rhsType.getTypeArguments();
     if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
