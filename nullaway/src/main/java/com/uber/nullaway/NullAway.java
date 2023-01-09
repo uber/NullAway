@@ -277,9 +277,10 @@ public class NullAway extends BugChecker
     moduleElementClass = null;
   }
 
-  @SuppressWarnings(
-      "InjectOnBugCheckers") // not sure of severity, and don't want to take another dependence to
-                             // fix this
+  // Suppressing InjectOnBugCheckers warning since I am not sure of severity, and don't want to take
+  // another dependence to pull in the javax.inject.Inject annotation to fix this.  See
+  // https://github.com/google/error-prone/issues/3706
+  @SuppressWarnings("InjectOnBugCheckers")
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
