@@ -175,18 +175,17 @@ public final class GenericsChecks {
     Type rhsType = ASTHelpers.getType(rhsTree);
     if (rhsTree instanceof NewClassTree
         && ((NewClassTree) rhsTree).getIdentifier() instanceof ParameterizedTypeTree) {
-      // for the parameterized typed tree ASTHelpers.getType() returns a type that does not have
-      // annotations preserved
-      rhsType =
-          typeWithPreservedAnnotations(
-              (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier());
-
       ParameterizedTypeTree paramTypedTree =
           (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier();
       // not generic
       if (paramTypedTree.getTypeArguments().size() <= 0) {
         return;
       }
+      // for the parameterized typed tree ASTHelpers.getType() returns a type that does not have
+      // annotations preserved
+      rhsType =
+          typeWithPreservedAnnotations(
+              (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier());
     }
     if (lhsType != null && rhsType != null) {
       compareAnnotations((Type.ClassType) lhsType, (Type.ClassType) rhsType, tree);
