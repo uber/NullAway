@@ -277,6 +277,9 @@ public class NullAway extends BugChecker
     moduleElementClass = null;
   }
 
+  @SuppressWarnings(
+      "InjectOnBugCheckers") // not sure of severity, and don't want to take another dependence to
+                             // fix this
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
