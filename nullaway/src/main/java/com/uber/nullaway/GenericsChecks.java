@@ -216,8 +216,8 @@ public final class GenericsChecks {
     Type nullableType = NULLABLE_TYPE_SUPPLIER.get(state);
     List<? extends Tree> typeArguments = tree.getTypeArguments();
     List<Type> newTypeArgs = new ArrayList<>();
+    boolean hasNullableAnnotation = false;
     for (int i = 0; i < typeArguments.size(); i++) {
-      List<Attribute.TypeCompound> allAnnotations = new ArrayList<>();
       List<JCTree.JCAnnotation> annotations = new ArrayList<>();
       if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
         JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
@@ -231,14 +231,18 @@ public final class GenericsChecks {
       for (JCTree.JCAnnotation annotation : annotations) {
         Attribute.Compound attribute = annotation.attribute;
         if (attribute.toString().equals(NULLABLE_TYPE)) {
-          allAnnotations.add(
-              new Attribute.TypeCompound(nullableType, com.sun.tools.javac.util.List.nil(), null));
+          hasNullableAnnotation = true;
         }
       }
-
-      com.sun.tools.javac.util.List<Attribute.TypeCompound> annos =
-          com.sun.tools.javac.util.List.from(allAnnotations);
-      TypeMetadata metaData = new TypeMetadata(new TypeMetadata.Annotations(annos));
+      com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotations =
+          com.sun.tools.javac.util.List.from(new ArrayList<>());
+      if (hasNullableAnnotation) {
+        List<Attribute.TypeCompound> nullableAnnotation = new ArrayList<>();
+        nullableAnnotation.add(
+            new Attribute.TypeCompound(nullableType, com.sun.tools.javac.util.List.nil(), null));
+        nullableAnnotations = com.sun.tools.javac.util.List.from(nullableAnnotation);
+      }
+      TypeMetadata metaData = new TypeMetadata(new TypeMetadata.Annotations(nullableAnnotations));
       // nested generics checks
       Type currentArgType = ASTHelpers.getType(typeArguments.get(i));
       if (currentArgType != null && currentArgType.getTypeArguments().size() > 0) {
