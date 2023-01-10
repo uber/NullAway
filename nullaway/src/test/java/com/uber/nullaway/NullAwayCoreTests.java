@@ -960,4 +960,35 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void issue711() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
+                "-XepOpt:NullAway:AssertsEnabled=true",
+                "-XepOpt:NullAway:ExhaustiveOverride=true",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.function.Consumer;",
+            "import org.junit.Assert;",
+            "class Test {",
+            "  static class SomeStore<A,B> {}",
+            "  static class SomeData {}",
+            "  private void verifyCountZero(SomeStore<String, SomeData> store) {",
+            "    verifyData(store, (count) -> Assert.assertEquals(0, (long) count));",
+            "  }",
+            "  private void verifyData(SomeStore<String, SomeData> store, Consumer<Long> assertFunction) {",
+            // I don't think the body of verifyData has much to do with the issue
+            // "assertFunction.accept(StreamSupport.stream(store.findDataByCondition().spliterator(),
+            // true).count());",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
