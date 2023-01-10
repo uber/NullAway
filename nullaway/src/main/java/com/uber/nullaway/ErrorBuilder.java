@@ -139,7 +139,14 @@ public class ErrorBuilder {
       if (nonNullTarget != null) {
         SerializationService.serializeFixSuggestion(config, state, nonNullTarget, errorMessage);
       }
-      SerializationService.serializeReportingError(config, state, nonNullTarget, errorMessage);
+      Tree errorTree =
+          (suggestTree != null
+                  && (errorMessage.messageType.equals(FIELD_NO_INIT)
+                      || errorMessage.messageType.equals(METHOD_NO_INIT)))
+              ? suggestTree
+              : state.getPath().getLeaf();
+      SerializationService.serializeReportingError(
+          config, state, errorTree, nonNullTarget, errorMessage);
     }
 
     // #letbuildersbuild
