@@ -248,13 +248,15 @@ public final class GenericsChecks {
       // nested generics checks
       Type currentArgType = ASTHelpers.getType(typeArguments.get(i));
       if (currentArgType != null && currentArgType.getTypeArguments().size() > 0) {
-        Type.ClassType nestedTyp =
-            typeWithPreservedAnnotations((ParameterizedTypeTree) typeArguments.get(i));
-        Type.ClassType nestedTypArg = castToNonNull(nestedTyp).cloneWithMetadata(metaData);
+        Type.ClassType nestedTypArg =
+            castToNonNull(
+                    typeWithPreservedAnnotations((ParameterizedTypeTree) typeArguments.get(i)))
+                .cloneWithMetadata(metaData);
         newTypeArgs.add(nestedTypArg);
       } else {
-        Type arg = ASTHelpers.getType(typeArguments.get(i));
-        Type.ClassType newArg = (Type.ClassType) castToNonNull(arg).cloneWithMetadata(metaData);
+        Type.ClassType newArg =
+            (Type.ClassType)
+                castToNonNull(ASTHelpers.getType(typeArguments.get(i))).cloneWithMetadata(metaData);
         newTypeArgs.add(newArg);
       }
     }
