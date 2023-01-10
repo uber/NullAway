@@ -20,6 +20,7 @@ import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -237,10 +238,11 @@ public final class GenericsChecks {
       com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotations =
           com.sun.tools.javac.util.List.from(new ArrayList<>());
       if (hasNullableAnnotation) {
-        List<Attribute.TypeCompound> nullableAnnotation = new ArrayList<>();
-        nullableAnnotation.add(
-            new Attribute.TypeCompound(nullableType, com.sun.tools.javac.util.List.nil(), null));
-        nullableAnnotations = com.sun.tools.javac.util.List.from(nullableAnnotation);
+        nullableAnnotations =
+            com.sun.tools.javac.util.List.from(
+                Collections.singletonList(
+                    new Attribute.TypeCompound(
+                        nullableType, com.sun.tools.javac.util.List.nil(), null)));
       }
       TypeMetadata metaData = new TypeMetadata(new TypeMetadata.Annotations(nullableAnnotations));
       // nested generics checks
