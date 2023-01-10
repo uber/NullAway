@@ -220,13 +220,13 @@ public final class GenericsChecks {
     boolean hasNullableAnnotation = false;
     for (int i = 0; i < typeArguments.size(); i++) {
       List<JCTree.JCAnnotation> annotations = new ArrayList<>();
+      JCTree.JCAnnotatedType annotatedType;
       if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
-        JCTree.JCAnnotatedType annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
+        annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
         annotations = annotatedType.getAnnotations();
       } else if (typeArguments.get(i) instanceof JCTree.JCTypeApply
           && ((JCTree.JCTypeApply) typeArguments.get(i)).clazz instanceof AnnotatedTypeTree) {
-        JCTree.JCAnnotatedType annotatedType =
-            (JCTree.JCAnnotatedType) ((JCTree.JCTypeApply) typeArguments.get(i)).clazz;
+        annotatedType = (JCTree.JCAnnotatedType) ((JCTree.JCTypeApply) typeArguments.get(i)).clazz;
         annotations = annotatedType.getAnnotations();
       }
       for (JCTree.JCAnnotation annotation : annotations) {
