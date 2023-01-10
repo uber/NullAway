@@ -185,10 +185,12 @@ public final class GenericsChecks {
       throw new RuntimeException(rhsType + " does not match " + lhsType);
     }
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
+      Type lhsTypeArgument = lhsTypeArguments.get(i);
+      Type rhsTypeArgument = rhsTypeArguments.get(i);
       com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrorsLHS =
-          lhsTypeArguments.get(i).getAnnotationMirrors();
+          lhsTypeArgument.getAnnotationMirrors();
       com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrorsRHS =
-          rhsTypeArguments.get(i).getAnnotationMirrors();
+          rhsTypeArgument.getAnnotationMirrors();
       boolean isLHSNullableAnnotated =
           Nullness.hasNullableAnnotation(annotationMirrorsLHS.stream(), config);
       boolean isRHSNullableAnnotated =
@@ -198,11 +200,9 @@ public final class GenericsChecks {
         return;
       }
       // nested generics
-      if (lhsTypeArguments.get(i).getTypeArguments().length() > 0) {
+      if (lhsTypeArgument.getTypeArguments().length() > 0) {
         compareAnnotations(
-            (Type.ClassType) lhsTypeArguments.get(i),
-            (Type.ClassType) rhsTypeArguments.get(i),
-            tree);
+            (Type.ClassType) lhsTypeArgument, (Type.ClassType) rhsTypeArgument, tree);
       }
     }
   }
