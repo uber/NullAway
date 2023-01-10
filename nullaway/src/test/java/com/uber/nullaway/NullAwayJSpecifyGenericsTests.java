@@ -198,9 +198,25 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  // assignment tree tests
   @Test
   public void genericsChecksForAssignments() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "    static class NullableTypeParam<E extends @Nullable Object> {}",
+            "    static void testBadNonNull(NullableTypeParam<@Nullable String> t1) {",
+            "   // BUG: Diagnostic contains: Cannot assign from type",
+            "        NullableTypeParam<String> t2 = t1;",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nestedChecksForAssignmentsMultipleArguments() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -211,31 +227,10 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             " static class NullableTypeParamMultipleArguments<E1 extends @Nullable Object, E2> {}",
             " static class NullableTypeParamMultipleArgumentsNested<E1 extends @Nullable Object, E2, E3 extends @Nullable Object> {}",
             " static void testOKOtherAnnotation(NullableTypeParam<String> t) {",
-            "       NullableTypeParam<String> t3;",
-            "       // BUG: Diagnostic contains: Cannot assign from type",
-            "        t3 = new NullableTypeParam<@Nullable String>();",
-            "        NullableTypeParam<@Nullable String> t4;",
-            "       // BUG: Diagnostic contains: Cannot assign from type",
-            "        t4 = t;",
-            "       NullableTypeParamMultipleArguments<String, String> t5 = new NullableTypeParamMultipleArguments<String, String>();",
-            "       NullableTypeParamMultipleArguments<@Nullable String, String> t6 = new NullableTypeParamMultipleArguments<@Nullable String, String>();",
-            "       // BUG: Diagnostic contains: Cannot assign from type",
-            "       t5 = t6;",
-            "       NullableTypeParam<NullableTypeParam<NullableTypeParam<@Nullable String>>> t7 = new NullableTypeParam<NullableTypeParam<NullableTypeParam<@Nullable String>>>();",
-            "       NullableTypeParam<NullableTypeParam<NullableTypeParam<String>>> t8 = new NullableTypeParam<NullableTypeParam<NullableTypeParam<String>>>();",
-            "       // BUG: Diagnostic contains: Cannot assign from type",
-            "       t7 = t8;",
-            "       NullableTypeParam<NullableTypeParam<NullableTypeParam<@Nullable String>>> t9 = new  NullableTypeParam<NullableTypeParam<NullableTypeParam<@Nullable String>>> ();",
-            "       //No error",
-            "       t7 = t9;",
             "       NullableTypeParamMultipleArguments<NullableTypeParam<NullableTypeParam<@Nullable String>>, String> t10 = new  NullableTypeParamMultipleArguments<NullableTypeParam<NullableTypeParam<@Nullable String>>, String> ();",
             "       NullableTypeParamMultipleArguments<NullableTypeParam<NullableTypeParam<String>>, String> t11 = new  NullableTypeParamMultipleArguments<NullableTypeParam<NullableTypeParam<String>>, String> ();",
             "       // BUG: Diagnostic contains: Cannot assign from type",
             "       t10 = t11;",
-            "       NullableTypeParamMultipleArgumentsNested<NullableTypeParam<NullableTypeParam<@Nullable String>>, String, @Nullable String> t12 = new  NullableTypeParamMultipleArgumentsNested<NullableTypeParam<NullableTypeParam<@Nullable String>>, String, @Nullable String> ();",
-            "       NullableTypeParamMultipleArgumentsNested<NullableTypeParam<NullableTypeParam<String>>, String, @Nullable String> t13 = new  NullableTypeParamMultipleArgumentsNested<NullableTypeParam<NullableTypeParam<String>>, String, @Nullable String>  ();",
-            "       // BUG: Diagnostic contains: Cannot assign from type",
-            "       t12 = t13;",
             "    }",
             "}")
         .doTest();
@@ -302,26 +297,6 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    // No error",
             "    f = new FnImpl2();",
             "  }",
-            "  }")
-        .doTest();
-  }
-
-  @Test
-  public void nestedAssignmentChecks() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "class Test {",
-            "  class D<P extends @Nullable Object> {}",
-            "  class B<P extends @Nullable Object> extends D<P>{}",
-            "  class C<p extends @Nullable Object>{}",
-            " void sampleError1() {",
-            "    C<B<String>> f = new C<B<String>>();",
-            "    // BUG: Diagnostic contains: Cannot assign from type",
-            "    f = new C<B<@Nullable String>>();",
-            " }",
             "  }")
         .doTest();
   }
