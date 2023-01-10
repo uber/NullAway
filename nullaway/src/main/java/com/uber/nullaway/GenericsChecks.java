@@ -30,7 +30,7 @@ public final class GenericsChecks {
 
   private static final String NULLABLE_NAME = "org.jspecify.annotations.Nullable";
 
-  private static final String NULLABLE_TYPE = "@org.jspecify.annotations.Nullable";
+  private static final String NULLABLE_TYPE = "@" + NULLABLE_NAME;
   private static final Supplier<Type> NULLABLE_TYPE_SUPPLIER =
       Suppliers.typeFromString(NULLABLE_NAME);
   VisitorState state;
