@@ -182,7 +182,8 @@ public final class GenericsChecks {
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
     List<Type> rhsTypeArguments = rhsType.getTypeArguments();
     if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
-      throw new RuntimeException(rhsType + " does not match " + lhsType);
+      throw new RuntimeException(
+          "number of types arguments in " + rhsType + " does not match " + lhsType);
     }
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
