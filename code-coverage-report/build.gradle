@@ -88,6 +88,7 @@ coverallsTask.configure {
 // when computing overall coverage.  We aim to measure coverage for all code that actually ships
 // in a Maven artifact (so, e.g., we do not measure coverage for the jmh module)
 dependencies {
+    implementation project(':annotations')
     implementation project(':nullaway')
     implementation project(':jar-infer:jar-infer-lib')
     implementation project(':jar-infer:nullaway-integration-test')

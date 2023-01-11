@@ -22,8 +22,8 @@
 
 package com.uber.nullaway.testdata;
 
-import com.facebook.infer.annotation.Initializer;
 import com.google.errorprone.annotations.concurrent.LazyInit;
+import com.uber.nullaway.annotations.Initializer;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.junit.Before;
 import org.junit.BeforeClass;
