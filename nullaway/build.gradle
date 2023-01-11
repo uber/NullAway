@@ -25,11 +25,11 @@ configurations {
 }
 
 dependencies {
+    compileOnly project(":annotations")
     compileOnly deps.apt.autoValueAnnot
     annotationProcessor deps.apt.autoValue
     compileOnly deps.apt.autoServiceAnnot
     annotationProcessor deps.apt.autoService
-    compileOnly deps.test.inferAnnotations
     compileOnly deps.build.jsr305Annotations
     compileOnly deps.test.jetbrainsAnnotations
 
@@ -38,6 +38,7 @@ dependencies {
     implementation deps.build.checkerDataflow
     implementation deps.build.guava
 
+    testImplementation project(":annotations")
     testImplementation deps.test.junit4
     testImplementation(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
@@ -48,7 +49,6 @@ dependencies {
     testImplementation deps.test.cfCompatQual
     testImplementation deps.build.jspecify
     testImplementation project(":test-java-lib")
-    testImplementation deps.test.inferAnnotations
     testImplementation deps.apt.jakartaInject
     testImplementation deps.apt.javaxInject
     testImplementation deps.test.rxjava2

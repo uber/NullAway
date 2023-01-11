@@ -22,10 +22,10 @@ package com.uber.nullaway.handlers;
  * THE SOFTWARE.
  */
 
-import com.facebook.infer.annotation.Initializer;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.util.Name;
+import com.uber.nullaway.annotations.Initializer;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 

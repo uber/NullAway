@@ -6,6 +6,7 @@ pluginManagement {
     }
 }
 
+include ':annotations'
 include ':nullaway'
 include ':sample-library-model'
 include ':sample'

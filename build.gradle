@@ -71,10 +71,16 @@ subprojects { project ->
                 check("StringSplitter", CheckSeverity.OFF)
                 // https://github.com/google/error-prone/issues/3366
                 check("CanIgnoreReturnValueSuggester", CheckSeverity.OFF)
+                // turn up various checks
                 check("WildcardImport", CheckSeverity.ERROR)
                 check("MissingBraces", CheckSeverity.ERROR)
                 check("TypeToString", CheckSeverity.ERROR)
                 check("SymbolToString", CheckSeverity.ERROR)
+                check("MultipleTopLevelClasses", CheckSeverity.ERROR)
+                check("ClassName", CheckSeverity.ERROR)
+                check("PackageLocation", CheckSeverity.ERROR)
+                check("UnnecessaryAnonymousClass", CheckSeverity.ERROR)
+                check("UnusedException", CheckSeverity.ERROR)
             }
         } else {
             // Disable Error Prone checks on JDK 8, as more recent Error Prone versions don't run on JDK 8
