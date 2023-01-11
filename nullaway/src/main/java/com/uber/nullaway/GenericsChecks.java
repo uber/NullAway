@@ -92,14 +92,14 @@ public final class GenericsChecks {
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation) {
-          invalidInstantiationError(
+          reportInvalidInstantiationError(
               nullableTypeArguments.get(i), baseType, typeVariable, state, analysis);
         }
       }
     }
   }
 
-  private static void invalidInstantiationError(
+  private static void reportInvalidInstantiationError(
       Tree tree, Type baseType, Type baseTypeVariable, VisitorState state, NullAway analysis) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
@@ -113,7 +113,7 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(tree), state, null));
   }
 
-  private static void invalidAssignmentInstantiationError(
+  private static void reportInvalidAssignmentInstantiationError(
       Tree tree, Type lhsType, Type rhsType, VisitorState state, NullAway analysis) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
@@ -130,7 +130,16 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(tree), state, null));
   }
 
-  public void checkInstantiationForAssignments(Tree tree) {
+  /**
+   * For a tree representing an assignment, ensures that from the perspective of type parameter
+   * nullability, the type of the right-hand side is assignable to (a subtype of) the type of the
+   * left-hand side. This check ensures that for every parameterized type nested in each of the
+   * types, the type parameters have identical nullability.
+   *
+   * @param tree the tree to check, which must be either an {@link AssignmentTree} or a {@link
+   *     VariableTree}
+   */
+  public void checkTypeParameterNullnessForAssignability(Tree tree) {
     if (!config.isJSpecifyMode()) {
       return;
     }
@@ -152,27 +161,43 @@ public final class GenericsChecks {
     }
     Type lhsType = ASTHelpers.getType(lhsTree);
     Type rhsType = ASTHelpers.getType(rhsTree);
+    // For NewClassTrees with annotated type parameters, javac does not preserve the annotations in
+    // its computed type for the expression.  As a workaround, we construct a replacement Type
+    // object with the appropriate annotations.
     if (rhsTree instanceof NewClassTree
         && ((NewClassTree) rhsTree).getIdentifier() instanceof ParameterizedTypeTree) {
       ParameterizedTypeTree paramTypedTree =
           (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier();
-      // not generic
-      if (paramTypedTree.getTypeArguments().size() <= 0) {
+      if (paramTypedTree.getTypeArguments().isEmpty()) {
+        // no explicit type parameters
         return;
       }
-      // for the parameterized typed tree ASTHelpers.getType() returns a type that does not have
-      // annotations preserved
       rhsType =
           typeWithPreservedAnnotations(
               (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier());
     }
     if (lhsType != null && rhsType != null) {
-      compareAnnotations((Type.ClassType) lhsType, (Type.ClassType) rhsType, tree);
+      compareNullabilityAnnotations((Type.ClassType) lhsType, (Type.ClassType) rhsType, tree);
     }
   }
 
-  private void compareAnnotations(Type.ClassType lhsType, Type.ClassType rhsType, Tree tree) {
+  /**
+   * Compare two types from an assignment for identical type parameter nullability, recursively
+   * checking nested generic types. See <a
+   * href="https://jspecify.dev/docs/spec/#nullness-delegating-subtyping">the JSpecify
+   * specification</a> and <a
+   * href="https://docs.oracle.com/javase/specs/jls/se14/html/jls-4.html#jls-4.10.2">the JLS
+   * subtyping rules for class and interface types</a>.
+   *
+   * @param lhsType type for the lhs of the assignment
+   * @param rhsType type for the rhs of the assignment
+   * @param tree tree representing the assignment
+   */
+  private void compareNullabilityAnnotations(
+      Type.ClassType lhsType, Type.ClassType rhsType, Tree tree) {
     Types types = state.getTypes();
+    // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
+    // compare lhsType against the supertype of rhsType with a matching base type.
     rhsType = (Type.ClassType) types.asSuper(rhsType, lhsType.tsym);
     if (rhsType == null) {
       throw new RuntimeException("did not find supertype of " + rhsType + " matching " + lhsType);
@@ -195,12 +220,12 @@ public final class GenericsChecks {
       boolean isRHSNullableAnnotated =
           Nullness.hasNullableAnnotation(annotationMirrorsRHS.stream(), config);
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
-        invalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
+        reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
         return;
       }
       // nested generics
       if (lhsTypeArgument.getTypeArguments().length() > 0) {
-        compareAnnotations(
+        compareNullabilityAnnotations(
             (Type.ClassType) lhsTypeArgument, (Type.ClassType) rhsTypeArgument, tree);
       }
     }
@@ -220,6 +245,8 @@ public final class GenericsChecks {
     for (int i = 0; i < typeArguments.size(); i++) {
       AnnotatedTypeTree annotatedType = null;
       Tree curTypeArg = typeArguments.get(i);
+      // If the type argument has an annotation, it will either be an AnnotatedTypeTree, or a
+      // ParameterizedTypeTree in the case of a nested generic type
       if (curTypeArg instanceof AnnotatedTypeTree) {
         annotatedType = (AnnotatedTypeTree) curTypeArg;
       } else if (curTypeArg instanceof ParameterizedTypeTree
@@ -235,27 +262,24 @@ public final class GenericsChecks {
           break;
         }
       }
-      com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotations =
+      // construct a TypeMetadata object containing a nullability annotation if needed
+      com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotationCompound =
           hasNullableAnnotation
               ? com.sun.tools.javac.util.List.from(
                   Collections.singletonList(
                       new Attribute.TypeCompound(
                           nullableType, com.sun.tools.javac.util.List.nil(), null)))
               : com.sun.tools.javac.util.List.nil();
-      TypeMetadata metaData = new TypeMetadata(new TypeMetadata.Annotations(nullableAnnotations));
-      // nested generics checks
-      Type currentArgType = ASTHelpers.getType(typeArguments.get(i));
-      if (currentArgType != null && currentArgType.getTypeArguments().size() > 0) {
-        Type.ClassType nestedTypArg =
-            typeWithPreservedAnnotations((ParameterizedTypeTree) typeArguments.get(i))
-                .cloneWithMetadata(metaData);
-        newTypeArgs.add(nestedTypArg);
-      } else {
-        Type.ClassType newArg =
-            (Type.ClassType)
-                castToNonNull(ASTHelpers.getType(typeArguments.get(i))).cloneWithMetadata(metaData);
-        newTypeArgs.add(newArg);
+      TypeMetadata typeMetadata =
+          new TypeMetadata(new TypeMetadata.Annotations(nullableAnnotationCompound));
+      Type currentTypeArgType = castToNonNull(ASTHelpers.getType(curTypeArg));
+      if (currentTypeArgType.getTypeArguments().size() > 0) {
+        // nested generic type; recursively preserve its nullability type argument annotations
+        currentTypeArgType = typeWithPreservedAnnotations((ParameterizedTypeTree) curTypeArg);
       }
+      Type.ClassType newTypeArgType =
+          (Type.ClassType) currentTypeArgType.cloneWithMetadata(typeMetadata);
+      newTypeArgs.add(newTypeArgType);
     }
     Type.ClassType finalType =
         new Type.ClassType(

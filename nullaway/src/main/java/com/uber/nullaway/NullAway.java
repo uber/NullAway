@@ -464,7 +464,7 @@ public class NullAway extends BugChecker
     }
     // generics check
     if (lhsType != null && lhsType.getTypeArguments().length() > 0) {
-      new GenericsChecks(state, config, this).checkInstantiationForAssignments(tree);
+      new GenericsChecks(state, config, this).checkTypeParameterNullnessForAssignability(tree);
     }
 
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
@@ -1337,7 +1337,7 @@ public class NullAway extends BugChecker
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
     if (tree.getInitializer() != null) {
-      new GenericsChecks(state, config, this).checkInstantiationForAssignments(tree);
+      new GenericsChecks(state, config, this).checkTypeParameterNullnessForAssignability(tree);
     }
 
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
