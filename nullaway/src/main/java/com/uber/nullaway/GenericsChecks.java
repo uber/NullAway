@@ -18,7 +18,6 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.code.Types;
-import com.sun.tools.javac.tree.JCTree;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -30,7 +29,6 @@ public final class GenericsChecks {
 
   private static final String NULLABLE_NAME = "org.jspecify.annotations.Nullable";
 
-  private static final String NULLABLE_TYPE = "@" + NULLABLE_NAME;
   private static final Supplier<Type> NULLABLE_TYPE_SUPPLIER =
       Suppliers.typeFromString(NULLABLE_NAME);
   VisitorState state;
@@ -220,31 +218,30 @@ public final class GenericsChecks {
     List<Type> newTypeArgs = new ArrayList<>();
     boolean hasNullableAnnotation = false;
     for (int i = 0; i < typeArguments.size(); i++) {
-      List<JCTree.JCAnnotation> annotations = new ArrayList<>();
-      JCTree.JCAnnotatedType annotatedType;
-      if (typeArguments.get(i).getClass().equals(JCTree.JCAnnotatedType.class)) {
-        annotatedType = (JCTree.JCAnnotatedType) typeArguments.get(i);
-        annotations = annotatedType.getAnnotations();
-      } else if (typeArguments.get(i) instanceof JCTree.JCTypeApply
-          && ((JCTree.JCTypeApply) typeArguments.get(i)).clazz instanceof AnnotatedTypeTree) {
-        annotatedType = (JCTree.JCAnnotatedType) ((JCTree.JCTypeApply) typeArguments.get(i)).clazz;
-        annotations = annotatedType.getAnnotations();
+      AnnotatedTypeTree annotatedType = null;
+      Tree curTypeArg = typeArguments.get(i);
+      if (curTypeArg instanceof AnnotatedTypeTree) {
+        annotatedType = (AnnotatedTypeTree) curTypeArg;
+      } else if (curTypeArg instanceof ParameterizedTypeTree
+          && ((ParameterizedTypeTree) curTypeArg).getType() instanceof AnnotatedTypeTree) {
+        annotatedType = (AnnotatedTypeTree) ((ParameterizedTypeTree) curTypeArg).getType();
       }
-      for (JCTree.JCAnnotation annotation : annotations) {
-        Attribute.Compound attribute = annotation.attribute;
-        if (attribute.toString().equals(NULLABLE_TYPE)) {
+      List<? extends AnnotationTree> annotations =
+          annotatedType != null ? annotatedType.getAnnotations() : Collections.emptyList();
+      for (AnnotationTree annotation : annotations) {
+        if (ASTHelpers.isSameType(
+            nullableType, ASTHelpers.getType(annotation.getAnnotationType()), state)) {
           hasNullableAnnotation = true;
+          break;
         }
       }
       com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotations =
-          com.sun.tools.javac.util.List.from(new ArrayList<>());
-      if (hasNullableAnnotation) {
-        nullableAnnotations =
-            com.sun.tools.javac.util.List.from(
-                Collections.singletonList(
-                    new Attribute.TypeCompound(
-                        nullableType, com.sun.tools.javac.util.List.nil(), null)));
-      }
+          hasNullableAnnotation
+              ? com.sun.tools.javac.util.List.from(
+                  Collections.singletonList(
+                      new Attribute.TypeCompound(
+                          nullableType, com.sun.tools.javac.util.List.nil(), null)))
+              : com.sun.tools.javac.util.List.nil();
       TypeMetadata metaData = new TypeMetadata(new TypeMetadata.Annotations(nullableAnnotations));
       // nested generics checks
       Type currentArgType = ASTHelpers.getType(typeArguments.get(i));
