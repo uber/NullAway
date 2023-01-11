@@ -208,4 +208,30 @@ public class NullAwayUnannotatedTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  /**
+   * Ensure we don't crash for a type cast in unannotated code. See
+   * https://github.com/uber/NullAway/issues/711
+   */
+  @Test
+  public void typeCastInUnannotatedCode() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.other"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.function.Consumer;",
+            "import org.junit.Assert;",
+            "class Test {",
+            "  private void verifyCountZero() {",
+            "    verifyData((count) -> Assert.assertEquals(0, (long) count));",
+            "  }",
+            "  private void verifyData(Consumer<Long> assertFunction) {",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

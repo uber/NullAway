@@ -367,6 +367,23 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** check that we don't report errors on invalid instantiations in unannotated code */
+  @Test
+  public void instantiationInUnannotatedCode() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.other;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class NonNullTypeParam<E> { }",
+            "  static void instOf(Object o) {",
+            "    Object p = (NonNullTypeParam<@Nullable String>) o;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
