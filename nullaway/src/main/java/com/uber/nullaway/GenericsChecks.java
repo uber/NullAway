@@ -250,8 +250,7 @@ public final class GenericsChecks {
       Type currentArgType = ASTHelpers.getType(typeArguments.get(i));
       if (currentArgType != null && currentArgType.getTypeArguments().size() > 0) {
         Type.ClassType nestedTypArg =
-            castToNonNull(
-                    typeWithPreservedAnnotations((ParameterizedTypeTree) typeArguments.get(i)))
+            typeWithPreservedAnnotations((ParameterizedTypeTree) typeArguments.get(i))
                 .cloneWithMetadata(metaData);
         newTypeArgs.add(nestedTypArg);
       } else {
