@@ -31,6 +31,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Writer;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -162,6 +163,18 @@ public class Serializer {
       os.flush();
     } catch (IOException e) {
       throw new RuntimeException("Error happened for writing at file: " + path, e);
+    }
+  }
+
+  @Nullable
+  public static Path pathToSourceFileFromURI(@Nullable URI uri) {
+    if (uri == null) {
+      return null;
+    }
+    try {
+      return Paths.get(uri.toURL().getPath());
+    } catch (IOException e) {
+      return null;
     }
   }
 }

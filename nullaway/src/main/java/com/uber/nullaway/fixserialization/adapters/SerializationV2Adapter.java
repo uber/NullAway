@@ -51,13 +51,13 @@ public class SerializationV2Adapter implements SerializationAdapter {
         "enc_class",
         "enc_member",
         "offset",
-        "uri",
+        "path",
         "target_kind",
         "target_class",
         "target_method",
         "target_param",
         "target_index",
-        "target_uri");
+        "target_path");
   }
 
   @Override
@@ -71,7 +71,7 @@ public class SerializationV2Adapter implements SerializationAdapter {
             : "null"),
         (errorInfo.getRegionMember() != null ? errorInfo.getRegionMember().toString() : "null"),
         String.valueOf(errorInfo.getOffset()),
-        errorInfo.getUri().getPath(),
+        errorInfo.getPath() != null ? errorInfo.getPath().toString() : "null",
         (errorInfo.getNonnullTarget() != null
             ? SymbolLocation.createLocationFromSymbol(errorInfo.getNonnullTarget())
                 .tabSeparatedToString()
