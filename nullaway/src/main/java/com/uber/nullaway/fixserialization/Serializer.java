@@ -166,15 +166,25 @@ public class Serializer {
     }
   }
 
+  /**
+   * Converts the given uri to the real path. Note, in NullAway CI tests, source files exists in
+   * memory and there is no real path leading to those files. Instead, we just serialize the path
+   * from uri as the full paths are not checked in tests.
+   *
+   * @param uri Given uri.
+   * @return Real path for the give uri.
+   */
   @Nullable
   public static Path pathToSourceFileFromURI(@Nullable URI uri) {
     if (uri == null) {
       return null;
     }
+    Path path = Paths.get(uri);
     try {
-      return Paths.get(uri.toURL().getPath());
+      return path.toRealPath();
     } catch (IOException e) {
-      return null;
+      // This is expected to happen in tests, we should just return the path from uri.
+      return path;
     }
   }
 }
