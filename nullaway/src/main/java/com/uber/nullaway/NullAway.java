@@ -655,6 +655,9 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchTypeCast(TypeCastTree tree, VisitorState state) {
+    if (!withinAnnotatedCode(state)) {
+      return Description.NO_MATCH;
+    }
     Type castExprType = ASTHelpers.getType(tree);
     if (castExprType != null && castExprType.isPrimitive()) {
       // casting to a primitive type performs unboxing
@@ -665,6 +668,9 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchParameterizedType(ParameterizedTypeTree tree, VisitorState state) {
+    if (!withinAnnotatedCode(state)) {
+      return Description.NO_MATCH;
+    }
     GenericsChecks.checkInstantiationForParameterizedTypedTree(tree, state, this, config);
     return Description.NO_MATCH;
   }
