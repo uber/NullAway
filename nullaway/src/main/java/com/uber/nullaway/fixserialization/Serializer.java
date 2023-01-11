@@ -179,6 +179,9 @@ public class Serializer {
     if (uri == null) {
       return null;
     }
+    if (uri.getScheme() == null) {
+      return null;
+    }
     Path path = Paths.get(uri);
     try {
       return path.toRealPath();
