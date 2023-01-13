@@ -179,7 +179,7 @@ public class Serializer {
     if (uri == null) {
       return null;
     }
-    if (uri.getScheme() == null) {
+    if (!"file".equals(uri.getScheme())) {
       return null;
     }
     Path path = Paths.get(uri);
