@@ -139,6 +139,10 @@ public class ErrorBuilder {
       if (nonNullTarget != null) {
         SerializationService.serializeFixSuggestion(config, state, nonNullTarget, errorMessage);
       }
+      // For the case of initializer errors, the leaf of state.getPath() may not be the field /
+      // method on which the error is being reported (since we do a class-wide analysis to find such
+      // errors).  In such cases, the suggestTree is the appropriate field / method tree, so use
+      // that as the errorTree for serialization.
       Tree errorTree =
           (suggestTree != null
                   && (errorMessage.messageType.equals(FIELD_NO_INIT)
