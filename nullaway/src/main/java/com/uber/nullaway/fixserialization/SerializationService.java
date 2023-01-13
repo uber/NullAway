@@ -25,7 +25,6 @@ package com.uber.nullaway.fixserialization;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.VisitorState;
-import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
@@ -115,19 +114,14 @@ public class SerializationService {
    *
    * @param config NullAway config.
    * @param state Visitor state.
-   * @param errorTree Tree of the element involved in the reporting error.
    * @param errorMessage Error caused by the target.
    */
   public static void serializeReportingError(
-      Config config,
-      VisitorState state,
-      Tree errorTree,
-      @Nullable Symbol target,
-      ErrorMessage errorMessage) {
+      Config config, VisitorState state, @Nullable Symbol target, ErrorMessage errorMessage) {
     Serializer serializer = config.getSerializationConfig().getSerializer();
     Preconditions.checkNotNull(
         serializer, "Serializer shouldn't be null at this point, error in configuration setting!");
-    serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorTree, errorMessage, target));
+    serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorMessage, target));
   }
 
   /**

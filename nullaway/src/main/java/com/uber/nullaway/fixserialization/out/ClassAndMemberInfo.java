@@ -26,7 +26,6 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
@@ -41,24 +40,15 @@ public class ClassAndMemberInfo {
   // not final and are only initialized at request.
   @Nullable private Symbol member;
 
-  @Nullable private Symbol.ClassSymbol clazz;
+  @Nullable private ClassTree clazz;
 
   public ClassAndMemberInfo(TreePath path) {
     Preconditions.checkNotNull(path);
     this.path = path;
   }
 
-  public ClassAndMemberInfo(Tree regionTree) {
-    this.member = ASTHelpers.getSymbol(regionTree);
-    this.clazz = ASTHelpers.enclosingClass(this.member);
-  }
-
   /** Finds the class and member where the error / fix is reported according to {@code path}. */
   public void findValues() {
-    if (this.member != null || path == null) {
-      // Values are already computed.
-      return;
-    }
     MethodTree enclosingMethod;
     // If the error is reported on a method, that method itself is the relevant program point.
     // Otherwise, use the enclosing method (if present).
@@ -68,12 +58,12 @@ public class ClassAndMemberInfo {
             : ASTHelpers.findEnclosingNode(path, MethodTree.class);
     // If the error is reported on a class, that class itself is the relevant program point.
     // Otherwise, use the enclosing class.
-    ClassTree classTree =
+    clazz =
         path.getLeaf() instanceof ClassTree
             ? (ClassTree) path.getLeaf()
             : ASTHelpers.findEnclosingNode(path, ClassTree.class);
-    if (classTree != null) {
-      clazz = ASTHelpers.getSymbol(classTree);
+    if (clazz != null) {
+      Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(clazz);
       if (enclosingMethod != null) {
         // It is possible that the computed method is not enclosed by the computed class, e.g., for
         // the following case:
@@ -88,7 +78,7 @@ public class ClassAndMemberInfo {
         // set method to null, we always want the corresponding method to be nested in the
         // corresponding class.
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
-        if (!methodSymbol.isEnclosedBy(clazz)) {
+        if (!methodSymbol.isEnclosedBy(classSymbol)) {
           enclosingMethod = null;
         }
       }
@@ -98,7 +88,7 @@ public class ClassAndMemberInfo {
         // Node is not enclosed by any method, can be a field declaration or enclosed by it.
         Symbol sym = ASTHelpers.getSymbol(path.getLeaf());
         Symbol.VarSymbol fieldSymbol = null;
-        if (sym != null && sym.getKind().isField() && sym.isEnclosedBy(clazz)) {
+        if (sym != null && sym.getKind().isField() && sym.isEnclosedBy(classSymbol)) {
           // Directly on a field declaration.
           fieldSymbol = (Symbol.VarSymbol) sym;
         } else {
@@ -108,7 +98,7 @@ public class ClassAndMemberInfo {
             fieldSymbol = ASTHelpers.getSymbol(fieldDeclTree);
           }
         }
-        if (fieldSymbol != null && fieldSymbol.isEnclosedBy(clazz)) {
+        if (fieldSymbol != null && fieldSymbol.isEnclosedBy(classSymbol)) {
           member = fieldSymbol;
         }
       }
@@ -121,7 +111,7 @@ public class ClassAndMemberInfo {
   }
 
   @Nullable
-  public Symbol.ClassSymbol getClazz() {
+  public ClassTree getClazz() {
     return clazz;
   }
 }

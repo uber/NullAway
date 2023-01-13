@@ -22,10 +22,7 @@
 
 package com.uber.nullaway.fixserialization.out;
 
-import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
-import static com.uber.nullaway.ErrorMessage.MessageTypes.METHOD_NO_INIT;
-
-import com.sun.source.tree.Tree;
+import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.util.JCDiagnostic;
@@ -57,16 +54,11 @@ public class ErrorInfo {
   /** Path to the containing source file where this error is reported. */
   @Nullable private final Path path;
 
-  public ErrorInfo(
-      TreePath path, Tree errorTree, ErrorMessage errorMessage, @Nullable Symbol nonnullTarget) {
-    this.classAndMemberInfo =
-        (errorMessage.getMessageType().equals(FIELD_NO_INIT)
-                || errorMessage.getMessageType().equals(METHOD_NO_INIT))
-            ? new ClassAndMemberInfo(errorTree)
-            : new ClassAndMemberInfo(path);
+  public ErrorInfo(TreePath path, ErrorMessage errorMessage, @Nullable Symbol nonnullTarget) {
+    this.classAndMemberInfo = new ClassAndMemberInfo(path);
     this.errorMessage = errorMessage;
     this.nonnullTarget = nonnullTarget;
-    JCDiagnostic.DiagnosticPosition treePosition = (JCDiagnostic.DiagnosticPosition) errorTree;
+    JCDiagnostic.DiagnosticPosition treePosition = (JCDiagnostic.DiagnosticPosition) path.getLeaf();
     this.offset = treePosition.getStartPosition();
     this.path =
         Serializer.pathToSourceFileFromURI(path.getCompilationUnit().getSourceFile().toUri());
@@ -98,7 +90,9 @@ public class ErrorInfo {
    */
   @Nullable
   public Symbol getRegionClass() {
-    return classAndMemberInfo.getClazz();
+    return classAndMemberInfo.getClazz() == null
+        ? null
+        : ASTHelpers.getSymbol(classAndMemberInfo.getClazz());
   }
 
   /**
