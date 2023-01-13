@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.fixserialization.out;
 
-import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
@@ -34,7 +33,7 @@ import javax.annotation.Nullable;
 /** Class and member corresponding to a program point at which an error / fix was reported. */
 public class ClassAndMemberInfo {
   /** Path to the program point of the reported error / fix */
-  @Nullable public TreePath path;
+  public final TreePath path;
 
   // Finding values for these properties is costly and are not needed by default, hence, they are
   // not final and are only initialized at request.
@@ -43,7 +42,6 @@ public class ClassAndMemberInfo {
   @Nullable private ClassTree clazz;
 
   public ClassAndMemberInfo(TreePath path) {
-    Preconditions.checkNotNull(path);
     this.path = path;
   }
 
