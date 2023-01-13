@@ -179,6 +179,9 @@ public class Serializer {
     if (uri == null) {
       return null;
     }
+    if ("jimfs".equals(uri.getScheme())) {
+      return Paths.get(uri);
+    }
     if (!"file".equals(uri.getScheme())) {
       return null;
     }
