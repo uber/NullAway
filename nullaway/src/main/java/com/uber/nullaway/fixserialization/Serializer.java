@@ -180,6 +180,7 @@ public class Serializer {
       return null;
     }
     if ("jimfs".equals(uri.getScheme())) {
+      // In NullAway unit tests, files are stored in memory and have this scheme.
       return Paths.get(uri);
     }
     if (!"file".equals(uri.getScheme())) {
@@ -189,7 +190,8 @@ public class Serializer {
     try {
       return path.toRealPath();
     } catch (IOException e) {
-      // This is expected to happen in tests, we should just return the path from uri.
+      // In this case, we still would like to continue the serialization instead of returning null
+      // and not serializing anything.
       return path;
     }
   }
