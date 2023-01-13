@@ -31,6 +31,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import javax.annotation.Nullable;
+import javax.lang.model.element.ElementKind;
 
 /** Class and member corresponding to a program point at which an error / fix was reported. */
 public class ClassAndMemberInfo {
@@ -49,6 +50,13 @@ public class ClassAndMemberInfo {
   }
 
   public ClassAndMemberInfo(Tree regionTree) {
+    // regionTree should either represent a field or a method
+    if (!(regionTree instanceof MethodTree
+        || (regionTree instanceof VariableTree
+            && ASTHelpers.getSymbol(regionTree).getKind().equals(ElementKind.FIELD)))) {
+      throw new RuntimeException(
+          "not expecting a region tree " + regionTree + " of type " + regionTree.getClass());
+    }
     this.member = ASTHelpers.getSymbol(regionTree);
     this.clazz = ASTHelpers.enclosingClass(this.member);
   }
