@@ -34,7 +34,7 @@ public class FieldInitDisplay implements Display {
   public final String location;
   public final String className;
   public final String field;
-  public String path;
+  public final String path;
 
   public FieldInitDisplay(
       String field, String method, String param, String location, String className, String path) {

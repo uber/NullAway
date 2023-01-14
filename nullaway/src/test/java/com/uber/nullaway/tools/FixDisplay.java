@@ -33,7 +33,7 @@ public class FixDisplay implements Display {
   public final String param;
   public final String location;
   public final String className;
-  public String path;
+  public final String path;
 
   public FixDisplay(
       String annotation,
