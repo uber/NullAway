@@ -185,6 +185,8 @@ public class SerializationTestHelper<T extends Display> {
     if (pathInString.equals("null")) {
       return "null";
     }
+    // using atomic refs to use them inside inner class below. This is not due to any concurrent
+    // modifications.
     AtomicReference<Path> relativePath = new AtomicReference<>(Paths.get("com"));
     AtomicReference<Boolean> relativePathStarted = new AtomicReference<>(false);
     Path path = Paths.get(pathInString);
