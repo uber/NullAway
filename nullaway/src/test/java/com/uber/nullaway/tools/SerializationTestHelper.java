@@ -185,9 +185,6 @@ public class SerializationTestHelper<T extends Display> {
     if (pathInString.equals("null")) {
       return "null";
     }
-    if (pathInString.startsWith("/") || pathInString.startsWith("\\")) {
-      pathInString = pathInString.substring(1);
-    }
     AtomicReference<Path> relativePath = new AtomicReference<>(Paths.get("com"));
     AtomicReference<Boolean> relativePathStarted = new AtomicReference<>(false);
     Path path = Paths.get(pathInString);
