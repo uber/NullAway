@@ -39,7 +39,7 @@ public class ErrorDisplay implements Display {
   public final String method;
   public final String variable;
   public final String index;
-  public String uri;
+  public String nonElementPath;
 
   public ErrorDisplay(
       String type,
@@ -53,7 +53,7 @@ public class ErrorDisplay implements Display {
       String method,
       String variable,
       String index,
-      String uri) {
+      String nonElementPath) {
     this.type = type;
     this.message = message;
     this.encMember = encMember;
@@ -67,7 +67,10 @@ public class ErrorDisplay implements Display {
     this.variable = variable;
     this.index = index;
     // relative paths are getting compared.
-    this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
+    this.nonElementPath =
+        nonElementPath.contains("com/uber/")
+            ? nonElementPath.substring(nonElementPath.indexOf("com/uber/"))
+            : nonElementPath;
   }
 
   public ErrorDisplay(
@@ -99,14 +102,24 @@ public class ErrorDisplay implements Display {
         && method.equals(that.method)
         && variable.equals(that.variable)
         && index.equals(that.index)
-        && SerializationTestHelper.pathsAreEqual(uri, that.uri);
+        && SerializationTestHelper.pathsAreEqual(nonElementPath, that.nonElementPath);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        type, message, encMember, encClass, offset, path, kind, clazz, method, variable, index,
-        uri);
+        type,
+        message,
+        encMember,
+        encClass,
+        offset,
+        path,
+        kind,
+        clazz,
+        method,
+        variable,
+        index,
+        nonElementPath);
   }
 
   @Override
@@ -145,8 +158,8 @@ public class ErrorDisplay implements Display {
         + "\n\tindex='"
         + index
         + '\''
-        + "\n\turi='"
-        + uri
+        + "\n\tnonElementPath='"
+        + nonElementPath
         + '\''
         + '}';
   }

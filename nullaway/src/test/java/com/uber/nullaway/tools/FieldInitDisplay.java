@@ -34,16 +34,16 @@ public class FieldInitDisplay implements Display {
   public final String location;
   public final String className;
   public final String field;
-  public String uri;
+  public String path;
 
   public FieldInitDisplay(
-      String field, String method, String param, String location, String className, String uri) {
+      String field, String method, String param, String location, String className, String path) {
     this.field = field;
     this.method = method;
     this.param = param;
     this.location = location;
     this.className = className;
-    this.uri = uri;
+    this.path = path;
   }
 
   @Override
@@ -60,12 +60,12 @@ public class FieldInitDisplay implements Display {
         && Objects.equals(location, that.location)
         && Objects.equals(className, that.className)
         && Objects.equals(field, that.field)
-        && SerializationTestHelper.pathsAreEqual(uri, that.uri);
+        && SerializationTestHelper.pathsAreEqual(path, that.path);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(method, param, location, className, field, uri);
+    return Objects.hash(method, param, location, className, field, path);
   }
 
   @Override
@@ -86,8 +86,8 @@ public class FieldInitDisplay implements Display {
         + ", \n\tclassName='"
         + className
         + '\''
-        + ", \n\turi='"
-        + uri
+        + ", \n\tpath='"
+        + path
         + '\''
         + "\n  }\n";
   }
