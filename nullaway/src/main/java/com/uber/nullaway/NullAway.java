@@ -278,7 +278,7 @@ public class NullAway extends BugChecker
     moduleElementClass = null;
   }
 
-  @Inject
+  @Inject // For future Error Prone versions in which checkers are loaded using Guice
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
