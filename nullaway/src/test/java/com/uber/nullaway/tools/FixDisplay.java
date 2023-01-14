@@ -33,7 +33,7 @@ public class FixDisplay implements Display {
   public final String param;
   public final String location;
   public final String className;
-  public String uri;
+  public final String path;
 
   public FixDisplay(
       String annotation,
@@ -41,13 +41,13 @@ public class FixDisplay implements Display {
       String param,
       String location,
       String className,
-      String uri) {
+      String path) {
     this.annotation = annotation;
     this.method = method;
     this.param = param;
     this.location = location;
     this.className = className;
-    this.uri = uri;
+    this.path = path;
   }
 
   @Override
@@ -68,8 +68,8 @@ public class FixDisplay implements Display {
         + ", \n\tclassName='"
         + className
         + '\''
-        + ", \n\turi='"
-        + uri
+        + ", \n\tpath='"
+        + path
         + '\''
         + "\n  }\n";
   }
@@ -88,11 +88,11 @@ public class FixDisplay implements Display {
         && Objects.equals(param, fix.param)
         && Objects.equals(location, fix.location)
         && Objects.equals(className, fix.className)
-        && Objects.equals(uri, fix.uri);
+        && SerializationTestHelper.pathsAreEqual(path, fix.path);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(annotation, method, param, location, className, uri);
+    return Objects.hash(annotation, method, param, location, className, path);
   }
 }

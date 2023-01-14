@@ -39,7 +39,7 @@ public class ErrorDisplay implements Display {
   public final String method;
   public final String variable;
   public final String index;
-  public final String uri;
+  public final String nonElementPath;
 
   public ErrorDisplay(
       String type,
@@ -53,21 +53,19 @@ public class ErrorDisplay implements Display {
       String method,
       String variable,
       String index,
-      String uri) {
+      String nonElementPath) {
     this.type = type;
     this.message = message;
     this.encMember = encMember;
     this.encClass = encClass;
     this.offset = offset;
-    // relative paths are getting compared.
-    this.path = path.contains("com/uber/") ? path.substring(path.indexOf("com/uber/")) : path;
+    this.path = path;
     this.kind = kind;
     this.clazz = clazz;
     this.method = method;
     this.variable = variable;
     this.index = index;
-    // relative paths are getting compared.
-    this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
+    this.nonElementPath = nonElementPath;
   }
 
   public ErrorDisplay(
@@ -94,19 +92,29 @@ public class ErrorDisplay implements Display {
         && clazz.equals(that.clazz)
         && encClass.equals(that.encClass)
         && offset == that.offset
-        && path.equals(that.path)
+        && SerializationTestHelper.pathsAreEqual(path, that.path)
         && kind.equals(that.kind)
         && method.equals(that.method)
         && variable.equals(that.variable)
         && index.equals(that.index)
-        && uri.equals(that.uri);
+        && SerializationTestHelper.pathsAreEqual(nonElementPath, that.nonElementPath);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        type, message, encMember, encClass, offset, path, kind, clazz, method, variable, index,
-        uri);
+        type,
+        message,
+        encMember,
+        encClass,
+        offset,
+        path,
+        kind,
+        clazz,
+        method,
+        variable,
+        index,
+        nonElementPath);
   }
 
   @Override
@@ -145,8 +153,8 @@ public class ErrorDisplay implements Display {
         + "\n\tindex='"
         + index
         + '\''
-        + "\n\turi='"
-        + uri
+        + "\n\tnonElementPath='"
+        + nonElementPath
         + '\''
         + '}';
   }

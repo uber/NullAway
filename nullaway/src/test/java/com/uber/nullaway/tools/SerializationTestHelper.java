@@ -33,8 +33,10 @@ import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class SerializationTestHelper<T extends Display> {
@@ -156,5 +158,48 @@ public class SerializationTestHelper<T extends Display> {
       throw new RuntimeException("Error happened in reading the outputs.", e);
     }
     return outputs;
+  }
+
+  /**
+   * Checks if given paths are equal. Under different OS environments, identical paths might have a
+   * different string representation. In windows all forward slashes are replaced with backslashes.
+   *
+   * @param expected Expected serialized path.
+   * @param found Serialized path.
+   * @return true, if paths are identical.
+   */
+  public static boolean pathsAreEqual(String expected, String found) {
+    if (found.equals(expected)) {
+      return true;
+    }
+    return found.replaceAll("\\\\", "/").equals(expected);
+  }
+
+  /**
+   * Extracts relative path from the serialized full path.
+   *
+   * @param pathInString Full serialized path.
+   * @return Relative path to "com" from the given path including starting from "com" directory.
+   */
+  public static String getRelativePathFromUnitTestTempDirectory(String pathInString) {
+    if (pathInString.equals("null")) {
+      return "null";
+    }
+    // using atomic refs to use them inside inner class below. This is not due to any concurrent
+    // modifications.
+    AtomicReference<Path> relativePath = new AtomicReference<>(Paths.get("com"));
+    AtomicReference<Boolean> relativePathStarted = new AtomicReference<>(false);
+    Path path = Paths.get(pathInString);
+    path.iterator()
+        .forEachRemaining(
+            remaining -> {
+              if (relativePathStarted.get()) {
+                relativePath.set(relativePath.get().resolve(remaining));
+              }
+              if (remaining.toString().startsWith("com")) {
+                relativePathStarted.set(true);
+              }
+            });
+    return relativePath.get().toString();
   }
 }
