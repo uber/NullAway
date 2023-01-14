@@ -99,7 +99,7 @@ public class ErrorDisplay implements Display {
         && method.equals(that.method)
         && variable.equals(that.variable)
         && index.equals(that.index)
-        && uri.equals(that.uri);
+        && SerializationTestHelper.pathsAreEqual(uri, that.uri);
   }
 
   @Override

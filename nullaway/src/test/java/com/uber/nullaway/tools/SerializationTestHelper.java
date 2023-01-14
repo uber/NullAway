@@ -157,4 +157,19 @@ public class SerializationTestHelper<T extends Display> {
     }
     return outputs;
   }
+
+  /**
+   * Checks if given paths are equal. Under different OS environments, identical paths might have a
+   * different string representation. In windows all forward slashes are replaced with backslashes.
+   *
+   * @param expected Expected serialized path.
+   * @param found Serialized path.
+   * @return true, if paths are identical.
+   */
+  public static boolean pathsAreEqual(String expected, String found) {
+    if (found.equals(expected)) {
+      return true;
+    }
+    return found.replaceAll("\\\\", "/").equals(expected);
+  }
 }
