@@ -59,18 +59,13 @@ public class ErrorDisplay implements Display {
     this.encMember = encMember;
     this.encClass = encClass;
     this.offset = offset;
-    // relative paths are getting compared.
-    this.path = path.contains("com/uber/") ? path.substring(path.indexOf("com/uber/")) : path;
+    this.path = path;
     this.kind = kind;
     this.clazz = clazz;
     this.method = method;
     this.variable = variable;
     this.index = index;
-    // relative paths are getting compared.
-    this.nonElementPath =
-        nonElementPath.contains("com/uber/")
-            ? nonElementPath.substring(nonElementPath.indexOf("com/uber/"))
-            : nonElementPath;
+    this.nonElementPath = nonElementPath;
   }
 
   public ErrorDisplay(
