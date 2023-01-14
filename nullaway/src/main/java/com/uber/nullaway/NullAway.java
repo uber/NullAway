@@ -104,6 +104,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
+import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -277,10 +278,7 @@ public class NullAway extends BugChecker
     moduleElementClass = null;
   }
 
-  // Suppressing InjectOnBugCheckers warning since I am not sure of severity, and don't want to take
-  // another dependence to pull in the javax.inject.Inject annotation to fix this.  See
-  // https://github.com/google/error-prone/issues/3706
-  @SuppressWarnings("InjectOnBugCheckers")
+  @Inject
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
