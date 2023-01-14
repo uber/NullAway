@@ -22,12 +22,16 @@
 
 package com.uber.nullaway.fixserialization.out;
 
-import com.google.errorprone.util.ASTHelpers;
+import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
+import static com.uber.nullaway.ErrorMessage.MessageTypes.METHOD_NO_INIT;
+
+import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.util.JCDiagnostic;
 import com.uber.nullaway.ErrorMessage;
-import java.net.URI;
+import com.uber.nullaway.fixserialization.Serializer;
+import java.nio.file.Path;
 import javax.annotation.Nullable;
 
 /** Stores information regarding an error which will be reported by NullAway. */
@@ -50,16 +54,22 @@ public class ErrorInfo {
 
   /** Offset of program point where this error is reported. */
   private final int offset;
-  /** Uri to the containing source file where this error is reported. */
-  private final URI uri;
+  /** Path to the containing source file where this error is reported. */
+  @Nullable private final Path path;
 
-  public ErrorInfo(TreePath path, ErrorMessage errorMessage, @Nullable Symbol nonnullTarget) {
-    this.classAndMemberInfo = new ClassAndMemberInfo(path);
+  public ErrorInfo(
+      TreePath path, Tree errorTree, ErrorMessage errorMessage, @Nullable Symbol nonnullTarget) {
+    this.classAndMemberInfo =
+        (errorMessage.getMessageType().equals(FIELD_NO_INIT)
+                || errorMessage.getMessageType().equals(METHOD_NO_INIT))
+            ? new ClassAndMemberInfo(errorTree)
+            : new ClassAndMemberInfo(path);
     this.errorMessage = errorMessage;
     this.nonnullTarget = nonnullTarget;
-    JCDiagnostic.DiagnosticPosition treePosition = (JCDiagnostic.DiagnosticPosition) path.getLeaf();
+    JCDiagnostic.DiagnosticPosition treePosition = (JCDiagnostic.DiagnosticPosition) errorTree;
     this.offset = treePosition.getStartPosition();
-    this.uri = path.getCompilationUnit().getSourceFile().toUri();
+    this.path =
+        Serializer.pathToSourceFileFromURI(path.getCompilationUnit().getSourceFile().toUri());
   }
 
   /**
@@ -88,9 +98,7 @@ public class ErrorInfo {
    */
   @Nullable
   public Symbol getRegionClass() {
-    return classAndMemberInfo.getClazz() == null
-        ? null
-        : ASTHelpers.getSymbol(classAndMemberInfo.getClazz());
+    return classAndMemberInfo.getClazz();
   }
 
   /**
@@ -115,12 +123,13 @@ public class ErrorInfo {
   }
 
   /**
-   * Returns URI to the containing source file where this error is reported.
+   * Returns Path to the containing source file where this error is reported.
    *
-   * @return URI to the containing source file where this error is reported.
+   * @return Path to the containing source file where this error is reported.
    */
-  public URI getUri() {
-    return uri;
+  @Nullable
+  public Path getPath() {
+    return path;
   }
 
   /** Finds the class and member of program point where the error is reported. */

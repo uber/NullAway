@@ -22,6 +22,7 @@
 package com.uber.nullaway.tools.version1;
 
 import com.uber.nullaway.tools.Display;
+import com.uber.nullaway.tools.SerializationTestHelper;
 import java.util.Objects;
 
 /**
@@ -39,7 +40,7 @@ public class ErrorDisplayV1 implements Display {
   public final String method;
   public final String variable;
   public final String index;
-  public final String uri;
+  public final String path;
 
   public ErrorDisplayV1(
       String type,
@@ -51,7 +52,7 @@ public class ErrorDisplayV1 implements Display {
       String method,
       String variable,
       String index,
-      String uri) {
+      String path) {
     this.type = type;
     this.message = message;
     this.encMember = encMember;
@@ -61,8 +62,7 @@ public class ErrorDisplayV1 implements Display {
     this.method = method;
     this.variable = variable;
     this.index = index;
-    // relative paths are getting compared.
-    this.uri = uri.contains("com/uber/") ? uri.substring(uri.indexOf("com/uber/")) : uri;
+    this.path = path;
   }
 
   public ErrorDisplayV1(String type, String message, String encClass, String encMember) {
@@ -89,13 +89,13 @@ public class ErrorDisplayV1 implements Display {
         && method.equals(that.method)
         && variable.equals(that.variable)
         && index.equals(that.index)
-        && uri.equals(that.uri);
+        && SerializationTestHelper.pathsAreEqual(path, that.path);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        type, message, encMember, encClass, kind, clazz, method, variable, index, uri);
+        type, message, encMember, encClass, kind, clazz, method, variable, index, path);
   }
 
   @Override
@@ -129,7 +129,7 @@ public class ErrorDisplayV1 implements Display {
         + index
         + '\''
         + "\n\turi='"
-        + uri
+        + path
         + '\''
         + '}';
   }

@@ -79,12 +79,13 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
               "Needs exactly 10 values to create FixDisplay object but found: " + values.length);
           // Fixes are written in Temp Directory and is not known at compile time, therefore,
           // relative paths are getting compared.
-          FixDisplay display =
-              new FixDisplay(values[7], values[2], values[3], values[0], values[1], values[5]);
-          if (display.uri.contains("com/uber/")) {
-            display.uri = display.uri.substring(display.uri.indexOf("com/uber/"));
-          }
-          return display;
+          return new FixDisplay(
+              values[7],
+              values[2],
+              values[3],
+              values[0],
+              values[1],
+              SerializationTestHelper.getRelativePathFromUnitTestTempDirectory(values[5]));
         };
     this.errorDisplayFactory =
         values -> {
@@ -97,13 +98,13 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
               values[2],
               values[3],
               Integer.parseInt(values[4]),
-              values[5],
+              SerializationTestHelper.getRelativePathFromUnitTestTempDirectory(values[5]),
               values[6],
               values[7],
               values[8],
               values[9],
               values[10],
-              values[11]);
+              SerializationTestHelper.getRelativePathFromUnitTestTempDirectory(values[11]));
         };
     this.fieldInitDisplayFactory =
         values -> {
@@ -111,13 +112,13 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
               values.length == 7,
               "Needs exactly 7 values to create FieldInitDisplay object but found: "
                   + values.length);
-          FieldInitDisplay display =
-              new FieldInitDisplay(
-                  values[6], values[2], values[3], values[0], values[1], values[5]);
-          if (display.uri.contains("com/uber/")) {
-            display.uri = display.uri.substring(display.uri.indexOf("com/uber/"));
-          }
-          return display;
+          return new FieldInitDisplay(
+              values[6],
+              values[2],
+              values[3],
+              values[0],
+              values[1],
+              SerializationTestHelper.getRelativePathFromUnitTestTempDirectory(values[5]));
         };
   }
 
@@ -678,8 +679,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "METHOD_NO_INIT",
                 "initializer method does not guarantee @NonNull field foo",
                 "com.uber.Super",
-                "null",
-                52,
+                "Super(boolean)",
+                180,
                 "com/uber/Super.java"),
             new ErrorDisplay(
                 "ASSIGN_FIELD_NULLABLE",
@@ -1370,8 +1371,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "FIELD_NO_INIT",
                 "@NonNull field Main$1.bar not initialized",
                 "com.uber.Main$1",
-                "null",
-                119,
+                "bar",
+                206,
                 "com/uber/Main.java",
                 "FIELD",
                 "com.uber.Main$1",
@@ -1412,8 +1413,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "FIELD_NO_INIT",
                 "@NonNull field Main$1Foo.bar not initialized",
                 "com.uber.Main$1Foo",
-                "null",
-                99,
+                "bar",
+                199,
                 "com/uber/Main.java",
                 "FIELD",
                 "com.uber.Main$1Foo",
@@ -1865,8 +1866,16 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
               "Needs exactly 10 values to create ErrorDisplay for version 1 object but found: "
                   + values.length);
           return new ErrorDisplayV1(
-              values[0], values[1], values[2], values[3], values[4], values[5], values[6],
-              values[7], values[8], values[9]);
+              values[0],
+              values[1],
+              values[2],
+              values[3],
+              values[4],
+              values[5],
+              values[6],
+              values[7],
+              values[8],
+              SerializationTestHelper.getRelativePathFromUnitTestTempDirectory(values[9]));
         };
     SerializationTestHelper<ErrorDisplayV1> tester = new SerializationTestHelper<>(root);
     tester
@@ -1923,7 +1932,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "METHOD_NO_INIT",
                 "initializer method does not guarantee @NonNull field foo",
                 "com.uber.Super",
-                "null"),
+                "Super(boolean)"),
             new ErrorDisplayV1(
                 "ASSIGN_FIELD_NULLABLE",
                 "assigning @Nullable expression to @NonNull field",

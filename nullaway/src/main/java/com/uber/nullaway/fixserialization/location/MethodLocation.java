@@ -45,6 +45,6 @@ public class MethodLocation extends AbstractSymbolLocation {
         enclosingMethod.toString(),
         "null",
         "null",
-        uri != null ? uri.toASCIIString() : "null");
+        path != null ? path.toString() : "null");
   }
 }

@@ -1,5 +1,16 @@
 Changelog
 =========
+Version 0.10.8
+--------------
+* Don't do checks for type casts and parameterized trees in unannotated code (#712)
+* Add an initial `nullaway:nullaway-annotations` artifact. (#709)
+  - Contains only an implementation of `@Initializer` for now.
+* NullAwayInfer/Annotator data serialization support [experimental]
+  - Update region selection for initialization errors. (#713)
+  - Update path serialization for reported errors and fixes. (#714)
+* Build / CI tooling for NullAway itself:
+  - Turn up various Error Prone checks (#710)
+
 Version 0.10.7
 --------------
 (Bug fix release)
