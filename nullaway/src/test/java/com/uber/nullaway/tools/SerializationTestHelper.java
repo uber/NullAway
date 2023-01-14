@@ -30,6 +30,7 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.io.BufferedReader;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -171,5 +172,12 @@ public class SerializationTestHelper<T extends Display> {
       return true;
     }
     return found.replaceAll("\\\\", "/").equals(expected);
+  }
+
+  public static String getRelativePathFromUnitTestTempDirectory(String path) {
+    String pathInURI = URI.create(path).toASCIIString();
+    return pathInURI.contains("com/uber/")
+        ? pathInURI.substring(pathInURI.indexOf("com/uber/"))
+        : pathInURI;
   }
 }

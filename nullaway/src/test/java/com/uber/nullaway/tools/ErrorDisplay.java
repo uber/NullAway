@@ -33,13 +33,13 @@ public class ErrorDisplay implements Display {
   public final String encMember;
   public final String encClass;
   public final int offset;
-  public final String path;
+  public String path;
   public final String kind;
   public final String clazz;
   public final String method;
   public final String variable;
   public final String index;
-  public final String uri;
+  public String uri;
 
   public ErrorDisplay(
       String type,
