@@ -53,6 +53,7 @@ public abstract class AbstractSymbolLocation implements SymbolLocation {
             + ".");
     this.type = type;
     this.enclosingClass = castToNonNull(ASTHelpers.enclosingClass(target));
+    // URIs for classes are still serialized. Can be revisited in follow up later.
     URI pathInURI =
         enclosingClass.sourcefile != null
             ? enclosingClass.sourcefile.toUri()
