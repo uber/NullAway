@@ -1866,8 +1866,16 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
               "Needs exactly 10 values to create ErrorDisplay for version 1 object but found: "
                   + values.length);
           return new ErrorDisplayV1(
-              values[0], values[1], values[2], values[3], values[4], values[5], values[6],
-              values[7], values[8], values[9]);
+              values[0],
+              values[1],
+              values[2],
+              values[3],
+              values[4],
+              values[5],
+              values[6],
+              values[7],
+              values[8],
+              SerializationTestHelper.getRelativePathFromUnitTestTempDirectory(values[9]));
         };
     SerializationTestHelper<ErrorDisplayV1> tester = new SerializationTestHelper<>(root);
     tester
