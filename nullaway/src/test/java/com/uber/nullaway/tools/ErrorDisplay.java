@@ -94,12 +94,12 @@ public class ErrorDisplay implements Display {
         && clazz.equals(that.clazz)
         && encClass.equals(that.encClass)
         && offset == that.offset
-        && SerializationTestHelper.pathsAreEqual(path, that.path)
+        && path.equals(that.path)
         && kind.equals(that.kind)
         && method.equals(that.method)
         && variable.equals(that.variable)
         && index.equals(that.index)
-        && SerializationTestHelper.pathsAreEqual(uri, that.uri);
+        && uri.equals(that.uri);
   }
 
   @Override

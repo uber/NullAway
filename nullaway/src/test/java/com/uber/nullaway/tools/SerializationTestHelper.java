@@ -160,21 +160,17 @@ public class SerializationTestHelper<T extends Display> {
   }
 
   /**
-   * Checks if given paths are equal. Under different OS environments, identical paths might have a
-   * different string representation. In windows all forward slashes are replaced with backslashes.
+   * Extracts relative path from the serialized full path and returns URI representation of the
+   * relative path. URIs are platform independent and are used in unit tests to check with expected
+   * results across different operating systems in CI.
    *
-   * @param expected Expected serialized path.
-   * @param found Serialized path.
-   * @return true, if paths are identical.
+   * @param path Full serialized path.
+   * @return Relative path to "com/uber" in uri representation.
    */
-  public static boolean pathsAreEqual(String expected, String found) {
-    if (found.equals(expected)) {
-      return true;
-    }
-    return found.replaceAll("\\\\", "/").equals(expected);
-  }
-
   public static String getRelativePathFromUnitTestTempDirectory(String path) {
+    if (path.startsWith("\\")) {
+      path = path.substring(1);
+    }
     String pathInURI = URI.create(path).toASCIIString();
     return pathInURI.contains("com/uber/")
         ? pathInURI.substring(pathInURI.indexOf("com/uber/"))

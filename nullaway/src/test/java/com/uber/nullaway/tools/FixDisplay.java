@@ -88,7 +88,7 @@ public class FixDisplay implements Display {
         && Objects.equals(param, fix.param)
         && Objects.equals(location, fix.location)
         && Objects.equals(className, fix.className)
-        && SerializationTestHelper.pathsAreEqual(uri, fix.uri);
+        && Objects.equals(uri, fix.uri);
   }
 
   @Override

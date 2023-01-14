@@ -60,7 +60,7 @@ public class FieldInitDisplay implements Display {
         && Objects.equals(location, that.location)
         && Objects.equals(className, that.className)
         && Objects.equals(field, that.field)
-        && SerializationTestHelper.pathsAreEqual(uri, that.uri);
+        && uri.equals(that.uri);
   }
 
   @Override
