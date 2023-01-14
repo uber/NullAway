@@ -179,7 +179,6 @@ public class Serializer {
     if (uri == null) {
       return null;
     }
-    System.err.println("URI scheme: " + uri.getScheme());
     if ("jimfs".equals(uri.getScheme())) {
       // In NullAway unit tests, files are stored in memory and have this scheme.
       return Paths.get(uri);

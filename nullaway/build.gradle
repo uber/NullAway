@@ -95,11 +95,6 @@ test {
             "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
     ]
   }
-    testLogging {
-        exceptionFormat = 'full'
-        events 'passed', 'skipped', 'failed'
-        showStandardStreams = true
-    }
 }
 
 apply plugin: 'com.vanniktech.maven.publish'
