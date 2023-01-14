@@ -30,12 +30,13 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.io.BufferedReader;
 import java.io.IOException;
-import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 public class SerializationTestHelper<T extends Display> {
@@ -160,20 +161,46 @@ public class SerializationTestHelper<T extends Display> {
   }
 
   /**
-   * Extracts relative path from the serialized full path and returns URI representation of the
-   * relative path. URIs are platform independent and are used in unit tests to check with expected
-   * results across different operating systems in CI.
+   * Checks if given paths are equal. Under different OS environments, identical paths might have a
+   * different string representation. In windows all forward slashes are replaced with backslashes.
    *
-   * @param path Full serialized path.
-   * @return Relative path to "com/uber" in uri representation.
+   * @param expected Expected serialized path.
+   * @param found Serialized path.
+   * @return true, if paths are identical.
    */
-  public static String getRelativePathFromUnitTestTempDirectory(String path) {
-    if (path.startsWith("\\")) {
-      path = path.substring(1);
+  public static boolean pathsAreEqual(String expected, String found) {
+    if (found.equals(expected)) {
+      return true;
     }
-    String pathInURI = URI.create(path).toASCIIString();
-    return pathInURI.contains("com/uber/")
-        ? pathInURI.substring(pathInURI.indexOf("com/uber/"))
-        : pathInURI;
+    return found.replaceAll("\\\\", "/").equals(expected);
+  }
+
+  /**
+   * Extracts relative path from the serialized full path.
+   *
+   * @param pathInString Full serialized path.
+   * @return Relative path to "com" from the given path including starting from "com" directory.
+   */
+  public static String getRelativePathFromUnitTestTempDirectory(String pathInString) {
+    if (pathInString.equals("null")) {
+      return "null";
+    }
+    if (pathInString.startsWith("/") || pathInString.startsWith("\\")) {
+      pathInString = pathInString.substring(1);
+    }
+    AtomicReference<Path> relativePath = new AtomicReference<>(Paths.get("com"));
+    AtomicReference<Boolean> relativePathStarted = new AtomicReference<>(false);
+    Path path = Paths.get(pathInString);
+    path.iterator()
+        .forEachRemaining(
+            remaining -> {
+              if (relativePathStarted.get()) {
+                relativePath.set(relativePath.get().resolve(remaining));
+              }
+              if (remaining.toString().startsWith("com")) {
+                relativePathStarted.set(true);
+              }
+            });
+    return relativePath.get().toString();
   }
 }
