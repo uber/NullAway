@@ -45,6 +45,6 @@ public class FieldLocation extends AbstractSymbolLocation {
         "null",
         variableSymbol.toString(),
         "null",
-        uri != null ? uri.toASCIIString() : "null");
+        path != null ? path.toString() : "null");
   }
 }

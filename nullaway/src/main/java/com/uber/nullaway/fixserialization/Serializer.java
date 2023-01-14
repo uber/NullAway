@@ -31,6 +31,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.Writer;
+import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -162,6 +163,36 @@ public class Serializer {
       os.flush();
     } catch (IOException e) {
       throw new RuntimeException("Error happened for writing at file: " + path, e);
+    }
+  }
+
+  /**
+   * Converts the given uri to the real path. Note, in NullAway CI tests, source files exists in
+   * memory and there is no real path leading to those files. Instead, we just serialize the path
+   * from uri as the full paths are not checked in tests.
+   *
+   * @param uri Given uri.
+   * @return Real path for the give uri.
+   */
+  @Nullable
+  public static Path pathToSourceFileFromURI(@Nullable URI uri) {
+    if (uri == null) {
+      return null;
+    }
+    if ("jimfs".equals(uri.getScheme())) {
+      // In NullAway unit tests, files are stored in memory and have this scheme.
+      return Paths.get(uri);
+    }
+    if (!"file".equals(uri.getScheme())) {
+      return null;
+    }
+    Path path = Paths.get(uri);
+    try {
+      return path.toRealPath();
+    } catch (IOException e) {
+      // In this case, we still would like to continue the serialization instead of returning null
+      // and not serializing anything.
+      return path;
     }
   }
 }
