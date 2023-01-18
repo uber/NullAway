@@ -57,7 +57,10 @@ import javax.lang.model.element.ElementVisitor;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 
@@ -122,9 +125,69 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     } else if (optionalIsEmptyCall(symbol, types)) {
       updateNonNullAPsForOptionalContent(
           state.context, elseUpdates, node.getTarget().getReceiver(), apContext);
-    } else if (config.handleTestAssertionLibraries() && methodNameUtil.isMethodIsTrue(symbol)) {
-      // we check for instance of AssertThat(optionalFoo.isPresent()).isTrue()
-      updateIfAssertIsPresentTrueOnOptional(state.context, node, types, apContext, bothUpdates);
+    } else if (config.handleTestAssertionLibraries()) {
+      boolean isAssertTrueMethod = methodNameUtil.isMethodAssertTrue(symbol);
+      boolean isAssertFalseMethod = methodNameUtil.isMethodAssertFalse(symbol);
+      boolean isTrueMethod = methodNameUtil.isMethodIsTrue(symbol);
+      boolean isFalseMethod = methodNameUtil.isMethodIsFalse(symbol);
+      if (isAssertTrueMethod || isAssertFalseMethod) {
+        // assertTrue(optionalFoo.isPresent())
+        // assertFalse("optional was empty", optionalFoo.isEmpty())
+        int booleanArgumentIndex = -1;
+        // note: in junit4 the optional message comes first, but in junit5 it comes last
+        for (int i = 0; i < node.getArguments().size(); i++) {
+          if (TypeKind.BOOLEAN.equals(node.getArgument(i).getType().getKind())) {
+            booleanArgumentIndex = i;
+            break;
+          }
+        }
+        if (booleanArgumentIndex >= 0) {
+          Node booleanArgumentNode = node.getArguments().get(booleanArgumentIndex);
+          if (booleanArgumentNode instanceof MethodInvocationNode) {
+            MethodInvocationNode booleanArgumentMethod = (MethodInvocationNode) booleanArgumentNode;
+            Symbol.MethodSymbol booleanArgumentMethodSymbol =
+                ASTHelpers.getSymbol(booleanArgumentMethod.getTree());
+            boolean ensuresIsPresent =
+                isAssertTrueMethod && optionalIsPresentCall(booleanArgumentMethodSymbol, types);
+            boolean ensuresNotEmpty =
+                isAssertFalseMethod && optionalIsEmptyCall(booleanArgumentMethodSymbol, types);
+            if (ensuresIsPresent || ensuresNotEmpty) {
+              updateNonNullAPsForOptionalContent(
+                  state.context,
+                  bothUpdates,
+                  booleanArgumentMethod.getTarget().getReceiver(),
+                  apContext);
+            }
+          }
+        }
+      } else if (isTrueMethod || isFalseMethod) {
+        // asertThat(optionalFoo.isPresent()).isTrue()
+        // asertThat(optionalFoo.isEmpty()).isFalse()
+        Optional<MethodInvocationNode> wrappedMethod = getMethodWrappedByAssertThat(node);
+        if (wrappedMethod.isPresent()) {
+          Symbol.MethodSymbol wrappedMethodSymbol =
+              ASTHelpers.getSymbol(wrappedMethod.get().getTree());
+          boolean ensuresIsPresent =
+              isTrueMethod && optionalIsPresentCall(wrappedMethodSymbol, types);
+          boolean ensuresNotEmpty =
+              isFalseMethod && optionalIsEmptyCall(wrappedMethodSymbol, types);
+          if (ensuresIsPresent || ensuresNotEmpty) {
+            updateNonNullAPsForOptionalContent(
+                state.context,
+                bothUpdates,
+                wrappedMethod.get().getTarget().getReceiver(),
+                apContext);
+          }
+        }
+      } else if (methodNameUtil.isMethodThatEnsuresOptionalPresent(symbol)) {
+        // assertThat(optionalFoo).isPresent()
+        // assertThat(optionalFoo).isNotEmpty()
+        Optional<Node> wrappedVariableOrField = getVariableOrFieldWrappedByAssertThat(node);
+        if (wrappedVariableOrField.isPresent()) {
+          updateNonNullAPsForOptionalContent(
+              state.context, bothUpdates, wrappedVariableOrField.get(), apContext);
+        }
+      }
     }
     return NullnessHint.UNKNOWN;
   }
@@ -133,8 +196,9 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   public Optional<ErrorMessage> onExpressionDereference(
       ExpressionTree expr, ExpressionTree baseExpr, VisitorState state) {
     Preconditions.checkNotNull(analysis);
-    if (ASTHelpers.getSymbol(expr) instanceof Symbol.MethodSymbol
-        && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())
+    Symbol symbol = ASTHelpers.getSymbol(expr);
+    if (symbol instanceof Symbol.MethodSymbol
+        && optionalIsGetCall((Symbol.MethodSymbol) symbol, state.getTypes())
         && isOptionalContentNullable(state, baseExpr, analysis.getNullnessAnalysis(state))) {
       final String message = "Invoking get() on possibly empty Optional " + baseExpr;
       return Optional.of(
@@ -168,35 +232,54 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     return false;
   }
 
-  private void updateIfAssertIsPresentTrueOnOptional(
-      Context context,
-      MethodInvocationNode node,
-      Types types,
-      AccessPath.AccessPathContext apContext,
-      AccessPathNullnessPropagation.Updates bothUpdates) {
+  private Optional<MethodInvocationNode> getMethodWrappedByAssertThat(MethodInvocationNode node) {
     Node receiver = node.getTarget().getReceiver();
     if (receiver instanceof MethodInvocationNode) {
       MethodInvocationNode receiverMethod = (MethodInvocationNode) receiver;
       Symbol.MethodSymbol receiverSymbol = ASTHelpers.getSymbol(receiverMethod.getTree());
-      if (methodNameUtil.isMethodAssertThat(receiverSymbol)) {
-        // assertThat will always have at least one argument, So safe to extract from the arguments
+      if (receiverMethod.getArguments().size() == 1
+          && methodNameUtil.isMethodAssertThat(receiverSymbol)) {
         Node arg = receiverMethod.getArgument(0);
         if (arg instanceof MethodInvocationNode) {
-          // Since assertThat(a.isPresent()) changes to
-          // Truth.assertThat(Boolean.valueOf(a.isPresent()))
-          // need to be unwrapped from Boolean.valueOf
-          Node unwrappedArg = ((MethodInvocationNode) arg).getArgument(0);
-          if (unwrappedArg instanceof MethodInvocationNode) {
-            MethodInvocationNode argMethod = (MethodInvocationNode) unwrappedArg;
-            Symbol.MethodSymbol argSymbol = ASTHelpers.getSymbol(argMethod.getTree());
-            if (optionalIsPresentCall(argSymbol, types)) {
-              updateNonNullAPsForOptionalContent(
-                  context, bothUpdates, argMethod.getTarget().getReceiver(), apContext);
-            }
-          }
+          MethodInvocationNode wrappedMethodInvocation = ((MethodInvocationNode) arg);
+          return Optional.of(maybeUnwrapBooleanValueOf(wrappedMethodInvocation));
         }
       }
     }
+    return Optional.empty();
+  }
+
+  private Optional<Node> getVariableOrFieldWrappedByAssertThat(MethodInvocationNode node) {
+    Node receiver = node.getTarget().getReceiver();
+    if (receiver instanceof MethodInvocationNode) {
+      MethodInvocationNode receiverMethod = (MethodInvocationNode) receiver;
+      Symbol.MethodSymbol receiverSymbol = ASTHelpers.getSymbol(receiverMethod.getTree());
+      if (receiverMethod.getArguments().size() == 1
+          && methodNameUtil.isMethodAssertThat(receiverSymbol)) {
+        // assertThat will always have at least one argument, So safe to extract from the arguments
+        Node arg = receiverMethod.getArgument(0);
+        if (arg instanceof LocalVariableNode || arg instanceof FieldAccessNode) {
+          return Optional.of(arg);
+        }
+      }
+    }
+    return Optional.empty();
+  }
+
+  private MethodInvocationNode maybeUnwrapBooleanValueOf(MethodInvocationNode node) {
+    // Since assertThat(a.isPresent()) changes to
+    // Truth.assertThat(Boolean.valueOf(a.isPresent()))
+    // need to be unwrapped from Boolean.valueOf
+    if (node.getArguments().size() == 1) {
+      Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(node.getTree());
+      if (methodNameUtil.isMethodBooleanValueOf(symbol)) {
+        Node unwrappedArg = node.getArgument(0);
+        if (unwrappedArg instanceof MethodInvocationNode) {
+          return (MethodInvocationNode) unwrappedArg;
+        }
+      }
+    }
+    return node;
   }
 
   private void updateNonNullAPsForOptionalContent(

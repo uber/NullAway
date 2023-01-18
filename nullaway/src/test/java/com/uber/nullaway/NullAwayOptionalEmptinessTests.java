@@ -372,6 +372,130 @@ public class NullAwayOptionalEmptinessTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void optionalEmptinessHandleAssertionLibraryTruthAssertThat() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import com.google.common.truth.Truth;",
+            "",
+            "public class Test {",
+            "  void truthAssertThatIsPresentIsTrue() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    Truth.assertThat(a.isPresent()).isFalse();  // no impact",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
+            "    a.get().toString();",
+            "    Truth.assertThat(a.isPresent()).isTrue();",
+            "    a.get().toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void optionalEmptinessHandleAssertionLibraryAssertJAssertThat() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import org.assertj.core.api.Assertions;",
+            "",
+            "public class Test {",
+            "  void assertJAssertThatIsPresentIsTrue() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    Assertions.assertThat(a.isPresent()).isFalse();  // no impact",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
+            "    a.get().toString();",
+            "    Assertions.assertThat(a.isPresent()).isTrue();",
+            "    a.get().toString();",
+            "  }",
+            "",
+            "  void assertJAssertThatOptionalIsPresent() {",
+            "    Optional<Object> c = Optional.empty();",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional c",
+            "    c.get().toString();",
+            "    Assertions.assertThat(c).isPresent();",
+            "    c.get().toString();",
+            "  }",
+            "",
+            "  void assertJAssertThatOptionalIsNotEmpty() {",
+            "    Optional<Object> d = Optional.empty();",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional d",
+            "    d.get().toString();",
+            "    Assertions.assertThat(d).isNotEmpty();",
+            "    d.get().toString();",
+            "  }",
+            "",
+            "  static Optional<String> aStaticField = Optional.empty();",
+            "  Optional<String> aField = Optional.empty();",
+            "",
+            "  void assertJAssertThatOptionalFields() {",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional aField",
+            "    aField.get().toString();",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional aStaticField",
+            "    aStaticField.get().toString();",
+            "    Assertions.assertThat(aStaticField).isPresent();",
+            "    aStaticField.get().toString();",
+            "    Assertions.assertThat(aField).isNotEmpty();",
+            "    aField.get().toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void optionalEmptinessHandleAssertionLibraryJUnitAssertions() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import org.junit.Assert;",
+            "import org.junit.jupiter.api.Assertions;",
+            "",
+            "public class Test {",
+            "  void junit4AssertTrueIsPresent() {",
+            "    Optional<Object> a = Optional.empty();",
+            "    Assert.assertFalse(a.isPresent());  // no impact",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional a",
+            "    a.get().toString();",
+            "    Assert.assertTrue(\"not present\", a.isPresent());",
+            "    a.get().toString();",
+            "  }",
+            "",
+            "  void junit5AssertTrueIsPresent() {",
+            "    Optional<Object> c = Optional.empty();",
+            "    Assert.assertFalse(c.isPresent());  // no impact",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional c",
+            "    c.get().toString();",
+            "    Assertions.assertTrue(c.isPresent(), \"not present\");",
+            "    c.get().toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void optionalEmptinessAssignmentCheckNegativeTest() {
     makeTestHelperWithArgs(
             Arrays.asList(
