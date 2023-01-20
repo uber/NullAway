@@ -58,6 +58,10 @@ public class NullAwayNativeModels {
     Exception e = new RuntimeException();
     // BUG: Diagnostic contains: dereferenced expression
     e.getMessage().hashCode();
+    // BUG: Diagnostic contains: dereferenced expression
+    e.getLocalizedMessage().hashCode();
+    // BUG: Diagnostic contains: dereferenced expression
+    e.getCause().toString();
   }
 
   // we will add bug annotations when we have full support for maps
