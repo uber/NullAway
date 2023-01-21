@@ -188,25 +188,14 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     if (isAssertTrueMethod || isAssertFalseMethod) {
       // assertTrue(optionalFoo.isPresent())
       // assertFalse("optional was empty", optionalFoo.isEmpty())
-      int booleanArgumentIndex = -1;
-      // note: in junit4 the optional message comes first, but in junit5 it comes last
-      for (int i = 0; i < node.getArguments().size(); i++) {
-        if (TypeKind.BOOLEAN.equals(node.getArgument(i).getType().getKind())) {
-          booleanArgumentIndex = i;
-          break;
-        }
-      }
-      if (booleanArgumentIndex >= 0) {
-        Node booleanArgumentNode = node.getArguments().get(booleanArgumentIndex);
-        if (booleanArgumentNode instanceof MethodInvocationNode) {
-          MethodInvocationNode booleanArgumentMethod = (MethodInvocationNode) booleanArgumentNode;
-          handleBooleanAssertionOnMethod(
-              nonNullMarker,
-              state.getTypes(),
-              booleanArgumentMethod,
-              isAssertTrueMethod,
-              isAssertFalseMethod);
-        }
+      Optional<MethodInvocationNode> assertedOnMethod = getMethodForBooleanParam(node);
+      if (assertedOnMethod.isPresent()) {
+        handleBooleanAssertionOnMethod(
+            nonNullMarker,
+            state.getTypes(),
+            assertedOnMethod.get(),
+            isAssertTrueMethod,
+            isAssertFalseMethod);
       }
     } else if (isTrueMethod || isFalseMethod) {
       // asertThat(optionalFoo.isPresent()).isTrue()
@@ -226,6 +215,25 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
       // assertThat(mapWithOptionalValues.get("key")).isNotEmpty()
       getNodeWrappedByAssertThat(node).ifPresent(nonNullMarker);
     }
+  }
+
+  private Optional<MethodInvocationNode> getMethodForBooleanParam(MethodInvocationNode node) {
+    // note: in junit4 the optional message comes first, but in junit5 it comes last
+    int booleanArgumentIndex = -1;
+    for (int i = 0; i < node.getArguments().size(); i++) {
+      if (TypeKind.BOOLEAN.equals(node.getArgument(i).getType().getKind())) {
+        booleanArgumentIndex = i;
+        break;
+      }
+    }
+    if (booleanArgumentIndex >= 0) {
+      Node booleanArgumentNode = node.getArguments().get(booleanArgumentIndex);
+      if (booleanArgumentNode instanceof MethodInvocationNode) {
+        MethodInvocationNode booleanArgumentMethod = (MethodInvocationNode) booleanArgumentNode;
+        return Optional.of(booleanArgumentMethod);
+      }
+    }
+    return Optional.empty();
   }
 
   private void handleBooleanAssertionOnMethod(
