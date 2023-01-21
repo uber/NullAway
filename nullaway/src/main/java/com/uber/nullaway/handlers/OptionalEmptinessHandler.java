@@ -60,8 +60,6 @@ import javax.lang.model.element.Name;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
-import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
-import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 
@@ -213,18 +211,20 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     } else if (isTrueMethod || isFalseMethod) {
       // asertThat(optionalFoo.isPresent()).isTrue()
       // asertThat(optionalFoo.isEmpty()).isFalse()
-      Optional<MethodInvocationNode> wrappedMethod = getMethodWrappedByAssertThat(node);
+      Optional<MethodInvocationNode> wrappedMethod =
+          getNodeWrappedByAssertThat(node)
+              .filter(n -> n instanceof MethodInvocationNode)
+              .map(n -> (MethodInvocationNode) n)
+              .map(this::maybeUnwrapBooleanValueOf);
       if (wrappedMethod.isPresent()) {
         handleBooleanAssertionOnMethod(
             nonNullMarker, state.getTypes(), wrappedMethod.get(), isTrueMethod, isFalseMethod);
       }
     } else if (methodNameUtil.isMethodThatEnsuresOptionalPresent(symbol)) {
-      // assertThat(optionalFoo).isPresent()
-      // assertThat(optionalFoo).isNotEmpty()
-      Optional<Node> wrappedVariableOrField = getVariableOrFieldWrappedByAssertThat(node);
-      if (wrappedVariableOrField.isPresent()) {
-        nonNullMarker.accept(wrappedVariableOrField.get());
-      }
+      // assertThat(optionalRef).isPresent()
+      // assertThat(methodReturningOptional()).isNotEmpty()
+      // assertThat(mapWithOptionalValues.get("key")).isNotEmpty()
+      getNodeWrappedByAssertThat(node).ifPresent(nonNullMarker);
     }
   }
 
@@ -242,33 +242,14 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     }
   }
 
-  private Optional<MethodInvocationNode> getMethodWrappedByAssertThat(MethodInvocationNode node) {
+  private Optional<Node> getNodeWrappedByAssertThat(MethodInvocationNode node) {
     Node receiver = node.getTarget().getReceiver();
     if (receiver instanceof MethodInvocationNode) {
       MethodInvocationNode receiverMethod = (MethodInvocationNode) receiver;
-      Symbol.MethodSymbol receiverSymbol = ASTHelpers.getSymbol(receiverMethod.getTree());
-      if (receiverMethod.getArguments().size() == 1
-          && methodNameUtil.isMethodAssertThat(receiverSymbol)) {
-        Node arg = receiverMethod.getArgument(0);
-        if (arg instanceof MethodInvocationNode) {
-          MethodInvocationNode wrappedMethodInvocation = ((MethodInvocationNode) arg);
-          return Optional.of(maybeUnwrapBooleanValueOf(wrappedMethodInvocation));
-        }
-      }
-    }
-    return Optional.empty();
-  }
-
-  private Optional<Node> getVariableOrFieldWrappedByAssertThat(MethodInvocationNode node) {
-    Node receiver = node.getTarget().getReceiver();
-    if (receiver instanceof MethodInvocationNode) {
-      MethodInvocationNode receiverMethod = (MethodInvocationNode) receiver;
-      Symbol.MethodSymbol receiverSymbol = ASTHelpers.getSymbol(receiverMethod.getTree());
-      if (receiverMethod.getArguments().size() == 1
-          && methodNameUtil.isMethodAssertThat(receiverSymbol)) {
-        Node arg = receiverMethod.getArgument(0);
-        if (arg instanceof LocalVariableNode || arg instanceof FieldAccessNode) {
-          return Optional.of(arg);
+      if (receiverMethod.getArguments().size() == 1) {
+        Symbol.MethodSymbol receiverSymbol = ASTHelpers.getSymbol(receiverMethod.getTree());
+        if (methodNameUtil.isMethodAssertThat(receiverSymbol)) {
+          return Optional.of(receiverMethod.getArgument(0));
         }
       }
     }
