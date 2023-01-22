@@ -188,7 +188,13 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     if (isAssertTrueMethod || isAssertFalseMethod) {
       // assertTrue(optionalFoo.isPresent())
       // assertFalse("optional was empty", optionalFoo.isEmpty())
-      Optional<MethodInvocationNode> assertedOnMethod = getMethodForBooleanParam(node);
+      // note: in junit4 the optional string message comes first, but in junit5 it comes last
+      Optional<MethodInvocationNode> assertedOnMethod =
+          node.getArguments().stream()
+              .filter(n -> TypeKind.BOOLEAN.equals(n.getType().getKind()))
+              .filter(n -> n instanceof MethodInvocationNode)
+              .map(n -> (MethodInvocationNode) n)
+              .findFirst();
       if (assertedOnMethod.isPresent()) {
         handleBooleanAssertionOnMethod(
             nonNullMarker,
@@ -215,25 +221,6 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
       // assertThat(mapWithOptionalValues.get("key")).isNotEmpty()
       getNodeWrappedByAssertThat(node).ifPresent(nonNullMarker);
     }
-  }
-
-  private Optional<MethodInvocationNode> getMethodForBooleanParam(MethodInvocationNode node) {
-    // note: in junit4 the optional message comes first, but in junit5 it comes last
-    int booleanArgumentIndex = -1;
-    for (int i = 0; i < node.getArguments().size(); i++) {
-      if (TypeKind.BOOLEAN.equals(node.getArgument(i).getType().getKind())) {
-        booleanArgumentIndex = i;
-        break;
-      }
-    }
-    if (booleanArgumentIndex >= 0) {
-      Node booleanArgumentNode = node.getArguments().get(booleanArgumentIndex);
-      if (booleanArgumentNode instanceof MethodInvocationNode) {
-        MethodInvocationNode booleanArgumentMethod = (MethodInvocationNode) booleanArgumentNode;
-        return Optional.of(booleanArgumentMethod);
-      }
-    }
-    return Optional.empty();
   }
 
   private void handleBooleanAssertionOnMethod(
