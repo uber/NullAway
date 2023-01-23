@@ -174,7 +174,10 @@ public final class GenericsChecks {
       }
       rhsType = typeWithPreservedAnnotations(paramTypedTree);
     }
-    if (lhsType != null && rhsType != null) {
+    if (lhsType != null
+        && lhsType instanceof Type.ClassType
+        && rhsType != null
+        && rhsType instanceof Type.ClassType) {
       compareNullabilityAnnotations((Type.ClassType) lhsType, (Type.ClassType) rhsType, tree);
     }
   }
