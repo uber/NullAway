@@ -225,7 +225,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "class Test {",
             " static class SampleClass<E extends @Nullable Object> {}",
             " static class SampleClassMultipleArguments<E1 extends @Nullable Object, E2> {}",
-            " static void testOKOtherAnnotation() {",
+            " static void test() {",
             "       // BUG: Diagnostic contains: Cannot assign from type",
             "       SampleClassMultipleArguments<SampleClass<SampleClass<@Nullable String>>, String> t1 = ",
             "          new SampleClassMultipleArguments<SampleClass<SampleClass<String>>, String> ();",
