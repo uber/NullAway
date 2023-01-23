@@ -268,7 +268,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  // BUG: Diagnostic contains: Cannot assign from type",
             "  f = new FnImpl();",
             "  }",
-            " }")
+            "}")
         .doTest();
   }
 
@@ -295,7 +295,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    // No error",
             "    f = new FnImpl2();",
             "  }",
-            "  }")
+            "}")
         .doTest();
   }
 
@@ -317,7 +317,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: Cannot assign from type",
             "    D<String> f = b;",
             " }",
-            "  }")
+            "}")
         .doTest();
   }
 
@@ -361,7 +361,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "   // BUG: Diagnostic contains: Cannot assign from type",
             "   D<C<String>> f3 = new B<@Nullable C<String>>();",
             " }",
-            "  }")
+            "}")
         .doTest();
   }
 
