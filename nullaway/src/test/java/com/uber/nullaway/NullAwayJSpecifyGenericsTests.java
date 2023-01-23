@@ -382,6 +382,27 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void testForLambdaExpressionInAnAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.other;",
+            "import org.jspecify.annotations.Nullable;",
+            " class Test {",
+            " interface A<T1 extends @Nullable Object, T2>{",
+            "   String function(@Nullable Object o, String string);",
+            " }",
+            "  static @Nullable String foo(@Nullable Object o, @Nullable String string) {",
+            "   return o != null ? o.toString() : string;",
+            "  }",
+            "  static void bar() {",
+            "   A<@Nullable Object,String> p = Test::foo;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
