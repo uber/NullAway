@@ -206,6 +206,8 @@ public final class GenericsChecks {
     }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
     List<Type> rhsTypeArguments = rhsType.getTypeArguments();
+    // This is impossible, considering the fact that standard Java subtyping succeeds before running
+    // NullAway
     if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
       throw new RuntimeException(
           "number of types arguments in " + rhsType + " does not match " + lhsType);
