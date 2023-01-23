@@ -247,8 +247,8 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             " void sampleError() {",
             "    // BUG: Diagnostic contains: Cannot assign from type",
             "   Fn<@Nullable String, String> f = new FnImpl();",
-            " }",
-            "  }")
+            "  }",
+            "}")
         .doTest();
   }
 
