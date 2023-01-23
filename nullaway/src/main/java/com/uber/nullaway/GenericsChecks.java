@@ -199,8 +199,10 @@ public final class GenericsChecks {
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
     rhsType = (Type.ClassType) types.asSuper(rhsType, lhsType.tsym);
+    // This is impossible, considering the fact that standard Java subtyping succeeds before running
+    // NullAway
     if (rhsType == null) {
-      throw new RuntimeException("did not find supertype of " + rhsType + " matching " + lhsType);
+      throw new RuntimeException("Did not find supertype of " + rhsType + " matching " + lhsType);
     }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
     List<Type> rhsTypeArguments = rhsType.getTypeArguments();
