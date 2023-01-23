@@ -172,9 +172,7 @@ public final class GenericsChecks {
         // no explicit type parameters
         return;
       }
-      rhsType =
-          typeWithPreservedAnnotations(
-              (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier());
+      rhsType = typeWithPreservedAnnotations(paramTypedTree);
     }
     if (lhsType != null && rhsType != null) {
       compareNullabilityAnnotations((Type.ClassType) lhsType, (Type.ClassType) rhsType, tree);
