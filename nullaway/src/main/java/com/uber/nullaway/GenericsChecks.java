@@ -213,14 +213,10 @@ public final class GenericsChecks {
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
       Type rhsTypeArgument = rhsTypeArguments.get(i);
-      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrorsLHS =
-          lhsTypeArgument.getAnnotationMirrors();
-      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrorsRHS =
-          rhsTypeArgument.getAnnotationMirrors();
       boolean isLHSNullableAnnotated =
-          Nullness.hasNullableAnnotation(annotationMirrorsLHS.stream(), config);
+          Nullness.hasNullableAnnotation(lhsTypeArgument.getAnnotationMirrors().stream(), config);
       boolean isRHSNullableAnnotated =
-          Nullness.hasNullableAnnotation(annotationMirrorsRHS.stream(), config);
+          Nullness.hasNullableAnnotation(rhsTypeArgument.getAnnotationMirrors().stream(), config);
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
         return;
