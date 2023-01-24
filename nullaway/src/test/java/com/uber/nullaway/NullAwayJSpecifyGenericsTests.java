@@ -412,7 +412,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testForLambdaExpressionInAnAssignment() {
+  public void testForMethodReferenceInAnAssignment() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -428,6 +428,24 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  }",
             "  static void bar() {",
             "    A<@Nullable Object, String> p = Test::foo;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForLambdasInAnAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object, T2> {",
+            "    @Nullable String function(@Nullable T1 t1, T2 t2 );",
+            "  }",
+            "  static void function() {",
+            "    A<String, String> p = (s1, s2) -> null;",
             "  }",
             "}")
         .doTest();
