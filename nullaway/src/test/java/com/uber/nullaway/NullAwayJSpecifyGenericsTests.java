@@ -416,17 +416,35 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
     makeHelper()
         .addSourceLines(
             "Test.java",
-            "package com.other;",
+            "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "  interface A<T1 extends @Nullable Object, T2> {",
             "    String function(@Nullable Object o, String string);",
             "  }",
-            "  static @Nullable String foo(@Nullable Object o, @Nullable String string) {",
+            "  static String foo(@Nullable Object o, String string) {",
+            "  //Should generate an error here. This will be handled in the future PRs",
             "    return o != null ? o.toString() : string;",
             "  }",
             "  static void bar() {",
             "    A<@Nullable Object, String> p = Test::foo;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForDiamondInAnAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            " class A<T extends @Nullable Object>{}",
+            "  void fun() {",
+            "  //This case is ignored for now.",
+            "    A<String> p = new A<>();",
             "  }",
             "}")
         .doTest();
