@@ -67,8 +67,8 @@ public class NullAwayVarargsTests extends NullAwayTestsBase {
             "    Utilities.takesNullableVarargs(o1);", // Empty var args passed
             "    Utilities.takesNullableVarargs(o1, o4);",
             "    Utilities.takesNullableVarargs(o1, (java.lang.Object) null);",
-            "    Utilities.takesNullableVarargs(o1, (java.lang.Object[]) null);", // SHOULD be an
-                                                                                  // error!
+            // SHOULD be an error!
+            "    Utilities.takesNullableVarargs(o1, (java.lang.Object[]) null);",
             "  }",
             "}")
         .doTest();
