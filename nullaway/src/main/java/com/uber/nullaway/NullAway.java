@@ -263,6 +263,7 @@ public class NullAway extends BugChecker
    * <p>TODO remove this once NullAway requires JDK 11
    */
   @Nullable private final Class<?> moduleElementClass;
+
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
