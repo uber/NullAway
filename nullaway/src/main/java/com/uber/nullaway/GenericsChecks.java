@@ -31,9 +31,9 @@ public final class GenericsChecks {
 
   private static final Supplier<Type> NULLABLE_TYPE_SUPPLIER =
       Suppliers.typeFromString(NULLABLE_NAME);
-  VisitorState state;
-  Config config;
-  NullAway analysis;
+  private VisitorState state;
+  private Config config;
+  private NullAway analysis;
 
   public GenericsChecks(VisitorState state, Config config, NullAway analysis) {
     this.state = state;
@@ -174,10 +174,7 @@ public final class GenericsChecks {
       }
       rhsType = typeWithPreservedAnnotations(paramTypedTree);
     }
-    if (lhsType != null
-        && lhsType instanceof Type.ClassType
-        && rhsType != null
-        && rhsType instanceof Type.ClassType) {
+    if (lhsType instanceof Type.ClassType && rhsType instanceof Type.ClassType) {
       compareNullabilityAnnotations((Type.ClassType) lhsType, (Type.ClassType) rhsType, tree);
     }
   }
