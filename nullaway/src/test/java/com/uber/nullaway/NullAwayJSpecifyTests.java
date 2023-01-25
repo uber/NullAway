@@ -1130,4 +1130,25 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void nullUnmarkedOnOverridingMapMethod() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestMap.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullUnmarked;",
+            "public class TestMap extends java.util.HashMap<String,Object> {",
+            "  @NullUnmarked",
+            "  @Override",
+            "  public Object get(Object key) {",
+            "    return super.get(key);",
+            "  }",
+            "  public String getString(String key) {",
+            "    // should be no error here",
+            "    return (String) get(key);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
