@@ -206,6 +206,23 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** check that we don't report errors on invalid instantiations in unannotated code */
+  @Test
+  public void instantiationInUnannotatedCode() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.other;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class NonNullTypeParam<E> {}",
+            "  static void instOf(Object o) {",
+            "    Object p = (NonNullTypeParam<@Nullable String>) o;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void genericsChecksForAssignments() {
     makeHelper()
@@ -389,23 +406,6 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    D<C<@Nullable String>> f1 = new B<C<@Nullable String>>();",
             "    A<C<String>, String> f2 = new A<C<String>, String>();",
             "    D<@Nullable C<String>> f3 = new B<@Nullable C<String>>();",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  /** check that we don't report errors on invalid instantiations in unannotated code */
-  @Test
-  public void instantiationInUnannotatedCode() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            "package com.other;",
-            "import org.jspecify.annotations.Nullable;",
-            "class Test {",
-            "  static class NonNullTypeParam<E> {}",
-            "  static void instOf(Object o) {",
-            "    Object p = (NonNullTypeParam<@Nullable String>) o;",
             "  }",
             "}")
         .doTest();
