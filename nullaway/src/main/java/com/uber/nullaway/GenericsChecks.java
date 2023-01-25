@@ -213,10 +213,24 @@ public final class GenericsChecks {
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
       Type rhsTypeArgument = rhsTypeArguments.get(i);
-      boolean isLHSNullableAnnotated =
-          Nullness.hasNullableAnnotation(lhsTypeArgument.getAnnotationMirrors().stream(), config);
-      boolean isRHSNullableAnnotated =
-          Nullness.hasNullableAnnotation(rhsTypeArgument.getAnnotationMirrors().stream(), config);
+      boolean isLHSNullableAnnotated = false;
+      List<Attribute.TypeCompound> lhsAnnotations = lhsTypeArgument.getAnnotationMirrors();
+      // To ensure that we are checking only jspecify nullable annotations
+      for (Attribute.TypeCompound annotation : lhsAnnotations) {
+        if (annotation.getAnnotationType().toString().equals(NULLABLE_NAME)) {
+          isLHSNullableAnnotated = true;
+          break;
+        }
+      }
+      boolean isRHSNullableAnnotated = false;
+      List<Attribute.TypeCompound> rhsAnnotations = rhsTypeArgument.getAnnotationMirrors();
+      // To ensure that we are checking only jspecify nullable annotations
+      for (Attribute.TypeCompound annotation : rhsAnnotations) {
+        if (annotation.getAnnotationType().toString().equals(NULLABLE_NAME)) {
+          isRHSNullableAnnotated = true;
+          break;
+        }
+      }
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
         return;
