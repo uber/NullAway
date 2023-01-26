@@ -83,6 +83,7 @@ import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
@@ -1208,12 +1209,10 @@ public class NullAway extends BugChecker
       Symbol fieldSymbol, TreePath initTreePath, VisitorState state) {
     TreePath enclosingClassPath = initTreePath.getParentPath();
     ClassTree enclosingClass = (ClassTree) enclosingClassPath.getLeaf();
+    ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
     Multimap<Tree, Element> tree2Init =
-        initTree2PrevFieldInit.get(ASTHelpers.getSymbol(enclosingClass));
-    if (tree2Init == null) {
-      tree2Init = computeTree2Init(enclosingClassPath, state);
-      initTree2PrevFieldInit.put(ASTHelpers.getSymbol(enclosingClass), tree2Init);
-    }
+        initTree2PrevFieldInit.computeIfAbsent(
+            classSymbol, sym -> computeTree2Init(enclosingClassPath, state));
     return tree2Init.containsEntry(initTreePath.getLeaf(), fieldSymbol);
   }
 
@@ -2412,11 +2411,8 @@ public class NullAway extends BugChecker
    * @return computed nullness for e, if any, else Nullable
    */
   public Nullness getComputedNullness(ExpressionTree e) {
-    if (computedNullnessMap.containsKey(e)) {
-      return computedNullnessMap.get(e);
-    } else {
-      return Nullness.NULLABLE;
-    }
+    Nullness nullness = computedNullnessMap.get(e);
+    return nullness != null ? nullness : Nullness.NULLABLE;
   }
 
   /**

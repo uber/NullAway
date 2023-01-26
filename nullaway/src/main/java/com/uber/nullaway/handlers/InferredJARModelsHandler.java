@@ -342,17 +342,12 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   private void cacheAnnotation(String methodSig, Integer argNum, String annotation) {
     // TODO: handle inner classes properly
     String className = methodSig.split(":")[0].replace('$', '.');
-    if (!argAnnotCache.containsKey(className)) {
-      argAnnotCache.put(className, new LinkedHashMap<>());
-    }
-    Map<String, Map<Integer, Set<String>>> cacheForClass = argAnnotCache.get(className);
-    if (!cacheForClass.containsKey(methodSig)) {
-      cacheForClass.put(methodSig, new LinkedHashMap<>());
-    }
-    Map<Integer, Set<String>> cacheForMethod = cacheForClass.get(methodSig);
-    if (!cacheForMethod.containsKey(argNum)) {
-      cacheForMethod.put(argNum, new LinkedHashSet<>());
-    }
-    cacheForMethod.get(argNum).add(annotation);
+    Map<String, Map<Integer, Set<String>>> cacheForClass =
+        argAnnotCache.computeIfAbsent(className, s -> new LinkedHashMap<>());
+    Map<Integer, Set<String>> cacheForMethod =
+        cacheForClass.computeIfAbsent(methodSig, s -> new LinkedHashMap<>());
+    Set<String> cacheForArgument =
+        cacheForMethod.computeIfAbsent(argNum, s -> new LinkedHashSet<>());
+    cacheForArgument.add(annotation);
   }
 }
