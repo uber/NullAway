@@ -984,11 +984,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       Map<Name, Map<MethodRef, T>> nameMapping = new LinkedHashMap<>();
       for (MethodRef ref : refs) {
         Name methodName = names.fromString(ref.methodName);
-        Map<MethodRef, T> mapForName = nameMapping.get(methodName);
-        if (mapForName == null) {
-          mapForName = new LinkedHashMap<>();
-          nameMapping.put(methodName, mapForName);
-        }
+        Map<MethodRef, T> mapForName =
+            nameMapping.computeIfAbsent(methodName, k -> new LinkedHashMap<>());
         mapForName.put(ref, getValForRef.apply(ref));
       }
       return new NameIndexedMap<>(nameMapping);
