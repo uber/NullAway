@@ -157,6 +157,9 @@ public interface Config {
    * Checks if annotation marks an "external-init class," i.e., a class where some external
    * framework initializes object fields after invoking the zero-argument constructor.
    *
+   * <p>Note that this annotation can be on the class itself, or on the zero-arguments constructor,
+   * but will be ignored anywhere else.
+   *
    * @param annotationName fully-qualified annotation name
    * @return true if classes with the annotation are external-init
    */
