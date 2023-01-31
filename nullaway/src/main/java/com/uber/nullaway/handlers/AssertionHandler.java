@@ -60,7 +60,8 @@ public class AssertionHandler extends BaseNoOpHandler {
       methodNameUtil.initializeMethodNames(callee.name.table);
     }
 
-    // Look for statements of the form: assertThat(A).isNotNull()
+    // Look for statements of the form: assertThat(A).isNotNull() or
+    // assertThat(A).isInstanceOf(Foo.class)
     // A will not be NULL after this statement.
     if (methodNameUtil.isMethodIsNotNull(callee) || methodNameUtil.isMethodIsInstanceOf(callee)) {
       Node receiver = node.getTarget().getReceiver();
@@ -80,7 +81,8 @@ public class AssertionHandler extends BaseNoOpHandler {
     // Look for statements of the form:
     //    * assertThat(A, is(not(nullValue())))
     //    * assertThat(A, is(notNullValue()))
-    //    * assertThat(A, isInstanceOf(...)))
+    //    * assertThat(A, is(instanceOf(Foo.class)))
+    //    * assertThat(A, isA(Foo.class))
     if (methodNameUtil.isMethodHamcrestAssertThat(callee)
         || methodNameUtil.isMethodJunitAssertThat(callee)) {
       List<Node> args = node.getArguments();
