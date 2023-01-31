@@ -41,6 +41,8 @@ import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
 
+  private static final String JETBRAINS_NOT_NULL = "org.jetbrains.annotations.NotNull";
+
   private final Config config;
 
   RestrictiveAnnotationHandler(Config config) {
@@ -101,6 +103,20 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
     }
     for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {
       if (Nullness.paramHasNonNullAnnotation(methodSymbol, i, config)) {
+        if (methodSymbol.isVarArgs() && i == methodSymbol.getParameters().size() - 1) {
+          // Special handling: ignore org.jetbrains.annotations.NotNull on varargs parameters
+          // to handle kotlinc generated jars (see #720)
+          // We explicitly ignore type-use annotations here, looking for @NotNull used as a
+          // declaration annotation, which is why this logic is simpler than e.g.
+          // NullabilityUtil.getAllAnnotationsForParameter.
+          boolean jetBrainsNotNullAnnotated =
+              methodSymbol.getParameters().get(i).getAnnotationMirrors().stream()
+                  .map(a -> a.getAnnotationType().toString())
+                  .anyMatch(annotName -> annotName.equals(JETBRAINS_NOT_NULL));
+          if (jetBrainsNotNullAnnotated) {
+            continue;
+          }
+        }
         argumentPositionNullness[i] = Nullness.NONNULL;
       } else if (Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
         argumentPositionNullness[i] = Nullness.NULLABLE;

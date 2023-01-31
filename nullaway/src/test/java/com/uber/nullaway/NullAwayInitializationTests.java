@@ -1,5 +1,6 @@
 package com.uber.nullaway;
 
+import java.util.Arrays;
 import org.junit.Test;
 
 public class NullAwayInitializationTests extends NullAwayTestsBase {
@@ -62,6 +63,59 @@ public class NullAwayInitializationTests extends NullAwayTestsBase {
             "@ExternalInit",
             "class Test3 {",
             "  Object f;",
+            "  // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field",
+            "  public Test3(int x) {}",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void externalInitSupportConstructors() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:ExternalInitAnnotations=com.uber.ExternalInitConstructor"))
+        .addSourceLines(
+            "ExternalInitConstructor.java",
+            "package com.uber;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Retention;",
+            "import java.lang.annotation.RetentionPolicy;",
+            "import java.lang.annotation.Target;",
+            "@Retention(RetentionPolicy.CLASS)",
+            "@Target({ElementType.METHOD, ElementType.CONSTRUCTOR})",
+            "public @interface ExternalInitConstructor {}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  Object f;",
+            // no error here due to external init
+            "  @ExternalInitConstructor",
+            "  public Test() {}",
+            "  // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field",
+            "  public Test(int x) {}",
+            "  public Test(Object o) { this.f = o; }",
+            "}")
+        .addSourceLines(
+            "Test2.java",
+            "package com.uber;",
+            "class Test2 {",
+            "  // BUG: Diagnostic contains: @NonNull field f not initialized",
+            "  Object f;",
+            // must be on a constructor!
+            "  @ExternalInitConstructor",
+            "  public void init() {}",
+            "}")
+        .addSourceLines(
+            "Test3.java",
+            "package com.uber;",
+            "class Test3 {",
+            "  Object f;",
+            // Must be zero-args constructor!
+            "  @ExternalInitConstructor",
             "  // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field",
             "  public Test3(int x) {}",
             "}")
