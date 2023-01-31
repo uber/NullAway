@@ -40,8 +40,11 @@ class MethodNameUtil {
   // Strings corresponding to the names of the methods (and their owners) used to identify
   // assertions in this handler.
   private static final String IS_NOT_NULL_METHOD = "isNotNull";
-  private static final String IS_NOT_NULL_OWNER_TRUTH = "com.google.common.truth.Subject";
-  private static final String IS_NOT_NULL_OWNER_ASSERTJ = "org.assertj.core.api.AbstractAssert";
+  private static final String IS_OWNER_TRUTH_SUBJECT = "com.google.common.truth.Subject";
+  private static final String IS_OWNER_ASSERTJ_ABSTRACT_ASSERT =
+      "org.assertj.core.api.AbstractAssert";
+  private static final String IS_INSTANCE_OF_METHOD = "isInstanceOf";
+  private static final String IS_INSTANCE_OF_ANY_METHOD = "isInstanceOfAny";
   private static final String IS_TRUE_METHOD = "isTrue";
   private static final String IS_FALSE_METHOD = "isFalse";
   private static final String IS_TRUE_OWNER_TRUTH = "com.google.common.truth.BooleanSubject";
@@ -67,16 +70,21 @@ class MethodNameUtil {
   private static final String CORE_MATCHERS_CLASS = "org.hamcrest.CoreMatchers";
   private static final String CORE_IS_NULL_CLASS = "org.hamcrest.core.IsNull";
   private static final String IS_MATCHER = "is";
+  private static final String IS_A_MATCHER = "isA";
   private static final String NOT_MATCHER = "not";
   private static final String NOT_NULL_VALUE_MATCHER = "notNullValue";
   private static final String NULL_VALUE_MATCHER = "nullValue";
+  private static final String INSTANCE_OF_MATCHER = "instanceOf";
 
   // Names of the methods (and their owners) used to identify assertions in this handler. Name used
   // here refers to com.sun.tools.javac.util.Name. Comparing methods using Names is faster than
   // comparing using strings.
   private Name isNotNull;
-  private Name isNotNullOwnerTruth;
-  private Name isNotNullOwnerAssertJ;
+
+  private Name isInstanceOf;
+  private Name isInstanceOfAny;
+  private Name isOwnerTruthSubject;
+  private Name isOwnerAssertJAbstractAssert;
 
   private Name isTrue;
   private Name isFalse;
@@ -106,15 +114,20 @@ class MethodNameUtil {
   private Name coreMatchersClass;
   private Name coreIsNullClass;
   private Name isMatcher;
+  private Name isAMatcher;
   private Name notMatcher;
   private Name notNullValueMatcher;
   private Name nullValueMatcher;
+  private Name instanceOfMatcher;
 
   @Initializer
   void initializeMethodNames(Name.Table table) {
     isNotNull = table.fromString(IS_NOT_NULL_METHOD);
-    isNotNullOwnerTruth = table.fromString(IS_NOT_NULL_OWNER_TRUTH);
-    isNotNullOwnerAssertJ = table.fromString(IS_NOT_NULL_OWNER_ASSERTJ);
+    isOwnerTruthSubject = table.fromString(IS_OWNER_TRUTH_SUBJECT);
+    isOwnerAssertJAbstractAssert = table.fromString(IS_OWNER_ASSERTJ_ABSTRACT_ASSERT);
+
+    isInstanceOf = table.fromString(IS_INSTANCE_OF_METHOD);
+    isInstanceOfAny = table.fromString(IS_INSTANCE_OF_ANY_METHOD);
 
     isTrue = table.fromString(IS_TRUE_METHOD);
     isFalse = table.fromString(IS_FALSE_METHOD);
@@ -143,14 +156,23 @@ class MethodNameUtil {
     coreMatchersClass = table.fromString(CORE_MATCHERS_CLASS);
     coreIsNullClass = table.fromString(CORE_IS_NULL_CLASS);
     isMatcher = table.fromString(IS_MATCHER);
+    isAMatcher = table.fromString(IS_A_MATCHER);
     notMatcher = table.fromString(NOT_MATCHER);
     notNullValueMatcher = table.fromString(NOT_NULL_VALUE_MATCHER);
     nullValueMatcher = table.fromString(NULL_VALUE_MATCHER);
+    instanceOfMatcher = table.fromString(INSTANCE_OF_MATCHER);
   }
 
   boolean isMethodIsNotNull(Symbol.MethodSymbol methodSymbol) {
-    return matchesMethod(methodSymbol, isNotNull, isNotNullOwnerTruth)
-        || matchesMethod(methodSymbol, isNotNull, isNotNullOwnerAssertJ);
+    return matchesMethod(methodSymbol, isNotNull, isOwnerTruthSubject)
+        || matchesMethod(methodSymbol, isNotNull, isOwnerAssertJAbstractAssert);
+  }
+
+  boolean isMethodIsInstanceOf(Symbol.MethodSymbol methodSymbol) {
+    return matchesMethod(methodSymbol, isInstanceOf, isOwnerTruthSubject)
+        || matchesMethod(methodSymbol, isInstanceOf, isOwnerAssertJAbstractAssert)
+        // Truth doesn't seem to have isInstanceOfAny
+        || matchesMethod(methodSymbol, isInstanceOfAny, isOwnerAssertJAbstractAssert);
   }
 
   boolean isMethodAssertTrue(Symbol.MethodSymbol methodSymbol) {
@@ -228,6 +250,21 @@ class MethodNameUtil {
     return matchesMatcherMethod(node, nullValueMatcher, matchersClass)
         || matchesMatcherMethod(node, nullValueMatcher, coreMatchersClass)
         || matchesMatcherMethod(node, nullValueMatcher, coreIsNullClass);
+  }
+
+  boolean isMatcherIsInstanceOf(Node node) {
+    // Matches with
+    //   * is(instanceOf(Some.class))
+    //   * isA(Some.class)
+    if (matchesMatcherMethod(node, isMatcher, matchersClass)
+        || matchesMatcherMethod(node, isMatcher, coreMatchersClass)) {
+      // All overloads of `is` method have exactly one argument.
+      Node inner = ((MethodInvocationNode) node).getArgument(0);
+      return matchesMatcherMethod(inner, instanceOfMatcher, matchersClass)
+          || matchesMatcherMethod(inner, isMatcher, coreMatchersClass);
+    }
+    return (matchesMatcherMethod(node, isAMatcher, matchersClass)
+        || matchesMatcherMethod(node, isAMatcher, coreMatchersClass));
   }
 
   private boolean matchesMatcherMethod(Node node, Name matcherName, Name matcherClass) {
