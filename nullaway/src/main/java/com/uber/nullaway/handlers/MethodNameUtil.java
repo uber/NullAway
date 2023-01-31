@@ -261,7 +261,7 @@ class MethodNameUtil {
       // All overloads of `is` method have exactly one argument.
       Node inner = ((MethodInvocationNode) node).getArgument(0);
       return matchesMatcherMethod(inner, instanceOfMatcher, matchersClass)
-          || matchesMatcherMethod(inner, isMatcher, coreMatchersClass);
+          || matchesMatcherMethod(inner, instanceOfMatcher, coreMatchersClass);
     }
     return (matchesMatcherMethod(node, isAMatcher, matchersClass)
         || matchesMatcherMethod(node, isAMatcher, coreMatchersClass));

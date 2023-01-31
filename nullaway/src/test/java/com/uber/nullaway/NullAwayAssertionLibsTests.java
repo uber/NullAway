@@ -234,6 +234,34 @@ public class NullAwayAssertionLibsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void supportHamcrestAssertThatIsInstanceOf() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.hamcrest.MatcherAssert.assertThat;",
+            "import static org.hamcrest.CoreMatchers.*;",
+            "import org.hamcrest.core.IsNull;",
+            "class Test {",
+            "  private void foo(@Nullable Object a, @Nullable Object b) {",
+            "    assertThat(a, is(instanceOf(Object.class)));",
+            "    a.toString();",
+            "    assertThat(b, isA(Object.class));",
+            "    b.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void supportJunitAssertThatIsNotNull_Object() {
     makeTestHelperWithArgs(
             Arrays.asList(
