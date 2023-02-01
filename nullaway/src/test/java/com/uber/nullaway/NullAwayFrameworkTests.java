@@ -367,7 +367,7 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void mapGetOrDefault() {
+  public void mapGetOrDefaultNoRestrictiveAnnotations() {
     makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
