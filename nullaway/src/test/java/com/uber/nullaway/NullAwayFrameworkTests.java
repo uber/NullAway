@@ -365,4 +365,50 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void mapGetOrDefault() {
+    String[] sourceLines =
+        new String[] {
+          "package com.uber;",
+          "import java.util.Map;",
+          "import com.google.common.collect.ImmutableMap;",
+          "import org.jspecify.annotations.Nullable;",
+          "class Test {",
+          "  void testGetOrDefaultMap(Map<String, String> m, String nonNullString, @Nullable String nullableString) {",
+          "    m.getOrDefault(\"key\", \"value\").toString();",
+          "    m.getOrDefault(\"key\", nonNullString).toString();",
+          "    // BUG: Diagnostic contains: dereferenced",
+          "    m.getOrDefault(\"key\", null).toString();",
+          "    // BUG: Diagnostic contains: dereferenced",
+          "    m.getOrDefault(\"key\", nullableString).toString();",
+          "  }",
+          "  void testGetOrDefaultImmutableMap(ImmutableMap<String, String> im, String nonNullString, @Nullable String nullableString) {",
+          "    im.getOrDefault(\"key\", \"value\").toString();",
+          "    im.getOrDefault(\"key\", nonNullString).toString();",
+          "    // BUG: Diagnostic contains: dereferenced",
+          "    im.getOrDefault(\"key\", null).toString();",
+          "    // BUG: Diagnostic contains: dereferenced",
+          "    im.getOrDefault(\"key\", nullableString).toString();",
+          "  }",
+          "}"
+        };
+    // test *without* restrictive annotations enabled
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines("Test.java", sourceLines)
+        .doTest();
+    // test *with* restrictive annotations enabled
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines("Test.java", sourceLines)
+        .doTest();
+  }
 }
