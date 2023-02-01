@@ -615,6 +615,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put(methodRef("java.util.Optional", "orElse(T)"), 0)
             .put(methodRef("com.google.common.io.Closer", "<C>register(C)"), 0)
             .put(methodRef("java.util.Map", "getOrDefault(java.lang.Object,V)"), 1)
+            // We add ImmutableMap.getOrDefault explicitly, since when
+            // AcknowledgeRestrictiveAnnotations is enabled, the explicit annotations in the code
+            // override the inherited library model
             .put(
                 methodRef(
                     "com.google.common.collect.ImmutableMap", "getOrDefault(java.lang.Object,V)"),
