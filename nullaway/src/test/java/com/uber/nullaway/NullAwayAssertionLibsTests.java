@@ -76,6 +76,31 @@ public class NullAwayAssertionLibsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void supportTruthAssertThatIsInstanceOf() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static com.google.common.truth.Truth.assertThat;",
+            "class Test {",
+            "  private void foo(@Nullable Object o) {",
+            "    // inInstanceOf => isNotNull!",
+            "    assertThat(o).isInstanceOf(Object.class);",
+            "    o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void doNotSupportTruthAssertThatWhenDisabled() {
     makeTestHelperWithArgs(
             Arrays.asList(
@@ -209,6 +234,34 @@ public class NullAwayAssertionLibsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void supportHamcrestAssertThatIsInstanceOf() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.hamcrest.MatcherAssert.assertThat;",
+            "import static org.hamcrest.CoreMatchers.*;",
+            "import org.hamcrest.core.IsNull;",
+            "class Test {",
+            "  private void foo(@Nullable Object a, @Nullable Object b) {",
+            "    assertThat(a, is(instanceOf(Object.class)));",
+            "    a.toString();",
+            "    assertThat(b, isA(Object.class));",
+            "    b.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void supportJunitAssertThatIsNotNull_Object() {
     makeTestHelperWithArgs(
             Arrays.asList(
@@ -229,6 +282,33 @@ public class NullAwayAssertionLibsTests extends NullAwayTestsBase {
             "    assertThat(a, is(notNullValue()));",
             "    a.toString();",
             "    assertThat(b, is(not(nullValue())));",
+            "    b.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportJunitAssertThatIsInstanceOf() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.junit.Assert.assertThat;",
+            "import static org.hamcrest.Matchers.*;",
+            "class Test {",
+            "  private void foo(@Nullable Object a, @Nullable Object b) {",
+            "    assertThat(a, is(instanceOf(Object.class)));",
+            "    a.toString();",
+            "    assertThat(b, isA(Object.class));",
             "    b.toString();",
             "  }",
             "}")
@@ -326,6 +406,32 @@ public class NullAwayAssertionLibsTests extends NullAwayTestsBase {
             "  private void foo(Map<String,Object> m) {",
             "    assertThat(m.get(\"foo\")).isNotNull();",
             "    m.get(\"foo\").toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void supportAssertJAssertThatIsInstanceOf() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.assertj.core.api.Assertions.assertThat;",
+            "class Test {",
+            "  private void foo(@Nullable Object a, @Nullable Object b) {",
+            "    assertThat(a).isInstanceOf(Object.class);",
+            "    a.toString();",
+            "    assertThat(b).isInstanceOfAny(String.class, Exception.class);",
+            "    b.toString();",
             "  }",
             "}")
         .doTest();
