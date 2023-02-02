@@ -2414,9 +2414,7 @@ public class NullAway extends BugChecker
    * @return computed nullness for e, if any, else Nullable
    */
   public Nullness getComputedNullness(ExpressionTree e) {
-    // TODO: use Map.getOrDefault after https://github.com/uber/NullAway/issues/723
-    Nullness nullness = computedNullnessMap.get(e);
-    return nullness != null ? nullness : Nullness.NULLABLE;
+    return computedNullnessMap.getOrDefault(e, Nullness.NULLABLE);
   }
 
   /**
