@@ -2191,7 +2191,7 @@ public class NullAway extends BugChecker
       return false;
     }
     // the logic here is to avoid doing dataflow analysis whenever possible
-    Symbol exprSymbol = ASTHelpers.getSymbol(expr);
+    @Nullable Symbol exprSymbol = ASTHelpers.getSymbol(expr);
     boolean exprMayBeNull;
     switch (expr.getKind()) {
       case NULL_LITERAL:
@@ -2271,7 +2271,7 @@ public class NullAway extends BugChecker
           return mayBeNullFieldAccess(state, expr, exprSymbol);
         } else {
           // Check handler.onOverrideMayBeNullExpr before dataflow.
-          exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, true);
+          exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, true);
           return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
         }
       case METHOD_INVOCATION:
@@ -2290,7 +2290,7 @@ public class NullAway extends BugChecker
               "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
         }
     }
-    exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);
+    exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, exprMayBeNull);
     return exprMayBeNull;
   }
 
@@ -2303,7 +2303,7 @@ public class NullAway extends BugChecker
     if (!Nullness.hasNullableAnnotation(exprSymbol, config)) {
       exprMayBeNull = false;
     }
-    exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);
+    exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, exprMayBeNull);
     return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
   }
 
@@ -2327,7 +2327,7 @@ public class NullAway extends BugChecker
     if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, codeAnnotationInfo)) {
       exprMayBeNull = false;
     }
-    exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, state, exprMayBeNull);
+    exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, exprMayBeNull);
     return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
   }
 

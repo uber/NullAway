@@ -123,10 +123,15 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
   @Override
   public boolean onOverrideMayBeNullExpr(
-      NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
-    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION) {
+      NullAway analysis,
+      ExpressionTree expr,
+      @Nullable Symbol exprSymbol,
+      VisitorState state,
+      boolean exprMayBeNull) {
+    if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)
+        && exprSymbol instanceof Symbol.MethodSymbol) {
       OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
-      Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(expr);
+      Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) exprSymbol;
       // When looking up library models of annotated code, we match the exact method signature only;
       // overriding methods in subclasses must be explicitly given their own library model.
       // When dealing with unannotated code, we default to generality: a model applies to a method
@@ -183,14 +188,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
+      Symbol.MethodSymbol callee,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
-    Preconditions.checkNotNull(callee);
     boolean isMethodAnnotated =
         !getCodeAnnotationInfo(state.context).isSymbolUnannotated(callee, this.config);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, state, apContext);
