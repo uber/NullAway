@@ -325,10 +325,10 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       MemberReferenceTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
-    if (mapToFilterMap.containsKey(tree) && ((JCTree.JCMemberReference) tree).kind.isUnbound()) {
+    MaplikeToFilterInstanceRecord callInstanceRecord = mapToFilterMap.get(tree);
+    if (callInstanceRecord != null && ((JCTree.JCMemberReference) tree).kind.isUnbound()) {
       // Unbound method reference, check if we know the corresponding path to be NonNull from the
       // previous filter.
-      MaplikeToFilterInstanceRecord callInstanceRecord = mapToFilterMap.get(tree);
       Tree filterTree = callInstanceRecord.getFilter();
       if (!(filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree)) {
         throw new IllegalStateException(
@@ -421,9 +421,9 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       return nullnessBuilder;
     }
     assert (tree instanceof MethodTree || tree instanceof LambdaExpressionTree);
-    if (mapToFilterMap.containsKey(tree)) {
+    MaplikeToFilterInstanceRecord callInstanceRecord = mapToFilterMap.get(tree);
+    if (callInstanceRecord != null) {
       // Plug Nullness info from filter method into entry to map method.
-      MaplikeToFilterInstanceRecord callInstanceRecord = mapToFilterMap.get(tree);
       Tree filterTree = callInstanceRecord.getFilter();
       assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
       MaplikeMethodRecord mapMR = callInstanceRecord.getMaplikeMethodRecord();
@@ -459,16 +459,14 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   @Override
   public void onDataflowVisitReturn(
       ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore) {
-    if (returnToEnclosingMethodOrLambda.containsKey(tree)) {
-      Tree filterTree = returnToEnclosingMethodOrLambda.get(tree);
+    Tree filterTree = returnToEnclosingMethodOrLambda.get(tree);
+    if (filterTree != null) {
       assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
       ExpressionTree retExpression = tree.getExpression();
       if (canBooleanExpressionEvalToTrue(retExpression)) {
-        if (filterToNSMap.containsKey(filterTree)) {
-          filterToNSMap.put(filterTree, filterToNSMap.get(filterTree).leastUpperBound(thenStore));
-        } else {
-          filterToNSMap.put(filterTree, thenStore);
-        }
+        filterToNSMap.compute(
+            filterTree,
+            (key, value) -> value == null ? thenStore : value.leastUpperBound(thenStore));
       }
     }
   }
@@ -476,8 +474,8 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   @Override
   public void onDataflowVisitLambdaResultExpression(
       ExpressionTree tree, NullnessStore thenStore, NullnessStore elseStore) {
-    if (expressionBodyToFilterLambda.containsKey(tree)) {
-      LambdaExpressionTree filterTree = expressionBodyToFilterLambda.get(tree);
+    LambdaExpressionTree filterTree = expressionBodyToFilterLambda.get(tree);
+    if (filterTree != null) {
       if (canBooleanExpressionEvalToTrue(tree)) {
         filterToNSMap.put(filterTree, thenStore);
       }

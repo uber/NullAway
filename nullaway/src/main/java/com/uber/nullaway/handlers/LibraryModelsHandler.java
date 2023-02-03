@@ -614,6 +614,14 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
             .put(methodRef("java.util.Optional", "orElse(T)"), 0)
             .put(methodRef("com.google.common.io.Closer", "<C>register(C)"), 0)
+            .put(methodRef("java.util.Map", "getOrDefault(java.lang.Object,V)"), 1)
+            // We add ImmutableMap.getOrDefault explicitly, since when
+            // AcknowledgeRestrictiveAnnotations is enabled, the explicit annotations in the code
+            // override the inherited library model
+            .put(
+                methodRef(
+                    "com.google.common.collect.ImmutableMap", "getOrDefault(java.lang.Object,V)"),
+                1)
             .build();
 
     private static final ImmutableSet<MethodRef> NULLABLE_RETURNS =
@@ -984,11 +992,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       Map<Name, Map<MethodRef, T>> nameMapping = new LinkedHashMap<>();
       for (MethodRef ref : refs) {
         Name methodName = names.fromString(ref.methodName);
-        Map<MethodRef, T> mapForName = nameMapping.get(methodName);
-        if (mapForName == null) {
-          mapForName = new LinkedHashMap<>();
-          nameMapping.put(methodName, mapForName);
-        }
+        Map<MethodRef, T> mapForName =
+            nameMapping.computeIfAbsent(methodName, k -> new LinkedHashMap<>());
         mapForName.put(ref, getValForRef.apply(ref));
       }
       return new NameIndexedMap<>(nameMapping);
