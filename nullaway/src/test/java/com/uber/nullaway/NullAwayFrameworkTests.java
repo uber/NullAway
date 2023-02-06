@@ -98,6 +98,27 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void defaultLibraryModelsClassIsInstance() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  int classIsInstance(@Nullable String s) {",
+            "    if (CharSequence.class.isInstance(s)) {",
+            "      return s.hashCode();",
+            "    } else {",
+            "      // BUG: Diagnostic contains: dereferenced",
+            "      return s.hashCode();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void checkForNullSupport() {
     defaultCompilationHelper
         // This is just to check the behavior is the same between @Nullable and @CheckForNull

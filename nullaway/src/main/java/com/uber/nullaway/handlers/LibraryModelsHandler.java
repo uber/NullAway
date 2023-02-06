@@ -229,14 +229,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       Symbol.MethodSymbol callee,
       VisitorState state,
       AccessPath.AccessPathContext apContext) {
-    Set<Integer> nullImpliesTrueParameters =
-        getOptLibraryModels(state.context).nullImpliesTrueParameters(callee);
-    Set<Integer> nullImpliesFalseParameters =
-        getOptLibraryModels(state.context).nullImpliesFalseParameters(callee);
+    OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
+    Set<Integer> nullImpliesTrueParameters = optLibraryModels.nullImpliesTrueParameters(callee);
     for (AccessPath accessPath :
         accessPathsAtIndexes(nullImpliesTrueParameters, arguments, state, apContext)) {
       elseUpdates.set(accessPath, NONNULL);
     }
+    Set<Integer> nullImpliesFalseParameters = optLibraryModels.nullImpliesFalseParameters(callee);
     for (AccessPath accessPath :
         accessPathsAtIndexes(nullImpliesFalseParameters, arguments, state, apContext)) {
       thenUpdates.set(accessPath, NONNULL);
@@ -580,6 +579,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_FALSE_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+            .put(methodRef("java.lang.Class", "isInstance(java.lang.Object)"), 0)
             .put(methodRef("java.util.Objects", "nonNull(java.lang.Object)"), 0)
             .put(
                 methodRef("org.springframework.util.StringUtils", "hasLength(java.lang.String)"), 0)
