@@ -94,7 +94,9 @@ public class GrpcHandler extends BaseNoOpHandler {
       Node base = node.getTarget().getReceiver();
       // Argument list and types should be already checked by grpcIsMetadataContainsKeyCall
       Symbol keyArgSymbol = ASTHelpers.getSymbol(tree.getArguments().get(0));
-      if (getter != null && keyArgSymbol.getKind().equals(ElementKind.FIELD)) {
+      if (getter != null
+          && keyArgSymbol instanceof Symbol.VarSymbol
+          && keyArgSymbol.getKind().equals(ElementKind.FIELD)) {
         Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) keyArgSymbol;
         String immutableFieldFQN =
             varSymbol.enclClass().flatName().toString() + "." + varSymbol.flatName().toString();

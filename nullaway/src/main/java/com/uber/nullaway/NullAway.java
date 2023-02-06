@@ -315,7 +315,6 @@ public class NullAway extends BugChecker
   }
 
   private boolean checkMarkingForPath(VisitorState state) {
-    Symbol enclosingMarkableSymbol;
     TreePath path = state.getPath();
     Tree currentTree = path.getLeaf();
     // Find the closest class or method symbol, since those are the only ones we have code
@@ -334,7 +333,10 @@ public class NullAway extends BugChecker
       }
       currentTree = path.getLeaf();
     }
-    enclosingMarkableSymbol = ASTHelpers.getSymbol(currentTree);
+    Symbol enclosingMarkableSymbol = ASTHelpers.getSymbol(currentTree);
+    if (enclosingMarkableSymbol == null) {
+      return false;
+    }
     return !codeAnnotationInfo.isSymbolUnannotated(enclosingMarkableSymbol, config);
   }
 
@@ -2277,6 +2279,13 @@ public class NullAway extends BugChecker
           return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
         }
       case METHOD_INVOCATION:
+        if (!(exprSymbol instanceof Symbol.MethodSymbol)) {
+          throw new IllegalStateException(
+              "unexpected symbol "
+                  + exprSymbol
+                  + " for method invocation "
+                  + state.getSourceForNode(expr));
+        }
         // Special case: mayBeNullMethodCall runs handler.onOverrideMayBeNullExpr before dataflow.
         return mayBeNullMethodCall(state, expr, (Symbol.MethodSymbol) exprSymbol);
       case CONDITIONAL_EXPRESSION:

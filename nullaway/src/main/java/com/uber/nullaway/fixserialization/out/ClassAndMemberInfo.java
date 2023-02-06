@@ -51,13 +51,15 @@ public class ClassAndMemberInfo {
 
   public ClassAndMemberInfo(Tree regionTree) {
     // regionTree should either represent a field or a method
+    Symbol symbol = ASTHelpers.getSymbol(regionTree);
     if (!(regionTree instanceof MethodTree
         || (regionTree instanceof VariableTree
-            && ASTHelpers.getSymbol(regionTree).getKind().equals(ElementKind.FIELD)))) {
+            && symbol != null
+            && symbol.getKind().equals(ElementKind.FIELD)))) {
       throw new RuntimeException(
           "not expecting a region tree " + regionTree + " of type " + regionTree.getClass());
     }
-    this.member = ASTHelpers.getSymbol(regionTree);
+    this.member = symbol;
     this.clazz = ASTHelpers.enclosingClass(this.member);
   }
 

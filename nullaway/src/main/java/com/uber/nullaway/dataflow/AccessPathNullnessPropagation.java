@@ -718,7 +718,7 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitFieldAccess(
       FieldAccessNode fieldAccessNode, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates updates = new ReadableUpdates();
-    Symbol symbol = ASTHelpers.getSymbol(fieldAccessNode.getTree());
+    Symbol symbol = castToNonNull(ASTHelpers.getSymbol(fieldAccessNode.getTree()));
     setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
     Nullness nullness = NULLABLE;
     boolean fieldMayBeNull;
