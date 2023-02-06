@@ -98,6 +98,27 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void defaultLibraryModelsClassIsInstance() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  int classIsInstance(@Nullable String s) {",
+            "    if (CharSequence.class.isInstance(s)) {",
+            "      return s.hashCode();",
+            "    } else {",
+            "      // BUG: Diagnostic contains: dereferenced",
+            "      return s.hashCode();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void checkForNullSupport() {
     defaultCompilationHelper
         // This is just to check the behavior is the same between @Nullable and @CheckForNull
@@ -409,6 +430,28 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
         .addSourceLines("Test.java", sourceLines)
+        .doTest();
+  }
+
+  @Test
+  public void defaultLibraryModelsClassCast() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  void castNullable(@Nullable String s) {",
+            "    // BUG: Diagnostic contains: dereferenced",
+            "    CharSequence.class.cast(s).hashCode();",
+            "  }",
+            "  void castNonnull(String s1, @Nullable String s2) {",
+            "    CharSequence.class.cast(s1).hashCode();",
+            "    if (s2 instanceof CharSequence) {",
+            "      CharSequence.class.cast(s2).hashCode();",
+            "    }",
+            "  }",
+            "}")
         .doTest();
   }
 }

@@ -196,8 +196,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, state, apContext);
     setConditionalArgumentNullness(
         thenUpdates, elseUpdates, node.getArguments(), callee, state, apContext);
+    OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
     ImmutableSet<Integer> nullImpliesNullIndexes =
-        getOptLibraryModels(state.context).nullImpliesNullParameters(callee);
+        optLibraryModels.nullImpliesNullParameters(callee);
     if (!nullImpliesNullIndexes.isEmpty()) {
       // If the method is marked as having argument dependent nullability and any of the
       // corresponding arguments is null, then the return is nullable. If the method is
@@ -212,10 +213,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       return anyNull ? NullnessHint.HINT_NULLABLE : NullnessHint.FORCE_NONNULL;
     }
     Types types = state.getTypes();
-    if (getOptLibraryModels(state.context).hasNonNullReturn(callee, types, !isMethodAnnotated)) {
+    if (optLibraryModels.hasNonNullReturn(callee, types, !isMethodAnnotated)) {
       return NullnessHint.FORCE_NONNULL;
-    } else if (getOptLibraryModels(state.context)
-        .hasNullableReturn(callee, types, !isMethodAnnotated)) {
+    } else if (optLibraryModels.hasNullableReturn(callee, types, !isMethodAnnotated)) {
       return NullnessHint.HINT_NULLABLE;
     } else {
       return NullnessHint.UNKNOWN;
@@ -229,14 +229,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       Symbol.MethodSymbol callee,
       VisitorState state,
       AccessPath.AccessPathContext apContext) {
-    Set<Integer> nullImpliesTrueParameters =
-        getOptLibraryModels(state.context).nullImpliesTrueParameters(callee);
-    Set<Integer> nullImpliesFalseParameters =
-        getOptLibraryModels(state.context).nullImpliesFalseParameters(callee);
+    OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
+    Set<Integer> nullImpliesTrueParameters = optLibraryModels.nullImpliesTrueParameters(callee);
     for (AccessPath accessPath :
         accessPathsAtIndexes(nullImpliesTrueParameters, arguments, state, apContext)) {
       elseUpdates.set(accessPath, NONNULL);
     }
+    Set<Integer> nullImpliesFalseParameters = optLibraryModels.nullImpliesFalseParameters(callee);
     for (AccessPath accessPath :
         accessPathsAtIndexes(nullImpliesFalseParameters, arguments, state, apContext)) {
       thenUpdates.set(accessPath, NONNULL);
@@ -580,6 +579,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_FALSE_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+            .put(methodRef("java.lang.Class", "isInstance(java.lang.Object)"), 0)
             .put(methodRef("java.util.Objects", "nonNull(java.lang.Object)"), 0)
             .put(
                 methodRef("org.springframework.util.StringUtils", "hasLength(java.lang.String)"), 0)
@@ -612,6 +612,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_NULL_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+            .put(methodRef("java.lang.Class", "cast(java.lang.Object)"), 0)
             .put(methodRef("java.util.Optional", "orElse(T)"), 0)
             .put(methodRef("com.google.common.io.Closer", "<C>register(C)"), 0)
             .put(methodRef("java.util.Map", "getOrDefault(java.lang.Object,V)"), 1)
