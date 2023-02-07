@@ -466,6 +466,11 @@ public class NullAway extends BugChecker
     if (lhsType != null && lhsType.isPrimitive()) {
       doUnboxingCheck(state, tree.getExpression());
     }
+    // generics check
+    if (lhsType != null && lhsType.getTypeArguments().length() > 0) {
+      new GenericsChecks(state, config, this).checkTypeParameterNullnessForAssignability(tree);
+    }
+
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
     if (assigned == null || assigned.getKind() != ElementKind.FIELD) {
       // not a field of nullable type
@@ -1333,6 +1338,10 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
+    if (tree.getInitializer() != null) {
+      new GenericsChecks(state, config, this).checkTypeParameterNullnessForAssignability(tree);
+    }
+
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
       doUnboxingCheck(state, tree.getInitializer());
     }
