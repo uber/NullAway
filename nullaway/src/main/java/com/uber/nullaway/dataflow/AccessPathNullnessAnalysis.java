@@ -231,6 +231,7 @@ public final class AccessPathNullnessAnalysis {
             if (!e.getKind().equals(ElementKind.FIELD)
                 || !e.getModifiers().contains(Modifier.FINAL)) {
               allAPNonRootElementsAreFinalFields = false;
+              break;
             }
           }
           if (allAPNonRootElementsAreFinalFields) {
