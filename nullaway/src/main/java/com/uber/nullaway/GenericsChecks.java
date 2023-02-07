@@ -244,7 +244,7 @@ public final class GenericsChecks {
   }
 
   /**
-   * For the Parameterized typed trees ASTHelpers.getType(tree) does not return a Type with
+   * For the Parameterized typed trees, ASTHelpers.getType(tree) does not return a Type with
    * preserved annotations. This method takes a Parameterized typed tree as an input and returns the
    * Type of the tree with the annotations.
    *
