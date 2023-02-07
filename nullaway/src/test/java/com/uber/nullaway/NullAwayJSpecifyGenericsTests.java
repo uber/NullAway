@@ -426,7 +426,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    return o.toString();",
             "  }",
             "  static void testPositive() {",
-            "    // we should report an error here, since Test::foo cannot take",
+            "    // TODO: we should report an error here, since Test::foo cannot take",
             "    // a @Nullable parameter.  we don't catch this yet",
             "    A<@Nullable Object> p = Test::foo;",
             "  }",
