@@ -1493,6 +1493,8 @@ public class NullAway extends BugChecker
   public Description matchConditionalExpression(
       ConditionalExpressionTree tree, VisitorState state) {
     if (withinAnnotatedCode(state)) {
+      new GenericsChecks(state, config, this)
+          .checkTypeParameterNullnessForAssignabilityForConditionalExpression(tree);
       doUnboxingCheck(state, tree.getCondition());
     }
     return Description.NO_MATCH;
