@@ -10,6 +10,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
@@ -157,6 +158,9 @@ public final class GenericsChecks {
    * @return Type of the tree with preserved annotations.
    */
   private Type getTreeType(Tree tree) {
+    if (tree instanceof ConditionalExpressionTree) {
+      tree = ((ConditionalExpressionTree) tree).getTrueExpression();
+    }
     Type type = ASTHelpers.getType(tree);
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
@@ -340,5 +344,31 @@ public final class GenericsChecks {
         new Type.ClassType(
             type.getEnclosingType(), com.sun.tools.javac.util.List.from(newTypeArgs), type.tsym);
     return finalType;
+  }
+
+  public void checkTypeParameterNullnessForAssignabilityForConditionalExpression(
+      ConditionalExpressionTree tree) {
+    if (!config.isJSpecifyMode()) {
+      return;
+    }
+
+    Tree truePartTree;
+    Tree falsePartTree;
+
+    truePartTree = tree.getTrueExpression();
+    falsePartTree = tree.getFalseExpression();
+    Type truePartType = getTreeType(truePartTree);
+    Type falsePartType = getTreeType(falsePartTree);
+    // handling diamond operator case for now
+    if (truePartType.getTypeArguments().isEmpty()) {
+      return;
+    }
+    if (falsePartType.getTypeArguments().isEmpty()) {
+      return;
+    }
+    if (falsePartType instanceof Type.ClassType && truePartType instanceof Type.ClassType) {
+      compareNullabilityAnnotations(
+          (Type.ClassType) truePartType, (Type.ClassType) falsePartType, tree);
+    }
   }
 }
