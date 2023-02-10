@@ -450,6 +450,27 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void genericsChecksForTernaryOperator() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "static class A<T extends @Nullable Object> { }",
+            "  static void method1(boolean t) {",
+            "      // BUG: Diagnostic contains: Cannot assign from type",
+            "   A<@Nullable String> t1 = t ? new A<String>() : new A<@Nullable String>();",
+            "  }",
+            "  static A<String> method2(boolean t) {",
+            "   // BUG: Diagnostic contains: Cannot return the type",
+            "   return t ? new A<@Nullable String>() : new A<@Nullable String>();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
