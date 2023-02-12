@@ -159,15 +159,19 @@ public final class GenericsChecks {
    */
   @Nullable
   private Type getTreeType(Tree tree) {
-    Type type = ASTHelpers.getType(tree);
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
       ParameterizedTypeTree paramTypedTree =
           (ParameterizedTypeTree) ((NewClassTree) tree).getIdentifier();
-      type = typeWithPreservedAnnotations(paramTypedTree);
+      if (paramTypedTree.getTypeArguments().isEmpty()) {
+        // diamond operator, which we do not yet support; for now, return null
+        // TODO: support diamond operators
+        return null;
+      }
+      return typeWithPreservedAnnotations(paramTypedTree);
+    } else {
+      return ASTHelpers.getType(tree);
     }
-
-    return type;
   }
 
   /**
