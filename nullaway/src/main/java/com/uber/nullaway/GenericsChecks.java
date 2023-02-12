@@ -33,9 +33,9 @@ public final class GenericsChecks {
 
   private static final Supplier<Type> NULLABLE_TYPE_SUPPLIER =
       Suppliers.typeFromString(NULLABLE_NAME);
-  VisitorState state;
-  Config config;
-  NullAway analysis;
+  private VisitorState state;
+  private Config config;
+  private NullAway analysis;
 
   public GenericsChecks(VisitorState state, Config config, NullAway analysis) {
     this.state = state;
@@ -222,6 +222,7 @@ public final class GenericsChecks {
           (Type.ClassType) methodType, (Type.ClassType) returnExpressionType, retExpr);
     }
   }
+
   /**
    * Compare two types from an assignment for identical type parameter nullability, recursively
    * checking nested generic types. See <a
@@ -240,11 +241,15 @@ public final class GenericsChecks {
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
     rhsType = (Type.ClassType) types.asSuper(rhsType, lhsType.tsym);
+    // This is impossible, considering the fact that standard Java subtyping succeeds before running
+    // NullAway
     if (rhsType == null) {
       throw new RuntimeException("Did not find supertype of " + rhsType + " matching " + lhsType);
     }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
     List<Type> rhsTypeArguments = rhsType.getTypeArguments();
+    // This is impossible, considering the fact that standard Java subtyping succeeds before running
+    // NullAway
     if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
       throw new RuntimeException(
           "Number of types arguments in " + rhsType + " does not match " + lhsType);
@@ -287,6 +292,10 @@ public final class GenericsChecks {
   }
 
   /**
+   * For the Parameterized typed trees, ASTHelpers.getType(tree) does not return a Type with
+   * preserved annotations. This method takes a Parameterized typed tree as an input and returns the
+   * Type of the tree with the annotations.
+   *
    * @param tree A parameterized typed tree for which we need class type with preserved annotations.
    * @return A Type with preserved annotations.
    */
