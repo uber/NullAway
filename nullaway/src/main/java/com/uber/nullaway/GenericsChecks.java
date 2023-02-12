@@ -26,6 +26,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
@@ -157,19 +158,24 @@ public final class GenericsChecks {
    * @param tree A tree for which we need the type with preserved annotations.
    * @return Type of the tree with preserved annotations.
    */
+  @Nullable
   private Type getTreeType(Tree tree) {
     if (tree instanceof ConditionalExpressionTree) {
       tree = ((ConditionalExpressionTree) tree).getTrueExpression();
     }
-    Type type = ASTHelpers.getType(tree);
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
       ParameterizedTypeTree paramTypedTree =
           (ParameterizedTypeTree) ((NewClassTree) tree).getIdentifier();
-      type = typeWithPreservedAnnotations(paramTypedTree);
+      if (paramTypedTree.getTypeArguments().isEmpty()) {
+        // diamond operator, which we do not yet support; for now, return null
+        // TODO: support diamond operators
+        return null;
+      }
+      return typeWithPreservedAnnotations(paramTypedTree);
+    } else {
+      return ASTHelpers.getType(tree);
     }
-
-    return type;
   }
 
   /**
