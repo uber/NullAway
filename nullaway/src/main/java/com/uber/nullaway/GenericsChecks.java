@@ -374,13 +374,6 @@ public final class GenericsChecks {
     falsePartTree = tree.getFalseExpression();
     Type truePartType = getTreeType(truePartTree);
     Type falsePartType = getTreeType(falsePartTree);
-    // handling diamond operator case for now
-    if (truePartType.getTypeArguments().isEmpty()) {
-      return;
-    }
-    if (falsePartType.getTypeArguments().isEmpty()) {
-      return;
-    }
     if (falsePartType instanceof Type.ClassType && truePartType instanceof Type.ClassType) {
       compareNullabilityAnnotations(
           (Type.ClassType) truePartType, (Type.ClassType) falsePartType, tree);
