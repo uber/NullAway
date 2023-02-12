@@ -160,9 +160,6 @@ public final class GenericsChecks {
    */
   @Nullable
   private Type getTreeType(Tree tree) {
-    if (tree instanceof ConditionalExpressionTree) {
-      tree = ((ConditionalExpressionTree) tree).getTrueExpression();
-    }
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
       ParameterizedTypeTree paramTypedTree =
@@ -372,11 +369,21 @@ public final class GenericsChecks {
 
     truePartTree = tree.getTrueExpression();
     falsePartTree = tree.getFalseExpression();
+    Type condExprType = getTreeType(tree);
     Type truePartType = getTreeType(truePartTree);
     Type falsePartType = getTreeType(falsePartTree);
-    if (falsePartType instanceof Type.ClassType && truePartType instanceof Type.ClassType) {
-      compareNullabilityAnnotations(
-          (Type.ClassType) truePartType, (Type.ClassType) falsePartType, tree);
+    // The condExpr type should be the least-upper bound of the true and false part types.  To check
+    // the nullability annotations, we check that the true and false parts are assignable to the
+    // type of the whole expression
+    if (condExprType instanceof Type.ClassType) {
+      if (truePartType instanceof Type.ClassType) {
+        compareNullabilityAnnotations(
+            (Type.ClassType) condExprType, (Type.ClassType) truePartType, truePartTree);
+      }
+      if (falsePartType instanceof Type.ClassType) {
+        compareNullabilityAnnotations(
+            (Type.ClassType) condExprType, (Type.ClassType) falsePartType, falsePartTree);
+      }
     }
   }
 }

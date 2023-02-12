@@ -564,12 +564,43 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "class Test {",
             "static class A<T extends @Nullable Object> { }",
             "  static void method1(boolean t) {",
-            "      // BUG: Diagnostic contains: Cannot assign from type",
-            "   A<@Nullable String> t1 = t ? new A<String>() : new A<@Nullable String>();",
+            "    // TODO bad error message!",
+            "    // BUG: Diagnostic contains: Cannot return",
+            "    A<@Nullable String> t1 = t ? new A<String>() : new A<@Nullable String>();",
             "  }",
             "  static A<String> method2(boolean t) {",
-            "   // BUG: Diagnostic contains: Cannot return the type",
-            "   return t ? new A<@Nullable String>() : new A<@Nullable String>();",
+            "    // BUG: Diagnostic contains: Cannot return the type",
+            "    return t ? new A<@Nullable String>() : new A<@Nullable String>();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void ternaryOperatorComplexSubtyping() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> {}",
+            "  static class B<T extends @Nullable Object> extends A<T> {}",
+            "  static class C<T extends @Nullable Object> extends A<T> {}",
+            "  static void testPositive(boolean t) {",
+            "    // BUG: Diagnostic contains: Cannot return",
+            "    A<@Nullable String> t1 = t ? new B<@Nullable String>() : new C<String>();",
+            "    // BUG: Diagnostic contains: Cannot return",
+            "    A<@Nullable String> t2 = t ? new C<String>() : new B<@Nullable String>();",
+            "    // BUG: Diagnostic contains: Cannot return",
+            "    A<@Nullable String> t3 = t ? new B<String>() : new C<@Nullable String>();",
+            "    // BUG: Diagnostic contains: Cannot return",
+            "    A<String> t4 = t ? new B<@Nullable String>() : new C<@Nullable String>();",
+            "  }",
+            "  static void testNegative(boolean t) {",
+            "    A<@Nullable String> t1 = t ? new B<@Nullable String>() : new C<@Nullable String>();",
+            "    A<@Nullable String> t2 = t ? new C<@Nullable String>() : new B<@Nullable String>();",
+            "    A<String> t3 = t ? new C<String>() : new B<String>();",
             "  }",
             "}")
         .doTest();
