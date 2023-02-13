@@ -606,6 +606,30 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nestedTernary() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> {}",
+            "  static class B<T extends @Nullable Object> extends A<T> {}",
+            "  static class C<T extends @Nullable Object> extends A<T> {}",
+            "  static void testPositive(boolean t) {",
+            "    A<@Nullable String> t1 = t ? new C<@Nullable String>() :",
+            "        // BUG: Diagnostic contains: Cannot return",
+            "        (t ? new B<@Nullable String>() : new A<String>());",
+            "  }",
+            "  static void testNegative(boolean t) {",
+            "    A<@Nullable String> t1 = t ? new C<@Nullable String>() :",
+            "        (t ? new B<@Nullable String>() : new A<@Nullable String>());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
