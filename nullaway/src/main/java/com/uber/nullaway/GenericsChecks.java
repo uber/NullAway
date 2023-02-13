@@ -219,7 +219,7 @@ public final class GenericsChecks {
 
     Type methodType = methodSymbol.getReturnType();
     // check nullability of parameters only for generics
-    if (methodType.getTypeArguments().length() <= 0) {
+    if (methodType.getTypeArguments().isEmpty()) {
       return;
     }
     Type returnExpressionType = getTreeType(retExpr);
