@@ -54,6 +54,7 @@ public class ErrorMessage {
     WRONG_OVERRIDE_PRECONDITION,
     TYPE_PARAMETER_CANNOT_BE_NULLABLE,
     ASSIGN_GENERIC_NULLABLE,
+    RETURN_NULLABLE_GENERIC,
   }
 
   public String getMessage() {

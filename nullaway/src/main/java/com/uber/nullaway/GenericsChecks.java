@@ -139,7 +139,7 @@ public final class GenericsChecks {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
-            ErrorMessage.MessageTypes.RETURN_NULLABLE,
+            ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
             String.format(
                 "Cannot return the type "
                     + returnType
@@ -208,7 +208,11 @@ public final class GenericsChecks {
     Type rhsType = getTreeType(rhsTree);
 
     if (lhsType instanceof Type.ClassType && rhsType instanceof Type.ClassType) {
-      compareNullabilityAnnotations((Type.ClassType) lhsType, (Type.ClassType) rhsType, tree);
+      boolean isAssignmentValid =
+          compareNullabilityAnnotations((Type.ClassType) lhsType, (Type.ClassType) rhsType);
+      if (!isAssignmentValid) {
+        reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
+      }
     }
   }
 
@@ -220,13 +224,17 @@ public final class GenericsChecks {
 
     Type methodType = methodSymbol.getReturnType();
     // check nullability of parameters only for generics
-    if (methodType.getTypeArguments().length() <= 0) {
+    if (methodType.getTypeArguments().isEmpty()) {
       return;
     }
     Type returnExpressionType = getTreeType(retExpr);
     if (methodType instanceof Type.ClassType && returnExpressionType instanceof Type.ClassType) {
-      compareNullabilityAnnotations(
-          (Type.ClassType) methodType, (Type.ClassType) returnExpressionType, retExpr);
+      boolean isReturnTypeValid =
+          compareNullabilityAnnotations(
+              (Type.ClassType) methodType, (Type.ClassType) returnExpressionType);
+      if (!isReturnTypeValid) {
+        reportInvalidReturnTypeError(retExpr, methodType, returnExpressionType, state, analysis);
+      }
     }
   }
 
@@ -240,10 +248,8 @@ public final class GenericsChecks {
    *
    * @param lhsType type for the lhs of the assignment
    * @param rhsType type for the rhs of the assignment
-   * @param tree tree representing the assignment
    */
-  private void compareNullabilityAnnotations(
-      Type.ClassType lhsType, Type.ClassType rhsType, Tree tree) {
+  private boolean compareNullabilityAnnotations(Type.ClassType lhsType, Type.ClassType rhsType) {
     Types types = state.getTypes();
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
@@ -283,19 +289,17 @@ public final class GenericsChecks {
         }
       }
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
-        if (tree instanceof AssignmentTree || tree instanceof VariableTree) {
-          reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
-        } else {
-          reportInvalidReturnTypeError(tree, lhsType, rhsType, state, analysis);
-        }
-        return;
+        return false;
       }
       // nested generics
       if (lhsTypeArgument.getTypeArguments().length() > 0) {
-        compareNullabilityAnnotations(
-            (Type.ClassType) lhsTypeArgument, (Type.ClassType) rhsTypeArgument, tree);
+        if (!compareNullabilityAnnotations(
+            (Type.ClassType) lhsTypeArgument, (Type.ClassType) rhsTypeArgument)) {
+          return false;
+        }
       }
     }
+    return true;
   }
 
   /**
