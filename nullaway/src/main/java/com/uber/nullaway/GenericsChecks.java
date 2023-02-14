@@ -252,7 +252,6 @@ public final class GenericsChecks {
    */
   private boolean compareNullabilityAnnotations(Type.ClassType lhsType, Type.ClassType rhsType) {
     Types types = state.getTypes();
-    boolean isValid = true;
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
     rhsType = (Type.ClassType) types.asSuper(rhsType, lhsType.tsym);
@@ -295,13 +294,13 @@ public final class GenericsChecks {
       }
       // nested generics
       if (lhsTypeArgument.getTypeArguments().length() > 0) {
-        isValid =
-            isValid
-                && compareNullabilityAnnotations(
-                    (Type.ClassType) lhsTypeArgument, (Type.ClassType) rhsTypeArgument);
+        if (!compareNullabilityAnnotations(
+            (Type.ClassType) lhsTypeArgument, (Type.ClassType) rhsTypeArgument)) {
+          return false;
+        }
       }
     }
-    return isValid;
+    return true;
   }
 
   /**
