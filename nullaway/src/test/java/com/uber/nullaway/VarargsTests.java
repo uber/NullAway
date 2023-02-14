@@ -46,11 +46,9 @@ public class VarargsTests extends NullAwayTestsBase {
             "public class Utilities {",
             " public static String takesNullableVarargs(Object o, @Nullable Object... others) {",
             "  String s = o.toString() + \" \";",
-            "  // BUG: Diagnostic contains: enhanced-for expression others is @Nullable", // Shouldn't be an error!
             "  for (Object other : others) {",
             "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
             "  }",
-            "  // BUG: Diagnostic contains: enhanced-for expression others is @Nullable", // Shouldn't be an error!
             "  for (Object other : others) {",
             "    s += other.toString();", // SHOULD be an error!
             "  }",
@@ -173,6 +171,41 @@ public class VarargsTests extends NullAwayTestsBase {
             "    FirstParty.takesNonNullVarargs(o1);", // Empty var args passed
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
             "    FirstParty.takesNonNullVarargs(o1, o4);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableVarargsArray() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Utilities.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "public class Utilities {",
+            " public static String takesNullableVarargsArray(Object o, Object @Nullable... others) {",
+            "  String s = o.toString() + \" \";",
+            "  // BUG: Diagnostic contains: enhanced-for expression others is @Nullable",
+            "  for (Object other : others) {",
+            "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
+            "  }",
+            "  return s;",
+            " }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "public class Test {",
+            "  public void testNullableVarargsArray(Object o1, Object o2, Object o3, @Nullable Object o4) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
+            "    Utilities.takesNullableVarargsArray(o1, o2, o3, o4);",
+            "    Utilities.takesNullableVarargsArray(o1);", // Empty var args passed
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object) null);",
+            "    // this is fine!",
+            "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object[]) null);",
             "  }",
             "}")
         .doTest();

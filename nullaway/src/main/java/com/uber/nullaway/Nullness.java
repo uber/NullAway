@@ -251,4 +251,13 @@ public enum Nullness implements AbstractValue<Nullness> {
     return hasNonNullAnnotation(
         NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd, config), config);
   }
+
+  /**
+   * Is the varargs parameter {@code paramSymbol} have a {@code @Nullable} annotation indicating
+   * that the argument array passed at a call site can be {@code null}? Syntactically, this would be
+   * written as {@code foo(Object @Nullable... args}}
+   */
+  public static boolean varargsParamIsNullable(Symbol paramSymbol, Config config) {
+    return false;
+  }
 }
