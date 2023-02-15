@@ -151,6 +151,32 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(tree), state, null));
   }
 
+  private static void reportMismatchedTypeForTernaryOperator(
+      Tree tree,
+      Type expressionType,
+      Type rhsType,
+      VisitorState state,
+      NullAway analysis,
+      boolean isTruePartOfTheExpression) {
+    // TODO: update the error message
+    String part = isTruePartOfTheExpression ? "true part" : "false part";
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
+            String.format(
+                "Cannot assign "
+                    + part
+                    + " of type "
+                    + rhsType
+                    + " to the type "
+                    + expressionType
+                    + " due to mismatched nullability of type parameters"));
+    state.reportMatch(
+        errorBuilder.createErrorDescription(
+            errorMessage, analysis.buildDescription(tree), state, null));
+  }
+
   /**
    * This method returns type of the tree considering that the parameterized typed tree annotations
    * are not preserved if obtained directly using ASTHelpers.
@@ -381,12 +407,18 @@ public final class GenericsChecks {
     // type of the whole expression
     if (condExprType instanceof Type.ClassType) {
       if (truePartType instanceof Type.ClassType) {
-        compareNullabilityAnnotations(
-            (Type.ClassType) condExprType, (Type.ClassType) truePartType, truePartTree);
+        if (!compareNullabilityAnnotations(
+            (Type.ClassType) condExprType, (Type.ClassType) truePartType)) {
+          reportMismatchedTypeForTernaryOperator(
+              tree, condExprType, truePartType, state, analysis, true);
+        }
       }
       if (falsePartType instanceof Type.ClassType) {
-        compareNullabilityAnnotations(
-            (Type.ClassType) condExprType, (Type.ClassType) falsePartType, falsePartTree);
+        if (!compareNullabilityAnnotations(
+            (Type.ClassType) condExprType, (Type.ClassType) falsePartType)) {
+          reportMismatchedTypeForTernaryOperator(
+              tree, condExprType, falsePartType, state, analysis, false);
+        }
       }
     }
   }
