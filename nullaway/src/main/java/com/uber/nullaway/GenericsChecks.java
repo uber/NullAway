@@ -140,9 +140,9 @@ public final class GenericsChecks {
         new ErrorMessage(
             ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
             String.format(
-                "Cannot return the type "
+                "Cannot return expression of type "
                     + returnType
-                    + " to the method type "
+                    + " from method with return type "
                     + methodType
                     + " due to mismatched nullability of type parameters"));
     state.reportMatch(
