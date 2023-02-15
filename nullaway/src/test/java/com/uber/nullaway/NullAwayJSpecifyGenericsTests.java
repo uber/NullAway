@@ -632,6 +632,26 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void genericsChecksForParameterPassing() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "static class A<T extends @Nullable Object> { }",
+            "  static A<String> method1(A<A<String>> a1, A<String> a2) {",
+            "     return a2;",
+            "  }",
+            "  static void method2(A<A<@Nullable String>> a1, A<String> a2) {",
+            "   // BUG: Diagnostic contains: Cannot invoke the method",
+            "   A<String> a = method1(a1, a2);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
