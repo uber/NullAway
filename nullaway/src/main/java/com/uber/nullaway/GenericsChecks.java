@@ -177,6 +177,26 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(tree), state, null));
   }
 
+  private void reportInvalidParametersNullabilityError(
+      Type formalParameter,
+      Type actualParameter,
+      ExpressionTree expressionTree,
+      VisitorState state,
+      NullAway analysis) {
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
+            String.format(
+                "Cannot invoke the method as the "
+                    + actualParameter
+                    + " type parameter passed to the "
+                    + formalParameter
+                    + " type formal parameter"));
+    state.reportMatch(
+        errorBuilder.createErrorDescription(
+            errorMessage, analysis.buildDescription(expressionTree), state, null));
+  }
   /**
    * This method returns type of the tree considering that the parameterized typed tree annotations
    * are not preserved if obtained directly using ASTHelpers.
@@ -418,6 +438,29 @@ public final class GenericsChecks {
             (Type.ClassType) condExprType, (Type.ClassType) falsePartType)) {
           reportMismatchedTypeForTernaryOperator(
               tree, condExprType, falsePartType, state, analysis, false);
+        }
+      }
+    }
+  }
+
+  public void compareNullabilityOfGenericParameters(
+      List<Symbol.VarSymbol> formalParams, List<? extends ExpressionTree> actualParams) {
+    if (!config.isJSpecifyMode()) {
+      return;
+    }
+    // Check if the parameters are generics and compare annotations for the actual and formal
+    // parameters
+    for (int i = 0; i < formalParams.size(); i++) {
+      Type formalParameter = formalParams.get(i).type;
+      if (formalParameter.getTypeArguments().size() > 0) {
+        Type actualParameter = getTreeType(actualParams.get(i));
+        if (formalParameter instanceof Type.ClassType
+            && actualParameter instanceof Type.ClassType) {
+          if (!compareNullabilityAnnotations(
+              (Type.ClassType) formalParameter, (Type.ClassType) actualParameter)) {
+            reportInvalidParametersNullabilityError(
+                formalParameter, actualParameter, actualParams.get(i), state, analysis);
+          }
         }
       }
     }
