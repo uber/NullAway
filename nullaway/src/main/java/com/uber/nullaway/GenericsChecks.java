@@ -152,26 +152,17 @@ public final class GenericsChecks {
   }
 
   private static void reportMismatchedTypeForTernaryOperator(
-      Tree tree,
-      Type expressionType,
-      Type rhsType,
-      VisitorState state,
-      NullAway analysis,
-      boolean isTruePartOfTheExpression) {
-    // TODO: update the error message
-    String part = isTruePartOfTheExpression ? "true part" : "false part";
+      Tree tree, Type expressionType, Type subPartType, VisitorState state, NullAway analysis) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
             String.format(
-                "Cannot assign "
-                    + part
-                    + " of type "
-                    + rhsType
-                    + " to the type "
+                "Conditional expression must have type "
                     + expressionType
-                    + " due to mismatched nullability of type parameters"));
+                    + " but the sub-expression has type "
+                    + subPartType
+                    + ", which has mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(tree), state, null));
@@ -408,8 +399,14 @@ public final class GenericsChecks {
     return finalType;
   }
 
-  public void checkTypeParameterNullnessForAssignabilityForConditionalExpression(
-      ConditionalExpressionTree tree) {
+  /**
+   * For the Generic conditional expressions, Check whether the type parameters for the sub-parts of
+   * the conditional statement have the same nullability annotations as the nullability annotations
+   * of the type parameters for the LHS expression
+   *
+   * @param tree A conditional expression tree to check the @Nullable annotations.
+   */
+  public void checkTypeParameterNullnessForConditionalExpression(ConditionalExpressionTree tree) {
     if (!config.isJSpecifyMode()) {
       return;
     }
@@ -430,14 +427,14 @@ public final class GenericsChecks {
         if (!compareNullabilityAnnotations(
             (Type.ClassType) condExprType, (Type.ClassType) truePartType)) {
           reportMismatchedTypeForTernaryOperator(
-              tree, condExprType, truePartType, state, analysis, true);
+              truePartTree, condExprType, truePartType, state, analysis);
         }
       }
       if (falsePartType instanceof Type.ClassType) {
         if (!compareNullabilityAnnotations(
             (Type.ClassType) condExprType, (Type.ClassType) falsePartType)) {
           reportMismatchedTypeForTernaryOperator(
-              tree, condExprType, falsePartType, state, analysis, false);
+              falsePartTree, condExprType, falsePartType, state, analysis);
         }
       }
     }
