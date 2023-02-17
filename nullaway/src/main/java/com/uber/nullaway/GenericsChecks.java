@@ -388,6 +388,13 @@ public final class GenericsChecks {
     return finalType;
   }
 
+  /**
+   * For the Generic conditional expressions, Check whether the type parameters for the sub-parts of
+   * the conditional statement have the same nullability annotations as the nullability annotations
+   * of the type parameters for the LHS expression
+   *
+   * @param tree A conditional expression tree to check the @Nullable annotations.
+   */
   public void checkTypeParameterNullnessForConditionalExpression(ConditionalExpressionTree tree) {
     if (!config.isJSpecifyMode()) {
       return;
