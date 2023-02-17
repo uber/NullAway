@@ -152,26 +152,18 @@ public final class GenericsChecks {
   }
 
   private static void reportMismatchedTypeForTernaryOperator(
-      Tree tree,
-      Type expressionType,
-      Type rhsType,
-      VisitorState state,
-      NullAway analysis,
-      boolean isTruePartOfTheExpression) {
+      Tree tree, Type expressionType, Type subPartType, VisitorState state, NullAway analysis) {
     // TODO: update the error message
-    String part = isTruePartOfTheExpression ? "true part" : "false part";
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
             String.format(
-                "Cannot assign "
-                    + part
-                    + " of type "
-                    + rhsType
-                    + " to the type "
+                "Conditional expression must have type "
                     + expressionType
-                    + " due to mismatched nullability of type parameters"));
+                    + " but the sub-expression has type "
+                    + subPartType
+                    + ", which has mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(tree), state, null));
@@ -415,15 +407,14 @@ public final class GenericsChecks {
       if (truePartType instanceof Type.ClassType) {
         if (!compareNullabilityAnnotations(
             (Type.ClassType) condExprType, (Type.ClassType) truePartType)) {
-          reportMismatchedTypeForTernaryOperator(
-              tree, condExprType, truePartType, state, analysis, true);
+          reportMismatchedTypeForTernaryOperator(tree, condExprType, truePartType, state, analysis);
         }
       }
       if (falsePartType instanceof Type.ClassType) {
         if (!compareNullabilityAnnotations(
             (Type.ClassType) condExprType, (Type.ClassType) falsePartType)) {
           reportMismatchedTypeForTernaryOperator(
-              tree, condExprType, falsePartType, state, analysis, false);
+              tree, condExprType, falsePartType, state, analysis);
         }
       }
     }
