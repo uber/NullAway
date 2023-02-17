@@ -406,14 +406,15 @@ public final class GenericsChecks {
       if (truePartType instanceof Type.ClassType) {
         if (!compareNullabilityAnnotations(
             (Type.ClassType) condExprType, (Type.ClassType) truePartType)) {
-          reportMismatchedTypeForTernaryOperator(tree, condExprType, truePartType, state, analysis);
+          reportMismatchedTypeForTernaryOperator(
+              truePartTree, condExprType, truePartType, state, analysis);
         }
       }
       if (falsePartType instanceof Type.ClassType) {
         if (!compareNullabilityAnnotations(
             (Type.ClassType) condExprType, (Type.ClassType) falsePartType)) {
           reportMismatchedTypeForTernaryOperator(
-              tree, condExprType, falsePartType, state, analysis);
+              falsePartTree, condExprType, falsePartType, state, analysis);
         }
       }
     }
