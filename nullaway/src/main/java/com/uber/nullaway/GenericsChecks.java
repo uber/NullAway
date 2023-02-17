@@ -153,7 +153,6 @@ public final class GenericsChecks {
 
   private static void reportMismatchedTypeForTernaryOperator(
       Tree tree, Type expressionType, Type subPartType, VisitorState state, NullAway analysis) {
-    // TODO: update the error message
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
