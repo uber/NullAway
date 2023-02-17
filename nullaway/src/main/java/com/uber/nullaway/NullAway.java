@@ -1494,7 +1494,7 @@ public class NullAway extends BugChecker
       ConditionalExpressionTree tree, VisitorState state) {
     if (withinAnnotatedCode(state)) {
       new GenericsChecks(state, config, this)
-          .checkTypeParameterNullnessForAssignabilityForConditionalExpression(tree);
+          .checkTypeParameterNullnessForConditionalExpression(tree);
       doUnboxingCheck(state, tree.getCondition());
     }
     return Description.NO_MATCH;

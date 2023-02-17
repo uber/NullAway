@@ -388,8 +388,7 @@ public final class GenericsChecks {
     return finalType;
   }
 
-  public void checkTypeParameterNullnessForAssignabilityForConditionalExpression(
-      ConditionalExpressionTree tree) {
+  public void checkTypeParameterNullnessForConditionalExpression(ConditionalExpressionTree tree) {
     if (!config.isJSpecifyMode()) {
       return;
     }
