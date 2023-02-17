@@ -640,7 +640,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  static A<String> sampleMethod(A<A<String>> a1, A<String> a2) {",
             "     return a2;",
             "  }",
-            "  static A<String> sampleMethodWithVarArgs(A<A<String>> a1, A<String> a2, Object o1, Object o2) {",
+            "  static A<@Nullable String> sampleMethodWithVarArgs(A<A<@Nullable String>> a1, A<@Nullable String> a2, @Nullable Object o1, @Nullable Object o2) {",
             "     return a2;",
             "  }",
             "  static void testPositive(A<A<@Nullable String>> a1, A<String> a2, String s1, String s2) {",
@@ -649,9 +649,9 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "   // BUG: Diagnostic contains: Cannot invoke the method",
             "   A<String> b = sampleMethodWithVarArgs(a1, a2, s1, s2);",
             "  }",
-            "  static void testNegative(A<A<String>> a1, A<String> a2, String s1, String s2) {",
+            "  static void testNegative(A<A<String>> a1, A<String> a2, @Nullable String s1, @Nullable String s2) {",
             "   A<String> a = sampleMethod(a1, a2);",
-            "   A<String> b = sampleMethodWithVarArgs(a1, a2, s1, s2);",
+            "   A<@Nullable String> b = sampleMethodWithVarArgs(new A<A<@Nullable String>>(),new A<@Nullable String>(), s1, s2);",
             "  }",
             "}")
         .doTest();
