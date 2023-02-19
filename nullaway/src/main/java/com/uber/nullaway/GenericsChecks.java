@@ -445,6 +445,9 @@ public final class GenericsChecks {
     if (!config.isJSpecifyMode()) {
       return;
     }
+    if (formalParams.size() == 0) {
+      return;
+    }
     // Check if the parameters are generics and compare annotations for the actual and formal
     // parameters
     for (int i = 0; i < formalParams.size(); i++) {
@@ -457,6 +460,25 @@ public final class GenericsChecks {
               (Type.ClassType) formalParameter, (Type.ClassType) actualParameter)) {
             reportInvalidParametersNullabilityError(
                 formalParameter, actualParameter, actualParams.get(i), state, analysis);
+          }
+        }
+      }
+    }
+    // Check for vararg
+    // Vararg will always be the last parameter
+    Type lastFormalParamType = formalParams.get(formalParams.size() - 1).type;
+    if (lastFormalParamType instanceof Type.ArrayType) {
+      Type formalParameter = ((Type.ArrayType) lastFormalParamType).elemtype;
+      if (formalParameter.getTypeArguments().size() > 0) {
+        for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
+          Type actualParameter = getTreeType(actualParams.get(i));
+          if (formalParameter instanceof Type.ClassType
+              && actualParameter instanceof Type.ClassType) {
+            if (!compareNullabilityAnnotations(
+                (Type.ClassType) formalParameter, (Type.ClassType) actualParameter)) {
+              reportInvalidParametersNullabilityError(
+                  formalParameter, actualParameter, actualParams.get(i), state, analysis);
+            }
           }
         }
       }
