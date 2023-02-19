@@ -380,9 +380,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * For the Generic conditional expressions, Check whether the type parameters for the sub-parts of
-   * the conditional statement have the same nullability annotations as the nullability annotations
-   * of the type parameters for the LHS expression
+   * For conditional expressions, check whether the type parameters for the sub-expressions of
+   * the conditional expression have the same nullability annotations as the nullability annotations
+   * of the type parameters for the conditional expression itself
    *
    * @param tree A conditional expression tree to check the @Nullable annotations.
    */
