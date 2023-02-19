@@ -55,6 +55,7 @@ public class ErrorMessage {
     TYPE_PARAMETER_CANNOT_BE_NULLABLE,
     ASSIGN_GENERIC_NULLABLE,
     RETURN_NULLABLE_GENERIC,
+    PASS_NULLABLE_GENERIC,
   }
 
   public String getMessage() {

@@ -177,7 +177,7 @@ public final class GenericsChecks {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
-            ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
+            ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
             String.format(
                 "Cannot invoke the method as the "
                     + actualParameter
