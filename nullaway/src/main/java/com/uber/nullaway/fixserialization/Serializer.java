@@ -237,10 +237,12 @@ public class Serializer {
     }
     StringBuilder sb = new StringBuilder();
     if (methodSymbol.isConstructor()) {
+      Symbol.ClassSymbol encClass = methodSymbol.owner.enclClass();
       // For constructors, we use the name of the enclosing class.
-      Name name = methodSymbol.owner.enclClass().getSimpleName();
+      Name name = encClass.getSimpleName();
       if (name.isEmpty()) {
-        name = methodSymbol.owner.enclClass().getSuperclass().asElement().getSimpleName();
+        // For anonymous classes, we use the name of the superclass.
+        name = encClass.getSuperclass().asElement().getSimpleName();
       }
       sb.append(name);
     } else {
