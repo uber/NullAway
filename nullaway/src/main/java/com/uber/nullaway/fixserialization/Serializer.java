@@ -22,6 +22,13 @@
 
 package com.uber.nullaway.fixserialization;
 
+import static java.util.stream.Collectors.joining;
+
+import com.sun.tools.javac.code.BoundKind;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.util.Name;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
@@ -36,6 +43,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nullable;
 
 /**
@@ -194,5 +202,117 @@ public class Serializer {
       // and not serializing anything.
       return path;
     }
+  }
+
+  /**
+   * Serializes the given {@link Symbol} to a string.
+   *
+   * @param symbol The symbol to serialize.
+   * @return The serialized symbol.
+   */
+  public static String serializeSymbol(@Nullable Symbol symbol) {
+    if (symbol == null) {
+      return "null";
+    }
+    switch (symbol.getKind()) {
+      case FIELD:
+      case PARAMETER:
+        return symbol.name.toString();
+      case METHOD:
+      case CONSTRUCTOR:
+        return serializeMethodSignature((Symbol.MethodSymbol) symbol);
+      default:
+        return symbol.flatName().toString();
+    }
+  }
+
+  /**
+   * Serializes the signature of the given {@link Symbol.MethodSymbol} to a string.
+   *
+   * @param methodSymbol The method symbol to serialize.
+   * @return The serialized method symbol.
+   */
+  private static String serializeMethodSignature(@Nullable Symbol.MethodSymbol methodSymbol) {
+    if (methodSymbol == null) {
+      return "null";
+    }
+    StringBuilder sb = new StringBuilder();
+    if (methodSymbol.isConstructor()) {
+      // For constructors, we use the name of the enclosing class.
+      Name name = methodSymbol.owner.enclClass().getSimpleName();
+      if (name.isEmpty()) {
+        name = methodSymbol.owner.enclClass().getSuperclass().asElement().getSimpleName();
+      }
+      sb.append(name);
+    } else {
+      // For methods, we use the name of the method.
+      sb.append(methodSymbol.getSimpleName());
+    }
+    // Index for iteration in visiting method parameters. Used to determine if visiting the last
+    // parameter.
+    AtomicInteger index = new AtomicInteger(1);
+    sb.append(
+        methodSymbol.getParameters().stream()
+            .map(
+                parameter -> {
+                  // varargs is only defined on the method and not on the parameter. This
+                  // information is lost while visiting the last parameter in the method if it is
+                  // varargs and visited as a normal array type. We need to manually convert the
+                  // last parameter to varargs if the method is varargs.
+                  Type type =
+                      // if the parameter is the last parameter,
+                      (index.getAndIncrement() == methodSymbol.getParameters().size()
+                              // if the method is varargs,
+                              && methodSymbol.isVarArgs()
+                              // for safety of casting, check if the parameter is an array type
+                              && parameter.type instanceof Type.ArrayType)
+                          ? ((Type.ArrayType) parameter.type).makeVarargs()
+                          : parameter.type;
+                  return type.accept(
+                      new Types.DefaultTypeVisitor<String, Void>() {
+                        @Override
+                        public String visitWildcardType(Type.WildcardType t, Void unused) {
+                          StringBuilder sb = new StringBuilder();
+                          sb.append(t.kind);
+                          if (t.kind != BoundKind.UNBOUND) {
+                            sb.append(t.type.accept(this, null));
+                          }
+                          return sb.toString();
+                        }
+
+                        @Override
+                        public String visitCapturedType(Type.CapturedType t, Void s) {
+                          return t.wildcard.accept(this, null);
+                        }
+
+                        @Override
+                        public String visitClassType(Type.ClassType t, Void unused) {
+                          StringBuilder sb = new StringBuilder();
+                          sb.append(t.tsym);
+                          if (t.getTypeArguments().nonEmpty()) {
+                            sb.append('<');
+                            sb.append(
+                                t.getTypeArguments().stream()
+                                    .map(arg -> arg.accept(this, null))
+                                    .collect(joining(",")));
+                            sb.append(">");
+                          }
+                          return sb.toString();
+                        }
+
+                        @Override
+                        public String visitType(Type t, Void unused) {
+                          return t.toString();
+                        }
+
+                        @Override
+                        public String visitArrayType(Type.ArrayType t, Void unused) {
+                          return t.elemtype.accept(this, null) + (t.isVarargs() ? "..." : "[]");
+                        }
+                      },
+                      null);
+                })
+            .collect(joining(",", "(", ")")));
+    return sb.toString();
   }
 }
