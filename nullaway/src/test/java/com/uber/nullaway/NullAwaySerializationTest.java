@@ -2051,7 +2051,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void varArgsMethodSerializationTest() {
+  public void varArgsWithTypeUseAnnotationMethodSerializationTest() {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -2089,12 +2089,12 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "RETURN_NULLABLE",
                 "returning @Nullable expression",
                 "com.uber.Test",
-                "m1(java.util.List<java.util.Map<java.lang.String,?>>[],java.util.Map<? extends java.lang.String,?>...)",
+                "m1(java.util.List<java.util.Map<java.lang.String,?>>[],java.util.Map<? extends java.lang.String,?>[])",
                 220,
                 "com/uber/Test.java",
                 "METHOD",
                 "com.uber.Test",
-                "m1(java.util.List<java.util.Map<java.lang.String,?>>[],java.util.Map<? extends java.lang.String,?>...)",
+                "m1(java.util.List<java.util.Map<java.lang.String,?>>[],java.util.Map<? extends java.lang.String,?>[])",
                 "null",
                 "null",
                 "com/uber/Test.java"),
