@@ -231,7 +231,7 @@ public class Serializer {
    * @param methodSymbol The method symbol to serialize.
    * @return The serialized method symbol.
    */
-  private static String serializeMethodSignature(@Nullable Symbol.MethodSymbol methodSymbol) {
+  private static String serializeMethodSignature(Symbol.MethodSymbol methodSymbol) {
     if (methodSymbol == null) {
       return "null";
     }
