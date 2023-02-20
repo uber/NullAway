@@ -380,11 +380,17 @@ public final class GenericsChecks {
   }
 
   /**
-   * For conditional expressions, check whether the type parameters for the sub-expressions of the
-   * conditional expression have the same nullability annotations as the nullability annotations of
-   * the type parameters for the conditional expression itself
+   * For a conditional expression <em>c</em>, check whether the type parameter nullability for each
+   * sub-expression of <em>c</em> matches the type parameter nullability of <em>c</em> itself.
    *
-   * @param tree A conditional expression tree to check the @Nullable annotations.
+   * <p>Note that the type parameter nullability for <em>c</em> is computed by javac and reflects
+   * what is required of the surrounding context (an assignment, parameter pass, etc.). It is
+   * possible that both sub-expressions of <em>c</em> will have identical type parameter
+   * nullability, but will still not match the type parameter nullability of <em>c</em> itself, due
+   * to requirements from the surrounding context. In such a case, our error messages may be
+   * somewhat confusing; we may want to improve this in the future.
+   *
+   * @param tree A conditional expression tree to check
    */
   public void checkTypeParameterNullnessForConditionalExpression(ConditionalExpressionTree tree) {
     if (!config.isJSpecifyMode()) {
