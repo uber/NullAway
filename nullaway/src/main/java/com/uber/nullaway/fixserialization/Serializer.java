@@ -257,8 +257,8 @@ public class Serializer {
                 parameter -> {
                   // varargs is only defined on the method and not on the parameter. This
                   // information is lost while visiting the last parameter in the method if it is
-                  // varargs and visited as a normal array type. We need to manually convert the
-                  // last parameter to varargs if the method is varargs.
+                  // varargs and the parameter is visited as a normal array type. We need to
+                  // manually convert the last parameter to varargs if the method is varargs.
                   Type type =
                       // if the parameter is the last parameter,
                       (index.getAndIncrement() == methodSymbol.getParameters().size()

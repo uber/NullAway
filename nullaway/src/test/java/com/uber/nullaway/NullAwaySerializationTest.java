@@ -2049,4 +2049,70 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
           "Could not read serialization version at path: " + serializationVersionPath, e);
     }
   }
+
+  @Test
+  public void methodSerializationTest() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            // toString() call on method symbol will serialize the annotation below which should not
+            // be present in string representation fo a method signature.
+            "com/uber/Custom.java",
+            "package com.uber;",
+            "import java.lang.annotation.Target;",
+            "import static java.lang.annotation.ElementType.TYPE_USE;",
+            "@Target({TYPE_USE})",
+            "public @interface Custom { }")
+        .addSourceLines(
+            "com/uber/Test.java",
+            "package com.uber;",
+            "import java.util.*;",
+            "public class Test {",
+            "   Object m1(@Custom List<Map<String, ?>>[] p2, @Custom Map<? extends String, ?> ... p) {",
+            "      // BUG: Diagnostic contains: returning @Nullable expression",
+            "      return null;",
+            "   }",
+            "   Object m2(@Custom List<?>[] p) {",
+            "      // BUG: Diagnostic contains: returning @Nullable expression",
+            "      return null;",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression",
+                "com.uber.Test",
+                "m1(java.util.List<java.util.Map<java.lang.String,?>>[],java.util.Map<? extends java.lang.String,?>...)",
+                220,
+                "com/uber/Test.java",
+                "METHOD",
+                "com.uber.Test",
+                "m1(java.util.List<java.util.Map<java.lang.String,?>>[],java.util.Map<? extends java.lang.String,?>...)",
+                "null",
+                "null",
+                "com/uber/Test.java"),
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression",
+                "com.uber.Test",
+                "m2(java.util.List<?>[])",
+                346,
+                "com/uber/Test.java",
+                "METHOD",
+                "com.uber.Test",
+                "m2(java.util.List<?>[])",
+                "null",
+                "null",
+                "com/uber/Test.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
 }
