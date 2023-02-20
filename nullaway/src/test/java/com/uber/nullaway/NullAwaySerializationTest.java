@@ -2051,7 +2051,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void methodSerializationTest() {
+  public void varArgsMethodSerializationTest() {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
