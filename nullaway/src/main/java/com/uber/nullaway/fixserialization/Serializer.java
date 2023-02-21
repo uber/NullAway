@@ -231,9 +231,6 @@ public class Serializer {
    * @return The serialized method symbol.
    */
   private static String serializeMethodSignature(Symbol.MethodSymbol methodSymbol) {
-    if (methodSymbol == null) {
-      return "null";
-    }
     StringBuilder sb = new StringBuilder();
     if (methodSymbol.isConstructor()) {
       Symbol.ClassSymbol encClass = methodSymbol.owner.enclClass();
