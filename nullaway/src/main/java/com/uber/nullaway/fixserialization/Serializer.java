@@ -237,8 +237,11 @@ public class Serializer {
       Symbol.ClassSymbol encClass = methodSymbol.owner.enclClass();
       Name name = encClass.getSimpleName();
       if (name.isEmpty()) {
-        // For anonymous classes, we use the name of the superclass.
-        name = encClass.getSuperclass().asElement().getSimpleName();
+        throw new RuntimeException(
+            "Did not expect method serialization for anonymous class constructor: "
+                + methodSymbol
+                + ", in anonymous class: "
+                + encClass);
       }
       sb.append(name);
     } else {
