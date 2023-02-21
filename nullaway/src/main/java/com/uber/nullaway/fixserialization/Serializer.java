@@ -224,7 +224,8 @@ public class Serializer {
   }
 
   /**
-   * Serializes the signature of the given {@link Symbol.MethodSymbol} to a string.
+   * Serializes the signature of the given {@link Symbol.MethodSymbol} to a string. This code is
+   * based on {@link com.google.errorprone.util.Signatures#prettyMethodSignature}}.
    *
    * @param methodSymbol The method symbol to serialize.
    * @return The serialized method symbol.
