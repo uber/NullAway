@@ -237,6 +237,8 @@ public class Serializer {
       Symbol.ClassSymbol encClass = methodSymbol.owner.enclClass();
       Name name = encClass.getSimpleName();
       if (name.isEmpty()) {
+        // An anonymous class cannot declare its own constructor. Based on this assumption and our
+        // use case, we should not serialize the method signature.
         throw new RuntimeException(
             "Did not expect method serialization for anonymous class constructor: "
                 + methodSymbol
