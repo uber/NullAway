@@ -24,10 +24,8 @@ package com.uber.nullaway.fixserialization;
 
 import static java.util.stream.Collectors.joining;
 
-import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Name;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
@@ -253,49 +251,12 @@ public class Serializer {
         methodSymbol.getParameters().stream()
             .map(
                 parameter ->
-                    parameter.type.accept(
-                        new Types.DefaultTypeVisitor<String, Void>() {
-                          @Override
-                          public String visitWildcardType(Type.WildcardType t, Void unused) {
-                            StringBuilder sb = new StringBuilder();
-                            sb.append(t.kind);
-                            if (t.kind != BoundKind.UNBOUND) {
-                              sb.append(t.type.accept(this, null));
-                            }
-                            return sb.toString();
-                          }
-
-                          @Override
-                          public String visitCapturedType(Type.CapturedType t, Void s) {
-                            return t.wildcard.accept(this, null);
-                          }
-
-                          @Override
-                          public String visitClassType(Type.ClassType t, Void unused) {
-                            StringBuilder sb = new StringBuilder();
-                            sb.append(t.tsym);
-                            if (t.getTypeArguments().nonEmpty()) {
-                              sb.append('<');
-                              sb.append(
-                                  t.getTypeArguments().stream()
-                                      .map(arg -> arg.accept(this, null))
-                                      .collect(joining(",")));
-                              sb.append(">");
-                            }
-                            return sb.toString();
-                          }
-
-                          @Override
-                          public String visitType(Type t, Void unused) {
-                            return t.toString();
-                          }
-
-                          @Override
-                          public String visitArrayType(Type.ArrayType t, Void unused) {
-                            return t.elemtype.accept(this, null) + "[]";
-                          }
-                        },
-                        null))
+                    // check if array
+                    (parameter.type instanceof Type.ArrayType)
+                        // if is array, get the element type and append "[]"
+                        ? ((Type.ArrayType) parameter.type).elemtype.tsym + "[]"
+                        // else, just get the type
+                        : parameter.type.tsym.toString())
             .collect(joining(",", "(", ")")));
     return sb.toString();
   }
