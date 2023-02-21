@@ -232,8 +232,9 @@ public class Serializer {
   private static String serializeMethodSignature(Symbol.MethodSymbol methodSymbol) {
     StringBuilder sb = new StringBuilder();
     if (methodSymbol.isConstructor()) {
+      // For constructors, method's simple name is <init> and not the enclosing class, need to
+      // locate the enclosing class.
       Symbol.ClassSymbol encClass = methodSymbol.owner.enclClass();
-      // For constructors, we use the name of the enclosing class.
       Name name = encClass.getSimpleName();
       if (name.isEmpty()) {
         // For anonymous classes, we use the name of the superclass.

@@ -1789,6 +1789,58 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void constructorSerializationTest() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/A.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class A {",
+            "   @Nullable Object f;",
+            "   A(Object p){",
+            "       // BUG: Diagnostic contains: dereferenced expression",
+            "       Integer hashCode = f.hashCode();",
+            "   }",
+            "   public void bar(){",
+            "       // BUG: Diagnostic contains: passing @Nullable parameter",
+            "       A a = new A(null);",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "DEREFERENCE_NULLABLE",
+                "dereferenced expression f is @Nullable",
+                "com.uber.A",
+                "A(java.lang.Object)",
+                194,
+                "com/uber/A.java"),
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter",
+                "com.uber.A",
+                "bar()",
+                312,
+                "com/uber/A.java",
+                "PARAMETER",
+                "com.uber.A",
+                "A(java.lang.Object)",
+                "p",
+                "0",
+                "com/uber/A.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
   public void fieldRegionComputationWithMemberSelectForInnerClassTest() {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
