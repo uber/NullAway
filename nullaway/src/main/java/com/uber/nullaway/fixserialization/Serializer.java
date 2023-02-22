@@ -216,7 +216,7 @@ public class Serializer {
         return symbol.name.toString();
       case METHOD:
       case CONSTRUCTOR:
-        return symbol.toString();
+        return adapter.serializeMethodSignature((Symbol.MethodSymbol) symbol);
       default:
         return symbol.flatName().toString();
     }
