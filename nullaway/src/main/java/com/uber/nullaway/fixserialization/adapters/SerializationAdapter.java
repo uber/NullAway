@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.fixserialization.adapters;
 
+import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 
 /**
@@ -36,7 +37,7 @@ public interface SerializationAdapter {
    * Latest version number. If version is not defined by the user, NullAway will use the
    * corresponding adapter to this version in its serialization.
    */
-  int LATEST_VERSION = 2;
+  int LATEST_VERSION = 3;
 
   /**
    * Returns header of "errors.tsv" which contains all serialized {@link ErrorInfo} reported by
@@ -62,4 +63,12 @@ public interface SerializationAdapter {
    * @return Supporting serialization version number.
    */
   int getSerializationVersion();
+
+  /**
+   * Serializes the signature of the given {@link Symbol.MethodSymbol} to a string.
+   *
+   * @param methodSymbol The method symbol to serialize.
+   * @return The serialized method symbol.
+   */
+  String serializeMethodSignature(Symbol.MethodSymbol methodSymbol);
 }

@@ -25,7 +25,7 @@ package com.uber.nullaway.fixserialization;
 import com.google.common.base.Preconditions;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
-import com.uber.nullaway.fixserialization.adapters.SerializationV2Adapter;
+import com.uber.nullaway.fixserialization.adapters.SerializationV3Adapter;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -136,8 +136,8 @@ public class FixSerializationConfig {
     switch (version) {
       case 1:
         return new SerializationV1Adapter();
-      case 2:
-        return new SerializationV2Adapter();
+      case 3:
+        return new SerializationV3Adapter();
       default:
         throw new RuntimeException(
             "Unrecognized NullAway serialization version: "

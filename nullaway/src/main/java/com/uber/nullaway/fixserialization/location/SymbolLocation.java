@@ -23,6 +23,7 @@
 package com.uber.nullaway.fixserialization.location;
 
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 
 /** Provides method for symbol locations. */
 public interface SymbolLocation {
@@ -34,7 +35,7 @@ public interface SymbolLocation {
    *
    * @return string representation of contents in a line seperated by tabs.
    */
-  String tabSeparatedToString();
+  String tabSeparatedToString(SerializationAdapter adapter);
 
   /**
    * Creates header of an output file containing all {@link SymbolLocation} written in string which

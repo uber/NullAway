@@ -24,6 +24,7 @@ package com.uber.nullaway.fixserialization.out;
 
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.Serializer;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.location.SymbolLocation;
 
 /**
@@ -47,10 +48,10 @@ public class FieldInitializationInfo {
    *
    * @return string representation of contents of an object in a line seperated by tabs.
    */
-  public String tabSeparatedToString() {
-    return initializerMethodLocation.tabSeparatedToString()
+  public String tabSeparatedToString(SerializationAdapter adapter) {
+    return initializerMethodLocation.tabSeparatedToString(adapter)
         + '\t'
-        + Serializer.serializeSymbol(field);
+        + Serializer.serializeSymbol(field, adapter);
   }
 
   /**

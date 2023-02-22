@@ -30,7 +30,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
-import com.uber.nullaway.fixserialization.adapters.SerializationV2Adapter;
+import com.uber.nullaway.fixserialization.adapters.SerializationV3Adapter;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import com.uber.nullaway.tools.DisplayFactory;
@@ -67,7 +67,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   private static final String SUGGEST_FIX_FILE_HEADER = SuggestedNullableFixInfo.header();
   private static final String ERROR_FILE_NAME = "errors.tsv";
   private static final String ERROR_FILE_HEADER =
-      new SerializationV2Adapter().getErrorsOutputFileHeader();
+      new SerializationV3Adapter().getErrorsOutputFileHeader();
   private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
   private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
 
@@ -1432,7 +1432,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
     // Check for serialization version 1.
     checkVersionSerialization(1);
     // Check for serialization version 2.
-    checkVersionSerialization(2);
+    checkVersionSerialization(3);
   }
 
   @Test

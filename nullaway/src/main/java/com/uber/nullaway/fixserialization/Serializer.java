@@ -22,11 +22,7 @@
 
 package com.uber.nullaway.fixserialization;
 
-import static java.util.stream.Collectors.joining;
-
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.util.Name;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
@@ -81,7 +77,9 @@ public class Serializer {
     if (enclosing) {
       suggestedNullableFixInfo.initEnclosing();
     }
-    appendToFile(suggestedNullableFixInfo.tabSeparatedToString(), suggestedFixesOutputPath);
+    appendToFile(
+        suggestedNullableFixInfo.tabSeparatedToString(serializationAdapter),
+        suggestedFixesOutputPath);
   }
 
   /**
@@ -95,7 +93,7 @@ public class Serializer {
   }
 
   public void serializeFieldInitializationInfo(FieldInitializationInfo info) {
-    appendToFile(info.tabSeparatedToString(), fieldInitializationOutputPath);
+    appendToFile(info.tabSeparatedToString(serializationAdapter), fieldInitializationOutputPath);
   }
 
   /** Cleared the content of the file if exists and writes the header in the first line. */
@@ -207,7 +205,7 @@ public class Serializer {
    * @param symbol The symbol to serialize.
    * @return The serialized symbol.
    */
-  public static String serializeSymbol(@Nullable Symbol symbol) {
+  public static String serializeSymbol(@Nullable Symbol symbol, SerializationAdapter adapter) {
     if (symbol == null) {
       return "null";
     }
@@ -217,50 +215,9 @@ public class Serializer {
         return symbol.name.toString();
       case METHOD:
       case CONSTRUCTOR:
-        return serializeMethodSignature((Symbol.MethodSymbol) symbol);
+        return adapter.serializeMethodSignature((Symbol.MethodSymbol) symbol);
       default:
         return symbol.flatName().toString();
     }
-  }
-
-  /**
-   * Serializes the signature of the given {@link Symbol.MethodSymbol} to a string.
-   *
-   * @param methodSymbol The method symbol to serialize.
-   * @return The serialized method symbol.
-   */
-  private static String serializeMethodSignature(Symbol.MethodSymbol methodSymbol) {
-    StringBuilder sb = new StringBuilder();
-    if (methodSymbol.isConstructor()) {
-      // For constructors, method's simple name is <init> and not the enclosing class, need to
-      // locate the enclosing class.
-      Symbol.ClassSymbol encClass = methodSymbol.owner.enclClass();
-      Name name = encClass.getSimpleName();
-      if (name.isEmpty()) {
-        // An anonymous class cannot declare its own constructor. Based on this assumption and our
-        // use case, we should not serialize the method signature.
-        throw new RuntimeException(
-            "Did not expect method serialization for anonymous class constructor: "
-                + methodSymbol
-                + ", in anonymous class: "
-                + encClass);
-      }
-      sb.append(name);
-    } else {
-      // For methods, we use the name of the method.
-      sb.append(methodSymbol.getSimpleName());
-    }
-    sb.append(
-        methodSymbol.getParameters().stream()
-            .map(
-                parameter ->
-                    // check if array
-                    (parameter.type instanceof Type.ArrayType)
-                        // if is array, get the element type and append "[]"
-                        ? ((Type.ArrayType) parameter.type).elemtype.tsym + "[]"
-                        // else, just get the type
-                        : parameter.type.tsym.toString())
-            .collect(joining(",", "(", ")")));
-    return sb.toString();
   }
 }
