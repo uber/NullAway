@@ -21,7 +21,9 @@
  */
 package com.uber.nullaway.tools.version1;
 
+import com.google.common.base.Preconditions;
 import com.uber.nullaway.tools.Display;
+import com.uber.nullaway.tools.DisplayFactory;
 import com.uber.nullaway.tools.SerializationTestHelper;
 import java.util.Objects;
 
@@ -132,5 +134,25 @@ public class ErrorDisplayV1 implements Display {
         + path
         + '\''
         + '}';
+  }
+
+  public static DisplayFactory<ErrorDisplayV1> getFactory() {
+    return values -> {
+      Preconditions.checkArgument(
+          values.length == 10,
+          "Needs exactly 10 values to create ErrorDisplay for version 1 object but found: "
+              + values.length);
+      return new ErrorDisplayV1(
+          values[0],
+          values[1],
+          values[2],
+          values[3],
+          values[4],
+          values[5],
+          values[6],
+          values[7],
+          values[8],
+          SerializationTestHelper.getRelativePathFromUnitTestTempDirectory(values[9]));
+    };
   }
 }

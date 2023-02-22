@@ -1911,24 +1911,6 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void errorSerializationVersion1() {
-    DisplayFactory<ErrorDisplayV1> errorDisplayV1Factor =
-        values -> {
-          Preconditions.checkArgument(
-              values.length == 10,
-              "Needs exactly 10 values to create ErrorDisplay for version 1 object but found: "
-                  + values.length);
-          return new ErrorDisplayV1(
-              values[0],
-              values[1],
-              values[2],
-              values[3],
-              values[4],
-              values[5],
-              values[6],
-              values[7],
-              values[8],
-              SerializationTestHelper.getRelativePathFromUnitTestTempDirectory(values[9]));
-        };
     SerializationTestHelper<ErrorDisplayV1> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -2045,7 +2027,47 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "null",
                 "null",
                 "com/uber/Super.java"))
-        .setFactory(errorDisplayV1Factor)
+        .setFactory(ErrorDisplayV1.getFactory())
+        .setOutputFileNameAndHeader(
+            ERROR_FILE_NAME, new SerializationV1Adapter().getErrorsOutputFileHeader())
+        .doTest();
+  }
+
+  @Test
+  public void typeArgumentSerializationForVersion1Test() {
+    SerializationTestHelper<ErrorDisplayV1> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=1",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "public class Foo {",
+            "   String test(Map<Object, String> o) {",
+            "       // BUG: Diagnostic contains: returning @Nullable expression",
+            "       return null;",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplayV1(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression",
+                "com.uber.Foo",
+                "test(java.util.Map<java.lang.Object,java.lang.String>)",
+                "METHOD",
+                "com.uber.Foo",
+                "test(java.util.Map<java.lang.Object,java.lang.String>)",
+                "null",
+                "null",
+                "com/uber/Foo.java"))
+        .setFactory(ErrorDisplayV1.getFactory())
         .setOutputFileNameAndHeader(
             ERROR_FILE_NAME, new SerializationV1Adapter().getErrorsOutputFileHeader())
         .doTest();
