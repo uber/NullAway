@@ -629,7 +629,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void genericsChecksForParameterPassing() {
+  public void parameterPassing() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -640,18 +640,35 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  static A<String> sampleMethod(A<A<String>> a1, A<String> a2) {",
             "     return a2;",
             "  }",
+            "  static void testPositive(A<A<@Nullable String>> a1, A<String> a2) {",
+            "    // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "    A<String> a = sampleMethod(a1, a2);",
+            "  }",
+            "  static void testNegative(A<A<String>> a1, A<String> a2) {",
+            "    A<String> a = sampleMethod(a1, a2);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void varargsParameter() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "static class A<T extends @Nullable Object> { }",
             "  static A<@Nullable String> sampleMethodWithVarArgs(A<A<String>>... args) {",
             "     return new A<@Nullable String>();",
             "  }",
             "  static void testPositive(A<A<@Nullable String>> a1, A<String> a2) {",
-            "   // BUG: Diagnostic contains: Cannot pass parameter of type",
-            "   A<String> a = sampleMethod(a1, a2);",
-            "   // BUG: Diagnostic contains: Cannot pass parameter of type",
-            "   A<@Nullable String> b = sampleMethodWithVarArgs(a1);",
+            "     // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "     A<@Nullable String> b = sampleMethodWithVarArgs(a1);",
             "  }",
             "  static void testNegative(A<A<String>> a1, A<String> a2) {",
-            "   A<String> a = sampleMethod(a1, a2);",
-            "   A<@Nullable String> b = sampleMethodWithVarArgs(new A<A<String>>());",
+            "     A<@Nullable String> b = sampleMethodWithVarArgs(new A<A<String>>());",
             "  }",
             "}")
         .doTest();
