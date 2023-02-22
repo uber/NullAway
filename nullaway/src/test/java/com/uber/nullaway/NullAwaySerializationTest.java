@@ -2168,4 +2168,46 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
+
+  @Test
+  public void anonymousSubClassConstructorSerializationTest() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            // toString() call on method symbol will serialize the annotation below which should not
+            // be present in string representation fo a method signature.
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "public class Foo {",
+            "  Foo(Object o) {}",
+            "  void bar() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    Foo f = new Foo(null) {};",
+            "  }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter",
+                "com.uber.Foo",
+                "bar()",
+                144,
+                "com/uber/Foo.java",
+                "PARAMETER",
+                "com.uber.Foo",
+                "Foo(java.lang.Object)",
+                "o",
+                "0",
+                "com/uber/Foo.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
 }
