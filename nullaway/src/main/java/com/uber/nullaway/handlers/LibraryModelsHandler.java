@@ -75,7 +75,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   public LibraryModelsHandler(Config config) {
     super();
     this.config = config;
-    libraryModels = loadLibraryModels();
+    libraryModels = loadLibraryModels(config);
   }
 
   @Override
@@ -283,12 +283,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
   }
 
-  private static LibraryModels loadLibraryModels() {
+  private static LibraryModels loadLibraryModels(Config config) {
     Iterable<LibraryModels> externalLibraryModels =
         ServiceLoader.load(LibraryModels.class, LibraryModels.class.getClassLoader());
     ImmutableSet.Builder<LibraryModels> libModelsBuilder = new ImmutableSet.Builder<>();
     libModelsBuilder.add(new DefaultLibraryModels()).addAll(externalLibraryModels);
-    return new CombinedLibraryModels(libModelsBuilder.build());
+    return new CombinedLibraryModels(libModelsBuilder.build(), config);
   }
 
   private static class DefaultLibraryModels implements LibraryModels {
@@ -751,6 +751,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
   private static class CombinedLibraryModels implements LibraryModels {
 
+    private final Config config;
+
     private final ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters;
 
     private final ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters;
@@ -769,7 +771,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods;
 
-    public CombinedLibraryModels(Iterable<LibraryModels> models) {
+    public CombinedLibraryModels(Iterable<LibraryModels> models, Config config) {
+      this.config = config;
       ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> explicitlyNullableParametersBuilder =
@@ -788,34 +791,61 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           new ImmutableSetMultimap.Builder<>();
       for (LibraryModels libraryModels : models) {
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.failIfNullParameters().entries()) {
+          if (shouldSkipModel(entry.getKey())) {
+            continue;
+          }
           failIfNullParametersBuilder.put(entry);
         }
         for (Map.Entry<MethodRef, Integer> entry :
             libraryModels.explicitlyNullableParameters().entries()) {
+          if (shouldSkipModel(entry.getKey())) {
+            continue;
+          }
           explicitlyNullableParametersBuilder.put(entry);
         }
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.nonNullParameters().entries()) {
+          if (shouldSkipModel(entry.getKey())) {
+            continue;
+          }
           nonNullParametersBuilder.put(entry);
         }
         for (Map.Entry<MethodRef, Integer> entry :
             libraryModels.nullImpliesTrueParameters().entries()) {
+          if (shouldSkipModel(entry.getKey())) {
+            continue;
+          }
           nullImpliesTrueParametersBuilder.put(entry);
         }
         for (Map.Entry<MethodRef, Integer> entry :
             libraryModels.nullImpliesFalseParameters().entries()) {
+          if (shouldSkipModel(entry.getKey())) {
+            continue;
+          }
           nullImpliesFalseParametersBuilder.put(entry);
         }
         for (Map.Entry<MethodRef, Integer> entry :
             libraryModels.nullImpliesNullParameters().entries()) {
+          if (shouldSkipModel(entry.getKey())) {
+            continue;
+          }
           nullImpliesNullParametersBuilder.put(entry);
         }
         for (MethodRef name : libraryModels.nullableReturns()) {
+          if (shouldSkipModel(name)) {
+            continue;
+          }
           nullableReturnsBuilder.add(name);
         }
         for (MethodRef name : libraryModels.nonNullReturns()) {
+          if (shouldSkipModel(name)) {
+            continue;
+          }
           nonNullReturnsBuilder.add(name);
         }
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.castToNonNullMethods().entries()) {
+          if (shouldSkipModel(entry.getKey())) {
+            continue;
+          }
           castToNonNullMethodsBuilder.put(entry);
         }
       }
@@ -828,6 +858,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       nullableReturns = nullableReturnsBuilder.build();
       nonNullReturns = nonNullReturnsBuilder.build();
       castToNonNullMethods = castToNonNullMethodsBuilder.build();
+    }
+
+    private boolean shouldSkipModel(MethodRef key) {
+      return config.isSkippedLibraryModel(key.enclosingClass + "." + key.methodName);
     }
 
     @Override

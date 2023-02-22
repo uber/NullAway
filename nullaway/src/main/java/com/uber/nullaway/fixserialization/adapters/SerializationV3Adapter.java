@@ -23,15 +23,18 @@
 package com.uber.nullaway.fixserialization.adapters;
 
 import static com.uber.nullaway.fixserialization.out.ErrorInfo.EMPTY_NONNULL_TARGET_LOCATION_STRING;
+import static java.util.stream.Collectors.joining;
 
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.util.Name;
 import com.uber.nullaway.fixserialization.SerializationService;
 import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 
 /**
- * Adapter for serialization version 2.
+ * Adapter for serialization version 3.
  *
  * <p>Updates to previous version (version 1):
  *
@@ -40,9 +43,10 @@ import com.uber.nullaway.fixserialization.out.ErrorInfo;
  *       the error is reported.
  *   <li>Serialized errors contain an extra column indicating the path to the containing source file
  *       where the error is reported
+ *   <li>Type arguments and Type use annotations are excluded from the serialized method signatures.
  * </ul>
  */
-public class SerializationV2Adapter implements SerializationAdapter {
+public class SerializationV3Adapter implements SerializationAdapter {
 
   @Override
   public String getErrorsOutputFileHeader() {
@@ -80,11 +84,42 @@ public class SerializationV2Adapter implements SerializationAdapter {
 
   @Override
   public int getSerializationVersion() {
-    return 2;
+    return 3;
   }
 
   @Override
   public String serializeMethodSignature(Symbol.MethodSymbol methodSymbol) {
-    return methodSymbol.toString();
+    StringBuilder sb = new StringBuilder();
+    if (methodSymbol.isConstructor()) {
+      // For constructors, method's simple name is <init> and not the enclosing class, need to
+      // locate the enclosing class.
+      Symbol.ClassSymbol encClass = methodSymbol.owner.enclClass();
+      Name name = encClass.getSimpleName();
+      if (name.isEmpty()) {
+        // An anonymous class cannot declare its own constructor. Based on this assumption and our
+        // use case, we should not serialize the method signature.
+        throw new RuntimeException(
+            "Did not expect method serialization for anonymous class constructor: "
+                + methodSymbol
+                + ", in anonymous class: "
+                + encClass);
+      }
+      sb.append(name);
+    } else {
+      // For methods, we use the name of the method.
+      sb.append(methodSymbol.getSimpleName());
+    }
+    sb.append(
+        methodSymbol.getParameters().stream()
+            .map(
+                parameter ->
+                    // check if array
+                    (parameter.type instanceof Type.ArrayType)
+                        // if is array, get the element type and append "[]"
+                        ? ((Type.ArrayType) parameter.type).elemtype.tsym + "[]"
+                        // else, just get the type
+                        : parameter.type.tsym.toString())
+            .collect(joining(",", "(", ")")));
+    return sb.toString();
   }
 }

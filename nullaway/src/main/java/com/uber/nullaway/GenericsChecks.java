@@ -403,11 +403,9 @@ public final class GenericsChecks {
       return;
     }
 
-    Tree truePartTree;
-    Tree falsePartTree;
+    Tree truePartTree = tree.getTrueExpression();
+    Tree falsePartTree = tree.getFalseExpression();
 
-    truePartTree = tree.getTrueExpression();
-    falsePartTree = tree.getFalseExpression();
     Type condExprType = getTreeType(tree);
     Type truePartType = getTreeType(truePartTree);
     Type falsePartType = getTreeType(falsePartTree);
