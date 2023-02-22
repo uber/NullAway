@@ -188,8 +188,12 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(paramExpression), state, null));
   }
   /**
-   * This method returns type of the tree considering that the parameterized typed tree annotations
-   * are not preserved if obtained directly using ASTHelpers.
+   * This method returns the type of the given tree, including any type use annotations.
+   *
+   * <p>This method is required because in some cases, the type returned by {@link
+   * com.google.errorprone.util.ASTHelpers#getType(Tree)} fails to preserve type use annotations,
+   * particularly when dealing with {@link com.sun.source.tree.NewClassTree} (e.g., {@code new
+   * Foo<@Nullable A>}).
    *
    * @param tree A tree for which we need the type with preserved annotations.
    * @return Type of the tree with preserved annotations.
@@ -258,18 +262,20 @@ public final class GenericsChecks {
       return;
     }
 
-    Type methodType = methodSymbol.getReturnType();
+    Type formalReturnType = methodSymbol.getReturnType();
     // check nullability of parameters only for generics
-    if (methodType.getTypeArguments().isEmpty()) {
+    if (formalReturnType.getTypeArguments().isEmpty()) {
       return;
     }
     Type returnExpressionType = getTreeType(retExpr);
-    if (methodType instanceof Type.ClassType && returnExpressionType instanceof Type.ClassType) {
+    if (formalReturnType instanceof Type.ClassType
+        && returnExpressionType instanceof Type.ClassType) {
       boolean isReturnTypeValid =
           compareNullabilityAnnotations(
-              (Type.ClassType) methodType, (Type.ClassType) returnExpressionType);
+              (Type.ClassType) formalReturnType, (Type.ClassType) returnExpressionType);
       if (!isReturnTypeValid) {
-        reportInvalidReturnTypeError(retExpr, methodType, returnExpressionType, state, analysis);
+        reportInvalidReturnTypeError(
+            retExpr, formalReturnType, returnExpressionType, state, analysis);
       }
     }
   }
@@ -399,11 +405,17 @@ public final class GenericsChecks {
   }
 
   /**
-   * For the Generic conditional expressions, Check whether the type parameters for the sub-parts of
-   * the conditional statement have the same nullability annotations as the nullability annotations
-   * of the type parameters for the LHS expression
+   * For a conditional expression <em>c</em>, check whether the type parameter nullability for each
+   * sub-expression of <em>c</em> matches the type parameter nullability of <em>c</em> itself.
    *
-   * @param tree A conditional expression tree to check the @Nullable annotations.
+   * <p>Note that the type parameter nullability for <em>c</em> is computed by javac and reflects
+   * what is required of the surrounding context (an assignment, parameter pass, etc.). It is
+   * possible that both sub-expressions of <em>c</em> will have identical type parameter
+   * nullability, but will still not match the type parameter nullability of <em>c</em> itself, due
+   * to requirements from the surrounding context. In such a case, our error messages may be
+   * somewhat confusing; we may want to improve this in the future.
+   *
+   * @param tree A conditional expression tree to check
    */
   public void checkTypeParameterNullnessForConditionalExpression(ConditionalExpressionTree tree) {
     if (!config.isJSpecifyMode()) {

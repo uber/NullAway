@@ -495,11 +495,11 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static class A<T extends @Nullable Object> { }",
             "  static A<String> testPositive1() {",
-            "   // BUG: Diagnostic contains: Cannot return",
+            "   // BUG: Diagnostic contains: mismatched nullability of type parameters",
             "   return new A<@Nullable String>();",
             "  }",
             "  static A<@Nullable String> testPositive2() {",
-            "   // BUG: Diagnostic contains: Cannot return",
+            "   // BUG: Diagnostic contains: mismatched nullability of type parameters",
             "   return new A<String>();",
             "  }",
             "  static A<@Nullable String> testNegative() {",
@@ -519,7 +519,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static class A<T extends @Nullable Object> { }",
             "  static A<String> testPositive(A<@Nullable String> a) {",
-            "   // BUG: Diagnostic contains: Cannot return",
+            "   // BUG: Diagnostic contains: mismatched nullability of type parameters",
             "   return a;",
             "  }",
             "  static A<@Nullable String> testNegative(A<@Nullable String> a) {",
@@ -540,7 +540,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  static class A<T extends @Nullable Object> { }",
             "  static A<String> testPositive(A<@Nullable String> a, int num) {",
             "   if (num % 2 == 0) {",
-            "    // BUG: Diagnostic contains: Cannot return",
+            "    // BUG: Diagnostic contains: mismatched nullability of type parameters",
             "     return a;",
             "    } else {",
             "     return new A<String>();",
@@ -623,6 +623,30 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  static void testNegative(boolean t) {",
             "    A<@Nullable String> t1 = t ? new C<@Nullable String>() :",
             "        (t ? new B<@Nullable String>() : new A<@Nullable String>());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void ternaryMismatchedAssignmentContext() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "static class A<T extends @Nullable Object> { }",
+            "  static void testPositive(boolean t) {",
+            "    // we get two errors here, one for each sub-expression; perhaps ideally we would report",
+            "    // just one error (that the ternary operator has type A<String> but the assignment LHS",
+            "    // has type A<@Nullable String>), but implementing that check in general is",
+            "    // a bit tricky",
+            "    A<@Nullable String> t1 = t",
+            "        // BUG: Diagnostic contains: Conditional expression must have type",
+            "        ? new A<String>()",
+            "        // BUG: Diagnostic contains: Conditional expression must have type",
+            "        : new A<String>();",
             "  }",
             "}")
         .doTest();
