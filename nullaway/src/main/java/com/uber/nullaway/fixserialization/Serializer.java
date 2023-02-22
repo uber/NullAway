@@ -77,7 +77,9 @@ public class Serializer {
     if (enclosing) {
       suggestedNullableFixInfo.initEnclosing();
     }
-    appendToFile(suggestedNullableFixInfo.tabSeparatedToString(), suggestedFixesOutputPath);
+    appendToFile(
+        suggestedNullableFixInfo.tabSeparatedToString(serializationAdapter),
+        suggestedFixesOutputPath);
   }
 
   /**
@@ -91,7 +93,7 @@ public class Serializer {
   }
 
   public void serializeFieldInitializationInfo(FieldInitializationInfo info) {
-    appendToFile(info.tabSeparatedToString(), fieldInitializationOutputPath);
+    appendToFile(info.tabSeparatedToString(serializationAdapter), fieldInitializationOutputPath);
   }
 
   /** Cleared the content of the file if exists and writes the header in the first line. */
@@ -201,9 +203,10 @@ public class Serializer {
    * Serializes the given {@link Symbol} to a string.
    *
    * @param symbol The symbol to serialize.
+   * @param adapter adapter used to serialize symbols.
    * @return The serialized symbol.
    */
-  public static String serializeSymbol(@Nullable Symbol symbol) {
+  public static String serializeSymbol(@Nullable Symbol symbol, SerializationAdapter adapter) {
     if (symbol == null) {
       return "null";
     }

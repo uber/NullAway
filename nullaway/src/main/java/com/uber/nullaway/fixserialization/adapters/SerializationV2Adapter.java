@@ -67,13 +67,13 @@ public class SerializationV2Adapter implements SerializationAdapter {
         "\t",
         errorInfo.getErrorMessage().getMessageType().toString(),
         SerializationService.escapeSpecialCharacters(errorInfo.getErrorMessage().getMessage()),
-        Serializer.serializeSymbol(errorInfo.getRegionClass()),
-        Serializer.serializeSymbol(errorInfo.getRegionMember()),
+        Serializer.serializeSymbol(errorInfo.getRegionClass(), this),
+        Serializer.serializeSymbol(errorInfo.getRegionMember(), this),
         String.valueOf(errorInfo.getOffset()),
         errorInfo.getPath() != null ? errorInfo.getPath().toString() : "null",
         (errorInfo.getNonnullTarget() != null
             ? SymbolLocation.createLocationFromSymbol(errorInfo.getNonnullTarget())
-                .tabSeparatedToString()
+                .tabSeparatedToString(this)
             : EMPTY_NONNULL_TARGET_LOCATION_STRING));
   }
 
