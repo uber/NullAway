@@ -440,7 +440,9 @@ public final class GenericsChecks {
   }
 
   public void compareNullabilityOfGenericParameters(
-      List<Symbol.VarSymbol> formalParams, List<? extends ExpressionTree> actualParams) {
+      List<Symbol.VarSymbol> formalParams,
+      List<? extends ExpressionTree> actualParams,
+      boolean isVarArgs) {
     if (!config.isJSpecifyMode()) {
       return;
     }
@@ -463,10 +465,8 @@ public final class GenericsChecks {
         }
       }
     }
-    // Check for vararg
-    // Vararg will always be the last parameter
-    Type lastFormalParamType = formalParams.get(formalParams.size() - 1).type;
-    if (lastFormalParamType instanceof Type.ArrayType) {
+    if (isVarArgs) {
+      Type lastFormalParamType = formalParams.get(formalParams.size() - 1).type;
       Type formalParameter = ((Type.ArrayType) lastFormalParamType).elemtype;
       if (formalParameter.getTypeArguments().size() > 0) {
         for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
