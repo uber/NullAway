@@ -136,6 +136,12 @@ public class ErrorDisplayV1 implements Display {
         + '}';
   }
 
+  /**
+   * Returns the corresponding {@link DisplayFactory} for creating {@link ErrorDisplayV1} objects
+   * from an array of strings.
+   *
+   * @return a {@link DisplayFactory} for {@link ErrorDisplayV1} objects.
+   */
   public static DisplayFactory<ErrorDisplayV1> getFactory() {
     return values -> {
       Preconditions.checkArgument(
