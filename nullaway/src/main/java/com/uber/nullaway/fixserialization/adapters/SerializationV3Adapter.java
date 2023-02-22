@@ -34,7 +34,7 @@ import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 
 /**
- * Adapter for serialization version 2.
+ * Adapter for serialization version 3.
  *
  * <p>Updates to previous version (version 1):
  *
