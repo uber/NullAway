@@ -169,8 +169,12 @@ public final class GenericsChecks {
   }
 
   /**
-   * This method returns type of the tree considering that the parameterized typed tree annotations
-   * are not preserved if obtained directly using ASTHelpers.
+   * This method returns the type of the given tree, including any type use annotations.
+   *
+   * <p>This method is required because in some cases, the type returned by {@link
+   * com.google.errorprone.util.ASTHelpers#getType(Tree)} fails to preserve type use annotations,
+   * particularly when dealing with {@link com.sun.source.tree.NewClassTree} (e.g., {@code new
+   * Foo<@Nullable A>}).
    *
    * @param tree A tree for which we need the type with preserved annotations.
    * @return Type of the tree with preserved annotations.
@@ -239,18 +243,20 @@ public final class GenericsChecks {
       return;
     }
 
-    Type methodType = methodSymbol.getReturnType();
+    Type formalReturnType = methodSymbol.getReturnType();
     // check nullability of parameters only for generics
-    if (methodType.getTypeArguments().isEmpty()) {
+    if (formalReturnType.getTypeArguments().isEmpty()) {
       return;
     }
     Type returnExpressionType = getTreeType(retExpr);
-    if (methodType instanceof Type.ClassType && returnExpressionType instanceof Type.ClassType) {
+    if (formalReturnType instanceof Type.ClassType
+        && returnExpressionType instanceof Type.ClassType) {
       boolean isReturnTypeValid =
           compareNullabilityAnnotations(
-              (Type.ClassType) methodType, (Type.ClassType) returnExpressionType);
+              (Type.ClassType) formalReturnType, (Type.ClassType) returnExpressionType);
       if (!isReturnTypeValid) {
-        reportInvalidReturnTypeError(retExpr, methodType, returnExpressionType, state, analysis);
+        reportInvalidReturnTypeError(
+            retExpr, formalReturnType, returnExpressionType, state, analysis);
       }
     }
   }
