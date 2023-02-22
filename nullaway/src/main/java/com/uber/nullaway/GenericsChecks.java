@@ -169,24 +169,23 @@ public final class GenericsChecks {
   }
 
   private void reportInvalidParametersNullabilityError(
-      Type formalParameter,
-      Type actualParameter,
-      ExpressionTree expressionTree,
+      Type formalParameterType,
+      Type actualParameterType,
+      ExpressionTree paramExpression,
       VisitorState state,
       NullAway analysis) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
-            String.format(
-                "Cannot invoke the method as the "
-                    + actualParameter
-                    + " type parameter passed to the "
-                    + formalParameter
-                    + " type formal parameter"));
+            "Cannot pass parameter of type "
+                + actualParameterType
+                + ", as formal parameter has type "
+                + formalParameterType
+                + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(expressionTree), state, null));
+            errorMessage, analysis.buildDescription(paramExpression), state, null));
   }
   /**
    * This method returns type of the tree considering that the parameterized typed tree annotations
