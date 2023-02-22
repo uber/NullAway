@@ -46,6 +46,7 @@ public class FieldInitializationInfo {
   /**
    * Returns string representation of content of an object.
    *
+   * @param adapter adapter used to serialize symbols.
    * @return string representation of contents of an object in a line seperated by tabs.
    */
   public String tabSeparatedToString(SerializationAdapter adapter) {

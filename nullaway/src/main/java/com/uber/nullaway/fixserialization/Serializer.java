@@ -203,6 +203,7 @@ public class Serializer {
    * Serializes the given {@link Symbol} to a string.
    *
    * @param symbol The symbol to serialize.
+   * @param adapter adapter used to serialize symbols.
    * @return The serialized symbol.
    */
   public static String serializeSymbol(@Nullable Symbol symbol, SerializationAdapter adapter) {

@@ -69,6 +69,7 @@ public class SuggestedNullableFixInfo {
   /**
    * returns string representation of content of an object.
    *
+   * @param adapter adapter used to serialize symbols.
    * @return string representation of contents of an object in a line separated by tabs.
    */
   public String tabSeparatedToString(SerializationAdapter adapter) {

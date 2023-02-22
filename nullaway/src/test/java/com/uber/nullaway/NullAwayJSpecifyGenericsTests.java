@@ -155,7 +155,8 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  static class NullableTypeParam<E extends @Nullable Object> {}",
             "  // BUG: Diagnostic contains: Generic type parameter",
             "  static NonNullTypeParam<@Nullable String> testBadNonNull() {",
-            "    return new NonNullTypeParam<String>();",
+            "    // BUG: Diagnostic contains: Generic type parameter",
+            "    return new NonNullTypeParam<@Nullable String>();",
             "  }",
             "  static NullableTypeParam<@Nullable String> testOKNull() {",
             "    return new NullableTypeParam<@Nullable String>();",
@@ -483,6 +484,74 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  }",
             "  static void testNegative() {",
             "    A<Object> p = new B<>();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void genericFunctionReturnTypeNewClassTree() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static A<String> testPositive1() {",
+            "   // BUG: Diagnostic contains: mismatched nullability of type parameters",
+            "   return new A<@Nullable String>();",
+            "  }",
+            "  static A<@Nullable String> testPositive2() {",
+            "   // BUG: Diagnostic contains: mismatched nullability of type parameters",
+            "   return new A<String>();",
+            "  }",
+            "  static A<@Nullable String> testNegative() {",
+            "   return new A<@Nullable String>();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void genericFunctionReturnTypeNormalTree() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static A<String> testPositive(A<@Nullable String> a) {",
+            "   // BUG: Diagnostic contains: mismatched nullability of type parameters",
+            "   return a;",
+            "  }",
+            "  static A<@Nullable String> testNegative(A<@Nullable String> a) {",
+            "   return a;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void genericFunctionReturnTypeMultipleReturnStatementsIfElseBlock() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static A<String> testPositive(A<@Nullable String> a, int num) {",
+            "   if (num % 2 == 0) {",
+            "    // BUG: Diagnostic contains: mismatched nullability of type parameters",
+            "     return a;",
+            "    } else {",
+            "     return new A<String>();",
+            "    }",
+            "  }",
+            "  static A<String> testNegative(A<String> a, int num) {",
+            "    return a;",
             "  }",
             "}")
         .doTest();
