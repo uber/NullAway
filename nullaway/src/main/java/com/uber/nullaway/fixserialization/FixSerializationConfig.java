@@ -136,6 +136,9 @@ public class FixSerializationConfig {
     switch (version) {
       case 1:
         return new SerializationV1Adapter();
+      case 2:
+        throw new RuntimeException(
+            "Serialization version v2 is skipped and was used for an alpha version of the auto-annotator tool. Please use version 3 instead.");
       case 3:
         return new SerializationV3Adapter();
       default:
