@@ -1431,7 +1431,8 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   public void verifySerializationVersionIsSerialized() {
     // Check for serialization version 1.
     checkVersionSerialization(1);
-    // Check for serialization version 3 (recall: 2 is skipped and was only used for an alpha release of auto-annotator).
+    // Check for serialization version 3 (recall: 2 is skipped and was only used for an alpha
+    // release of auto-annotator).
     checkVersionSerialization(3);
   }
 
