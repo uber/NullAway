@@ -2204,8 +2204,9 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
-            // toString() call on method symbol will serialize the annotation below which should not
-            // be present in string representation fo a method signature.
+            // correct serialization of names for constructors invoked while creating anonymous
+            // inner classes, where the name is technically the name of the super-class, not of the
+            // anonymous inner class
             "com/uber/Foo.java",
             "package com.uber;",
             "public class Foo {",
