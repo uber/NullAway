@@ -183,7 +183,7 @@ public class NullAwayCustomLibraryModelsTests extends NullAwayTestsBase {
             "import javax.annotation.Nullable;",
             "public class OverrideCheck extends UnannotatedWithModels {",
             "  @Nullable", // Still safe, because the method is not @NonNull, it's unannotated
-                           // without model!
+            // without model!
             "  public Object returnsNullUnannotated() {",
             "     return null;",
             "  }",
