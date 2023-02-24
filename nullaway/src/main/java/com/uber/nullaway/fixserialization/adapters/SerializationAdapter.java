@@ -37,7 +37,7 @@ public interface SerializationAdapter {
    * Latest version number. If version is not defined by the user, NullAway will use the
    * corresponding adapter to this version in its serialization.
    */
-  int LATEST_VERSION = 2;
+  int LATEST_VERSION = 3;
 
   /**
    * Returns header of "errors.tsv" which contains all serialized {@link ErrorInfo} reported by
