@@ -296,7 +296,7 @@ public abstract class AbstractConfig implements Config {
 
   @Override
   public boolean isSkippedLibraryModel(String classDotMethod) {
-    return skippedLibraryModels.stream().anyMatch(classDotMethod::equals);
+    return skippedLibraryModels.contains(classDotMethod);
   }
 
   @AutoValue
