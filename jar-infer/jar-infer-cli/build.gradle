@@ -67,12 +67,8 @@ publishing {
             // Since we are skipping the default maven publication, we append the `:sources` and
             // `:javadoc` artifacts here. They are also required for Maven Central validation.
             afterEvaluate {
-                artifact project.sourcesJar {
-                    //archiveClassifier "sources"
-                }
-                artifact project.javadocsJar {
-                    //archiveClassifier "javadoc"
-                }
+                artifact project.sourcesJar
+                artifact project.javadocsJar
             }
             // The shadow publication does not auto-configure the pom.xml file for us, so we need to
             // set it up manually. We use the opportunity to change the name and description from
