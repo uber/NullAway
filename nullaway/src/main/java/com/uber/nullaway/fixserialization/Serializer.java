@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.fixserialization;
 
+import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
@@ -76,7 +77,9 @@ public class Serializer {
     if (enclosing) {
       suggestedNullableFixInfo.initEnclosing();
     }
-    appendToFile(suggestedNullableFixInfo.tabSeparatedToString(), suggestedFixesOutputPath);
+    appendToFile(
+        suggestedNullableFixInfo.tabSeparatedToString(serializationAdapter),
+        suggestedFixesOutputPath);
   }
 
   /**
@@ -90,7 +93,7 @@ public class Serializer {
   }
 
   public void serializeFieldInitializationInfo(FieldInitializationInfo info) {
-    appendToFile(info.tabSeparatedToString(), fieldInitializationOutputPath);
+    appendToFile(info.tabSeparatedToString(serializationAdapter), fieldInitializationOutputPath);
   }
 
   /** Cleared the content of the file if exists and writes the header in the first line. */
@@ -193,6 +196,29 @@ public class Serializer {
       // In this case, we still would like to continue the serialization instead of returning null
       // and not serializing anything.
       return path;
+    }
+  }
+
+  /**
+   * Serializes the given {@link Symbol} to a string.
+   *
+   * @param symbol The symbol to serialize.
+   * @param adapter adapter used to serialize symbols.
+   * @return The serialized symbol.
+   */
+  public static String serializeSymbol(@Nullable Symbol symbol, SerializationAdapter adapter) {
+    if (symbol == null) {
+      return "null";
+    }
+    switch (symbol.getKind()) {
+      case FIELD:
+      case PARAMETER:
+        return symbol.name.toString();
+      case METHOD:
+      case CONSTRUCTOR:
+        return adapter.serializeMethodSignature((Symbol.MethodSymbol) symbol);
+      default:
+        return symbol.flatName().toString();
     }
   }
 }
