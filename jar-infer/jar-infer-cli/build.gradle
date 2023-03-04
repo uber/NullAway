@@ -36,7 +36,7 @@ jar {
 shadowJar {
     mergeServiceFiles()
     configurations = [project.configurations.runtimeClasspath]
-    classifier = null
+    archiveClassifier = ""
 }
 shadowJar.dependsOn jar
 assemble.dependsOn shadowJar
@@ -68,10 +68,10 @@ publishing {
             // `:javadoc` artifacts here. They are also required for Maven Central validation.
             afterEvaluate {
                 artifact project.sourcesJar {
-                    classifier "sources"
+                    //archiveClassifier "sources"
                 }
                 artifact project.javadocsJar {
-                    classifier "javadoc"
+                    //archiveClassifier "javadoc"
                 }
             }
             // The shadow publication does not auto-configure the pom.xml file for us, so we need to
