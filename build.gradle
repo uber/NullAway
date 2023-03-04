@@ -22,7 +22,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.0.4'
+        classpath 'com.android.tools.build:gradle:7.3.0'
         classpath 'com.vanniktech:gradle-maven-publish-plugin:0.14.2'
         // This restriction is needed due to our mix of Android and Java modules;
         // without it, the build fails with a weird error.
