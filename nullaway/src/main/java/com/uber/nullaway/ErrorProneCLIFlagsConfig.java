@@ -72,6 +72,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_OPTIONAL_CLASS_PATHS =
       EP_FL_NAMESPACE + ":CheckOptionalEmptinessCustomClasses";
   static final String FL_SUPPRESS_COMMENT = EP_FL_NAMESPACE + ":AutoFixSuppressionComment";
+
+  static final String FL_SKIP_LIBRARY_MODELS = EP_FL_NAMESPACE + ":IgnoreLibraryModelsFor";
+
   /** --- JarInfer configs --- */
   static final String FL_JI_ENABLED = EP_FL_NAMESPACE + ":JarInferEnabled";
 
@@ -209,6 +212,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
       throw new IllegalStateException(
           "Invalid -XepOpt:" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
     }
+    skippedLibraryModels = getFlagStringSet(flags, FL_SKIP_LIBRARY_MODELS);
     /** --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
     jarInferUseReturnAnnotations = flags.getBoolean(FL_JI_USE_RETURN).orElse(false);
