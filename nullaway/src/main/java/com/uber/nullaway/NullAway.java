@@ -2191,7 +2191,7 @@ public class NullAway extends BugChecker
       return false;
     }
     // the logic here is to avoid doing dataflow analysis whenever possible
-    @Nullable Symbol exprSymbol = ASTHelpers.getSymbol(expr);
+    Symbol exprSymbol = ASTHelpers.getSymbol(expr);
     boolean exprMayBeNull;
     switch (expr.getKind()) {
       case NULL_LITERAL:
