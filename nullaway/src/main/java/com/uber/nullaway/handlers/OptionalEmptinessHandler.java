@@ -82,9 +82,14 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
   @Override
   public boolean onOverrideMayBeNullExpr(
-      NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
-    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
-        && optionalIsGetCall((Symbol.MethodSymbol) ASTHelpers.getSymbol(expr), state.getTypes())) {
+      NullAway analysis,
+      ExpressionTree expr,
+      @Nullable Symbol exprSymbol,
+      VisitorState state,
+      boolean exprMayBeNull) {
+    if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)
+        && exprSymbol instanceof Symbol.MethodSymbol
+        && optionalIsGetCall((Symbol.MethodSymbol) exprSymbol, state.getTypes())) {
       return true;
     }
     return exprMayBeNull;
@@ -109,14 +114,13 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
+      Symbol.MethodSymbol symbol,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(node.getTree());
-
     Types types = state.getTypes();
     if (optionalIsPresentCall(symbol, types)) {
       updateNonNullAPsForOptionalContent(

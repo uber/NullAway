@@ -23,7 +23,6 @@
 package com.uber.nullaway.handlers;
 
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
@@ -72,11 +71,16 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
 
   @Override
   public boolean onOverrideMayBeNullExpr(
-      NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
+      NullAway analysis,
+      ExpressionTree expr,
+      @Nullable Symbol exprSymbol,
+      VisitorState state,
+      boolean exprMayBeNull) {
     Tree.Kind exprKind = expr.getKind();
-    if (exprKind.equals(Tree.Kind.METHOD_INVOCATION) || exprKind.equals(Tree.Kind.IDENTIFIER)) {
-      Symbol symbol = ASTHelpers.getSymbol(expr);
-      return exprMayBeNull || isSymbolRestrictivelyNullable(symbol, state.context);
+    if (exprSymbol != null
+        && (exprKind.equals(Tree.Kind.METHOD_INVOCATION)
+            || exprKind.equals(Tree.Kind.IDENTIFIER))) {
+      return exprMayBeNull || isSymbolRestrictivelyNullable(exprSymbol, state.context);
     }
     return exprMayBeNull;
   }
@@ -148,13 +152,13 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
+      Symbol.MethodSymbol methodSymbol,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
     return isSymbolRestrictivelyNullable(methodSymbol, state.context)
         ? NullnessHint.HINT_NULLABLE
         : NullnessHint.UNKNOWN;
@@ -169,7 +173,6 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates updates) {
-    ;
     return isSymbolRestrictivelyNullable(symbol, context)
         ? NullnessHint.HINT_NULLABLE
         : NullnessHint.UNKNOWN;
