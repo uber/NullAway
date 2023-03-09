@@ -10,6 +10,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
@@ -145,6 +146,23 @@ public final class GenericsChecks {
                     + " from method with return type "
                     + methodType
                     + " due to mismatched nullability of type parameters"));
+    state.reportMatch(
+        errorBuilder.createErrorDescription(
+            errorMessage, analysis.buildDescription(tree), state, null));
+  }
+
+  private static void reportMismatchedTypeForTernaryOperator(
+      Tree tree, Type expressionType, Type subPartType, VisitorState state, NullAway analysis) {
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
+            String.format(
+                "Conditional expression must have type "
+                    + expressionType
+                    + " but the sub-expression has type "
+                    + subPartType
+                    + ", which has mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(tree), state, null));
@@ -365,5 +383,50 @@ public final class GenericsChecks {
         new Type.ClassType(
             type.getEnclosingType(), com.sun.tools.javac.util.List.from(newTypeArgs), type.tsym);
     return finalType;
+  }
+
+  /**
+   * For a conditional expression <em>c</em>, check whether the type parameter nullability for each
+   * sub-expression of <em>c</em> matches the type parameter nullability of <em>c</em> itself.
+   *
+   * <p>Note that the type parameter nullability for <em>c</em> is computed by javac and reflects
+   * what is required of the surrounding context (an assignment, parameter pass, etc.). It is
+   * possible that both sub-expressions of <em>c</em> will have identical type parameter
+   * nullability, but will still not match the type parameter nullability of <em>c</em> itself, due
+   * to requirements from the surrounding context. In such a case, our error messages may be
+   * somewhat confusing; we may want to improve this in the future.
+   *
+   * @param tree A conditional expression tree to check
+   */
+  public void checkTypeParameterNullnessForConditionalExpression(ConditionalExpressionTree tree) {
+    if (!config.isJSpecifyMode()) {
+      return;
+    }
+
+    Tree truePartTree = tree.getTrueExpression();
+    Tree falsePartTree = tree.getFalseExpression();
+
+    Type condExprType = getTreeType(tree);
+    Type truePartType = getTreeType(truePartTree);
+    Type falsePartType = getTreeType(falsePartTree);
+    // The condExpr type should be the least-upper bound of the true and false part types.  To check
+    // the nullability annotations, we check that the true and false parts are assignable to the
+    // type of the whole expression
+    if (condExprType instanceof Type.ClassType) {
+      if (truePartType instanceof Type.ClassType) {
+        if (!compareNullabilityAnnotations(
+            (Type.ClassType) condExprType, (Type.ClassType) truePartType)) {
+          reportMismatchedTypeForTernaryOperator(
+              truePartTree, condExprType, truePartType, state, analysis);
+        }
+      }
+      if (falsePartType instanceof Type.ClassType) {
+        if (!compareNullabilityAnnotations(
+            (Type.ClassType) condExprType, (Type.ClassType) falsePartType)) {
+          reportMismatchedTypeForTernaryOperator(
+              falsePartTree, condExprType, falsePartType, state, analysis);
+        }
+      }
+    }
   }
 }
