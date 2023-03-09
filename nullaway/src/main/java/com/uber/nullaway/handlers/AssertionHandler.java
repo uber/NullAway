@@ -45,17 +45,13 @@ public class AssertionHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
+      Symbol.MethodSymbol callee,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
-    if (callee == null) {
-      return NullnessHint.UNKNOWN;
-    }
-
     if (!methodNameUtil.isUtilInitialized()) {
       methodNameUtil.initializeMethodNames(callee.name.table);
     }

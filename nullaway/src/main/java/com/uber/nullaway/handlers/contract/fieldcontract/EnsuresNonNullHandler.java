@@ -25,7 +25,6 @@ package com.uber.nullaway.handlers.contract.fieldcontract;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.getAnnotationValueArray;
 
-import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MethodTree;
@@ -174,6 +173,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
+      Symbol.MethodSymbol methodSymbol,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
@@ -184,10 +184,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       // A synthetic node might be inserted by the Checker Framework during CFG construction, it is
       // safer to do a null check here.
       return super.onDataflowVisitMethodInvocation(
-          node, state, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
+          node, methodSymbol, state, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
     }
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-    Preconditions.checkNotNull(methodSymbol);
     Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames != null) {
       fieldNames = ContractUtils.trimReceivers(fieldNames);
@@ -208,6 +206,6 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       }
     }
     return super.onDataflowVisitMethodInvocation(
-        node, state, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
+        node, methodSymbol, state, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
   }
 }

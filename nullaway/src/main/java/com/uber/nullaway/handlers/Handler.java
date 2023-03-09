@@ -141,13 +141,18 @@ public interface Handler {
    *
    * @param analysis A reference to the running NullAway analysis.
    * @param expr The expression in question.
+   * @param exprSymbol The symbol of the expression, might be null
    * @param state The current visitor state.
    * @param exprMayBeNull Whether or not the expression may be null according to the base analysis
    *     or upstream handlers.
    * @return Whether or not the expression may be null, as updated by this handler.
    */
   boolean onOverrideMayBeNullExpr(
-      NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull);
+      NullAway analysis,
+      ExpressionTree expr,
+      @Nullable Symbol exprSymbol,
+      VisitorState state,
+      boolean exprMayBeNull);
 
   /**
    * Called to potentially override the nullability of an annotated or unannotated method's return,
@@ -217,6 +222,7 @@ public interface Handler {
    * Called when the Dataflow analysis visits each method invocation.
    *
    * @param node The AST node for the method callsite.
+   * @param symbol The symbol of the called method
    * @param state The current visitor state.
    * @param apContext the current access path context information (see {@link
    *     AccessPath.AccessPathContext}).
@@ -233,6 +239,7 @@ public interface Handler {
    */
   NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
+      Symbol.MethodSymbol symbol,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
