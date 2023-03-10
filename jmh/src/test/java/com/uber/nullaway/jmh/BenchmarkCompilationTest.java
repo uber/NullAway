@@ -20,8 +20,7 @@ public class BenchmarkCompilationTest {
 
   @Test
   public void testNullawayRelease() throws IOException {
-    // FIXME: old release needs option to disable model for ASTHelpers.getSymbol
-    // assertTrue(new NullawayReleaseCompiler().compile());
+    assertTrue(new NullawayReleaseCompiler().compile());
   }
 
   @Test
