@@ -79,6 +79,7 @@ public class GrpcHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
+      Symbol.MethodSymbol symbol,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
@@ -86,7 +87,6 @@ public class GrpcHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     MethodInvocationTree tree = castToNonNull(node.getTree());
-    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(tree);
     Types types = state.getTypes();
     if (grpcIsMetadataContainsKeyCall(symbol, types)) {
       // On seeing o.containsKey(k), set AP for o.get(k) to @NonNull
@@ -94,7 +94,9 @@ public class GrpcHandler extends BaseNoOpHandler {
       Node base = node.getTarget().getReceiver();
       // Argument list and types should be already checked by grpcIsMetadataContainsKeyCall
       Symbol keyArgSymbol = ASTHelpers.getSymbol(tree.getArguments().get(0));
-      if (getter != null && keyArgSymbol.getKind().equals(ElementKind.FIELD)) {
+      if (getter != null
+          && keyArgSymbol instanceof Symbol.VarSymbol
+          && keyArgSymbol.getKind().equals(ElementKind.FIELD)) {
         Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) keyArgSymbol;
         String immutableFieldFQN =
             varSymbol.enclClass().flatName().toString() + "." + varSymbol.flatName().toString();

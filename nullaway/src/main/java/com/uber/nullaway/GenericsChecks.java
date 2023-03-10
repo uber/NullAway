@@ -187,6 +187,7 @@ public final class GenericsChecks {
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(paramExpression), state, null));
   }
+
   /**
    * This method returns the type of the given tree, including any type use annotations.
    *
@@ -422,11 +423,9 @@ public final class GenericsChecks {
       return;
     }
 
-    Tree truePartTree;
-    Tree falsePartTree;
+    Tree truePartTree = tree.getTrueExpression();
+    Tree falsePartTree = tree.getFalseExpression();
 
-    truePartTree = tree.getTrueExpression();
-    falsePartTree = tree.getFalseExpression();
     Type condExprType = getTreeType(tree);
     Type truePartType = getTreeType(truePartTree);
     Type falsePartType = getTreeType(falsePartTree);

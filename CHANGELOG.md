@@ -1,5 +1,24 @@
 Changelog
 =========
+Version 0.10.10
+---------------
+* Add command line option to skip specific library models. (#741)
+* Support for specific libraries/APIs:
+  - Model Map.getOrDefault (#724)
+  - Model Class.cast (#731)
+  - Model Class.isInstance (#732)
+* Internal code refactorings:
+  - Refactor code to use Map.getOrDefault where possible (#727)
+  - Break loops when result can no longer change (#728)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - JSpecify: initial checks for generic type compatibility at assignments (#715)
+  - Add JSpecify checking for return statements (#734)
+* NullAwayInfer/Annotator data serialization support [experimental]
+  - Refactoring in symbol serialization (#736)
+  - Refactoring tabSeparatedToString logic to prepare for serialization version 3 (#738)
+  - Update method serialization to exclude type use annotations and type arguments (#735)
+* Docs fix: -XepExcludedPaths was added in 2.1.3, not 2.13 (#744)
+
 Version 0.10.9
 --------------
 * Add support for external init annotations in constructors (#725)

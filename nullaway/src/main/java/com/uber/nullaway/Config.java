@@ -249,6 +249,20 @@ public interface Config {
    */
   String getAutofixSuppressionComment();
 
+  /**
+   * Checks if the given library model should be skipped/ignored.
+   *
+   * <p>For ease of configuration in the command line, this works at the level of the (class, method
+   * name) pair, meaning it applies for all methods with the same name in the same class, even if
+   * they have different signatures, and to all library models applicable to that method (i.e. on
+   * the method's return, arguments, etc).
+   *
+   * @param classDotMethod The method from the model, in [fully_qualified_class_name].[method_name]
+   *     format (no args)
+   * @return True if the library model should be skipped.
+   */
+  boolean isSkippedLibraryModel(String classDotMethod);
+
   // --- JarInfer configs ---
 
   /**

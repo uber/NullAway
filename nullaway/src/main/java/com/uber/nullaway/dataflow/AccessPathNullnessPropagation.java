@@ -718,7 +718,7 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitFieldAccess(
       FieldAccessNode fieldAccessNode, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates updates = new ReadableUpdates();
-    Symbol symbol = ASTHelpers.getSymbol(fieldAccessNode.getTree());
+    Symbol symbol = Preconditions.checkNotNull(ASTHelpers.getSymbol(fieldAccessNode.getTree()));
     setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
     Nullness nullness = NULLABLE;
     boolean fieldMayBeNull;
@@ -917,15 +917,16 @@ public class AccessPathNullnessPropagation
     ReadableUpdates elseUpdates = new ReadableUpdates();
     ReadableUpdates bothUpdates = new ReadableUpdates();
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
-    Preconditions.checkNotNull(callee);
+    Preconditions.checkNotNull(
+        callee); // this could be null before https://github.com/google/error-prone/pull/2902
     setReceiverNonnull(bothUpdates, node.getTarget().getReceiver(), callee);
     setNullnessForMapCalls(
         node, callee, node.getArguments(), values(input), thenUpdates, bothUpdates);
     NullnessHint nullnessHint =
         handler.onDataflowVisitMethodInvocation(
-            node, state, apContext, values(input), thenUpdates, elseUpdates, bothUpdates);
+            node, callee, state, apContext, values(input), thenUpdates, elseUpdates, bothUpdates);
     Nullness nullness = returnValueNullness(node, input, nullnessHint);
-    if (booleanReturnType(node)) {
+    if (booleanReturnType(callee)) {
       ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates, bothUpdates);
       ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates, bothUpdates);
       return conditionalResult(
@@ -984,9 +985,8 @@ public class AccessPathNullnessPropagation
     }
   }
 
-  private boolean booleanReturnType(MethodInvocationNode node) {
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-    return methodSymbol != null && methodSymbol.getReturnType().getTag() == TypeTag.BOOLEAN;
+  private static boolean booleanReturnType(Symbol.MethodSymbol methodSymbol) {
+    return methodSymbol.getReturnType().getTag() == TypeTag.BOOLEAN;
   }
 
   Nullness returnValueNullness(

@@ -30,7 +30,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
-import com.uber.nullaway.fixserialization.adapters.SerializationV2Adapter;
+import com.uber.nullaway.fixserialization.adapters.SerializationV3Adapter;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import com.uber.nullaway.tools.DisplayFactory;
@@ -67,7 +67,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   private static final String SUGGEST_FIX_FILE_HEADER = SuggestedNullableFixInfo.header();
   private static final String ERROR_FILE_NAME = "errors.tsv";
   private static final String ERROR_FILE_HEADER =
-      new SerializationV2Adapter().getErrorsOutputFileHeader();
+      new SerializationV3Adapter().getErrorsOutputFileHeader();
   private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
   private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
 
@@ -383,7 +383,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
         .setExpectedOutputs(
             new FixDisplay(
                 "nullable",
-                "newStatement(T,java.util.ArrayList<T>,boolean,boolean)",
+                "newStatement(T,java.util.ArrayList,boolean,boolean)",
                 "lhs",
                 "PARAMETER",
                 "com.uber.Super",
@@ -1431,8 +1431,9 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   public void verifySerializationVersionIsSerialized() {
     // Check for serialization version 1.
     checkVersionSerialization(1);
-    // Check for serialization version 2.
-    checkVersionSerialization(2);
+    // Check for serialization version 3 (recall: 2 is skipped and was only used for an alpha
+    // release of auto-annotator).
+    checkVersionSerialization(3);
   }
 
   @Test
@@ -1789,6 +1790,58 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void constructorSerializationTest() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/A.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class A {",
+            "   @Nullable Object f;",
+            "   A(Object p){",
+            "       // BUG: Diagnostic contains: dereferenced expression",
+            "       Integer hashCode = f.hashCode();",
+            "   }",
+            "   public void bar(){",
+            "       // BUG: Diagnostic contains: passing @Nullable parameter",
+            "       A a = new A(null);",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "DEREFERENCE_NULLABLE",
+                "dereferenced expression f is @Nullable",
+                "com.uber.A",
+                "A(java.lang.Object)",
+                194,
+                "com/uber/A.java"),
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter",
+                "com.uber.A",
+                "bar()",
+                312,
+                "com/uber/A.java",
+                "PARAMETER",
+                "com.uber.A",
+                "A(java.lang.Object)",
+                "p",
+                "0",
+                "com/uber/A.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
   public void fieldRegionComputationWithMemberSelectForInnerClassTest() {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
@@ -1859,24 +1912,6 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
 
   @Test
   public void errorSerializationVersion1() {
-    DisplayFactory<ErrorDisplayV1> errorDisplayV1Factor =
-        values -> {
-          Preconditions.checkArgument(
-              values.length == 10,
-              "Needs exactly 10 values to create ErrorDisplay for version 1 object but found: "
-                  + values.length);
-          return new ErrorDisplayV1(
-              values[0],
-              values[1],
-              values[2],
-              values[3],
-              values[4],
-              values[5],
-              values[6],
-              values[7],
-              values[8],
-              SerializationTestHelper.getRelativePathFromUnitTestTempDirectory(values[9]));
-        };
     SerializationTestHelper<ErrorDisplayV1> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
@@ -1993,7 +2028,47 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
                 "null",
                 "null",
                 "com/uber/Super.java"))
-        .setFactory(errorDisplayV1Factor)
+        .setFactory(ErrorDisplayV1.getFactory())
+        .setOutputFileNameAndHeader(
+            ERROR_FILE_NAME, new SerializationV1Adapter().getErrorsOutputFileHeader())
+        .doTest();
+  }
+
+  @Test
+  public void typeArgumentSerializationForVersion1Test() {
+    SerializationTestHelper<ErrorDisplayV1> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=1",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "public class Foo {",
+            "   String test(Map<Object, String> o) {",
+            "       // BUG: Diagnostic contains: returning @Nullable expression",
+            "       return null;",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplayV1(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression",
+                "com.uber.Foo",
+                "test(java.util.Map<java.lang.Object,java.lang.String>)",
+                "METHOD",
+                "com.uber.Foo",
+                "test(java.util.Map<java.lang.Object,java.lang.String>)",
+                "null",
+                "null",
+                "com/uber/Foo.java"))
+        .setFactory(ErrorDisplayV1.getFactory())
         .setOutputFileNameAndHeader(
             ERROR_FILE_NAME, new SerializationV1Adapter().getErrorsOutputFileHeader())
         .doTest();
@@ -2048,5 +2123,115 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
       throw new RuntimeException(
           "Could not read serialization version at path: " + serializationVersionPath, e);
     }
+  }
+
+  @Test
+  public void varArgsWithTypeUseAnnotationMethodSerializationTest() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            // toString() call on method symbol will serialize the annotation below which should not
+            // be present in string representation fo a method signature.
+            "com/uber/Custom.java",
+            "package com.uber;",
+            "import java.lang.annotation.Target;",
+            "import static java.lang.annotation.ElementType.TYPE_USE;",
+            "@Target({TYPE_USE})",
+            "public @interface Custom { }")
+        .addSourceLines(
+            "com/uber/Test.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "import java.util.List;",
+            "public class Test {",
+            "   Object m1(@Custom List<Map<String, ?>>[] p2, @Custom Map<? extends String, ?> ... p) {",
+            "      // BUG: Diagnostic contains: returning @Nullable expression",
+            "      return null;",
+            "   }",
+            "   Object m2(@Custom List<?>[] p) {",
+            "      // BUG: Diagnostic contains: returning @Nullable expression",
+            "      return null;",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression",
+                "com.uber.Test",
+                "m1(java.util.List[],java.util.Map[])",
+                245,
+                "com/uber/Test.java",
+                "METHOD",
+                "com.uber.Test",
+                "m1(java.util.List[],java.util.Map[])",
+                "null",
+                "null",
+                "com/uber/Test.java"),
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression",
+                "com.uber.Test",
+                "m2(java.util.List[])",
+                371,
+                "com/uber/Test.java",
+                "METHOD",
+                "com.uber.Test",
+                "m2(java.util.List[])",
+                "null",
+                "null",
+                "com/uber/Test.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void anonymousSubClassConstructorSerializationTest() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            // correct serialization of names for constructors invoked while creating anonymous
+            // inner classes, where the name is technically the name of the super-class, not of the
+            // anonymous inner class
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "public class Foo {",
+            "  Foo(Object o) {}",
+            "  void bar() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    Foo f = new Foo(null) {};",
+            "  }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter",
+                "com.uber.Foo",
+                "bar()",
+                144,
+                "com/uber/Foo.java",
+                "PARAMETER",
+                "com.uber.Foo",
+                "Foo(java.lang.Object)",
+                "o",
+                "0",
+                "com/uber/Foo.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
   }
 }
