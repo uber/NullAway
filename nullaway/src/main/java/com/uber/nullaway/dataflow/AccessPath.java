@@ -429,7 +429,8 @@ public final class AccessPath implements MapKey {
             case IDENTIFIER: // check for CONST
               // Check for a constant field (static final)
               Symbol symbol = ASTHelpers.getSymbol(tree);
-              if (symbol.getKind().equals(ElementKind.FIELD)) {
+              if (symbol instanceof Symbol.VarSymbol
+                  && symbol.getKind().equals(ElementKind.FIELD)) {
                 Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) symbol;
                 // From docs: getConstantValue() returns the value of this variable if this is a
                 // static final field initialized to a compile-time constant. Returns null
