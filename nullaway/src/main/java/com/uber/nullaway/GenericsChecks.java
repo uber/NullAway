@@ -450,21 +450,24 @@ public final class GenericsChecks {
     }
   }
 
-  public void compareNullabilityOfGenericParameters(
+  /**
+   * Checks that for each parameter p at a call, the type parameter nullability for p's type matches
+   * that of the corresponding formal parameter. If a mismatch is found, report an error.
+   *
+   * @param formalParams the formal parameters
+   * @param actualParams the actual parameters
+   * @param isVarArgs true if the call is to a varargs method
+   */
+  public void compareGenericTypeParameterNullabilityForCall(
       List<Symbol.VarSymbol> formalParams,
       List<? extends ExpressionTree> actualParams,
       boolean isVarArgs) {
     if (!config.isJSpecifyMode()) {
       return;
     }
-    if (formalParams.size() == 0) {
-      return;
-    }
-    // Check if the parameters are generics and compare annotations for the actual and formal
-    // parameters
     for (int i = 0; i < formalParams.size(); i++) {
       Type formalParameter = formalParams.get(i).type;
-      if (formalParameter.getTypeArguments().size() > 0) {
+      if (!formalParameter.getTypeArguments().isEmpty()) {
         Type actualParameter = getTreeType(actualParams.get(i));
         if (formalParameter instanceof Type.ClassType
             && actualParameter instanceof Type.ClassType) {
@@ -476,18 +479,19 @@ public final class GenericsChecks {
         }
       }
     }
-    if (isVarArgs) {
-      Type lastFormalParamType = formalParams.get(formalParams.size() - 1).type;
-      Type formalParameter = ((Type.ArrayType) lastFormalParamType).elemtype;
-      if (formalParameter.getTypeArguments().size() > 0) {
+    if (isVarArgs && !formalParams.isEmpty()) {
+      Type.ArrayType varargsArrayType =
+          (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
+      Type varargsElementType = varargsArrayType.elemtype;
+      if (varargsElementType.getTypeArguments().size() > 0) {
         for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
           Type actualParameter = getTreeType(actualParams.get(i));
-          if (formalParameter instanceof Type.ClassType
+          if (varargsElementType instanceof Type.ClassType
               && actualParameter instanceof Type.ClassType) {
             if (!compareNullabilityAnnotations(
-                (Type.ClassType) formalParameter, (Type.ClassType) actualParameter)) {
+                (Type.ClassType) varargsElementType, (Type.ClassType) actualParameter)) {
               reportInvalidParametersNullabilityError(
-                  formalParameter, actualParameter, actualParams.get(i), state, analysis);
+                  varargsElementType, actualParameter, actualParams.get(i), state, analysis);
             }
           }
         }

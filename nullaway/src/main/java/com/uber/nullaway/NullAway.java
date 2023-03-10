@@ -1625,7 +1625,7 @@ public class NullAway extends BugChecker
         }
       }
       new GenericsChecks(state, config, this)
-          .compareNullabilityOfGenericParameters(
+          .compareGenericTypeParameterNullabilityForCall(
               formalParams, actualParams, methodSymbol.isVarArgs());
     }
 
