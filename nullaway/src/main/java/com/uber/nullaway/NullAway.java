@@ -2265,19 +2265,15 @@ public class NullAway extends BugChecker
           throw new IllegalStateException(
               "unexpected null symbol for dereference expression " + state.getSourceForNode(expr));
         }
-        exprMayBeNull = mayBeNullFieldAccess(state, expr, exprSymbol);
-        break;
+        return mayBeNullFieldAccess(state, expr, exprSymbol);
       case IDENTIFIER:
         if (exprSymbol == null) {
           throw new IllegalStateException(
               "unexpected null symbol for identifier " + state.getSourceForNode(expr));
         }
-        if (exprSymbol.getKind().equals(ElementKind.FIELD)) {
-          // Special case: mayBeNullFieldAccess runs handler.onOverrideMayBeNullExpr before
-          // dataflow.
+        if (exprSymbol.getKind() == ElementKind.FIELD) {
           return mayBeNullFieldAccess(state, expr, exprSymbol);
         } else {
-          // Check handler.onOverrideMayBeNullExpr before dataflow.
           exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, true);
           return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
         }
