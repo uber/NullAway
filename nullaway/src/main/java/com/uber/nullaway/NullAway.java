@@ -2197,14 +2197,14 @@ public class NullAway extends BugChecker
       // obviously not null
       return false;
     }
+    if (expr.getKind() == Tree.Kind.NULL_LITERAL) {
+      // obviously null, so same as for above literals we return early without consulting handlers
+      return true;
+    }
     // the logic here is to avoid doing dataflow analysis whenever possible
     Symbol exprSymbol = ASTHelpers.getSymbol(expr);
     boolean exprMayBeNull;
     switch (expr.getKind()) {
-      case NULL_LITERAL:
-        // obviously null
-        exprMayBeNull = true;
-        break;
       case ARRAY_ACCESS:
         // unsound!  we cannot check for nullness of array contents yet
         exprMayBeNull = false;
