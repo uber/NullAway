@@ -45,7 +45,6 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: Generic type parameter",
             "    testBadNonNull(new NonNullTypeParam<@Nullable String>());",
             "    testBadNonNull(",
-            "        // BUG: Diagnostic contains: Cannot pass parameter of type",
             "        new NonNullTypeParam<",
             "            // BUG: Diagnostic contains: Generic type parameter",
             "            @Nullable String>());",
