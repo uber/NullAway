@@ -467,7 +467,9 @@ public final class GenericsChecks {
     }
     int n = formalParams.size();
     if (isVarArgs) {
-      n = n - 1; // don't check for the last argument if
+      // If the last argument is var args, don't check it now, it will be checked against
+      // all remaining actual arguments in the next loop.
+      n = n - 1;
     }
     for (int i = 0; i < n - 1; i++) {
       Type formalParameter = formalParams.get(i).type;
