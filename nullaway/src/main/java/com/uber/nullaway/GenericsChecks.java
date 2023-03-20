@@ -168,6 +168,26 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(tree), state, null));
   }
 
+  private void reportInvalidParametersNullabilityError(
+      Type formalParameterType,
+      Type actualParameterType,
+      ExpressionTree paramExpression,
+      VisitorState state,
+      NullAway analysis) {
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
+            "Cannot pass parameter of type "
+                + actualParameterType
+                + ", as formal parameter has type "
+                + formalParameterType
+                + ", which has mismatched type parameter nullability");
+    state.reportMatch(
+        errorBuilder.createErrorDescription(
+            errorMessage, analysis.buildDescription(paramExpression), state, null));
+  }
+
   /**
    * This method returns the type of the given tree, including any type use annotations.
    *
@@ -425,6 +445,61 @@ public final class GenericsChecks {
             (Type.ClassType) condExprType, (Type.ClassType) falsePartType)) {
           reportMismatchedTypeForTernaryOperator(
               falsePartTree, condExprType, falsePartType, state, analysis);
+        }
+      }
+    }
+  }
+
+  /**
+   * Checks that for each parameter p at a call, the type parameter nullability for p's type matches
+   * that of the corresponding formal parameter. If a mismatch is found, report an error.
+   *
+   * @param formalParams the formal parameters
+   * @param actualParams the actual parameters
+   * @param isVarArgs true if the call is to a varargs method
+   */
+  public void compareGenericTypeParameterNullabilityForCall(
+      List<Symbol.VarSymbol> formalParams,
+      List<? extends ExpressionTree> actualParams,
+      boolean isVarArgs) {
+    if (!config.isJSpecifyMode()) {
+      return;
+    }
+    int n = formalParams.size();
+    if (isVarArgs) {
+      // If the last argument is var args, don't check it now, it will be checked against
+      // all remaining actual arguments in the next loop.
+      n = n - 1;
+    }
+    for (int i = 0; i < n - 1; i++) {
+      Type formalParameter = formalParams.get(i).type;
+      if (!formalParameter.getTypeArguments().isEmpty()) {
+        Type actualParameter = getTreeType(actualParams.get(i));
+        if (formalParameter instanceof Type.ClassType
+            && actualParameter instanceof Type.ClassType) {
+          if (!compareNullabilityAnnotations(
+              (Type.ClassType) formalParameter, (Type.ClassType) actualParameter)) {
+            reportInvalidParametersNullabilityError(
+                formalParameter, actualParameter, actualParams.get(i), state, analysis);
+          }
+        }
+      }
+    }
+    if (isVarArgs && !formalParams.isEmpty()) {
+      Type.ArrayType varargsArrayType =
+          (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
+      Type varargsElementType = varargsArrayType.elemtype;
+      if (varargsElementType.getTypeArguments().size() > 0) {
+        for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
+          Type actualParameter = getTreeType(actualParams.get(i));
+          if (varargsElementType instanceof Type.ClassType
+              && actualParameter instanceof Type.ClassType) {
+            if (!compareNullabilityAnnotations(
+                (Type.ClassType) varargsElementType, (Type.ClassType) actualParameter)) {
+              reportInvalidParametersNullabilityError(
+                  varargsElementType, actualParameter, actualParams.get(i), state, analysis);
+            }
+          }
         }
       }
     }

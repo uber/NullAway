@@ -662,6 +662,62 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void parameterPassing() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "static class A<T extends @Nullable Object> { }",
+            "  static A<String> sampleMethod1(A<A<String>> a1, A<String> a2) {",
+            "     return a2;",
+            "  }",
+            "  static A<String> sampleMethod2(A<A<@Nullable String>> a1, A<String> a2) {",
+            "     return a2;",
+            "  }",
+            "  static void testPositive1(A<A<@Nullable String>> a1, A<String> a2) {",
+            "    // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "    A<String> a = sampleMethod1(a1, a2);",
+            "  }",
+            "  static void testPositive2(A<A<String>> a1, A<String> a2) {",
+            "    // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "    A<String> a = sampleMethod2(a1, a2);",
+            "  }",
+            "  static void testNegative(A<A<String>> a1, A<String> a2) {",
+            "    A<String> a = sampleMethod1(a1, a2);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void varargsParameter() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static A<@Nullable String> sampleMethodWithVarArgs(A<String>... args) {",
+            "     return new A<@Nullable String>();",
+            "  }",
+            "  static void testPositive(A<@Nullable String> a1, A<String> a2) {",
+            "     // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "     A<@Nullable String> b = sampleMethodWithVarArgs(a1);",
+            "     // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "     A<@Nullable String> b2 = sampleMethodWithVarArgs(a2, a1);",
+            "  }",
+            "  static void testNegative(A<String> a1, A<String> a2) {",
+            "     A<@Nullable String> b = sampleMethodWithVarArgs(a1);",
+            "     A<@Nullable String> b2 = sampleMethodWithVarArgs(a2, a1);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
