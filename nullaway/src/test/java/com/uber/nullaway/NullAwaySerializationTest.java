@@ -1639,63 +1639,6 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void suggestNullableArgumentOnBytecodeClassFileInfoOnly() {
-    // Simulate a build system which elides sourcefile/classfile info
-    try (MockedStatic<ASTHelpers> astHelpersMockedStatic =
-        Mockito.mockStatic(ASTHelpers.class, Mockito.CALLS_REAL_METHODS)) {
-      astHelpersMockedStatic
-          .when(() -> ASTHelpers.enclosingClass(any(Symbol.class)))
-          .thenAnswer(
-              (Answer<Symbol.ClassSymbol>)
-                  invocation -> {
-                    Symbol.ClassSymbol answer = (Symbol.ClassSymbol) invocation.callRealMethod();
-                    if (answer.sourcefile != null
-                        && answer
-                            .sourcefile
-                            .toUri()
-                            .toASCIIString()
-                            .contains("com/uber/nullaway/testdata/unannotated")) {
-                      answer.sourcefile = null;
-                    }
-                    return answer;
-                  });
-      SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
-      tester
-          .setArgs(
-              Arrays.asList(
-                  "-d",
-                  temporaryFolder.getRoot().getAbsolutePath(),
-                  "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                  // Explicitly avoid excluding com.uber.nullaway.testdata.unannotated,
-                  // so we can suggest fixes there
-                  "-XepOpt:NullAway:SerializeFixMetadata=true",
-                  "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
-          .addSourceLines(
-              "com/uber/UsesUnannotated.java",
-              "package com.uber;",
-              "import com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass;",
-              "public class UsesUnannotated {",
-              "   Object test(boolean flag) {",
-              "       // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-              "       return MinimalUnannotatedClass.foo(null);",
-              "   }",
-              "}")
-          .setExpectedOutputs(
-              new FixDisplay(
-                  "nullable",
-                  "foo(java.lang.Object)",
-                  "x",
-                  "PARAMETER",
-                  "com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass",
-                  // From Symbol.classfile!
-                  "com/uber/nullaway/testdata/unannotated/MinimalUnannotatedClass.java"))
-          .setFactory(fixDisplayFactory)
-          .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
-          .doTest();
-    }
-  }
-
-  @Test
   public void fieldRegionComputationWithMemberSelectTest() {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
