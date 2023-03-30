@@ -1624,6 +1624,9 @@ public class NullAway extends BugChecker
                   : Nullness.NONNULL;
         }
       }
+      new GenericsChecks(state, config, this)
+          .compareGenericTypeParameterNullabilityForCall(
+              formalParams, actualParams, methodSymbol.isVarArgs());
     }
 
     // Allow handlers to override the list of non-null argument positions
