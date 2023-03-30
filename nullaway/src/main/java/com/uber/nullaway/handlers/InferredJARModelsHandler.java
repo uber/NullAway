@@ -196,11 +196,15 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       @Nullable Symbol exprSymbol,
       VisitorState state,
       boolean exprMayBeNull) {
-    if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)
-        && exprSymbol instanceof Symbol.MethodSymbol) {
-      return exprMayBeNull || isReturnAnnotatedNullable((Symbol.MethodSymbol) exprSymbol);
+    if (exprMayBeNull) {
+      return true;
     }
-    return exprMayBeNull;
+    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
+        && exprSymbol instanceof Symbol.MethodSymbol
+        && isReturnAnnotatedNullable((Symbol.MethodSymbol) exprSymbol)) {
+      return true;
+    }
+    return false;
   }
 
   private boolean isReturnAnnotatedNullable(Symbol.MethodSymbol methodSymbol) {
