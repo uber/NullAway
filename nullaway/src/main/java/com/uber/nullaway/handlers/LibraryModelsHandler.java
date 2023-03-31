@@ -128,29 +128,32 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       @Nullable Symbol exprSymbol,
       VisitorState state,
       boolean exprMayBeNull) {
-    if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)
-        && exprSymbol instanceof Symbol.MethodSymbol) {
-      OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
-      Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) exprSymbol;
-      // When looking up library models of annotated code, we match the exact method signature only;
-      // overriding methods in subclasses must be explicitly given their own library model.
-      // When dealing with unannotated code, we default to generality: a model applies to a method
-      // and any of its overriding implementations.
-      // see https://github.com/uber/NullAway/issues/445 for why this is needed.
-      boolean isMethodAnnotated =
-          !getCodeAnnotationInfo(state.context).isSymbolUnannotated(methodSymbol, this.config);
-      if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes(), !isMethodAnnotated)
-          || !optLibraryModels.nullImpliesNullParameters(methodSymbol).isEmpty()) {
-        // These mean the method might be null, depending on dataflow and arguments. We force
-        // dataflow to run.
-        return analysis.nullnessFromDataflow(state, expr) || exprMayBeNull;
-      } else if (optLibraryModels.hasNonNullReturn(
-          methodSymbol, state.getTypes(), !isMethodAnnotated)) {
-        // This means the method can't be null, so we return false outright.
+    if (!(expr.getKind() == Tree.Kind.METHOD_INVOCATION
+        && exprSymbol instanceof Symbol.MethodSymbol)) {
+      return exprMayBeNull;
+    }
+    OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
+    Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) exprSymbol;
+    // When looking up library models of annotated code, we match the exact method signature only;
+    // overriding methods in subclasses must be explicitly given their own library model.
+    // When dealing with unannotated code, we default to generality: a model applies to a method
+    // and any of its overriding implementations.
+    // see https://github.com/uber/NullAway/issues/445 for why this is needed.
+    boolean isMethodUnannotated =
+        getCodeAnnotationInfo(state.context).isSymbolUnannotated(methodSymbol, this.config);
+    if (exprMayBeNull) {
+      if (optLibraryModels.hasNonNullReturn(methodSymbol, state.getTypes(), isMethodUnannotated)) {
         return false;
       }
+      return true;
     }
-    return exprMayBeNull;
+    if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes(), isMethodUnannotated)) {
+      return true;
+    }
+    if (!optLibraryModels.nullImpliesNullParameters(methodSymbol).isEmpty()) {
+      return true;
+    }
+    return false;
   }
 
   @Override
