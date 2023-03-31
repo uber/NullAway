@@ -33,6 +33,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.GenericsChecks;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
@@ -1008,7 +1009,8 @@ public class AccessPathNullnessPropagation
       nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
     } else if (node == null
         || methodReturnsNonNull.test(node)
-        || !Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod(), config)) {
+        || (!Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod(), config)
+            && !genericReturnIsNullable(node))) {
       // definite non-null return
       nullness = NONNULL;
     } else {
@@ -1016,6 +1018,21 @@ public class AccessPathNullnessPropagation
       nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
     }
     return nullness;
+  }
+
+  private boolean genericReturnIsNullable(MethodInvocationNode node) {
+    if (node != null && config.isJSpecifyMode()) {
+      if (node.getTarget() != null && node.getTarget().getMethod() != null) {
+        Nullness nullness =
+            GenericsChecks.getOverriddenMethodReturnTypeNullness(
+                (Symbol.MethodSymbol) ASTHelpers.getSymbol(node.getTarget().getTree()),
+                (Type) node.getTarget().getReceiver().getType(),
+                state,
+                config);
+        return nullness.equals(NULLABLE);
+      }
+    }
+    return false;
   }
 
   @Override

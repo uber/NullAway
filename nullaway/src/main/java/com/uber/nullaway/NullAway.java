@@ -627,6 +627,11 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol closestOverriddenMethod =
           NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
       if (closestOverriddenMethod != null) {
+        if (config.isJSpecifyMode()) {
+          new GenericsChecks(state, config, this)
+              .checkTypeParameterNullnessForMethodOverriding(
+                  tree, methodSymbol, closestOverriddenMethod);
+        }
         return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
       }
     }
@@ -722,7 +727,11 @@ public class NullAway extends BugChecker
         overriddenMethodArgNullnessMap[i] =
             Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)
                 ? Nullness.NULLABLE
-                : Nullness.NONNULL;
+                : (config.isJSpecifyMode()
+                    ? new GenericsChecks(state, config, this)
+                        .getOverriddenMethodArgNullness(
+                            i, overriddenMethod, overridingParamSymbols.get(i))
+                    : Nullness.NONNULL);
       }
     }
 
@@ -913,7 +922,13 @@ public class NullAway extends BugChecker
     Nullness overriddenMethodReturnNullness =
         Nullness.NULLABLE; // Permissive default for unannotated code.
     if (isOverriddenMethodAnnotated && !Nullness.hasNullableAnnotation(overriddenMethod, config)) {
-      overriddenMethodReturnNullness = Nullness.NONNULL;
+      if (config.isJSpecifyMode()) {
+        overriddenMethodReturnNullness =
+            GenericsChecks.getOverriddenMethodReturnTypeNullness(
+                overriddenMethod, overridingMethod.owner.type, state, config);
+      } else {
+        overriddenMethodReturnNullness = Nullness.NONNULL;
+      }
     }
     overriddenMethodReturnNullness =
         handler.onOverrideMethodInvocationReturnNullability(
@@ -1621,7 +1636,10 @@ public class NullAway extends BugChecker
           argumentPositionNullness[i] =
               Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
                   ? Nullness.NULLABLE
-                  : Nullness.NONNULL;
+                  : (config.isJSpecifyMode()
+                      ? new GenericsChecks(state, config, this)
+                          .getOverridingMethodParamNullness(i, methodSymbol, tree)
+                      : Nullness.NONNULL);
         }
       }
       new GenericsChecks(state, config, this)
