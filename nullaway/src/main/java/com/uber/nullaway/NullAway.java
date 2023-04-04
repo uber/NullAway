@@ -2278,6 +2278,7 @@ public class NullAway extends BugChecker
           exprMayBeNull =
               NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, codeAnnotationInfo);
         } else {
+          // rely on dataflow analysis for local variables
           exprMayBeNull = true;
         }
         break;
