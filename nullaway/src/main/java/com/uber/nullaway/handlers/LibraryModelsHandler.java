@@ -142,10 +142,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     boolean isMethodUnannotated =
         getCodeAnnotationInfo(state.context).isSymbolUnannotated(methodSymbol, this.config);
     if (exprMayBeNull) {
-      if (optLibraryModels.hasNonNullReturn(methodSymbol, state.getTypes(), isMethodUnannotated)) {
-        return false;
-      }
-      return true;
+      // This is the only case in which we may switch the result from @Nullable to @NonNull:
+      return !optLibraryModels.hasNonNullReturn(
+          methodSymbol, state.getTypes(), isMethodUnannotated);
     }
     if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes(), isMethodUnannotated)) {
       return true;
