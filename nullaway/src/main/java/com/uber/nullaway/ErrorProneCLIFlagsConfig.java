@@ -151,7 +151,9 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "javax.inject.Inject", // no explicit initialization when there is dependency injection
           "com.google.errorprone.annotations.concurrent.LazyInit",
           "org.checkerframework.checker.nullness.qual.MonotonicNonNull",
-          "org.springframework.beans.factory.annotation.Autowired");
+          "org.springframework.beans.factory.annotation.Autowired",
+          "org.springframework.boot.test.mock.mockito.MockBean",
+          "org.springframework.boot.test.mock.mockito.SpyBean");
 
   private static final String DEFAULT_URL = "http://t.uber.com/nullaway";
 
