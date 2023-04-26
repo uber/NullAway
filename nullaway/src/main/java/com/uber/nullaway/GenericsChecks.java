@@ -1,6 +1,7 @@
 package com.uber.nullaway;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
@@ -18,6 +19,7 @@ import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
@@ -191,15 +193,18 @@ public final class GenericsChecks {
   }
 
   private void reportInvalidOverridingMethodReturnTypeError(
-      Tree methodTree, Type typeParameterType, Type methodReturnType) {
+      Tree methodTree,
+      Type typeParameterType,
+      Type methodReturnType,
+      @SuppressWarnings("UnusedVariable") Symbol.MethodSymbol overriddenMethod) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
-            ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
-            "Cannot return type "
-                + methodReturnType
-                + ", as corresponding type parameter has type "
-                + typeParameterType
+            ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN_GENERIC,
+            "Method returns "
+                + prettyTypeForError(methodReturnType)
+                + ", but overridden method returns "
+                + prettyTypeForError(typeParameterType)
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -586,7 +591,8 @@ public final class GenericsChecks {
     Type methodWithTypeParams =
         state.getTypes().memberType(overridingMethod.owner.type, overriddenMethod);
 
-    checkTypeParameterNullnessForOverridingMethodReturnType(tree, methodWithTypeParams);
+    checkTypeParameterNullnessForOverridingMethodReturnType(
+        tree, methodWithTypeParams, overriddenMethod);
     checkTypeParameterNullnessForOverridingMethodParameterType(tree, methodWithTypeParams);
   }
 
@@ -674,9 +680,10 @@ public final class GenericsChecks {
    * @param tree A method tree to check
    * @param methodWithTypeParams A method type with the annotations of corresponding type parameters
    *     of the owner of the overriding method
+   * @param overriddenMethod the overridden method
    */
   private void checkTypeParameterNullnessForOverridingMethodReturnType(
-      MethodTree tree, Type methodWithTypeParams) {
+      MethodTree tree, Type methodWithTypeParams, Symbol.MethodSymbol overriddenMethod) {
     Type typeParamType = methodWithTypeParams.getReturnType();
     Type methodReturnType = ASTHelpers.getType(tree.getReturnType());
     if (!(typeParamType instanceof Type.ClassType && methodReturnType instanceof Type.ClassType)) {
@@ -687,7 +694,8 @@ public final class GenericsChecks {
             (Type.ClassType) typeParamType, (Type.ClassType) methodReturnType);
 
     if (!doNullabilityAnnotationsMatch) {
-      reportInvalidOverridingMethodReturnTypeError(tree, typeParamType, methodReturnType);
+      reportInvalidOverridingMethodReturnTypeError(
+          tree, typeParamType, methodReturnType, overriddenMethod);
     }
   }
 
@@ -704,4 +712,56 @@ public final class GenericsChecks {
     }
     return Nullness.NONNULL;
   }
+
+  public static String prettyTypeForError(Type type) {
+    return type.accept(PRETTY_TYPE_VISITOR, null);
+  }
+
+  private static final Type.Visitor<String, Void> PRETTY_TYPE_VISITOR =
+      new Types.DefaultTypeVisitor<>() {
+        @Override
+        public String visitWildcardType(Type.WildcardType t, Void unused) {
+          StringBuilder sb = new StringBuilder();
+          sb.append(t.kind);
+          if (t.kind != BoundKind.UNBOUND) {
+            sb.append(t.type.accept(this, null));
+          }
+          return sb.toString();
+        }
+
+        @Override
+        public String visitClassType(Type.ClassType t, Void s) {
+          StringBuilder sb = new StringBuilder();
+          for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
+            sb.append('@');
+            sb.append(compound.type.accept(this, null));
+            sb.append(' ');
+          }
+          sb.append(t.tsym.getSimpleName());
+          if (t.getTypeArguments().nonEmpty()) {
+            sb.append('<');
+            sb.append(
+                t.getTypeArguments().stream()
+                    .map(a -> a.accept(this, null))
+                    .collect(joining(", ")));
+            sb.append(">");
+          }
+          return sb.toString();
+        }
+
+        @Override
+        public String visitCapturedType(Type.CapturedType t, Void s) {
+          return t.wildcard.accept(this, null);
+        }
+
+        @Override
+        public String visitArrayType(Type.ArrayType t, Void unused) {
+          return t.elemtype.accept(this, null) + "[]";
+        }
+
+        @Override
+        public String visitType(Type t, Void s) {
+          return t.toString();
+        }
+      };
 }
