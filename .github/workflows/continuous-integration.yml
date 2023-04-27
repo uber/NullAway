@@ -53,7 +53,7 @@ jobs:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: verGJF build
+          arguments: -q javaToolchains
         if: matrix.java == '11'
       - name: Build and test using Java 17 and Error Prone ${{ matrix.epVersion }}
         env:
