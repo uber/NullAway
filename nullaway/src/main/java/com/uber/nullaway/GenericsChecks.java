@@ -129,9 +129,9 @@ public final class GenericsChecks {
             ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
             String.format(
                 "Cannot assign from type "
-                    + rhsType
+                    + prettyTypeForError(rhsType)
                     + " to type "
-                    + lhsType
+                    + prettyTypeForError(lhsType)
                     + " due to mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -146,9 +146,9 @@ public final class GenericsChecks {
             ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
             String.format(
                 "Cannot return expression of type "
-                    + returnType
+                    + prettyTypeForError(returnType)
                     + " from method with return type "
-                    + methodType
+                    + prettyTypeForError(methodType)
                     + " due to mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -163,9 +163,9 @@ public final class GenericsChecks {
             ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
             String.format(
                 "Conditional expression must have type "
-                    + expressionType
+                    + prettyTypeForError(expressionType)
                     + " but the sub-expression has type "
-                    + subPartType
+                    + prettyTypeForError(subPartType)
                     + ", which has mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -183,9 +183,9 @@ public final class GenericsChecks {
         new ErrorMessage(
             ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
             "Cannot pass parameter of type "
-                + actualParameterType
+                + prettyTypeForError(actualParameterType)
                 + ", as formal parameter has type "
-                + formalParameterType
+                + prettyTypeForError(formalParameterType)
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -713,12 +713,17 @@ public final class GenericsChecks {
     return Nullness.NONNULL;
   }
 
+  /**
+   * Returns a pretty-printed representation of type suitable for error messages. The representation
+   * uses simple names rather than fully-qualified names, and retains all type-use annotations.
+   */
   public static String prettyTypeForError(Type type) {
     return type.accept(PRETTY_TYPE_VISITOR, null);
   }
 
+  /** This code is a modified version of code in {@link com.google.errorprone.util.Signatures} */
   private static final Type.Visitor<String, Void> PRETTY_TYPE_VISITOR =
-      new Types.DefaultTypeVisitor<>() {
+      new Types.DefaultTypeVisitor<String, Void>() {
         @Override
         public String visitWildcardType(Type.WildcardType t, Void unused) {
           StringBuilder sb = new StringBuilder();
