@@ -517,7 +517,7 @@ public final class GenericsChecks {
 
   /** This code is a modified version of code in {@link com.google.errorprone.util.Signatures} */
   private static final Type.Visitor<String, Void> PRETTY_TYPE_VISITOR =
-      new Types.DefaultTypeVisitor<>() {
+      new Types.DefaultTypeVisitor<String, Void>() {
         @Override
         public String visitWildcardType(Type.WildcardType t, Void unused) {
           StringBuilder sb = new StringBuilder();
