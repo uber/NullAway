@@ -193,10 +193,7 @@ public final class GenericsChecks {
   }
 
   private void reportInvalidOverridingMethodReturnTypeError(
-      Tree methodTree,
-      Type typeParameterType,
-      Type methodReturnType,
-      @SuppressWarnings("UnusedVariable") Symbol.MethodSymbol overriddenMethod) {
+      Tree methodTree, Type typeParameterType, Type methodReturnType) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
@@ -591,8 +588,7 @@ public final class GenericsChecks {
     Type methodWithTypeParams =
         state.getTypes().memberType(overridingMethod.owner.type, overriddenMethod);
 
-    checkTypeParameterNullnessForOverridingMethodReturnType(
-        tree, methodWithTypeParams, overriddenMethod);
+    checkTypeParameterNullnessForOverridingMethodReturnType(tree, methodWithTypeParams);
     checkTypeParameterNullnessForOverridingMethodParameterType(tree, methodWithTypeParams);
   }
 
@@ -683,7 +679,7 @@ public final class GenericsChecks {
    * @param overriddenMethod the overridden method
    */
   private void checkTypeParameterNullnessForOverridingMethodReturnType(
-      MethodTree tree, Type methodWithTypeParams, Symbol.MethodSymbol overriddenMethod) {
+      MethodTree tree, Type methodWithTypeParams) {
     Type typeParamType = methodWithTypeParams.getReturnType();
     Type methodReturnType = ASTHelpers.getType(tree.getReturnType());
     if (!(typeParamType instanceof Type.ClassType && methodReturnType instanceof Type.ClassType)) {
@@ -694,8 +690,7 @@ public final class GenericsChecks {
             (Type.ClassType) typeParamType, (Type.ClassType) methodReturnType);
 
     if (!doNullabilityAnnotationsMatch) {
-      reportInvalidOverridingMethodReturnTypeError(
-          tree, typeParamType, methodReturnType, overriddenMethod);
+      reportInvalidOverridingMethodReturnTypeError(tree, typeParamType, methodReturnType);
     }
   }
 
