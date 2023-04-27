@@ -209,19 +209,19 @@ public final class GenericsChecks {
   }
 
   private void reportInvalidOverridingMethodParamTypeError(
-      Tree methodTree, Type typeParameterType, Type methodParamType) {
+      Tree formalParameterTree, Type typeParameterType, Type methodParamType) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
-            ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
-            "Cannot have method parameter type "
-                + methodParamType
-                + ", as corresponding type parameter has type "
-                + typeParameterType
+            ErrorMessage.MessageTypes.WRONG_OVERRIDE_PARAM_GENERIC,
+            "Parameter has type "
+                + prettyTypeForError(methodParamType)
+                + ", but overridden method has parameter type "
+                + prettyTypeForError(typeParameterType)
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(methodTree), state, null));
+            errorMessage, analysis.buildDescription(formalParameterTree), state, null));
   }
 
   /**
@@ -676,7 +676,6 @@ public final class GenericsChecks {
    * @param tree A method tree to check
    * @param methodWithTypeParams A method type with the annotations of corresponding type parameters
    *     of the owner of the overriding method
-   * @param overriddenMethod the overridden method
    */
   private void checkTypeParameterNullnessForOverridingMethodReturnType(
       MethodTree tree, Type methodWithTypeParams) {

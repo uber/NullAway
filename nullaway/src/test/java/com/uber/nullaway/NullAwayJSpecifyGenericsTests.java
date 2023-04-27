@@ -957,7 +957,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             " }",
             " class TestFunc implements Fn<P<String, String>, String> {",
             " @Override",
-            "  // BUG: Diagnostic contains: Cannot have method parameter",
+            "  // BUG: Diagnostic contains: Parameter has type P<@Nullable String, String>, but overridden method has parameter type P<String, String>",
             "  public String apply(P<@Nullable String, String> p, String s) {",
             "    return s;",
             "  }",
