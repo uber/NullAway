@@ -36,6 +36,12 @@ jobs:
     steps:
       - name: Check out NullAway sources
         uses: actions/checkout@v3
+      - name: 'Set up JDK 17 on Windows'
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+        if: matrix.os == 'windows-latest'
       - name: 'Set up JDK ${{ matrix.java }}'
         uses: actions/setup-java@v3
         with:
