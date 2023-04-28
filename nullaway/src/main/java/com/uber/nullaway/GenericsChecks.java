@@ -442,15 +442,14 @@ public final class GenericsChecks {
   }
 
   /**
-   * Computes the nullability of the return type of some generic overridden method in the context of
-   * an overriding method, based on the nullability of the type parameters used for the overriding
-   * method's class.
+   * Computes the nullability of the return type of some (generic) overridden method in the context
+   * of the class C of an overriding method, based on the nullability of the type parameters for C.
    *
    * @param overriddenMethod the overridden method
    * @param overridingMethodEnclosingType the enclosing class of the overriding method
    * @param state Visitor state
    * @param config The analysis config
-   * @return nullability of the return type of the overridden method in the context of
+   * @return nullability of the return type of overriddenMethod in the context of
    *     overridingMethodEnclosingType
    */
   public static Nullness getOverriddenMethodReturnTypeNullness(
@@ -462,7 +461,7 @@ public final class GenericsChecks {
     Type overriddenMethodType =
         state.getTypes().memberType(overridingMethodEnclosingType, overriddenMethod);
     if (!(overriddenMethodType instanceof Type.MethodType)) {
-      return Nullness.NONNULL;
+      throw new RuntimeException("expected method type but instead got " + overriddenMethodType);
     }
     return getTypeNullness(overriddenMethodType.getReturnType(), config);
   }
@@ -568,10 +567,8 @@ public final class GenericsChecks {
   }
 
   /**
-   * This method gets a method type with return type and method parameters having annotations of the
-   * corresponding type parameters of the owner and then use it to compare the nullability
-   * annotations of the return type and the method params with the corresponding type params of the
-   * owner.
+   * Checks that type parameter nullability is consistent between an overriding method and the
+   * corresponding overridden method.
    *
    * @param tree A method tree to check
    * @param overridingMethod A symbol of the overriding method
@@ -582,9 +579,8 @@ public final class GenericsChecks {
     if (!config.isJSpecifyMode()) {
       return;
     }
-    // A method type with the return type and method parameters having the annotations of the type
-    // parameters of the
-    // owner if they are derived from the type parameters
+    // Obtain type parameters for the overridden method within the context of the overriding
+    // method's class
     Type methodWithTypeParams =
         state.getTypes().memberType(overridingMethod.owner.type, overriddenMethod);
 
