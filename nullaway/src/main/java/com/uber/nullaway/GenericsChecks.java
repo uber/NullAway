@@ -13,6 +13,7 @@ import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
@@ -589,18 +590,18 @@ public final class GenericsChecks {
   }
 
   /**
-   * The Nullness for the overriding method arguments that are derived from the type parameters for
-   * the owner are by default considered as NonNull. This method computes and returns the Nullness
-   * of the method arguments based on the Nullness of the corresponding instantiated type parameters
-   * for the owner
+   * Computes the nullness of a formal parameter of a generic method at an invocation, in the
+   * context of the declared type of its receiver. If the formal parameter's type is a type
+   * variable, its nullness depends on the nullability of the corresponding type parameter in the
+   * receiver's declared type.
    *
    * @param paramIndex An index of the method parameter to get the Nullness
    * @param methodSymbol A symbol of the overridden method
    * @param tree A method tree to check
    * @return Returns Nullness of the parameterIndex th parameter of the overriding method
    */
-  public Nullness getOverridingMethodParamNullness(
-      int paramIndex, Symbol.MethodSymbol methodSymbol, Tree tree) {
+  public Nullness getGenericMethodParameterNullness(
+      int paramIndex, Symbol.MethodSymbol methodSymbol, MethodInvocationTree tree) {
     JCTree.JCMethodInvocation methodInvocationTree = (JCTree.JCMethodInvocation) tree;
     // if methodInvocationTree.meth is of type JCTree.JCIdent return Nullness.NONNULL
     // if not in JSpecify mode then also the Nullness is set to Nullness.NONNULL, so it won't affect
