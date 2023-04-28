@@ -13,6 +13,7 @@ import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
@@ -25,7 +26,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.code.Types;
-import com.sun.tools.javac.tree.JCTree;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -595,21 +595,21 @@ public final class GenericsChecks {
    * variable, its nullness depends on the nullability of the corresponding type parameter in the
    * receiver's declared type.
    *
-   * @param paramIndex An index of the method parameter to get the Nullness
-   * @param methodSymbol A symbol of the overridden method
-   * @param tree A method tree to check
-   * @return Returns Nullness of the parameterIndex th parameter of the overriding method
+   * @param paramIndex parameter index
+   * @param methodSymbol symbol for the invoked method
+   * @param tree the tree for the invocation
+   * @return Nullness of parameter at {@code paramIndex}, or {@code NONNULL} if the invoked method
+   *     is not a generic instance method
    */
   public Nullness getGenericMethodParameterNullness(
       int paramIndex, Symbol.MethodSymbol methodSymbol, MethodInvocationTree tree) {
-    JCTree.JCMethodInvocation methodInvocationTree = (JCTree.JCMethodInvocation) tree;
-    // if methodInvocationTree.meth is of type JCTree.JCIdent return Nullness.NONNULL
-    // if not in JSpecify mode then also the Nullness is set to Nullness.NONNULL, so it won't affect
-    // the logic outside our scope
-    if (!(methodInvocationTree.meth instanceof JCTree.JCFieldAccess)) {
+    if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
+      // by default
       return Nullness.NONNULL;
     }
-    Type methodReceiverType = ((JCTree.JCFieldAccess) methodInvocationTree.meth).selected.type;
+    Type methodReceiverType =
+        castToNonNull(
+            ASTHelpers.getType(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
     Type methodType = state.getTypes().memberType(methodReceiverType, methodSymbol);
     Type formalParamType = methodType.getParameterTypes().get(paramIndex);
     return getTypeNullness(formalParamType, config);
