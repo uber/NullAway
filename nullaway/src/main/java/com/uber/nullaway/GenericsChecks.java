@@ -442,25 +442,25 @@ public final class GenericsChecks {
   }
 
   /**
-   * The Nullness for the overridden method return type that is derived from the type parameter for
-   * the owner is by default considered as NonNull. This method computes and returns the Nullness of
-   * the method return type based on the Nullness of the corresponding instantiated type parameter
-   * for the owner
+   * Computes the nullability of the return type of some generic overridden method in the context of
+   * an overriding method, based on the nullability of the type parameters used for the overriding
+   * method's class.
    *
-   * @param overriddenMethod A symbol of the overridden method
-   * @param overridingMethodOwnerType An owner of the overriding method
+   * @param overriddenMethod the overridden method
+   * @param overridingMethodEnclosingType the enclosing class of the overriding method
    * @param state Visitor state
    * @param config The analysis config
-   * @return Returns the Nullness of the return type of the overridden method
+   * @return nullability of the return type of the overridden method in the context of
+   *     overridingMethodEnclosingType
    */
   public static Nullness getOverriddenMethodReturnTypeNullness(
       Symbol.MethodSymbol overriddenMethod,
-      Type overridingMethodOwnerType,
+      Type overridingMethodEnclosingType,
       VisitorState state,
       Config config) {
 
     Type overriddenMethodType =
-        state.getTypes().memberType(overridingMethodOwnerType, overriddenMethod);
+        state.getTypes().memberType(overridingMethodEnclosingType, overriddenMethod);
     if (!(overriddenMethodType instanceof Type.MethodType)) {
       return Nullness.NONNULL;
     }
