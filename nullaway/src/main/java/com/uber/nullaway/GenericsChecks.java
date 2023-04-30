@@ -443,31 +443,6 @@ public final class GenericsChecks {
   }
 
   /**
-   * Computes the nullability of the return type of some (generic) overridden method in the context
-   * of the class C of an overriding method, based on the nullability of the type parameters for C.
-   *
-   * @param overriddenMethod the overridden method
-   * @param overridingMethodEnclosingType the enclosing class of the overriding method
-   * @param state Visitor state
-   * @param config The analysis config
-   * @return nullability of the return type of overriddenMethod in the context of
-   *     overridingMethodEnclosingType
-   */
-  public static Nullness getOverriddenMethodReturnTypeNullness(
-      Symbol.MethodSymbol overriddenMethod,
-      Type overridingMethodEnclosingType,
-      VisitorState state,
-      Config config) {
-
-    Type overriddenMethodType =
-        state.getTypes().memberType(overridingMethodEnclosingType, overriddenMethod);
-    if (!(overriddenMethodType instanceof Type.MethodType)) {
-      throw new RuntimeException("expected method type but instead got " + overriddenMethodType);
-    }
-    return getTypeNullness(overriddenMethodType.getReturnType(), config);
-  }
-
-  /**
    * For a conditional expression <em>c</em>, check whether the type parameter nullability for each
    * sub-expression of <em>c</em> matches the type parameter nullability of <em>c</em> itself.
    *
@@ -590,21 +565,63 @@ public final class GenericsChecks {
   }
 
   /**
+   * Computes the nullability of the return type of some (generic) overridden method in the context
+   * of the class C of an overriding method, based on the nullability of the type parameters for C.
+   *
+   * <p>Consider the following example:
+   *
+   * <pre>
+   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *         R apply(P p);
+   *     }
+   *     class C implements Fn<String, @Nullable String> {
+   *         public @Nullable String apply(String p) {
+   *             return null;
+   *         }
+   *     }
+   * </pre>
+   *
+   * Within the context of class {@code C}, the inherited method {@code Fn.apply} has a return type
+   * of {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
+   * {@code R}. Hence, it is valid for overriding method {@code C.apply} to return {@code @Nullable
+   * String}.
+   *
+   * @param overriddenMethod the overridden method
+   * @param overridingMethodEnclosingType the enclosing class of the overriding method
+   * @param state Visitor state
+   * @param config The analysis config
+   * @return nullability of the return type of overriddenMethod in the context of
+   *     overridingMethodEnclosingType
+   */
+  public static Nullness getOverriddenMethodReturnTypeNullness(
+      Symbol.MethodSymbol overriddenMethod,
+      Type overridingMethodEnclosingType,
+      VisitorState state,
+      Config config) {
+
+    Type overriddenMethodType =
+        state.getTypes().memberType(overridingMethodEnclosingType, overriddenMethod);
+    if (!(overriddenMethodType instanceof Type.MethodType)) {
+      throw new RuntimeException("expected method type but instead got " + overriddenMethodType);
+    }
+    return getTypeNullness(overriddenMethodType.getReturnType(), config);
+  }
+
+  /**
    * Computes the nullness of a formal parameter of a generic method at an invocation, in the
-   * context of the declared type of its receiver. If the formal parameter's type is a type
+   * context of the declared type of its receiver argument. If the formal parameter's type is a type
    * variable, its nullness depends on the nullability of the corresponding type parameter in the
-   * receiver's declared type.
+   * receiver's type.
    *
    * @param paramIndex parameter index
    * @param methodSymbol symbol for the invoked method
    * @param tree the tree for the invocation
-   * @return Nullness of parameter at {@code paramIndex}, or {@code NONNULL} if the invoked method
-   *     is not a generic instance method
+   * @return Nullness of parameter at {@code paramIndex}, or {@code NONNULL} if the call does not
+   *     invoke an instance method
    */
-  public Nullness getGenericMethodParameterNullness(
+  public Nullness getGenericParameterNullnessAtInvocation(
       int paramIndex, Symbol.MethodSymbol methodSymbol, MethodInvocationTree tree) {
     if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
-      // by default
       return Nullness.NONNULL;
     }
     Type methodReceiverType =

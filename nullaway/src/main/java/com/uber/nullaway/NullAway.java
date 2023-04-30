@@ -1638,7 +1638,7 @@ public class NullAway extends BugChecker
                   ? Nullness.NULLABLE
                   : ((config.isJSpecifyMode() && tree instanceof MethodInvocationTree)
                       ? new GenericsChecks(state, config, this)
-                          .getGenericMethodParameterNullness(
+                          .getGenericParameterNullnessAtInvocation(
                               i, methodSymbol, (MethodInvocationTree) tree)
                       : Nullness.NONNULL);
         }
