@@ -2,8 +2,7 @@ name: JMH Benchmark
 
 on:
   pull_request:
-    branches:
-      - main
+
 
 jobs:
   benchmark:
