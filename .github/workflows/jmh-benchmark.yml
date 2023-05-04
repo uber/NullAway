@@ -1,0 +1,27 @@
+name: JMH Benchmark
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v0.3.0
+      with:
+        service_account_key: ${{ secrets.GCP_SA_KEY }}
+        project_id: <nullway-jmh>
+        export_default_credentials: true
+
+    - name: Run JMH benchmarks on Compute Engine
+      run: |
+        gcloud compute ssh <instance-1> \
+          --zone=<us-central1-a> \
+          --command=" cd Nullway/ && ./gradlew jmh"
