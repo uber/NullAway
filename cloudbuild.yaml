@@ -1,0 +1,11 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'gcr.io/$PROJECT_ID/jmh-benchmark', '.']
+- name: 'gcr.io/$PROJECT_ID/jmh-benchmark'
+  id: 'run_benchmark'
+  waitFor: ['-']
+  args: ['bash', '-c', 'echo "JMH benchmark is running..."']
+- name: 'gcr.io/cloud-builders/gsutil'
+  args: ['cp', '/benchmark/target/benchmarks.txt', 'gs://<your-storage-bucket>/benchmarks/$BRANCH_NAME/$SHORT_SHA.txt']
+options:
+  machineType: 'N1_HIGHCPU_8'
