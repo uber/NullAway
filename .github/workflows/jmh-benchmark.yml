@@ -27,22 +27,8 @@ jobs:
         gcloud version
         gcloud auth list
     
-    - name: Start SSH agent
-      run: |
-        eval "$(ssh-agent -s)"
-        echo "SSH_AUTH_SOCK=${SSH_AUTH_SOCK}" >> $GITHUB_ENV
-        
-    - name: Add SSH key to the agent
-      run: |
-        echo "${{ secrets.GH_KEY }}" > private_key
-        chmod 600 private_key
-        ssh-add private_key
-        rm private_key
-      env:
-        SSH_AUTH_SOCK: /tmp/ssh_agent.sock
-
     - name: Run JMH benchmarks on Compute Engine
       run: |
         gcloud compute ssh instance-1 \
           --zone=us-central1-a \
-          --command=" git clone git@github.com:armughan11/NullAway.git && cd NullAway/ && ./gradlew jmh"
+          --command=" whoami "
