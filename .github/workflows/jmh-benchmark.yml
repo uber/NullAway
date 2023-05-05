@@ -33,4 +33,4 @@ jobs:
           --project=nullway-jmh \
           --zone=us-central1-a \
           root@instance-1 \
-          --command=" ls "
+          --command=" git clone git@github.com:armughan11/NullAway.git && cd NullAway/ && ./gradlew jmh "
