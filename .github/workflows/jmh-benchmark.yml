@@ -32,4 +32,4 @@ jobs:
       run: |
         gcloud compute ssh instance-1 \
           --zone=us-central1-a \
-          --command=" cd NullAway/ && ./gradlew jmh"
+          --command=" git clone git@github.com:armughan11/NullAway.git && cd NullAway/ && ./gradlew jmh"
