@@ -29,6 +29,8 @@ jobs:
     
     - name: Run JMH benchmarks on Compute Engine
       run: |
-        gcloud compute ssh instance-1 \
+        gcloud compute ssh \
+          --project=nullway-jmh \
           --zone=us-central1-a \
-          --command=" whoami "
+          root@instance-1 \
+          --command=" ls "
