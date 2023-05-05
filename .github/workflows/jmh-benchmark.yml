@@ -35,4 +35,4 @@ jobs:
       run: |
         gcloud compute ssh <instance-1> \
           --zone=<us-central1-a> \
-          --command=" cd Nullway/ && ./gradlew jmh"
+          --command=" cd NullAway/ && ./gradlew jmh"
