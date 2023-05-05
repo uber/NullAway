@@ -26,7 +26,16 @@ jobs:
       run: |
         gcloud version
         gcloud auth list
-      
+        
+        
+    - name: Add SSH key to the agent
+      run: |
+        echo "${{ secrets.GH_KEY }}" > private_key
+        chmod 600 private_key
+        ssh-add private_key
+        rm private_key
+      env:
+        SSH_AUTH_SOCK: /tmp/ssh_agent.sock
 
     - name: Run JMH benchmarks on Compute Engine
       run: |
