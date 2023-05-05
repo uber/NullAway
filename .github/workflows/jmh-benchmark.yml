@@ -26,7 +26,11 @@ jobs:
       run: |
         gcloud version
         gcloud auth list
-        
+    
+    - name: Start SSH agent
+      run: |
+        eval "$(ssh-agent -s)"
+        echo "SSH_AUTH_SOCK=${SSH_AUTH_SOCK}" >> $GITHUB_ENV
         
     - name: Add SSH key to the agent
       run: |
