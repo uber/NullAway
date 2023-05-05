@@ -26,8 +26,7 @@ jobs:
       run: |
         gcloud version
         gcloud auth list
-
-
+        gcloud compute instances list
 
       
 
