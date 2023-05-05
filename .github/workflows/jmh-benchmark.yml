@@ -26,12 +26,10 @@ jobs:
       run: |
         gcloud version
         gcloud auth list
-        gcloud compute instances list
-
       
 
     - name: Run JMH benchmarks on Compute Engine
       run: |
-        gcloud compute ssh <instance-1> \
-          --zone=<us-central1-a> \
+        gcloud compute ssh instance-1 \
+          --zone=us-central1-a \
           --command=" cd NullAway/ && ./gradlew jmh"
