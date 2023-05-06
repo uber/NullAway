@@ -848,7 +848,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void nullableGenericTypeVariable() {
+  public void nullableGenericTypeVariableReturnType() {
     makeHelper()
         .addSourceLines(
             "Test.java",
