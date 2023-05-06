@@ -848,6 +848,26 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void overrideExplicitlyTypedAnonymousClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    R apply(P p);",
+            "  }",
+            "  static void anonymousClasses() {",
+            "    Fn<@Nullable String, String> fn1 = new Fn<@Nullable String, String>() {",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullableGenericTypeVariableReturnType() {
     makeHelper()
         .addSourceLines(

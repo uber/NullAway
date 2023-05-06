@@ -20,6 +20,8 @@ import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
+import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
@@ -640,10 +642,10 @@ public final class GenericsChecks {
     if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
       return Nullness.NONNULL;
     }
-    Type methodReceiverType =
+    Symbol methodReceiverSymbol =
         castToNonNull(
-            ASTHelpers.getType(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
-    return getGenericMethodParameterNullness(paramIndex, invokedMethodSymbol, methodReceiverType);
+            ASTHelpers.getSymbol(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
+    return getGenericMethodParameterNullness(paramIndex, invokedMethodSymbol, methodReceiverSymbol);
   }
 
   /**
@@ -670,16 +672,26 @@ public final class GenericsChecks {
    *
    * @param parameterIndex index of the parameter
    * @param method the generic method
-   * @param enclosingType the enclosing type in which we want to know {@code method}'s parameter
+   * @param enclosingSymbol the enclosing type in which we want to know {@code method}'s parameter
    *     type nullability
    * @return nullability of the relevant parameter type of {@code method} in the context of {@code
    *     enclosingType}
    */
   public Nullness getGenericMethodParameterNullness(
-      int parameterIndex, Symbol.MethodSymbol method, Type enclosingType) {
+      int parameterIndex, Symbol.MethodSymbol method, Symbol enclosingSymbol) {
+    Type enclosingType =
+        enclosingSymbol.isAnonymous()
+            ? getTypeForAnonymousSymbol(enclosingSymbol)
+            : enclosingSymbol.type;
     Type methodType = state.getTypes().memberType(enclosingType, method);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getTypeNullness(paramType, config);
+  }
+
+  private Type getTypeForAnonymousSymbol(Symbol enclosingSymbol) {
+    Trees treesInstance = NullAway.getTreesInstance(state);
+    TreePath path = treesInstance.getPath(enclosingSymbol);
+    return getTreeType(path.getParentPath().getLeaf());
   }
 
   /**
