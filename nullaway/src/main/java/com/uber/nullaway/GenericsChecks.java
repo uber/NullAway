@@ -596,7 +596,6 @@ public final class GenericsChecks {
    */
   public static Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
-
     Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
     if (!(overriddenMethodType instanceof Type.MethodType)) {
       throw new RuntimeException("expected method type but instead got " + overriddenMethodType);
@@ -648,15 +647,33 @@ public final class GenericsChecks {
   }
 
   /**
-   * The Nullness for the overridden method arguments that are derived from the type parameters for
-   * the owner are by default considered as NonNull. This method computes and returns the Nullness
-   * of the method arguments based on the Nullness of the corresponding instantiated type parameters
-   * for the owner
+   * Computes the nullability of a parameter type of some generic method when seen as a member of
+   * some class {@code C}, based on type parameter nullability within {@code C}.
    *
-   * @param parameterIndex An index of the method parameter to get the Nullness
-   * @param method A symbol of the overridden method
-   * @param enclosingType A paramIndex th parameter of the overriding method
-   * @return Returns Nullness of the parameterIndex th parameter of the overridden method
+   * <p>Consider the following example:
+   *
+   * <pre>
+   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *         R apply(P p);
+   *     }
+   *     class C implements Fn<@Nullable String, String> {
+   *         public String apply(@Nullable String p) {
+   *             return "";
+   *         }
+   *     }
+   * </pre>
+   *
+   * Within the context of class {@code C}, the method {@code Fn.apply} has a parameter type of
+   * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
+   * {@code P}. Hence, overriding method {@code C.apply} must take a {@code @Nullable String} as a
+   * parameter.
+   *
+   * @param parameterIndex index of the parameter
+   * @param method the generic method
+   * @param enclosingType the enclosing type in which we want to know {@code method}'s parameter
+   *     type nullability
+   * @return nullability of the relevant parameter type of {@code method} in the context of {@code
+   *     enclosingType}
    */
   public Nullness getGenericMethodParameterNullness(
       int parameterIndex, Symbol.MethodSymbol method, Type enclosingType) {
