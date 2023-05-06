@@ -613,23 +613,42 @@ public final class GenericsChecks {
    * variable, its nullness depends on the nullability of the corresponding type parameter in the
    * receiver's type.
    *
+   * <p>Consider the following example:
+   *
+   * <pre>
+   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *         R apply(P p);
+   *     }
+   *     class C implements Fn<@Nullable String, String> {
+   *         public String apply(@Nullable String p) {
+   *             return "";
+   *         }
+   *     }
+   *     static void m() {
+   *         Fn<@Nullable String, String> f = new C();
+   *         f.apply(null);
+   *     }
+   * </pre>
+   *
+   * The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
+   * variable {@code P}. So, it is legal to pass {@code null} as a parameter to {@code f.apply}.
+   *
    * @param paramIndex parameter index
-   * @param methodSymbol symbol for the invoked method
+   * @param invokedMethodSymbol symbol for the invoked method
    * @param tree the tree for the invocation
    * @return Nullness of parameter at {@code paramIndex}, or {@code NONNULL} if the call does not
    *     invoke an instance method
    */
   public Nullness getGenericParameterNullnessAtInvocation(
-      int paramIndex, Symbol.MethodSymbol methodSymbol, MethodInvocationTree tree) {
+      int paramIndex, Symbol.MethodSymbol invokedMethodSymbol, MethodInvocationTree tree) {
     if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
       return Nullness.NONNULL;
     }
     Type methodReceiverType =
         castToNonNull(
             ASTHelpers.getType(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
-    Type methodType = state.getTypes().memberType(methodReceiverType, methodSymbol);
-    Type formalParamType = methodType.getParameterTypes().get(paramIndex);
-    return getTypeNullness(formalParamType, config);
+    return getOverriddenMethodParameterNullness(
+        paramIndex, invokedMethodSymbol, methodReceiverType);
   }
 
   /**
@@ -640,15 +659,12 @@ public final class GenericsChecks {
    *
    * @param parameterIndex An index of the method parameter to get the Nullness
    * @param overriddenMethod A symbol of the overridden method
-   * @param overridingMethodParam A paramIndex th parameter of the overriding method
+   * @param enclosingType A paramIndex th parameter of the overriding method
    * @return Returns Nullness of the parameterIndex th parameter of the overridden method
    */
-  public Nullness getOverriddenMethodArgNullness(
-      int parameterIndex,
-      Symbol.MethodSymbol overriddenMethod,
-      Symbol.VarSymbol overridingMethodParam) {
-    Type methodType =
-        state.getTypes().memberType(overridingMethodParam.owner.owner.type, overriddenMethod);
+  public Nullness getOverriddenMethodParameterNullness(
+      int parameterIndex, Symbol.MethodSymbol overriddenMethod, Type enclosingType) {
+    Type methodType = state.getTypes().memberType(enclosingType, overriddenMethod);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getTypeNullness(paramType, config);
   }

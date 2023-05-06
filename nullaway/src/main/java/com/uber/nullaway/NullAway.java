@@ -729,8 +729,8 @@ public class NullAway extends BugChecker
                 ? Nullness.NULLABLE
                 : (config.isJSpecifyMode()
                     ? new GenericsChecks(state, config, this)
-                        .getOverriddenMethodArgNullness(
-                            i, overriddenMethod, overridingParamSymbols.get(i))
+                        .getOverriddenMethodParameterNullness(
+                            i, overriddenMethod, overridingParamSymbols.get(i).owner.owner.type)
                     : Nullness.NONNULL);
       }
     }
