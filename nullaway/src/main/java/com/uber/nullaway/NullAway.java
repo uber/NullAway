@@ -729,7 +729,7 @@ public class NullAway extends BugChecker
                 ? Nullness.NULLABLE
                 : (config.isJSpecifyMode()
                     ? new GenericsChecks(state, config, this)
-                        .getOverriddenMethodParameterNullness(
+                        .getGenericMethodParameterNullness(
                             i, overriddenMethod, overridingParamSymbols.get(i).owner.owner.type)
                     : Nullness.NONNULL);
       }
@@ -924,7 +924,7 @@ public class NullAway extends BugChecker
     if (isOverriddenMethodAnnotated && !Nullness.hasNullableAnnotation(overriddenMethod, config)) {
       if (config.isJSpecifyMode()) {
         overriddenMethodReturnNullness =
-            GenericsChecks.getOverriddenMethodReturnTypeNullness(
+            GenericsChecks.getGenericMethodReturnTypeNullness(
                 overriddenMethod, overridingMethod.owner.type, state, config);
       } else {
         overriddenMethodReturnNullness = Nullness.NONNULL;

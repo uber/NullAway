@@ -565,8 +565,8 @@ public final class GenericsChecks {
   }
 
   /**
-   * Computes the nullability of the return type of some (generic) overridden method in the context
-   * of the class C of an overriding method, based on the nullability of the type parameters for C.
+   * Computes the nullability of the return type of some generic method when seen as a member of
+   * some class {@code C}, based on type parameter nullability within {@code C}.
    *
    * <p>Consider the following example:
    *
@@ -581,26 +581,23 @@ public final class GenericsChecks {
    *     }
    * </pre>
    *
-   * Within the context of class {@code C}, the inherited method {@code Fn.apply} has a return type
-   * of {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
+   * Within the context of class {@code C}, the method {@code Fn.apply} has a return type of
+   * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
    * {@code R}. Hence, it is valid for overriding method {@code C.apply} to return {@code @Nullable
    * String}.
    *
-   * @param overriddenMethod the overridden method
-   * @param overridingMethodEnclosingType the enclosing class of the overriding method
+   * @param method the generic method
+   * @param enclosingType the enclosing type in which we want to know {@code method}'s return type
+   *     nullability
    * @param state Visitor state
    * @param config The analysis config
-   * @return nullability of the return type of overriddenMethod in the context of
-   *     overridingMethodEnclosingType
+   * @return nullability of the return type of {@code method} in the context of {@code
+   *     enclosingType}
    */
-  public static Nullness getOverriddenMethodReturnTypeNullness(
-      Symbol.MethodSymbol overriddenMethod,
-      Type overridingMethodEnclosingType,
-      VisitorState state,
-      Config config) {
+  public static Nullness getGenericMethodReturnTypeNullness(
+      Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
 
-    Type overriddenMethodType =
-        state.getTypes().memberType(overridingMethodEnclosingType, overriddenMethod);
+    Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
     if (!(overriddenMethodType instanceof Type.MethodType)) {
       throw new RuntimeException("expected method type but instead got " + overriddenMethodType);
     }
@@ -647,8 +644,7 @@ public final class GenericsChecks {
     Type methodReceiverType =
         castToNonNull(
             ASTHelpers.getType(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
-    return getOverriddenMethodParameterNullness(
-        paramIndex, invokedMethodSymbol, methodReceiverType);
+    return getGenericMethodParameterNullness(paramIndex, invokedMethodSymbol, methodReceiverType);
   }
 
   /**
@@ -658,13 +654,13 @@ public final class GenericsChecks {
    * for the owner
    *
    * @param parameterIndex An index of the method parameter to get the Nullness
-   * @param overriddenMethod A symbol of the overridden method
+   * @param method A symbol of the overridden method
    * @param enclosingType A paramIndex th parameter of the overriding method
    * @return Returns Nullness of the parameterIndex th parameter of the overridden method
    */
-  public Nullness getOverriddenMethodParameterNullness(
-      int parameterIndex, Symbol.MethodSymbol overriddenMethod, Type enclosingType) {
-    Type methodType = state.getTypes().memberType(enclosingType, overriddenMethod);
+  public Nullness getGenericMethodParameterNullness(
+      int parameterIndex, Symbol.MethodSymbol method, Type enclosingType) {
+    Type methodType = state.getTypes().memberType(enclosingType, method);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getTypeNullness(paramType, config);
   }

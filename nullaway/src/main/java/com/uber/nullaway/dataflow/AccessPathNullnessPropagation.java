@@ -1020,11 +1020,19 @@ public class AccessPathNullnessPropagation
     return nullness;
   }
 
+  /**
+   * Computes the nullability of a generic return type in the context of some receiver type at an
+   * invocation.
+   *
+   * @param node the invocation node
+   * @return nullability of the return type in the context of the type of the receiver argument at
+   *     {@code node}
+   */
   private boolean genericReturnIsNullable(MethodInvocationNode node) {
     if (node != null && config.isJSpecifyMode()) {
       if (node.getTarget() != null && node.getTarget().getMethod() != null) {
         Nullness nullness =
-            GenericsChecks.getOverriddenMethodReturnTypeNullness(
+            GenericsChecks.getGenericMethodReturnTypeNullness(
                 (Symbol.MethodSymbol) ASTHelpers.getSymbol(node.getTarget().getTree()),
                 (Type) node.getTarget().getReceiver().getType(),
                 state,
