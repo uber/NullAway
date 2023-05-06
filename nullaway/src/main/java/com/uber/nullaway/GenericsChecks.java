@@ -683,28 +683,24 @@ public final class GenericsChecks {
   }
 
   /**
-   * This method compares the type parameter annotations for the overriding method parameters with
-   * corresponding type parameters for the owner and reports an error if they don't match
+   * This method compares the type parameter annotations for overriding method parameters with
+   * corresponding type parameters for the overridden method and reports an error if they don't
+   * match
    *
-   * @param tree A method tree to check
-   * @param methodWithTypeParams A method type with the annotations of corresponding type parameters
-   *     of the owner of the overriding method
+   * @param tree tree for overriding method
+   * @param overriddenMethodType type of the overridden method
    */
   private void checkTypeParameterNullnessForOverridingMethodParameterType(
-      MethodTree tree, Type methodWithTypeParams) {
+      MethodTree tree, Type overriddenMethodType) {
     List<? extends VariableTree> methodParameters = tree.getParameters();
-    List<Type> typeParameterTypes = methodWithTypeParams.getParameterTypes();
+    List<Type> typeParameterTypes = overriddenMethodType.getParameterTypes();
     for (int i = 0; i < methodParameters.size(); i++) {
       Type methodParameterType = ASTHelpers.getType(methodParameters.get(i));
       Type typeParameterType = typeParameterTypes.get(i);
       if (typeParameterType instanceof Type.ClassType
           && methodParameterType instanceof Type.ClassType) {
-        // for generic types check if the nullability annotations of the type params match
-        boolean doTypeParamNullabilityAnnotationsMatch =
-            compareNullabilityAnnotations(
-                (Type.ClassType) typeParameterType, (Type.ClassType) methodParameterType);
-
-        if (!doTypeParamNullabilityAnnotationsMatch) {
+        if (!compareNullabilityAnnotations(
+            (Type.ClassType) typeParameterType, (Type.ClassType) methodParameterType)) {
           reportInvalidOverridingMethodParamTypeError(
               methodParameters.get(i), typeParameterType, methodParameterType);
         }
@@ -713,25 +709,22 @@ public final class GenericsChecks {
   }
 
   /**
-   * This method compares the type parameter annotations for the overriding method return type with
-   * corresponding type parameters for the owner and reports an error if they don't match
+   * This method compares the type parameter annotations for an overriding method's return type with
+   * corresponding type parameters for the overridden method and reports an error if they don't
+   * match
    *
-   * @param tree A method tree to check
-   * @param methodWithTypeParams A method type with the annotations of corresponding type parameters
-   *     of the owner of the overriding method
+   * @param tree tree for overriding method
+   * @param overriddenMethodType type of the overridden method
    */
   private void checkTypeParameterNullnessForOverridingMethodReturnType(
-      MethodTree tree, Type methodWithTypeParams) {
-    Type typeParamType = methodWithTypeParams.getReturnType();
+      MethodTree tree, Type overriddenMethodType) {
+    Type typeParamType = overriddenMethodType.getReturnType();
     Type methodReturnType = ASTHelpers.getType(tree.getReturnType());
     if (!(typeParamType instanceof Type.ClassType && methodReturnType instanceof Type.ClassType)) {
       return;
     }
-    boolean doNullabilityAnnotationsMatch =
-        compareNullabilityAnnotations(
-            (Type.ClassType) typeParamType, (Type.ClassType) methodReturnType);
-
-    if (!doNullabilityAnnotationsMatch) {
+    if (!compareNullabilityAnnotations(
+        (Type.ClassType) typeParamType, (Type.ClassType) methodReturnType)) {
       reportInvalidOverridingMethodReturnTypeError(tree, typeParamType, methodReturnType);
     }
   }
