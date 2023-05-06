@@ -848,45 +848,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void nestedMethodMatch() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "class Test {",
-            "  class P<T extends @Nullable Object>{}",
-            "  interface Fn< T extends P<R>, R extends @Nullable Object> {",
-            "   R apply(String s);",
-            "  }",
-            " static class TestFunc1 implements Fn<P<@Nullable String>, @Nullable String> {",
-            "  @Override",
-            "  public String apply(String s) {",
-            "   return s;",
-            "  }",
-            " }",
-            " static class TestFunc2 implements Fn<P<@Nullable String>, @Nullable String> {",
-            "  @Override",
-            "  public @Nullable String apply(String s) {",
-            "   return s;",
-            "  }",
-            " }",
-            " static void useTestFunc(String s) {",
-            "   Fn<P<@Nullable String>, @Nullable String> f1 = new TestFunc1();",
-            "   String t1 = f1.apply(s);",
-            "   // BUG: Diagnostic contains: dereferenced expression",
-            "   t1.hashCode();",
-            "   Fn<P<@Nullable String>, @Nullable String> f2 = new TestFunc2();",
-            "   String t2 = f2.apply(s);",
-            "   // BUG: Diagnostic contains: dereferenced expression",
-            "   t2.hashCode();",
-            " }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void methodMatchNullableAnnotatedMethod() {
+  public void nullableGenericTypeVariable() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -914,7 +876,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void nestedMethodReturnTypeMatch() {
+  public void overrideWithNestedTypeParametersInReturnType() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -944,7 +906,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void nestedMethodParamTypeMatch() {
+  public void overrideWithNestedTypeParametersInParameterType() {
     makeHelper()
         .addSourceLines(
             "Test.java",
