@@ -1034,7 +1034,7 @@ public class AccessPathNullnessPropagation
         Nullness nullness =
             GenericsChecks.getGenericMethodReturnTypeNullness(
                 (Symbol.MethodSymbol) ASTHelpers.getSymbol(node.getTarget().getTree()),
-                (Type) node.getTarget().getReceiver().getType(),
+                node.getTarget().getReceiver().getTree(),
                 state,
                 config);
         return nullness.equals(NULLABLE);

@@ -616,10 +616,31 @@ public final class GenericsChecks {
    */
   public static Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Symbol enclosingSymbol, VisitorState state, Config config) {
-    Type enclosingType =
-        enclosingSymbol.isAnonymous()
-            ? getTypeForAnonymousSymbol(enclosingSymbol, state)
-            : enclosingSymbol.type;
+    Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
+    return getGenericMethodReturnTypeNullness(method, enclosingType, state, config);
+  }
+
+  private static Type getTypeForSymbol(Symbol enclosingSymbol, VisitorState state) {
+    return enclosingSymbol.isAnonymous()
+        ? getTypeForAnonymousSymbol(enclosingSymbol, state)
+        : enclosingSymbol.type;
+  }
+
+  public static Nullness getGenericMethodReturnTypeNullness(
+      Symbol.MethodSymbol method, Tree tree, VisitorState state, Config config) {
+    if (method.isStatic()) {
+      return Nullness.NONNULL;
+    }
+    Symbol symbol = ASTHelpers.getSymbol(tree);
+    if (symbol != null) {
+      return getGenericMethodReturnTypeNullness(method, symbol, state, config);
+    }
+    return getGenericMethodReturnTypeNullness(
+        method, castToNonNull(ASTHelpers.getType(tree)), state, config);
+  }
+
+  private static Nullness getGenericMethodReturnTypeNullness(
+      Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
     Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
     if (!(overriddenMethodType instanceof Type.MethodType)) {
       throw new RuntimeException("expected method type but instead got " + overriddenMethodType);
@@ -710,10 +731,7 @@ public final class GenericsChecks {
       Symbol enclosingSymbol,
       VisitorState state,
       Config config) {
-    Type enclosingType =
-        enclosingSymbol.isAnonymous()
-            ? getTypeForAnonymousSymbol(enclosingSymbol, state)
-            : enclosingSymbol.type;
+    Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
     Type methodType = state.getTypes().memberType(enclosingType, method);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getTypeNullness(paramType, config);
