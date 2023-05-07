@@ -11,6 +11,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
@@ -20,7 +21,6 @@ import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
-import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
@@ -597,7 +597,11 @@ public final class GenericsChecks {
    *     enclosingType}
    */
   public static Nullness getGenericMethodReturnTypeNullness(
-      Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
+      Symbol.MethodSymbol method, Symbol enclosingSymbol, VisitorState state, Config config) {
+    Type enclosingType =
+        enclosingSymbol.isAnonymous()
+            ? getTypeForAnonymousSymbol(enclosingSymbol)
+            : enclosingSymbol.type;
     Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
     if (!(overriddenMethodType instanceof Type.MethodType)) {
       throw new RuntimeException("expected method type but instead got " + overriddenMethodType);
@@ -688,10 +692,38 @@ public final class GenericsChecks {
     return getTypeNullness(paramType, config);
   }
 
-  private Type getTypeForAnonymousSymbol(Symbol enclosingSymbol) {
-    Trees treesInstance = NullAway.getTreesInstance(state);
-    TreePath path = treesInstance.getPath(enclosingSymbol);
-    return getTreeType(path.getParentPath().getLeaf());
+  private static Type getTypeForAnonymousSymbol(Symbol enclosingSymbol, VisitorState state) {
+    Trees trees = NullAway.getTreesInstance(state);
+    // tree for the symbol will be a class tree
+    ClassTree anonClassTree = (ClassTree) trees.getTree(enclosingSymbol);
+    // This class must either extend one other class or implement one interface.  Figure out which,
+    // and use the corresponding ParameterizedTypeTree to get the real type
+    Tree extendsClause = anonClassTree.getExtendsClause();
+    ParameterizedTypeTree superTypeTree = null;
+    if (extendsClause != null) {
+      if (extendsClause instanceof ParameterizedTypeTree) {
+        superTypeTree = (ParameterizedTypeTree) extendsClause;
+      }
+    } else {
+      List<? extends Tree> implementsClause = anonClassTree.getImplementsClause();
+      if (implementsClause.size() != 1) {
+        throw new RuntimeException(
+            "unexpected implements clause list "
+                + implementsClause
+                + " for anonymous type "
+                + anonClassTree);
+      }
+      Tree implementsTree = implementsClause.get(0);
+      if (implementsTree instanceof ParameterizedTypeTree) {
+        superTypeTree = (ParameterizedTypeTree) implementsTree;
+      }
+    }
+    if (superTypeTree != null && !superTypeTree.getTypeArguments().isEmpty()) {
+      return typeWithPreservedAnnotations(superTypeTree);
+    } else {
+      // not a generic type we need to modify
+      return enclosingSymbol.type;
+    }
   }
 
   /**
