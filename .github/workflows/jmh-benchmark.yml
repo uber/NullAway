@@ -44,7 +44,7 @@ jobs:
     - name: Read file content
       id: read_file
       run: |
-        file_content=$(cat your_file.txt)
+        file_content=$(cat exported_text.txt)
         echo "::set-output name=file_content::$file_content"
 
     - name: Comment 2
