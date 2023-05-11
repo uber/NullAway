@@ -37,7 +37,7 @@ jobs:
     
     - name: Copy exported text file from Google Cloud Compute Engine
       run: |
-        gcloud compute scp instance-1:exported_text.txt ./exported_text.txt --zone us-central1-a
+        gcloud compute scp instance-1:1.txt ./exported_text.txt --zone us-central1-a
 
     - name: Post exported text as a PR comment
       env:
