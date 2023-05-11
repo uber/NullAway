@@ -40,18 +40,14 @@ jobs:
       run: |
         gcloud compute scp root@instance-1:hi/1.txt ./exported_text.txt --zone us-central1-a
    
-
-    - name: Read file content
-      id: read_file
-      run: |
-        file_content=$(cat exported_text.txt)
-        echo "::set-output name=file_content::$file_content"
-
     - name: Comment 2
       uses: mshick/add-pr-comment@v2
       if: always()
       with: 
-        preformatted: ${{ steps.read_file.outputs.file_content }}
+        message: Main Benchmark
+        
+        
+        message-path: exported_text.txt
 
     - name: Run JMH benchmarks on Compute Engine
       run: |
