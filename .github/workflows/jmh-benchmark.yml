@@ -39,14 +39,16 @@ jobs:
     - name: Copy exported text file from Google Cloud Compute Engine
       run: |
         gcloud compute scp root@instance-1:hi/1.txt ./exported_text.txt --zone us-central1-a
-    
+    - name: Set exported text as an environment variable
+      run: |
+        echo "exported_text=$(cat exported_text.txt)" >> $GITHUB_ENV
+
       
     - name: Comment 2
       uses: mshick/add-pr-comment@v2
       if: always()
       with: 
-        message-path: |
-          exported_text.txt
+        message: ${exported_text}
 
     - name: Run JMH benchmarks on Compute Engine
       run: |
