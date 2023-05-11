@@ -40,29 +40,7 @@ jobs:
       run: |
         gcloud compute scp root@instance-1:hi///1.txt ./exported_text.txt --zone us-central1-a
     
-        
-    - name: Install jq
-      run: sudo apt-get install jq
-    - name: Set exported text as an environment variable
-      run: |
-        escaped_text=$(jq -Rs . < exported_text.txt)
-        echo "exported_text=${escaped_text}" >> $GITHUB_ENV
-
-    - name: Post exported text as a PR comment
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        EXPORTED_TEXT: ${{ env.exported_text }}
-      run: |
-        pr_number=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
-        comment_body="**Exported Text:**\n\`\`\`\n${EXPORTED_TEXT}\n\`\`\`"
-        json_payload=$(jq -n --arg body "$comment_body" '{"body": $body}')
-        api_url="https://api.github.com/repos/${{ github.repository }}/issues/${pr_number}/comments"
-
-        curl -X POST \
-             -H "Accept: application/vnd.github+json" \
-             -H "Authorization: token ${GITHUB_TOKEN}" \
-             -d "$json_payload" \
-             "$api_url"
+      
     - name: Comment 2
       uses: mshick/add-pr-comment@v2
       if: always()
