@@ -39,15 +39,17 @@ jobs:
     - name: Copy exported text file from Google Cloud Compute Engine
       run: |
         gcloud compute scp root@instance-1:hi/1.txt ./exported_text.txt --zone us-central1-a
+        
+    - name: Identifier
+      run:  |
+        (echo 'Main Benchmark:
+        ' | cat exported_text.txt) > main.txt
    
     - name: Comment 2
       uses: mshick/add-pr-comment@v2
       if: always()
-      with: 
-        message: Main Benchmark
-        
-        
-        message-path: exported_text.txt
+      with:         
+        message-path: main.txt
 
     - name: Run JMH benchmarks on Compute Engine
       run: |
