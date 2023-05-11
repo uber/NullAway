@@ -45,13 +45,20 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         path: exported_text.txt
+        
+    - name: Install jq
+      run: sudo apt-get install jq
+    - name: Set exported text as an environment variable
+      run: |
+        escaped_text=$(jq -Rs . < exported_text.txt)
+        echo "exported_text=${escaped_text}" >> $GITHUB_ENV
 
     - name: Post exported text as a PR comment
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         pr_number=$(echo $GITHUB_REF | awk 'BEGIN { FS = "/" } ; { print $3 }')
-        comment_body="**Exported Text:**\n\`\`\`\n$(cat exported_text.txt)\n\`\`\`"
+        comment_body="**Exported Text:**\n\`\`\`\n$(exported_text)\n\`\`\`"
         api_url="https://api.github.com/repos/${{ github.repository }}/issues/${pr_number}/comments"
 
         curl -X POST \
