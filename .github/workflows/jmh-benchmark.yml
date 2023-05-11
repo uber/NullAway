@@ -63,7 +63,13 @@ jobs:
              -H "Authorization: token ${GITHUB_TOKEN}" \
              -d "$json_payload" \
              "$api_url"
-
+    - name: Comment 2
+      uses: mshick/add-pr-comment@v2
+      if: always()
+      with: 
+        message-path: |
+            exported_text.txt
+      
 
 
     - name: Run JMH benchmarks on Compute Engine
