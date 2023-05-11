@@ -47,8 +47,10 @@ jobs:
     - name: Comment 2
       uses: mshick/add-pr-comment@v2
       if: always()
+      env:
+          MAIN: ${{ env.exported_text }}
       with: 
-        message: ${exported_text}
+        preformatted: ${{ env.MAIN }}
 
     - name: Run JMH benchmarks on Compute Engine
       run: |
