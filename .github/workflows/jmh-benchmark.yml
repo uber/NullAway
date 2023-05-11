@@ -31,14 +31,18 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1
     
         
-    - name: Check gcloud version and authentication
+
+    - name: Run JMH benchmarks on Compute Engine 
       run: |
-        gcloud version
-        gcloud auth list
-    
+        gcloud compute ssh \
+          --project=nullway-jmh \
+          --zone=us-central1-a \
+          root@instance-1 \
+          --command=" export BRANCH_NAME=${BRANCH_NAME} && echo $BRANCH_NAME && mkdir main && cd main && git clone --branch $BRANCH_NAME --single-branch git@github.com:armughan11/NullAway.git && cd NullAway/ && ./gradlew jmh "
+          
     - name: Copy exported text file from Google Cloud Compute Engine
       run: |
-        gcloud compute scp root@instance-1:hi/1.txt ./exported_text.txt --zone us-central1-a
+        gcloud compute scp root@instance-1:main/NullAway/jmh/build/results/jmh/results.txt ./exported_text.txt --zone us-central1-a
         
     - name: Identifier
       run:  |
@@ -49,12 +53,12 @@ jobs:
       uses: mshick/add-pr-comment@v2
       if: always()
       with:         
-        message-path: main.txt
-
-    - name: Run JMH benchmarks on Compute Engine
+        message-path: main.txt     
+    - name: Cleanup
       run: |
-        gcloud compute ssh \
-          --project=nullway-jmh \
-          --zone=us-central1-a \
-          root@instance-1 \
-          --command=" export BRANCH_NAME=${BRANCH_NAME} && echo $BRANCH_NAME && git clone --branch $BRANCH_NAME --single-branch git@github.com:armughan11/NullAway.git && cd NullAway/ && ./gradlew jmh "
+          gcloud compute ssh \
+            --project=nullway-jmh \
+            --zone=us-central1-a \
+            root@instance-1 \
+            --command=" rm -r -f main"
+      
