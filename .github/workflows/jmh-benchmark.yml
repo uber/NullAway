@@ -39,6 +39,12 @@ jobs:
     - name: Copy exported text file from Google Cloud Compute Engine
       run: |
         gcloud compute scp root@instance-1:hi///1.txt ./exported_text.txt --zone us-central1-a
+    - name: comment PR
+      uses: machine-learning-apps/pr-comment@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        path: exported_text.txt
 
     - name: Post exported text as a PR comment
       env:
