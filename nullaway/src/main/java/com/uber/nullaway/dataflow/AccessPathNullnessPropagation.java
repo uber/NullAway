@@ -1033,7 +1033,8 @@ public class AccessPathNullnessPropagation
       if (node.getTarget() != null && node.getTarget().getMethod() != null) {
         Nullness nullness =
             GenericsChecks.getGenericMethodReturnTypeNullness(
-                (Symbol.MethodSymbol) ASTHelpers.getSymbol(node.getTarget().getTree()),
+                castToNonNull(
+                    (Symbol.MethodSymbol) ASTHelpers.getSymbol(node.getTarget().getTree())),
                 (Type) node.getTarget().getReceiver().getType(),
                 state,
                 config);
