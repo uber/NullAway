@@ -38,7 +38,7 @@ jobs:
     - name: Identifier
       run:  |
         (echo '```Main Benchmark:
-        ' ; cat exported_text.txt; '```') > main.txt
+        ' ; cat exported_text.txt; echo '```') > main.txt
    
     - name: Comment 2
       uses: mshick/add-pr-comment@v2
