@@ -54,11 +54,5 @@ jobs:
       if: always()
       with:         
         message-path: main.txt     
-    - name: Cleanup
-      run: |
-          gcloud compute ssh \
-            --project=nullway-jmh \
-            --zone=us-central1-a \
-            root@instance-1 \
-            --command=" rm -r -f main"
+
       
