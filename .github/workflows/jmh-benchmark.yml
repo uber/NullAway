@@ -61,7 +61,7 @@ jobs:
         
     - name: Identifier
       run:  |
-        (echo '``` Main:
+        (echo ' Main:
         ' ; cat exported_text.txt) > main.txt
    
     - name: Comment 2
