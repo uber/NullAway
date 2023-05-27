@@ -61,8 +61,7 @@ jobs:
         
     - name: Identifier
       run:  |
-        (echo 'Main Benchmark: 
-        '; echo '```
+        (echo '``` Main:
         ' ; cat exported_text.txt; echo '```') > main.txt
    
     - name: Comment 2
