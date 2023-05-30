@@ -1,11 +1,13 @@
 name: JMH Benchmark
 
 on:
-  pull_request:
+  issue_comment:
+    types: [created]
 
 
 jobs:
-  benchmark:
+  setup:
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark')
     runs-on: ubuntu-latest
     permissions: write-all
 
@@ -29,44 +31,147 @@ jobs:
 
     - name: Set up Google Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
-    
-    
-    - name: Copy exported text file from Google Cloud Compute Engine
-      run: |
-        gcloud compute scp root@instance-1:main/NullAway/jmh/build/results/jmh/results.txt ./exported_text.txt --zone us-central1-a
-        
-    - name: Identifier
-      run:  |
-        (echo 'Main Benchmark:'; echo '```' ; cat exported_text.txt; echo '```') > main.txt
-   
-    - name: Comment 2
-      uses: mshick/add-pr-comment@v2
-      if: always()
-      with:         
-        message-path: main.txt 
-        
-
+      
     - name: Run JMH benchmarks on Compute Engine 
       run: |
         gcloud compute ssh \
           --project=nullway-jmh \
           --zone=us-central1-a \
           root@instance-1 \
-          --command=" export BRANCH_NAME=${BRANCH_NAME} && echo $BRANCH_NAME && mkdir main && cd main && git clone --branch $BRANCH_NAME --single-branch git@github.com:armughan11/NullAway.git && cd NullAway/ && ./gradlew jmh "
+          --command=" export BRANCH_NAME=${BRANCH_NAME} && mkdir $BRANCH_NAME "
+    
+  benchmark-pr:
+    needs: [setup]
+    runs-on: ubuntu-latest
+    permissions: write-all
+    
+    steps:
+    
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Get PR branch
+      uses: xt0rted/pull-request-comment-branch@v1
+      id: comment-branch
+
+
+    - name: Set branch name
+      run: echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
+    
+    - id: 'auth'
+      name: Authenticating
+      uses: 'google-github-actions/auth@v1'
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Set up Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+    
+    
+    - name: Run JMH benchmarks on Compute Engine 
+      run: |
+        gcloud compute ssh \
+          --project=nullway-jmh \
+          --zone=us-central1-a \
+          root@instance-1 \
+          --command=" export BRANCH_NAME=${BRANCH_NAME} && cd $BRANCH_NAME/ && mkdir pr && cd pr/ && git clone --branch $BRANCH_NAME --single-branch git@github.com:armughan11/NullAway.git && cd NullAway/ && ./gradlew jmh "
           
     - name: Copy exported text file from Google Cloud Compute Engine
       run: |
-        gcloud compute scp root@instance-1:main/NullAway/jmh/build/results/jmh/results.txt ./exported_text.txt --zone us-central1-a
+        gcloud compute scp root@instance-1:main/NullAway/jmh/build/results/jmh/results.txt ./pr_text.txt --zone us-central1-a
         
     - name: Identifier
       run:  |
-        (echo ' Main:
-        ' ; cat exported_text.txt) > main.txt
+        (echo 'PR Benchmark:'; echo '```' ; cat pr_text.txt; echo '```') > pr.txt
    
     - name: Comment 2
       uses: mshick/add-pr-comment@v2
       if: always()
       with:         
-        message-path: main.txt     
+        message-path: main.txt 
+  
+  benchmark-main:
+    needs: [setup]
+    runs-on: ubuntu-latest
+    permissions: write-all
+    
+    steps:
+    
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Get PR branch
+      uses: xt0rted/pull-request-comment-branch@v1
+      id: comment-branch
+
+
+    - name: Set branch name
+      run: echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
+    
+    - id: 'auth'
+      name: Authenticating
+      uses: 'google-github-actions/auth@v1'
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Set up Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+    
+    
+    - name: Run JMH benchmarks on Compute Engine 
+      run: |
+        gcloud compute ssh \
+          --project=nullway-jmh \
+          --zone=us-central1-a \
+          root@instance-1 \
+          --command=" export BRANCH_NAME=${BRANCH_NAME} && cd $BRANCH_NAME/ && mkdir main && cd main/ && git clone git@github.com:armughan11/NullAway.git && cd NullAway/ && ./gradlew jmh "
+          
+    - name: Copy exported text file from Google Cloud Compute Engine
+      run: |
+        gcloud compute scp root@instance-1:main/NullAway/jmh/build/results/jmh/results.txt ./main_text.txt --zone us-central1-a
+        
+    - name: Identifier
+      run:  |
+        (echo 'Main Benchmark:'; echo '```' ; cat main_text.txt; echo '```') > main.txt
+   
+    - name: Comment 2
+      uses: mshick/add-pr-comment@v2
+      if: always()
+      with:         
+        message-path: main.txt 
+  cleanup:
+    needs: [benchmark-main,benchmark-pr]
+    runs-on: ubuntu-latest
+    permissions: write-all
+    
+    steps:
+    
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Get PR branch
+      uses: xt0rted/pull-request-comment-branch@v1
+      id: comment-branch
+
+
+    - name: Set branch name
+      run: echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
+    
+    - id: 'auth'
+      name: Authenticating
+      uses: 'google-github-actions/auth@v1'
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Set up Google Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+      
+    - name: Cleanup
+      run: |
+          gcloud compute ssh \
+            --project=nullway-jmh \
+            --zone=us-central1-a \
+            root@instance-1 \
+            --command=" rm -r -f $BRANCH_NAME"
 
       
