@@ -88,7 +88,7 @@ jobs:
       uses: mshick/add-pr-comment@v2
       if: always()
       with:         
-        message-path: main.txt 
+        message-path: pr.txt 
   
   benchmark-main:
     needs: [setup]
