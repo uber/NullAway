@@ -32,6 +32,20 @@ jobs:
     - name: Set up Google Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
       
+    - name: Copy exported text file from Google Cloud Compute Engine
+      run: |
+        gcloud compute scp root@instance-1:$BRANCH_NAME/pr/NullAway/jmh/build/results/jmh/results.txt ./pr_text.txt --zone us-central1-a
+        
+    - name: Identifier
+      run:  |
+        (echo 'PR Benchmark:'; echo '```' ; cat pr_text.txt; echo '```') > pr.txt
+   
+    - name: Comment 2
+      uses: mshick/add-pr-comment@v2
+      if: always()
+      with:         
+        message-path: pr.txt 
+      
     - name: Run JMH benchmarks on Compute Engine 
       run: |
         gcloud compute ssh \
