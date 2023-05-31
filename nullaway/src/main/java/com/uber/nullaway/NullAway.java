@@ -822,8 +822,17 @@ public class NullAway extends BugChecker
       // support)
       return Description.NO_MATCH;
     }
-    if (codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config)
-        || Nullness.hasNullableAnnotation(methodSymbol, config)) {
+    final boolean isContainingMethodAnnotated =
+        !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config);
+    Nullness containingMethodReturnNullness =
+        Nullness.NULLABLE; // Permissive default for unannotated code.
+    if (isContainingMethodAnnotated && !Nullness.hasNullableAnnotation(methodSymbol, config)) {
+      containingMethodReturnNullness = Nullness.NONNULL;
+    }
+    containingMethodReturnNullness =
+        handler.onOverrideMethodInvocationReturnNullability(
+            methodSymbol, state, isContainingMethodAnnotated, containingMethodReturnNullness);
+    if (containingMethodReturnNullness.equals(Nullness.NULLABLE)) {
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, retExpr)) {
