@@ -23,11 +23,7 @@ jobs:
     - name: Set branch name
       run: echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
     
-    - id: 'auth'
-      name: Authenticating
-      uses: 'google-github-actions/auth@v1'
-      with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
 
     - name: Set up Google Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
