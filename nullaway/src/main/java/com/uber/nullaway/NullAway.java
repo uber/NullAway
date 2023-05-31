@@ -819,7 +819,7 @@ public class NullAway extends BugChecker
               ? Nullness.NULLABLE
               : Nullness.NONNULL;
     }
-    return handler.onOverrideMethodInvocationReturnNullability(
+    return handler.onOverrideMethodReturnNullability(
         methodSymbol, state, isMethodAnnotated, methodReturnNullness);
   }
 
