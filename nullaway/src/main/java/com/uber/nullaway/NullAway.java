@@ -808,6 +808,21 @@ public class NullAway extends BugChecker
     return Trees.instance(JavacProcessingEnvironment.instance(state.context));
   }
 
+  private Nullness getMethodReturnNullness(
+      Symbol.MethodSymbol methodSymbol, VisitorState state, Nullness defaultForUnannotated) {
+    final boolean isMethodAnnotated = !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config);
+    Nullness methodReturnNullness =
+        defaultForUnannotated; // Permissive default for unannotated code.
+    if (isMethodAnnotated) {
+      methodReturnNullness =
+          Nullness.hasNullableAnnotation(methodSymbol, config)
+              ? Nullness.NULLABLE
+              : Nullness.NONNULL;
+    }
+    return handler.onOverrideMethodInvocationReturnNullability(
+        methodSymbol, state, isMethodAnnotated, methodReturnNullness);
+  }
+
   private Description checkReturnExpression(
       Tree tree, ExpressionTree retExpr, Symbol.MethodSymbol methodSymbol, VisitorState state) {
     Type returnType = methodSymbol.getReturnType();
@@ -822,17 +837,7 @@ public class NullAway extends BugChecker
       // support)
       return Description.NO_MATCH;
     }
-    final boolean isContainingMethodAnnotated =
-        !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config);
-    Nullness containingMethodReturnNullness =
-        Nullness.NULLABLE; // Permissive default for unannotated code.
-    if (isContainingMethodAnnotated && !Nullness.hasNullableAnnotation(methodSymbol, config)) {
-      containingMethodReturnNullness = Nullness.NONNULL;
-    }
-    containingMethodReturnNullness =
-        handler.onOverrideMethodInvocationReturnNullability(
-            methodSymbol, state, isContainingMethodAnnotated, containingMethodReturnNullness);
-    if (containingMethodReturnNullness.equals(Nullness.NULLABLE)) {
+    if (getMethodReturnNullness(methodSymbol, state, Nullness.NULLABLE).equals(Nullness.NULLABLE)) {
       return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, retExpr)) {
@@ -917,33 +922,13 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol overridingMethod,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
-    final boolean isOverriddenMethodAnnotated =
-        !codeAnnotationInfo.isSymbolUnannotated(overriddenMethod, config);
-    Nullness overriddenMethodReturnNullness =
-        Nullness.NULLABLE; // Permissive default for unannotated code.
-    if (isOverriddenMethodAnnotated && !Nullness.hasNullableAnnotation(overriddenMethod, config)) {
-      overriddenMethodReturnNullness = Nullness.NONNULL;
-    }
-    overriddenMethodReturnNullness =
-        handler.onOverrideMethodInvocationReturnNullability(
-            overriddenMethod, state, isOverriddenMethodAnnotated, overriddenMethodReturnNullness);
     // if the super method returns nonnull,
     // overriding method better not return nullable
-    if (overriddenMethodReturnNullness.equals(Nullness.NONNULL)) {
-      final boolean isOverridingMethodAnnotated =
-          !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config);
+    if (getMethodReturnNullness(overriddenMethod, state, Nullness.NULLABLE)
+        .equals(Nullness.NONNULL)) {
       // Note that, for the overriding method, the permissive default is non-null.
-      Nullness overridingMethodReturnNullness = Nullness.NONNULL;
-      if (isOverridingMethodAnnotated && Nullness.hasNullableAnnotation(overridingMethod, config)) {
-        overridingMethodReturnNullness = Nullness.NULLABLE;
-      }
-      // We must once again check the handler chain, to allow it to update nullability of the
-      // overriding method
-      // (e.g. through AcknowledgeRestrictiveAnnotations=true)
-      overridingMethodReturnNullness =
-          handler.onOverrideMethodInvocationReturnNullability(
-              overridingMethod, state, isOverridingMethodAnnotated, overridingMethodReturnNullness);
-      if (overridingMethodReturnNullness.equals(Nullness.NULLABLE)
+      if (getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL)
+              .equals(Nullness.NULLABLE)
           && (memberReferenceTree == null
               || getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE))) {
         String message;
