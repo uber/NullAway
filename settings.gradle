@@ -24,11 +24,15 @@ include ':jar-infer:test-java-lib-jarinfer'
 include ':jar-infer:nullaway-integration-test'
 include ':jmh'
 include ':guava-recent-unit-tests'
-include ':jdk17-unit-tests'
 
 // The following modules require JDK 11 and fail during Gradle configuration on JDK 8
 if (JavaVersion.current() >= JavaVersion.VERSION_11) {
-    include ':code-coverage-report'
     include ':sample-app'
     include ':jar-infer:test-android-lib-jarinfer'
+}
+
+// The following modules require JDK 17
+if (JavaVersion.current() >= JavaVersion.VERSION_17) {
+    include ':code-coverage-report'
+    include ':jdk17-unit-tests'
 }
