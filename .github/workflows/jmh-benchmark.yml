@@ -41,35 +41,8 @@ jobs:
           root@instance-1 \
           --command=" export BRANCH_NAME=${BRANCH_NAME} && mkdir $BRANCH_NAME "
     
-  benchmark-pr:
-    needs: [setup]
-    runs-on: ubuntu-latest
-    permissions: write-all
     
-    steps:
-    
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    - name: Get PR branch
-      uses: xt0rted/pull-request-comment-branch@v1
-      id: comment-branch
-
-
-    - name: Set branch name
-      run: echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
-    
-    - id: 'auth'
-      name: Authenticating
-      uses: 'google-github-actions/auth@v1'
-      with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
-    - name: Set up Google Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
-    
-    
-    - name: Run JMH benchmarks on Compute Engine 
+    - name: Run JMH benchmarks for PR Branch
       run: |
         gcloud compute ssh \
           --project=nullway-jmh \
@@ -77,50 +50,23 @@ jobs:
           root@instance-1 \
           --command=" export BRANCH_NAME=${BRANCH_NAME} && cd $BRANCH_NAME/ && mkdir pr && cd pr/ && git clone --branch $BRANCH_NAME --single-branch git@github.com:armughan11/NullAway.git && cd NullAway/ && ./gradlew jmh "
           
-    - name: Copy exported text file from Google Cloud Compute Engine
+    - name: Copy exported PR benchmark file from Google Cloud Compute Engine
       run: |
         gcloud compute scp root@instance-1:$BRANCH_NAME/pr/NullAway/jmh/build/results/jmh/results.txt ./pr_text.txt --zone us-central1-a
         
-    - name: Identifier
+    - name: Formatting Benchmark
       run:  |
         (echo 'PR Benchmark:'; echo '```' ; cat pr_text.txt; echo '```') > pr.txt
    
-    - name: Comment 2
+    - name: Comment Benchmark
       uses: mshick/add-pr-comment@v2
       if: always()
       with:         
         message-path: pr.txt 
         message-id: pr
-  
-  benchmark-main:
-    needs: [setup]
-    runs-on: ubuntu-latest
-    permissions: write-all
-    
-    steps:
-    
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    - name: Get PR branch
-      uses: xt0rted/pull-request-comment-branch@v1
-      id: comment-branch
-
-
-    - name: Set branch name
-      run: echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
-    
-    - id: 'auth'
-      name: Authenticating
-      uses: 'google-github-actions/auth@v1'
-      with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
-    - name: Set up Google Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
     
     
-    - name: Run JMH benchmarks on Compute Engine 
+    - name: Run JMH benchmarks for Main Branch
       run: |
         gcloud compute ssh \
           --project=nullway-jmh \
@@ -128,46 +74,20 @@ jobs:
           root@instance-1 \
           --command=" export BRANCH_NAME=${BRANCH_NAME} && cd $BRANCH_NAME/ && mkdir main && cd main/ && git clone git@github.com:armughan11/NullAway.git && cd NullAway/ && ./gradlew jmh "
           
-    - name: Copy exported text file from Google Cloud Compute Engine
+    - name: Copy exported Main Benchmark file from Google Cloud Compute Engine 
       run: |
         gcloud compute scp root@instance-1:$BRANCH_NAME/main/NullAway/jmh/build/results/jmh/results.txt ./main_text.txt --zone us-central1-a
         
-    - name: Identifier
+    - name: Formatting Main Benchmark
       run:  |
         (echo 'Main Benchmark:'; echo '```' ; cat main_text.txt; echo '```') > main.txt
    
-    - name: Comment 2
+    - name: Comment Main Benchmark
       uses: mshick/add-pr-comment@v2
       if: always()
       with:         
         message-path: main.txt 
         message-id: main
-  cleanup:
-    needs: [benchmark-main,benchmark-pr]
-    runs-on: ubuntu-latest
-    permissions: write-all
-    
-    steps:
-    
-    - name: Checkout repository
-      uses: actions/checkout@v2
-
-    - name: Get PR branch
-      uses: xt0rted/pull-request-comment-branch@v1
-      id: comment-branch
-
-
-    - name: Set branch name
-      run: echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
-    
-    - id: 'auth'
-      name: Authenticating
-      uses: 'google-github-actions/auth@v1'
-      with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
-    - name: Set up Google Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
       
     - name: Cleanup
       run: |
