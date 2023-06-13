@@ -77,15 +77,16 @@ jobs:
           arguments: coveralls
         continue-on-error: true
         if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.19.1' && github.repository == 'uber/NullAway'
-      - name: Check that Git tree is clean after build and test
-        run: ./.buildscript/check_git_clean.sh
       - name: Test publishToMavenLocal flow
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
+          ORG_GRADLE_PROJECT_VERSION_NAME: '0.0.0.1-LOCAL'
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: clean publishToMavenLocal
+          arguments: clean publishToMavenLocal -x signMavenPublication -x signShadowPublication
         if: matrix.java == '8'
+      - name: Check that Git tree is clean after build and test
+        run: ./.buildscript/check_git_clean.sh
   publish_snapshot:
     name: 'Publish snapshot'
     needs: [build]
