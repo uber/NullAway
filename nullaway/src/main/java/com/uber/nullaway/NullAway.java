@@ -628,6 +628,8 @@ public class NullAway extends BugChecker
           NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
       if (closestOverriddenMethod != null) {
         if (config.isJSpecifyMode()) {
+          // Check that any generic type parameters in the return type and parameter types are
+          // identical (invariant) across the overriding and overridden methods
           new GenericsChecks(state, config, this)
               .checkTypeParameterNullnessForMethodOverriding(
                   tree, methodSymbol, closestOverriddenMethod);
