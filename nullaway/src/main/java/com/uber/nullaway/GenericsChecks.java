@@ -739,16 +739,20 @@ public final class GenericsChecks {
   private void checkTypeParameterNullnessForOverridingMethodParameterType(
       MethodTree tree, Type overriddenMethodType) {
     List<? extends VariableTree> methodParameters = tree.getParameters();
-    List<Type> typeParameterTypes = overriddenMethodType.getParameterTypes();
+    List<Type> overriddenMethodParameterTypes = overriddenMethodType.getParameterTypes();
+    // TODO handle varargs; they are not handled for now
     for (int i = 0; i < methodParameters.size(); i++) {
-      Type methodParameterType = ASTHelpers.getType(methodParameters.get(i));
-      Type typeParameterType = typeParameterTypes.get(i);
-      if (typeParameterType instanceof Type.ClassType
-          && methodParameterType instanceof Type.ClassType) {
+      Type overridingMethodParameterType = ASTHelpers.getType(methodParameters.get(i));
+      Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
+      if (overriddenMethodParameterType instanceof Type.ClassType
+          && overridingMethodParameterType instanceof Type.ClassType) {
         if (!compareNullabilityAnnotations(
-            (Type.ClassType) typeParameterType, (Type.ClassType) methodParameterType)) {
+            (Type.ClassType) overriddenMethodParameterType,
+            (Type.ClassType) overridingMethodParameterType)) {
           reportInvalidOverridingMethodParamTypeError(
-              methodParameters.get(i), typeParameterType, methodParameterType);
+              methodParameters.get(i),
+              overriddenMethodParameterType,
+              overridingMethodParameterType);
         }
       }
     }
