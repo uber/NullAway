@@ -2309,7 +2309,9 @@ public class NullAway extends BugChecker
                   + " for method invocation "
                   + state.getSourceForNode(expr));
         }
-        exprMayBeNull = mayBeNullMethodCall((Symbol.MethodSymbol) exprSymbol);
+        exprMayBeNull =
+            mayBeNullMethodCall(
+                (Symbol.MethodSymbol) exprSymbol, (MethodInvocationTree) expr, state);
         break;
       case CONDITIONAL_EXPRESSION:
       case ASSIGNMENT:
@@ -2328,11 +2330,16 @@ public class NullAway extends BugChecker
     return exprMayBeNull && nullnessFromDataflow(state, expr);
   }
 
-  private boolean mayBeNullMethodCall(Symbol.MethodSymbol exprSymbol) {
+  private boolean mayBeNullMethodCall(
+      Symbol.MethodSymbol exprSymbol, MethodInvocationTree invocationTree, VisitorState state) {
     if (codeAnnotationInfo.isSymbolUnannotated(exprSymbol, config)) {
       return false;
     }
-    return Nullness.hasNullableAnnotation(exprSymbol, config);
+    return Nullness.hasNullableAnnotation(exprSymbol, config)
+        || (config.isJSpecifyMode()
+            && GenericsChecks.getGenericReturnNullnessAtInvocation(
+                    exprSymbol, invocationTree, state, config)
+                .equals(Nullness.NULLABLE));
   }
 
   public boolean nullnessFromDataflow(VisitorState state, ExpressionTree expr) {

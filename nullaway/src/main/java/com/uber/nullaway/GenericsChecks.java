@@ -604,6 +604,52 @@ public final class GenericsChecks {
   }
 
   /**
+   * Computes the nullness of the return of a generic method at an invocation, in the context of the
+   * declared type of its receiver argument. If the return type is a type variable, its nullness
+   * depends on the nullability of the corresponding type parameter in the receiver's type.
+   *
+   * <p>Consider the following example:
+   *
+   * <pre>
+   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *         R apply(P p);
+   *     }
+   *     class C implements Fn<String, @Nullable String> {
+   *         public @Nullable String apply(String p) {
+   *             return null;
+   *         }
+   *     }
+   *     static void m() {
+   *         Fn<String, @Nullable String> f = new C();
+   *         f.apply("hello").hashCode(); // NPE
+   *     }
+   * </pre>
+   *
+   * The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
+   * variable {@code R}. So, the call {@code f.apply("hello")} returns {@code @Nullable} and an
+   * error should be reported.
+   *
+   * @param invokedMethodSymbol symbol for the invoked method
+   * @param tree the tree for the invocation
+   * @return Nullness of invocation's return type, or {@code NONNULL} if the call does not invoke an
+   *     instance method
+   */
+  public static Nullness getGenericReturnNullnessAtInvocation(
+      Symbol.MethodSymbol invokedMethodSymbol,
+      MethodInvocationTree tree,
+      VisitorState state,
+      Config config) {
+    if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
+      return Nullness.NONNULL;
+    }
+    Type methodReceiverType =
+        castToNonNull(
+            ASTHelpers.getType(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
+    return getGenericMethodReturnTypeNullness(
+        invokedMethodSymbol, methodReceiverType, state, config);
+  }
+
+  /**
    * Computes the nullness of a formal parameter of a generic method at an invocation, in the
    * context of the declared type of its receiver argument. If the formal parameter's type is a type
    * variable, its nullness depends on the nullability of the corresponding type parameter in the

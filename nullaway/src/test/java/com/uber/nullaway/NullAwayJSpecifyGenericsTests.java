@@ -764,6 +764,8 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    String t3 = f3.apply(s);",
             "    // BUG: Diagnostic contains: dereferenced expression",
             "    t3.hashCode();",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    f3.apply(s).hashCode();",
             " }",
             "}")
         .doTest();
