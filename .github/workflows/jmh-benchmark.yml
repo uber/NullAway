@@ -40,8 +40,8 @@ jobs:
           --zone=us-central1-a \
           root@instance-1 \
           --command="export BRANCH_NAME=${BRANCH_NAME} && mkdir $BRANCH_NAME"
-        gcloud compute scp ./github/workflows/run_pr_benchmarks.sh root@instance-1:$BRANCH_NAME/ --zone=us-central1-a
-        gcloud compute scp ./github/workflows/run_main_benchmarks.sh root@instance-1:$BRANCH_NAME/ --zone=us-central1-a
+        gcloud compute scp ./.github/workflows/run_pr_benchmarks.sh root@instance-1:$BRANCH_NAME/ --zone=us-central1-a
+        gcloud compute scp ./.github/workflows/run_main_benchmarks.sh root@instance-1:$BRANCH_NAME/ --zone=us-central1-a
 
     - name: Run JMH benchmarks for PR Branch
       run: |
