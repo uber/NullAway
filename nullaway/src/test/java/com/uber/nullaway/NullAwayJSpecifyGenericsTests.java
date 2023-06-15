@@ -930,6 +930,51 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void interactionWithContracts() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "class Test {",
+            "  interface Fn1<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    R apply(P p);",
+            "  }",
+            "  static class TestFunc1 implements Fn1<@Nullable String, @Nullable String> {",
+            "    @Override",
+            "    @Contract(\"!null -> !null\")",
+            "    public @Nullable String apply(@Nullable String s) {",
+            "      return s;",
+            "    }",
+            "  }",
+            "  interface Fn2<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    @Contract(\"!null -> !null\")",
+            "    R apply(P p);",
+            "  }",
+            "  static class TestFunc2 implements Fn2<@Nullable String, @Nullable String> {",
+            "    @Override",
+            "    public @Nullable String apply(@Nullable String s) {",
+            "      return s;",
+            "    }",
+            "  }",
+            "  static void testMethod() {",
+            "    // No error due to @Contract",
+            "    (new TestFunc1()).apply(\"hello\").hashCode();",
+            "    Fn1<@Nullable String, @Nullable String> fn1 = new TestFunc1();",
+            "    // BUG: Diagnostic contains: dereferenced expression fn1.apply(\"hello\")",
+            "    fn1.apply(\"hello\").hashCode();",
+            "    // BUG: Diagnostic contains: dereferenced expression (new TestFunc2())",
+            "    (new TestFunc2()).apply(\"hello\").hashCode();",
+            "    Fn2<@Nullable String, @Nullable String> fn2 = new TestFunc2();",
+            "    // No error due to @Contract",
+            "    fn2.apply(\"hello\").hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
