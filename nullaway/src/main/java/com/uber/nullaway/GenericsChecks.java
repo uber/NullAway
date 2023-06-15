@@ -194,15 +194,15 @@ public final class GenericsChecks {
   }
 
   private void reportInvalidOverridingMethodReturnTypeError(
-      Tree methodTree, Type typeParameterType, Type methodReturnType) {
+      Tree methodTree, Type overriddenMethodReturnType, Type overridingMethodReturnType) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN_GENERIC,
             "Method returns "
-                + prettyTypeForError(methodReturnType)
+                + prettyTypeForError(overridingMethodReturnType)
                 + ", but overridden method returns "
-                + prettyTypeForError(typeParameterType)
+                + prettyTypeForError(overriddenMethodReturnType)
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -764,14 +764,16 @@ public final class GenericsChecks {
    */
   private void checkTypeParameterNullnessForOverridingMethodReturnType(
       MethodTree tree, Type overriddenMethodType) {
-    Type typeParamType = overriddenMethodType.getReturnType();
-    Type methodReturnType = ASTHelpers.getType(tree.getReturnType());
-    if (!(typeParamType instanceof Type.ClassType && methodReturnType instanceof Type.ClassType)) {
+    Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
+    Type overridingMethodReturnType = ASTHelpers.getType(tree.getReturnType());
+    if (!(overriddenMethodReturnType instanceof Type.ClassType
+        && overridingMethodReturnType instanceof Type.ClassType)) {
       return;
     }
     if (!compareNullabilityAnnotations(
-        (Type.ClassType) typeParamType, (Type.ClassType) methodReturnType)) {
-      reportInvalidOverridingMethodReturnTypeError(tree, typeParamType, methodReturnType);
+        (Type.ClassType) overriddenMethodReturnType, (Type.ClassType) overridingMethodReturnType)) {
+      reportInvalidOverridingMethodReturnTypeError(
+          tree, overriddenMethodReturnType, overridingMethodReturnType);
     }
   }
 
