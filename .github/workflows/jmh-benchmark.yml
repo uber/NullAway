@@ -33,22 +33,23 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1
       
       
-    - name: Setup Directory
+   - name: Setup Directory and Copy Bash Scripts
       run: |
         gcloud compute ssh \
           --project=nullway-jmh \
           --zone=us-central1-a \
           root@instance-1 \
-          --command=" export BRANCH_NAME=${BRANCH_NAME} && mkdir $BRANCH_NAME "
-    
-    
+          --command="export BRANCH_NAME=${BRANCH_NAME} && mkdir $BRANCH_NAME"
+        gcloud compute scp ./github/workflows/run_pr_benchmarks.sh root@instance-1:$BRANCH_NAME/ --zone=us-central1-a
+        gcloud compute scp ./github/workflows/run_main_benchmarks.sh root@instance-1:$BRANCH_NAME/ --zone=us-central1-a
+
     - name: Run JMH benchmarks for PR Branch
       run: |
         gcloud compute ssh \
           --project=nullway-jmh \
           --zone=us-central1-a \
           root@instance-1 \
-          --command=" export BRANCH_NAME=${BRANCH_NAME} && cd $BRANCH_NAME/ && mkdir pr && cd pr/ && git clone --branch $BRANCH_NAME --single-branch git@github.com:armughan11/NullAway.git && cd NullAway/ && ./gradlew jmh "
+          --command=" export BRANCH_NAME=${BRANCH_NAME} && chmod +x $BRANCH_NAME/run_pr_benchmarks.sh && $BRANCH_NAME/run_pr_benchmarks.sh"
           
     - name: Copy exported PR benchmark file from Google Cloud Compute Engine
       run: |
@@ -72,7 +73,7 @@ jobs:
           --project=nullway-jmh \
           --zone=us-central1-a \
           root@instance-1 \
-          --command=" export BRANCH_NAME=${BRANCH_NAME} && cd $BRANCH_NAME/ && mkdir main && cd main/ && git clone git@github.com:armughan11/NullAway.git && cd NullAway/ && ./gradlew jmh "
+          --command=" export BRANCH_NAME=${BRANCH_NAME} && chmod +x $BRANCH_NAME/run_main_benchmarks.sh && $BRANCH_NAME/run_main_benchmarks.sh "
           
     - name: Copy exported Main Benchmark file from Google Cloud Compute Engine 
       run: |
