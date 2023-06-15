@@ -33,7 +33,7 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1
       
       
-   - name: Setup Directory and Copy Bash Scripts
+    - name: Setup Directory and Copy Bash Scripts
       run: |
         gcloud compute ssh \
           --project=nullway-jmh \
