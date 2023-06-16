@@ -486,7 +486,7 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
             "    int l = s.length();",
             "  }",
             "}")
-            .doTest();
+        .doTest();
   }
 
   @Test
