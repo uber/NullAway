@@ -28,6 +28,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
@@ -1030,13 +1031,11 @@ public class AccessPathNullnessPropagation
    */
   private boolean genericReturnIsNullable(MethodInvocationNode node) {
     if (node != null && config.isJSpecifyMode()) {
-      if (node.getTarget() != null && node.getTarget().getMethod() != null) {
+      MethodInvocationTree tree = node.getTree();
+      if (tree != null) {
         Nullness nullness =
-            GenericsChecks.getGenericMethodReturnTypeNullness(
-                (Symbol.MethodSymbol) ASTHelpers.getSymbol(node.getTarget().getTree()),
-                node.getTarget().getReceiver().getTree(),
-                state,
-                config);
+            GenericsChecks.getGenericReturnNullnessAtInvocation(
+                ASTHelpers.getSymbol(tree), tree, state, config);
         return nullness.equals(NULLABLE);
       }
     }

@@ -191,8 +191,8 @@ public final class GenericsChecks {
 
   private static void reportInvalidOverridingMethodReturnTypeError(
       Tree methodTree,
-      Type typeParameterType,
-      Type methodReturnType,
+      Type overriddenMethodReturnType,
+      Type overridingMethodReturnType,
       NullAway analysis,
       VisitorState state) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
@@ -200,9 +200,9 @@ public final class GenericsChecks {
         new ErrorMessage(
             ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN_GENERIC,
             "Method returns "
-                + prettyTypeForError(methodReturnType)
+                + prettyTypeForError(overridingMethodReturnType)
                 + ", but overridden method returns "
-                + prettyTypeForError(typeParameterType)
+                + prettyTypeForError(overriddenMethodReturnType)
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -639,13 +639,59 @@ public final class GenericsChecks {
         method, castToNonNull(ASTHelpers.getType(tree)), state, config);
   }
 
-  private static Nullness getGenericMethodReturnTypeNullness(
+  public static Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
     Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
     if (!(overriddenMethodType instanceof Type.MethodType)) {
       throw new RuntimeException("expected method type but instead got " + overriddenMethodType);
     }
     return getTypeNullness(overriddenMethodType.getReturnType(), config);
+  }
+
+  /**
+   * Computes the nullness of the return of a generic method at an invocation, in the context of the
+   * declared type of its receiver argument. If the return type is a type variable, its nullness
+   * depends on the nullability of the corresponding type parameter in the receiver's type.
+   *
+   * <p>Consider the following example:
+   *
+   * <pre>
+   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *         R apply(P p);
+   *     }
+   *     class C implements Fn<String, @Nullable String> {
+   *         public @Nullable String apply(String p) {
+   *             return null;
+   *         }
+   *     }
+   *     static void m() {
+   *         Fn<String, @Nullable String> f = new C();
+   *         f.apply("hello").hashCode(); // NPE
+   *     }
+   * </pre>
+   *
+   * The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
+   * variable {@code R}. So, the call {@code f.apply("hello")} returns {@code @Nullable} and an
+   * error should be reported.
+   *
+   * @param invokedMethodSymbol symbol for the invoked method
+   * @param tree the tree for the invocation
+   * @return Nullness of invocation's return type, or {@code NONNULL} if the call does not invoke an
+   *     instance method
+   */
+  public static Nullness getGenericReturnNullnessAtInvocation(
+      Symbol.MethodSymbol invokedMethodSymbol,
+      MethodInvocationTree tree,
+      VisitorState state,
+      Config config) {
+    if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
+      return Nullness.NONNULL;
+    }
+    Type methodReceiverType =
+        castToNonNull(
+            ASTHelpers.getType(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
+    return getGenericMethodReturnTypeNullness(
+        invokedMethodSymbol, methodReceiverType, state, config);
   }
 
   /**
@@ -782,16 +828,23 @@ public final class GenericsChecks {
   private static void checkTypeParameterNullnessForOverridingMethodParameterType(
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
     List<? extends VariableTree> methodParameters = tree.getParameters();
-    List<Type> typeParameterTypes = overriddenMethodType.getParameterTypes();
+    List<Type> overriddenMethodParameterTypes = overriddenMethodType.getParameterTypes();
+    // TODO handle varargs; they are not handled for now
     for (int i = 0; i < methodParameters.size(); i++) {
-      Type methodParameterType = ASTHelpers.getType(methodParameters.get(i));
-      Type typeParameterType = typeParameterTypes.get(i);
-      if (typeParameterType instanceof Type.ClassType
-          && methodParameterType instanceof Type.ClassType) {
+      Type overridingMethodParameterType = ASTHelpers.getType(methodParameters.get(i));
+      Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
+      if (overriddenMethodParameterType instanceof Type.ClassType
+          && overridingMethodParameterType instanceof Type.ClassType) {
         if (!compareNullabilityAnnotations(
-            (Type.ClassType) typeParameterType, (Type.ClassType) methodParameterType, state)) {
+            (Type.ClassType) overriddenMethodParameterType,
+            (Type.ClassType) overridingMethodParameterType,
+            state)) {
           reportInvalidOverridingMethodParamTypeError(
-              methodParameters.get(i), typeParameterType, methodParameterType, analysis, state);
+              methodParameters.get(i),
+              overriddenMethodParameterType,
+              overridingMethodParameterType,
+              analysis,
+              state);
         }
       }
     }
@@ -807,15 +860,18 @@ public final class GenericsChecks {
    */
   private static void checkTypeParameterNullnessForOverridingMethodReturnType(
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
-    Type typeParamType = overriddenMethodType.getReturnType();
-    Type methodReturnType = ASTHelpers.getType(tree.getReturnType());
-    if (!(typeParamType instanceof Type.ClassType && methodReturnType instanceof Type.ClassType)) {
+    Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
+    Type overridingMethodReturnType = ASTHelpers.getType(tree.getReturnType());
+    if (!(overriddenMethodReturnType instanceof Type.ClassType
+        && overridingMethodReturnType instanceof Type.ClassType)) {
       return;
     }
     if (!compareNullabilityAnnotations(
-        (Type.ClassType) typeParamType, (Type.ClassType) methodReturnType, state)) {
+        (Type.ClassType) overriddenMethodReturnType,
+        (Type.ClassType) overridingMethodReturnType,
+        state)) {
       reportInvalidOverridingMethodReturnTypeError(
-          tree, typeParamType, methodReturnType, analysis, state);
+          tree, overriddenMethodReturnType, overridingMethodReturnType, analysis, state);
     }
   }
 

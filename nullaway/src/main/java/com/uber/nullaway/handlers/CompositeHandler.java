@@ -123,15 +123,14 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public Nullness onOverrideMethodInvocationReturnNullability(
+  public Nullness onOverrideMethodReturnNullability(
       Symbol.MethodSymbol methodSymbol,
       VisitorState state,
       boolean isAnnotated,
       Nullness returnNullness) {
     for (Handler h : handlers) {
       returnNullness =
-          h.onOverrideMethodInvocationReturnNullability(
-              methodSymbol, state, isAnnotated, returnNullness);
+          h.onOverrideMethodReturnNullability(methodSymbol, state, isAnnotated, returnNullness);
     }
     return returnNullness;
   }
