@@ -133,7 +133,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public Nullness onOverrideMethodInvocationReturnNullability(
+  public Nullness onOverrideMethodReturnNullability(
       Symbol.MethodSymbol methodSymbol,
       VisitorState state,
       boolean isAnnotated,
