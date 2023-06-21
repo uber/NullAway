@@ -12,9 +12,23 @@ import java.util.Arrays;
 import javax.lang.model.element.Name;
 
 /**
- * A temporary workaround due to our lack of support for generics. We special case
- * com.google.common.base.Function when used within com.google.common.util.concurrent.FluentFuture
- * to assume a {@code Function<@Nullable T>}
+ * This handler provides a temporary workaround due to our lack of support for generics, which
+ * allows natural usage of Futures/FluentFuture Guava APIs. It can potentially introduce false
+ * negatives, however, and should be deprecated as soon as full generic support is available.
+ *
+ * <p>This works by special casing the return nullability of {@ref com.google.common.base.Function}
+ * and {@ref com.google.common.util.concurrent.AsyncFunction} to be e.g. {@code Function<@Nullable
+ * T>} whenever these functional interfaces are implemented as a lambda passed to a list of specific
+ * methods of {@red com.google.common.util.concurrent.FluentFuture} or {@ref
+ * com.google.common.util.concurrent.Futures}. We cannot currently check that {@code T} for
+ * {@FluentFuture<T>} is a {@code @Nullable} type, so this is unsound. However, we have found many
+ * cases in practice where these lambdas include {@code null} returns, which were already being
+ * ignored (due to a bug) before PR #765. This handler offers the best possible support for these
+ * cases, at least until our generics support is mature enough to handle them.
+ *
+ * <p>Note: Package {@code com.uber.nullaway.handlers.temporary} is meant for this sort of temporary
+ * workaround handler, to be removed as future NullAway features make them unnecessary. This is a
+ * hack, but the best of a bunch of bad options.
  */
 public class FluentFutureHandler extends BaseNoOpHandler {
 
@@ -29,14 +43,14 @@ public class FluentFutureHandler extends BaseNoOpHandler {
     "catching", "catchingAsync", "transform", "transformAsync"
   };
 
-  private boolean isGuavaFunctionDotAppy(Symbol.MethodSymbol methodSymbol) {
+  private static boolean isGuavaFunctionDotAppy(Symbol.MethodSymbol methodSymbol) {
     Name className = methodSymbol.enclClass().flatName();
     return (className.contentEquals(GUAVA_FUNCTION_CLASS_NAME)
             || className.contentEquals(GUAVA_ASYNC_FUNCTION_CLASS_NAME))
         && methodSymbol.name.contentEquals(FUNCTION_APPLY_METHOD_NAME);
   }
 
-  private boolean isFluentFutureIncludeListMethod(Symbol.MethodSymbol methodSymbol) {
+  private static boolean isFluentFutureIncludeListMethod(Symbol.MethodSymbol methodSymbol) {
     Name className = methodSymbol.enclClass().flatName();
     return (className.contentEquals(FLUENT_FUTURE_CLASS_NAME)
             || className.contentEquals(FUTURES_CLASS_NAME))

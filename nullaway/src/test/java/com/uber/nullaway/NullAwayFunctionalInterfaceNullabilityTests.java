@@ -56,6 +56,7 @@ public class NullAwayFunctionalInterfaceNullabilityTests extends NullAwayTestsBa
 
   @Test
   public void futuresFunctionLambdas() {
+    // See FluentFutureHandler
     defaultCompilationHelper
         .addSourceLines(
             "TestGuava.java",
