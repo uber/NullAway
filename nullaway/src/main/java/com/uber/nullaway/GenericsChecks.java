@@ -626,19 +626,6 @@ public final class GenericsChecks {
         : enclosingSymbol.type;
   }
 
-  public static Nullness getGenericMethodReturnTypeNullness(
-      Symbol.MethodSymbol method, Tree tree, VisitorState state, Config config) {
-    if (method.isStatic()) {
-      return Nullness.NONNULL;
-    }
-    Symbol symbol = ASTHelpers.getSymbol(tree);
-    if (symbol != null) {
-      return getGenericMethodReturnTypeNullness(method, symbol, state, config);
-    }
-    return getGenericMethodReturnTypeNullness(
-        method, castToNonNull(ASTHelpers.getType(tree)), state, config);
-  }
-
   private static Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
     Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
