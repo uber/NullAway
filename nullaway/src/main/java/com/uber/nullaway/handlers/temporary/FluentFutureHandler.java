@@ -43,7 +43,7 @@ public class FluentFutureHandler extends BaseNoOpHandler {
     "catching", "catchingAsync", "transform", "transformAsync"
   };
 
-  private static boolean isGuavaFunctionDotAppy(Symbol.MethodSymbol methodSymbol) {
+  private static boolean isGuavaFunctionDotApply(Symbol.MethodSymbol methodSymbol) {
     Name className = methodSymbol.enclClass().flatName();
     return (className.contentEquals(GUAVA_FUNCTION_CLASS_NAME)
             || className.contentEquals(GUAVA_ASYNC_FUNCTION_CLASS_NAME))
@@ -65,7 +65,7 @@ public class FluentFutureHandler extends BaseNoOpHandler {
       boolean isAnnotated,
       Nullness returnNullness) {
     // We only care about lambda's implementing Guava's Function
-    if (!isGuavaFunctionDotAppy(methodSymbol)) {
+    if (!isGuavaFunctionDotApply(methodSymbol)) {
       return returnNullness;
     }
     // Check if we are inside a lambda passed as an argument to a method call:
