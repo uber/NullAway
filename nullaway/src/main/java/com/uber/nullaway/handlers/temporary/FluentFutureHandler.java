@@ -20,8 +20,8 @@ import javax.lang.model.element.Name;
  * and {@link com.google.common.util.concurrent.AsyncFunction} to be e.g. {@code Function<@Nullable
  * T>} whenever these functional interfaces are implemented as a lambda expression passed to a list
  * of specific methods of {@link com.google.common.util.concurrent.FluentFuture} or {@link
- * com.google.common.util.concurrent.Futures}. We cannot currently check that {@code T} for
- * {@FluentFuture<T>} is a {@code @Nullable} type, so this is unsound. However, we have found many
+ * com.google.common.util.concurrent.Futures}. We cannot currently check that {@code T} for {@code
+ * FluentFuture<T>} is a {@code @Nullable} type, so this is unsound. However, we have found many
  * cases in practice where these lambdas include {@code null} returns, which were already being
  * ignored (due to a bug) before PR #765. This handler offers the best possible support for these
  * cases, at least until our generics support is mature enough to handle them.
