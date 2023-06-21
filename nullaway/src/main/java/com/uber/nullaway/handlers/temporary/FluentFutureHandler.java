@@ -9,6 +9,7 @@ import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
 import java.util.Arrays;
+import javax.lang.model.element.Name;
 
 /**
  * A temporary workaround due to our lack of support for generics. We special case
@@ -18,6 +19,8 @@ import java.util.Arrays;
 public class FluentFutureHandler extends BaseNoOpHandler {
 
   private static final String GUAVA_FUNCTION_CLASS_NAME = "com.google.common.base.Function";
+  private static final String GUAVA_ASYNC_FUNCTION_CLASS_NAME =
+      "com.google.common.util.concurrent.AsyncFunction";
   private static final String FLUENT_FUTURE_CLASS_NAME =
       "com.google.common.util.concurrent.FluentFuture";
   private static final String FUNCTION_APPLY_METHOD_NAME = "apply";
@@ -26,7 +29,9 @@ public class FluentFutureHandler extends BaseNoOpHandler {
   };
 
   private boolean isGuavaFunctionDotAppy(Symbol.MethodSymbol methodSymbol) {
-    return methodSymbol.enclClass().flatName().contentEquals(GUAVA_FUNCTION_CLASS_NAME)
+    Name className = methodSymbol.enclClass().flatName();
+    return (className.contentEquals(GUAVA_FUNCTION_CLASS_NAME)
+            || className.contentEquals(GUAVA_ASYNC_FUNCTION_CLASS_NAME))
         && methodSymbol.name.contentEquals(FUNCTION_APPLY_METHOD_NAME);
   }
 
@@ -46,7 +51,7 @@ public class FluentFutureHandler extends BaseNoOpHandler {
     if (!isGuavaFunctionDotAppy(methodSymbol)) {
       return returnNullness;
     }
-    // Check if we are inside a lambda inside a call to a FluentFuture method:
+    // Check if we are inside a lambda passed as an argument to a method call:
     LambdaExpressionTree enclosingLambda =
         ASTHelpers.findEnclosingNode(state.getPath(), LambdaExpressionTree.class);
     if (enclosingLambda == null
@@ -59,6 +64,7 @@ public class FluentFutureHandler extends BaseNoOpHandler {
     if (methodInvocation == null || !methodInvocation.getArguments().contains(enclosingLambda)) {
       return returnNullness;
     }
+    // Check if that method call is one of the FluentFuture APIs we care about
     Symbol.MethodSymbol lambdaConsumerMethodSymbol = ASTHelpers.getSymbol(methodInvocation);
     if (!isFluentFutureIncludeListMethod(lambdaConsumerMethodSymbol)) {
       return returnNullness;
