@@ -878,6 +878,10 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    FnClass<String, @Nullable String> fn4 = new FnClass<String, @Nullable String>() {",
             "      public @Nullable String apply(String s) { return null; }",
             "    };",
+            "    String s1 = (new Fn<String, @Nullable String>() {",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    }).apply(\"hi\");",
+            "    s1.hashCode();",
             "  }",
             "}")
         .doTest();

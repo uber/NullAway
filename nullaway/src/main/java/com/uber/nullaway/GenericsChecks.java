@@ -676,7 +676,7 @@ public final class GenericsChecks {
     }
     Type methodReceiverType =
         castToNonNull(
-            ASTHelpers.getType(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
+            getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state));
     return getGenericMethodReturnTypeNullness(
         invokedMethodSymbol, methodReceiverType, state, config);
   }
