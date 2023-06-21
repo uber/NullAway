@@ -18,8 +18,8 @@ import javax.lang.model.element.Name;
  *
  * <p>This works by special casing the return nullability of {@ref com.google.common.base.Function}
  * and {@ref com.google.common.util.concurrent.AsyncFunction} to be e.g. {@code Function<@Nullable
- * T>} whenever these functional interfaces are implemented as a lambda passed to a list of specific
- * methods of {@red com.google.common.util.concurrent.FluentFuture} or {@ref
+ * T>} whenever these functional interfaces are implemented as a lambda expression passed to a list
+ * of specific methods of {@ref com.google.common.util.concurrent.FluentFuture} or {@ref
  * com.google.common.util.concurrent.Futures}. We cannot currently check that {@code T} for
  * {@FluentFuture<T>} is a {@code @Nullable} type, so this is unsound. However, we have found many
  * cases in practice where these lambdas include {@code null} returns, which were already being
