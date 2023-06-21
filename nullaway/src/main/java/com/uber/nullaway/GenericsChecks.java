@@ -639,7 +639,7 @@ public final class GenericsChecks {
         method, castToNonNull(ASTHelpers.getType(tree)), state, config);
   }
 
-  public static Nullness getGenericMethodReturnTypeNullness(
+  private static Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
     Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
     if (!(overriddenMethodType instanceof Type.MethodType)) {
