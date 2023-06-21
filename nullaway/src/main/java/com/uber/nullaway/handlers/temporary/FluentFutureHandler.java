@@ -23,6 +23,7 @@ public class FluentFutureHandler extends BaseNoOpHandler {
       "com.google.common.util.concurrent.AsyncFunction";
   private static final String FLUENT_FUTURE_CLASS_NAME =
       "com.google.common.util.concurrent.FluentFuture";
+  private static final String FUTURES_CLASS_NAME = "com.google.common.util.concurrent.Futures";
   private static final String FUNCTION_APPLY_METHOD_NAME = "apply";
   private static final String[] FLUENT_FUTURE_INCLUDE_LIST_METHODS = {
     "catching", "catchingAsync", "transform", "transformAsync"
@@ -36,7 +37,9 @@ public class FluentFutureHandler extends BaseNoOpHandler {
   }
 
   private boolean isFluentFutureIncludeListMethod(Symbol.MethodSymbol methodSymbol) {
-    return methodSymbol.enclClass().flatName().contentEquals(FLUENT_FUTURE_CLASS_NAME)
+    Name className = methodSymbol.enclClass().flatName();
+    return (className.contentEquals(FLUENT_FUTURE_CLASS_NAME)
+            || className.contentEquals(FUTURES_CLASS_NAME))
         && Arrays.stream(FLUENT_FUTURE_INCLUDE_LIST_METHODS)
             .anyMatch(s -> methodSymbol.name.contentEquals(s));
   }

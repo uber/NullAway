@@ -55,7 +55,7 @@ public class NullAwayFunctionalInterfaceNullabilityTests extends NullAwayTestsBa
   }
 
   @Test
-  public void fluentFutureFunctionLambdas() {
+  public void futuresFunctionLambdas() {
     defaultCompilationHelper
         .addSourceLines(
             "TestGuava.java",
@@ -98,6 +98,10 @@ public class NullAwayFunctionalInterfaceNullabilityTests extends NullAwayTestsBa
             "        .from(Futures.immediateFuture(\"hi\"))",
             "        // Should be an error when we have full generics support, false-negative for now",
             "        .transform(s -> { return null; }, executor);",
+            "  }",
+            "  private static ListenableFuture<@Nullable String> futuresTransform(Executor executor) {",
+            "    return Futures",
+            "        .transform(Futures.immediateFuture(\"hi\"), s -> { return null; }, executor);",
             "  }",
             "}")
         .doTest();
