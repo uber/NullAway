@@ -28,6 +28,7 @@ import com.uber.nullaway.handlers.contract.ContractCheckHandler;
 import com.uber.nullaway.handlers.contract.ContractHandler;
 import com.uber.nullaway.handlers.contract.fieldcontract.EnsuresNonNullHandler;
 import com.uber.nullaway.handlers.contract.fieldcontract.RequiresNonNullHandler;
+import com.uber.nullaway.handlers.temporary.FluentFutureHandler;
 
 /** Utility static methods for the handlers package. */
 public class Handlers {
@@ -75,6 +76,7 @@ public class Handlers {
       handlerListBuilder.add(new ContractCheckHandler(config));
     }
     handlerListBuilder.add(new LombokHandler(config));
+    handlerListBuilder.add(new FluentFutureHandler());
 
     return new CompositeHandler(handlerListBuilder.build());
   }
