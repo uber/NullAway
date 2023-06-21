@@ -50,7 +50,7 @@ public class FluentFutureHandler extends BaseNoOpHandler {
     LambdaExpressionTree enclosingLambda =
         ASTHelpers.findEnclosingNode(state.getPath(), LambdaExpressionTree.class);
     if (enclosingLambda == null
-        && NullabilityUtil.getFunctionalInterfaceMethod(enclosingLambda, state.getTypes())
+        || !NullabilityUtil.getFunctionalInterfaceMethod(enclosingLambda, state.getTypes())
             .equals(methodSymbol)) {
       return returnNullness;
     }
