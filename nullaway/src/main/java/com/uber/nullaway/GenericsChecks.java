@@ -619,8 +619,17 @@ public final class GenericsChecks {
     return getGenericMethodReturnTypeNullness(method, enclosingType, state, config);
   }
 
-  private static Type getTypeForSymbol(Symbol enclosingSymbol, VisitorState state) {
-    if (enclosingSymbol.isAnonymous()) {
+  /**
+   * Get the type for the symbol, accounting for anonymous classes
+   *
+   * @param symbol the symbol
+   * @param state the visitor state
+   * @return the type for {@code symbol}
+   */
+  private static Type getTypeForSymbol(Symbol symbol, VisitorState state) {
+    if (symbol.isAnonymous()) {
+      // For anonymous classes, symbol.type does not contain annotations on generic type parameters.
+      // So, we get a correct type from the enclosing NewClassTree.
       TreePath path = state.getPath();
       NewClassTree newClassTree = ASTHelpers.findEnclosingNode(path, NewClassTree.class);
       if (newClassTree == null) {
@@ -629,7 +638,7 @@ public final class GenericsChecks {
       }
       return getTreeType(newClassTree, state);
     } else {
-      return enclosingSymbol.type;
+      return symbol.type;
     }
   }
 
@@ -760,10 +769,12 @@ public final class GenericsChecks {
    *
    * @param parameterIndex index of the parameter
    * @param method the generic method
-   * @param enclosingSymbol the enclosing type in which we want to know {@code method}'s parameter
+   * @param enclosingSymbol the enclosing symbol in which we want to know {@code method}'s parameter
    *     type nullability
+   * @param state the visitor state
+   * @param config the config
    * @return nullability of the relevant parameter type of {@code method} in the context of {@code
-   *     enclosingType}
+   *     enclosingSymbol}
    */
   public static Nullness getGenericMethodParameterNullness(
       int parameterIndex,
@@ -775,6 +786,20 @@ public final class GenericsChecks {
     return getGenericMethodParameterNullness(parameterIndex, method, enclosingType, state, config);
   }
 
+  /**
+   * Just like {@link #getGenericMethodParameterNullness(int, Symbol.MethodSymbol, Symbol,
+   * VisitorState, Config)}, but takes the enclosing {@code Type} rather than the enclosing {@code
+   * Symbol}.
+   *
+   * @param parameterIndex index of the parameter
+   * @param method the generic method
+   * @param enclosingType the enclosing type in which we want to know {@code method}'s parameter
+   *     type nullability
+   * @param state the visitor state
+   * @param config the config
+   * @return nullability of the relevant parameter type of {@code method} in the context of {@code
+   *     enclosingSymbol}
+   */
   public static Nullness getGenericMethodParameterNullness(
       int parameterIndex,
       Symbol.MethodSymbol method,
