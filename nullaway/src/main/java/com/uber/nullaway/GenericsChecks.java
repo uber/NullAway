@@ -11,7 +11,6 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
-import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
@@ -21,7 +20,7 @@ import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
-import com.sun.source.util.Trees;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
@@ -621,9 +620,17 @@ public final class GenericsChecks {
   }
 
   private static Type getTypeForSymbol(Symbol enclosingSymbol, VisitorState state) {
-    return enclosingSymbol.isAnonymous()
-        ? getTypeForAnonymousSymbol(enclosingSymbol, state)
-        : enclosingSymbol.type;
+    if (enclosingSymbol.isAnonymous()) {
+      TreePath path = state.getPath();
+      NewClassTree newClassTree = ASTHelpers.findEnclosingNode(path, NewClassTree.class);
+      if (newClassTree == null) {
+        throw new RuntimeException(
+            "method should be inside a NewClassTree " + state.getSourceForNode(path.getLeaf()));
+      }
+      return getTreeType(newClassTree, state);
+    } else {
+      return enclosingSymbol.type;
+    }
   }
 
   private static Nullness getGenericMethodReturnTypeNullness(
@@ -777,40 +784,6 @@ public final class GenericsChecks {
     Type methodType = state.getTypes().memberType(enclosingType, method);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getTypeNullness(paramType, config);
-  }
-
-  private static Type getTypeForAnonymousSymbol(Symbol enclosingSymbol, VisitorState state) {
-    Trees trees = NullAway.getTreesInstance(state);
-    // tree for the symbol will be a class tree
-    ClassTree anonClassTree = (ClassTree) trees.getTree(enclosingSymbol);
-    // This class must either extend one other class or implement one interface.  Figure out which,
-    // and use the corresponding ParameterizedTypeTree to get the real type
-    Tree extendsClause = anonClassTree.getExtendsClause();
-    ParameterizedTypeTree superTypeTree = null;
-    if (extendsClause != null) {
-      if (extendsClause instanceof ParameterizedTypeTree) {
-        superTypeTree = (ParameterizedTypeTree) extendsClause;
-      }
-    } else {
-      List<? extends Tree> implementsClause = anonClassTree.getImplementsClause();
-      if (implementsClause.size() != 1) {
-        throw new RuntimeException(
-            "unexpected implements clause list "
-                + implementsClause
-                + " for anonymous type "
-                + anonClassTree);
-      }
-      Tree implementsTree = implementsClause.get(0);
-      if (implementsTree instanceof ParameterizedTypeTree) {
-        superTypeTree = (ParameterizedTypeTree) implementsTree;
-      }
-    }
-    if (superTypeTree != null && !superTypeTree.getTypeArguments().isEmpty()) {
-      return typeWithPreservedAnnotations(superTypeTree, state);
-    } else {
-      // not a generic type we need to modify
-      return enclosingSymbol.type;
-    }
   }
 
   /**
