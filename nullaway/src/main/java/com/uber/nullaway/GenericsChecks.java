@@ -722,11 +722,11 @@ public final class GenericsChecks {
     if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
       return Nullness.NONNULL;
     }
-    Symbol methodReceiverSymbol =
+    Type enclosingType =
         castToNonNull(
-            ASTHelpers.getSymbol(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
+            getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state));
     return getGenericMethodParameterNullness(
-        paramIndex, invokedMethodSymbol, methodReceiverSymbol, state, config);
+        paramIndex, invokedMethodSymbol, enclosingType, state, config);
   }
 
   /**
@@ -765,6 +765,15 @@ public final class GenericsChecks {
       VisitorState state,
       Config config) {
     Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
+    return getGenericMethodParameterNullness(parameterIndex, method, enclosingType, state, config);
+  }
+
+  public static Nullness getGenericMethodParameterNullness(
+      int parameterIndex,
+      Symbol.MethodSymbol method,
+      Type enclosingType,
+      VisitorState state,
+      Config config) {
     Type methodType = state.getTypes().memberType(enclosingType, method);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getTypeNullness(paramType, config);

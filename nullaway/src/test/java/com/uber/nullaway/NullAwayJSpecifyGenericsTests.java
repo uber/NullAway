@@ -878,10 +878,50 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    FnClass<String, @Nullable String> fn4 = new FnClass<String, @Nullable String>() {",
             "      public @Nullable String apply(String s) { return null; }",
             "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void explicitlyTypedAnonymousClassAsReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    R apply(P p);",
+            "  }",
+            "  static abstract class FnClass<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    abstract R apply(P p);",
+            "  }",
+            "  static void anonymousClasses() {",
             "    String s1 = (new Fn<String, @Nullable String>() {",
             "      public @Nullable String apply(String s) { return null; }",
             "    }).apply(\"hi\");",
+            "    // BUG: Diagnostic contains: dereferenced expression s1",
             "    s1.hashCode();",
+            "    String s2 = (new FnClass<String, @Nullable String>() {",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    }).apply(\"hi\");",
+            "    // BUG: Diagnostic contains: dereferenced expression s2",
+            "    s2.hashCode();",
+            "    (new Fn<String, String>() {",
+            "      public String apply(String s) { return \"hi\"; }",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    }).apply(null);",
+            "    (new FnClass<String, String>() {",
+            "      public String apply(String s) { return \"hi\"; }",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    }).apply(null);",
+            "    (new Fn<@Nullable String, String>() {",
+            "      public String apply(@Nullable String s) { return \"hi\"; }",
+            "    }).apply(null);",
+            "    (new FnClass<@Nullable String, String>() {",
+            "      public String apply(@Nullable String s) { return \"hi\"; }",
+            "    }).apply(null);",
             "  }",
             "}")
         .doTest();
