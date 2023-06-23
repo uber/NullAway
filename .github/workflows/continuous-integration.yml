@@ -66,7 +66,7 @@ jobs:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: build -x :sample-app:build -x :jar-infer:jar-infer-lib:build -x :jar-infer:nullaway-integration-test:build -x :jar-infer:test-java-lib-jarinfer:build
+          arguments: build -x :jar-infer:jar-infer-lib:build -x :jar-infer:nullaway-integration-test:build -x :jar-infer:test-java-lib-jarinfer:build
         if: matrix.java == '17'
       - name: Report jacoco coverage
         uses: gradle/gradle-build-action@v2
@@ -103,7 +103,7 @@ jobs:
       - name: 'Publish'
         uses: gradle/gradle-build-action@v2
         env:
-          ORG_GRADLE_PROJECT_mavenCentralRepositoryUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
-          ORG_GRADLE_PROJECT_mavenCentralRepositoryPassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
         with:
           arguments: clean publish --no-daemon --no-parallel
