@@ -107,7 +107,7 @@ publishing {
    }
 
     afterEvaluate {
-        // Below is a series of hacks needed to get publication to work with 
+        // Below is a series of hacks needed to get publication to work with
         // gradle-maven-publish-plugin >= 0.15.0 (itself needed after the upgrade to Gradle 8.0.2).
         // Not sure why e.g. publishShadowPublicationToMavenCentralRepository must depend on signMavenPublication
         // (rather than just signShadowPublication)
@@ -121,6 +121,10 @@ publishing {
         }
         project.tasks.named('publishShadowPublicationToMavenCentralRepository').configure {
             dependsOn 'signMavenPublication'
+        }
+        project.tasks.named('publishShadowPublicationToMavenLocal').configure {
+            dependsOn 'javaSourcesJar'
+            dependsOn 'simpleJavadocJar'
         }
     }
 }
