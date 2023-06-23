@@ -170,7 +170,7 @@ public class JarInferTest {
    * @param result Map of 'method signatures' to their 'inferred list of NonNull parameters'.
    * @param expected Map of 'method signatures' to their 'expected list of NonNull parameters'.
    */
-  private boolean verify(Map<String, Set<Integer>> result, HashMap<String, Set<Integer>> expected) {
+  private boolean verify(Map<String, Set<Integer>> result, Map<String, Set<Integer>> expected) {
     for (Map.Entry<String, Set<Integer>> entry : result.entrySet()) {
       String mtd_sign = entry.getKey();
       Set<Integer> ddParams = entry.getValue();
