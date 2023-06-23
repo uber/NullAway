@@ -23,6 +23,7 @@ Version 0.10.11
   - Update to Gradle 8.0.2 (#743)
   - Fix CI on Windows (#759)
   - Upgrade to Error Prone 2.19.1 (#763)
+  - Upgrade maven publish plugin to 0.21.0 (#773)
 
 Version 0.10.10
 ---------------
