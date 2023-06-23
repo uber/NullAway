@@ -31,3 +31,4 @@ Releasing
  8. `git commit -am "Prepare next development version."`
  9. `git push && git push --tags`
  10. Visit [Sonatype Nexus](https://oss.sonatype.org/) and promote the artifact.
+ 11. Go to [this page](https://github.com/uber/NullAway/releases/new) to create a new release on GitHub, using the release notes from `CHANGELOG.md`.
