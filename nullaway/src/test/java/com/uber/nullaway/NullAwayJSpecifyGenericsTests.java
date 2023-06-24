@@ -717,7 +717,25 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
-
+  @Test
+  public void nestedGenericTypeAssignment() {
+    makeHelper()
+            .addSourceLines(
+                    "Test.java",
+                    "package com.uber;",
+                    "import org.jspecify.annotations.Nullable;",
+                    "class Test {",
+                    "  static class A<T extends @Nullable Object> { }",
+                    "  static void testPositive() {",
+                    "     // BUG: Diagnostic contains: Cannot assign from type",
+                    "     A<A<@Nullable String>[]> var = new A<A<String>[]>();",
+                    "  }",
+                    "  static void testNegative() {",
+                    "    A<A<@Nullable String>[]> var = new A<A<@Nullable String>[]>();",
+                    "  }",
+                    "}")
+            .doTest();
+  }
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
