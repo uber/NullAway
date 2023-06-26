@@ -1,4 +1,4 @@
-name: JMH Benchmark
+name: Run JMH Benchmarks for Pull Request 
 
 on:
   issue_comment:
@@ -7,21 +7,17 @@ on:
 
 jobs:
   setup:
-    if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark')
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark') && github.repository == 'uber/NullAway'
     runs-on: ubuntu-latest
     permissions: write-all
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
-
-    - name: Get PR branch
-      uses: xt0rted/pull-request-comment-branch@v1
-      id: comment-branch
+      uses: actions/checkout@v3
 
 
     - name: Set branch name
-      run: echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
+      run: echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
     
     - id: 'auth'
       name: Authenticating
@@ -33,69 +29,13 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1
       
       
-    - name: Setup Directory and Copy Bash Scripts
+    - name: Run benchmarks and cleanup
       run: |
-        gcloud compute ssh \
-          --project=nullway-jmh \
-          --zone=us-central1-a \
-          root@instance-1 \
-          --command="export BRANCH_NAME=${BRANCH_NAME} && mkdir $BRANCH_NAME"
-        gcloud compute scp ./.github/workflows/run_pr_benchmarks.sh root@instance-1:$BRANCH_NAME/ --zone=us-central1-a
-        gcloud compute scp ./.github/workflows/run_main_benchmarks.sh root@instance-1:$BRANCH_NAME/ --zone=us-central1-a
-
-    - name: Run JMH benchmarks for PR Branch
-      run: |
-        gcloud compute ssh \
-          --project=nullway-jmh \
-          --zone=us-central1-a \
-          root@instance-1 \
-          --command=" export BRANCH_NAME=${BRANCH_NAME} && chmod +x $BRANCH_NAME/run_pr_benchmarks.sh && $BRANCH_NAME/run_pr_benchmarks.sh"
-          
-    - name: Copy exported PR benchmark file from Google Cloud Compute Engine
-      run: |
-        gcloud compute scp root@instance-1:$BRANCH_NAME/pr/NullAway/jmh/build/results/jmh/results.txt ./pr_text.txt --zone us-central1-a
-        
-    - name: Formatting Benchmark
-      run:  |
-        (echo 'PR Benchmark:'; echo '```' ; cat pr_text.txt; echo '```') > pr.txt
-   
-    - name: Comment Benchmark
-      uses: mshick/add-pr-comment@v2
-      if: always()
-      with:         
-        message-path: pr.txt 
-        message-id: pr
-    
-    
-    - name: Run JMH benchmarks for Main Branch
-      run: |
-        gcloud compute ssh \
-          --project=nullway-jmh \
-          --zone=us-central1-a \
-          root@instance-1 \
-          --command=" export BRANCH_NAME=${BRANCH_NAME} && chmod +x $BRANCH_NAME/run_main_benchmarks.sh && $BRANCH_NAME/run_main_benchmarks.sh "
-          
-    - name: Copy exported Main Benchmark file from Google Cloud Compute Engine 
-      run: |
-        gcloud compute scp root@instance-1:$BRANCH_NAME/main/NullAway/jmh/build/results/jmh/results.txt ./main_text.txt --zone us-central1-a
-        
-    - name: Formatting Main Benchmark
-      run:  |
-        (echo 'Main Benchmark:'; echo '```' ; cat main_text.txt; echo '```') > main.txt
-   
-    - name: Comment Main Benchmark
-      uses: mshick/add-pr-comment@v2
-      if: always()
-      with:         
-        message-path: main.txt 
-        message-id: main
-      
-    - name: Cleanup
-      run: |
+          gcloud compute scp ./.github/workflows/run_benchmarks.sh root@instance-1:/tmp --zone=us-central1-a
           gcloud compute ssh \
             --project=nullway-jmh \
             --zone=us-central1-a \
             root@instance-1 \
-            --command=" rm -r -f $BRANCH_NAME"
+            --command="bash /tmp/run_benchmarks.sh ${BRANCH_NAME}"
 
       
