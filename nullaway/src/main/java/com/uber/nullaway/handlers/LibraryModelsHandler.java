@@ -109,14 +109,16 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public Nullness onOverrideMethodInvocationReturnNullability(
+  public Nullness onOverrideMethodReturnNullability(
       Symbol.MethodSymbol methodSymbol,
       VisitorState state,
       boolean isAnnotated,
       Nullness returnNullness) {
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
     if (optLibraryModels.hasNonNullReturn(methodSymbol, state.getTypes(), !isAnnotated)) {
-      return Nullness.NONNULL;
+      return NONNULL;
+    } else if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes(), !isAnnotated)) {
+      return NULLABLE;
     }
     return returnNullness;
   }
@@ -450,6 +452,54 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                     "org.junit.jupiter.api.Assertions",
                     "assertNotNull(java.lang.Object,java.util.function.Supplier<java.lang.String>)"),
                 0)
+            .put(methodRef("org.apache.commons.lang3.Validate", "<T>notNull(T)"), 0)
+            .put(
+                methodRef(
+                    "org.apache.commons.lang3.Validate",
+                    "<T>notNull(T,java.lang.String,java.lang.Object...)"),
+                0)
+            .put(
+                methodRef(
+                    "org.apache.commons.lang3.Validate",
+                    "<T>notEmpty(T[],java.lang.String,java.lang.Object...)"),
+                0)
+            .put(methodRef("org.apache.commons.lang3.Validate", "<T>notEmpty(T[])"), 0)
+            .put(
+                methodRef(
+                    "org.apache.commons.lang3.Validate",
+                    "<T>notEmpty(T,java.lang.String,java.lang.Object...)"),
+                0)
+            .put(methodRef("org.apache.commons.lang3.Validate", "<T>notEmpty(T)"), 0)
+            .put(
+                methodRef(
+                    "org.apache.commons.lang3.Validate",
+                    "<T>notBlank(T,java.lang.String,java.lang.Object...)"),
+                0)
+            .put(methodRef("org.apache.commons.lang3.Validate", "<T>notBlank(T)"), 0)
+            .put(
+                methodRef(
+                    "org.apache.commons.lang3.Validate",
+                    "<T>noNullElements(T[],java.lang.String,java.lang.Object...)"),
+                0)
+            .put(methodRef("org.apache.commons.lang3.Validate", "<T>noNullElements(T[])"), 0)
+            .put(
+                methodRef(
+                    "org.apache.commons.lang3.Validate",
+                    "<T>noNullElements(T,java.lang.String,java.lang.Object...)"),
+                0)
+            .put(methodRef("org.apache.commons.lang3.Validate", "<T>noNullElements(T)"), 0)
+            .put(
+                methodRef(
+                    "org.apache.commons.lang3.Validate",
+                    "<T>validIndex(T[],int,java.lang.String,java.lang.Object...)"),
+                0)
+            .put(methodRef("org.apache.commons.lang3.Validate", "<T>validIndex(T[],int)"), 0)
+            .put(
+                methodRef(
+                    "org.apache.commons.lang3.Validate",
+                    "<T>validIndex(T,int,java.lang.String,java.lang.Object...)"),
+                0)
+            .put(methodRef("org.apache.commons.lang3.Validate", "<T>validIndex(T,int)"), 0)
             .build();
 
     private static final ImmutableSetMultimap<MethodRef, Integer> EXPLICITLY_NULLABLE_PARAMETERS =

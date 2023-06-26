@@ -36,4 +36,5 @@ public class LombokDTO {
   private String field;
   @Builder.Default private String fieldWithDefault = "Default";
   @Nullable private String nullableField;
+  @Nullable @Builder.Default private String fieldWithNullDefault = null;
 }

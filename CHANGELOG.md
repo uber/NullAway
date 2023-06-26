@@ -1,5 +1,30 @@
 Changelog
 =========
+Version 0.10.11
+---------------
+* NULL_LITERAL expressions may always be null (#749)
+* Fix error in Lombok generated code for @Nullable @Builder.Default (#765)
+* Support for specific libraries/APIs:
+  - Added support for Apache Validate (#769)
+  - Introduce FluentFutureHandler as a workaround for Guava FluentFuture (#771)
+* Internal code refactorings:
+  - [Refactor] Pass resolved Symbols into Handler methods (#729)
+  - Prepare for Nullable ASTHelpers.getSymbol (#733)
+  - Refactor: streamline mayBeNullExpr flow (#753)
+  - Refactor LibraryModelsHandler.onOverrideMayBeNullExpr (#754)
+  - Refactor simple onOverrideMayBeNullExpr handlers (#747)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - JSpecify generics checks for conditional expressions (#739)
+  - Generics checks for parameter passing (#746)
+  - Clearer printing of types in errors related to generics (#758)
+* NullAwayInfer/Annotator data serialization support [experimental]
+  - Update path serialization for class files (#752)
+* Build / CI tooling for NullAway itself:
+  - Update to Gradle 8.0.2 (#743)
+  - Fix CI on Windows (#759)
+  - Upgrade to Error Prone 2.19.1 (#763)
+  - Upgrade maven publish plugin to 0.21.0 (#773)
+
 Version 0.10.10
 ---------------
 * Add command line option to skip specific library models. (#741)
