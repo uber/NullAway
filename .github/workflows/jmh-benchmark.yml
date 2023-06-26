@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     env:
-      BRANCH_NAME: ${{ github.head_ref }}
+      BRANCH_NAME: ${{ github.event.issue.title }}
 
     steps:
     - name: Checkout repository
