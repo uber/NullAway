@@ -10,14 +10,19 @@ jobs:
     if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark') 
     runs-on: ubuntu-latest
     permissions: write-all
-    env:
-      BRANCH_NAME: ${{ github.event.issue.title }}
+  
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    - name: Get PR branch
+      uses: xt0rted/pull-request-comment-branch@v1
+      id: comment-branch
 
+
+    - name: Set branch name
+      run: echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
 
     
     - id: 'auth'
