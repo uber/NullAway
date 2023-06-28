@@ -97,7 +97,7 @@ subprojects { project ->
     }
 
     // Target JDK 8.  We need to use the older sourceCompatibility / targetCompatibility settings to get
-    // the build to work on JDK 11+.  Once we stop supporting JDK 8, switch to using options.release above
+    // the build to work on JDK 11+.  Once we stop supporting JDK 8, switch to using the javac "release" option
     tasks.withType(JavaCompile) {
         java.sourceCompatibility = "1.8"
         java.targetCompatibility = "1.8"
