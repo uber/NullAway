@@ -21,11 +21,13 @@ jobs:
 
 
     - name: Set branch name
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
-        PR_URL=$(jq -r .issue.pull_request.url <<< "${{ toJson(github.event) }}")
-        PR_DETAILS=$(curl -s -H "Authorization: token $GH_TOKEN" $PR_URL)
-        REPO_FULL_NAME=$(jq -r .head.repo.full_name <<< "$PR_DETAILS")
+        PR_NUMBER=${{ github.event.issue.number }}
+        PR_DETAILS=$(curl -s -H "Authorization: token $GH_TOKEN" "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER")
+        REPO_FULL_NAME=$(echo "$PR_DETAILS" | jq -r .head.repo.full_name)
+        BRANCH_NAME=$(echo "$PR_DETAILS" | jq -r .head.ref)
         echo $REPO_FULL_NAME
         
         
