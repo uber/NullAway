@@ -21,7 +21,12 @@ jobs:
 
 
     - name: Set branch name
-      run: echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
+      run: |
+        echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
+        echo "REPO_FULL_NAME=${{ github.event.issue.pull_request.user.login }}/${{ github.event.issue.pull_request.repo.name }}" >> $GITHUB_ENV
+        
+        
+      
     
     - id: 'auth'
       name: Authenticating
@@ -34,7 +39,7 @@ jobs:
       
       
     - name: Setup Directory and Copy Bash Scripts
-      run: |
+      run: | 
         chmod +x ./.github/workflows/gcloud_ssh.sh
         ./.github/workflows/gcloud_ssh.sh "export BRANCH_NAME=${BRANCH_NAME} && mkdir $BRANCH_NAME"
         gcloud compute scp ./.github/workflows/run_pr_benchmarks.sh root@instance-1:$BRANCH_NAME/ --zone=us-central1-a
