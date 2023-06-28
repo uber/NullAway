@@ -100,8 +100,8 @@ subprojects { project ->
     // EP 2.11.0+ requires Java 11
     if (JavaVersion.current() >= JavaVersion.VERSION_11) {
         tasks.withType(JavaCompile) {
-            java.sourceCompatibility = "11"
-            java.targetCompatibility = "11"
+            java.sourceCompatibility = "1.8"
+            java.targetCompatibility = "1.8"
         }
     } else {
         tasks.withType(JavaCompile) {
