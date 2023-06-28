@@ -23,7 +23,10 @@ jobs:
     - name: Set branch name
       run: |
         echo "BRANCH_NAME=${{ steps.comment-branch.outputs.head_ref }}" >> $GITHUB_ENV
-        echo "REPO_FULL_NAME=${{ github.event.issue.pull_request.user.login }}/${{ github.event.issue.pull_request.repo.name }}" >> $GITHUB_ENV
+        PR_URL=$(jq -r .issue.pull_request.url <<< "${{ toJson(github.event) }}")
+        PR_DETAILS=$(curl -s -H "Authorization: token $GH_TOKEN" $PR_URL)
+        REPO_FULL_NAME=$(jq -r .head.repo.full_name <<< "$PR_DETAILS")
+        echo $REPO_FULL_NAME
         
         
       
