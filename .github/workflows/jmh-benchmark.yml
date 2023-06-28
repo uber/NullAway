@@ -15,11 +15,6 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v2
 
-    - name: Get PR branch
-      uses: xt0rted/pull-request-comment-branch@v1
-      id: comment-branch
-
-
     - name: Set branch name
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -28,10 +23,8 @@ jobs:
         PR_DETAILS=$(curl -s -H "Authorization: token $GH_TOKEN" "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER")
         REPO_FULL_NAME=$(echo "$PR_DETAILS" | jq -r .head.repo.full_name)
         BRANCH_NAME=$(echo "$PR_DETAILS" | jq -r .head.ref)
-        echo $REPO_FULL_NAME
-        
-        
-      
+        echo "REPO_FULL_NAME=$REPO_FULL_NAME" >> $GITHUB_ENV
+        echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
     
     - id: 'auth'
       name: Authenticating
