@@ -103,6 +103,8 @@ apply plugin: 'com.vanniktech.maven.publish'
 if (JavaVersion.current() >= JavaVersion.VERSION_11) {
     // Required on Java 11+ since Error Prone and NullAway access a bunch of
     // JDK-internal APIs that are not exposed otherwise
+    // MS: the below is unnecessary since we are targeting JDK 8.  Once we target
+    // JDK 11, uncomment
 //    tasks.withType(JavaCompile).configureEach {
 //        options.compilerArgs += [
 //                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
