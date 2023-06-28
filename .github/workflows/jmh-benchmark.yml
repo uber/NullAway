@@ -1,4 +1,4 @@
-name: JMH Benchmark
+name: Run JMH Benchmarks for Pull Request
 
 on:
   issue_comment:
