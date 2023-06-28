@@ -3,6 +3,6 @@
 cd $BRANCH_NAME/
 mkdir pr
 cd pr/
-git clone --branch $BRANCH_NAME --single-branch git@github.com:Uber/NullAway.git
+git clone --branch $BRANCH_NAME --single-branch git@github.com:$REPO_NAME.git
 cd NullAway/
 ./gradlew jmh
