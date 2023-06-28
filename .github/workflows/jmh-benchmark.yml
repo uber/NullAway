@@ -21,9 +21,9 @@ jobs:
       run: |
         PR_NUMBER=${{ github.event.issue.number }}
         PR_DETAILS=$(curl -s -H "Authorization: token $GH_TOKEN" "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER")
-        REPO_FULL_NAME=$(echo "$PR_DETAILS" | jq -r .head.repo.full_name)
+        REPO_NAME=$(echo "$PR_DETAILS" | jq -r .head.repo.full_name)
         BRANCH_NAME=$(echo "$PR_DETAILS" | jq -r .head.ref)
-        echo "REPO_FULL_NAME=$REPO_FULL_NAME" >> $GITHUB_ENV
+        echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
         echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
     
     - id: 'auth'
@@ -46,7 +46,7 @@ jobs:
     - name: Run JMH benchmarks for PR Branch
       run: |
         chmod +x ./.github/workflows/gcloud_ssh.sh
-        ./.github/workflows/gcloud_ssh.sh " export BRANCH_NAME=${BRANCH_NAME} && chmod +x $BRANCH_NAME/run_pr_benchmarks.sh && $BRANCH_NAME/run_pr_benchmarks.sh"
+        ./.github/workflows/gcloud_ssh.sh " export BRANCH_NAME=${BRANCH_NAME} && export REPO_NAME=${REPO_NAME} && chmod +x $BRANCH_NAME/run_pr_benchmarks.sh && $BRANCH_NAME/run_pr_benchmarks.sh"
           
     - name: Copy exported PR benchmark file from Google Cloud Compute Engine
       run: |
