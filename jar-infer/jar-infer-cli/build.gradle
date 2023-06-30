@@ -125,6 +125,7 @@ publishing {
         project.tasks.named('publishShadowPublicationToMavenLocal').configure {
             dependsOn 'sourcesJar'
             dependsOn 'simpleJavadocJar'
+            dependsOn 'signMavenPublication'
         }
     }
 }
