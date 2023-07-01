@@ -103,23 +103,51 @@ apply plugin: 'com.vanniktech.maven.publish'
 if (JavaVersion.current() >= JavaVersion.VERSION_11) {
     // Required on Java 11+ since Error Prone and NullAway access a bunch of
     // JDK-internal APIs that are not exposed otherwise
-    tasks.withType(JavaCompile).configureEach {
-        options.compilerArgs += [
-                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
-        ]
+    // MS: the below is unnecessary since we are targeting JDK 8.  Once we target
+    // JDK 11, uncomment
+//    tasks.withType(JavaCompile).configureEach {
+//        options.compilerArgs += [
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
+//        ]
+//    }
+
+    // Create a task to test on JDK 8
+    def jdk8Test = tasks.register("testJdk8", Test) {
+        onlyIf {
+            // Only if we are using a version of Error Prone compatible with JDK 8
+            deps.versions.errorProneApi == "2.4.0"
+        }
+
+        javaLauncher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(8)
+        }
+
+        description = "Runs the test suite on JDK 8"
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+
+        // Copy inputs from normal Test task.
+        def testTask = tasks.getByName("test")
+        classpath = testTask.classpath
+        testClassesDirs = testTask.testClassesDirs
+        jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
     }
+
+    tasks.named('check').configure {
+        dependsOn(jdk8Test)
+    }
+
     // Create a task to build NullAway with NullAway checking enabled
-    // For some reason, this doesn't work on Java 8
+    // (For some reason, this doesn't work on Java 8)
     tasks.register('buildWithNullAway', JavaCompile) {
         onlyIf {
             // We only do NullAway checks when compiling against the latest
