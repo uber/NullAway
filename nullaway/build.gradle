@@ -142,7 +142,6 @@ tasks.named('check').configure {
 }
 
 // Create a task to build NullAway with NullAway checking enabled
-// (For some reason, this doesn't work on Java 8)
 tasks.register('buildWithNullAway', JavaCompile) {
     onlyIf {
         // We only do NullAway checks when compiling against the latest
