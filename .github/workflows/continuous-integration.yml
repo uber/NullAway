@@ -44,13 +44,6 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
-      - name: Build and test using Java 8 and Error Prone ${{ matrix.epVersion }}
-        env:
-          ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: build
-        if: matrix.java == '8'
       - name: Build and test using Java 11 and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
@@ -81,7 +74,7 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           arguments: publishToMavenLocal -x signMavenPublication -x signShadowPublication
-        if: matrix.java == '8'
+        if: matrix.java == '11'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
   publish_snapshot:
