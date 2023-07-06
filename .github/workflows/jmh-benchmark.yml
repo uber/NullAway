@@ -20,7 +20,6 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # The GitHub token is loaded from the secrets of repo
       run: |
-        # Make the script executable and run it
         chmod +x ./.github/workflows/get_repo_details.sh 
         ./.github/workflows/get_repo_details.sh "${{ secrets.GITHUB_TOKEN }}" "${{ github.event.issue.number }}" "${{ github.repository }}"
 
