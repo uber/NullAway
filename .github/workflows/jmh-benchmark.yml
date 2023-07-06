@@ -16,7 +16,7 @@ jobs:
     - name: Checkout repository # Checks out repository under $GITHUB_WORKSPACE
       uses: actions/checkout@v3
 
-    - name: Set branch name
+    - name: Set branch name #This step retrieves the repository branch details for the PR. 
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # The GitHub token is loaded from the secrets of repo
       run: |
