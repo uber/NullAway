@@ -19,12 +19,9 @@ jobs:
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        PR_NUMBER=${{ github.event.issue.number }}
-        PR_DETAILS=$(curl -s -H "Authorization: token $GH_TOKEN" "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER")
-        REPO_NAME=$(echo "$PR_DETAILS" | jq -r .head.repo.full_name)
-        BRANCH_NAME=$(echo "$PR_DETAILS" | jq -r .head.ref)
-        echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
-        echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+        chmod +x ./.github/workflows/get_repo_details.sh
+        ./.github/workflows/get_repo_details.sh "${{ secrets.GITHUB_TOKEN }}" "${{ github.event.issue.number }}" "${{ github.repository }}"
+
     
     - id: 'auth'
       name: Authenticating
