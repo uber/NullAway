@@ -1,57 +1,58 @@
+# This GitHub Actions workflow runs JMH benchmarks when a new comment is created on a pull request
 name: Run JMH Benchmarks for Pull Request
 
 on:
-  issue_comment:
+  issue_comment: # This workflow triggers when a comment is created
     types: [created]
-
 
 jobs:
   setup:
-    if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark') #&& github.repository == 'uber/NullAway'
-    runs-on: ubuntu-latest
-    permissions: write-all
+    # Only run this job if a comment on a pull request contains '/benchmark' and is a PR on the uber/NullAway repository
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark') && github.repository == 'uber/NullAway'
+    runs-on: ubuntu-latest 
+    permissions: write-all 
 
     steps:
-    - name: Checkout repository
+    - name: Checkout repository # Checks out repository under $GITHUB_WORKSPACE
       uses: actions/checkout@v3
 
     - name: Set branch name
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # The GitHub token is loaded from the secrets of repo
       run: |
-        chmod +x ./.github/workflows/get_repo_details.sh
+        # Make the script executable and run it
+        chmod +x ./.github/workflows/get_repo_details.sh 
         ./.github/workflows/get_repo_details.sh "${{ secrets.GITHUB_TOKEN }}" "${{ github.event.issue.number }}" "${{ github.repository }}"
 
-    
     - id: 'auth'
-      name: Authenticating
-      uses: 'google-github-actions/auth@v1'
+      name: Authenticating # Authenticating with Google Cloud
+      uses: 'google-github-actions/auth@v1' 
       with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+        credentials_json: '${{ secrets.GCP_SA_KEY }}' # Google Cloud credentials are loaded from repo's secrets
 
-    - name: Set up Google Cloud SDK
+    - name: Set up Google Cloud SDK # This step sets up Google Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
-      
-      
-    - name: Run benchmarks
+
+    - name: Run benchmarks # This runs the benchmark script on GCP
       run: |
+        
         chmod +x ./.github/workflows/run_gcp_benchmarks.sh
         ./.github/workflows/run_gcp_benchmarks.sh    
-        
-        
-    - name: Formatting Benchmark
+
+    - name: Formatting Benchmark # Create a text file containing the benchmark results
       run:  |
+        
         (echo 'Main Benchmark:'; echo '```' ; cat main_text.txt; echo '```'; echo 'PR Benchmark:'; echo '```' ; cat pr_text.txt; echo '```') > benchmark.txt
    
     - name: Comment Benchmark
       uses: mshick/add-pr-comment@v2
-      if: always()
+      if: always() # This step is for adding the comment
       with:         
-        message-path: benchmark.txt 
+        message-path: benchmark.txt  # The path to the message file to leave as a comment
         message-id: benchmark
       
     - name: Cleanup
+      # Delete the branch directory on the Google Cloud instance
+      if: always()
       run: |
-          ./.github/workflows/gcloud_ssh.sh " rm -r -f $BRANCH_NAME"
-
-      
+        ./.github/workflows/gcloud_ssh.sh " rm -r -f $BRANCH_NAME"
