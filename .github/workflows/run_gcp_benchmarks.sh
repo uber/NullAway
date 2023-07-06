@@ -3,7 +3,8 @@
 # This script is responsible for running benchmarks for a GitHub pull request and the main branch on Google Cloud Compute Engine (GCCE).
 
 # Accepting a command line argument
-CMD="$1"
+REPO_NAME="$1"
+BRANCH_NAME="$2"
 
 # Setting up a new directory named after the branch on GCCE and copying bash scripts into this directory
 # The ssh command is made executable and then run with a command to export the branch name and make a new directory on the GCCE
