@@ -36,7 +36,7 @@ jobs:
       run: |
         
         chmod +x ./.github/workflows/run_gcp_benchmarks.sh
-        ./.github/workflows/run_gcp_benchmarks.sh ${{ env.REPO_NAME }} ${{ env.BRANCH_NAME }}
+        ./.github/workflows/run_gcp_benchmarks.sh 
 
     - name: Formatting Benchmark # Create a text file containing the benchmark results
       run:  |
