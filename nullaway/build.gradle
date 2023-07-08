@@ -103,8 +103,8 @@ apply plugin: 'com.vanniktech.maven.publish'
 if (JavaVersion.current() >= JavaVersion.VERSION_11) {
 // These --add-exports arguments are required when targeting JDK 11+ since Error Prone and NullAway access a bunch of
 // JDK-internal APIs that are not exposed otherwise.  Since we currently target JDK 8, we do not need to pass the
-// arguments, and in fact they cause a compiler error.  Leaving commented so we can easily add them back once we
-// target JDK 11
+// arguments, as encapsulation of JDK internals is not enforced on JDK 8.  In fact, the arguments cause a compiler error
+// when targeting JDK 8.  Leaving commented so we can easily add them back once we target JDK 11.
 //    tasks.withType(JavaCompile).configureEach {
 //        options.compilerArgs += [
 //                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
