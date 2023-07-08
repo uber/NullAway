@@ -31,19 +31,12 @@ jobs:
 
     - name: Set up Google Cloud SDK # This step sets up Google Cloud SDK
       uses: google-github-actions/setup-gcloud@v1
-    - name: Cleanup
-      # Delete the branch directory on the Google Cloud instance
-      if: always()
-      run: |
-        ./.github/workflows/gcloud_ssh.sh " export BRANCH_NAME=${BRANCH_NAME} && rm -r -f $BRANCH_NAME"
 
     - name: Run benchmarks # This runs the benchmark script on GCP
       run: |
         
         chmod +x ./.github/workflows/run_gcp_benchmarks.sh
         ./.github/workflows/run_gcp_benchmarks.sh 
-        
-
 
     - name: Formatting Benchmark # Create a text file containing the benchmark results
       run:  |
