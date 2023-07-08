@@ -37,6 +37,11 @@ jobs:
         
         chmod +x ./.github/workflows/run_gcp_benchmarks.sh
         ./.github/workflows/run_gcp_benchmarks.sh 
+    - name: Cleanup
+      # Delete the branch directory on the Google Cloud instance
+      if: always()
+      run: |
+        ./.github/workflows/gcloud_ssh.sh " export BRANCH_NAME=${BRANCH_NAME} && rm -r -f $BRANCH_NAME"
 
     - name: Formatting Benchmark # Create a text file containing the benchmark results
       run:  |
@@ -50,8 +55,4 @@ jobs:
         message-path: benchmark.txt  # The path to the message file to leave as a comment
         message-id: benchmark
       
-    - name: Cleanup
-      # Delete the branch directory on the Google Cloud instance
-      if: always()
-      run: |
-        ./.github/workflows/gcloud_ssh.sh " export BRANCH_NAME=${BRANCH_NAME} && rm -r -f $BRANCH_NAME"
+
