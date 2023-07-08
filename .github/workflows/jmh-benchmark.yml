@@ -54,4 +54,4 @@ jobs:
       # Delete the branch directory on the Google Cloud instance
       if: always()
       run: |
-        ./.github/workflows/gcloud_ssh.sh " rm -r -f $BRANCH_NAME"
+        ./.github/workflows/gcloud_ssh.sh " export BRANCH_NAME=${BRANCH_NAME} && rm -r -f $BRANCH_NAME"
