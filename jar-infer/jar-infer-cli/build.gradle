@@ -4,6 +4,10 @@ plugins {
     id "com.github.johnrengelman.shadow"
 }
 
+// JarInfer requires JDK 11+, due to its dependence on WALA
+sourceCompatibility JavaVersion.VERSION_11
+targetCompatibility JavaVersion.VERSION_11
+
 repositories {
     mavenCentral()
 }
@@ -125,6 +129,7 @@ publishing {
         project.tasks.named('publishShadowPublicationToMavenLocal').configure {
             dependsOn 'sourcesJar'
             dependsOn 'simpleJavadocJar'
+            dependsOn 'signMavenPublication'
         }
     }
 }
