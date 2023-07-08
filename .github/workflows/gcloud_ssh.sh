@@ -3,10 +3,10 @@
 # This script is used to run commands on a Google Cloud instance via SSH
 
 # Define the variables for Google Cloud project, zone, username, and instance
-PROJECT_ID="nullway-jmh"
+PROJECT_ID="ucr-ursa-major-sridharan-lab"
 ZONE="us-central1-a"
 USER="root"
-INSTANCE="instance-1"
+INSTANCE="nullway-jmh"
 
 # Use the gcloud compute ssh command to run a command ($1) on the specified Google Cloud instance
 # $1 is a positional parameter that represents the first argument given when calling this script
