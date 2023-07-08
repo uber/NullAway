@@ -74,3 +74,30 @@ def jdk8Test = tasks.register("testJdk8", Test) {
 tasks.named('check').configure {
     dependsOn(jdk8Test)
 }
+
+if (JavaVersion.current() >= JavaVersion.VERSION_11) {
+    // Create a task to test on JDK 8
+    def jdk8Test = tasks.register("testJdk8", Test) {
+        onlyIf {
+            // Only if we are using a version of Error Prone compatible with JDK 8
+            deps.versions.errorProneApi == "2.4.0"
+        }
+
+        javaLauncher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(8)
+        }
+
+        description = "Runs the test suite on JDK 8"
+        group = LifecycleBasePlugin.VERIFICATION_GROUP
+
+        // Copy inputs from normal Test task.
+        def testTask = tasks.getByName("test")
+        classpath = testTask.classpath
+        testClassesDirs = testTask.testClassesDirs
+        jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
+    }
+
+    tasks.named('check').configure {
+        dependsOn(jdk8Test)
+    }
+}
