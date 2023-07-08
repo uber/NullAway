@@ -4,6 +4,10 @@ plugins {
     id "com.github.johnrengelman.shadow"
 }
 
+// JarInfer requires JDK 11+, due to its dependence on WALA
+sourceCompatibility JavaVersion.VERSION_11
+targetCompatibility JavaVersion.VERSION_11
+
 repositories {
     mavenCentral()
 }
@@ -19,6 +23,11 @@ dependencies {
     testImplementation(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
+}
+
+java {
+    withJavadocJar()
+    withSourcesJar()
 }
 
 jar {
@@ -40,6 +49,7 @@ shadowJar {
 }
 shadowJar.dependsOn jar
 assemble.dependsOn shadowJar
+
 
 // We disable the default maven publications to make sure only
 // our custom shadow publication is used. Since we use the empty
@@ -67,8 +77,8 @@ publishing {
             // Since we are skipping the default maven publication, we append the `:sources` and
             // `:javadoc` artifacts here. They are also required for Maven Central validation.
             afterEvaluate {
-                artifact project.sourcesJar
-                artifact project.javadocsJar
+                artifact project.javaSourcesJar
+                artifact project.javadocJar
             }
             // The shadow publication does not auto-configure the pom.xml file for us, so we need to
             // set it up manually. We use the opportunity to change the name and description from
@@ -97,6 +107,29 @@ publishing {
                     url = project.property('POM_SCM_URL')
                 }
             }
+        }
+   }
+
+    afterEvaluate {
+        // Below is a series of hacks needed to get publication to work with
+        // gradle-maven-publish-plugin >= 0.15.0 (itself needed after the upgrade to Gradle 8.0.2).
+        // Not sure why e.g. publishShadowPublicationToMavenCentralRepository must depend on signMavenPublication
+        // (rather than just signShadowPublication)
+        project.tasks.named('generateMetadataFileForMavenPublication').configure {
+            dependsOn 'javaSourcesJar'
+            dependsOn 'simpleJavadocJar'
+        }
+        project.tasks.named('signShadowPublication').configure {
+            dependsOn 'sourcesJar'
+            dependsOn 'simpleJavadocJar'
+        }
+        project.tasks.named('publishShadowPublicationToMavenCentralRepository').configure {
+            dependsOn 'signMavenPublication'
+        }
+        project.tasks.named('publishShadowPublicationToMavenLocal').configure {
+            dependsOn 'sourcesJar'
+            dependsOn 'simpleJavadocJar'
+            dependsOn 'signMavenPublication'
         }
     }
 }
