@@ -18,8 +18,6 @@ plugins {
     id 'nullaway.jacoco-conventions'
 }
 
-sourceCompatibility = 1.8
-
 repositories {
     mavenCentral()
     // uncomment if you want to use wala.dalvik or wala.scandroid

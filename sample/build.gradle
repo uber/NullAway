@@ -20,9 +20,6 @@ plugins {
   id "java-library"
 }
 
-sourceCompatibility = "1.8"
-targetCompatibility = "1.8"
-
 dependencies {
     annotationProcessor project(":nullaway")
     annotationProcessor project(path: ":sample-library-model")

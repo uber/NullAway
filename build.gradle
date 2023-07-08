@@ -96,18 +96,11 @@ subprojects { project ->
         }
     }
 
-    // We target Java 11 when building on JDK 11+, but Java 8 when building on JDK 8, since
-    // EP 2.11.0+ requires Java 11
-    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
-        tasks.withType(JavaCompile) {
-            java.sourceCompatibility = "11"
-            java.targetCompatibility = "11"
-        }
-    } else {
-        tasks.withType(JavaCompile) {
-            java.sourceCompatibility = "1.8"
-            java.targetCompatibility = "1.8"
-        }
+    // Target JDK 8.  We need to use the older sourceCompatibility / targetCompatibility settings to get
+    // the build to work on JDK 11+.  Once we stop supporting JDK 8, switch to using the javac "release" option
+    tasks.withType(JavaCompile) {
+        java.sourceCompatibility = "1.8"
+        java.targetCompatibility = "1.8"
     }
 
     // Ensure we are running on Java 8 whenever publishing to remote repos
