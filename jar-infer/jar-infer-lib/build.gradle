@@ -18,6 +18,9 @@ plugins {
     id 'nullaway.jacoco-conventions'
 }
 
+sourceCompatibility JavaVersion.VERSION_11
+targetCompatibility JavaVersion.VERSION_11
+
 repositories {
     mavenCentral()
     // uncomment if you want to use wala.dalvik or wala.scandroid
