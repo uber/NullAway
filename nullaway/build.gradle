@@ -94,7 +94,7 @@ test {
     ]
     if (deps.versions.errorProneApi == "2.4.0" && JavaVersion.current() >= JavaVersion.VERSION_17) {
         // This test does not pass on JDK 17 with Error Prone 2.4.0 due to a Mockito incompatibility.  Skip it (the
-        // test still runs with more recent Error Prone versions)
+        // test passes with more recent Error Prone versions on JDK 17)
         filter {
             excludeTestsMatching "com.uber.nullaway.NullAwaySerializationTest.suggestNullableArgumentOnBytecodeNoFileInfo"
         }
