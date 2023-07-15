@@ -57,6 +57,7 @@ jobs:
         message-path: benchmark.txt  # The path to the message file to leave as a comment
         message-id: benchmark
     - name: Stop VM
+      if: always()
       run: gcloud compute instances stop nullway-jmh --zone=us-central1-a
 
       
