@@ -27,13 +27,13 @@ jobs:
       name: Authenticating 
       uses: 'google-github-actions/auth@v1' 
       with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}' 
+        credentials_json: '${{ secrets.GCP_SA_KEY_1 }}' 
 
     - name: Set up Google Cloud SDK 
       uses: google-github-actions/setup-gcloud@v1
       
     - name: Test
-      run: gcloud compute scp --project="ucr-ursa-major-sridharan-lab" root@nullway-jmh:test.txt ./test.txt --zone=us-central1-a
+      run: gcloud compute scp root@nullway-jmh:test.txt ./test.txt --zone=us-central1-a
     
     - name: Comment Benchmark
       uses: mshick/add-pr-comment@v2
