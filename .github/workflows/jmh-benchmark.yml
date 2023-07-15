@@ -8,7 +8,7 @@ on:
 jobs:
   setup:
     # Only run this job if a comment on a pull request contains '/benchmark' and is a PR on the uber/NullAway repository
-    if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark') #&& github.repository == 'uber/NullAway'
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark') && github.repository == 'uber/NullAway'
     runs-on: ubuntu-latest 
     permissions: write-all 
 
