@@ -49,6 +49,7 @@ public class FixSerializationConfig {
    * untouched.
    */
   public final boolean suggestEnabled;
+
   /**
    * If enabled, serialized information of a fix suggest will also include the enclosing method and
    * class of the element involved in error. Finding enclosing elements is costly and will only be
