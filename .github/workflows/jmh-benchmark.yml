@@ -8,31 +8,31 @@ on:
 jobs:
   setup:
     # Only run this job if a comment on a pull request contains '/benchmark' and is a PR on the uber/NullAway repository
-    if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark') #&& github.repository == 'uber/NullAway'
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark') && github.repository == 'uber/NullAway'
     runs-on: ubuntu-latest 
     permissions: write-all 
 
     steps:
-    - name: Checkout repository # Checks out repository under $GITHUB_WORKSPACE
+    - name: Checkout repository 
       uses: actions/checkout@v3
 
-    - name: Set branch name #This step retrieves the repository branch details for the PR. 
+    - name: Set branch name 
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # The GitHub token is loaded from the secrets of repo
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
       run: |
         chmod +x ./.github/workflows/get_repo_details.sh 
         ./.github/workflows/get_repo_details.sh "${{ secrets.GITHUB_TOKEN }}" "${{ github.event.issue.number }}" "${{ github.repository }}"
 
     - id: 'auth'
-      name: Authenticating # Authenticating with Google Cloud
+      name: Authenticating 
       uses: 'google-github-actions/auth@v1' 
       with:
-        credentials_json: '${{ secrets.GCP_SA_KEY_1 }}' # Google Cloud credentials are loaded from repo's secrets
+        credentials_json: '${{ secrets.GCP_SA_KEY_1 }}' 
 
-    - name: Set up Google Cloud SDK # This step sets up Google Cloud SDK
+    - name: Set up Google Cloud SDK 
       uses: google-github-actions/setup-gcloud@v1
 
-    - name: Run benchmarks # This runs the benchmark script on GCP
+    - name: Run benchmarks 
       run: |
         
         chmod +x ./.github/workflows/run_gcp_benchmarks.sh
