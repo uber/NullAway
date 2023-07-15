@@ -33,7 +33,7 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1
       
     - name: Test
-      run: gcloud compute scp root@nullway-jmh:test.txt ./test.txt --zone=us-central1-a
+      run: gcloud compute scp --project="ucr-ursa-major-sridharan-lab" root@nullway-jmh:test.txt ./test.txt --zone=us-central1-a
     
     - name: Comment Benchmark
       uses: mshick/add-pr-comment@v2
