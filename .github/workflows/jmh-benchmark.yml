@@ -32,6 +32,9 @@ jobs:
     - name: Set up Google Cloud SDK 
       uses: google-github-actions/setup-gcloud@v1
       
+    - name: Start VM
+      run: gcloud compute instances start nullway-jmh
+      
     - name: Run benchmarks 
       run: |
         chmod +x ./.github/workflows/run_gcp_benchmarks.sh
@@ -53,5 +56,7 @@ jobs:
       with:         
         message-path: benchmark.txt  # The path to the message file to leave as a comment
         message-id: benchmark
+    - name: Stop VM
+      run: gcloud compute instances stop nullway-jmh
       
 
