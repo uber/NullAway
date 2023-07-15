@@ -34,9 +34,9 @@ jobs:
       
     - name: Run benchmarks 
       run: |
-        
         chmod +x ./.github/workflows/run_gcp_benchmarks.sh
         ./.github/workflows/run_gcp_benchmarks.sh 
+        
     - name: Cleanup
       # Delete the branch directory on the Google Cloud instance
       if: always()
@@ -45,7 +45,6 @@ jobs:
 
     - name: Formatting Benchmark # Create a text file containing the benchmark results
       run:  |
-        
         (echo 'Main Benchmark:'; echo '```' ; cat main_text.txt; echo '```'; echo 'PR Benchmark:'; echo '```' ; cat pr_text.txt; echo '```') > benchmark.txt
    
     - name: Comment Benchmark
