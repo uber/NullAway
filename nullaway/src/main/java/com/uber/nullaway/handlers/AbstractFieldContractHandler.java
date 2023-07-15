@@ -48,6 +48,7 @@ import javax.lang.model.element.VariableElement;
 public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
 
   protected static final String THIS_NOTATION = "this.";
+
   /** Simple name of the annotation in {@code String} */
   protected final String annotName;
 
@@ -224,6 +225,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     for (Element member : classSymbol.getEnclosedElements()) {
       if (member.getKind().isField() && !member.getModifiers().contains(Modifier.STATIC)) {
         if (member.getSimpleName().toString().equals(name)) {
+
           return (VariableElement) member;
         }
       }
