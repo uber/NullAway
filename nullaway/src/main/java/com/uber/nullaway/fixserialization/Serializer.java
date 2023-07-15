@@ -46,10 +46,13 @@ import javax.annotation.Nullable;
 public class Serializer {
   /** Path to write errors. */
   private final Path errorOutputPath;
+
   /** Path to write suggested fix metadata. */
   private final Path suggestedFixesOutputPath;
+
   /** Path to write suggested fix metadata. */
   private final Path fieldInitializationOutputPath;
+
   /**
    * Adapter used to serialize outputs. This adapter is capable of serializing outputs according to
    * the requested serilization version and maintaining backward compatibility with previous
@@ -66,6 +69,7 @@ public class Serializer {
     serializeVersion(outputDirectory);
     initializeOutputFiles(config);
   }
+
   /**
    * Appends the string representation of the {@link SuggestedNullableFixInfo}.
    *

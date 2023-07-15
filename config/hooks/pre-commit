@@ -7,6 +7,6 @@ REPO_ROOT_DIR="$(git rev-parse --show-toplevel)"
 files=$((git diff --cached --name-only --diff-filter=ACMR | grep -Ei "\.java$") || true)
 if [ ! -z "${files}" ]; then
     comma_files=$(echo "$files" | paste -s -d "," -)
-    "${REPO_ROOT_DIR}/gradlew" goJF -DgoogleJavaFormat.include="$comma_files" &>/dev/null
+    "${REPO_ROOT_DIR}/gradlew" spotlessApply -Pspotless.ratchet.from=HEAD >/dev/null 2>&1
     git add $(echo "$files" | paste -s -d " " -)
 fi

@@ -48,6 +48,7 @@ import javax.lang.model.element.VariableElement;
 public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
 
   protected static final String THIS_NOTATION = "this.";
+
   /** Simple name of the annotation in {@code String} */
   protected final String annotName;
 
