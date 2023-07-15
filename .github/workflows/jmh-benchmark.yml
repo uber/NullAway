@@ -8,7 +8,7 @@ on:
 jobs:
   setup:
     # Only run this job if a comment on a pull request contains '/benchmark' and is a PR on the uber/NullAway repository
-    if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark') #&& github.repository == 'uber/NullAway'
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark') && github.repository == 'uber/NullAway'
     runs-on: ubuntu-latest 
     permissions: write-all 
 
@@ -27,7 +27,7 @@ jobs:
       name: Authenticating 
       uses: 'google-github-actions/auth@v1' 
       with:
-        credentials_json: '${{ secrets.GCP_SA_KEY_1 }}' 
+        credentials_json: '${{ secrets.GCP_SA_KEY }}' 
 
     - name: Set up Google Cloud SDK 
       uses: google-github-actions/setup-gcloud@v1
