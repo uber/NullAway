@@ -33,7 +33,7 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1
       
     - name: Start VM
-      run: gcloud compute instances start nullway-jmh
+      run: gcloud compute instances start nullway-jmh --zone=us-central1-a
       
     - name: Run benchmarks 
       run: |
@@ -57,6 +57,7 @@ jobs:
         message-path: benchmark.txt  # The path to the message file to leave as a comment
         message-id: benchmark
     - name: Stop VM
-      run: gcloud compute instances stop nullway-jmh
+      run: gcloud compute instances stop nullway-jmh --zone=us-central1-a
+
       
 
