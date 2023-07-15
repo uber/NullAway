@@ -32,16 +32,6 @@ jobs:
     - name: Set up Google Cloud SDK 
       uses: google-github-actions/setup-gcloud@v1
       
-    - name: Test
-      run: gcloud compute scp root@nullway-jmh:test.txt ./test.txt --zone=us-central1-a
-    
-    - name: Comment Benchmark
-      uses: mshick/add-pr-comment@v2
-      if: always() # This step is for adding the comment
-      with:         
-        message-path: test.txt  # The path to the message file to leave as a comment
-        message-id: test
-
     - name: Run benchmarks 
       run: |
         
