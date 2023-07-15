@@ -6,6 +6,9 @@
 chmod +x ./.github/workflows/gcloud_ssh.sh
 ./.github/workflows/gcloud_ssh.sh "export BRANCH_NAME=${BRANCH_NAME} && mkdir $BRANCH_NAME"
 
+gcloud compute scp root@nullway-jmh:test.txt ./test.txt --zone=us-central1-a
+
+
 # Using gcloud compute scp to copy the bash scripts that will run the benchmarks onto the GCCE
 gcloud compute scp ./.github/workflows/run_pr_benchmarks.sh root@nullway-jmh:$BRANCH_NAME/ --zone=us-central1-a
 gcloud compute scp ./.github/workflows/run_main_benchmarks.sh root@nullway-jmh:$BRANCH_NAME/ --zone=us-central1-a
