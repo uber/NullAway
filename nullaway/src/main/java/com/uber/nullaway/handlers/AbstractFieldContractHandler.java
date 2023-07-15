@@ -225,7 +225,6 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     for (Element member : classSymbol.getEnclosedElements()) {
       if (member.getKind().isField() && !member.getModifiers().contains(Modifier.STATIC)) {
         if (member.getSimpleName().toString().equals(name)) {
-
           return (VariableElement) member;
         }
       }
