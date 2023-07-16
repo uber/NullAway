@@ -43,3 +43,7 @@ test {
 }
 
 apply plugin: 'com.vanniktech.maven.publish'
+
+signing {
+  required { isReleaseVersion }
+}
