@@ -133,5 +133,3 @@ tasks.register('installGitHooks', Copy) {
 	into file('.git/hooks')
 	fileMode 0777
 }
-
-ext.isReleaseVersion = !version.endsWith("SNAPSHOT")
