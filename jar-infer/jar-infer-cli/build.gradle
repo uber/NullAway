@@ -128,12 +128,16 @@ publishing {
             }
         }
         project.tasks.named('publishShadowPublicationToMavenCentralRepository').configure {
-            dependsOn 'signMavenPublication'
+            if (project.tasks.findByName('signMavenPublication')) {
+                dependsOn 'signMavenPublication'
+            }
         }
         project.tasks.named('publishShadowPublicationToMavenLocal').configure {
             dependsOn 'sourcesJar'
             dependsOn 'simpleJavadocJar'
-            dependsOn 'signMavenPublication'
+            if (project.tasks.findByName('signMavenPublication')) {
+                dependsOn 'signMavenPublication'
+            }
         }
     }
 }
