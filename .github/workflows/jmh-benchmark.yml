@@ -13,7 +13,7 @@ jobs:
     permissions: write-all 
 
     steps:
-    - name: Job Invocation
+    - name: Add reaction
       uses: peter-evans/create-or-update-comment@v3
       with:
         comment-id: ${{ github.event.comment.id }}
