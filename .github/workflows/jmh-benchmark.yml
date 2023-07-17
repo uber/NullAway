@@ -13,6 +13,12 @@ jobs:
     permissions: write-all 
 
     steps:
+    - name: Job Invocation
+      uses: peter-evans/create-or-update-comment@v3
+      with:
+        comment-id: ${{ github.event.comment.id }}
+        reactions: '+1'
+        
     - name: Checkout repository 
       uses: actions/checkout@v3
 
