@@ -1384,6 +1384,12 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchClass(ClassTree tree, VisitorState state) {
+    // TEMPORARY CHANGE TO TEST PERF BENCHMARKING IN CI
+    try {
+      Thread.sleep(10);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
     // Ensure codeAnnotationInfo is initialized here since it requires access to the Context,
     // which is not available in the constructor
     if (codeAnnotationInfo == null) {
