@@ -48,7 +48,7 @@ jobs:
 
     - name: Formatting Benchmark # Create a text file containing the benchmark results
       run:  |
-        (echo 'Main Benchmark:'; echo '```' ; cat main_text.txt; echo '```'; echo 'PR Benchmark:'; echo '```' ; cat pr_text.txt; echo '```') > benchmark.txt
+        (echo 'Main Branch:'; echo '```' ; cat main_text.txt; echo '```'; echo 'With This PR:'; echo '```' ; cat pr_text.txt; echo '```') > benchmark.txt
    
     - name: Comment Benchmark
       uses: mshick/add-pr-comment@v2
