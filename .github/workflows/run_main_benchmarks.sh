@@ -6,4 +6,4 @@ cd main/
 git clone git@github.com:Uber/NullAway.git
 cd NullAway/
 
-./gradlew jmh
+./gradlew jmh --no-daemon
