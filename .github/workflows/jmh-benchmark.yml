@@ -5,6 +5,9 @@ on:
   issue_comment: # This workflow triggers when a comment is created
     types: [created]
 
+# Only allow one instance of JMH benchmarking to be running at any given time
+concurrency: all
+
 jobs:
   benchmarking:
     # Only run this job if a comment on a pull request contains '/benchmark' and is a PR on the uber/NullAway repository
