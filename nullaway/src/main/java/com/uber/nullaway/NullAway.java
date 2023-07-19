@@ -834,8 +834,6 @@ public class NullAway extends BugChecker
           state,
           methodSymbol);
     }
-    new GenericsChecks(state, config, this)
-        .checkTypeParameterNullnessForFunctionReturnType(retExpr, methodSymbol);
     return Description.NO_MATCH;
   }
 

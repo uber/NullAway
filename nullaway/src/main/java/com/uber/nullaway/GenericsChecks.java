@@ -10,13 +10,11 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
-import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Attribute;
-import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.code.Types;
@@ -25,7 +23,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
@@ -133,51 +130,6 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(tree), state, null));
   }
 
-  private static void reportInvalidReturnTypeError(
-      Tree tree, Type methodType, Type returnType, VisitorState state, NullAway analysis) {
-    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
-    ErrorMessage errorMessage =
-        new ErrorMessage(
-            ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
-            String.format(
-                "Cannot return expression of type "
-                    + returnType
-                    + " from method with return type "
-                    + methodType
-                    + " due to mismatched nullability of type parameters"));
-    state.reportMatch(
-        errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(tree), state, null));
-  }
-
-  /**
-   * This method returns the type of the given tree, including any type use annotations.
-   *
-   * <p>This method is required because in some cases, the type returned by {@link
-   * com.google.errorprone.util.ASTHelpers#getType(Tree)} fails to preserve type use annotations,
-   * particularly when dealing with {@link com.sun.source.tree.NewClassTree} (e.g., {@code new
-   * Foo<@Nullable A>}).
-   *
-   * @param tree A tree for which we need the type with preserved annotations.
-   * @return Type of the tree with preserved annotations.
-   */
-  @Nullable
-  private Type getTreeType(Tree tree) {
-    if (tree instanceof NewClassTree
-        && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
-      ParameterizedTypeTree paramTypedTree =
-          (ParameterizedTypeTree) ((NewClassTree) tree).getIdentifier();
-      if (paramTypedTree.getTypeArguments().isEmpty()) {
-        // diamond operator, which we do not yet support; for now, return null
-        // TODO: support diamond operators
-        return null;
-      }
-      return typeWithPreservedAnnotations(paramTypedTree);
-    } else {
-      return ASTHelpers.getType(tree);
-    }
-  }
-
   /**
    * For a tree representing an assignment, ensures that from the perspective of type parameter
    * nullability, the type of the right-hand side is assignable to (a subtype of) the type of the
@@ -207,39 +159,23 @@ public final class GenericsChecks {
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
-    Type lhsType = getTreeType(lhsTree);
-    Type rhsType = getTreeType(rhsTree);
-
+    Type lhsType = ASTHelpers.getType(lhsTree);
+    Type rhsType = ASTHelpers.getType(rhsTree);
+    // For NewClassTrees with annotated type parameters, javac does not preserve the annotations in
+    // its computed type for the expression.  As a workaround, we construct a replacement Type
+    // object with the appropriate annotations.
+    if (rhsTree instanceof NewClassTree
+        && ((NewClassTree) rhsTree).getIdentifier() instanceof ParameterizedTypeTree) {
+      ParameterizedTypeTree paramTypedTree =
+          (ParameterizedTypeTree) ((NewClassTree) rhsTree).getIdentifier();
+      if (paramTypedTree.getTypeArguments().isEmpty()) {
+        // no explicit type parameters
+        return;
+      }
+      rhsType = typeWithPreservedAnnotations(paramTypedTree);
+    }
     if (lhsType instanceof Type.ClassType && rhsType instanceof Type.ClassType) {
-      boolean isAssignmentValid =
-          compareNullabilityAnnotations((Type.ClassType) lhsType, (Type.ClassType) rhsType);
-      if (!isAssignmentValid) {
-        reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
-      }
-    }
-  }
-
-  public void checkTypeParameterNullnessForFunctionReturnType(
-      ExpressionTree retExpr, Symbol.MethodSymbol methodSymbol) {
-    if (!config.isJSpecifyMode()) {
-      return;
-    }
-
-    Type formalReturnType = methodSymbol.getReturnType();
-    // check nullability of parameters only for generics
-    if (formalReturnType.getTypeArguments().isEmpty()) {
-      return;
-    }
-    Type returnExpressionType = getTreeType(retExpr);
-    if (formalReturnType instanceof Type.ClassType
-        && returnExpressionType instanceof Type.ClassType) {
-      boolean isReturnTypeValid =
-          compareNullabilityAnnotations(
-              (Type.ClassType) formalReturnType, (Type.ClassType) returnExpressionType);
-      if (!isReturnTypeValid) {
-        reportInvalidReturnTypeError(
-            retExpr, formalReturnType, returnExpressionType, state, analysis);
-      }
+      compareNullabilityAnnotations((Type.ClassType) lhsType, (Type.ClassType) rhsType, tree);
     }
   }
 
@@ -253,8 +189,10 @@ public final class GenericsChecks {
    *
    * @param lhsType type for the lhs of the assignment
    * @param rhsType type for the rhs of the assignment
+   * @param tree tree representing the assignment
    */
-  private boolean compareNullabilityAnnotations(Type.ClassType lhsType, Type.ClassType rhsType) {
+  private void compareNullabilityAnnotations(
+      Type.ClassType lhsType, Type.ClassType rhsType, Tree tree) {
     Types types = state.getTypes();
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
@@ -294,17 +232,15 @@ public final class GenericsChecks {
         }
       }
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
-        return false;
+        reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
+        return;
       }
       // nested generics
       if (lhsTypeArgument.getTypeArguments().length() > 0) {
-        if (!compareNullabilityAnnotations(
-            (Type.ClassType) lhsTypeArgument, (Type.ClassType) rhsTypeArgument)) {
-          return false;
-        }
+        compareNullabilityAnnotations(
+            (Type.ClassType) lhsTypeArgument, (Type.ClassType) rhsTypeArgument, tree);
       }
     }
-    return true;
   }
 
   /**
