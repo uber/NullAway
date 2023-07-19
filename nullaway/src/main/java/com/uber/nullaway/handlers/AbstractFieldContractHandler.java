@@ -222,7 +222,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   public static @Nullable VariableElement getInstanceFieldOfClass(
       Symbol.ClassSymbol classSymbol, String name) {
     Preconditions.checkNotNull(classSymbol);
-    for (Element member : NullabilityUtil.getEnclosedElements(classSymbol)) {
+    for (Element member : classSymbol.getEnclosedElements()) {
       if (member.getKind().isField() && !member.getModifiers().contains(Modifier.STATIC)) {
         if (member.getSimpleName().toString().equals(name)) {
           return (VariableElement) member;

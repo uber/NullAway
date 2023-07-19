@@ -92,13 +92,6 @@ test {
             // Accessed by Lombok tests
             "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
     ]
-    if (deps.versions.errorProneApi == "2.4.0" && JavaVersion.current() >= JavaVersion.VERSION_17) {
-        // This test does not pass on JDK 17 with Error Prone 2.4.0 due to a Mockito incompatibility.  Skip it (the
-        // test passes with more recent Error Prone versions on JDK 17)
-        filter {
-            excludeTestsMatching "com.uber.nullaway.NullAwaySerializationTest.suggestNullableArgumentOnBytecodeNoFileInfo"
-        }
-    }
 }
 
 apply plugin: 'com.vanniktech.maven.publish'

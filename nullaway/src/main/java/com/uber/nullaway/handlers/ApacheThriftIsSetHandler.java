@@ -30,7 +30,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
@@ -143,7 +142,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
     Element getter = null;
     String fieldName = decapitalize(capPropName);
     String getterName = "get" + capPropName;
-    for (Symbol elem : NullabilityUtil.getEnclosedElements(symbol.owner)) {
+    for (Symbol elem : symbol.owner.getEnclosedElements()) {
       if (elem.getKind().isField() && elem.getSimpleName().toString().equals(fieldName)) {
         if (field != null) {
           throw new RuntimeException("already found field " + fieldName);
