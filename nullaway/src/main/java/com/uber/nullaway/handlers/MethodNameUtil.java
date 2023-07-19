@@ -43,25 +43,13 @@ class MethodNameUtil {
   private static final String IS_NOT_NULL_OWNER_TRUTH = "com.google.common.truth.Subject";
   private static final String IS_NOT_NULL_OWNER_ASSERTJ = "org.assertj.core.api.AbstractAssert";
   private static final String IS_TRUE_METHOD = "isTrue";
-  private static final String IS_FALSE_METHOD = "isFalse";
-  private static final String IS_TRUE_OWNER_TRUTH = "com.google.common.truth.BooleanSubject";
-  private static final String IS_TRUE_OWNER_ASSERTJ = "org.assertj.core.api.AbstractBooleanAssert";
-  private static final String BOOLEAN_VALUE_OF_METHOD = "valueOf";
-  private static final String BOOLEAN_VALUE_OF_OWNER = "java.lang.Boolean";
-  private static final String IS_PRESENT_METHOD = "isPresent";
-  private static final String IS_NOT_EMPTY_METHOD = "isNotEmpty";
-  private static final String IS_PRESENT_OWNER_ASSERTJ =
-      "org.assertj.core.api.AbstractOptionalAssert";
+  private static final String IS_TRUE_OWNER = "com.google.common.truth.BooleanSubject";
   private static final String ASSERT_THAT_METHOD = "assertThat";
   private static final String ASSERT_THAT_OWNER_TRUTH = "com.google.common.truth.Truth";
   private static final String ASSERT_THAT_OWNER_ASSERTJ = "org.assertj.core.api.Assertions";
 
   private static final String HAMCREST_ASSERT_CLASS = "org.hamcrest.MatcherAssert";
   private static final String JUNIT_ASSERT_CLASS = "org.junit.Assert";
-  private static final String JUNIT5_ASSERTION_CLASS = "org.junit.jupiter.api.Assertions";
-
-  private static final String ASSERT_TRUE_METHOD = "assertTrue";
-  private static final String ASSERT_FALSE_METHOD = "assertFalse";
 
   private static final String MATCHERS_CLASS = "org.hamcrest.Matchers";
   private static final String CORE_MATCHERS_CLASS = "org.hamcrest.CoreMatchers";
@@ -79,15 +67,7 @@ class MethodNameUtil {
   private Name isNotNullOwnerAssertJ;
 
   private Name isTrue;
-  private Name isFalse;
-  private Name isTrueOwnerTruth;
-  private Name isTrueOwnerAssertJ;
-  private Name isPresent;
-  private Name isNotEmpty;
-  private Name isPresentOwnerAssertJ;
-
-  private Name isBooleanValueOfMethod;
-  private Name isBooleanValueOfOwner;
+  private Name isTrueOwner;
 
   private Name assertThat;
   private Name assertThatOwnerTruth;
@@ -96,10 +76,6 @@ class MethodNameUtil {
   // Names for junit assertion libraries.
   private Name hamcrestAssertClass;
   private Name junitAssertClass;
-  private Name junit5AssertionClass;
-
-  private Name assertTrue;
-  private Name assertFalse;
 
   // Names for hamcrest matchers.
   private Name matchersClass;
@@ -117,27 +93,14 @@ class MethodNameUtil {
     isNotNullOwnerAssertJ = table.fromString(IS_NOT_NULL_OWNER_ASSERTJ);
 
     isTrue = table.fromString(IS_TRUE_METHOD);
-    isFalse = table.fromString(IS_FALSE_METHOD);
-    isTrueOwnerTruth = table.fromString(IS_TRUE_OWNER_TRUTH);
-    isTrueOwnerAssertJ = table.fromString(IS_TRUE_OWNER_ASSERTJ);
-
-    isBooleanValueOfMethod = table.fromString(BOOLEAN_VALUE_OF_METHOD);
-    isBooleanValueOfOwner = table.fromString(BOOLEAN_VALUE_OF_OWNER);
+    isTrueOwner = table.fromString(IS_TRUE_OWNER);
 
     assertThat = table.fromString(ASSERT_THAT_METHOD);
     assertThatOwnerTruth = table.fromString(ASSERT_THAT_OWNER_TRUTH);
     assertThatOwnerAssertJ = table.fromString(ASSERT_THAT_OWNER_ASSERTJ);
 
-    isPresent = table.fromString(IS_PRESENT_METHOD);
-    isNotEmpty = table.fromString(IS_NOT_EMPTY_METHOD);
-    isPresentOwnerAssertJ = table.fromString(IS_PRESENT_OWNER_ASSERTJ);
-
     hamcrestAssertClass = table.fromString(HAMCREST_ASSERT_CLASS);
     junitAssertClass = table.fromString(JUNIT_ASSERT_CLASS);
-    junit5AssertionClass = table.fromString(JUNIT5_ASSERTION_CLASS);
-
-    assertTrue = table.fromString(ASSERT_TRUE_METHOD);
-    assertFalse = table.fromString(ASSERT_FALSE_METHOD);
 
     matchersClass = table.fromString(MATCHERS_CLASS);
     coreMatchersClass = table.fromString(CORE_MATCHERS_CLASS);
@@ -153,35 +116,8 @@ class MethodNameUtil {
         || matchesMethod(methodSymbol, isNotNull, isNotNullOwnerAssertJ);
   }
 
-  boolean isMethodAssertTrue(Symbol.MethodSymbol methodSymbol) {
-    return matchesMethod(methodSymbol, assertTrue, junitAssertClass)
-        || matchesMethod(methodSymbol, assertTrue, junit5AssertionClass);
-  }
-
-  boolean isMethodAssertFalse(Symbol.MethodSymbol methodSymbol) {
-    return matchesMethod(methodSymbol, assertFalse, junitAssertClass)
-        || matchesMethod(methodSymbol, assertFalse, junit5AssertionClass);
-  }
-
-  boolean isMethodThatEnsuresOptionalPresent(Symbol.MethodSymbol methodSymbol) {
-    // same owner
-    return matchesMethod(methodSymbol, isPresent, isPresentOwnerAssertJ)
-        || matchesMethod(methodSymbol, isNotEmpty, isPresentOwnerAssertJ);
-  }
-
   boolean isMethodIsTrue(Symbol.MethodSymbol methodSymbol) {
-    return matchesMethod(methodSymbol, isTrue, isTrueOwnerTruth)
-        || matchesMethod(methodSymbol, isTrue, isTrueOwnerAssertJ);
-  }
-
-  boolean isMethodIsFalse(Symbol.MethodSymbol methodSymbol) {
-    // same owners as isTrue
-    return matchesMethod(methodSymbol, isFalse, isTrueOwnerTruth)
-        || matchesMethod(methodSymbol, isFalse, isTrueOwnerAssertJ);
-  }
-
-  boolean isMethodBooleanValueOf(Symbol.MethodSymbol methodSymbol) {
-    return matchesMethod(methodSymbol, isBooleanValueOfMethod, isBooleanValueOfOwner);
+    return matchesMethod(methodSymbol, isTrue, isTrueOwner);
   }
 
   boolean isMethodAssertThat(Symbol.MethodSymbol methodSymbol) {

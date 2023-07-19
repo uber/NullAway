@@ -34,8 +34,6 @@ configurations {
 dependencies {
     testImplementation project(":nullaway")
     testImplementation deps.test.junit4
-    testImplementation deps.test.junit5Jupiter
-    testImplementation deps.test.assertJ
     testImplementation(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }

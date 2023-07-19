@@ -3,7 +3,6 @@ package com.uber.nullaway.jdk17;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.util.Arrays;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -95,103 +94,5 @@ public class NullAwayOptionalEmptyTests {
             "    }",
             "}")
         .doTest();
-  }
-
-  @Test
-  public void optionalIsEmptyHandleAssertionLibraryTruthAssertThat() {
-    makeTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:CheckOptionalEmptiness=true",
-                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import java.util.Optional;",
-            "import com.google.common.truth.Truth;",
-            "",
-            "public class Test {",
-            "  void truthAssertThatIsEmptyIsFalse() {",
-            "    Optional<Object> b = Optional.empty();",
-            "    Truth.assertThat(b.isEmpty()).isTrue();  // no impact",
-            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
-            "    b.get().toString();",
-            "    Truth.assertThat(b.isEmpty()).isFalse();",
-            "    b.get().toString();",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void optionalIsEmptyHandleAssertionLibraryAssertJAssertThat() {
-    makeTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:CheckOptionalEmptiness=true",
-                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import java.util.Optional;",
-            "import org.assertj.core.api.Assertions;",
-            "",
-            "public class Test {",
-            "  void assertJAssertThatIsEmptyIsFalse() {",
-            "    Optional<Object> b = Optional.empty();",
-            "    Assertions.assertThat(b.isEmpty()).isTrue();  // no impact",
-            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
-            "    b.get().toString();",
-            "    Assertions.assertThat(b.isEmpty()).isFalse();",
-            "    b.get().toString();",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void optionalIsEmptyHandleAssertionLibraryJUnitAssertions() {
-    makeTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:CheckOptionalEmptiness=true",
-                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import java.util.Optional;",
-            "import org.junit.Assert;",
-            "import org.junit.jupiter.api.Assertions;",
-            "",
-            "public class Test {",
-            "  void junit4AssertFalseIsEmpty() {",
-            "    Optional<Object> b = Optional.empty();",
-            "    Assert.assertTrue(b.isEmpty());  // no impact",
-            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional b",
-            "    b.get().toString();",
-            "    Assert.assertFalse(\"errormsg\", b.isEmpty());",
-            "    b.get().toString();",
-            "  }",
-            "",
-            "  void junit5AssertFalseIsEmpty() {",
-            "    Optional<Object> d = Optional.empty();",
-            "    Assertions.assertTrue(d.isEmpty());  // no impact",
-            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional d",
-            "    d.get().toString();",
-            "    Assertions.assertFalse(d.isEmpty(), \"errormsg\");",
-            "    d.get().toString();",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  protected CompilationTestHelper makeTestHelperWithArgs(List<String> args) {
-    return CompilationTestHelper.newInstance(NullAway.class, getClass()).setArgs(args);
   }
 }
