@@ -620,8 +620,6 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         new ImmutableSet.Builder<MethodRef>()
             .add(methodRef("com.sun.source.tree.CompilationUnitTree", "getPackageName()"))
             .add(methodRef("java.lang.Throwable", "getMessage()"))
-            .add(methodRef("java.lang.Throwable", "getLocalizedMessage()"))
-            .add(methodRef("java.lang.Throwable", "getCause()"))
             .add(methodRef("java.lang.ref.Reference", "get()"))
             .add(methodRef("java.lang.ref.PhantomReference", "get()"))
             .add(methodRef("java.lang.ref.SoftReference", "get()"))
