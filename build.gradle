@@ -57,33 +57,42 @@ subprojects { project ->
     }
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)
-        options.compilerArgs += [
-                "-Xlint:deprecation",
-                "-Xlint:rawtypes",
-                "-Xlint:unchecked",
-                "-Werror"
-        ]
-        options.errorprone {
-            // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
-            disableWarningsInGeneratedCode = true
-            // this check is too noisy
-            check("StringSplitter", CheckSeverity.OFF)
-            // https://github.com/google/error-prone/issues/3366
-            check("CanIgnoreReturnValueSuggester", CheckSeverity.OFF)
-            // turn up various checks
-            check("WildcardImport", CheckSeverity.ERROR)
-            check("MissingBraces", CheckSeverity.ERROR)
-            check("TypeToString", CheckSeverity.ERROR)
-            check("SymbolToString", CheckSeverity.ERROR)
-            check("MultipleTopLevelClasses", CheckSeverity.ERROR)
-            check("ClassName", CheckSeverity.ERROR)
-            check("PackageLocation", CheckSeverity.ERROR)
-            check("UnnecessaryAnonymousClass", CheckSeverity.ERROR)
-            check("UnusedException", CheckSeverity.ERROR)
-            // To enable auto-patching, uncomment the line below, replace [CheckerName] with
-            // the checker(s) you want to apply patches for (comma-separated), and above, disable
-            // "-Werror"
+        if (JavaVersion.current().isJava9Compatible()) {
+            options.compilerArgs += [
+                    "-Xlint:deprecation",
+                    "-Xlint:rawtypes",
+                    "-Xlint:unchecked",
+                    "-Werror"
+            ]
+            options.errorprone {
+                // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
+                disableWarningsInGeneratedCode = true
+                // this check is too noisy
+                check("StringSplitter", CheckSeverity.OFF)
+                // https://github.com/google/error-prone/issues/3366
+                check("CanIgnoreReturnValueSuggester", CheckSeverity.OFF)
+                // turn up various checks
+                check("WildcardImport", CheckSeverity.ERROR)
+                check("MissingBraces", CheckSeverity.ERROR)
+                check("TypeToString", CheckSeverity.ERROR)
+                check("SymbolToString", CheckSeverity.ERROR)
+                check("MultipleTopLevelClasses", CheckSeverity.ERROR)
+                check("ClassName", CheckSeverity.ERROR)
+                check("PackageLocation", CheckSeverity.ERROR)
+                check("UnnecessaryAnonymousClass", CheckSeverity.ERROR)
+                check("UnusedException", CheckSeverity.ERROR)
+                // To enable auto-patching, uncomment the line below, replace [CheckerName] with
+                // the checker(s) you want to apply patches for (comma-separated), and above, disable
+                // "-Werror"
 //                errorproneArgs.addAll("-XepPatchChecks:[CheckerName]", "-XepPatchLocation:IN_PLACE")
+            }
+        } else {
+            // Disable Error Prone checks on JDK 8, as more recent Error Prone versions don't run on JDK 8
+            // NOTE: we use disableAllChecks rather than the enabled flag because we still want to use the
+            // JDK 9 javac packaged with Error Prone, to work around the following bug with JDK 8 javac
+            // and use of the @NullMarked / @NullUnmarked annotations from jspecify:
+            // https://github.com/jspecify/jspecify/issues/302
+            options.errorprone.disableAllChecks = true
         }
     }
 
@@ -92,6 +101,13 @@ subprojects { project ->
     tasks.withType(JavaCompile) {
         java.sourceCompatibility = "1.8"
         java.targetCompatibility = "1.8"
+    }
+
+    // Ensure we are running on Java 8 whenever publishing to remote repos
+    tasks.withType(PublishToMavenRepository) {
+        doFirst {
+            assert JavaVersion.current() == JavaVersion.VERSION_1_8 : "Only publish to remote repos on JDK 1.8"
+        }
     }
 
     tasks.withType(Test).configureEach {

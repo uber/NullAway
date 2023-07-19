@@ -130,6 +130,7 @@ jmh {
 
 // don't run test task on pre-JDK-11 VMs
 tasks.named('test') {
+    onlyIf { JavaVersion.current() >= JavaVersion.VERSION_11 }
     // pass the extra JVM args so we can compile benchmarks in unit tests
     jvmArgs extraJVMArgs
     // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
