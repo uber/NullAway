@@ -1,17 +1,5 @@
 Changelog
 =========
-Version 0.10.9
---------------
-* Add support for external init annotations in constructors (#725)
-* Ignore incompatibly annotated var args from Kotlin code. (#721)
-* Support for specific libraries/APIs:
-  - Add Throwable.getCause and getLocalizedMessage() library models (#717)
-  - Support more test assertions in OptionalEmptinessHandler (#718)
-  - Support isInstanceOf(...) as implying non-null in assertion libraries (#726)
-* [Refactor] Avoid redundant Map lookups (#722)
-* Build / CI tooling for NullAway itself:
-  - Update to Error Prone 2.18.0 (#707)
-
 Version 0.10.8
 --------------
 * Don't do checks for type casts and parameterized trees in unannotated code (#712)
