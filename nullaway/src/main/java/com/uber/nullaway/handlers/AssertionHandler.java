@@ -60,10 +60,9 @@ public class AssertionHandler extends BaseNoOpHandler {
       methodNameUtil.initializeMethodNames(callee.name.table);
     }
 
-    // Look for statements of the form: assertThat(A).isNotNull() or
-    // assertThat(A).isInstanceOf(Foo.class)
+    // Look for statements of the form: assertThat(A).isNotNull()
     // A will not be NULL after this statement.
-    if (methodNameUtil.isMethodIsNotNull(callee) || methodNameUtil.isMethodIsInstanceOf(callee)) {
+    if (methodNameUtil.isMethodIsNotNull(callee)) {
       Node receiver = node.getTarget().getReceiver();
       if (receiver instanceof MethodInvocationNode) {
         MethodInvocationNode receiver_method = (MethodInvocationNode) receiver;
@@ -81,14 +80,10 @@ public class AssertionHandler extends BaseNoOpHandler {
     // Look for statements of the form:
     //    * assertThat(A, is(not(nullValue())))
     //    * assertThat(A, is(notNullValue()))
-    //    * assertThat(A, is(instanceOf(Foo.class)))
-    //    * assertThat(A, isA(Foo.class))
     if (methodNameUtil.isMethodHamcrestAssertThat(callee)
         || methodNameUtil.isMethodJunitAssertThat(callee)) {
       List<Node> args = node.getArguments();
-      if (args.size() == 2
-          && (methodNameUtil.isMatcherIsNotNull(args.get(1))
-              || methodNameUtil.isMatcherIsInstanceOf(args.get(1)))) {
+      if (args.size() == 2 && methodNameUtil.isMatcherIsNotNull(args.get(1))) {
         AccessPath ap = AccessPath.getAccessPathForNode(args.get(0), state, apContext);
         if (ap != null) {
           bothUpdates.set(ap, NONNULL);
