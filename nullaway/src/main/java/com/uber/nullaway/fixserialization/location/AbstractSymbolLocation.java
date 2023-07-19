@@ -53,7 +53,15 @@ public abstract class AbstractSymbolLocation implements SymbolLocation {
             + ".");
     this.type = type;
     this.enclosingClass = castToNonNull(ASTHelpers.enclosingClass(target));
-    URI pathInURI = enclosingClass.sourcefile != null ? enclosingClass.sourcefile.toUri() : null;
+    // We currently serialize the URI for the classfile if the URI for the sourcefile is not
+    // available, but only if said URI corresponds to a "file:" or "jimfs:" scheme (i.e. not
+    // "jar:"). It's likely that this is no longer needed and should be removed as a follow up:
+    // https://github.com/uber/NullAway/issues/716 Leaving this workaround up temporarily for the
+    // sake of experiments with version `1.3.6-alpha-N` of the auto-annotator.
+    URI pathInURI =
+        enclosingClass.sourcefile != null
+            ? enclosingClass.sourcefile.toUri()
+            : (enclosingClass.classfile != null ? enclosingClass.classfile.toUri() : null);
     this.path = Serializer.pathToSourceFileFromURI(pathInURI);
   }
 }
