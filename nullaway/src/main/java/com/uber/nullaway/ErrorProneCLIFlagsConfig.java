@@ -213,7 +213,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "Invalid -XepOpt:" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
     }
     skippedLibraryModels = getFlagStringSet(flags, FL_SKIP_LIBRARY_MODELS);
-    /* --- JarInfer configs --- */
+    /** --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
     jarInferUseReturnAnnotations = flags.getBoolean(FL_JI_USE_RETURN).orElse(false);
     // The defaults of these two options translate to: remove .aar/.jar from the file name, and also
