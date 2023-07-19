@@ -20,6 +20,9 @@ plugins {
   id "java-library"
 }
 
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
+
 dependencies {
     annotationProcessor project(":nullaway")
     implementation deps.build.jspecify

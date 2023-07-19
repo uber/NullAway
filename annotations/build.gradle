@@ -20,6 +20,8 @@ plugins {
   id 'nullaway.jacoco-conventions'
 }
 
+sourceCompatibility = 1.8
+
 dependencies {
 }
 
