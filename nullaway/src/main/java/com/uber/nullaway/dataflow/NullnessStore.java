@@ -67,7 +67,8 @@ public class NullnessStore implements Store<NullnessStore> {
    * @return fact associated with local
    */
   public Nullness valueOfLocalVariable(LocalVariableNode node, Nullness defaultValue) {
-    return contents.getOrDefault(AccessPath.fromLocal(node), defaultValue);
+    Nullness result = contents.get(AccessPath.fromLocal(node));
+    return result != null ? result : defaultValue;
   }
 
   /**
@@ -83,7 +84,8 @@ public class NullnessStore implements Store<NullnessStore> {
     if (path == null) {
       return defaultValue;
     }
-    return contents.getOrDefault(path, defaultValue);
+    Nullness result = contents.get(path);
+    return result != null ? result : defaultValue;
   }
 
   /**
@@ -102,7 +104,8 @@ public class NullnessStore implements Store<NullnessStore> {
     if (accessPath == null) {
       return defaultValue;
     }
-    return contents.getOrDefault(accessPath, defaultValue);
+    Nullness result = contents.get(accessPath);
+    return result != null ? result : defaultValue;
   }
 
   /**
@@ -149,7 +152,8 @@ public class NullnessStore implements Store<NullnessStore> {
     if (contents == null) {
       return Nullness.NULLABLE;
     }
-    return contents.getOrDefault(accessPath, Nullness.NULLABLE);
+    Nullness nullness = contents.get(accessPath);
+    return (nullness == null) ? Nullness.NULLABLE : nullness;
   }
 
   public Builder toBuilder() {
