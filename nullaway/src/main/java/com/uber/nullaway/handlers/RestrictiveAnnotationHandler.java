@@ -76,16 +76,13 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
       @Nullable Symbol exprSymbol,
       VisitorState state,
       boolean exprMayBeNull) {
-    if (exprMayBeNull) {
-      return true;
-    }
     Tree.Kind exprKind = expr.getKind();
     if (exprSymbol != null
-        && (exprKind == Tree.Kind.METHOD_INVOCATION || exprKind == Tree.Kind.IDENTIFIER)
-        && isSymbolRestrictivelyNullable(exprSymbol, state.context)) {
-      return true;
+        && (exprKind.equals(Tree.Kind.METHOD_INVOCATION)
+            || exprKind.equals(Tree.Kind.IDENTIFIER))) {
+      return exprMayBeNull || isSymbolRestrictivelyNullable(exprSymbol, state.context);
     }
-    return false;
+    return exprMayBeNull;
   }
 
   @Nullable private CodeAnnotationInfo codeAnnotationInfo;

@@ -87,15 +87,12 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
       @Nullable Symbol exprSymbol,
       VisitorState state,
       boolean exprMayBeNull) {
-    if (exprMayBeNull) {
-      return true;
-    }
-    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
+    if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)
         && exprSymbol instanceof Symbol.MethodSymbol
         && optionalIsGetCall((Symbol.MethodSymbol) exprSymbol, state.getTypes())) {
       return true;
     }
-    return false;
+    return exprMayBeNull;
   }
 
   @Override
