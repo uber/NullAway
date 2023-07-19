@@ -2197,13 +2197,18 @@ public class NullAway extends BugChecker
       // obviously not null
       return false;
     }
-    // return early for expressions that no handler overrides and will not need dataflow analysis
+    if (expr.getKind() == Tree.Kind.NULL_LITERAL) {
+      // obviously null, so same as for above literals we return early without consulting handlers
+      return true;
+    }
+    // the logic here is to avoid doing dataflow analysis whenever possible
+    Symbol exprSymbol = ASTHelpers.getSymbol(expr);
+    boolean exprMayBeNull;
     switch (expr.getKind()) {
-      case NULL_LITERAL:
-        // obviously null
-        return true;
       case ARRAY_ACCESS:
         // unsound!  we cannot check for nullness of array contents yet
+        exprMayBeNull = false;
+        break;
       case NEW_CLASS:
       case NEW_ARRAY:
         // for string concatenation, auto-boxing
@@ -2253,35 +2258,29 @@ public class NullAway extends BugChecker
       case RIGHT_SHIFT:
       case UNSIGNED_RIGHT_SHIFT:
         // clearly not null
-        return false;
-      default:
+        exprMayBeNull = false;
         break;
-    }
-    // the logic here is to avoid doing dataflow analysis whenever possible
-    Symbol exprSymbol = ASTHelpers.getSymbol(expr);
-    boolean exprMayBeNull;
-    switch (expr.getKind()) {
       case MEMBER_SELECT:
         if (exprSymbol == null) {
           throw new IllegalStateException(
               "unexpected null symbol for dereference expression " + state.getSourceForNode(expr));
         }
-        exprMayBeNull =
-            NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, codeAnnotationInfo);
+        exprMayBeNull = mayBeNullFieldAccess(state, expr, exprSymbol);
         break;
       case IDENTIFIER:
         if (exprSymbol == null) {
           throw new IllegalStateException(
               "unexpected null symbol for identifier " + state.getSourceForNode(expr));
         }
-        if (exprSymbol.getKind() == ElementKind.FIELD) {
-          exprMayBeNull =
-              NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, codeAnnotationInfo);
+        if (exprSymbol.getKind().equals(ElementKind.FIELD)) {
+          // Special case: mayBeNullFieldAccess runs handler.onOverrideMayBeNullExpr before
+          // dataflow.
+          return mayBeNullFieldAccess(state, expr, exprSymbol);
         } else {
-          // rely on dataflow analysis for local variables
-          exprMayBeNull = true;
+          // Check handler.onOverrideMayBeNullExpr before dataflow.
+          exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, true);
+          return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
         }
-        break;
       case METHOD_INVOCATION:
         if (!(exprSymbol instanceof Symbol.MethodSymbol)) {
           throw new IllegalStateException(
@@ -2290,30 +2289,36 @@ public class NullAway extends BugChecker
                   + " for method invocation "
                   + state.getSourceForNode(expr));
         }
-        exprMayBeNull = mayBeNullMethodCall((Symbol.MethodSymbol) exprSymbol);
-        break;
+        // Special case: mayBeNullMethodCall runs handler.onOverrideMayBeNullExpr before dataflow.
+        return mayBeNullMethodCall(state, expr, (Symbol.MethodSymbol) exprSymbol);
       case CONDITIONAL_EXPRESSION:
       case ASSIGNMENT:
-        exprMayBeNull = true;
+        exprMayBeNull = nullnessFromDataflow(state, expr);
         break;
       default:
         // match switch expressions by comparing strings, so the code compiles on JDK versions < 12
         if (expr.getKind().name().equals("SWITCH_EXPRESSION")) {
-          exprMayBeNull = true;
+          exprMayBeNull = nullnessFromDataflow(state, expr);
         } else {
           throw new RuntimeException(
               "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
         }
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, exprMayBeNull);
-    return exprMayBeNull && nullnessFromDataflow(state, expr);
+    return exprMayBeNull;
   }
 
-  private boolean mayBeNullMethodCall(Symbol.MethodSymbol exprSymbol) {
+  private boolean mayBeNullMethodCall(
+      VisitorState state, ExpressionTree expr, Symbol.MethodSymbol exprSymbol) {
+    boolean exprMayBeNull = true;
     if (codeAnnotationInfo.isSymbolUnannotated(exprSymbol, config)) {
-      return false;
+      exprMayBeNull = false;
     }
-    return Nullness.hasNullableAnnotation(exprSymbol, config);
+    if (!Nullness.hasNullableAnnotation(exprSymbol, config)) {
+      exprMayBeNull = false;
+    }
+    exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, exprMayBeNull);
+    return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
   }
 
   public boolean nullnessFromDataflow(VisitorState state, ExpressionTree expr) {
@@ -2329,6 +2334,15 @@ public class NullAway extends BugChecker
 
   public AccessPathNullnessAnalysis getNullnessAnalysis(VisitorState state) {
     return AccessPathNullnessAnalysis.instance(state, nonAnnotatedMethod, config, this.handler);
+  }
+
+  private boolean mayBeNullFieldAccess(VisitorState state, ExpressionTree expr, Symbol exprSymbol) {
+    boolean exprMayBeNull = true;
+    if (!NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, codeAnnotationInfo)) {
+      exprMayBeNull = false;
+    }
+    exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, exprMayBeNull);
+    return exprMayBeNull ? nullnessFromDataflow(state, expr) : false;
   }
 
   private Description matchDereference(
