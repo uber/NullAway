@@ -36,7 +36,7 @@ jar {
 shadowJar {
     mergeServiceFiles()
     configurations = [project.configurations.runtimeClasspath]
-    archiveClassifier = ""
+    classifier = null
 }
 shadowJar.dependsOn jar
 assemble.dependsOn shadowJar
@@ -67,8 +67,12 @@ publishing {
             // Since we are skipping the default maven publication, we append the `:sources` and
             // `:javadoc` artifacts here. They are also required for Maven Central validation.
             afterEvaluate {
-                artifact project.sourcesJar
-                artifact project.javadocsJar
+                artifact project.sourcesJar {
+                    classifier "sources"
+                }
+                artifact project.javadocsJar {
+                    classifier "javadoc"
+                }
             }
             // The shadow publication does not auto-configure the pom.xml file for us, so we need to
             // set it up manually. We use the opportunity to change the name and description from
