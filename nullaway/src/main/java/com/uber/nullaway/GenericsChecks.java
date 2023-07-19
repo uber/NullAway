@@ -1,7 +1,6 @@
 package com.uber.nullaway;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
-import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
@@ -18,7 +17,6 @@ import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Attribute;
-import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
@@ -127,9 +125,9 @@ public final class GenericsChecks {
             ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
             String.format(
                 "Cannot assign from type "
-                    + prettyTypeForError(rhsType)
+                    + rhsType
                     + " to type "
-                    + prettyTypeForError(lhsType)
+                    + lhsType
                     + " due to mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -144,9 +142,9 @@ public final class GenericsChecks {
             ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
             String.format(
                 "Cannot return expression of type "
-                    + prettyTypeForError(returnType)
+                    + returnType
                     + " from method with return type "
-                    + prettyTypeForError(methodType)
+                    + methodType
                     + " due to mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -161,9 +159,9 @@ public final class GenericsChecks {
             ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
             String.format(
                 "Conditional expression must have type "
-                    + prettyTypeForError(expressionType)
+                    + expressionType
                     + " but the sub-expression has type "
-                    + prettyTypeForError(subPartType)
+                    + subPartType
                     + ", which has mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -181,9 +179,9 @@ public final class GenericsChecks {
         new ErrorMessage(
             ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
             "Cannot pass parameter of type "
-                + prettyTypeForError(actualParameterType)
+                + actualParameterType
                 + ", as formal parameter has type "
-                + prettyTypeForError(formalParameterType)
+                + formalParameterType
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -506,61 +504,4 @@ public final class GenericsChecks {
       }
     }
   }
-
-  /**
-   * Returns a pretty-printed representation of type suitable for error messages. The representation
-   * uses simple names rather than fully-qualified names, and retains all type-use annotations.
-   */
-  public static String prettyTypeForError(Type type) {
-    return type.accept(PRETTY_TYPE_VISITOR, null);
-  }
-
-  /** This code is a modified version of code in {@link com.google.errorprone.util.Signatures} */
-  private static final Type.Visitor<String, Void> PRETTY_TYPE_VISITOR =
-      new Types.DefaultTypeVisitor<String, Void>() {
-        @Override
-        public String visitWildcardType(Type.WildcardType t, Void unused) {
-          StringBuilder sb = new StringBuilder();
-          sb.append(t.kind);
-          if (t.kind != BoundKind.UNBOUND) {
-            sb.append(t.type.accept(this, null));
-          }
-          return sb.toString();
-        }
-
-        @Override
-        public String visitClassType(Type.ClassType t, Void s) {
-          StringBuilder sb = new StringBuilder();
-          for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
-            sb.append('@');
-            sb.append(compound.type.accept(this, null));
-            sb.append(' ');
-          }
-          sb.append(t.tsym.getSimpleName());
-          if (t.getTypeArguments().nonEmpty()) {
-            sb.append('<');
-            sb.append(
-                t.getTypeArguments().stream()
-                    .map(a -> a.accept(this, null))
-                    .collect(joining(", ")));
-            sb.append(">");
-          }
-          return sb.toString();
-        }
-
-        @Override
-        public String visitCapturedType(Type.CapturedType t, Void s) {
-          return t.wildcard.accept(this, null);
-        }
-
-        @Override
-        public String visitArrayType(Type.ArrayType t, Void unused) {
-          return t.elemtype.accept(this, null) + "[]";
-        }
-
-        @Override
-        public String visitType(Type t, Void s) {
-          return t.toString();
-        }
-      };
 }
