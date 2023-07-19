@@ -72,9 +72,3 @@ dependencies {
     testImplementation deps.test.junit4
 
 }
-
-spotless {
-    java {
-        target 'src/*/java/**/*.java'
-    }
-}

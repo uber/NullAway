@@ -151,7 +151,6 @@ public interface LibraryModels {
   final class MethodRef {
 
     public final String enclosingClass;
-
     /**
      * we store the method name separately to enable fast comparison with MethodSymbols. See {@link
      * com.uber.nullaway.handlers.LibraryModelsHandler.OptimizedLibraryModels}

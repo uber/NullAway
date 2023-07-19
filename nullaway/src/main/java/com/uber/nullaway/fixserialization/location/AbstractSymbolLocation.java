@@ -38,10 +38,8 @@ public abstract class AbstractSymbolLocation implements SymbolLocation {
 
   /** Element kind of the targeted symbol */
   protected final ElementKind type;
-
   /** Path of the file containing the symbol, if available. */
   @Nullable protected final Path path;
-
   /** Enclosing class of the symbol. */
   protected final Symbol.ClassSymbol enclosingClass;
 

@@ -33,10 +33,8 @@ public class MethodParameterLocation extends AbstractSymbolLocation {
 
   /** Symbol of the targeted method. */
   private final Symbol.MethodSymbol enclosingMethod;
-
   /** Symbol of the targeted method parameter. */
   private final Symbol.VarSymbol paramSymbol;
-
   /** Index of the method parameter in the containing method's argument list. */
   private final int index;
 

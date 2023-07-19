@@ -35,7 +35,7 @@ buildscript {
     }
 }
 plugins {
-  id "com.diffplug.spotless" version "6.19.0"
+  id "com.github.sherter.google-java-format" version "0.9"
   id "net.ltgt.errorprone" version "3.0.1" apply false
   id "com.github.johnrengelman.shadow" version "8.1.0" apply false
   id "com.github.kt3k.coveralls" version "2.12.0" apply false
@@ -103,24 +103,14 @@ subprojects { project ->
         google()
     }
 
-    // For some reason, spotless complains when applied to the jar-infer folder itself, even
-    // though there is no top-level :jar-infer project
-    if (project.name != "jar-infer") {
-        project.apply plugin: "com.diffplug.spotless"
-        spotless {
-            java {
-                googleJavaFormat()
-            }
-        }
-    }
 }
 
-spotless {
-    predeclareDeps()
+googleJavaFormat {
+  toolVersion = "1.14.0"
+  // don't enforce formatting for generated Java code under buildSrc
+  exclude 'buildSrc/build/**/*.java'
 }
-spotlessPredeclare {
-    java { googleJavaFormat('1.17.0') }
-}
+
 ////////////////////////////////////////////////////////////////////////
 //
 //  Google Java Format pre-commit hook installation

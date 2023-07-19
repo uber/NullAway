@@ -35,7 +35,6 @@ public class FieldInitializationInfo {
 
   /** Symbol of the initializer method. */
   private final SymbolLocation initializerMethodLocation;
-
   /** Symbol of the initialized class field. */
   private final Symbol field;
 

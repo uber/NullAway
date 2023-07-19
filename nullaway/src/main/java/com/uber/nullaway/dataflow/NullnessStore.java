@@ -50,7 +50,6 @@ public class NullnessStore implements Store<NullnessStore> {
   private NullnessStore(Map<AccessPath, Nullness> contents) {
     this.contents = ImmutableMap.copyOf(contents);
   }
-
   /**
    * Produce an empty store.
    *
@@ -140,7 +139,6 @@ public class NullnessStore implements Store<NullnessStore> {
     }
     return null;
   }
-
   /**
    * Gets the {@link Nullness} value of an access path.
    *

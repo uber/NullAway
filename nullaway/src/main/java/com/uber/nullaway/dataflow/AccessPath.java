@@ -191,7 +191,6 @@ public final class AccessPath implements MapKey {
   static AccessPath switchRoot(AccessPath origAP, Element newRoot) {
     return new AccessPath(newRoot, origAP.elements, origAP.mapGetArg);
   }
-
   /**
    * Construct the access path given a {@code base.element} structure.
    *

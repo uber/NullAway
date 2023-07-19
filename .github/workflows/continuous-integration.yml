@@ -44,12 +44,20 @@ jobs:
         with:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
-      - name: Build and test using Java ${{ matrix.java }} and Error Prone ${{ matrix.epVersion }}
+      - name: Build and test using Java 11 and Error Prone ${{ matrix.epVersion }}
+        env:
+          ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: verGJF build
+        if: matrix.java == '11'
+      - name: Build and test using Java 17 and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         uses: gradle/gradle-build-action@v2
         with:
           arguments: build
+        if: matrix.java == '17'
       - name: Report jacoco coverage
         uses: gradle/gradle-build-action@v2
         env:

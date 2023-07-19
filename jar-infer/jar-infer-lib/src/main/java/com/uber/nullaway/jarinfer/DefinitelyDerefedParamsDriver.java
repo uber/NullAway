@@ -510,7 +510,6 @@ public class DefinitelyDerefedParamsDriver {
         + strArgTypes
         + ")";
   }
-
   /**
    * Get simple unqualified type name.
    *
