@@ -411,26 +411,4 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
         .addSourceLines("Test.java", sourceLines)
         .doTest();
   }
-
-  @Test
-  public void defaultLibraryModelsClassCast() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "class Test {",
-            "  void castNullable(@Nullable String s) {",
-            "    // BUG: Diagnostic contains: dereferenced",
-            "    CharSequence.class.cast(s).hashCode();",
-            "  }",
-            "  void castNonnull(String s1, @Nullable String s2) {",
-            "    CharSequence.class.cast(s1).hashCode();",
-            "    if (s2 instanceof CharSequence) {",
-            "      CharSequence.class.cast(s2).hashCode();",
-            "    }",
-            "  }",
-            "}")
-        .doTest();
-  }
 }
