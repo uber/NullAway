@@ -68,11 +68,8 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
     if (pathToMethod == null || pathToMethod.getLeaf().getKind() != Tree.Kind.METHOD) {
       return;
     }
-    Symbol symbol = ASTHelpers.getSymbol(pathToMethod.getLeaf());
-    if (!(symbol instanceof Symbol.MethodSymbol)) {
-      return;
-    }
-    Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) symbol;
+    Symbol.MethodSymbol methodSymbol =
+        (Symbol.MethodSymbol) ASTHelpers.getSymbol(pathToMethod.getLeaf());
     // Check if the method and the field are in the same class.
     if (!field.enclClass().equals(methodSymbol.enclClass())) {
       // We don't want m in A.m() to be a candidate initializer for B.f unless A == B

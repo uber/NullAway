@@ -330,13 +330,16 @@ public class NullabilityUtil {
   /**
    * Check if a field might be null, based on the type.
    *
-   * @param symbol symbol for field
+   * @param symbol symbol for field; must be non-null
    * @param config NullAway config
    * @return true if based on the type, package, and name of the field, the analysis should assume
    *     the field might be null; false otherwise
+   * @throws NullPointerException if {@code symbol} is null
    */
   public static boolean mayBeNullFieldFromType(
       Symbol symbol, Config config, CodeAnnotationInfo codeAnnotationInfo) {
+    Preconditions.checkNotNull(
+        symbol, "mayBeNullFieldFromType should never be called with a null symbol");
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
             || codeAnnotationInfo.isSymbolUnannotated(symbol, config))
