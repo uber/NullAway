@@ -176,7 +176,6 @@ public class ContractHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Symbol.MethodSymbol callee,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
@@ -184,6 +183,8 @@ public class ContractHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     Preconditions.checkNotNull(analysis);
+    Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
+    Preconditions.checkNotNull(callee);
     MethodInvocationTree tree = castToNonNull(node.getTree());
     for (String clause : ContractUtils.getContractClauses(callee, config)) {
 

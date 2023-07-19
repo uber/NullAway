@@ -130,11 +130,7 @@ public abstract class BaseNoOpHandler implements Handler {
 
   @Override
   public boolean onOverrideMayBeNullExpr(
-      NullAway analysis,
-      ExpressionTree expr,
-      @Nullable Symbol exprSymbol,
-      VisitorState state,
-      boolean exprMayBeNull) {
+      NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     // NoOp
     return exprMayBeNull;
   }
@@ -150,7 +146,6 @@ public abstract class BaseNoOpHandler implements Handler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Symbol.MethodSymbol symbol,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,

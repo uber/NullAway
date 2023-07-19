@@ -152,13 +152,9 @@ class CompositeHandler implements Handler {
 
   @Override
   public boolean onOverrideMayBeNullExpr(
-      NullAway analysis,
-      ExpressionTree expr,
-      @Nullable Symbol exprSymbol,
-      VisitorState state,
-      boolean exprMayBeNull) {
+      NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
     for (Handler h : handlers) {
-      exprMayBeNull = h.onOverrideMayBeNullExpr(analysis, expr, exprSymbol, state, exprMayBeNull);
+      exprMayBeNull = h.onOverrideMayBeNullExpr(analysis, expr, state, exprMayBeNull);
     }
     return exprMayBeNull;
   }
@@ -177,7 +173,6 @@ class CompositeHandler implements Handler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Symbol.MethodSymbol symbol,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
@@ -188,7 +183,7 @@ class CompositeHandler implements Handler {
     for (Handler h : handlers) {
       NullnessHint n =
           h.onDataflowVisitMethodInvocation(
-              node, symbol, state, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
+              node, state, apContext, inputs, thenUpdates, elseUpdates, bothUpdates);
       nullnessHint = nullnessHint.merge(n);
     }
     return nullnessHint;

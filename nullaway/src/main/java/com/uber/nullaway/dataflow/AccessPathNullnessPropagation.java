@@ -917,16 +917,15 @@ public class AccessPathNullnessPropagation
     ReadableUpdates elseUpdates = new ReadableUpdates();
     ReadableUpdates bothUpdates = new ReadableUpdates();
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
-    Preconditions.checkNotNull(
-        callee); // this could be null before https://github.com/google/error-prone/pull/2902
+    Preconditions.checkNotNull(callee);
     setReceiverNonnull(bothUpdates, node.getTarget().getReceiver(), callee);
     setNullnessForMapCalls(
         node, callee, node.getArguments(), values(input), thenUpdates, bothUpdates);
     NullnessHint nullnessHint =
         handler.onDataflowVisitMethodInvocation(
-            node, callee, state, apContext, values(input), thenUpdates, elseUpdates, bothUpdates);
+            node, state, apContext, values(input), thenUpdates, elseUpdates, bothUpdates);
     Nullness nullness = returnValueNullness(node, input, nullnessHint);
-    if (booleanReturnType(callee)) {
+    if (booleanReturnType(node)) {
       ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates, bothUpdates);
       ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates, bothUpdates);
       return conditionalResult(
@@ -985,8 +984,9 @@ public class AccessPathNullnessPropagation
     }
   }
 
-  private static boolean booleanReturnType(Symbol.MethodSymbol methodSymbol) {
-    return methodSymbol.getReturnType().getTag() == TypeTag.BOOLEAN;
+  private boolean booleanReturnType(MethodInvocationNode node) {
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
+    return methodSymbol != null && methodSymbol.getReturnType().getTag() == TypeTag.BOOLEAN;
   }
 
   Nullness returnValueNullness(

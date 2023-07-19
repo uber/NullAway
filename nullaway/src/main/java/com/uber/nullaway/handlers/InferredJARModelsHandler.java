@@ -24,7 +24,9 @@ package com.uber.nullaway.handlers;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -176,14 +178,13 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   @Override
   public NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
-      Symbol.MethodSymbol symbol,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
-    if (isReturnAnnotatedNullable(symbol)) {
+    if (isReturnAnnotatedNullable(ASTHelpers.getSymbol(node.getTree()))) {
       return NullnessHint.HINT_NULLABLE;
     }
     return NullnessHint.UNKNOWN;
@@ -191,14 +192,10 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
 
   @Override
   public boolean onOverrideMayBeNullExpr(
-      NullAway analysis,
-      ExpressionTree expr,
-      @Nullable Symbol exprSymbol,
-      VisitorState state,
-      boolean exprMayBeNull) {
-    if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)
-        && exprSymbol instanceof Symbol.MethodSymbol) {
-      return exprMayBeNull || isReturnAnnotatedNullable((Symbol.MethodSymbol) exprSymbol);
+      NullAway analysis, ExpressionTree expr, VisitorState state, boolean exprMayBeNull) {
+    if (expr.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
+      return exprMayBeNull
+          || isReturnAnnotatedNullable(ASTHelpers.getSymbol((MethodInvocationTree) expr));
     }
     return exprMayBeNull;
   }
