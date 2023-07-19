@@ -84,9 +84,7 @@ public interface LibraryModels {
    * Get (method, parameter) pairs that cause the method to return <code>null</code> when passed
    * <code>null</code> on that parameter.
    *
-   * <p>This is equivalent to annotating a method with both a {@code @Nullable} return type
-   * <em>and</em> a {@code @Contract} annotation specifying that if the parameter is
-   * {@code @NonNull} then the return is {@code @NonNull}, e.g.:
+   * <p>This is equivalent to annotating a method with a contract like:
    *
    * <pre><code>@Contract("!null -&gt; !null") @Nullable</code></pre>
    *
