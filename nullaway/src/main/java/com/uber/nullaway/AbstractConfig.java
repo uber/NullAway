@@ -101,8 +101,6 @@ public abstract class AbstractConfig implements Config {
 
   protected String autofixSuppressionComment;
 
-  protected ImmutableSet<String> skippedLibraryModels;
-
   /** --- JarInfer configs --- */
   protected boolean jarInferEnabled;
 
@@ -292,11 +290,6 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean isContractAnnotation(String annotationName) {
     return contractAnnotations.contains(annotationName);
-  }
-
-  @Override
-  public boolean isSkippedLibraryModel(String classDotMethod) {
-    return skippedLibraryModels.contains(classDotMethod);
   }
 
   @AutoValue

@@ -53,9 +53,7 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
-    return ImmutableSetMultimap.of(
-        methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "isNonNull(java.lang.Object)"),
-        0);
+    return ImmutableSetMultimap.of();
   }
 
   @Override
@@ -65,10 +63,7 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSet<MethodRef> nullableReturns() {
-    return ImmutableSet.of(
-        methodRef("com.uber.Foo", "bar()"),
-        methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
-        methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"));
+    return ImmutableSet.of(methodRef("com.uber.Foo", "bar()"));
   }
 
   @Override
