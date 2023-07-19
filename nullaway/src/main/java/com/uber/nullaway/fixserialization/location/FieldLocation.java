@@ -24,7 +24,6 @@ package com.uber.nullaway.fixserialization.location;
 
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.Serializer;
-import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import javax.lang.model.element.ElementKind;
 
 /** subtype of {@link AbstractSymbolLocation} targeting class fields. */
@@ -39,13 +38,13 @@ public class FieldLocation extends AbstractSymbolLocation {
   }
 
   @Override
-  public String tabSeparatedToString(SerializationAdapter adapter) {
+  public String tabSeparatedToString() {
     return String.join(
         "\t",
         type.toString(),
-        Serializer.serializeSymbol(enclosingClass, adapter),
+        Serializer.serializeSymbol(enclosingClass),
         "null",
-        Serializer.serializeSymbol(variableSymbol, adapter),
+        Serializer.serializeSymbol(variableSymbol),
         "null",
         path != null ? path.toString() : "null");
   }

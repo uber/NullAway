@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.fixserialization.adapters;
 
-import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 
 /**
@@ -63,12 +62,4 @@ public interface SerializationAdapter {
    * @return Supporting serialization version number.
    */
   int getSerializationVersion();
-
-  /**
-   * Serializes the signature of the given {@link Symbol.MethodSymbol} to a string.
-   *
-   * @param methodSymbol The method symbol to serialize.
-   * @return The serialized method symbol.
-   */
-  String serializeMethodSignature(Symbol.MethodSymbol methodSymbol);
 }

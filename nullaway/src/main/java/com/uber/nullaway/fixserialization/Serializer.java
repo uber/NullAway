@@ -77,9 +77,7 @@ public class Serializer {
     if (enclosing) {
       suggestedNullableFixInfo.initEnclosing();
     }
-    appendToFile(
-        suggestedNullableFixInfo.tabSeparatedToString(serializationAdapter),
-        suggestedFixesOutputPath);
+    appendToFile(suggestedNullableFixInfo.tabSeparatedToString(), suggestedFixesOutputPath);
   }
 
   /**
@@ -93,7 +91,7 @@ public class Serializer {
   }
 
   public void serializeFieldInitializationInfo(FieldInitializationInfo info) {
-    appendToFile(info.tabSeparatedToString(serializationAdapter), fieldInitializationOutputPath);
+    appendToFile(info.tabSeparatedToString(), fieldInitializationOutputPath);
   }
 
   /** Cleared the content of the file if exists and writes the header in the first line. */
@@ -203,10 +201,9 @@ public class Serializer {
    * Serializes the given {@link Symbol} to a string.
    *
    * @param symbol The symbol to serialize.
-   * @param adapter adapter used to serialize symbols.
    * @return The serialized symbol.
    */
-  public static String serializeSymbol(@Nullable Symbol symbol, SerializationAdapter adapter) {
+  public static String serializeSymbol(@Nullable Symbol symbol) {
     if (symbol == null) {
       return "null";
     }
@@ -216,7 +213,7 @@ public class Serializer {
         return symbol.name.toString();
       case METHOD:
       case CONSTRUCTOR:
-        return adapter.serializeMethodSignature((Symbol.MethodSymbol) symbol);
+        return symbol.toString();
       default:
         return symbol.flatName().toString();
     }

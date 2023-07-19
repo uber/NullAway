@@ -25,7 +25,6 @@ package com.uber.nullaway.fixserialization.out;
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.Serializer;
-import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import java.util.Objects;
 
@@ -69,17 +68,16 @@ public class SuggestedNullableFixInfo {
   /**
    * returns string representation of content of an object.
    *
-   * @param adapter adapter used to serialize symbols.
    * @return string representation of contents of an object in a line separated by tabs.
    */
-  public String tabSeparatedToString(SerializationAdapter adapter) {
+  public String tabSeparatedToString() {
     return String.join(
         "\t",
-        symbolLocation.tabSeparatedToString(adapter),
+        symbolLocation.tabSeparatedToString(),
         errorMessage.getMessageType().toString(),
         "nullable",
-        Serializer.serializeSymbol(classAndMemberInfo.getClazz(), adapter),
-        Serializer.serializeSymbol(classAndMemberInfo.getMember(), adapter));
+        Serializer.serializeSymbol(classAndMemberInfo.getClazz()),
+        Serializer.serializeSymbol(classAndMemberInfo.getMember()));
   }
 
   /** Finds the class and member of program point where triggered this type change. */
