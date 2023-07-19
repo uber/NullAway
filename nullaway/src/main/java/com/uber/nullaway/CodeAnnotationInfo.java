@@ -292,7 +292,7 @@ public final class CodeAnnotationInfo {
     }
 
     public boolean isMethodNullnessAnnotated(Symbol.MethodSymbol methodSymbol) {
-      return methodNullnessCache.computeIfAbsent(
+      methodNullnessCache.computeIfAbsent(
           methodSymbol,
           m -> {
             if (ASTHelpers.hasDirectAnnotationWithSimpleName(
@@ -305,6 +305,7 @@ public final class CodeAnnotationInfo {
                   m, NullabilityUtil.NULLMARKED_SIMPLE_NAME);
             }
           });
+      return methodNullnessCache.get(methodSymbol);
     }
   }
 }

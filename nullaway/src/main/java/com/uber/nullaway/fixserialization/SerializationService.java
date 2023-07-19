@@ -36,7 +36,6 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -69,10 +68,8 @@ public class SerializationService {
     // escape existing backslashes
     str = str.replaceAll(Pattern.quote("\\"), Matcher.quoteReplacement("\\\\"));
     // escape special characters
-    for (Map.Entry<Character, Character> entry : escapes.entrySet()) {
-      str =
-          str.replaceAll(
-              String.valueOf(entry.getKey()), Matcher.quoteReplacement("\\" + entry.getValue()));
+    for (Character key : escapes.keySet()) {
+      str = str.replaceAll(String.valueOf(key), Matcher.quoteReplacement("\\" + escapes.get(key)));
     }
     return str;
   }
