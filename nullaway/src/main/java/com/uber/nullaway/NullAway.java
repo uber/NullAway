@@ -1761,8 +1761,7 @@ public class NullAway extends BugChecker
       } else if (constructorInitInfo == null) {
         // report it on the field, except in the case where the class is externalInit and
         // we have no initializer methods
-        if (!(symbolHasExternalInitAnnotation(classSymbol)
-            && entities.instanceInitializerMethods().isEmpty())) {
+        if (!(isExternalInit(classSymbol) && entities.instanceInitializerMethods().isEmpty())) {
           errorBuilder.reportInitErrorOnField(
               uninitField, state, buildDescription(getTreesInstance(state).getTree(uninitField)));
         }
@@ -1869,14 +1868,12 @@ public class NullAway extends BugChecker
     SetMultimap<MethodTree, Symbol> result = LinkedHashMultimap.create();
     Set<Symbol> nonnullInstanceFields = entities.nonnullInstanceFields();
     Trees trees = getTreesInstance(state);
-    boolean isExternalInitClass = symbolHasExternalInitAnnotation(entities.classSymbol());
+    boolean isExternalInit = isExternalInit(entities.classSymbol());
     for (MethodTree constructor : entities.constructors()) {
       if (constructorInvokesAnother(constructor, state)) {
         continue;
       }
-      if (constructor.getParameters().size() == 0
-          && (isExternalInitClass
-              || symbolHasExternalInitAnnotation(ASTHelpers.getSymbol(constructor)))) {
+      if (constructor.getParameters().size() == 0 && isExternalInit) {
         // external framework initializes fields in this case
         continue;
       }
@@ -1891,8 +1888,8 @@ public class NullAway extends BugChecker
     return result;
   }
 
-  private boolean symbolHasExternalInitAnnotation(Symbol symbol) {
-    return StreamSupport.stream(NullabilityUtil.getAllAnnotations(symbol).spliterator(), false)
+  private boolean isExternalInit(Symbol.ClassSymbol classSymbol) {
+    return StreamSupport.stream(NullabilityUtil.getAllAnnotations(classSymbol).spliterator(), false)
         .map((anno) -> anno.getAnnotationType().toString())
         .anyMatch(config::isExternalInitClassAnnotation);
   }
