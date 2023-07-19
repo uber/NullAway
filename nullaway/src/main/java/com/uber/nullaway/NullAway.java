@@ -104,7 +104,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
-import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -278,7 +277,6 @@ public class NullAway extends BugChecker
     moduleElementClass = null;
   }
 
-  @Inject // For future Error Prone versions in which checkers are loaded using Guice
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
@@ -2455,46 +2453,50 @@ public class NullAway extends BugChecker
           ImmutableSet.copyOf(staticInitializerMethods));
     }
 
-    /** Returns symbol for class. */
+    /**
+     * @return symbol for class
+     */
     abstract Symbol.ClassSymbol classSymbol();
 
     /**
-     * Returns <code>@NonNull</code> instance fields that are not directly initialized at
-     * declaration.
+     * @return <code>@NonNull</code> instance fields that are not directly initialized at
+     *     declaration
      */
     abstract ImmutableSet<Symbol> nonnullInstanceFields();
 
     /**
-     * Returns <code>@NonNull</code> static fields that are not directly initialized at declaration.
+     * @return <code>@NonNull</code> static fields that are not directly initialized at declaration
      */
     abstract ImmutableSet<Symbol> nonnullStaticFields();
 
     /**
-     * Returns the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
-     * } } ), in the order in which they appear in the class.
+     * @return the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
+     *     } } ), in the order in which they appear in the class
      */
     abstract ImmutableList<BlockTree> instanceInitializerBlocks();
 
     /**
-     * Returns the list of static initializer blocks (e.g. blocks of the form `class X { static {
-     * //Code } } ), in the order in which they appear in the class.
+     * @return the list of static initializer blocks (e.g. blocks of the form `class X { static {
+     *     //Code } } ), in the order in which they appear in the class
      */
     abstract ImmutableList<BlockTree> staticInitializerBlocks();
 
-    /** Returns constructors in the class. */
+    /**
+     * @return the list of constructor
+     */
     abstract ImmutableSet<MethodTree> constructors();
 
     /**
-     * Returns the list of non-static (instance) initializer methods. This includes methods
-     * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
-     * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
+     * @return the list of non-static (instance) initializer methods. This includes methods
+     *     annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers
+     *     or annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations
      */
     abstract ImmutableSet<MethodTree> instanceInitializerMethods();
 
     /**
-     * Returns the list of static initializer methods. This includes static methods
-     * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
-     * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
+     * @return the list of static initializer methods. This includes static methods
+     *     annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers
+     *     or annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations
      */
     abstract ImmutableSet<MethodTree> staticInitializerMethods();
   }

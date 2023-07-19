@@ -32,7 +32,6 @@ dependencies {
     annotationProcessor deps.apt.autoService
     compileOnly deps.build.jsr305Annotations
     compileOnly deps.test.jetbrainsAnnotations
-    compileOnly deps.apt.javaxInject
 
 
     compileOnly deps.build.errorProneCheckApi

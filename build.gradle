@@ -81,10 +81,6 @@ subprojects { project ->
                 check("PackageLocation", CheckSeverity.ERROR)
                 check("UnnecessaryAnonymousClass", CheckSeverity.ERROR)
                 check("UnusedException", CheckSeverity.ERROR)
-                // To enable auto-patching, uncomment the line below, replace [CheckerName] with
-                // the checker(s) you want to apply patches for (comma-separated), and above, disable
-                // "-Werror"
-//                errorproneArgs.addAll("-XepPatchChecks:[CheckerName]", "-XepPatchLocation:IN_PLACE")
             }
         } else {
             // Disable Error Prone checks on JDK 8, as more recent Error Prone versions don't run on JDK 8

@@ -21,16 +21,16 @@ jobs:
             epVersion: 2.4.0
           - os: macos-latest
             java: 11
-            epVersion: 2.18.0
+            epVersion: 2.16
           - os: ubuntu-latest
             java: 11
-            epVersion: 2.18.0
+            epVersion: 2.16
           - os: windows-latest
             java: 11
-            epVersion: 2.18.0
+            epVersion: 2.16
           - os: ubuntu-latest
             java: 17
-            epVersion: 2.18.0
+            epVersion: 2.16
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -70,7 +70,7 @@ jobs:
         with:
           arguments: coveralls
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.18.0' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.16' && github.repository == 'uber/NullAway'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
   publish_snapshot:
