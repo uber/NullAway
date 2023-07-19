@@ -74,7 +74,6 @@ public class Handlers {
     if (config.checkContracts()) {
       handlerListBuilder.add(new ContractCheckHandler(config));
     }
-    handlerListBuilder.add(new LombokHandler(config));
 
     return new CompositeHandler(handlerListBuilder.build());
   }

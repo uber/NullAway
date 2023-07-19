@@ -109,7 +109,7 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public Nullness onOverrideMethodReturnNullability(
+  public Nullness onOverrideMethodInvocationReturnNullability(
       Symbol.MethodSymbol methodSymbol,
       VisitorState state,
       boolean isAnnotated,

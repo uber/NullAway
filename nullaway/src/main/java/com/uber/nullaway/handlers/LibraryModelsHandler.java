@@ -109,16 +109,14 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public Nullness onOverrideMethodReturnNullability(
+  public Nullness onOverrideMethodInvocationReturnNullability(
       Symbol.MethodSymbol methodSymbol,
       VisitorState state,
       boolean isAnnotated,
       Nullness returnNullness) {
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
     if (optLibraryModels.hasNonNullReturn(methodSymbol, state.getTypes(), !isAnnotated)) {
-      return NONNULL;
-    } else if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes(), !isAnnotated)) {
-      return NULLABLE;
+      return Nullness.NONNULL;
     }
     return returnNullness;
   }
