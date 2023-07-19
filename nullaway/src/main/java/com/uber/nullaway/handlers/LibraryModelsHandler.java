@@ -208,7 +208,6 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       for (int idx : nullImpliesNullIndexes) {
         if (!inputs.valueOfSubNode(node.getArgument(idx)).equals(NONNULL)) {
           anyNull = true;
-          break;
         }
       }
       return anyNull ? NullnessHint.HINT_NULLABLE : NullnessHint.FORCE_NONNULL;
