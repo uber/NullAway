@@ -25,7 +25,6 @@ package com.uber.nullaway.fixserialization.adapters;
 import static com.uber.nullaway.fixserialization.out.ErrorInfo.EMPTY_NONNULL_TARGET_LOCATION_STRING;
 
 import com.uber.nullaway.fixserialization.SerializationService;
-import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 
@@ -54,8 +53,10 @@ public class SerializationV1Adapter implements SerializationAdapter {
         "\t",
         errorInfo.getErrorMessage().getMessageType().toString(),
         SerializationService.escapeSpecialCharacters(errorInfo.getErrorMessage().getMessage()),
-        Serializer.serializeSymbol(errorInfo.getRegionClass()),
-        Serializer.serializeSymbol(errorInfo.getRegionMember()),
+        (errorInfo.getRegionClass() != null
+            ? errorInfo.getRegionClass().flatName().toString()
+            : "null"),
+        (errorInfo.getRegionMember() != null ? errorInfo.getRegionMember().toString() : "null"),
         (errorInfo.getNonnullTarget() != null
             ? SymbolLocation.createLocationFromSymbol(errorInfo.getNonnullTarget())
                 .tabSeparatedToString()

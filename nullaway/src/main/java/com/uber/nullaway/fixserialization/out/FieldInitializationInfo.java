@@ -23,7 +23,6 @@
 package com.uber.nullaway.fixserialization.out;
 
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.location.SymbolLocation;
 
 /**
@@ -50,7 +49,7 @@ public class FieldInitializationInfo {
   public String tabSeparatedToString() {
     return initializerMethodLocation.tabSeparatedToString()
         + '\t'
-        + Serializer.serializeSymbol(field);
+        + field.getSimpleName().toString();
   }
 
   /**

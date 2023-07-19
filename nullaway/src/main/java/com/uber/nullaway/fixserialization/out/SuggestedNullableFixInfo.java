@@ -24,7 +24,6 @@ package com.uber.nullaway.fixserialization.out;
 
 import com.sun.source.util.TreePath;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import java.util.Objects;
 
@@ -76,8 +75,10 @@ public class SuggestedNullableFixInfo {
         symbolLocation.tabSeparatedToString(),
         errorMessage.getMessageType().toString(),
         "nullable",
-        Serializer.serializeSymbol(classAndMemberInfo.getClazz()),
-        Serializer.serializeSymbol(classAndMemberInfo.getMember()));
+        (classAndMemberInfo.getClazz() == null ? "null" : classAndMemberInfo.getClazz().flatName()),
+        (classAndMemberInfo.getMember() == null
+            ? "null"
+            : classAndMemberInfo.getMember().toString()));
   }
 
   /** Finds the class and member of program point where triggered this type change. */
