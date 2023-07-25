@@ -215,7 +215,7 @@ public final class GenericsChecks {
       return typeWithPreservedAnnotations(paramTypedTree);
     } else {
       Type result = ASTHelpers.getType(tree);
-      if (result.isRaw()) {
+      if (result != null && result.isRaw()) {
         // bail out of any checking involving raw types for now
         return null;
       }
