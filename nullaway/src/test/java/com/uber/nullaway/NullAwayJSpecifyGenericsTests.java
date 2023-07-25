@@ -718,6 +718,42 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue791() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;\n"
+                + "\n"
+                + "class Test {\n"
+                + "\n"
+                + "    interface RemovalListener<K,V> {}\n"
+                + "\n"
+                + "    static final class AsyncEvictionListener<K, V>\n"
+                + "\timplements RemovalListener<K, V> {\n"
+                + "\n"
+                + "\tAsyncEvictionListener(RemovalListener<K, V> delegate) {}\n"
+                + "    }\n"
+                + "    \n"
+                + "    \n"
+                + "    static class Caffeine<K,V> {\n"
+                + "\n"
+                + "        @Nullable RemovalListener<? super K, ? super V> evictionListener;\t\n"
+                + "\n"
+                + "\t@SuppressWarnings({\"rawtypes\", \"unchecked\"})\n"
+                + "\t<K1 extends K, V1 extends V> @Nullable RemovalListener<K1, V1> getEvictionListener(\n"
+                + "\t\t\t\t\t\t\t\t\t\t\t   boolean async) {\n"
+                + "\t    var castedListener = (RemovalListener<K1, V1>) evictionListener;\n"
+                + "\t    return async && (castedListener != null)\n"
+                + "\t\t? new AsyncEvictionListener(castedListener)\n"
+                + "\t\t: castedListener;\n"
+                + "\t}\t\n"
+                + "    }\n"
+                + "}\n")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
