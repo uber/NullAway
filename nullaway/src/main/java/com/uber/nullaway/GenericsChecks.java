@@ -214,7 +214,12 @@ public final class GenericsChecks {
       }
       return typeWithPreservedAnnotations(paramTypedTree);
     } else {
-      return ASTHelpers.getType(tree);
+      Type result = ASTHelpers.getType(tree);
+      if (result != null && result.isRaw()) {
+        // bail out of any checking involving raw types for now
+        return null;
+      }
+      return result;
     }
   }
 
