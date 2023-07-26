@@ -718,6 +718,41 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Currently this test is solely to ensure NullAway does not crash in the presence of raw types.
+   * Further study of the JSpecify documents is needed to determine whether any errors should be
+   * reported for these cases.
+   */
+  @Test
+  public void rawTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class NonNullTypeParam<E> {}",
+            "  static class NullableTypeParam<E extends @Nullable Object> {}",
+            "  static void rawLocals() {",
+            "    NonNullTypeParam<String> t1 = new NonNullTypeParam();",
+            "    NullableTypeParam<@Nullable String> t2 = new NullableTypeParam();",
+            "    NonNullTypeParam t3 = new NonNullTypeParam<String>();",
+            "    NullableTypeParam t4 = new NullableTypeParam<@Nullable String>();",
+            "    NonNullTypeParam t5 = new NonNullTypeParam();",
+            "    NullableTypeParam t6 = new NullableTypeParam();",
+            "  }",
+            "  static void rawConditionalExpression(boolean b, NullableTypeParam<@Nullable String> p) {",
+            "    NullableTypeParam<@Nullable String> t = b ? new NullableTypeParam() : p;",
+            "  }",
+            "  static void doNothing(NullableTypeParam<@Nullable String> p) { }",
+            "  static void rawParameterPassing() { doNothing(new NullableTypeParam()); }",
+            "  static NullableTypeParam<@Nullable String> rawReturn() {",
+            "    return new NullableTypeParam();",
+            "}",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
