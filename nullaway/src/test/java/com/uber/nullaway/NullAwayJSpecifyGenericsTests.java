@@ -718,6 +718,11 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Currently this test is solely to ensure NullAway does not crash in the presence of raw types.
+   * Further study of the JSpecify documents is needed to determine whether any errors should be
+   * reported for these cases.
+   */
   @Test
   public void rawTypes() {
     makeHelper()
