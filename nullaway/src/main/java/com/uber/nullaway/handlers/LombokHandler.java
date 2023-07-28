@@ -44,16 +44,11 @@ public class LombokHandler extends BaseNoOpHandler {
     String originalFieldName =
         methodNameString.substring(LOMBOK_BUILDER_DEFAULT_METHOD_PREFIX.length());
     ImmutableList<Symbol> matchingMembers =
-        StreamSupport.stream(
-                methodSymbol
-                    .enclClass()
-                    .members()
-                    .getSymbols(
-                        sym ->
-                            sym.name.contentEquals(originalFieldName)
-                                && sym.getKind().equals(ElementKind.FIELD))
-                    .spliterator(),
-                false)
+        StreamSupport.stream(methodSymbol.enclClass().members().getSymbols().spliterator(), false)
+            .filter(
+                sym ->
+                    sym.name.contentEquals(originalFieldName)
+                        && sym.getKind().equals(ElementKind.FIELD))
             .collect(ImmutableList.toImmutableList());
     Preconditions.checkArgument(
         matchingMembers.size() == 1,
