@@ -372,6 +372,32 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * This test is solely to check if we can run through some of the {@link
+   * com.uber.nullaway.handlers.LombokHandler} logic without crashing. It does not check that the
+   * logic is correct.
+   */
+  @Test
+  public void lombokHandlerRunsWithoutCrashing() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable Object test;",
+            "  @lombok.Generated",
+            "  Object $default$test() {",
+            "    return new Object();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void systemConsoleNullable() {
     defaultCompilationHelper
