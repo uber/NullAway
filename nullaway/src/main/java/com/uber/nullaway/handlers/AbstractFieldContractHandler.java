@@ -29,6 +29,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MethodTree;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.ASTHelpersBackports;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
@@ -222,7 +223,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   public static @Nullable VariableElement getInstanceFieldOfClass(
       Symbol.ClassSymbol classSymbol, String name) {
     Preconditions.checkNotNull(classSymbol);
-    for (Element member : NullabilityUtil.getEnclosedElements(classSymbol)) {
+    for (Element member : ASTHelpersBackports.getEnclosedElements(classSymbol)) {
       if (member.getKind().isField() && !member.getModifiers().contains(Modifier.STATIC)) {
         if (member.getSimpleName().toString().equals(name)) {
           return (VariableElement) member;

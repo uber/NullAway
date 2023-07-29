@@ -31,6 +31,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
+import com.uber.nullaway.ASTHelpersBackports;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
@@ -761,10 +762,9 @@ public class AccessPathNullnessPropagation
     return codeAnnotationInfo;
   }
 
-  @SuppressWarnings("ASTHelpersSuggestions") // remove once we require EP 2.16 or greater
   private void setReceiverNonnull(
       AccessPathNullnessPropagation.ReadableUpdates updates, Node receiver, Symbol symbol) {
-    if (symbol != null && !symbol.isStatic()) {
+    if (symbol != null && !ASTHelpersBackports.isStatic(symbol)) {
       setNonnullIfAnalyzeable(updates, receiver);
     }
   }

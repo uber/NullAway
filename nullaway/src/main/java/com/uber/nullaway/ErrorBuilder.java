@@ -479,8 +479,7 @@ public class ErrorBuilder {
       fieldName = flatName.substring(index) + "." + fieldName;
     }
 
-    @SuppressWarnings("ASTHelpersSuggestions") // remove once we require EP 2.16 or greater
-    boolean isStatic = symbol.isStatic();
+    boolean isStatic = ASTHelpersBackports.isStatic(symbol);
     if (isStatic) {
       state.reportMatch(
           createErrorDescription(
