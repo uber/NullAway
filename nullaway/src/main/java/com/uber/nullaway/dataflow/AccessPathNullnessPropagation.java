@@ -16,6 +16,7 @@
 package com.uber.nullaway.dataflow;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.BOTTOM;
 import static com.uber.nullaway.Nullness.NONNULL;
@@ -761,10 +762,9 @@ public class AccessPathNullnessPropagation
     return codeAnnotationInfo;
   }
 
-  @SuppressWarnings("ASTHelpersSuggestions") // remove once we require EP 2.16 or greater
   private void setReceiverNonnull(
       AccessPathNullnessPropagation.ReadableUpdates updates, Node receiver, Symbol symbol) {
-    if (symbol != null && !symbol.isStatic()) {
+    if ((symbol != null) && !isStatic(symbol)) {
       setNonnullIfAnalyzeable(updates, receiver);
     }
   }

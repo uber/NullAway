@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.METHOD_NO_INIT;
@@ -479,9 +480,7 @@ public class ErrorBuilder {
       fieldName = flatName.substring(index) + "." + fieldName;
     }
 
-    @SuppressWarnings("ASTHelpersSuggestions") // remove once we require EP 2.16 or greater
-    boolean isStatic = symbol.isStatic();
-    if (isStatic) {
+    if (isStatic(symbol)) {
       state.reportMatch(
           createErrorDescription(
               new ErrorMessage(
