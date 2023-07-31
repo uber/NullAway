@@ -31,7 +31,6 @@ public class LombokHandler extends BaseNoOpHandler {
     this.config = config;
   }
 
-  @SuppressWarnings("ASTHelpersSuggestions") // Suggested API doesn't exist in EP 2.4.0
   private boolean isLombokMethodWithMissingNullableAnnotation(
       Symbol.MethodSymbol methodSymbol, VisitorState state) {
     if (!ASTHelpers.hasAnnotation(methodSymbol, LOMBOK_GENERATED_ANNOTATION_NAME, state)) {
@@ -44,16 +43,11 @@ public class LombokHandler extends BaseNoOpHandler {
     String originalFieldName =
         methodNameString.substring(LOMBOK_BUILDER_DEFAULT_METHOD_PREFIX.length());
     ImmutableList<Symbol> matchingMembers =
-        StreamSupport.stream(
-                methodSymbol
-                    .enclClass()
-                    .members()
-                    .getSymbols(
-                        sym ->
-                            sym.name.contentEquals(originalFieldName)
-                                && sym.getKind().equals(ElementKind.FIELD))
-                    .spliterator(),
-                false)
+        StreamSupport.stream(methodSymbol.enclClass().members().getSymbols().spliterator(), false)
+            .filter(
+                sym ->
+                    sym.name.contentEquals(originalFieldName)
+                        && sym.getKind().equals(ElementKind.FIELD))
             .collect(ImmutableList.toImmutableList());
     Preconditions.checkArgument(
         matchingMembers.size() == 1,
