@@ -4,9 +4,9 @@ import com.sun.tools.javac.code.Symbol;
 import java.util.List;
 
 /**
- * Methods backported from {@link com.google.errorprone.util.ASTHelpers} since we do not yet
- * require* a late-enough Error Prone version. The methods should be removed once we bump our
- * minimum Error Prone version accordingly.
+ * Methods backported from {@link com.google.errorprone.util.ASTHelpers} since we do not yet require
+ * a recent-enough Error Prone version. The methods should be removed once we bump our minimum Error
+ * Prone version accordingly.
  */
 public class ASTHelpersBackports {
 

@@ -28,6 +28,7 @@ import static com.sun.source.tree.Tree.Kind.IDENTIFIER;
 import static com.sun.source.tree.Tree.Kind.OTHER;
 import static com.sun.source.tree.Tree.Kind.PARENTHESIZED;
 import static com.sun.source.tree.Tree.Kind.TYPE_CAST;
+import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
@@ -1005,8 +1006,7 @@ public class NullAway extends BugChecker
     }
 
     // for static fields, make sure the enclosing init is a static method or block
-    boolean isStatic = ASTHelpersBackports.isStatic(symbol);
-    if (isStatic) {
+    if (isStatic(symbol)) {
       Tree enclosing = enclosingBlockPath.getLeaf();
       if (enclosing instanceof MethodTree
           && !ASTHelpers.getSymbol((MethodTree) enclosing).isStatic()) {
@@ -1115,8 +1115,7 @@ public class NullAway extends BugChecker
       Symbol symbol, TreePath pathToRead, VisitorState state, TreePath enclosingBlockPath) {
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
     Set<Element> nonnullFields;
-    boolean isStatic = ASTHelpersBackports.isStatic(symbol);
-    if (isStatic) {
+    if (isStatic(symbol)) {
       nonnullFields = nullnessAnalysis.getNonnullStaticFieldsBefore(pathToRead, state.context);
     } else {
       nonnullFields = new LinkedHashSet<>();
@@ -2100,8 +2099,7 @@ public class NullAway extends BugChecker
             // matchVariable()
             continue;
           }
-          boolean fieldIsStatic = ASTHelpersBackports.isStatic(fieldSymbol);
-          if (fieldIsStatic) {
+          if (isStatic(fieldSymbol)) {
             nonnullStaticFields.add(fieldSymbol);
           } else {
             nonnullInstanceFields.add(fieldSymbol);

@@ -21,6 +21,7 @@
  */
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.ASTHelpersBackports.getEnclosedElements;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
@@ -34,7 +35,6 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
-import com.uber.nullaway.ASTHelpersBackports;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -123,7 +123,7 @@ public class GrpcHandler extends BaseNoOpHandler {
   private Symbol.MethodSymbol getGetterForMetadataSubtype(
       Symbol.ClassSymbol classSymbol, Types types) {
     // Is there a better way than iteration?
-    for (Symbol elem : ASTHelpersBackports.getEnclosedElements(classSymbol)) {
+    for (Symbol elem : getEnclosedElements(classSymbol)) {
       if (elem.getKind().equals(ElementKind.METHOD)) {
         Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) elem;
         if (grpcIsMetadataGetCall(methodSymbol, types)) {
