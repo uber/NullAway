@@ -24,6 +24,7 @@ package com.uber.nullaway.testdata;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.uber.nullaway.testdata.unannotated.CustomStream;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.DoubleStream;
@@ -286,6 +287,19 @@ public class NullAwayStreamSupportNegativeCases {
 
   private void filterThenForEachOrdered(Stream<NullableContainer<String>> stream) {
     stream.filter(s -> s.get() != null).forEachOrdered(s -> System.out.println(s.get().length()));
+  }
+
+  // CustomStream is modeled in TestLibraryModels
+  private CustomStream<Integer> filterThenMapLambdasCustomStream(CustomStream<String> stream) {
+    return stream.filter(s -> s != null).map(s -> s.length());
+  }
+
+  private CustomStream<Integer> filterThenMapMethodRefsCustomStream(
+      CustomStream<NullableContainer<String>> stream) {
+    return stream
+        .filter(c -> c.get() != null && perhaps())
+        .map(NullableContainer::get)
+        .map(String::length);
   }
 
   private static class CheckFinalBeforeStream<T> {
