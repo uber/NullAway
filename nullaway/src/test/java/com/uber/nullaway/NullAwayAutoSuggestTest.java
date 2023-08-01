@@ -38,7 +38,7 @@ public class NullAwayAutoSuggestTest {
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  public ErrorProneFlags flags;
+  private ErrorProneFlags flags;
 
   @Before
   public void setup() {
