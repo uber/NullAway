@@ -133,7 +133,7 @@ public class ErrorBuilder {
     }
 
     if (config.suggestSuppressions() && suggestTree != null) {
-      builder = addSuggestedSuppression(errorMessage, suggestTree, builder);
+      builder = addSuggestedSuppression(errorMessage, suggestTree, builder, state);
     }
 
     if (config.serializationIsActive()) {
@@ -187,7 +187,10 @@ public class ErrorBuilder {
   }
 
   private Description.Builder addSuggestedSuppression(
-      ErrorMessage errorMessage, Tree suggestTree, Description.Builder builder) {
+      ErrorMessage errorMessage,
+      Tree suggestTree,
+      Description.Builder builder,
+      VisitorState state) {
     switch (errorMessage.messageType) {
       case DEREFERENCE_NULLABLE:
       case RETURN_NULLABLE:
@@ -201,7 +204,7 @@ public class ErrorBuilder {
         }
         break;
       case CAST_TO_NONNULL_ARG_NONNULL:
-        builder = removeCastToNonNullFix(suggestTree, builder);
+        builder = removeCastToNonNullFix(suggestTree, builder, state);
         break;
       case WRONG_OVERRIDE_RETURN:
         builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
@@ -334,20 +337,17 @@ public class ErrorBuilder {
   }
 
   private Description.Builder removeCastToNonNullFix(
-      Tree suggestTree, Description.Builder builder) {
-    assert suggestTree.getKind() == Tree.Kind.METHOD_INVOCATION;
-    final MethodInvocationTree invTree = (MethodInvocationTree) suggestTree;
-    final Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invTree);
-    final String qualifiedName =
-        ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
-    if (!qualifiedName.equals(config.getCastToNonNullMethod())) {
-      throw new RuntimeException("suggestTree should point to the castToNonNull invocation.");
-    }
+      Tree suggestTree, Description.Builder builder, VisitorState state) {
+    // Note: Here suggestTree refers to the argument being cast. We need to find the
+    // castToNonNull(...) invocation to be replaced by it. Fortunately, state.getPath()
+    // should be currently pointing at said call.
+    Tree currTree = state.getPath().getLeaf();
+    assert currTree.getKind() == Tree.Kind.METHOD_INVOCATION;
+    final MethodInvocationTree invTree = (MethodInvocationTree) currTree;
+    assert invTree.getArguments().contains(suggestTree);
     // Remove the call to castToNonNull:
     final SuggestedFix fix =
-        SuggestedFix.builder()
-            .replace(suggestTree, invTree.getArguments().get(0).toString())
-            .build();
+        SuggestedFix.builder().replace(invTree, suggestTree.toString()).build();
     return builder.addFix(fix);
   }
 

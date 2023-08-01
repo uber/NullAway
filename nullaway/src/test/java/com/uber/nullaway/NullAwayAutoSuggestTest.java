@@ -24,6 +24,7 @@ package com.uber.nullaway;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.ErrorProneFlags;
+import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
 import java.io.IOException;
 import org.junit.Before;
 import org.junit.Rule;
@@ -37,7 +38,7 @@ public class NullAwayAutoSuggestTest {
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private ErrorProneFlags flags;
+  public ErrorProneFlags flags;
 
   @Before
   public void setup() {
@@ -57,6 +58,8 @@ public class NullAwayAutoSuggestTest {
         .setArgs(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),
+            "-processorpath",
+            TestLibraryModels.class.getProtectionDomain().getCodeSource().getLocation().getPath(),
             // the remaining args are not needed right now, but they will be necessary when we
             // switch to the more modern newInstance() API
             "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
@@ -117,6 +120,32 @@ public class NullAwayAutoSuggestTest {
             "class Test {",
             "  Object test1(Object o) {",
             "    return castToNonNull(o);",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "class Test {",
+            "  Object test1(Object o) {",
+            "    return o;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void removeUnnecessaryCastToNonNullFromLibraryModel() throws IOException {
+    makeTestHelper()
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "class Test {",
+            "  Object test1(Object o) {",
+            "    return castToNonNull(\"CAST_REASON\",o,42);",
             "  }",
             "}")
         .addOutputLines(

@@ -1712,7 +1712,9 @@ public class NullAway extends BugChecker
                 + "at the invocation site, but which are known not to be null at runtime.";
         return errorBuilder.createErrorDescription(
             new ErrorMessage(MessageTypes.CAST_TO_NONNULL_ARG_NONNULL, message),
-            tree,
+            // The Tree passed as suggestTree is the expression being cast
+            // to avoid recomputing the arg index:
+            actual,
             buildDescription(tree),
             state,
             null);
