@@ -33,6 +33,7 @@ import static com.uber.nullaway.NullAway.OPTIONAL_CHECK_NAME;
 import static com.uber.nullaway.NullAway.getTreesInstance;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -342,9 +343,15 @@ public class ErrorBuilder {
     // castToNonNull(...) invocation to be replaced by it. Fortunately, state.getPath()
     // should be currently pointing at said call.
     Tree currTree = state.getPath().getLeaf();
-    assert currTree.getKind() == Tree.Kind.METHOD_INVOCATION;
+    Preconditions.checkArgument(
+        currTree.getKind() == Tree.Kind.METHOD_INVOCATION,
+        String.format("Expected castToNonNull invocation expression, found:\n%s", currTree));
     final MethodInvocationTree invTree = (MethodInvocationTree) currTree;
-    assert invTree.getArguments().contains(suggestTree);
+    Preconditions.checkArgument(
+        invTree.getArguments().contains(suggestTree),
+        String.format(
+            "Method invocation tree %s does not contain the expression %s as an argument being cast",
+            invTree, suggestTree));
     // Remove the call to castToNonNull:
     final SuggestedFix fix =
         SuggestedFix.builder().replace(invTree, suggestTree.toString()).build();
