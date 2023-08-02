@@ -1,5 +1,30 @@
 Changelog
 =========
+Version 0.10.12
+---------------
+Note: This is the first release built with Java 11. In particular, running
+    JarInfer now requires a JDK 11 JVM. NullAway is still capable of analyzing JDK 8
+    source/target projects, and should be compatible with the Error Prone JDK 9 javac
+    just as the release before, but a JDK 11 javac is recommended.
+* Update to WALA 1.6.1 and remove ability to build on JDK 8 (#777)
+* Fix compatibility issue when building on JDK 17 but running on JDK 8 (#779)
+* Fix JDK compatibility issue in LombokHandler (#795)
+* Improve auto-fixing of unnecessary castToNonNull calls (#796)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - JSpecify: avoid crashes when encountering raw types (#792)
+  - Fix off-by-one error in JSpecify checking of parameter passing (#793)
+* Build / CI tooling for NullAway itself:
+  - Fix Publish Snapshot CI job (#774)
+  - Add step to create release on GitHub (#775)
+  - Build the Android sample app on JDK 17 (#776)
+  - Update to Error Prone 2.20.0 (#772)
+  - Add tasks to run JDK 8 tests on JDK 11+ (#778)
+  - Switch to Spotless for formatting Java code (#780)
+  - Added GCP JMH Benchmark Workflow (#770) 
+  - Set concurrency for JMH benchmarking workflow (#784)
+  - Disable daemon when running benchmarks (#786)
+  - Update to Gradle 8.2.1 (#781)
+
 Version 0.10.11
 ---------------
 * NULL_LITERAL expressions may always be null (#749)
