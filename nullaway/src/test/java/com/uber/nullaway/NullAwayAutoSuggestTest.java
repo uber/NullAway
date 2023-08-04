@@ -92,7 +92,8 @@ public class NullAwayAutoSuggestTest {
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "class Test {",
-            "  Object test1(@Nullable Object o) {",
+            "  @Nullable Object o;",
+            "  Object test1() {",
             "    return o;",
             "  }",
             "}")
@@ -102,8 +103,39 @@ public class NullAwayAutoSuggestTest {
             "import static com.uber.nullaway.testdata.Util.castToNonNull;",
             "import javax.annotation.Nullable;",
             "class Test {",
-            "  Object test1(@Nullable Object o) {",
+            "  @Nullable Object o;",
+            "  Object test1() {",
             "    return castToNonNull(o);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void suppressInsteadOfCastToNonNull() throws IOException {
+    makeTestHelper()
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  Object test1(@Nullable Object o) {",
+            "    return o;",
+            "  }",
+            "  Object test2() {",
+            "    return null;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @SuppressWarnings(\"NullAway\") Object test1(@Nullable Object o) {",
+            "    return o;",
+            "  }",
+            "  @SuppressWarnings(\"NullAway\") Object test2() {",
+            "    return null;",
             "  }",
             "}")
         .doTest();
