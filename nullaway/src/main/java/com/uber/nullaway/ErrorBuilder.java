@@ -203,8 +203,10 @@ public class ErrorBuilder {
         if (config.getCastToNonNullMethod() != null && canBeCastToNonNull(suggestTree)) {
           builder = addCastToNonNullFix(suggestTree, builder);
         } else {
-          builder =
-              addSuppressWarningsFix(suppressibleNode(state.getPath()), builder, suppressionName);
+          Tree suppressibleNode = suppressibleNode(state.getPath());
+          if (suppressibleNode != null) {
+            builder = addSuppressWarningsFix(suppressibleNode, builder, suppressionName);
+          }
         }
         break;
       case CAST_TO_NONNULL_ARG_NONNULL:
@@ -343,7 +345,8 @@ public class ErrorBuilder {
         // make the parameter @NonNull and add casts at call sites, but that is beyond the scope of
         // our suggested fixes
         Symbol symbol = ASTHelpers.getSymbol(tree);
-        return !(symbol.getKind().equals(ElementKind.PARAMETER)
+        return !(symbol != null
+            && symbol.getKind().equals(ElementKind.PARAMETER)
             && hasNullableAnnotation(symbol, config));
       default:
         return true;
