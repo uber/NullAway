@@ -7,9 +7,6 @@ on:
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
-env:
-  EP_LATEST_SUPPORTED: 2.21.0
-  EP_OLDEST_SUPPORTED: 2.4.0
 jobs:
   build:
     name: "JDK ${{ matrix.java }} on ${{ matrix.os }} with Error Prone ${{ matrix.epVersion }}"
@@ -18,22 +15,22 @@ jobs:
         include:
           - os: ubuntu-latest
             java: 11
-            epVersion: ${{ env.EP_OLDEST_SUPPORTED }}
+            epVersion: 2.4.0
           - os: ubuntu-latest
             java: 17
-            epVersion: ${{ env.EP_OLDEST_SUPPORTED }}
+            epVersion: 2.4.0
           - os: macos-latest
             java: 11
-            epVersion: ${{ env.EP_LATEST_SUPPORTED }}
+            epVersion: 2.21.0
           - os: ubuntu-latest
             java: 11
-            epVersion: ${{ env.EP_LATEST_SUPPORTED }}
+            epVersion: 2.21.0
           - os: windows-latest
             java: 11
-            epVersion: ${{ env.EP_LATEST_SUPPORTED }}
+            epVersion: 2.21.0
           - os: ubuntu-latest
             java: 17
-            epVersion: ${{ env.EP_LATEST_SUPPORTED }}
+            epVersion: 2.21.0
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -64,7 +61,7 @@ jobs:
         with:
           arguments: coveralls
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == env.EP_LATEST_SUPPORTED && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.21.0' && github.repository == 'uber/NullAway'
       - name: Test publishToMavenLocal flow
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
