@@ -34,8 +34,6 @@ tasks.withType(JavaCompile) {
   if (!name.toLowerCase().contains("test")) {
     options.errorprone {
       check("NullAway", CheckSeverity.ERROR)
-      // Issue in Error Prone 2.21.0: https://github.com/google/error-prone/issues/4040
-      check("NotJavadoc", CheckSeverity.OFF)
       option("NullAway:AnnotatedPackages", "com.uber")
       option("NullAway:UnannotatedSubPackages", "com.uber.lib.unannotated")
     }
