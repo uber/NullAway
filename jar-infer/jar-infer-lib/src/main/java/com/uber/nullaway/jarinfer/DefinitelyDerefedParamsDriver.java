@@ -228,7 +228,7 @@ public class DefinitelyDerefedParamsDriver {
     } else if (!new File(inPath).exists()) {
       return;
     }
-    AnalysisScope scope = AnalysisScopeReader.instance.makePrimordialScope(null);
+    AnalysisScope scope = AnalysisScopeReader.instance.makeBasePrimordialScope(null);
     scope.setExclusions(
         new FileOfClasses(
             new ByteArrayInputStream(DEFAULT_EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
