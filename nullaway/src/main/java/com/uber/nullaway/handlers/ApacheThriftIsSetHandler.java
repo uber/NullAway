@@ -23,7 +23,6 @@ package com.uber.nullaway.handlers;
 
 import static com.uber.nullaway.ASTHelpersBackports.getEnclosedElements;
 
-import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
@@ -33,6 +32,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.Objects;
@@ -54,15 +54,24 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
 
   private static final Supplier<Type> TBASE_TYPE_SUPPLIER = Suppliers.typeFromString(TBASE_NAME);
 
-  @Nullable private Optional<Type> tbaseType;
+  private Optional<Type> tbaseType;
 
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     if (tbaseType == null) {
-      tbaseType =
-          Optional.ofNullable(TBASE_TYPE_SUPPLIER.get(state)).map(state.getTypes()::erasure);
+      init(state);
     }
+  }
+
+  /**
+   * This method is annotated {@code @Initializer} since it will be invoked when the first class is
+   * processed by {@link #onMatchTopLevelClass(NullAway, ClassTree, VisitorState,
+   * Symbol.ClassSymbol)}
+   */
+  @Initializer
+  private void init(VisitorState state) {
+    tbaseType = Optional.ofNullable(TBASE_TYPE_SUPPLIER.get(state)).map(state.getTypes()::erasure);
   }
 
   @Override
@@ -173,7 +182,6 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
   }
 
   private boolean thriftIsSetCall(Symbol.MethodSymbol symbol, Types types) {
-    Preconditions.checkNotNull(tbaseType);
     // noinspection ConstantConditions
     return tbaseType.isPresent()
         && symbol.getSimpleName().toString().startsWith("isSet")
