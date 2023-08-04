@@ -18,22 +18,22 @@ jobs:
         include:
           - os: ubuntu-latest
             java: 11
-            epVersion: env.EP_OLDEST_SUPPORTED
+            epVersion: "$EP_OLDEST_SUPPORTED"
           - os: ubuntu-latest
             java: 17
-            epVersion: env.EP_OLDEST_SUPPORTED
+            epVersion: "$EP_OLDEST_SUPPORTED"
           - os: macos-latest
             java: 11
-            epVersion: env.EP_LATEST_SUPPORTED
+            epVersion: "$EP_LATEST_SUPPORTED"
           - os: ubuntu-latest
             java: 11
-            epVersion: env.EP_LATEST_SUPPORTED
+            epVersion: "$EP_LATEST_SUPPORTED"
           - os: windows-latest
             java: 11
-            epVersion: env.EP_LATEST_SUPPORTED
+            epVersion: "$EP_LATEST_SUPPORTED"
           - os: ubuntu-latest
             java: 17
-            epVersion: env.EP_LATEST_SUPPORTED
+            epVersion: "$EP_LATEST_SUPPORTED"
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
