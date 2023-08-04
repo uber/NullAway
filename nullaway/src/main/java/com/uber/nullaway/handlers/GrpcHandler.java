@@ -64,26 +64,22 @@ public class GrpcHandler extends BaseNoOpHandler {
   private Optional<Type> grpcMetadataType;
   private Optional<Type> grpcKeyType;
 
+  /**
+   * This method is annotated {@code @Initializer} since it will be invoked when the first class is
+   * processed, before any other handler methods
+   */
+  @Initializer
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     if (grpcMetadataType == null || grpcKeyType == null) {
-      init(state);
+      grpcMetadataType =
+          Optional.ofNullable(GRPC_METADATA_TYPE_SUPPLIER.get(state))
+              .map(state.getTypes()::erasure);
+      grpcKeyType =
+          Optional.ofNullable(GRPC_METADATA_KEY_TYPE_SUPPLIER.get(state))
+              .map(state.getTypes()::erasure);
     }
-  }
-
-  /**
-   * This method is annotated {@code @Initializer} since it will be invoked when the first class is
-   * processed by {@link #onMatchTopLevelClass(NullAway, ClassTree, VisitorState,
-   * Symbol.ClassSymbol)}
-   */
-  @Initializer
-  private void init(VisitorState state) {
-    grpcMetadataType =
-        Optional.ofNullable(GRPC_METADATA_TYPE_SUPPLIER.get(state)).map(state.getTypes()::erasure);
-    grpcKeyType =
-        Optional.ofNullable(GRPC_METADATA_KEY_TYPE_SUPPLIER.get(state))
-            .map(state.getTypes()::erasure);
   }
 
   @Override

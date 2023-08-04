@@ -56,22 +56,18 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
 
   private Optional<Type> tbaseType;
 
+  /**
+   * This method is annotated {@code @Initializer} since it will be invoked when the first class is
+   * processed, before any other handler methods
+   */
+  @Initializer
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     if (tbaseType == null) {
-      init(state);
+      tbaseType =
+          Optional.ofNullable(TBASE_TYPE_SUPPLIER.get(state)).map(state.getTypes()::erasure);
     }
-  }
-
-  /**
-   * This method is annotated {@code @Initializer} since it will be invoked when the first class is
-   * processed by {@link #onMatchTopLevelClass(NullAway, ClassTree, VisitorState,
-   * Symbol.ClassSymbol)}
-   */
-  @Initializer
-  private void init(VisitorState state) {
-    tbaseType = Optional.ofNullable(TBASE_TYPE_SUPPLIER.get(state)).map(state.getTypes()::erasure);
   }
 
   @Override
