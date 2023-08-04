@@ -198,7 +198,7 @@ public class ErrorBuilder {
       case PASS_NULLABLE:
       case ASSIGN_FIELD_NULLABLE:
       case SWITCH_EXPRESSION_NULLABLE:
-        if (config.getCastToNonNullMethod() != null) {
+        if (config.getCastToNonNullMethod() != null && canBeCastToNonNull(suggestTree, state)) {
           builder = addCastToNonNullFix(suggestTree, builder);
         } else {
           builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
@@ -318,6 +318,25 @@ public class ErrorBuilder {
         .filter(ErrorBuilder::canHaveSuppressWarningsAnnotation)
         .findFirst()
         .orElse(null);
+  }
+
+  /**
+   * Checks if it would be appropriate to wrap {@code tree} in a {@code castToNonNull} call. There
+   * are two cases where this method returns {@code false}:
+   *
+   * <ol>
+   *   <li>{@code tree} represents the {@code null} literal
+   *   <li>{@code tree} represents a {@code @Nullable} formal parameter of the enclosing method
+   * </ol>
+   */
+  private boolean canBeCastToNonNull(Tree tree, VisitorState state) {
+    switch (tree.getKind()) {
+      case NULL_LITERAL:
+        return false;
+      case IDENTIFIER:
+      default:
+        return true;
+    }
   }
 
   private Description.Builder addCastToNonNullFix(Tree suggestTree, Description.Builder builder) {
