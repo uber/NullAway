@@ -10,6 +10,7 @@ import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
+import com.sun.source.tree.ArrayTypeTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
@@ -17,6 +18,8 @@ import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.util.SimpleTreeVisitor;
+import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
@@ -299,57 +302,9 @@ public final class GenericsChecks {
    * @param lhsType type for the lhs of the assignment
    * @param rhsType type for the rhs of the assignment
    */
-  private boolean compareNullabilityAnnotations(Type.ClassType lhsType, Type.ClassType rhsType) {
-    Types types = state.getTypes();
-    // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
-    // compare lhsType against the supertype of rhsType with a matching base type.
-    rhsType = (Type.ClassType) types.asSuper(rhsType, lhsType.tsym);
-    // This is impossible, considering the fact that standard Java subtyping succeeds before running
-    // NullAway
-    if (rhsType == null) {
-      throw new RuntimeException("Did not find supertype of " + rhsType + " matching " + lhsType);
-    }
-    List<Type> lhsTypeArguments = lhsType.getTypeArguments();
-    List<Type> rhsTypeArguments = rhsType.getTypeArguments();
-    // This is impossible, considering the fact that standard Java subtyping succeeds before running
-    // NullAway
-    if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
-      throw new RuntimeException(
-          "Number of types arguments in " + rhsType + " does not match " + lhsType);
-    }
-    for (int i = 0; i < lhsTypeArguments.size(); i++) {
-      Type lhsTypeArgument = lhsTypeArguments.get(i);
-      Type rhsTypeArgument = rhsTypeArguments.get(i);
-      boolean isLHSNullableAnnotated = false;
-      List<Attribute.TypeCompound> lhsAnnotations = lhsTypeArgument.getAnnotationMirrors();
-      // To ensure that we are checking only jspecify nullable annotations
-      for (Attribute.TypeCompound annotation : lhsAnnotations) {
-        if (annotation.getAnnotationType().toString().equals(NULLABLE_NAME)) {
-          isLHSNullableAnnotated = true;
-          break;
-        }
-      }
-      boolean isRHSNullableAnnotated = false;
-      List<Attribute.TypeCompound> rhsAnnotations = rhsTypeArgument.getAnnotationMirrors();
-      // To ensure that we are checking only jspecify nullable annotations
-      for (Attribute.TypeCompound annotation : rhsAnnotations) {
-        if (annotation.getAnnotationType().toString().equals(NULLABLE_NAME)) {
-          isRHSNullableAnnotated = true;
-          break;
-        }
-      }
-      if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
-        return false;
-      }
-      // nested generics
-      if (lhsTypeArgument.getTypeArguments().length() > 0) {
-        if (!compareNullabilityAnnotations(
-            (Type.ClassType) lhsTypeArgument, (Type.ClassType) rhsTypeArgument)) {
-          return false;
-        }
-      }
-    }
-    return true;
+  private boolean compareNullabilityAnnotations(Type lhsType, Type rhsType) {
+    // it is fair to assume rhyType should be the same as lhsType as the Java compiler has passed before NullAway.
+    return lhsType.accept(COMPARE_NULLABILITY_VISITOR,rhsType);
   }
 
   /**
@@ -398,12 +353,15 @@ public final class GenericsChecks {
       TypeMetadata typeMetadata =
           new TypeMetadata(new TypeMetadata.Annotations(nullableAnnotationCompound));
       Type currentTypeArgType = castToNonNull(ASTHelpers.getType(curTypeArg));
-      if (currentTypeArgType.getTypeArguments().size() > 0) {
+      List<Type> genericArgType = currentTypeArgType.accept(TYPE_ARG_VISITOR,null);
+      if (genericArgType.size() > 0) {
         // nested generic type; recursively preserve its nullability type argument annotations
-        currentTypeArgType = typeWithPreservedAnnotations((ParameterizedTypeTree) curTypeArg);
+        // currentTypeArgType = typeWithPreservedAnnotations((ParameterizedTypeTree) curTypeArg);
+        // visitor based approach
+        currentTypeArgType = curTypeArg.accept(new CustomTreeVisitor(),null);
       }
-      Type.ClassType newTypeArgType =
-          (Type.ClassType) currentTypeArgType.cloneWithMetadata(typeMetadata);
+      //Type.ClassType newTypeArgType = (Type.ClassType)  currentTypeArgType.cloneWithMetadata(typeMetadata);
+      Type newTypeArgType = currentTypeArgType.cloneWithMetadata(typeMetadata);
       newTypeArgs.add(newTypeArgType);
     }
     Type.ClassType finalType =
@@ -512,6 +470,326 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * To dispatch the logic to obtain the generic type arguments for different Types
+   * */
+  private final Type.Visitor<List<Type>, Void> TYPE_ARG_VISITOR =
+          new Type.Visitor<List<Type>, Void>() {
+            @Override
+            public List<Type> visitClassType(Type.ClassType t, Void s) {return t.getTypeArguments();}
+            @Override
+            public List<Type> visitArrayType(Type.ArrayType t, Void unused) {
+              Type.ClassType classArg = (Type.ClassType)t.getComponentType();
+              return classArg.getTypeArguments();
+            }
+            @Override
+            public List<Type> visitMethodType(Type.MethodType t, Void unused) {return null;}
+            @Override
+            public List<Type> visitPackageType(Type.PackageType t, Void unused) {return null;}
+            @Override
+            public List<Type> visitModuleType(Type.ModuleType t, Void unused) {return null;}
+            @Override
+            public List<Type> visitTypeVar(Type.TypeVar t, Void unused) {return null;}
+            @Override
+            public List<Type> visitCapturedType(Type.CapturedType t, Void s) {
+              return t.wildcard.accept(this, null);
+            }
+            @Override
+            public List<Type> visitForAll(Type.ForAll t, Void unused) {return null;}
+            @Override
+            public List<Type> visitUndetVar(Type.UndetVar t, Void unused) {return null;}
+            @Override
+            public List<Type> visitErrorType(Type.ErrorType t, Void unused) {return null;}
+            @Override
+            public List<Type> visitWildcardType(Type.WildcardType t, Void unused) {return null;}
+            @Override
+            public List<Type> visitType(Type t, Void s) {
+              return null;
+            }
+          };
+
+  /**
+   * To dispatch the logic to obtain the generic type arguments for different Types
+   *
+   */
+  private final Type.Visitor<Boolean, Type> COMPARE_NULLABILITY_VISITOR =
+         new Type.Visitor<Boolean, Type>() {
+           @Override
+           public Boolean visitClassType(Type.ClassType lhsType, Type rhsType) {
+             Types types = state.getTypes();
+             // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
+             // compare lhsType against the supertype of rhsType with a matching base type.
+             rhsType = (Type.ClassType) types.asSuper(rhsType, lhsType.tsym);
+             // This is impossible, considering the fact that standard Java subtyping succeeds before running
+             // NullAway
+             if (rhsType == null) {
+               throw new RuntimeException("Did not find supertype of " + rhsType + " matching " + lhsType);
+             }
+             List<Type> lhsTypeArguments = lhsType.getTypeArguments();
+             List<Type> rhsTypeArguments = rhsType.getTypeArguments();
+             // This is impossible, considering the fact that standard Java subtyping succeeds before running
+             // NullAway
+             if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
+               throw new RuntimeException(
+                       "Number of types arguments in " + rhsType + " does not match " + lhsType);
+             }
+             for (int i = 0; i < lhsTypeArguments.size(); i++) {
+               Type lhsTypeArgument = lhsTypeArguments.get(i);
+               Type rhsTypeArgument = rhsTypeArguments.get(i);
+               boolean isLHSNullableAnnotated = false;
+               List<Attribute.TypeCompound> lhsAnnotations = lhsTypeArgument.getAnnotationMirrors();
+               // To ensure that we are checking only jspecify nullable annotations
+               for (Attribute.TypeCompound annotation : lhsAnnotations) {
+                 if (annotation.getAnnotationType().toString().equals(NULLABLE_NAME)) {
+                   isLHSNullableAnnotated = true;
+                   break;
+                 }
+               }
+               boolean isRHSNullableAnnotated = false;
+               List<Attribute.TypeCompound> rhsAnnotations = rhsTypeArgument.getAnnotationMirrors();
+               // To ensure that we are checking only jspecify nullable annotations
+               for (Attribute.TypeCompound annotation : rhsAnnotations) {
+                 if (annotation.getAnnotationType().toString().equals(NULLABLE_NAME)) {
+                   isRHSNullableAnnotated = true;
+                   break;
+                 }
+               }
+               if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
+                 return false;
+               }
+               // nested generics
+               List<Type> genericArgs = lhsTypeArgument.accept(TYPE_ARG_VISITOR,null);
+               if (genericArgs.size() > 0) {
+                 if (!lhsTypeArgument.accept(COMPARE_NULLABILITY_VISITOR,rhsTypeArgument)) {
+                   return false;
+                 }
+               }
+             }
+             return true;
+           }
+
+           @Override
+           public Boolean visitWildcardType(Type.WildcardType t, Type type) {
+             return null;
+           }
+
+           @Override
+           public Boolean visitArrayType(Type.ArrayType lhsType, Type rhsType) {
+//             Types types = state.getTypes();
+             // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
+             // compare lhsType against the supertype of rhsType with a matching base type.
+             // rhsType = (Type.ClassType) types.asSuper(rhsType, lhsType.tsym);
+             // This is impossible, considering the fact that standard Java subtyping succeeds before running
+             // NullAway
+             /*if (rhsType == null) {
+               throw new RuntimeException("Did not find supertype of " + rhsType + " matching " + lhsType);
+             }*/
+             Type.ArrayType arrRhsType = (Type.ArrayType)rhsType;
+             List<Type> lhsTypeArguments = lhsType.getComponentType().getTypeArguments();
+             List<Type> rhsTypeArguments = arrRhsType.getComponentType().getTypeArguments();
+
+             // This is impossible, considering the fact that standard Java subtyping succeeds before running
+             // NullAway
+             if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
+               throw new RuntimeException(
+                       "Number of types arguments in " + rhsType + " does not match " + lhsType);
+             }
+             for (int i = 0; i < lhsTypeArguments.size(); i++) {
+               Type lhsTypeArgument = lhsTypeArguments.get(i);
+               Type rhsTypeArgument = rhsTypeArguments.get(i);
+               boolean isLHSNullableAnnotated = false;
+               List<Attribute.TypeCompound> lhsAnnotations = lhsTypeArgument.getAnnotationMirrors();
+               // To ensure that we are checking only jspecify nullable annotations
+               for (Attribute.TypeCompound annotation : lhsAnnotations) {
+                 if (annotation.getAnnotationType().toString().equals(NULLABLE_NAME)) {
+                   isLHSNullableAnnotated = true;
+                   break;
+                 }
+               }
+               boolean isRHSNullableAnnotated = false;
+               List<Attribute.TypeCompound> rhsAnnotations = rhsTypeArgument.getAnnotationMirrors();
+               // To ensure that we are checking only jspecify nullable annotations
+               for (Attribute.TypeCompound annotation : rhsAnnotations) {
+                 if (annotation.getAnnotationType().toString().equals(NULLABLE_NAME)) {
+                   isRHSNullableAnnotated = true;
+                   break;
+                 }
+               }
+               if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
+                 return false;
+               }
+               // nested generics
+               //Type.ArrayType arrayArg = (Type.ArrayType)lhsTypeArgument;
+               //Type.ClassType classArg = (Type.ClassType)arrayArg.getComponentType();
+               List<Type> genericArgs = lhsTypeArgument.accept(TYPE_ARG_VISITOR,null);
+               if (genericArgs.size() > 0) {
+                 if (!lhsTypeArgument.accept(COMPARE_NULLABILITY_VISITOR,rhsTypeArgument)) {
+                   return false;
+                 }
+               }
+             }
+             return true;
+           }
+
+           @Override
+           public Boolean visitMethodType(Type.MethodType t, Type type) {
+             return null;
+           }
+
+           @Override
+           public Boolean visitPackageType(Type.PackageType t, Type type) {
+             return null;
+           }
+
+           @Override
+           public Boolean visitModuleType(Type.ModuleType t, Type type) {
+             return null;
+           }
+
+           @Override
+           public Boolean visitTypeVar(Type.TypeVar t, Type type) {
+             return null;
+           }
+
+           @Override
+           public Boolean visitCapturedType(Type.CapturedType t, Type type) {
+             return null;
+           }
+
+           @Override
+           public Boolean visitForAll(Type.ForAll t, Type type) {
+             return null;
+           }
+
+           @Override
+           public Boolean visitUndetVar(Type.UndetVar t, Type type) {
+             return null;
+           }
+
+           @Override
+           public Boolean visitErrorType(Type.ErrorType t, Type type) {
+             return null;
+           }
+
+           @Override
+           public Boolean visitType(Type t, Type type) {
+             return null;
+           }
+         };
+  /**
+   * For Tree Types
+   *
+   */
+  public class CustomTreeVisitor extends SimpleTreeVisitor<Type,Boolean>{
+    @Override
+    public Type visitArrayType(ArrayTypeTree tree, Boolean p) {
+      Type.ArrayType type = (Type.ArrayType) ASTHelpers.getType(tree);
+      Preconditions.checkNotNull(type);
+      Type nullableType = NULLABLE_TYPE_SUPPLIER.get(state);
+      ParameterizedTypeTree paramTree = (ParameterizedTypeTree) tree.getType();
+      List<? extends Tree> typeArguments = paramTree.getTypeArguments();
+      List<Type> newTypeArgs = new ArrayList<>();
+      boolean hasNullableAnnotation = false;
+      for (int i = 0; i < typeArguments.size(); i++) {
+        AnnotatedTypeTree annotatedType = null;
+        Tree curTypeArg = typeArguments.get(i);
+        // If the type argument has an annotation, it will either be an AnnotatedTypeTree, or a
+        // ParameterizedTypeTree in the case of a nested generic type
+        if (curTypeArg instanceof AnnotatedTypeTree) {
+          annotatedType = (AnnotatedTypeTree) curTypeArg;
+        } else if (curTypeArg instanceof ParameterizedTypeTree
+                && ((ParameterizedTypeTree) curTypeArg).getType() instanceof AnnotatedTypeTree) {
+          annotatedType = (AnnotatedTypeTree) ((ParameterizedTypeTree) curTypeArg).getType();
+        }
+        List<? extends AnnotationTree> annotations =
+                annotatedType != null ? annotatedType.getAnnotations() : Collections.emptyList();
+        for (AnnotationTree annotation : annotations) {
+          if (ASTHelpers.isSameType(
+                  nullableType, ASTHelpers.getType(annotation.getAnnotationType()), state)) {
+            hasNullableAnnotation = true;
+            break;
+          }
+        }
+        // construct a TypeMetadata object containing a nullability annotation if needed
+        com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotationCompound =
+                hasNullableAnnotation
+                        ? com.sun.tools.javac.util.List.from(
+                        Collections.singletonList(
+                                new Attribute.TypeCompound(
+                                        nullableType, com.sun.tools.javac.util.List.nil(), null)))
+                        : com.sun.tools.javac.util.List.nil();
+        TypeMetadata typeMetadata =
+                new TypeMetadata(new TypeMetadata.Annotations(nullableAnnotationCompound));
+        Type currentTypeArgType = castToNonNull(ASTHelpers.getType(curTypeArg));
+        List<Type> genericArgType = currentTypeArgType.accept(TYPE_ARG_VISITOR,null);
+        if (genericArgType.size() > 0) {
+          // nested generic type; recursively preserve its nullability type argument annotations
+          currentTypeArgType = curTypeArg.accept(new CustomTreeVisitor(),null);
+        }
+        //Type.ClassType newTypeArgType = (Type.ClassType)  currentTypeArgType.cloneWithMetadata(typeMetadata);
+        Type newTypeArgType = currentTypeArgType.cloneWithMetadata(typeMetadata);
+        newTypeArgs.add(newTypeArgType);
+      }
+      Type.ClassType classType =
+              new Type.ClassType(
+                      type.getComponentType().getEnclosingType(), com.sun.tools.javac.util.List.from(newTypeArgs), type.getComponentType().tsym);
+      Type.ArrayType finalType = new Type.ArrayType(classType,classType.tsym);
+      return finalType;
+    }
+    @Override
+    public Type visitParameterizedType(ParameterizedTypeTree tree, Boolean p) {
+      Type.ClassType type = (Type.ClassType) ASTHelpers.getType(tree);
+      Preconditions.checkNotNull(type);
+      Type nullableType = NULLABLE_TYPE_SUPPLIER.get(state);
+      List<? extends Tree> typeArguments = tree.getTypeArguments();
+      List<Type> newTypeArgs = new ArrayList<>();
+      boolean hasNullableAnnotation = false;
+      for (int i = 0; i < typeArguments.size(); i++) {
+        AnnotatedTypeTree annotatedType = null;
+        Tree curTypeArg = typeArguments.get(i);
+        // If the type argument has an annotation, it will either be an AnnotatedTypeTree, or a
+        // ParameterizedTypeTree in the case of a nested generic type
+        if (curTypeArg instanceof AnnotatedTypeTree) {
+          annotatedType = (AnnotatedTypeTree) curTypeArg;
+        } else if (curTypeArg instanceof ParameterizedTypeTree
+                && ((ParameterizedTypeTree) curTypeArg).getType() instanceof AnnotatedTypeTree) {
+          annotatedType = (AnnotatedTypeTree) ((ParameterizedTypeTree) curTypeArg).getType();
+        }
+        List<? extends AnnotationTree> annotations =
+                annotatedType != null ? annotatedType.getAnnotations() : Collections.emptyList();
+        for (AnnotationTree annotation : annotations) {
+          if (ASTHelpers.isSameType(
+                  nullableType, ASTHelpers.getType(annotation.getAnnotationType()), state)) {
+            hasNullableAnnotation = true;
+            break;
+          }
+        }
+        // construct a TypeMetadata object containing a nullability annotation if needed
+        com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotationCompound =
+                hasNullableAnnotation
+                        ? com.sun.tools.javac.util.List.from(
+                        Collections.singletonList(
+                                new Attribute.TypeCompound(
+                                        nullableType, com.sun.tools.javac.util.List.nil(), null)))
+                        : com.sun.tools.javac.util.List.nil();
+        TypeMetadata typeMetadata =
+                new TypeMetadata(new TypeMetadata.Annotations(nullableAnnotationCompound));
+        Type currentTypeArgType = castToNonNull(ASTHelpers.getType(curTypeArg));
+        List<Type> genericArgType = currentTypeArgType.accept(TYPE_ARG_VISITOR,null);
+        if (genericArgType.size() > 0) {
+          // nested generic type; recursively preserve its nullability type argument annotations
+          currentTypeArgType = curTypeArg.accept(new CustomTreeVisitor(),null);
+        }
+        //Type.ClassType newTypeArgType = (Type.ClassType)  currentTypeArgType.cloneWithMetadata(typeMetadata);
+        Type newTypeArgType = currentTypeArgType.cloneWithMetadata(typeMetadata);
+        newTypeArgs.add(newTypeArgType);
+      }
+      Type.ClassType finalType =
+              new Type.ClassType(
+                      type.getEnclosingType(), com.sun.tools.javac.util.List.from(newTypeArgs), type.tsym);
+      return finalType;
+    }
+  }
   /**
    * Returns a pretty-printed representation of type suitable for error messages. The representation
    * uses simple names rather than fully-qualified names, and retains all type-use annotations.
