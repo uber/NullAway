@@ -22,9 +22,6 @@
 
 package com.uber.nullaway;
 
-import static com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntryKind.ARRAY;
-import static com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntryKind.INNER_TYPE;
-
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;

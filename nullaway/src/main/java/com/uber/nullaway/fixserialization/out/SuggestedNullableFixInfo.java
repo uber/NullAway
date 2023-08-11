@@ -34,6 +34,7 @@ public class SuggestedNullableFixInfo {
 
   /** SymbolLocation of the target element in source code. */
   private final SymbolLocation symbolLocation;
+
   /** Error which will be resolved by this type change. */
   private final ErrorMessage errorMessage;
 
