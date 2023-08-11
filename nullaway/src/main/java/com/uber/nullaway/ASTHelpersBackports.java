@@ -32,6 +32,7 @@ public class ASTHelpersBackports {
    * https://github.com/google/error-prone/blame/a1318e4b0da4347dff7508108835d77c470a7198/check_api/src/main/java/com/google/errorprone/util/ASTHelpers.java#L1148
    * TODO: delete this method and switch to ASTHelpers once we can require Error Prone 2.20.0
    */
+  @SuppressWarnings("ASTHelpersSuggestions")
   public static List<Symbol> getEnclosedElements(Symbol symbol) {
     return symbol.getEnclosedElements();
   }
