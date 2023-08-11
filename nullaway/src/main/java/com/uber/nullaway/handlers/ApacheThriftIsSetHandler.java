@@ -21,6 +21,8 @@
  */
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.ASTHelpersBackports.getEnclosedElements;
+
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
@@ -142,7 +144,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
     Element getter = null;
     String fieldName = decapitalize(capPropName);
     String getterName = "get" + capPropName;
-    for (Symbol elem : symbol.owner.getEnclosedElements()) {
+    for (Symbol elem : getEnclosedElements(symbol.owner)) {
       if (elem.getKind().isField() && elem.getSimpleName().toString().equals(fieldName)) {
         if (field != null) {
           throw new RuntimeException("already found field " + fieldName);

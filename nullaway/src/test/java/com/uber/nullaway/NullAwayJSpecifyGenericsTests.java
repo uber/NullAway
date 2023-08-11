@@ -44,6 +44,11 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    NonNullTypeParam<String> t2 = new NonNullTypeParam<@Nullable String>();",
             "    // BUG: Diagnostic contains: Generic type parameter",
             "    testBadNonNull(new NonNullTypeParam<@Nullable String>());",
+            "    testBadNonNull(",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type NonNullTypeParam<@Nullable String>",
+            "        new NonNullTypeParam<",
+            "            // BUG: Diagnostic contains: Generic type parameter",
+            "            @Nullable String>());",
             "  }",
             "  static void testOkNullable(NullableTypeParam<String> t1, NullableTypeParam<@Nullable String> t2) {",
             "    NullableTypeParam<String> t3 = new NullableTypeParam<String>();",
@@ -673,6 +678,8 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  static A<String> sampleMethod2(A<A<@Nullable String>> a1, A<String> a2) {",
             "     return a2;",
             "  }",
+            "  static void sampleMethod3(A<@Nullable String> a1) {",
+            "  }",
             "  static void testPositive1(A<A<@Nullable String>> a1, A<String> a2) {",
             "    // BUG: Diagnostic contains: Cannot pass parameter of type A<A<@Nullable String>>",
             "    A<String> a = sampleMethod1(a1, a2);",
@@ -680,6 +687,10 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  static void testPositive2(A<A<String>> a1, A<String> a2) {",
             "    // BUG: Diagnostic contains: Cannot pass parameter of type",
             "    A<String> a = sampleMethod2(a1, a2);",
+            "  }",
+            "  static void testPositive3(A<String> a1) {",
+            "    // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "    sampleMethod3(a1);",
             "  }",
             "  static void testNegative(A<A<String>> a1, A<String> a2) {",
             "    A<String> a = sampleMethod1(a1, a2);",
@@ -710,6 +721,41 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "     A<@Nullable String> b = sampleMethodWithVarArgs(a1);",
             "     A<@Nullable String> b2 = sampleMethodWithVarArgs(a2, a1);",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  /**
+   * Currently this test is solely to ensure NullAway does not crash in the presence of raw types.
+   * Further study of the JSpecify documents is needed to determine whether any errors should be
+   * reported for these cases.
+   */
+  @Test
+  public void rawTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class NonNullTypeParam<E> {}",
+            "  static class NullableTypeParam<E extends @Nullable Object> {}",
+            "  static void rawLocals() {",
+            "    NonNullTypeParam<String> t1 = new NonNullTypeParam();",
+            "    NullableTypeParam<@Nullable String> t2 = new NullableTypeParam();",
+            "    NonNullTypeParam t3 = new NonNullTypeParam<String>();",
+            "    NullableTypeParam t4 = new NullableTypeParam<@Nullable String>();",
+            "    NonNullTypeParam t5 = new NonNullTypeParam();",
+            "    NullableTypeParam t6 = new NullableTypeParam();",
+            "  }",
+            "  static void rawConditionalExpression(boolean b, NullableTypeParam<@Nullable String> p) {",
+            "    NullableTypeParam<@Nullable String> t = b ? new NullableTypeParam() : p;",
+            "  }",
+            "  static void doNothing(NullableTypeParam<@Nullable String> p) { }",
+            "  static void rawParameterPassing() { doNothing(new NullableTypeParam()); }",
+            "  static NullableTypeParam<@Nullable String> rawReturn() {",
+            "    return new NullableTypeParam();",
+            "}",
             "}")
         .doTest();
   }

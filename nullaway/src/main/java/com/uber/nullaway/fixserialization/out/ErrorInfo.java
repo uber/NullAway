@@ -45,6 +45,7 @@ public class ErrorInfo {
    * target, and this field is the Symbol for that target.
    */
   @Nullable private final Symbol nonnullTarget;
+
   /**
    * In cases where {@link ErrorInfo#nonnullTarget} is {@code null}, we serialize this value at its
    * placeholder in the output tsv file.
@@ -54,6 +55,7 @@ public class ErrorInfo {
 
   /** Offset of program point where this error is reported. */
   private final int offset;
+
   /** Path to the containing source file where this error is reported. */
   @Nullable private final Path path;
 

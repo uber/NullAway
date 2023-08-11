@@ -252,7 +252,12 @@ public final class GenericsChecks {
       }
       return typeWithPreservedAnnotations(paramTypedTree, state);
     } else {
-      return ASTHelpers.getType(tree);
+      Type result = ASTHelpers.getType(tree);
+      if (result != null && result.isRaw()) {
+        // bail out of any checking involving raw types for now
+        return null;
+      }
+      return result;
     }
   }
 
@@ -521,7 +526,7 @@ public final class GenericsChecks {
       // all remaining actual arguments in the next loop.
       n = n - 1;
     }
-    for (int i = 0; i < n - 1; i++) {
+    for (int i = 0; i < n; i++) {
       Type formalParameter = formalParams.get(i).type;
       if (!formalParameter.getTypeArguments().isEmpty()) {
         Type actualParameter = getTreeType(actualParams.get(i), state);
