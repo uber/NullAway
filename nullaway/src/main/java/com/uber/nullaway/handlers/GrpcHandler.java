@@ -24,7 +24,6 @@ package com.uber.nullaway.handlers;
 import static com.uber.nullaway.ASTHelpersBackports.getEnclosedElements;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
@@ -37,6 +36,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.ArrayList;
@@ -61,9 +61,14 @@ public class GrpcHandler extends BaseNoOpHandler {
   private static final Supplier<Type> GRPC_METADATA_KEY_TYPE_SUPPLIER =
       Suppliers.typeFromString(GRPC_METADATA_KEY_TNAME);
 
-  @Nullable private Optional<Type> grpcMetadataType;
-  @Nullable private Optional<Type> grpcKeyType;
+  private Optional<Type> grpcMetadataType;
+  private Optional<Type> grpcKeyType;
 
+  /**
+   * This method is annotated {@code @Initializer} since it will be invoked when the first class is
+   * processed, before any other handler methods
+   */
+  @Initializer
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
@@ -135,8 +140,6 @@ public class GrpcHandler extends BaseNoOpHandler {
   }
 
   private boolean grpcIsMetadataContainsKeyCall(Symbol.MethodSymbol symbol, Types types) {
-    Preconditions.checkNotNull(grpcMetadataType);
-    Preconditions.checkNotNull(grpcKeyType);
     // noinspection ConstantConditions
     return grpcMetadataType.isPresent()
         && grpcKeyType.isPresent()
@@ -149,8 +152,6 @@ public class GrpcHandler extends BaseNoOpHandler {
   }
 
   private boolean grpcIsMetadataGetCall(Symbol.MethodSymbol symbol, Types types) {
-    Preconditions.checkNotNull(grpcMetadataType);
-    Preconditions.checkNotNull(grpcKeyType);
     // noinspection ConstantConditions
     return grpcMetadataType.isPresent()
         && grpcKeyType.isPresent()
