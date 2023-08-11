@@ -1,7 +1,13 @@
-IMPORTANT: Make sure you are using a JDK 8 JVM by checking `java -version` before any
-of the steps below.  If you run the steps below on a JDK 11+ JVM, that will break Java
-8 support, as the released jars will only run on JDK 11.  We do not target Java 8 when
-building on JDK 11 since Error Prone has required Java 11 since version 2.11.0.
+(For testing only) Publishing an unsigned LOCAL build
+=====================================================
+By default, we set `RELEASE_SIGNING_ENABLED=true` in `gradle.properties`, which means
+published builds must be signed unless they are for a `SNAPSHOT` version.  To publish
+a non-`SNAPSHOT` build locally without signing (e.g., a `LOCAL` version), use the
+following command:
+
+```bash
+ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED=false ./gradlew publishToMavenLocal
+```
 
 (Recommended, but optional) Update JarInfer Android SDK Models
 ==============================================================

@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.ASTHelpersBackports.getEnclosedElements;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
@@ -222,7 +223,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   public static @Nullable VariableElement getInstanceFieldOfClass(
       Symbol.ClassSymbol classSymbol, String name) {
     Preconditions.checkNotNull(classSymbol);
-    for (Element member : NullabilityUtil.getEnclosedElements(classSymbol)) {
+    for (Element member : getEnclosedElements(classSymbol)) {
       if (member.getKind().isField() && !member.getModifiers().contains(Modifier.STATIC)) {
         if (member.getSimpleName().toString().equals(name)) {
           return (VariableElement) member;
