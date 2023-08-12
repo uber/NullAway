@@ -621,6 +621,11 @@ public final class GenericsChecks {
   public static Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Symbol enclosingSymbol, VisitorState state, Config config) {
     Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
+    if (enclosingType == null) {
+      // we have no additional information from generics, so return NONNULL (presence of a @Nullable
+      // annotation should have been handled by the caller)
+      return Nullness.NONNULL;
+    }
     return getGenericMethodReturnTypeNullness(method, enclosingType, state, config);
   }
 
@@ -631,6 +636,7 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @return the type for {@code symbol}
    */
+  @Nullable
   private static Type getTypeForSymbol(Symbol symbol, VisitorState state) {
     if (symbol.isAnonymous()) {
       // For anonymous classes, symbol.type does not contain annotations on generic type parameters.
@@ -788,6 +794,11 @@ public final class GenericsChecks {
       VisitorState state,
       Config config) {
     Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
+    if (enclosingType == null) {
+      // we have no additional information from generics, so return NONNULL (presence of a @Nullable
+      // annotation should have been handled by the caller)
+      return Nullness.NONNULL;
+    }
     return getGenericMethodParameterNullness(parameterIndex, method, enclosingType, state, config);
   }
 
@@ -861,10 +872,10 @@ public final class GenericsChecks {
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
     Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
     Type overridingMethodReturnType = ASTHelpers.getType(tree.getReturnType());
-    if (!(overriddenMethodReturnType instanceof Type.ClassType
-        && overridingMethodReturnType instanceof Type.ClassType)) {
+    if (!(overriddenMethodReturnType instanceof Type.ClassType)) {
       return;
     }
+    Preconditions.checkArgument(overridingMethodReturnType instanceof Type.ClassType);
     if (!compareNullabilityAnnotations(
         (Type.ClassType) overriddenMethodReturnType,
         (Type.ClassType) overridingMethodReturnType,
