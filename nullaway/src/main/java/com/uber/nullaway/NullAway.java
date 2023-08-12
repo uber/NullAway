@@ -986,10 +986,12 @@ public class NullAway extends BugChecker
     }
     // In JSpecify mode, for generic methods, we additionally need to check the return nullness
     // using the type parameters from the type enclosing the overriding method
-    return !config.isJSpecifyMode()
-        || GenericsChecks.getGenericMethodReturnTypeNullness(
-                overriddenMethod, overridingMethodType, state, config)
-            .equals(Nullness.NONNULL);
+    if (config.isJSpecifyMode()) {
+      return GenericsChecks.getGenericMethodReturnTypeNullness(
+              overriddenMethod, overridingMethodType, state, config)
+          .equals(Nullness.NONNULL);
+    }
+    return true;
   }
 
   @Override
@@ -2333,11 +2335,16 @@ public class NullAway extends BugChecker
     if (codeAnnotationInfo.isSymbolUnannotated(exprSymbol, config)) {
       return false;
     }
-    return Nullness.hasNullableAnnotation(exprSymbol, config)
-        || (config.isJSpecifyMode()
-            && GenericsChecks.getGenericReturnNullnessAtInvocation(
-                    exprSymbol, invocationTree, state, config)
-                .equals(Nullness.NULLABLE));
+    if (Nullness.hasNullableAnnotation(exprSymbol, config)) {
+      return true;
+    }
+    if (config.isJSpecifyMode()
+        && GenericsChecks.getGenericReturnNullnessAtInvocation(
+                exprSymbol, invocationTree, state, config)
+            .equals(Nullness.NULLABLE)) {
+      return true;
+    }
+    return false;
   }
 
   public boolean nullnessFromDataflow(VisitorState state, ExpressionTree expr) {
@@ -2409,6 +2416,7 @@ public class NullAway extends BugChecker
   public Config getConfig() {
     return config;
   }
+
   /**
    * strip out enclosing parentheses, type casts and Nullchk operators.
    *

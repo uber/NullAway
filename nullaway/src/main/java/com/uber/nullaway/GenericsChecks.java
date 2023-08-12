@@ -805,10 +805,10 @@ public final class GenericsChecks {
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
     Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
     Type overridingMethodReturnType = ASTHelpers.getType(tree.getReturnType());
-    if (!(overriddenMethodReturnType instanceof Type.ClassType
-        && overridingMethodReturnType instanceof Type.ClassType)) {
+    if (!(overriddenMethodReturnType instanceof Type.ClassType)) {
       return;
     }
+    Preconditions.checkArgument(overridingMethodReturnType instanceof Type.ClassType);
     if (!compareNullabilityAnnotations(
         (Type.ClassType) overriddenMethodReturnType,
         (Type.ClassType) overridingMethodReturnType,
