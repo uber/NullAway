@@ -984,10 +984,12 @@ public class NullAway extends BugChecker
     }
     // In JSpecify mode, for generic methods, we additionally need to check the return nullness
     // using the type parameters from the type enclosing the overriding method
-    return !config.isJSpecifyMode()
-        || GenericsChecks.getGenericMethodReturnTypeNullness(
-                overriddenMethod, overridingMethodType, state, config)
-            .equals(Nullness.NONNULL);
+    if (config.isJSpecifyMode()) {
+      return GenericsChecks.getGenericMethodReturnTypeNullness(
+              overriddenMethod, overridingMethodType, state, config)
+          .equals(Nullness.NONNULL);
+    }
+    return true;
   }
 
   @Override
