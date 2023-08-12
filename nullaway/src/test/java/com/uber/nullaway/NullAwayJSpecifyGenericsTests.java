@@ -978,6 +978,12 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    return s;",
             "  }",
             " }",
+            " class TestFunc2 implements Fn<P<String, String>, String> {",
+            " @Override",
+            "  public String apply(P<String, String> p, String s) {",
+            "    return s;",
+            "  }",
+            " }",
             "}")
         .doTest();
   }
