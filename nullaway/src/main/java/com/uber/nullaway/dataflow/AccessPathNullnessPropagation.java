@@ -113,7 +113,6 @@ import org.checkerframework.nullaway.dataflow.cfg.node.PrimitiveTypeNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ReturnNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ShortLiteralNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.SignedRightShiftNode;
-import org.checkerframework.nullaway.dataflow.cfg.node.StringConcatenateAssignmentNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.StringConcatenateNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.StringConversionNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.StringLiteralNode;
@@ -374,13 +373,6 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitBitwiseXor(
       BitwiseXorNode bitwiseXorNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
-  }
-
-  @Override
-  public TransferResult<Nullness, NullnessStore> visitStringConcatenateAssignment(
-      StringConcatenateAssignmentNode stringConcatenateAssignmentNode,
-      TransferInput<Nullness, NullnessStore> input) {
-    return noStoreChanges(NULLABLE, input);
   }
 
   @Override
