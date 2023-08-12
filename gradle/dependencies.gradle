@@ -19,7 +19,7 @@ import org.gradle.util.VersionNumber
 // The oldest version of Error Prone that we support running on
 def oldestErrorProneVersion = "2.4.0"
 // Latest released Error Prone version that we've tested with
-def latestErrorProneVersion = "2.20.0"
+def latestErrorProneVersion = "2.21.1"
 // Default to using latest tested Error Prone version
 def defaultErrorProneVersion =  latestErrorProneVersion
 def errorProneVersionToCompileAgainst = defaultErrorProneVersion
@@ -48,10 +48,10 @@ def versions = [
     // The version of Error Prone that NullAway is compiled and tested against
     errorProneApi          : errorProneVersionToCompileAgainst,
     support                : "27.1.1",
-    wala                   : "1.6.1",
+    wala                   : "1.6.2",
     commonscli             : "1.4",
-    autoValue              : "1.9",
-    autoService            : "1.0.1",
+    autoValue              : "1.10.2",
+    autoService            : "1.1.1",
 ]
 
 def apt = [
