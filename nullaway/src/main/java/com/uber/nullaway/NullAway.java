@@ -628,6 +628,13 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol closestOverriddenMethod =
           NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
       if (closestOverriddenMethod != null) {
+        if (config.isJSpecifyMode()) {
+          // Check that any generic type parameters in the return type and parameter types are
+          // identical (invariant) across the overriding and overridden methods
+          new GenericsChecks(state, config, this)
+              .checkTypeParameterNullnessForMethodOverriding(
+                  tree, methodSymbol, closestOverriddenMethod);
+        }
         return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
       }
     }
@@ -723,7 +730,11 @@ public class NullAway extends BugChecker
         overriddenMethodArgNullnessMap[i] =
             Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)
                 ? Nullness.NULLABLE
-                : Nullness.NONNULL;
+                : (config.isJSpecifyMode()
+                    ? new GenericsChecks(state, config, this)
+                        .getGenericMethodParameterNullness(
+                            i, overriddenMethod, overridingParamSymbols.get(i).owner.owner.type)
+                    : Nullness.NONNULL);
       }
     }
 
@@ -926,7 +937,7 @@ public class NullAway extends BugChecker
     // if the super method returns nonnull, overriding method better not return nullable
     // Note that, for the overriding method, the permissive default is non-null,
     // but it's nullable for the overridden one.
-    if (getMethodReturnNullness(overriddenMethod, state, Nullness.NULLABLE).equals(Nullness.NONNULL)
+    if (overriddenMethodReturnsNonNull(overriddenMethod, overridingMethod.owner.type, state)
         && getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL)
             .equals(Nullness.NULLABLE)
         && (memberReferenceTree == null
@@ -939,7 +950,6 @@ public class NullAway extends BugChecker
                 + "."
                 + overriddenMethod.toString()
                 + " returns @NonNull";
-
       } else {
         message =
             "method returns @Nullable, but superclass method "
@@ -963,6 +973,23 @@ public class NullAway extends BugChecker
     // overriding method cannot assume @Nonnull
     return checkParamOverriding(
         overridingMethod.getParameters(), overriddenMethod, null, memberReferenceTree, state);
+  }
+
+  private boolean overriddenMethodReturnsNonNull(
+      Symbol.MethodSymbol overriddenMethod, Type overridingMethodType, VisitorState state) {
+    Nullness methodReturnNullness =
+        getMethodReturnNullness(overriddenMethod, state, Nullness.NULLABLE);
+    if (!methodReturnNullness.equals(Nullness.NONNULL)) {
+      return false;
+    }
+    // In JSpecify mode, for generic methods, we additionally need to check the return nullness
+    // using the type parameters from the type enclosing the overriding method
+    if (config.isJSpecifyMode()) {
+      return GenericsChecks.getGenericMethodReturnTypeNullness(
+              overriddenMethod, overridingMethodType, state, config)
+          .equals(Nullness.NONNULL);
+    }
+    return true;
   }
 
   @Override
@@ -1610,7 +1637,11 @@ public class NullAway extends BugChecker
           argumentPositionNullness[i] =
               Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
                   ? Nullness.NULLABLE
-                  : Nullness.NONNULL;
+                  : ((config.isJSpecifyMode() && tree instanceof MethodInvocationTree)
+                      ? new GenericsChecks(state, config, this)
+                          .getGenericParameterNullnessAtInvocation(
+                              i, methodSymbol, (MethodInvocationTree) tree)
+                      : Nullness.NONNULL);
         }
       }
       new GenericsChecks(state, config, this)
@@ -2279,7 +2310,9 @@ public class NullAway extends BugChecker
                   + " for method invocation "
                   + state.getSourceForNode(expr));
         }
-        exprMayBeNull = mayBeNullMethodCall((Symbol.MethodSymbol) exprSymbol);
+        exprMayBeNull =
+            mayBeNullMethodCall(
+                (Symbol.MethodSymbol) exprSymbol, (MethodInvocationTree) expr, state);
         break;
       case CONDITIONAL_EXPRESSION:
       case ASSIGNMENT:
@@ -2298,11 +2331,21 @@ public class NullAway extends BugChecker
     return exprMayBeNull && nullnessFromDataflow(state, expr);
   }
 
-  private boolean mayBeNullMethodCall(Symbol.MethodSymbol exprSymbol) {
+  private boolean mayBeNullMethodCall(
+      Symbol.MethodSymbol exprSymbol, MethodInvocationTree invocationTree, VisitorState state) {
     if (codeAnnotationInfo.isSymbolUnannotated(exprSymbol, config)) {
       return false;
     }
-    return Nullness.hasNullableAnnotation(exprSymbol, config);
+    if (Nullness.hasNullableAnnotation(exprSymbol, config)) {
+      return true;
+    }
+    if (config.isJSpecifyMode()
+        && GenericsChecks.getGenericReturnNullnessAtInvocation(
+                exprSymbol, invocationTree, state, config)
+            .equals(Nullness.NULLABLE)) {
+      return true;
+    }
+    return false;
   }
 
   public boolean nullnessFromDataflow(VisitorState state, ExpressionTree expr) {
