@@ -775,10 +775,10 @@ public final class GenericsChecks {
       MethodTree tree, Type overriddenMethodType) {
     Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
     Type overridingMethodReturnType = ASTHelpers.getType(tree.getReturnType());
-    // This check also guarantees that overridingMethodReturnType is a ClassType
     if (!(overriddenMethodReturnType instanceof Type.ClassType)) {
       return;
     }
+    Preconditions.checkArgument(overridingMethodReturnType instanceof Type.ClassType);
     if (!compareNullabilityAnnotations(
         (Type.ClassType) overriddenMethodReturnType, (Type.ClassType) overridingMethodReturnType)) {
       reportInvalidOverridingMethodReturnTypeError(
