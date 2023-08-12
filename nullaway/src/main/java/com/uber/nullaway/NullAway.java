@@ -2336,11 +2336,16 @@ public class NullAway extends BugChecker
     if (codeAnnotationInfo.isSymbolUnannotated(exprSymbol, config)) {
       return false;
     }
-    return Nullness.hasNullableAnnotation(exprSymbol, config)
-        || (config.isJSpecifyMode()
-            && GenericsChecks.getGenericReturnNullnessAtInvocation(
-                    exprSymbol, invocationTree, state, config)
-                .equals(Nullness.NULLABLE));
+    if (Nullness.hasNullableAnnotation(exprSymbol, config)) {
+      return true;
+    }
+    if (config.isJSpecifyMode()
+        && GenericsChecks.getGenericReturnNullnessAtInvocation(
+                exprSymbol, invocationTree, state, config)
+            .equals(Nullness.NULLABLE)) {
+      return true;
+    }
+    return false;
   }
 
   public boolean nullnessFromDataflow(VisitorState state, ExpressionTree expr) {
