@@ -973,6 +973,45 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** Diamond anonymous classes are not supported yet; tests are for future reference */
+  @Test
+  public void overrideDiamondAnonymousClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    R apply(P p);",
+            "  }",
+            "  static abstract class FnClass<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    abstract R apply(P p);",
+            "  }",
+            "  static void anonymousClasses() {",
+            "    Fn<@Nullable String, String> fn1 = new Fn<>() {",
+            "      // TODO: should report a bug here",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "    FnClass<@Nullable String, String> fn2 = new FnClass<>() {",
+            "      // TODO: should report a bug here",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "    Fn<String, @Nullable String> fn3 = new Fn<>() {",
+            "      // TODO: this is a false positive",
+            "      // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    FnClass<String, @Nullable String> fn4 = new FnClass<>() {",
+            "      // TODO: this is a false positive",
+            "      // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void nullableGenericTypeVariableReturnType() {
     makeHelper()
