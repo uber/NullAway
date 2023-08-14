@@ -221,6 +221,13 @@ public class NullAway extends BugChecker
 
   private final Config config;
 
+  /**
+   * @return the configuration being used for this analysis
+   */
+  public Config getConfig() {
+    return config;
+  }
+
   private final ErrorBuilder errorBuilder;
 
   /**
@@ -2411,10 +2418,6 @@ public class NullAway extends BugChecker
 
   public ErrorBuilder getErrorBuilder() {
     return errorBuilder;
-  }
-
-  public Config getConfig() {
-    return config;
   }
 
   /**
