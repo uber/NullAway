@@ -14,6 +14,9 @@ import com.sun.source.tree.ArrayTypeTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
@@ -192,6 +195,38 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(paramExpression), state, null));
   }
 
+  private void reportInvalidOverridingMethodReturnTypeError(
+      Tree methodTree, Type overriddenMethodReturnType, Type overridingMethodReturnType) {
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN_GENERIC,
+            "Method returns "
+                + prettyTypeForError(overridingMethodReturnType)
+                + ", but overridden method returns "
+                + prettyTypeForError(overriddenMethodReturnType)
+                + ", which has mismatched type parameter nullability");
+    state.reportMatch(
+        errorBuilder.createErrorDescription(
+            errorMessage, analysis.buildDescription(methodTree), state, null));
+  }
+
+  private void reportInvalidOverridingMethodParamTypeError(
+      Tree formalParameterTree, Type typeParameterType, Type methodParamType) {
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.WRONG_OVERRIDE_PARAM_GENERIC,
+            "Parameter has type "
+                + prettyTypeForError(methodParamType)
+                + ", but overridden method has parameter type "
+                + prettyTypeForError(typeParameterType)
+                + ", which has mismatched type parameter nullability");
+    state.reportMatch(
+        errorBuilder.createErrorDescription(
+            errorMessage, analysis.buildDescription(formalParameterTree), state, null));
+  }
+
   /**
    * This method returns the type of the given tree, including any type use annotations.
    *
@@ -321,7 +356,6 @@ public final class GenericsChecks {
     Type nullableType = NULLABLE_TYPE_SUPPLIER.get(state);
     List<? extends Tree> typeArguments = tree.getTypeArguments();
     List<Type> newTypeArgs = new ArrayList<>();
-    boolean hasNullableAnnotation = false;
     for (int i = 0; i < typeArguments.size(); i++) {
       AnnotatedTypeTree annotatedType = null;
       Tree curTypeArg = typeArguments.get(i);
@@ -335,6 +369,7 @@ public final class GenericsChecks {
       }
       List<? extends AnnotationTree> annotations =
           annotatedType != null ? annotatedType.getAnnotations() : Collections.emptyList();
+      boolean hasNullableAnnotation = false;
       for (AnnotationTree annotation : annotations) {
         if (ASTHelpers.isSameType(
             nullableType, ASTHelpers.getType(annotation.getAnnotationType()), state)) {
@@ -729,6 +764,259 @@ public final class GenericsChecks {
               type.getEnclosingType(), com.sun.tools.javac.util.List.from(newTypeArgs), type.tsym);
       return finalType;
     }
+  }
+
+  /**
+   * Checks that type parameter nullability is consistent between an overriding method and the
+   * corresponding overridden method.
+   *
+   * @param tree A method tree to check
+   * @param overridingMethod A symbol of the overriding method
+   * @param overriddenMethod A symbol of the overridden method
+   */
+  public void checkTypeParameterNullnessForMethodOverriding(
+      MethodTree tree, Symbol.MethodSymbol overridingMethod, Symbol.MethodSymbol overriddenMethod) {
+    if (!config.isJSpecifyMode()) {
+      return;
+    }
+    // Obtain type parameters for the overridden method within the context of the overriding
+    // method's class
+    Type methodWithTypeParams =
+        state.getTypes().memberType(overridingMethod.owner.type, overriddenMethod);
+
+    checkTypeParameterNullnessForOverridingMethodReturnType(tree, methodWithTypeParams);
+    checkTypeParameterNullnessForOverridingMethodParameterType(tree, methodWithTypeParams);
+  }
+
+  /**
+   * Computes the nullability of the return type of some generic method when seen as a member of
+   * some class {@code C}, based on type parameter nullability within {@code C}.
+   *
+   * <p>Consider the following example:
+   *
+   * <pre>
+   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *         R apply(P p);
+   *     }
+   *     class C implements Fn<String, @Nullable String> {
+   *         public @Nullable String apply(String p) {
+   *             return null;
+   *         }
+   *     }
+   * </pre>
+   *
+   * Within the context of class {@code C}, the method {@code Fn.apply} has a return type of
+   * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
+   * {@code R}. Hence, it is valid for overriding method {@code C.apply} to return {@code @Nullable
+   * String}.
+   *
+   * @param method the generic method
+   * @param enclosingType the enclosing type in which we want to know {@code method}'s return type
+   *     nullability
+   * @param state Visitor state
+   * @param config The analysis config
+   * @return nullability of the return type of {@code method} in the context of {@code
+   *     enclosingType}
+   */
+  public static Nullness getGenericMethodReturnTypeNullness(
+      Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
+    Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
+    if (!(overriddenMethodType instanceof Type.MethodType)) {
+      throw new RuntimeException("expected method type but instead got " + overriddenMethodType);
+    }
+    return getTypeNullness(overriddenMethodType.getReturnType(), config);
+  }
+
+  /**
+   * Computes the nullness of the return of a generic method at an invocation, in the context of the
+   * declared type of its receiver argument. If the return type is a type variable, its nullness
+   * depends on the nullability of the corresponding type parameter in the receiver's type.
+   *
+   * <p>Consider the following example:
+   *
+   * <pre>
+   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *         R apply(P p);
+   *     }
+   *     class C implements Fn<String, @Nullable String> {
+   *         public @Nullable String apply(String p) {
+   *             return null;
+   *         }
+   *     }
+   *     static void m() {
+   *         Fn<String, @Nullable String> f = new C();
+   *         f.apply("hello").hashCode(); // NPE
+   *     }
+   * </pre>
+   *
+   * The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
+   * variable {@code R}. So, the call {@code f.apply("hello")} returns {@code @Nullable} and an
+   * error should be reported.
+   *
+   * @param invokedMethodSymbol symbol for the invoked method
+   * @param tree the tree for the invocation
+   * @return Nullness of invocation's return type, or {@code NONNULL} if the call does not invoke an
+   *     instance method
+   */
+  public static Nullness getGenericReturnNullnessAtInvocation(
+      Symbol.MethodSymbol invokedMethodSymbol,
+      MethodInvocationTree tree,
+      VisitorState state,
+      Config config) {
+    if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
+      return Nullness.NONNULL;
+    }
+    Type methodReceiverType =
+        castToNonNull(
+            ASTHelpers.getType(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
+    return getGenericMethodReturnTypeNullness(
+        invokedMethodSymbol, methodReceiverType, state, config);
+  }
+
+  /**
+   * Computes the nullness of a formal parameter of a generic method at an invocation, in the
+   * context of the declared type of its receiver argument. If the formal parameter's type is a type
+   * variable, its nullness depends on the nullability of the corresponding type parameter in the
+   * receiver's type.
+   *
+   * <p>Consider the following example:
+   *
+   * <pre>
+   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *         R apply(P p);
+   *     }
+   *     class C implements Fn<@Nullable String, String> {
+   *         public String apply(@Nullable String p) {
+   *             return "";
+   *         }
+   *     }
+   *     static void m() {
+   *         Fn<@Nullable String, String> f = new C();
+   *         f.apply(null);
+   *     }
+   * </pre>
+   *
+   * The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
+   * variable {@code P}. So, it is legal to pass {@code null} as a parameter to {@code f.apply}.
+   *
+   * @param paramIndex parameter index
+   * @param invokedMethodSymbol symbol for the invoked method
+   * @param tree the tree for the invocation
+   * @return Nullness of parameter at {@code paramIndex}, or {@code NONNULL} if the call does not
+   *     invoke an instance method
+   */
+  public Nullness getGenericParameterNullnessAtInvocation(
+      int paramIndex, Symbol.MethodSymbol invokedMethodSymbol, MethodInvocationTree tree) {
+    if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
+      return Nullness.NONNULL;
+    }
+    Type methodReceiverType =
+        castToNonNull(
+            ASTHelpers.getType(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
+    return getGenericMethodParameterNullness(paramIndex, invokedMethodSymbol, methodReceiverType);
+  }
+
+  /**
+   * Computes the nullability of a parameter type of some generic method when seen as a member of
+   * some class {@code C}, based on type parameter nullability within {@code C}.
+   *
+   * <p>Consider the following example:
+   *
+   * <pre>
+   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *         R apply(P p);
+   *     }
+   *     class C implements Fn<@Nullable String, String> {
+   *         public String apply(@Nullable String p) {
+   *             return "";
+   *         }
+   *     }
+   * </pre>
+   *
+   * Within the context of class {@code C}, the method {@code Fn.apply} has a parameter type of
+   * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
+   * {@code P}. Hence, overriding method {@code C.apply} must take a {@code @Nullable String} as a
+   * parameter.
+   *
+   * @param parameterIndex index of the parameter
+   * @param method the generic method
+   * @param enclosingType the enclosing type in which we want to know {@code method}'s parameter
+   *     type nullability
+   * @return nullability of the relevant parameter type of {@code method} in the context of {@code
+   *     enclosingType}
+   */
+  public Nullness getGenericMethodParameterNullness(
+      int parameterIndex, Symbol.MethodSymbol method, Type enclosingType) {
+    Type methodType = state.getTypes().memberType(enclosingType, method);
+    Type paramType = methodType.getParameterTypes().get(parameterIndex);
+    return getTypeNullness(paramType, config);
+  }
+
+  /**
+   * This method compares the type parameter annotations for overriding method parameters with
+   * corresponding type parameters for the overridden method and reports an error if they don't
+   * match
+   *
+   * @param tree tree for overriding method
+   * @param overriddenMethodType type of the overridden method
+   */
+  private void checkTypeParameterNullnessForOverridingMethodParameterType(
+      MethodTree tree, Type overriddenMethodType) {
+    List<? extends VariableTree> methodParameters = tree.getParameters();
+    List<Type> overriddenMethodParameterTypes = overriddenMethodType.getParameterTypes();
+    // TODO handle varargs; they are not handled for now
+    for (int i = 0; i < methodParameters.size(); i++) {
+      Type overridingMethodParameterType = ASTHelpers.getType(methodParameters.get(i));
+      Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
+      if (overriddenMethodParameterType instanceof Type.ClassType
+          && overridingMethodParameterType instanceof Type.ClassType) {
+        if (!compareNullabilityAnnotations(
+            (Type.ClassType) overriddenMethodParameterType,
+            (Type.ClassType) overridingMethodParameterType)) {
+          reportInvalidOverridingMethodParamTypeError(
+              methodParameters.get(i),
+              overriddenMethodParameterType,
+              overridingMethodParameterType);
+        }
+      }
+    }
+  }
+
+  /**
+   * This method compares the type parameter annotations for an overriding method's return type with
+   * corresponding type parameters for the overridden method and reports an error if they don't
+   * match
+   *
+   * @param tree tree for overriding method
+   * @param overriddenMethodType type of the overridden method
+   */
+  private void checkTypeParameterNullnessForOverridingMethodReturnType(
+      MethodTree tree, Type overriddenMethodType) {
+    Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
+    Type overridingMethodReturnType = ASTHelpers.getType(tree.getReturnType());
+    if (!(overriddenMethodReturnType instanceof Type.ClassType)) {
+      return;
+    }
+    Preconditions.checkArgument(overridingMethodReturnType instanceof Type.ClassType);
+    if (!compareNullabilityAnnotations(
+        (Type.ClassType) overriddenMethodReturnType, (Type.ClassType) overridingMethodReturnType)) {
+      reportInvalidOverridingMethodReturnTypeError(
+          tree, overriddenMethodReturnType, overridingMethodReturnType);
+    }
+  }
+
+  /**
+   * @param type A type for which we need the Nullness.
+   * @param config The analysis config
+   * @return Returns the Nullness of the type based on the Nullability annotation.
+   */
+  private static Nullness getTypeNullness(Type type, Config config) {
+    boolean hasNullableAnnotation =
+        Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+    if (hasNullableAnnotation) {
+      return Nullness.NULLABLE;
+    }
+    return Nullness.NONNULL;
   }
 
   /**
