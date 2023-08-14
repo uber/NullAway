@@ -221,9 +221,7 @@ public class NullAway extends BugChecker
 
   private final Config config;
 
-  /**
-   * @return the configuration being used for this analysis
-   */
+  /** Returns the configuration being used for this analysis. */
   public Config getConfig() {
     return config;
   }
