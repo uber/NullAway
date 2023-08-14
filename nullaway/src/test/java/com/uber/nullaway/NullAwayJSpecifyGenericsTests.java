@@ -760,6 +760,287 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void overrideReturnTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {",
+            "   R apply(P p);",
+            "  }",
+            " static class TestFunc1 implements Fn<String, @Nullable String> {",
+            "  @Override",
+            "  public @Nullable String apply(String s) {",
+            "   return s;",
+            "  }",
+            " }",
+            " static class TestFunc2 implements Fn<String, @Nullable String> {",
+            "  @Override",
+            "  public String apply(String s) {",
+            "   return s;",
+            "  }",
+            " }",
+            " static class TestFunc3 implements Fn<String, String> {",
+            "  @Override",
+            "  // BUG: Diagnostic contains: method returns @Nullable, but superclass",
+            "  public @Nullable String apply(String s) {",
+            "   return s;",
+            "  }",
+            " }",
+            " static class TestFunc4 implements Fn<@Nullable String, String> {",
+            "  @Override",
+            "  // BUG: Diagnostic contains: method returns @Nullable, but superclass",
+            "  public @Nullable String apply(String s) {",
+            "   return s;",
+            "  }",
+            " }",
+            " static void useTestFunc(String s) {",
+            "    Fn<String, @Nullable String> f1 = new TestFunc1();",
+            "    String t1 = f1.apply(s);",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    t1.hashCode();",
+            "    TestFunc2 f2 = new TestFunc2();",
+            "    String t2 = f2.apply(s);",
+            "    // There should not be an error here",
+            "    t2.hashCode();",
+            "    Fn<String, @Nullable String> f3 = new TestFunc2();",
+            "    String t3 = f3.apply(s);",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    t3.hashCode();",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    f3.apply(s).hashCode();",
+            " }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void overrideWithNullCheck() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {",
+            "   R apply(P p);",
+            "  }",
+            " static class TestFunc1 implements Fn<String, @Nullable String> {",
+            "  @Override",
+            "  public @Nullable String apply(String s) {",
+            "   return s;",
+            "  }",
+            " }",
+            " static void useTestFuncWithCast() {",
+            "    Fn<String, @Nullable String> f1 = new TestFunc1();",
+            "    if (f1.apply(\"hello\") != null) {",
+            "      String t1 = f1.apply(\"hello\");",
+            "      // no error here due to null check",
+            "      t1.hashCode();",
+            "    }",
+            " }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void overrideParameterType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {",
+            "   R apply(P p);",
+            "  }",
+            " static class TestFunc1 implements Fn<@Nullable String, String> {",
+            "  @Override",
+            "  // BUG: Diagnostic contains: parameter s is",
+            "  public String apply(String s) {",
+            "   return s;",
+            "  }",
+            " }",
+            " static class TestFunc2 implements Fn<@Nullable String, String> {",
+            "  @Override",
+            "  public String apply(@Nullable String s) {",
+            "   return \"hi\";",
+            "  }",
+            " }",
+            " static class TestFunc3 implements Fn<String, String> {",
+            "  @Override",
+            "  public String apply(String s) {",
+            "   return \"hi\";",
+            "  }",
+            " }",
+            " static class TestFunc4 implements Fn<String, String> {",
+            "  // this override is legal, we should get no error",
+            "  @Override",
+            "  public String apply(@Nullable String s) {",
+            "   return \"hi\";",
+            "  }",
+            " }",
+            " static void useTestFunc(String s) {",
+            "    Fn<@Nullable String, String> f1 = new TestFunc2();",
+            "    // should get no error here",
+            "    f1.apply(null);",
+            "    Fn<String, String> f2 = new TestFunc3();",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    f2.apply(null);",
+            " }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableGenericTypeVariableReturnType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            " interface Fn<P extends @Nullable Object, R> {",
+            "   @Nullable R apply(P p);",
+            "  }",
+            " static class TestFunc implements Fn<String, String> {",
+            "  @Override",
+            "  //This override is fine and is handled by the current code",
+            "  public @Nullable String apply(String s) {",
+            "   return s;",
+            "  }",
+            " }",
+            " static void useTestFunc(String s) {",
+            "  Fn<String, String> f = new TestFunc();",
+            "  String t = f.apply(s);",
+            "  // BUG: Diagnostic contains: dereferenced expression",
+            "  t.hashCode();",
+            " }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void overrideWithNestedTypeParametersInReturnType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            " class P<T1 extends @Nullable Object, T2 extends @Nullable Object>{}",
+            " interface Fn<T3 extends P<T4, T4>, T4 extends @Nullable Object> {",
+            "  T3 apply();",
+            " }",
+            " class TestFunc1 implements Fn<P<@Nullable String, String>, @Nullable String> {",
+            " @Override",
+            "  // BUG: Diagnostic contains: Method returns P<@Nullable String, @Nullable String>, but overridden method",
+            " public P<@Nullable String, @Nullable String> apply() {",
+            "   return new P<@Nullable String, @Nullable String>();",
+            "  }",
+            " }",
+            " class TestFunc2 implements Fn<P<@Nullable String, @Nullable String>, @Nullable String> {",
+            "   @Override",
+            "   // BUG: Diagnostic contains: Method returns P<@Nullable String, String>, but overridden method returns",
+            "   public P<@Nullable String, String> apply() {",
+            "     return new P<@Nullable String, String>();",
+            "   }",
+            " }",
+            " class TestFunc3 implements Fn<P<@Nullable String, @Nullable String>, @Nullable String> {",
+            "   @Override",
+            "   public P<@Nullable String, @Nullable String> apply() {",
+            "     return new P<@Nullable String, @Nullable String>();",
+            "   }",
+            " }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void overrideWithNestedTypeParametersInParameterType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  class P<T1 extends @Nullable Object, T2 extends @Nullable Object>{}",
+            " interface Fn<T extends P<R, R>, R extends @Nullable Object> {",
+            "  String apply(T t, String s);",
+            " }",
+            " class TestFunc implements Fn<P<String, String>, String> {",
+            " @Override",
+            "  // BUG: Diagnostic contains: Parameter has type P<@Nullable String, String>, but overridden method has parameter type P<String, String>",
+            "  public String apply(P<@Nullable String, String> p, String s) {",
+            "    return s;",
+            "  }",
+            " }",
+            " class TestFunc2 implements Fn<P<String, String>, String> {",
+            " @Override",
+            "  public String apply(P<String, String> p, String s) {",
+            "    return s;",
+            "  }",
+            " }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void interactionWithContracts() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "class Test {",
+            "  interface Fn1<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    R apply(P p);",
+            "  }",
+            "  static class TestFunc1 implements Fn1<@Nullable String, @Nullable String> {",
+            "    @Override",
+            "    @Contract(\"!null -> !null\")",
+            "    public @Nullable String apply(@Nullable String s) {",
+            "      return s;",
+            "    }",
+            "  }",
+            "  interface Fn2<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    @Contract(\"!null -> !null\")",
+            "    R apply(P p);",
+            "  }",
+            "  static class TestFunc2 implements Fn2<@Nullable String, @Nullable String> {",
+            "    @Override",
+            "    public @Nullable String apply(@Nullable String s) {",
+            "      return s;",
+            "    }",
+            "  }",
+            "  static class TestFunc2_Bad implements Fn2<@Nullable String, @Nullable String> {",
+            "    @Override",
+            "    public @Nullable String apply(@Nullable String s) {",
+            "      // False negative: with contract checking enabled, this should be rejected",
+            "      // See https://github.com/uber/NullAway/issues/803",
+            "      return null;",
+            "    }",
+            "  }",
+            "  static void testMethod() {",
+            "    // No error due to @Contract",
+            "    (new TestFunc1()).apply(\"hello\").hashCode();",
+            "    Fn1<@Nullable String, @Nullable String> fn1 = new TestFunc1();",
+            "    // BUG: Diagnostic contains: dereferenced expression fn1.apply(\"hello\")",
+            "    fn1.apply(\"hello\").hashCode();",
+            "    // BUG: Diagnostic contains: dereferenced expression (new TestFunc2())",
+            "    (new TestFunc2()).apply(\"hello\").hashCode();",
+            "    Fn2<@Nullable String, @Nullable String> fn2 = new TestFunc2();",
+            "    // No error due to @Contract",
+            "    fn2.apply(\"hello\").hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
