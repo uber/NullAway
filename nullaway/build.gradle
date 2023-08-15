@@ -174,6 +174,7 @@ tasks.register('buildWithNullAway', JavaCompile) {
         option("NullAway:CastToNonNullMethod", "com.uber.nullaway.NullabilityUtil.castToNonNull")
         option("NullAway:CheckOptionalEmptiness")
         option("NullAway:AcknowledgeRestrictiveAnnotations")
+        option("NullAway:CheckContracts")
     }
     // Make sure the jar has already been built
     dependsOn 'jar'
