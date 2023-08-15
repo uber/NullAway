@@ -24,6 +24,9 @@ configurations {
     nullawayJar
 }
 
+group = property("GROUP")
+version = property("VERSION_NAME")
+
 dependencies {
     compileOnly project(":annotations")
     compileOnly deps.apt.autoValueAnnot
