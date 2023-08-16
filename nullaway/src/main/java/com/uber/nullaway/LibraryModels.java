@@ -136,9 +136,9 @@ public interface LibraryModels {
    *
    * <p>This allows users to define filter/map/other methods for APIs which behave similarly to Java
    * 8 streams or ReactiveX streams, so that NullAway is able to understand nullability invariants
-   * across stream API calls. See {@see com.uber.nullaway.handlers.stream.StreamModelBuilder} for
-   * details on how to construct these {@see com.uber.nullaway.handlers.stream.StreamTypeRecord}
-   * specs. A full example is available at {@see
+   * across stream API calls. See {@link com.uber.nullaway.handlers.stream.StreamModelBuilder} for
+   * details on how to construct these {@link com.uber.nullaway.handlers.stream.StreamTypeRecord}
+   * specs. A full example is available at {@link
    * com.uber.nullaway.testlibrarymodels.TestLibraryModels}.
    *
    * @return A list of StreamTypeRecord specs (usually generated using StreamModelBuilder).

@@ -294,6 +294,13 @@ public class NullAwayStreamSupportNegativeCases {
     return stream.filter(s -> s != null).map(s -> s.length());
   }
 
+  private CustomStream<Integer> filterThenMapNullableContainerLambdasCustomStream(
+            CustomStream<NullableContainer<String>> stream) {
+        return stream
+                .filter(c -> c.get() != null)
+                .map(c -> c.get().length());
+    }
+
   private CustomStream<Integer> filterThenMapMethodRefsCustomStream(
       CustomStream<NullableContainer<String>> stream) {
     return stream

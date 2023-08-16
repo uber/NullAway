@@ -96,7 +96,7 @@ public class TestLibraryModels implements LibraryModels {
     // Identical to the default model for java.util.stream.Stream, but with the original type
     // renamed
     return StreamModelBuilder.start()
-        .addStreamTypeFromName("com.uber.unannotated.CustomStreamA")
+        .addStreamTypeFromName("com.uber.nullaway.testdata.unannotated.CustomStream")
         .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
         .withMapMethodFromSignature(
             "<R>map(java.util.function.Function<? super T,? extends R>)",
