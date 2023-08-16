@@ -603,7 +603,7 @@ public final class GenericsChecks {
         @Override
         @Nullable
         public Boolean visitType(Type t, Type type) {
-          return null;
+          return true;
         }
       };
 
