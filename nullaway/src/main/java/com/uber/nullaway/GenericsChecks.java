@@ -508,7 +508,7 @@ public final class GenericsChecks {
 
   /** To dispatch the logic to obtain the generic type arguments for different Types */
   private final Type.Visitor<List<Type>, Void> TYPE_ARG_VISITOR =
-      new Type.Visitor<List<Type>, Void>() {
+      new Types.DefaultTypeVisitor<List<Type>, Void>() {
         @Override
         public List<Type> visitClassType(Type.ClassType t, Void s) {
           return t.getTypeArguments();
@@ -521,59 +521,19 @@ public final class GenericsChecks {
         }
 
         @Override
-        public List<Type> visitMethodType(Type.MethodType t, Void unused) {
-          return null;
-        }
-
-        @Override
-        public List<Type> visitPackageType(Type.PackageType t, Void unused) {
-          return null;
-        }
-
-        @Override
-        public List<Type> visitModuleType(Type.ModuleType t, Void unused) {
-          return null;
-        }
-
-        @Override
-        public List<Type> visitTypeVar(Type.TypeVar t, Void unused) {
-          return null;
-        }
-
-        @Override
         public List<Type> visitCapturedType(Type.CapturedType t, Void s) {
           return t.wildcard.accept(this, null);
         }
 
         @Override
-        public List<Type> visitForAll(Type.ForAll t, Void unused) {
-          return null;
-        }
-
-        @Override
-        public List<Type> visitUndetVar(Type.UndetVar t, Void unused) {
-          return null;
-        }
-
-        @Override
-        public List<Type> visitErrorType(Type.ErrorType t, Void unused) {
-          return null;
-        }
-
-        @Override
-        public List<Type> visitWildcardType(Type.WildcardType t, Void unused) {
-          return null;
-        }
-
-        @Override
-        public List<Type> visitType(Type t, Void s) {
-          return null;
+        public List<Type> visitType(Type t, Void unused) {
+          return Collections.emptyList();
         }
       };
 
-  /** To dispatch the logic to obtain the generic type arguments for different Types */
+  /** To dispatch the logic to0 obtain the generic type arguments for different Types */
   private final Type.Visitor<Boolean, Type> COMPARE_NULLABILITY_VISITOR =
-      new Type.Visitor<Boolean, Type>() {
+      new Types.DefaultTypeVisitor<Boolean, Type>() {
         @Override
         public Boolean visitClassType(Type.ClassType lhsType, Type rhsType) {
           Types types = state.getTypes();
@@ -633,21 +593,7 @@ public final class GenericsChecks {
         }
 
         @Override
-        public Boolean visitWildcardType(Type.WildcardType t, Type type) {
-          return null;
-        }
-
-        @Override
         public Boolean visitArrayType(Type.ArrayType lhsType, Type rhsType) {
-          /*Types types = state.getTypes();
-           //The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
-           // compare lhsType against the supertype of rhsType with a matching base type.
-            rhsType = (Type.ClassType) types.asSuper(rhsType, lhsType.tsym);
-           // This is impossible, considering the fact that standard Java subtyping succeeds before running
-           // NullAway
-          if (rhsType == null) {
-            throw new RuntimeException("Did not find supertype of " + rhsType + " matching " + lhsType);
-          }*/
           Type.ArrayType arrRhsType = (Type.ArrayType) rhsType;
           return lhsType
               .getComponentType()
@@ -655,48 +601,8 @@ public final class GenericsChecks {
         }
 
         @Override
-        public Boolean visitMethodType(Type.MethodType t, Type type) {
-          return null;
-        }
-
-        @Override
-        public Boolean visitPackageType(Type.PackageType t, Type type) {
-          return null;
-        }
-
-        @Override
-        public Boolean visitModuleType(Type.ModuleType t, Type type) {
-          return null;
-        }
-
-        @Override
-        public Boolean visitTypeVar(Type.TypeVar t, Type type) {
-          return null;
-        }
-
-        @Override
-        public Boolean visitCapturedType(Type.CapturedType t, Type type) {
-          return null;
-        }
-
-        @Override
-        public Boolean visitForAll(Type.ForAll t, Type type) {
-          return null;
-        }
-
-        @Override
-        public Boolean visitUndetVar(Type.UndetVar t, Type type) {
-          return null;
-        }
-
-        @Override
-        public Boolean visitErrorType(Type.ErrorType t, Type type) {
-          return null;
-        }
-
-        @Override
         public Boolean visitType(Type t, Type type) {
-          return null;
+          return false;
         }
       };
 
