@@ -516,8 +516,7 @@ public final class GenericsChecks {
 
         @Override
         public List<Type> visitArrayType(Type.ArrayType t, Void unused) {
-          Type.ClassType classArg = (Type.ClassType) t.getComponentType();
-          return classArg.getTypeArguments();
+          return t.getComponentType().getTypeArguments();
         }
 
         @Override
