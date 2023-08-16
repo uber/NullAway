@@ -608,9 +608,9 @@ public final class GenericsChecks {
       };
 
   /** Visitor For Handling Different Tree Types */
-  public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Boolean> {
+  public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void> {
     @Override
-    public Type visitArrayType(ArrayTypeTree tree, Boolean p) {
+    public Type visitArrayType(ArrayTypeTree tree, Void p) {
       ParameterizedTypeTree paramTree = (ParameterizedTypeTree) tree.getType();
       Type.ClassType classType =
           (Type.ClassType) paramTree.accept(new PreservedAnnotationTreeVisitor(), null);
@@ -618,7 +618,7 @@ public final class GenericsChecks {
     }
 
     @Override
-    public Type visitParameterizedType(ParameterizedTypeTree tree, Boolean p) {
+    public Type visitParameterizedType(ParameterizedTypeTree tree, Void p) {
       Type.ClassType type = (Type.ClassType) ASTHelpers.getType(tree);
       Preconditions.checkNotNull(type);
       Type nullableType = NULLABLE_TYPE_SUPPLIER.get(state);
