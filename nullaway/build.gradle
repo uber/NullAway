@@ -76,10 +76,7 @@ javadoc {
 
 
 test {
-  maxHeapSize = "1024m"
-  if (!JavaVersion.current().java9Compatible) {
-    jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
-  } else {
+    maxHeapSize = "1024m"
     // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
     jvmArgs += [
             "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
@@ -95,66 +92,98 @@ test {
             // Accessed by Lombok tests
             "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
     ]
-  }
+    if (deps.versions.errorProneApi == "2.4.0" && JavaVersion.current() >= JavaVersion.VERSION_17) {
+        // This test does not pass on JDK 17 with Error Prone 2.4.0 due to a Mockito incompatibility.  Skip it (the
+        // test passes with more recent Error Prone versions on JDK 17)
+        filter {
+            excludeTestsMatching "com.uber.nullaway.NullAwaySerializationTest.suggestNullableArgumentOnBytecodeNoFileInfo"
+        }
+    }
 }
 
 apply plugin: 'com.vanniktech.maven.publish'
 
-if (JavaVersion.current() >= JavaVersion.VERSION_11) {
-    // Required on Java 11+ since Error Prone and NullAway access a bunch of
-    // JDK-internal APIs that are not exposed otherwise
-    tasks.withType(JavaCompile).configureEach {
-        options.compilerArgs += [
-                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
-        ]
-    }
-    // Create a task to build NullAway with NullAway checking enabled
-    // For some reason, this doesn't work on Java 8
-    tasks.register('buildWithNullAway', JavaCompile) {
-        onlyIf {
-            // We only do NullAway checks when compiling against the latest
-            // version of Error Prone (as nullability annotations on the APIs
-            // can change between versions)
-            deps.versions.errorProneApi == deps.versions.errorProneLatest
-        }
-        // Configure compilation to run with Error Prone and NullAway
-        source = sourceSets.main.java
-        classpath = sourceSets.main.compileClasspath
-        destinationDirectory = file("$buildDir/ignoredClasses")
-        def nullawayDeps = configurations.nullawayJar.asCollection()
-        options.annotationProcessorPath = files(
-                configurations.errorprone.asCollection(),
-                sourceSets.main.annotationProcessorPath,
-                nullawayDeps)
-        options.errorprone.enabled = true
-        options.errorprone {
-            option("NullAway:AnnotatedPackages", "com.uber,org.checkerframework.nullaway")
-            option("NullAway:CastToNonNullMethod", "com.uber.nullaway.NullabilityUtil.castToNonNull")
-            option("NullAway:CheckOptionalEmptiness")
-            option("NullAway:AcknowledgeRestrictiveAnnotations")
-        }
-        // Make sure the jar has already been built
-        dependsOn 'jar'
-        // Check that the NullAway jar actually exists (without this,
-        // Gradle will run the compilation even if the jar doesn't exist)
-        doFirst {
-            nullawayDeps.forEach { f ->
-                assert f.exists()
-            }
-        }
+// These --add-exports arguments are required when targeting JDK 11+ since Error Prone and NullAway access a bunch of
+// JDK-internal APIs that are not exposed otherwise.  Since we currently target JDK 8, we do not need to pass the
+// arguments, as encapsulation of JDK internals is not enforced on JDK 8.  In fact, the arguments cause a compiler error
+// when targeting JDK 8.  Leaving commented so we can easily add them back once we target JDK 11.
+//    tasks.withType(JavaCompile).configureEach {
+//        options.compilerArgs += [
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+//                "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
+//        ]
+//    }
+
+// Create a task to test on JDK 8
+def jdk8Test = tasks.register("testJdk8", Test) {
+    onlyIf {
+        // Only if we are using a version of Error Prone compatible with JDK 8
+        deps.versions.errorProneApi == "2.4.0"
     }
 
-    project.tasks.named('check').configure {
-        dependsOn 'buildWithNullAway'
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(8)
     }
+
+    description = "Runs the test suite on JDK 8"
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+
+    // Copy inputs from normal Test task.
+    def testTask = tasks.getByName("test")
+    classpath = testTask.classpath
+    testClassesDirs = testTask.testClassesDirs
+    jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
+}
+
+tasks.named('check').configure {
+    dependsOn(jdk8Test)
+}
+
+// Create a task to build NullAway with NullAway checking enabled
+tasks.register('buildWithNullAway', JavaCompile) {
+    onlyIf {
+        // We only do NullAway checks when compiling against the latest
+        // version of Error Prone (as nullability annotations on the APIs
+        // can change between versions)
+        deps.versions.errorProneApi == deps.versions.errorProneLatest
+    }
+    // Configure compilation to run with Error Prone and NullAway
+    source = sourceSets.main.java
+    classpath = sourceSets.main.compileClasspath
+    destinationDirectory = file("$buildDir/ignoredClasses")
+    def nullawayDeps = configurations.nullawayJar.asCollection()
+    options.annotationProcessorPath = files(
+            configurations.errorprone.asCollection(),
+            sourceSets.main.annotationProcessorPath,
+            nullawayDeps)
+    options.errorprone.enabled = true
+    options.errorprone {
+        option("NullAway:AnnotatedPackages", "com.uber,org.checkerframework.nullaway")
+        option("NullAway:CastToNonNullMethod", "com.uber.nullaway.NullabilityUtil.castToNonNull")
+        option("NullAway:CheckOptionalEmptiness")
+        option("NullAway:AcknowledgeRestrictiveAnnotations")
+        option("NullAway:CheckContracts")
+    }
+    // Make sure the jar has already been built
+    dependsOn 'jar'
+    // Check that the NullAway jar actually exists (without this,
+    // Gradle will run the compilation even if the jar doesn't exist)
+    doFirst {
+        nullawayDeps.forEach { f ->
+            assert f.exists()
+        }
+    }
+}
+
+project.tasks.named('check').configure {
+    dependsOn 'buildWithNullAway'
 }

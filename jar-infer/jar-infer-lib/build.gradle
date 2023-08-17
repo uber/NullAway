@@ -18,7 +18,11 @@ plugins {
     id 'nullaway.jacoco-conventions'
 }
 
-sourceCompatibility = 1.8
+// JarInfer requires JDK 11+, due to its dependence on WALA
+tasks.withType(JavaCompile) {
+    java.sourceCompatibility = JavaVersion.VERSION_11
+    java.targetCompatibility = JavaVersion.VERSION_11
+}
 
 repositories {
     mavenCentral()
@@ -45,28 +49,26 @@ dependencies {
 
 test {
     maxHeapSize = "1024m"
-    if (!JavaVersion.current().java9Compatible) {
-        jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
-    } else {
-        // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
-        jvmArgs += [
-                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-                "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-                "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-                // Accessed by Lombok tests
-                "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
-        ]
-    }
-    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
-        dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
-    }
+    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
+    jvmArgs += [
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+            // Accessed by Lombok tests
+            "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+    ]
+    dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED"
 }
 
 apply plugin: 'com.vanniktech.maven.publish'

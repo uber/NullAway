@@ -16,6 +16,7 @@
 package com.uber.nullaway.dataflow;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.BOTTOM;
 import static com.uber.nullaway.Nullness.NONNULL;
@@ -28,11 +29,13 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.GenericsChecks;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
@@ -761,10 +764,9 @@ public class AccessPathNullnessPropagation
     return codeAnnotationInfo;
   }
 
-  @SuppressWarnings("ASTHelpersSuggestions") // remove once we require EP 2.16 or greater
   private void setReceiverNonnull(
       AccessPathNullnessPropagation.ReadableUpdates updates, Node receiver, Symbol symbol) {
-    if (symbol != null && !symbol.isStatic()) {
+    if ((symbol != null) && !isStatic(symbol)) {
       setNonnullIfAnalyzeable(updates, receiver);
     }
   }
@@ -1008,7 +1010,8 @@ public class AccessPathNullnessPropagation
       nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
     } else if (node == null
         || methodReturnsNonNull.test(node)
-        || !Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod(), config)) {
+        || (!Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod(), config)
+            && !genericReturnIsNullable(node))) {
       // definite non-null return
       nullness = NONNULL;
     } else {
@@ -1016,6 +1019,27 @@ public class AccessPathNullnessPropagation
       nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
     }
     return nullness;
+  }
+
+  /**
+   * Computes the nullability of a generic return type in the context of some receiver type at an
+   * invocation.
+   *
+   * @param node the invocation node
+   * @return nullability of the return type in the context of the type of the receiver argument at
+   *     {@code node}
+   */
+  private boolean genericReturnIsNullable(MethodInvocationNode node) {
+    if (node != null && config.isJSpecifyMode()) {
+      MethodInvocationTree tree = node.getTree();
+      if (tree != null) {
+        Nullness nullness =
+            GenericsChecks.getGenericReturnNullnessAtInvocation(
+                ASTHelpers.getSymbol(tree), tree, state, config);
+        return nullness.equals(NULLABLE);
+      }
+    }
+    return false;
   }
 
   @Override
