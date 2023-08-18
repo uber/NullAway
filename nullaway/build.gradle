@@ -142,6 +142,10 @@ def jdk8Test = tasks.register("testJdk8", Test) {
     classpath = testTask.classpath
     testClassesDirs = testTask.testClassesDirs
     jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
+    filter {
+        // JDK 8 does not support diamonds on anonymous classes
+        excludeTestsMatching "com.uber.nullaway.NullAwayJSpecifyGenericsTests.overrideDiamondAnonymousClass"
+    }
 }
 
 tasks.named('check').configure {
