@@ -836,7 +836,7 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @param config the analysis config
    * @return nullability of the relevant parameter type of {@code method} in the context of {@code
-   *     enclosingSymbol}
+   *     enclosingType}
    */
   public static Nullness getGenericMethodParameterNullness(
       int parameterIndex,
