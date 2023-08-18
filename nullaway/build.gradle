@@ -24,6 +24,8 @@ configurations {
     nullawayJar
 }
 
+// we set the group and version properties so the nullawayJar configuration
+// below resolves to the jar corresponding to the current NullAway source code
 group = property("GROUP")
 version = property("VERSION_NAME")
 
