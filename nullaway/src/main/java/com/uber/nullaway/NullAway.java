@@ -221,6 +221,11 @@ public class NullAway extends BugChecker
 
   private final Config config;
 
+  /** Returns the configuration being used for this analysis. */
+  public Config getConfig() {
+    return config;
+  }
+
   private final ErrorBuilder errorBuilder;
 
   /**
@@ -471,7 +476,7 @@ public class NullAway extends BugChecker
     }
     // generics check
     if (lhsType != null && lhsType.getTypeArguments().length() > 0) {
-      new GenericsChecks(state, config, this).checkTypeParameterNullnessForAssignability(tree);
+      GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
     }
 
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
@@ -631,9 +636,8 @@ public class NullAway extends BugChecker
         if (config.isJSpecifyMode()) {
           // Check that any generic type parameters in the return type and parameter types are
           // identical (invariant) across the overriding and overridden methods
-          new GenericsChecks(state, config, this)
-              .checkTypeParameterNullnessForMethodOverriding(
-                  tree, methodSymbol, closestOverriddenMethod);
+          GenericsChecks.checkTypeParameterNullnessForMethodOverriding(
+              tree, methodSymbol, closestOverriddenMethod, this, state);
         }
         return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
       }
@@ -731,9 +735,12 @@ public class NullAway extends BugChecker
             Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)
                 ? Nullness.NULLABLE
                 : (config.isJSpecifyMode()
-                    ? new GenericsChecks(state, config, this)
-                        .getGenericMethodParameterNullness(
-                            i, overriddenMethod, overridingParamSymbols.get(i).owner.owner.type)
+                    ? GenericsChecks.getGenericMethodParameterNullness(
+                        i,
+                        overriddenMethod,
+                        overridingParamSymbols.get(i).owner.owner.type,
+                        state,
+                        config)
                     : Nullness.NONNULL);
       }
     }
@@ -862,8 +869,8 @@ public class NullAway extends BugChecker
           state,
           methodSymbol);
     }
-    new GenericsChecks(state, config, this)
-        .checkTypeParameterNullnessForFunctionReturnType(retExpr, methodSymbol);
+    GenericsChecks.checkTypeParameterNullnessForFunctionReturnType(
+        retExpr, methodSymbol, this, state);
     return Description.NO_MATCH;
   }
 
@@ -1359,7 +1366,7 @@ public class NullAway extends BugChecker
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
     if (tree.getInitializer() != null) {
-      new GenericsChecks(state, config, this).checkTypeParameterNullnessForAssignability(tree);
+      GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
     }
 
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
@@ -1511,8 +1518,7 @@ public class NullAway extends BugChecker
   public Description matchConditionalExpression(
       ConditionalExpressionTree tree, VisitorState state) {
     if (withinAnnotatedCode(state)) {
-      new GenericsChecks(state, config, this)
-          .checkTypeParameterNullnessForConditionalExpression(tree);
+      GenericsChecks.checkTypeParameterNullnessForConditionalExpression(tree, this, state);
       doUnboxingCheck(state, tree.getCondition());
     }
     return Description.NO_MATCH;
@@ -1638,15 +1644,13 @@ public class NullAway extends BugChecker
               Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
                   ? Nullness.NULLABLE
                   : ((config.isJSpecifyMode() && tree instanceof MethodInvocationTree)
-                      ? new GenericsChecks(state, config, this)
-                          .getGenericParameterNullnessAtInvocation(
-                              i, methodSymbol, (MethodInvocationTree) tree)
+                      ? GenericsChecks.getGenericParameterNullnessAtInvocation(
+                          i, methodSymbol, (MethodInvocationTree) tree, state, config)
                       : Nullness.NONNULL);
         }
       }
-      new GenericsChecks(state, config, this)
-          .compareGenericTypeParameterNullabilityForCall(
-              formalParams, actualParams, methodSymbol.isVarArgs());
+      GenericsChecks.compareGenericTypeParameterNullabilityForCall(
+          formalParams, actualParams, methodSymbol.isVarArgs(), this, state);
     }
 
     // Allow handlers to override the list of non-null argument positions
