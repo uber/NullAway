@@ -237,6 +237,7 @@ public final class GenericsChecks {
    * Foo<@Nullable A>}).
    *
    * @param tree A tree for which we need the type with preserved annotations.
+   * @param state the visitor state
    * @return Type of the tree with preserved annotations.
    */
   @Nullable
@@ -269,6 +270,8 @@ public final class GenericsChecks {
    *
    * @param tree the tree to check, which must be either an {@link AssignmentTree} or a {@link
    *     VariableTree}
+   * @param analysis the analysis object
+   * @param state the visitor state
    */
   public static void checkTypeParameterNullnessForAssignability(
       Tree tree, NullAway analysis, VisitorState state) {
@@ -303,6 +306,15 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * Checks that the nullability of type parameters for a returned expression matches that of the
+   * type parameters of the enclosing method's return type.
+   *
+   * @param retExpr the returned expression
+   * @param methodSymbol symbol for enclosing method
+   * @param analysis the analysis object
+   * @param state the visitor state
+   */
   public static void checkTypeParameterNullnessForFunctionReturnType(
       ExpressionTree retExpr,
       Symbol.MethodSymbol methodSymbol,
@@ -340,6 +352,7 @@ public final class GenericsChecks {
    *
    * @param lhsType type for the lhs of the assignment
    * @param rhsType type for the rhs of the assignment
+   * @param state the visitor state
    */
   private static boolean compareNullabilityAnnotations(
       Type.ClassType lhsType, Type.ClassType rhsType, VisitorState state) {
@@ -401,6 +414,7 @@ public final class GenericsChecks {
    * Type of the tree with the annotations.
    *
    * @param tree A parameterized typed tree for which we need class type with preserved annotations.
+   * @param state the visitor state
    * @return A Type with preserved annotations.
    */
   private static Type.ClassType typeWithPreservedAnnotations(
@@ -469,6 +483,8 @@ public final class GenericsChecks {
    * somewhat confusing; we may want to improve this in the future.
    *
    * @param tree A conditional expression tree to check
+   * @param analysis the analysis object
+   * @param state the visitor state
    */
   public static void checkTypeParameterNullnessForConditionalExpression(
       ConditionalExpressionTree tree, NullAway analysis, VisitorState state) {
@@ -510,6 +526,8 @@ public final class GenericsChecks {
    * @param formalParams the formal parameters
    * @param actualParams the actual parameters
    * @param isVarArgs true if the call is to a varargs method
+   * @param analysis the analysis object
+   * @param state the visitor state
    */
   public static void compareGenericTypeParameterNullabilityForCall(
       List<Symbol.VarSymbol> formalParams,
@@ -567,6 +585,8 @@ public final class GenericsChecks {
    * @param tree A method tree to check
    * @param overridingMethod A symbol of the overriding method
    * @param overriddenMethod A symbol of the overridden method
+   * @param analysis the analysis object
+   * @param state the visitor state
    */
   public static void checkTypeParameterNullnessForMethodOverriding(
       MethodTree tree,
@@ -737,6 +757,8 @@ public final class GenericsChecks {
    * @param paramIndex parameter index
    * @param invokedMethodSymbol symbol for the invoked method
    * @param tree the tree for the invocation
+   * @param state the visitor state
+   * @param config the analysis config
    * @return Nullness of parameter at {@code paramIndex}, or {@code NONNULL} if the call does not
    *     invoke an instance method
    */
@@ -812,7 +834,7 @@ public final class GenericsChecks {
    * @param enclosingType the enclosing type in which we want to know {@code method}'s parameter
    *     type nullability
    * @param state the visitor state
-   * @param config the config
+   * @param config the analysis config
    * @return nullability of the relevant parameter type of {@code method} in the context of {@code
    *     enclosingSymbol}
    */
@@ -834,6 +856,8 @@ public final class GenericsChecks {
    *
    * @param tree tree for overriding method
    * @param overriddenMethodType type of the overridden method
+   * @param analysis the analysis object
+   * @param state the visitor state
    */
   private static void checkTypeParameterNullnessForOverridingMethodParameterType(
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
@@ -867,6 +891,8 @@ public final class GenericsChecks {
    *
    * @param tree tree for overriding method
    * @param overriddenMethodType type of the overridden method
+   * @param analysis the analysis object
+   * @param state the visitor state
    */
   private static void checkTypeParameterNullnessForOverridingMethodReturnType(
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
