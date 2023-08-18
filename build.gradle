@@ -111,6 +111,13 @@ subprojects { project ->
             java {
                 googleJavaFormat()
             }
+            groovyGradle {
+                target '**/*.gradle'
+                greclipse()
+                indentWithSpaces(4)
+                trimTrailingWhitespace()
+                endWithNewline()
+            }
         }
     }
 }
@@ -120,6 +127,9 @@ spotless {
 }
 spotlessPredeclare {
     java { googleJavaFormat('1.17.0') }
+    groovyGradle {
+        greclipse()
+    }
 }
 ////////////////////////////////////////////////////////////////////////
 //

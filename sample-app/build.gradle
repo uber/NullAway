@@ -39,7 +39,7 @@ android {
     lintOptions {
         abortOnError false
     }
-    
+
     DomainObjectSet<BaseVariant> variants = getApplicationVariants() // or getLibraryVariants() in libraries
     variants.addAll(getTestVariants())
     variants.addAll(getUnitTestVariants())
@@ -51,17 +51,17 @@ android {
             }
         }
     }
-    
+
     // If you want to disable NullAway in just tests, you can do the below
-//    DomainObjectSet<BaseVariant> testVariants = getTestVariants()
-//    testVariants.addAll(getUnitTestVariants())
-//    testVariants.configureEach { variant ->
-//        variant.getJavaCompileProvider().configure {
-//            options.errorprone {
-//                check("NullAway", CheckSeverity.OFF)
-//            }
-//        }
-//    }
+    //    DomainObjectSet<BaseVariant> testVariants = getTestVariants()
+    //    testVariants.addAll(getUnitTestVariants())
+    //    testVariants.configureEach { variant ->
+    //        variant.getJavaCompileProvider().configure {
+    //            options.errorprone {
+    //                check("NullAway", CheckSeverity.OFF)
+    //            }
+    //        }
+    //    }
 }
 
 dependencies {
@@ -70,7 +70,6 @@ dependencies {
     annotationProcessor project(path: ":sample-library-model")
 
     testImplementation deps.test.junit4
-
 }
 
 spotless {
