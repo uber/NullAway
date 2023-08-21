@@ -53,6 +53,11 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           arguments: build
+      - name: Run shellcheck
+        uses: gradle/gradle-build-action@v2
+        with:
+          arguments: shellcheck
+        if: runner.os == 'Linux'
       - name: Report jacoco coverage
         uses: gradle/gradle-build-action@v2
         env:
