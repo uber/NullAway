@@ -61,7 +61,9 @@ public class Handlers {
     handlerListBuilder.add(libraryModelsHandler);
     handlerListBuilder.add(StreamNullabilityPropagatorFactory.getRxStreamNullabilityPropagator());
     handlerListBuilder.add(StreamNullabilityPropagatorFactory.getJavaStreamNullabilityPropagator());
-    handlerListBuilder.add(libraryModelsHandler.getStreamNullabilityPropagatorFromModels());
+    handlerListBuilder.add(
+        StreamNullabilityPropagatorFactory.fromSpecs(
+            libraryModelsHandler.getStreamNullabilitySpecs()));
     handlerListBuilder.add(new ContractHandler(config));
     handlerListBuilder.add(new ApacheThriftIsSetHandler());
     handlerListBuilder.add(new GrpcHandler());

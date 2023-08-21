@@ -294,18 +294,22 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   /**
-   * Generate a StreamNullabilityPropagator handler based on all the stream specifications loaded
-   * from any of our library models.
+   * Get all the stream specifications loaded from any of our library models.
    *
-   * <p>This handler must be registered in Handlers.java separatedly from the LibraryModelsHandler
-   * itself.
+   * <p>This is used in Handlers.java to create a StreamNullabilityPropagator handler, which gets
+   * registered independently of this LibraryModelsHandler itself.
+   *
+   * <p>LibraryModelsHandler is responsible from reading the library models for stream specs, but
+   * beyond that, checking of the specs falls under the responsibility of the generated
+   * StreamNullabilityPropagator handler.
+   *
+   * @return The list of all stream specifications loaded from any of our library models.
    */
-  public StreamNullabilityPropagator getStreamNullabilityPropagatorFromModels() {
+  public ImmutableList<StreamTypeRecord> getStreamNullabilitySpecs() {
     // Note: Currently, OptimizedLibraryModels doesn't carry the information about stream type
-    // records,
-    // it is not clear what it means to "optimize" lookup for those and they get access only once:
-    // here.
-    return new StreamNullabilityPropagator(libraryModels.customStreamNullabilitySpecs());
+    // records, it is not clear what it means to "optimize" lookup for those and they get accessed
+    // only once by calling this method during handler setup in Handlers.java.
+    return libraryModels.customStreamNullabilitySpecs();
   }
 
   private static LibraryModels loadLibraryModels(Config config) {

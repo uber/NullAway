@@ -92,6 +92,12 @@ public class StreamModelBuilder {
     return this;
   }
 
+  /**
+   * Add a stream type to our models based on the type's fully qualified name.
+   *
+   * @param fullyQualifiedName the FQN of the class/interface in our stream-based API.
+   * @return This builder (for chaining).
+   */
   public StreamModelBuilder addStreamTypeFromName(String fullyQualifiedName) {
     return this.addStreamType(new DescendantOf(Suppliers.typeFromString(fullyQualifiedName)));
   }
