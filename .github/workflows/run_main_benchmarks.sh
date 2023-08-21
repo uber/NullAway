@@ -1,9 +1,9 @@
-#!/bin/bash
+#!/bin/bash -eux
 
-cd $BRANCH_NAME/
+cd "$BRANCH_NAME/" 
 mkdir main
-cd main/
+cd main/ 
 git clone git@github.com:Uber/NullAway.git
-cd NullAway/
+cd NullAway/ 
 
 ./gradlew jmh --no-daemon

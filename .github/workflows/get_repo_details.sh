@@ -16,5 +16,5 @@ REPO_FULL_NAME=$(echo "$PR_DETAILS" | jq -r .head.repo.full_name)
 BRANCH_NAME=$(echo "$PR_DETAILS" | jq -r .head.ref)
 
 # Export vars to GITHUB_ENV so they can be used by later scripts
-echo "REPO_FULL_NAME=$REPO_FULL_NAME" >> $GITHUB_ENV
-echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+echo "REPO_FULL_NAME=$REPO_FULL_NAME" >> "$GITHUB_ENV"
+echo "BRANCH_NAME=$BRANCH_NAME" >> "$GITHUB_ENV"
