@@ -105,13 +105,13 @@ def nullawayReleaseProcessorpath = configurations.nullawayReleaseProcessors.asPa
 
 // Extra JVM arguments to expose relevant paths for compiling benchmarks
 def extraJVMArgs = [
-        "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()}",
-        "-Dnullaway.caffeine.classpath=$caffeineClasspath",
-        "-Dnullaway.autodispose.sources=${autodisposeSourceDir.get()}",
-        "-Dnullaway.autodispose.classpath=$autodisposeClasspath",
-        "-Dnullaway.nullawayRelease.sources=${nullawayReleaseSourceDir.get()}",
-        "-Dnullaway.nullawayRelease.classpath=$nullawayReleaseClasspath",
-        "-Dnullaway.nullawayRelease.processorpath=$nullawayReleaseProcessorpath",
+    "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()}",
+    "-Dnullaway.caffeine.classpath=$caffeineClasspath",
+    "-Dnullaway.autodispose.sources=${autodisposeSourceDir.get()}",
+    "-Dnullaway.autodispose.classpath=$autodisposeClasspath",
+    "-Dnullaway.nullawayRelease.sources=${nullawayReleaseSourceDir.get()}",
+    "-Dnullaway.nullawayRelease.classpath=$nullawayReleaseClasspath",
+    "-Dnullaway.nullawayRelease.processorpath=$nullawayReleaseProcessorpath",
 ]
 
 jmh {
@@ -134,16 +134,15 @@ tasks.named('test') {
     jvmArgs extraJVMArgs
     // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
     jvmArgs += [
-            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-            "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-            "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
     ]
 }
-
