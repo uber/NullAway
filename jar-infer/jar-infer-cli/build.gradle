@@ -34,9 +34,7 @@ java {
 
 jar {
     manifest {
-        attributes(
-        'Main-Class': 'com.uber.nullaway.jarinfer.JarInfer'
-        )
+        attributes('Main-Class': 'com.uber.nullaway.jarinfer.JarInfer')
     }
     // add this classifier so that the output file for the jar task differs from
     // the output file for the shadowJar task (otherwise they overwrite each other's
@@ -46,7 +44,9 @@ jar {
 
 shadowJar {
     mergeServiceFiles()
-    configurations = [project.configurations.runtimeClasspath]
+    configurations = [
+        project.configurations.runtimeClasspath
+    ]
     archiveClassifier = ""
 }
 shadowJar.dependsOn jar
@@ -110,7 +110,7 @@ publishing {
                 }
             }
         }
-   }
+    }
 
     afterEvaluate {
         // Below is a series of hacks needed to get publication to work with
