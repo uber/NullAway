@@ -27,6 +27,7 @@ import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.errorprone.VisitorState;
@@ -46,6 +47,7 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
+import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -289,6 +291,25 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         accessPathsAtIndexes(requiredNonNullParameters, arguments, state, apContext)) {
       bothUpdates.set(accessPath, NONNULL);
     }
+  }
+
+  /**
+   * Get all the stream specifications loaded from any of our library models.
+   *
+   * <p>This is used in Handlers.java to create a StreamNullabilityPropagator handler, which gets
+   * registered independently of this LibraryModelsHandler itself.
+   *
+   * <p>LibraryModelsHandler is responsible from reading the library models for stream specs, but
+   * beyond that, checking of the specs falls under the responsibility of the generated
+   * StreamNullabilityPropagator handler.
+   *
+   * @return The list of all stream specifications loaded from any of our library models.
+   */
+  public ImmutableList<StreamTypeRecord> getStreamNullabilitySpecs() {
+    // Note: Currently, OptimizedLibraryModels doesn't carry the information about stream type
+    // records, it is not clear what it means to "optimize" lookup for those and they get accessed
+    // only once by calling this method during handler setup in Handlers.java.
+    return libraryModels.customStreamNullabilitySpecs();
   }
 
   private static LibraryModels loadLibraryModels(Config config) {
@@ -827,6 +848,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods;
 
+    private final ImmutableList<StreamTypeRecord> customStreamNullabilitySpecs;
+
     public CombinedLibraryModels(Iterable<LibraryModels> models, Config config) {
       this.config = config;
       ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
@@ -845,6 +868,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       ImmutableSet.Builder<MethodRef> nonNullReturnsBuilder = new ImmutableSet.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> castToNonNullMethodsBuilder =
           new ImmutableSetMultimap.Builder<>();
+      ImmutableList.Builder<StreamTypeRecord> customStreamNullabilitySpecsBuilder =
+          new ImmutableList.Builder<>();
       for (LibraryModels libraryModels : models) {
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.failIfNullParameters().entries()) {
           if (shouldSkipModel(entry.getKey())) {
@@ -904,6 +929,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           }
           castToNonNullMethodsBuilder.put(entry);
         }
+        for (StreamTypeRecord streamTypeRecord : libraryModels.customStreamNullabilitySpecs()) {
+          customStreamNullabilitySpecsBuilder.add(streamTypeRecord);
+        }
       }
       failIfNullParameters = failIfNullParametersBuilder.build();
       explicitlyNullableParameters = explicitlyNullableParametersBuilder.build();
@@ -914,6 +942,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       nullableReturns = nullableReturnsBuilder.build();
       nonNullReturns = nonNullReturnsBuilder.build();
       castToNonNullMethods = castToNonNullMethodsBuilder.build();
+      customStreamNullabilitySpecs = customStreamNullabilitySpecsBuilder.build();
     }
 
     private boolean shouldSkipModel(MethodRef key) {
@@ -963,6 +992,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
       return castToNonNullMethods;
+    }
+
+    @Override
+    public ImmutableList<StreamTypeRecord> customStreamNullabilitySpecs() {
+      return customStreamNullabilitySpecs;
     }
   }
 
