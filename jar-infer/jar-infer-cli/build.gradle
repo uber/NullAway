@@ -79,7 +79,7 @@ publishing {
             // Since we are skipping the default maven publication, we append the `:sources` and
             // `:javadoc` artifacts here. They are also required for Maven Central validation.
             afterEvaluate {
-                artifact project.javaSourcesJar
+                artifact project.sourcesJar
                 artifact project.javadocJar
             }
             // The shadow publication does not auto-configure the pom.xml file for us, so we need to
@@ -118,7 +118,7 @@ publishing {
         // Not sure why e.g. publishShadowPublicationToMavenCentralRepository must depend on signMavenPublication
         // (rather than just signShadowPublication)
         project.tasks.named('generateMetadataFileForMavenPublication').configure {
-            dependsOn 'javaSourcesJar'
+            dependsOn 'sourcesJar'
             dependsOn 'simpleJavadocJar'
         }
         if (project.tasks.findByName('signShadowPublication')) {

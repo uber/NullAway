@@ -65,9 +65,6 @@ dependencies {
     testImplementation deps.test.mockitoInline
     testImplementation deps.test.javaxAnnotationApi
     testImplementation deps.test.assertJ
-
-    // This ends up being resolved to the NullAway jar under nullaway/build/libs
-    nullawayJar "com.uber.nullaway:nullaway:$VERSION_NAME"
 }
 
 javadoc {
@@ -160,11 +157,12 @@ tasks.register('buildWithNullAway', JavaCompile) {
     source = sourceSets.main.java
     classpath = sourceSets.main.compileClasspath
     destinationDirectory = file("$buildDir/ignoredClasses")
-    def nullawayDeps = configurations.nullawayJar.asCollection()
     options.annotationProcessorPath = files(
             configurations.errorprone.asCollection(),
             sourceSets.main.annotationProcessorPath,
-            nullawayDeps)
+            // This refers to the NullAway jar built from the current source
+            jar.archiveFile.get(),
+            sourceSets.main.compileClasspath)
     options.errorprone.enabled = true
     options.errorprone {
         option("NullAway:AnnotatedPackages", "com.uber,org.checkerframework.nullaway")
@@ -178,9 +176,7 @@ tasks.register('buildWithNullAway', JavaCompile) {
     // Check that the NullAway jar actually exists (without this,
     // Gradle will run the compilation even if the jar doesn't exist)
     doFirst {
-        nullawayDeps.forEach { f ->
-            assert f.exists()
-        }
+        assert jar.archiveFile.get().getAsFile().exists()
     }
 }
 

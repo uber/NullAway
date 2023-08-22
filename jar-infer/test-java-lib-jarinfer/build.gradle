@@ -34,7 +34,7 @@ jar {
 
 jar.doLast {
     javaexec {
-        classpath = files("${rootProject.projectDir}/jar-infer/jar-infer-cli/build/libs/jar-infer-cli-${VERSION_NAME}.jar")
+        classpath = files("${rootProject.projectDir}/jar-infer/jar-infer-cli/build/libs/jar-infer-cli.jar")
         main = "com.uber.nullaway.jarinfer.JarInfer"
         args = [
             "-i",

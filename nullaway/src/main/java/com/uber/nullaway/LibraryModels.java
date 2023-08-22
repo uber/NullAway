@@ -22,9 +22,11 @@
 
 package com.uber.nullaway;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -130,7 +132,23 @@ public interface LibraryModels {
   ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods();
 
   /**
-   * representation of a method as a qualified class name + a signature for the method
+   * Get a list of custom stream library specifications.
+   *
+   * <p>This allows users to define filter/map/other methods for APIs which behave similarly to Java
+   * 8 streams or ReactiveX streams, so that NullAway is able to understand nullability invariants
+   * across stream API calls. See {@link com.uber.nullaway.handlers.stream.StreamModelBuilder} for
+   * details on how to construct these {@link com.uber.nullaway.handlers.stream.StreamTypeRecord}
+   * specs. A full example is available at {@link
+   * com.uber.nullaway.testlibrarymodels.TestLibraryModels}.
+   *
+   * @return A list of StreamTypeRecord specs (usually generated using StreamModelBuilder).
+   */
+  default ImmutableList<StreamTypeRecord> customStreamNullabilitySpecs() {
+    return ImmutableList.of();
+  }
+
+  /**
+   * Representation of a method as a qualified class name + a signature for the method
    *
    * <p>The formatting of a method signature should match the result of calling {@link
    * Symbol.MethodSymbol#toString()} on the corresponding symbol. See {@link
