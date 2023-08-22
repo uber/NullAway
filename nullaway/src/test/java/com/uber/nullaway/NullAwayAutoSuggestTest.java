@@ -202,4 +202,35 @@ public class NullAwayAutoSuggestTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void suggestCastToNonNullMultiLine() throws IOException {
+    makeTestHelper()
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  static class Foo { @Nullable Object getObj() { return null; } }",
+            "  Object test1(Foo f) {",
+            "    return f",
+            "           // comment that should not be deleted",
+            "           .getObj();",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  static class Foo { @Nullable Object getObj() { return null; } }",
+            "  Object test1(Foo f) {",
+            "    return castToNonNull(f",
+            "           // comment that should not be deleted",
+            "           .getObj());",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
