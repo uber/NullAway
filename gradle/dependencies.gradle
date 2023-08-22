@@ -32,8 +32,8 @@ if (project.hasProperty("epApiVersion")) {
     }
     if (epApiVNum.compareTo(VersionNumber.parse(oldestErrorProneVersion)) < 0) {
         throw new IllegalArgumentException(
-                "Error Prone API version " + epApiVersion + " is too old; "
-                + oldestErrorProneVersion + " is the oldest supported version")
+        "Error Prone API version " + epApiVersion + " is too old; "
+        + oldestErrorProneVersion + " is the oldest supported version")
     }
     errorProneVersionToCompileAgainst = epApiVersion
 }
@@ -77,9 +77,11 @@ def build = [
     jspecify                : "org.jspecify:jspecify:0.3.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
     commonsIO               : "commons-io:commons-io:2.11.0",
-    wala                    : ["com.ibm.wala:com.ibm.wala.util:${versions.wala}",
-                               "com.ibm.wala:com.ibm.wala.shrike:${versions.wala}",
-                               "com.ibm.wala:com.ibm.wala.core:${versions.wala}"],
+    wala                    : [
+        "com.ibm.wala:com.ibm.wala.util:${versions.wala}",
+        "com.ibm.wala:com.ibm.wala.shrike:${versions.wala}",
+        "com.ibm.wala:com.ibm.wala.core:${versions.wala}"
+    ],
     commonscli              : "commons-cli:commons-cli:${versions.commonscli}",
 
     // android stuff
@@ -96,7 +98,10 @@ def support = [
 
 def test = [
     junit4                  : "junit:junit:4.13.2",
-    junit5Jupiter           : ["org.junit.jupiter:junit-jupiter-api:5.0.2","org.apiguardian:apiguardian-api:1.0.0"],
+    junit5Jupiter           : [
+        "org.junit.jupiter:junit-jupiter-api:5.0.2",
+        "org.apiguardian:apiguardian-api:1.0.0"
+    ],
     jetbrainsAnnotations    : "org.jetbrains:annotations:13.0",
     cfQual                  : "org.checkerframework:checker-qual:${versions.checkerFramework}",
     // 2.5.5 is the last release to contain this artifact
