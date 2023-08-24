@@ -395,8 +395,8 @@ public class ErrorBuilder {
   }
 
   /**
-   * Reports initialization errors where a constructor fails to guarantee non-fields are initialized
-   * along all paths at exit points.
+   * Reports initialization errors where a constructor fails to guarantee non-null fields are
+   * initialized along all paths at exit points.
    *
    * @param methodSymbol Constructor symbol.
    * @param message Error message.
