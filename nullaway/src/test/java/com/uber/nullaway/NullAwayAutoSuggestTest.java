@@ -24,6 +24,7 @@ package com.uber.nullaway;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.ErrorProneFlags;
+import com.sun.source.tree.Tree;
 import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
 import java.io.IOException;
 import org.junit.Before;
@@ -111,6 +112,10 @@ public class NullAwayAutoSuggestTest {
         .doTest();
   }
 
+  /**
+   * Test for cases where we heuristically decide not to wrap an expression in castToNonNull; see
+   * {@link ErrorBuilder#canBeCastToNonNull(Tree)}
+   */
   @Test
   public void suppressInsteadOfCastToNonNull() throws IOException {
     makeTestHelper()
@@ -119,11 +124,15 @@ public class NullAwayAutoSuggestTest {
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "class Test {",
+            "  Object f = new Object();",
             "  Object test1(@Nullable Object o) {",
             "    return o;",
             "  }",
             "  Object test2() {",
             "    return null;",
+            "  }",
+            "  void test3() {",
+            "    f = null;",
             "  }",
             "}")
         .addOutputLines(
@@ -131,11 +140,15 @@ public class NullAwayAutoSuggestTest {
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "class Test {",
+            "  Object f = new Object();",
             "  @SuppressWarnings(\"NullAway\") Object test1(@Nullable Object o) {",
             "    return o;",
             "  }",
             "  @SuppressWarnings(\"NullAway\") Object test2() {",
             "    return null;",
+            "  }",
+            "  @SuppressWarnings(\"NullAway\") void test3() {",
+            "    f = null;",
             "  }",
             "}")
         .doTest();
