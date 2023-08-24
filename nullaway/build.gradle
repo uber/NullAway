@@ -16,8 +16,8 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
-  id 'java-library'
-  id 'nullaway.jacoco-conventions'
+    id 'java-library'
+    id 'nullaway.jacoco-conventions'
 }
 
 configurations {
@@ -65,9 +65,6 @@ dependencies {
     testImplementation deps.test.mockitoInline
     testImplementation deps.test.javaxAnnotationApi
     testImplementation deps.test.assertJ
-
-    // This ends up being resolved to the NullAway jar under nullaway/build/libs
-    nullawayJar "com.uber.nullaway:nullaway:$VERSION_NAME"
 }
 
 javadoc {
@@ -79,18 +76,18 @@ test {
     maxHeapSize = "1024m"
     // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
     jvmArgs += [
-            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-            "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-            "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-            // Accessed by Lombok tests
-            "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        // Accessed by Lombok tests
+        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
     ]
     if (deps.versions.errorProneApi == "2.4.0" && JavaVersion.current() >= JavaVersion.VERSION_17) {
         // This test does not pass on JDK 17 with Error Prone 2.4.0 due to a Mockito incompatibility.  Skip it (the
@@ -164,11 +161,12 @@ tasks.register('buildWithNullAway', JavaCompile) {
     source = sourceSets.main.java
     classpath = sourceSets.main.compileClasspath
     destinationDirectory = file("$buildDir/ignoredClasses")
-    def nullawayDeps = configurations.nullawayJar.asCollection()
     options.annotationProcessorPath = files(
             configurations.errorprone.asCollection(),
             sourceSets.main.annotationProcessorPath,
-            nullawayDeps)
+            // This refers to the NullAway jar built from the current source
+            jar.archiveFile.get(),
+            sourceSets.main.compileClasspath)
     options.errorprone.enabled = true
     options.errorprone {
         option("NullAway:AnnotatedPackages", "com.uber,org.checkerframework.nullaway")
@@ -182,9 +180,7 @@ tasks.register('buildWithNullAway', JavaCompile) {
     // Check that the NullAway jar actually exists (without this,
     // Gradle will run the compilation even if the jar doesn't exist)
     doFirst {
-        nullawayDeps.forEach { f ->
-            assert f.exists()
-        }
+        assert jar.archiveFile.get().getAsFile().exists()
     }
 }
 

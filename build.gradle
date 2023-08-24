@@ -23,7 +23,7 @@ buildscript {
 
     dependencies {
         classpath 'com.android.tools.build:gradle:7.3.0'
-        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.21.0'
+        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.25.3'
         // This restriction is needed due to our mix of Android and Java modules;
         // without it, the build fails with a weird error.
         // See https://stackoverflow.com/questions/70217853/how-to-include-android-project-in-a-gradle-multi-project-build
@@ -35,18 +35,18 @@ buildscript {
     }
 }
 plugins {
-  id "com.diffplug.spotless" version "6.20.0"
-  id "net.ltgt.errorprone" version "3.1.0" apply false
-  id "com.github.johnrengelman.shadow" version "8.1.1" apply false
-  id "com.github.kt3k.coveralls" version "2.12.0" apply false
-  id "me.champeau.jmh" version "0.7.1" apply false
-  id "com.github.ben-manes.versions" version "0.47.0"
-  id "com.felipefzdz.gradle.shellcheck" version "1.4.6"
+    id "com.diffplug.spotless" version "6.20.0"
+    id "net.ltgt.errorprone" version "3.1.0" apply false
+    id "com.github.johnrengelman.shadow" version "8.1.1" apply false
+    id "com.github.kt3k.coveralls" version "2.12.0" apply false
+    id "me.champeau.jmh" version "0.7.1" apply false
+    id "com.github.ben-manes.versions" version "0.47.0"
+    id "com.felipefzdz.gradle.shellcheck" version "1.4.6"
 }
 
 repositories {
-  // to get the google-java-format jar and dependencies
-  mavenCentral()
+    // to get the google-java-format jar and dependencies
+    mavenCentral()
 }
 
 apply from: "gradle/dependencies.gradle"
@@ -59,10 +59,10 @@ subprojects { project ->
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)
         options.compilerArgs += [
-                "-Xlint:deprecation",
-                "-Xlint:rawtypes",
-                "-Xlint:unchecked",
-                "-Werror"
+            "-Xlint:deprecation",
+            "-Xlint:rawtypes",
+            "-Xlint:unchecked",
+            "-Werror"
         ]
         options.errorprone {
             // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
@@ -84,7 +84,7 @@ subprojects { project ->
             // To enable auto-patching, uncomment the line below, replace [CheckerName] with
             // the checker(s) you want to apply patches for (comma-separated), and above, disable
             // "-Werror"
-//                errorproneArgs.addAll("-XepPatchChecks:[CheckerName]", "-XepPatchLocation:IN_PLACE")
+            // errorproneArgs.addAll("-XepPatchChecks:[CheckerName]", "-XepPatchLocation:IN_PLACE")
         }
     }
 
@@ -118,9 +118,19 @@ subprojects { project ->
 
 spotless {
     predeclareDeps()
+    groovyGradle {
+        target '**/*.gradle'
+        greclipse()
+        indentWithSpaces(4)
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
 }
 spotlessPredeclare {
     java { googleJavaFormat('1.17.0') }
+    groovyGradle {
+        greclipse()
+    }
 }
 
 shellcheck {
@@ -138,9 +148,9 @@ shellcheck {
 //
 
 tasks.register('installGitHooks', Copy) {
-	from(file('config/hooks/pre-commit-stub')) {
-		rename 'pre-commit-stub', 'pre-commit'
-	}
-	into file('.git/hooks')
-	fileMode 0777
+    from(file('config/hooks/pre-commit-stub')) {
+        rename 'pre-commit-stub', 'pre-commit'
+    }
+    into file('.git/hooks')
+    fileMode 0777
 }
