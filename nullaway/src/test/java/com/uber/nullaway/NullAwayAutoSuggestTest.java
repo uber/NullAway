@@ -24,6 +24,7 @@ package com.uber.nullaway;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.ErrorProneFlags;
+import com.sun.source.tree.Tree;
 import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
 import java.io.IOException;
 import org.junit.Before;
@@ -92,7 +93,8 @@ public class NullAwayAutoSuggestTest {
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "class Test {",
-            "  Object test1(@Nullable Object o) {",
+            "  @Nullable Object o;",
+            "  Object test1() {",
             "    return o;",
             "  }",
             "}")
@@ -102,8 +104,60 @@ public class NullAwayAutoSuggestTest {
             "import static com.uber.nullaway.testdata.Util.castToNonNull;",
             "import javax.annotation.Nullable;",
             "class Test {",
-            "  Object test1(@Nullable Object o) {",
+            "  @Nullable Object o;",
+            "  Object test1() {",
             "    return castToNonNull(o);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  /**
+   * Test for cases where we heuristically decide not to wrap an expression in castToNonNull; see
+   * {@link ErrorBuilder#canBeCastToNonNull(Tree)}
+   */
+  @Test
+  public void suppressInsteadOfCastToNonNull() throws IOException {
+    makeTestHelper()
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  Object f = new Object();",
+            "  Object test1(@Nullable Object o) {",
+            "    return o;",
+            "  }",
+            "  Object test2() {",
+            "    return null;",
+            "  }",
+            "  void test3() {",
+            "    f = null;",
+            "  }",
+            "  @Nullable Object m() { return null; }",
+            "  Object shouldAddCast() {",
+            "    return m();",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  Object f = new Object();",
+            "  @SuppressWarnings(\"NullAway\") Object test1(@Nullable Object o) {",
+            "    return o;",
+            "  }",
+            "  @SuppressWarnings(\"NullAway\") Object test2() {",
+            "    return null;",
+            "  }",
+            "  @SuppressWarnings(\"NullAway\") void test3() {",
+            "    f = null;",
+            "  }",
+            "  @Nullable Object m() { return null; }",
+            "  Object shouldAddCast() {",
+            "    return castToNonNull(m());",
             "  }",
             "}")
         .doTest();
@@ -199,6 +253,70 @@ public class NullAwayAutoSuggestTest {
             "  @SuppressWarnings(\"NullAway\") void test() throws Exception {",
             "    takesNonNull(execute(Test::doReturnNullable));",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void suggestInitSuppressionOnConstructor() throws IOException {
+    makeTestHelper()
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  Object f;",
+            "  Object g;",
+            "  Test() {}",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  Object f;",
+            "  Object g;",
+            "  @SuppressWarnings(\"NullAway.Init\") Test() {}",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void suggestInitSuppressionOnField() throws IOException {
+    makeTestHelper()
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  Object f;",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @SuppressWarnings(\"NullAway.Init\") Object f;",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void updateExtantSuppressWarnings() throws IOException {
+    makeTestHelper()
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @SuppressWarnings(\"unused\") Object f;",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @SuppressWarnings({\"unused\",\"NullAway.Init\"}) Object f;",
             "}")
         .doTest();
   }
