@@ -204,7 +204,7 @@ public class ErrorBuilder {
           builder = addCastToNonNullFix(suggestTree, builder);
         } else {
           // When there is a castToNonNull method, suggestTree is set to the expression to be
-          // casted, which is not suppressible.  For simplicity, we just always recompute the
+          // casted, which is not suppressible. For simplicity, we just always recompute the
           // suppressible node here.
           Tree suppressibleNode = suppressibleNode(state.getPath());
           if (suppressibleNode != null) {
