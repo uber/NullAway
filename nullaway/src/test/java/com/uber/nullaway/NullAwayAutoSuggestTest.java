@@ -22,6 +22,8 @@
 
 package com.uber.nullaway;
 
+import static com.google.errorprone.BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH;
+
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.ErrorProneFlags;
 import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
@@ -162,6 +164,38 @@ public class NullAwayAutoSuggestTest {
   }
 
   @Test
+  public void removeUnnecessaryCastToNonNullMultiLine() throws IOException {
+    makeTestHelper()
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "class Test {",
+            "  static class Foo { Object getObj() { return new Object(); } }",
+            "  Object test1(Foo f) {",
+            "    return castToNonNull(f",
+            "                         // comment that should not be deleted",
+            "                         .getObj());",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "class Test {",
+            "  static class Foo { Object getObj() { return new Object(); } }",
+            "  Object test1(Foo f) {",
+            "    return f",
+            "        // comment that should not be deleted",
+            "        .getObj();",
+            "  }",
+            "}")
+        .doTest(TEXT_MATCH);
+  }
+
+  @Test
   public void suggestSuppressionOnMethodRef() throws IOException {
     makeTestHelper()
         .addInputLines(
@@ -222,6 +256,7 @@ public class NullAwayAutoSuggestTest {
             "out/Test.java",
             "package com.uber;",
             "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "",
             "import javax.annotation.Nullable;",
             "class Test {",
             "  static class Foo { @Nullable Object getObj() { return null; } }",
@@ -231,6 +266,6 @@ public class NullAwayAutoSuggestTest {
             "           .getObj());",
             "  }",
             "}")
-        .doTest();
+        .doTest(TEXT_MATCH);
   }
 }
