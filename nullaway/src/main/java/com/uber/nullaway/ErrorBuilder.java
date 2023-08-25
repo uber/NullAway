@@ -31,6 +31,7 @@ import static com.uber.nullaway.NullAway.CORE_CHECK_NAME;
 import static com.uber.nullaway.NullAway.INITIALIZATION_CHECK_NAME;
 import static com.uber.nullaway.NullAway.OPTIONAL_CHECK_NAME;
 import static com.uber.nullaway.NullAway.getTreesInstance;
+import static com.uber.nullaway.Nullness.hasNullableAnnotation;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -61,6 +62,7 @@ import java.util.Set;
 import java.util.stream.StreamSupport;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.tools.JavaFileObject;
 
 /** A class to construct error message to be displayed after the analysis finds error. */
@@ -198,10 +200,16 @@ public class ErrorBuilder {
       case PASS_NULLABLE:
       case ASSIGN_FIELD_NULLABLE:
       case SWITCH_EXPRESSION_NULLABLE:
-        if (config.getCastToNonNullMethod() != null) {
+        if (config.getCastToNonNullMethod() != null && canBeCastToNonNull(suggestTree)) {
           builder = addCastToNonNullFix(suggestTree, builder, state);
         } else {
-          builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
+          // When there is a castToNonNull method, suggestTree is set to the expression to be
+          // casted, which is not suppressible. For simplicity, we just always recompute the
+          // suppressible node here.
+          Tree suppressibleNode = suppressibleNode(state.getPath());
+          if (suppressibleNode != null) {
+            builder = addSuppressWarningsFix(suppressibleNode, builder, suppressionName);
+          }
         }
         break;
       case CAST_TO_NONNULL_ARG_NONNULL:
@@ -320,6 +328,34 @@ public class ErrorBuilder {
         .orElse(null);
   }
 
+  /**
+   * Checks if it would be appropriate to wrap {@code tree} in a {@code castToNonNull} call. There
+   * are two cases where this method returns {@code false}:
+   *
+   * <ol>
+   *   <li>{@code tree} represents the {@code null} literal
+   *   <li>{@code tree} represents a {@code @Nullable} formal parameter of the enclosing method
+   * </ol>
+   */
+  private boolean canBeCastToNonNull(Tree tree) {
+    switch (tree.getKind()) {
+      case NULL_LITERAL:
+        // never do castToNonNull(null)
+        return false;
+      case IDENTIFIER:
+        // Don't wrap a @Nullable parameter in castToNonNull, as this misleads callers into thinking
+        // they can pass in null without causing an NPE.  A more appropriate fix would likely be to
+        // make the parameter @NonNull and add casts at call sites, but that is beyond the scope of
+        // our suggested fixes
+        Symbol symbol = ASTHelpers.getSymbol(tree);
+        return !(symbol != null
+            && symbol.getKind().equals(ElementKind.PARAMETER)
+            && hasNullableAnnotation(symbol, config));
+      default:
+        return true;
+    }
+  }
+
   private Description.Builder addCastToNonNullFix(
       Tree suggestTree, Description.Builder builder, VisitorState state) {
     final String fullMethodName = config.getCastToNonNullMethod();
@@ -360,8 +396,8 @@ public class ErrorBuilder {
   }
 
   /**
-   * Reports initialization errors where a constructor fails to guarantee non-fields are initialized
-   * along all paths at exit points.
+   * Reports initialization errors where a constructor fails to guarantee non-null fields are
+   * initialized along all paths at exit points.
    *
    * @param methodSymbol Constructor symbol.
    * @param message Error message.
