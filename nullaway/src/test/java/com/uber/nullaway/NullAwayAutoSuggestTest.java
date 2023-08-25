@@ -292,18 +292,25 @@ public class NullAwayAutoSuggestTest {
   }
 
   @Test
-  public void suggestCastToNonNullMultiLine() throws IOException {
+  public void suggestCastToNonNullPreserveComments() throws IOException {
     makeTestHelper()
         .addInputLines(
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "class Test {",
+            "  Object x = new Object();",
             "  static class Foo { @Nullable Object getObj() { return null; } }",
             "  Object test1(Foo f) {",
             "    return f",
             "           // comment that should not be deleted",
             "           .getObj();",
+            "  }",
+            "  void test2(Foo f) {",
+            "    x = f.getObj(); // comment that should not be deleted",
+            "  }",
+            "  Object test3(Foo f) {",
+            "    return f./* keep this comment */getObj();",
             "  }",
             "}")
         .addOutputLines(
@@ -313,11 +320,18 @@ public class NullAwayAutoSuggestTest {
             "",
             "import javax.annotation.Nullable;",
             "class Test {",
+            "  Object x = new Object();",
             "  static class Foo { @Nullable Object getObj() { return null; } }",
             "  Object test1(Foo f) {",
             "    return castToNonNull(f",
             "           // comment that should not be deleted",
             "           .getObj());",
+            "  }",
+            "  void test2(Foo f) {",
+            "    x = castToNonNull(f.getObj()); // comment that should not be deleted",
+            "  }",
+            "  Object test3(Foo f) {",
+            "    return castToNonNull(f./* keep this comment */getObj());",
             "  }",
             "}")
         .doTest(TEXT_MATCH);
