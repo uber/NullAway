@@ -22,6 +22,8 @@
 
 package com.uber.nullaway;
 
+import static com.google.errorprone.BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH;
+
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.ErrorProneFlags;
 import com.sun.source.tree.Tree;
@@ -216,6 +218,38 @@ public class NullAwayAutoSuggestTest {
   }
 
   @Test
+  public void removeUnnecessaryCastToNonNullMultiLine() throws IOException {
+    makeTestHelper()
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "class Test {",
+            "  static class Foo { Object getObj() { return new Object(); } }",
+            "  Object test1(Foo f) {",
+            "    return castToNonNull(f",
+            "                         // comment that should not be deleted",
+            "                         .getObj());",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "class Test {",
+            "  static class Foo { Object getObj() { return new Object(); } }",
+            "  Object test1(Foo f) {",
+            "    return f",
+            "        // comment that should not be deleted",
+            "        .getObj();",
+            "  }",
+            "}")
+        .doTest(TEXT_MATCH);
+  }
+
+  @Test
   public void suggestSuppressionOnMethodRef() throws IOException {
     makeTestHelper()
         .addInputLines(
@@ -258,6 +292,51 @@ public class NullAwayAutoSuggestTest {
   }
 
   @Test
+  public void suggestCastToNonNullPreserveComments() throws IOException {
+    makeTestHelper()
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  Object x = new Object();",
+            "  static class Foo { @Nullable Object getObj() { return null; } }",
+            "  Object test1(Foo f) {",
+            "    return f",
+            "           // comment that should not be deleted",
+            "           .getObj();",
+            "  }",
+            "  void test2(Foo f) {",
+            "    x = f.getObj(); // comment that should not be deleted",
+            "  }",
+            "  Object test3(Foo f) {",
+            "    return f./* keep this comment */getObj();",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  Object x = new Object();",
+            "  static class Foo { @Nullable Object getObj() { return null; } }",
+            "  Object test1(Foo f) {",
+            "    return castToNonNull(f",
+            "           // comment that should not be deleted",
+            "           .getObj());",
+            "  }",
+            "  void test2(Foo f) {",
+            "    x = castToNonNull(f.getObj()); // comment that should not be deleted",
+            "  }",
+            "  Object test3(Foo f) {",
+            "    return castToNonNull(f./* keep this comment */getObj());",
+            "  }",
+            "}")
+        .doTest(TEXT_MATCH);
+  }
+
   public void suggestInitSuppressionOnConstructor() throws IOException {
     makeTestHelper()
         .addInputLines(

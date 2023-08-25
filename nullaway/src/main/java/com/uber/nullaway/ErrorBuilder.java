@@ -201,7 +201,7 @@ public class ErrorBuilder {
       case ASSIGN_FIELD_NULLABLE:
       case SWITCH_EXPRESSION_NULLABLE:
         if (config.getCastToNonNullMethod() != null && canBeCastToNonNull(suggestTree)) {
-          builder = addCastToNonNullFix(suggestTree, builder);
+          builder = addCastToNonNullFix(suggestTree, builder, state);
         } else {
           // When there is a castToNonNull method, suggestTree is set to the expression to be
           // casted, which is not suppressible. For simplicity, we just always recompute the
@@ -356,7 +356,8 @@ public class ErrorBuilder {
     }
   }
 
-  private Description.Builder addCastToNonNullFix(Tree suggestTree, Description.Builder builder) {
+  private Description.Builder addCastToNonNullFix(
+      Tree suggestTree, Description.Builder builder, VisitorState state) {
     final String fullMethodName = config.getCastToNonNullMethod();
     if (fullMethodName == null) {
       throw new IllegalStateException("cast-to-non-null method not set");
@@ -364,7 +365,7 @@ public class ErrorBuilder {
     // Add a call to castToNonNull around suggestTree:
     final String[] parts = fullMethodName.split("\\.");
     final String shortMethodName = parts[parts.length - 1];
-    final String replacement = shortMethodName + "(" + suggestTree.toString() + ")";
+    final String replacement = shortMethodName + "(" + state.getSourceForNode(suggestTree) + ")";
     final SuggestedFix fix =
         SuggestedFix.builder()
             .replace(suggestTree, replacement)
@@ -390,7 +391,7 @@ public class ErrorBuilder {
             invTree, suggestTree));
     // Remove the call to castToNonNull:
     final SuggestedFix fix =
-        SuggestedFix.builder().replace(invTree, suggestTree.toString()).build();
+        SuggestedFix.builder().replace(invTree, state.getSourceForNode(suggestTree)).build();
     return builder.addFix(fix);
   }
 
