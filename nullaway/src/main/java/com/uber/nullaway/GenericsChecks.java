@@ -26,6 +26,9 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.code.Types;
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -452,8 +455,14 @@ public final class GenericsChecks {
                       new Attribute.TypeCompound(
                           nullableType, com.sun.tools.javac.util.List.nil(), null)))
               : com.sun.tools.javac.util.List.nil();
-      TypeMetadata typeMetadata =
-          new TypeMetadata(new TypeMetadata.Annotations(nullableAnnotationCompound));
+      //      TypeMetadata typeMetadata =
+      //          new TypeMetadata(new TypeMetadata.Annotations(nullableAnnotationCompound));
+      TypeMetadata typeMetadata = null;
+      try {
+        typeMetadata = (TypeMetadata) typeMetadataHandle.invoke(nullableAnnotationCompound);
+      } catch (Throwable e) {
+        throw new RuntimeException(e);
+      }
       Type currentTypeArgType = castToNonNull(ASTHelpers.getType(curTypeArg));
       if (currentTypeArgType.getTypeArguments().size() > 0) {
         // nested generic type; recursively preserve its nullability type argument annotations
@@ -916,4 +925,22 @@ public final class GenericsChecks {
           return t.toString();
         }
       };
+
+  static final MethodHandle typeMetadataHandle;
+
+  static {
+    try {
+      typeMetadataHandle = createHandle();
+    } catch (NoSuchMethodException e) {
+      throw new RuntimeException(e);
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private static MethodHandle createHandle() throws NoSuchMethodException, IllegalAccessException {
+    MethodHandles.Lookup lookup = MethodHandles.publicLookup();
+    MethodType mt = MethodType.methodType(TypeMetadata.class, com.sun.tools.javac.util.List.class);
+    return lookup.findStatic(PreJDK21Util.class, "createTypeMetadata", mt);
+  }
 }
