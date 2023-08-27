@@ -646,11 +646,7 @@ public final class GenericsChecks {
                 : com.sun.tools.javac.util.List.nil();
         TypeMetadata typeMetadata =
             new TypeMetadata(new TypeMetadata.Annotations(nullableAnnotationCompound));
-        Type currentTypeArgType = castToNonNull(ASTHelpers.getType(curTypeArg));
-        List<Type> genericArgType = currentTypeArgType.accept(TYPE_ARG_VISITOR, null);
-        if (genericArgType.size() > 0) {
-          currentTypeArgType = curTypeArg.accept(new PreservedAnnotationTreeVisitor(state), null);
-        }
+        Type currentTypeArgType = curTypeArg.accept(this, null);
         Type newTypeArgType = currentTypeArgType.cloneWithMetadata(typeMetadata);
         newTypeArgs.add(newTypeArgType);
       }
@@ -658,6 +654,12 @@ public final class GenericsChecks {
           new Type.ClassType(
               type.getEnclosingType(), com.sun.tools.javac.util.List.from(newTypeArgs), type.tsym);
       return finalType;
+    }
+
+    /** By default, just use the type computed by javac */
+    @Override
+    protected Type defaultAction(Tree node, Void unused) {
+      return castToNonNull(ASTHelpers.getType(node));
     }
   }
 
