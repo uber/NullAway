@@ -603,7 +603,7 @@ public final class GenericsChecks {
     @Override
     public Type visitArrayType(ArrayTypeTree tree, Void p) {
       Type elemType = tree.getType().accept(this, null);
-      return new Type.ArrayType(elemType, elemType.tsym);
+      return new Type.ArrayType(elemType, castToNonNull(ASTHelpers.getType(tree)).tsym);
     }
 
     @Override
