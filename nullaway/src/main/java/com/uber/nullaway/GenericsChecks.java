@@ -602,10 +602,8 @@ public final class GenericsChecks {
 
     @Override
     public Type visitArrayType(ArrayTypeTree tree, Void p) {
-      ParameterizedTypeTree paramTree = (ParameterizedTypeTree) tree.getType();
-      Type.ClassType classType =
-          (Type.ClassType) paramTree.accept(new PreservedAnnotationTreeVisitor(state), null);
-      return new Type.ArrayType(classType, classType.tsym);
+      Type elemType = tree.getType().accept(this, null);
+      return new Type.ArrayType(elemType, elemType.tsym);
     }
 
     @Override
