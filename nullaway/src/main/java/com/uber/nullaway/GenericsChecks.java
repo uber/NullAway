@@ -26,6 +26,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.util.ListBuffer;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -457,12 +458,7 @@ public final class GenericsChecks {
               : com.sun.tools.javac.util.List.nil();
       //      TypeMetadata typeMetadata =
       //          new TypeMetadata(new TypeMetadata.Annotations(nullableAnnotationCompound));
-      TypeMetadata typeMetadata = null;
-      try {
-        typeMetadata = (TypeMetadata) typeMetadataHandle.invoke(nullableAnnotationCompound);
-      } catch (Throwable e) {
-        throw new RuntimeException(e);
-      }
+      TypeMetadata typeMetadata = tmBuilder.create(nullableAnnotationCompound);
       Type currentTypeArgType = castToNonNull(ASTHelpers.getType(curTypeArg));
       if (currentTypeArgType.getTypeArguments().size() > 0) {
         // nested generic type; recursively preserve its nullability type argument annotations
@@ -926,21 +922,61 @@ public final class GenericsChecks {
         }
       };
 
-  static final MethodHandle typeMetadataHandle;
+  private interface TypeMetadataBuilder {
+    TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs);
+  }
 
-  static {
-    try {
-      typeMetadataHandle = createHandle();
-    } catch (NoSuchMethodException e) {
-      throw new RuntimeException(e);
-    } catch (IllegalAccessException e) {
-      throw new RuntimeException(e);
+  private static class JDK17AndEarlierTypeMetadataBuilder implements TypeMetadataBuilder {
+
+    @Override
+    public TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs) {
+      return new TypeMetadata(new TypeMetadata.Annotations(attrs));
     }
   }
 
-  private static MethodHandle createHandle() throws NoSuchMethodException, IllegalAccessException {
-    MethodHandles.Lookup lookup = MethodHandles.publicLookup();
-    MethodType mt = MethodType.methodType(TypeMetadata.class, com.sun.tools.javac.util.List.class);
-    return lookup.findStatic(PreJDK21Util.class, "createTypeMetadata", mt);
+  private static class JDK21TypeMetadataBuilder implements TypeMetadataBuilder {
+
+    private static final MethodHandle typeMetadataHandle = createHandle();
+
+    private static MethodHandle createHandle() {
+      MethodHandles.Lookup lookup = MethodHandles.lookup();
+      MethodType mt = MethodType.methodType(void.class, com.sun.tools.javac.util.ListBuffer.class);
+      try {
+        return lookup.findConstructor(TypeMetadata.Annotations.class, mt);
+      } catch (NoSuchMethodException e) {
+        throw new RuntimeException(e);
+      } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs) {
+      ListBuffer<Attribute.TypeCompound> b = new ListBuffer<>();
+      b.appendList(attrs);
+      try {
+        return (TypeMetadata) typeMetadataHandle.invoke(b);
+      } catch (Throwable e) {
+        throw new RuntimeException(e);
+      }
+    }
+  }
+
+  private static final TypeMetadataBuilder tmBuilder =
+      getVersion() >= 21
+          ? new JDK21TypeMetadataBuilder()
+          : new JDK17AndEarlierTypeMetadataBuilder();
+
+  private static int getVersion() {
+    String version = System.getProperty("java.version");
+    if (version.startsWith("1.")) {
+      version = version.substring(2, 3);
+    } else {
+      int dot = version.indexOf(".");
+      if (dot != -1) {
+        version = version.substring(0, dot);
+      }
+    }
+    return Integer.parseInt(version);
   }
 }
