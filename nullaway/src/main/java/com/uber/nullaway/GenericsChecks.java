@@ -506,7 +506,11 @@ public final class GenericsChecks {
         }
       };
 
-  /** To dispatch the logic to0 obtain the generic type arguments for different Types */
+  /**
+   * Visitor that recursively compares the Nullability annotations for the nested generic type
+   * arguments. Compares the Type it is called upon, i.e. the LHS type and the Type passed as an
+   * argument, i.e. The RHS type
+   */
   public static class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
     private final VisitorState state;
 
@@ -517,21 +521,18 @@ public final class GenericsChecks {
     @Override
     public Boolean visitClassType(Type.ClassType lhsType, Type rhsType) {
       Types types = state.getTypes();
-      // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we
-      // must
+      // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
       // compare lhsType against the supertype of rhsType with a matching base type.
       rhsType = (Type.ClassType) types.asSuper(rhsType, lhsType.tsym);
       // This is impossible, considering the fact that standard Java subtyping succeeds before
-      // running
-      // NullAway
+      // running NullAway
       if (rhsType == null) {
         throw new RuntimeException("Did not find supertype of " + rhsType + " matching " + lhsType);
       }
       List<Type> lhsTypeArguments = lhsType.getTypeArguments();
       List<Type> rhsTypeArguments = rhsType.getTypeArguments();
       // This is impossible, considering the fact that standard Java subtyping succeeds before
-      // running
-      // NullAway
+      // running NullAway
       if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
         throw new RuntimeException(
             "Number of types arguments in " + rhsType + " does not match " + lhsType);
@@ -585,7 +586,12 @@ public final class GenericsChecks {
     }
   }
 
-  /** Visitor For Handling Different Tree Types */
+  /**
+   * Visitor For getting the preserved Annotation Type for the nested generic type arguments within
+   * the ParameterizedTypeTree originally passed to TypeWithPreservedAnnotations method, since these
+   * nested arguments may not always be ParameterizedTypeTrees and may be of different types for
+   * e.g. ArrayTypeTree.
+   */
   public static class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void> {
 
     private final VisitorState state;
