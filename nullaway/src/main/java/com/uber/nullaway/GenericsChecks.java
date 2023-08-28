@@ -482,34 +482,10 @@ public final class GenericsChecks {
     }
   }
 
-  /** To dispatch the logic to obtain the generic type arguments for different Types */
-  private static final Type.Visitor<List<Type>, Void> TYPE_ARG_VISITOR =
-      new Types.DefaultTypeVisitor<List<Type>, Void>() {
-        @Override
-        public List<Type> visitClassType(Type.ClassType t, Void s) {
-          return t.getTypeArguments();
-        }
-
-        @Override
-        public List<Type> visitArrayType(Type.ArrayType t, Void unused) {
-          return t.getComponentType().getTypeArguments();
-        }
-
-        @Override
-        public List<Type> visitCapturedType(Type.CapturedType t, Void s) {
-          return t.wildcard.accept(this, null);
-        }
-
-        @Override
-        public List<Type> visitType(Type t, Void unused) {
-          return Collections.emptyList();
-        }
-      };
-
   /**
-   * Visitor that recursively compares the Nullability annotations for the nested generic type
-   * arguments. Compares the Type it is called upon, i.e. the LHS type and the Type passed as an
-   * argument, i.e. The RHS type
+   * Visitor that is called from compareNullabilityAnnotations which recursively compares the
+   * Nullability annotations for the nested generic type arguments. Compares the Type it is called
+   * upon, i.e. the LHS type and the Type passed as an argument, i.e. The RHS type.
    */
   public static class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
     private final VisitorState state;
@@ -562,11 +538,8 @@ public final class GenericsChecks {
           return false;
         }
         // nested generics
-        List<Type> genericArgs = lhsTypeArgument.accept(TYPE_ARG_VISITOR, null);
-        if (genericArgs.size() > 0) {
-          if (!lhsTypeArgument.accept(new CompareNullabilityVisitor(state), rhsTypeArgument)) {
-            return false;
-          }
+        if (!lhsTypeArgument.accept(new CompareNullabilityVisitor(state), rhsTypeArgument)) {
+          return false;
         }
       }
       return true;
