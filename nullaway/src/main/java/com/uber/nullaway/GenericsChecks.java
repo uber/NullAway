@@ -353,6 +353,7 @@ public final class GenericsChecks {
    *
    * @param lhsType type for the lhs of the assignment
    * @param rhsType type for the rhs of the assignment
+   * @param state the visitor state
    */
   private static boolean compareNullabilityAnnotations(
       Type lhsType, Type rhsType, VisitorState state) {
