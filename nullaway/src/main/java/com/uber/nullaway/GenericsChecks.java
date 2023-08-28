@@ -550,7 +550,7 @@ public final class GenericsChecks {
       Type.ArrayType arrRhsType = (Type.ArrayType) rhsType;
       return lhsType
           .getComponentType()
-          .accept(new CompareNullabilityVisitor(state), arrRhsType.getComponentType());
+          .accept(this, arrRhsType.getComponentType());
     }
 
     @Override
