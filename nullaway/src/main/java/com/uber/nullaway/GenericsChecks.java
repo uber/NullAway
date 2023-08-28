@@ -548,9 +548,7 @@ public final class GenericsChecks {
     @Override
     public Boolean visitArrayType(Type.ArrayType lhsType, Type rhsType) {
       Type.ArrayType arrRhsType = (Type.ArrayType) rhsType;
-      return lhsType
-          .getComponentType()
-          .accept(this, arrRhsType.getComponentType());
+      return lhsType.getComponentType().accept(this, arrRhsType.getComponentType());
     }
 
     @Override
@@ -965,6 +963,7 @@ public final class GenericsChecks {
 
         @Override
         public String visitArrayType(Type.ArrayType t, Void unused) {
+          // TODO properly print cases like int @Nullable[]
           return t.elemtype.accept(this, null) + "[]";
         }
 
