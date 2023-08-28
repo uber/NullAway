@@ -538,7 +538,7 @@ public final class GenericsChecks {
           return false;
         }
         // nested generics
-        if (!lhsTypeArgument.accept(new CompareNullabilityVisitor(state), rhsTypeArgument)) {
+        if (!lhsTypeArgument.accept(this, rhsTypeArgument)) {
           return false;
         }
       }
