@@ -771,10 +771,13 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  static class A<T extends @Nullable Object> { }",
             "  static void testPositive() {",
             "    // BUG: Diagnostic contains: Cannot assign from type",
-            "    A<A<@Nullable String>[]> var = new A<A<String>[]>();",
+            "    A<A<@Nullable String>[]> var1 = new A<A<String>[]>();",
+            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    A<A<String>[]> var2 = new A<A<@Nullable String>[]>();",
             "  }",
             "  static void testNegative() {",
-            "    A<A<@Nullable String>[]> var = new A<A<@Nullable String>[]>();",
+            "    A<A<@Nullable String>[]> var1 = new A<A<@Nullable String>[]>();",
+            "    A<A<String>[]> var2 = new A<A<String>[]>();",
             "  }",
             "}")
         .doTest();
