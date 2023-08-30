@@ -17,8 +17,6 @@ repositories {
 dependencies {
     implementation deps.build.commonscli
     implementation deps.build.guava
-    compileOnly deps.build.errorProneCheckApi
-
     implementation project(":jar-infer:jar-infer-lib")
 
     testImplementation deps.test.junit4
