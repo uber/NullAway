@@ -761,6 +761,85 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nestedGenericTypeAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    A<A<@Nullable String>[]> var1 = new A<A<String>[]>();",
+            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    A<A<String>[]> var2 = new A<A<@Nullable String>[]>();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<A<@Nullable String>[]> var1 = new A<A<@Nullable String>[]>();",
+            "    A<A<String>[]> var2 = new A<A<String>[]>();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void genericPrimitiveArrayTypeAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: Cannot assign from type A<int[]>",
+            "    A<int @Nullable[]> x = new A<int[]>();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<int @Nullable[]> x = new A<int @Nullable[]>();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nestedGenericTypeVariables() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static class B<T> {",
+            "    void foo() {",
+            "      A<A<T>[]> x = new A<A<T>[]>();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nestedGenericWildcardTypeVariables() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static class B<T> {",
+            "    void foo() {",
+            "      A<A<? extends String>[]> x = new A<A<? extends String>[]>();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void overrideReturnTypes() {
     makeHelper()
         .addSourceLines(
