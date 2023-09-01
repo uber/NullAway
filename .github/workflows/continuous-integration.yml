@@ -59,14 +59,20 @@ jobs:
           arguments: shellcheck
         if: runner.os == 'Linux'
       - name: Report jacoco coverage
+        id: jacoco_report
         uses: gradle/gradle-build-action@v2
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
-          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
         with:
-          arguments: coveralls
+          arguments: :code-coverage-report:clean codeCoverageReport --no-build-cache
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.21.1' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.21.1' #&& github.repository == 'uber/NullAway'
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./code-coverage-report/build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
+        if: steps.jacoco_report.conclusion == 'success'
       - name: Test publishToMavenLocal flow
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
