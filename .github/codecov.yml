@@ -1,4 +1,4 @@
 codecov:
-  #Disables Report Age since Codecov doesn't allow reports older than 12 hours, and report timestamp is based on build cache. 
+  # Disable report age checking since hits in the build cache can lead to an old timestamp
   max_report_age: off
   
