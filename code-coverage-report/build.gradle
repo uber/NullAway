@@ -18,7 +18,6 @@
 plugins {
     id 'java'
     id 'jacoco'
-    id 'com.github.kt3k.coveralls'
 }
 
 // Use JDK 17 for this module, via a toolchain.  We need JDK 17 since this module
@@ -69,19 +68,6 @@ def codeCoverageReport = tasks.register('codeCoverageReport', JacocoReport) {
         // without any external tools
         html.required = true
     }
-}
-
-coveralls {
-    jacocoReportPath = "build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
-    afterEvaluate {
-        sourceDirs = sourcesPath.incoming.artifactView { lenient(true) }.files as List<String>
-    }
-}
-
-def coverallsTask = tasks.named('coveralls')
-
-coverallsTask.configure {
-    dependsOn 'codeCoverageReport'
 }
 
 // These dependencies indicate which projects have tests or tested code we want to include
