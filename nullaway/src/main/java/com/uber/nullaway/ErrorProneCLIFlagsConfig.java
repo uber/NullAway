@@ -281,4 +281,24 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
     }
     return ImmutableSet.copyOf(combined);
   }
+
+  @SuppressWarnings("unused")
+  private static ImmutableSet<String> getFlagStringSet2(ErrorProneFlags flags, String flagName) {
+    Optional<String> flagValue = flags.get(flagName);
+    if (flagValue.isPresent()) {
+      return ImmutableSet.copyOf(flagValue.get().split(DELIMITER));
+    }
+    return ImmutableSet.of();
+  }
+
+  @SuppressWarnings("unused")
+  private static ImmutableSet<String> getFlagStringSet2(
+      ErrorProneFlags flags, String flagName, ImmutableSet<String> defaults) {
+    Set<String> combined = new LinkedHashSet<>(defaults);
+    Optional<String> flagValue = flags.get(flagName);
+    if (flagValue.isPresent()) {
+      Collections.addAll(combined, flagValue.get().split(DELIMITER));
+    }
+    return ImmutableSet.copyOf(combined);
+  }
 }
