@@ -58,7 +58,7 @@ jobs:
         with:
           arguments: shellcheck
         if: runner.os == 'Linux'
-      - name: Report jacoco coverage
+      - name: Aggregate jacoco coverage
         id: jacoco_report
         uses: gradle/gradle-build-action@v2
         env:
