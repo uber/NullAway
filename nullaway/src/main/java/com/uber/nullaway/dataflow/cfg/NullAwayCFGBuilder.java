@@ -187,7 +187,7 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
                     }
                   },
                   booleanExpressionNode,
-                  this.getProcessingEnvironment().getTypeUtils()),
+                  this.env.getTypeUtils()),
               errorType);
       exNode.setTerminatesExecution(true);
       this.addLabelForNextNode(endPrecondition);

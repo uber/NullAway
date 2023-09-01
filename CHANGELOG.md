@@ -1,5 +1,26 @@
 Changelog
 =========
+Version 0.10.13
+---------------
+* Allow library models to define custom stream classes (#807)
+* Avoid suggesting castToNonNull fixes in certain cases (#799)
+* Ensure castToNonNull insertion/removal suggested fixes do not remove comments (#815)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - Generics checks for method overriding (#755)
+  - Make GenericsChecks methods static (#805)
+  - Add visitors for handling different types in generic type invariance check (#806)
+* Build / CI tooling for NullAway itself:
+  - Bump versions for some dependencies (#800)
+  - Update to WALA 1.6.2 (#798)
+  - Update to Error Prone 2.21.1 (#797)
+  - Enable contract checking when building NullAway (#802)
+  - Bump Error Prone Gradle Plugin version (#804)
+  - Modify JMH Benchmark Workflow For Shellcheck (#813)
+  - Bump gradle maven publish plugin from 0.21.0 to 0.25.3 (#810)
+  - Use Spotless to enforce consistent formatting for Gradle build scripts (#809)
+  - Remove unnecessary compile dependence for jar-infer-cli (#816)
+  - Added Codecov to CI Pipeline (#820)
+
 Version 0.10.12
 ---------------
 Note: This is the first release built with Java 11. In particular, running

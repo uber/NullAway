@@ -1,0 +1,4 @@
+codecov:
+  # Disable report age checking since hits in the build cache can lead to an old timestamp
+  max_report_age: off
+  
