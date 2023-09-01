@@ -102,7 +102,6 @@ subprojects { project ->
     repositories {
         mavenCentral()
         google()
-        mavenLocal()
     }
 
     // For some reason, spotless complains when applied to the jar-infer folder itself, even
