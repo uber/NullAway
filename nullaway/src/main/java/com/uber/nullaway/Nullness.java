@@ -223,10 +223,10 @@ public enum Nullness implements AbstractValue<Nullness> {
 
   private static boolean isRecordEqualsParam(
       Symbol.MethodSymbol symbol, int paramInd, Context context) {
-    Types types = Types.instance(context);
     if (!symbol.owner.getKind().toString().equals("RECORD")) {
       return false;
     }
+    Types types = Types.instance(context);
     Symbol.MethodSymbol closestOverriddenMethod =
         NullabilityUtil.getClosestOverriddenMethod(symbol, types);
     return closestOverriddenMethod != null
