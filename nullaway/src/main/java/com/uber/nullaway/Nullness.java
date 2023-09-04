@@ -19,6 +19,8 @@
 package com.uber.nullaway;
 
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.util.Context;
 import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
@@ -209,19 +211,27 @@ public enum Nullness implements AbstractValue<Nullness> {
    * or type-use annotation? This method works for methods defined in either source or class files.
    */
   public static boolean paramHasNullableAnnotation(
-      Symbol.MethodSymbol symbol, int paramInd, Config config) {
+      Symbol.MethodSymbol symbol, int paramInd, Config config, Context context) {
     // We treat the (generated) equals() method of record types to have a @Nullable parameter, as
     // the generated implementation handles null (as required by the contract of Object.equals())
-    if (isRecordEqualsParam(symbol, paramInd)) {
+    if (isRecordEqualsParam(symbol, paramInd, context)) {
       return true;
     }
     return hasNullableAnnotation(
         NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd), config);
   }
 
-  private static boolean isRecordEqualsParam(Symbol.MethodSymbol symbol, int paramInd) {
-    return symbol.owner.getKind().toString().equals("RECORD")
-        && symbol.getSimpleName().contentEquals("equals")
+  private static boolean isRecordEqualsParam(
+      Symbol.MethodSymbol symbol, int paramInd, Context context) {
+    Types types = Types.instance(context);
+    if (!symbol.owner.getKind().toString().equals("RECORD")) {
+      return false;
+    }
+    Symbol.MethodSymbol closestOverriddenMethod =
+        NullabilityUtil.getClosestOverriddenMethod(symbol, types);
+    return closestOverriddenMethod != null
+        && closestOverriddenMethod.owner.getQualifiedName().contentEquals("java.lang.Record")
+        && closestOverriddenMethod.getSimpleName().contentEquals("equals")
         && paramInd == 0;
   }
 
