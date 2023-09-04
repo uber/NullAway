@@ -188,8 +188,10 @@ public class NullAwayRecordTests {
             "import javax.annotation.Nullable;",
             "class Records {",
             "  public void recordEqualsNull() {",
-            "    record Rec() { }",
+            "    record Rec() { void print(Object o) { System.out.println(o.toString()); } }",
             "    new Rec().equals(null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    new Rec().print(null);",
             "  }",
             "}")
         .doTest();
