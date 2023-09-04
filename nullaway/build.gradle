@@ -138,6 +138,12 @@ def jdk8Test = tasks.register("testJdk8", Test) {
     classpath = testTask.classpath
     testClassesDirs = testTask.testClassesDirs
     jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
+    filter {
+        // tests cannot run on JDK 8 since Mockito version no longer supports it
+        excludeTestsMatching "com.uber.nullaway.NullAwaySerializationTest.initializationError"
+        excludeTestsMatching "com.uber.nullaway.handlers.contract.ContractUtilsTest.getEmptyAntecedent"
+    }
+
 }
 
 // Create a task to test on JDK 21
