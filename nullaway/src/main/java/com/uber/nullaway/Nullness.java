@@ -210,8 +210,19 @@ public enum Nullness implements AbstractValue<Nullness> {
    */
   public static boolean paramHasNullableAnnotation(
       Symbol.MethodSymbol symbol, int paramInd, Config config) {
+    // We treat the (generated) equals() method of record types to have a @Nullable parameter, as
+    // the generated implementation handles null (as required by the contract of Object.equals())
+    if (isRecordEqualsParam(symbol, paramInd)) {
+      return true;
+    }
     return hasNullableAnnotation(
         NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd), config);
+  }
+
+  private static boolean isRecordEqualsParam(Symbol.MethodSymbol symbol, int paramInd) {
+    return symbol.owner.getKind().toString().equals("RECORD")
+        && symbol.getSimpleName().contentEquals("equals")
+        && paramInd == 0;
   }
 
   /**

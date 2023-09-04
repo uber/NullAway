@@ -178,4 +178,20 @@ public class NullAwayRecordTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void recordEqualsNull() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Records.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Records {",
+            "  public void recordEqualsNull() {",
+            "    record Rec() { }",
+            "    new Rec().equals(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
