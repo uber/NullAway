@@ -142,6 +142,10 @@ def jdk8Test = tasks.register("testJdk8", Test) {
 
 // Create a task to test on JDK 21
 def jdk21Test = tasks.register("testJdk21", Test) {
+    onlyIf {
+        // Only test on JDK 21 when using the latest Error Prone version
+        deps.versions.errorProneApi == deps.versions.errorProneLatest
+    }
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(21)
     }
