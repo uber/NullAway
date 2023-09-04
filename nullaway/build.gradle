@@ -143,7 +143,6 @@ def jdk8Test = tasks.register("testJdk8", Test) {
         excludeTestsMatching "com.uber.nullaway.NullAwaySerializationTest.initializationError"
         excludeTestsMatching "com.uber.nullaway.handlers.contract.ContractUtilsTest.getEmptyAntecedent"
     }
-
 }
 
 // Create a task to test on JDK 21
