@@ -170,7 +170,7 @@ def jdk21Test = tasks.register("testJdk21", Test) {
         "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
     ]
     filter {
-        // These tests do not yet pass on JDK 21
+        // JSpecify Generics tests do not yet pass on JDK 21
         // TODO open task to track this
         excludeTestsMatching "com.uber.nullaway.NullAwayJSpecifyGenericsTests"
     }
