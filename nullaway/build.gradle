@@ -180,7 +180,7 @@ def jdk21Test = tasks.register("testJdk21", Test) {
     ]
     filter {
         // JSpecify Generics tests do not yet pass on JDK 21
-        // TODO open task to track this
+        // See https://github.com/uber/NullAway/issues/827
         excludeTestsMatching "com.uber.nullaway.NullAwayJSpecifyGenericsTests"
     }
 }
