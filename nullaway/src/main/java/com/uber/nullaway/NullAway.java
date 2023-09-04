@@ -732,7 +732,7 @@ public class NullAway extends BugChecker
     if (isOverriddenMethodAnnotated) {
       for (int i = 0; i < superParamSymbols.size(); i++) {
         overriddenMethodArgNullnessMap[i] =
-            Nullness.paramHasNullableAnnotation(overriddenMethod, i, config, state.context)
+            Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)
                 ? Nullness.NULLABLE
                 : (config.isJSpecifyMode()
                     ? GenericsChecks.getGenericMethodParameterNullness(
@@ -1641,7 +1641,7 @@ public class NullAway extends BugChecker
           // we need to call paramHasNullableAnnotation here since the invoked method may be defined
           // in a class file
           argumentPositionNullness[i] =
-              Nullness.paramHasNullableAnnotation(methodSymbol, i, config, state.context)
+              Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
                   ? Nullness.NULLABLE
                   : ((config.isJSpecifyMode() && tree instanceof MethodInvocationTree)
                       ? GenericsChecks.getGenericParameterNullnessAtInvocation(

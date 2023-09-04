@@ -125,7 +125,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
           }
         }
         argumentPositionNullness[i] = Nullness.NONNULL;
-      } else if (Nullness.paramHasNullableAnnotation(methodSymbol, i, config, context)) {
+      } else if (Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
         argumentPositionNullness[i] = Nullness.NULLABLE;
       }
     }
