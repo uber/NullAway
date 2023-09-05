@@ -17,7 +17,7 @@ import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
     id 'java-library'
-    id 'nullaway.jacoco-conventions'
+    id 'nullaway.java-test-conventions'
 }
 
 configurations {
@@ -72,22 +72,6 @@ javadoc {
 
 
 test {
-    maxHeapSize = "1024m"
-    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
-    jvmArgs += [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-        // Accessed by Lombok tests
-        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
-    ]
     if (deps.versions.errorProneApi == "2.4.0" && JavaVersion.current() >= JavaVersion.VERSION_17) {
         // This test does not pass on JDK 17 with Error Prone 2.4.0 due to a Mockito incompatibility.  Skip it (the
         // test passes with more recent Error Prone versions on JDK 17)
@@ -145,49 +129,16 @@ def jdk8Test = tasks.register("testJdk8", Test) {
     }
 }
 
-// Create a task to test on JDK 21
-def jdk21Test = tasks.register("testJdk21", Test) {
-    onlyIf {
-        // Only test on JDK 21 when using the latest Error Prone version
-        deps.versions.errorProneApi == deps.versions.errorProneLatest
-    }
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
+tasks.named('check').configure {
+    dependsOn(jdk8Test)
+}
 
-    description = "Runs the test suite on JDK 21"
-    group = LifecycleBasePlugin.VERIFICATION_GROUP
-
-    // Copy inputs from normal Test task.
-    def testTask = tasks.getByName("test")
-    classpath = testTask.classpath
-    testClassesDirs = testTask.testClassesDirs
-    maxHeapSize = "1024m"
-    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
-    jvmArgs += [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-        // Accessed by Lombok tests
-        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
-    ]
+tasks.named('testJdk21', Test).configure {
     filter {
         // JSpecify Generics tests do not yet pass on JDK 21
         // See https://github.com/uber/NullAway/issues/827
         excludeTestsMatching "com.uber.nullaway.NullAwayJSpecifyGenericsTests"
     }
-}
-
-tasks.named('check').configure {
-    dependsOn(jdk8Test)
-    dependsOn(jdk21Test)
 }
 
 // Create a task to build NullAway with NullAway checking enabled
@@ -227,4 +178,6 @@ tasks.register('buildWithNullAway', JavaCompile) {
 
 project.tasks.named('check').configure {
     dependsOn 'buildWithNullAway'
+    dependsOn testJdk8
+    dependsOn tasks.getByName('testJdk21')
 }

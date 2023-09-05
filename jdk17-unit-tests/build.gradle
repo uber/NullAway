@@ -15,7 +15,7 @@
  */
 plugins {
     id 'java-library'
-    id 'nullaway.jacoco-conventions'
+    id 'nullaway.java-test-conventions'
 }
 
 // Use JDK 17 for this module, via a toolchain
@@ -44,57 +44,15 @@ dependencies {
 }
 
 test {
-    maxHeapSize = "1024m"
-    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
     jvmArgs += [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
         // Expose a module path for tests as a JVM property.
         // Used by com.uber.nullaway.jdk17.NullAwayModuleInfoTests
         "-Dtest.module.path=${configurations.testModulePath.asPath}"
     ]
 }
 
-// Create a task to test on JDK 21
-def jdk21Test = tasks.register("testJdk21", Test) {
-    onlyIf {
-        // Only test on JDK 21 when using the latest Error Prone version
-        deps.versions.errorProneApi == deps.versions.errorProneLatest
-    }
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-
-    description = "Runs the test suite on JDK 21"
-    group = LifecycleBasePlugin.VERIFICATION_GROUP
-
-    // Copy inputs from normal Test task.
-    def testTask = tasks.getByName("test")
-    classpath = testTask.classpath
-    testClassesDirs = testTask.testClassesDirs
-    maxHeapSize = "1024m"
-    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
+tasks.getByName('testJdk21').configure {
     jvmArgs += [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-        // Accessed by Lombok tests
-        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
         // Expose a module path for tests as a JVM property.
         // Used by com.uber.nullaway.jdk17.NullAwayModuleInfoTests
         "-Dtest.module.path=${configurations.testModulePath.asPath}"
@@ -102,5 +60,5 @@ def jdk21Test = tasks.register("testJdk21", Test) {
 }
 
 tasks.named('check').configure {
-    dependsOn(jdk21Test)
+    dependsOn tasks.getByName('testJdk21')
 }

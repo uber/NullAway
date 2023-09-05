@@ -15,7 +15,7 @@
  */
 plugins {
     id "java-library"
-    id 'nullaway.jacoco-conventions'
+    id 'nullaway.java-test-conventions'
 }
 
 // JarInfer requires JDK 11+, due to its dependence on WALA
@@ -48,64 +48,10 @@ dependencies {
 }
 
 test {
-    maxHeapSize = "1024m"
-    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
-    jvmArgs += [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-        // Accessed by Lombok tests
-        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
-    ]
     dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
 }
 
-// Create a task to test on JDK 21
-def jdk21Test = tasks.register("testJdk21", Test) {
-    onlyIf {
-        // Only test on JDK 21 when using the latest Error Prone version
-        deps.versions.errorProneApi == deps.versions.errorProneLatest
-    }
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(21)
-    }
-
-    description = "Runs the test suite on JDK 21"
-    group = LifecycleBasePlugin.VERIFICATION_GROUP
-
-    // Copy inputs from normal Test task.
-    def testTask = tasks.getByName("test")
-    classpath = testTask.classpath
-    testClassesDirs = testTask.testClassesDirs
-    maxHeapSize = "1024m"
-    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
-    jvmArgs += [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-        // Accessed by Lombok tests
-        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
-    ]
-}
-
-// Tests do not pass yet on JDK 21, so do not require it
-//tasks.named('check').configure {
-//    dependsOn(jdk21Test)
-//}
+// NOTE: tests do not pass yet on JDK 21, so we do not add a dependence from check to the testJdk21 test
 
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED"
