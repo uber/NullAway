@@ -222,6 +222,8 @@ public enum Nullness implements AbstractValue<Nullness> {
   }
 
   private static boolean isRecordEqualsParam(Symbol.MethodSymbol symbol, int paramInd) {
+    // Here we compare with toString() to preserve compatibility with JDK 11 (records only
+    // introduced in JDK 16)
     if (!symbol.owner.getKind().toString().equals("RECORD")) {
       return false;
     }
