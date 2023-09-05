@@ -54,5 +54,4 @@ def jdk8Test = tasks.register("testJdk8", Test) {
 
 tasks.named('check').configure {
     dependsOn(jdk8Test)
-    dependsOn tasks.getByName('testJdk21')
 }

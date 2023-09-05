@@ -179,5 +179,4 @@ tasks.register('buildWithNullAway', JavaCompile) {
 project.tasks.named('check').configure {
     dependsOn 'buildWithNullAway'
     dependsOn testJdk8
-    dependsOn tasks.getByName('testJdk21')
 }

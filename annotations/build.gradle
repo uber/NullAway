@@ -23,8 +23,4 @@ plugins {
 dependencies {
 }
 
-tasks.named('check').configure {
-    dependsOn tasks.getByName('testJdk21')
-}
-
 apply plugin: 'com.vanniktech.maven.publish'

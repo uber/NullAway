@@ -136,7 +136,3 @@ tasks.named('test') {
 tasks.getByName('testJdk21').configure {
     jvmArgs += extraJVMArgs
 }
-
-tasks.named('check').configure {
-    dependsOn tasks.getByName('testJdk21')
-}

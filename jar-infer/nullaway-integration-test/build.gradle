@@ -26,7 +26,3 @@ dependencies {
     testImplementation project(":nullaway")
     testImplementation project(":jar-infer:test-java-lib-jarinfer")
 }
-
-tasks.named('check').configure {
-    dependsOn tasks.getByName('testJdk21')
-}

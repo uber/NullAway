@@ -51,7 +51,11 @@ test {
     dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
 }
 
-// NOTE: tests do not pass yet on JDK 21, so we do not add a dependence from check to the testJdk21 test
+tasks.named('testJdk21', Test).configure {
+    // Tests fail since WALA does not yet support JDK 21; see https://github.com/uber/NullAway/issues/829
+    // So, disable them
+    onlyIf { false }
+}
 
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED"

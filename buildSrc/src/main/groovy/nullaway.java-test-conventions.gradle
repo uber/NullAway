@@ -81,7 +81,7 @@ test {
 }
 
 // Create a task to test on JDK 21
-tasks.register("testJdk21", Test) {
+def testJdk21 = tasks.register("testJdk21", Test) {
     onlyIf {
         // Only test on JDK 21 when using the latest Error Prone version
         deps.versions.errorProneApi == deps.versions.errorProneLatest
@@ -113,4 +113,8 @@ tasks.register("testJdk21", Test) {
         // Accessed by Lombok tests
         "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
     ]
+}
+
+tasks.named('check').configure {
+    dependsOn testJdk21
 }
