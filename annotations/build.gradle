@@ -23,7 +23,7 @@ plugins {
 dependencies {
 }
 
-project.tasks.named('check').configure {
+tasks.named('check').configure {
     dependsOn tasks.getByName('testJdk21')
 }
 
