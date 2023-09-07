@@ -1,5 +1,17 @@
 Changelog
 =========
+Version 0.10.14
+---------------
+IMPORTANT: This version introduces EXPERIMENTAL JDK21 support.
+* Bump Checker Framework dependency to 3.38.0 (#819)
+  - Note: Not just an internal implementation change. Needed to support JDK 21!
+* Treat parameter of generated Record.equals() methods as @Nullable (#825)
+* Build / CI tooling for NullAway itself:
+  - Fixes Codecov Report Expired error (#821)
+  - Updated Readme.md with Codecov link (#823)
+  - Remove ASM-related hack in build config (#824)
+  - Run tests on JDK 21 (#826)
+
 Version 0.10.13
 ---------------
 * Allow library models to define custom stream classes (#807)
