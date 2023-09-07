@@ -19,6 +19,8 @@
 package com.uber.nullaway;
 
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.util.List;
 import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
@@ -210,8 +212,34 @@ public enum Nullness implements AbstractValue<Nullness> {
    */
   public static boolean paramHasNullableAnnotation(
       Symbol.MethodSymbol symbol, int paramInd, Config config) {
+    // We treat the (generated) equals() method of record types to have a @Nullable parameter, as
+    // the generated implementation handles null (as required by the contract of Object.equals())
+    if (isRecordEqualsParam(symbol, paramInd)) {
+      return true;
+    }
     return hasNullableAnnotation(
         NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd), config);
+  }
+
+  private static boolean isRecordEqualsParam(Symbol.MethodSymbol symbol, int paramInd) {
+    // Here we compare with toString() to preserve compatibility with JDK 11 (records only
+    // introduced in JDK 16)
+    if (!symbol.owner.getKind().toString().equals("RECORD")) {
+      return false;
+    }
+    if (!symbol.getSimpleName().contentEquals("equals")) {
+      return false;
+    }
+    // Check for a boolean return type and a single parameter of type java.lang.Object
+    Type type = symbol.type;
+    List<Type> parameterTypes = type.getParameterTypes();
+    if (!(type.getReturnType().toString().equals("boolean")
+        && parameterTypes != null
+        && parameterTypes.size() == 1
+        && parameterTypes.get(0).toString().equals("java.lang.Object"))) {
+      return false;
+    }
+    return paramInd == 0;
   }
 
   /**

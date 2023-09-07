@@ -36,6 +36,11 @@ jobs:
     steps:
       - name: Check out NullAway sources
         uses: actions/checkout@v3
+      - name: 'Set up JDK 21 so it is available'
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21-ea'
+          distribution: 'temurin'
       - name: 'Set up JDK 17 on Windows'
         uses: actions/setup-java@v3
         with:
