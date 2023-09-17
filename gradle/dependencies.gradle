@@ -40,7 +40,7 @@ if (project.hasProperty("epApiVersion")) {
 
 def versions = [
     asm                    : "9.3",
-    checkerFramework       : "3.26.0",
+    checkerFramework       : "3.38.0",
     // for comparisons in other parts of the build
     errorProneLatest       : latestErrorProneVersion,
     // The version of Error Prone used to check NullAway's code.
@@ -113,8 +113,7 @@ def test = [
     springBeans             : "org.springframework:spring-beans:5.3.7",
     springContext           : "org.springframework:spring-context:5.3.7",
     grpcCore                : "io.grpc:grpc-core:1.15.1", // Should upgrade, but this matches our guava version
-    mockito                 : "org.mockito:mockito-core:4.6.1",
-    mockitoInline           : "org.mockito:mockito-inline:4.6.1",
+    mockito                 : "org.mockito:mockito-core:5.5.0",
     javaxAnnotationApi      : "javax.annotation:javax.annotation-api:1.3.2",
     assertJ                 : "org.assertj:assertj-core:3.23.1",
 ]

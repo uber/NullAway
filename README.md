@@ -1,4 +1,4 @@
-## NullAway: Fast Annotation-Based Null Checking for Java [![Build Status](https://github.com/uber/nullaway/actions/workflows/continuous-integration.yml/badge.svg)](https://github.com/uber/nullaway/actions/workflows/continuous-integration.yml) [![Coverage Status](https://coveralls.io/repos/github/uber/NullAway/badge.svg?branch=master)](https://coveralls.io/github/uber/NullAway?branch=master)
+## NullAway: Fast Annotation-Based Null Checking for Java [![Build Status](https://github.com/uber/nullaway/actions/workflows/continuous-integration.yml/badge.svg)](https://github.com/uber/nullaway/actions/workflows/continuous-integration.yml) [![Coverage Status](https://codecov.io/github/uber/NullAway/coverage.svg?branch=master)](https://codecov.io/github/uber/NullAway?branch=master)
 
 NullAway is a tool to help eliminate `NullPointerException`s (NPEs) in your Java code.  To use NullAway, first add `@Nullable` annotations in your code wherever a field, method parameter, or return value may be `null`.  Given these annotations, NullAway performs a series of type-based, local checks to ensure that any pointer that gets dereferenced in your code cannot be `null`.  NullAway is similar to the type-based nullability checking in the Kotlin and Swift languages, and the [Checker Framework](https://checkerframework.org/) and [Eradicate](https://fbinfer.com/docs/checker-eradicate/) null checkers for Java.
 
@@ -23,7 +23,7 @@ plugins {
 }
 
 dependencies {
-  annotationProcessor "com.uber.nullaway:nullaway:0.10.12"
+  annotationProcessor "com.uber.nullaway:nullaway:0.10.13"
 
   // Optional, some source of nullability annotations.
   // Not required on Android if you use the support 
@@ -75,7 +75,7 @@ The configuration for an Android project is very similar to the Java case, with 
 
 ```gradle
 dependencies {
-  annotationProcessor "com.uber.nullaway:nullaway:0.10.12"
+  annotationProcessor "com.uber.nullaway:nullaway:0.10.13"
   errorprone "com.google.errorprone:error_prone_core:2.4.0"
   errorproneJavac "com.google.errorprone:javac:9+181-r4173-1"  
 }

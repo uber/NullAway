@@ -75,6 +75,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.ConditionalOrNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.DoubleLiteralNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.EqualToNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ExplicitThisNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.ExpressionStatementNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.FloatLiteralNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.FloatingDivisionNode;
@@ -113,7 +114,6 @@ import org.checkerframework.nullaway.dataflow.cfg.node.PrimitiveTypeNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ReturnNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ShortLiteralNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.SignedRightShiftNode;
-import org.checkerframework.nullaway.dataflow.cfg.node.StringConcatenateAssignmentNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.StringConcatenateNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.StringConversionNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.StringLiteralNode;
@@ -374,13 +374,6 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitBitwiseXor(
       BitwiseXorNode bitwiseXorNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NONNULL, input);
-  }
-
-  @Override
-  public TransferResult<Nullness, NullnessStore> visitStringConcatenateAssignment(
-      StringConcatenateAssignmentNode stringConcatenateAssignmentNode,
-      TransferInput<Nullness, NullnessStore> input) {
-    return noStoreChanges(NULLABLE, input);
   }
 
   @Override
@@ -1082,6 +1075,13 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitClassDeclaration(
       ClassDeclarationNode classDeclarationNode, TransferInput<Nullness, NullnessStore> input) {
+    return noStoreChanges(NULLABLE, input);
+  }
+
+  @Override
+  public TransferResult<Nullness, NullnessStore> visitExpressionStatement(
+      ExpressionStatementNode expressionStatementNode,
+      TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
