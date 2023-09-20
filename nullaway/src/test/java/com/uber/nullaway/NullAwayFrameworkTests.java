@@ -1,8 +1,7 @@
 package com.uber.nullaway;
 
-import org.junit.Test;
-
 import java.util.Arrays;
+import org.junit.Test;
 
 public class NullAwayFrameworkTests extends NullAwayTestsBase {
   @Test
