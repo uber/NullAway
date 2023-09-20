@@ -162,12 +162,12 @@ public interface Handler {
    * @param methodSymbol The method symbol for the method in question.
    * @param state The current visitor state.
    * @param isAnnotated A boolean flag indicating whether the called method is considered to be
-   *     within isAnnotated or unannotated code, used to avoid querying for this information
-   *     multiple times within the same handler chain.
+   *     within annotated or unannotated code, used to avoid querying for this information multiple
+   *     times within the same handler chain.
    * @param returnNullness return nullness computed by upstream handlers or NullAway core.
    * @return Updated return nullability computed by this handler.
    */
-  Nullness onOverrideMethodInvocationReturnNullability(
+  Nullness onOverrideMethodReturnNullability(
       Symbol.MethodSymbol methodSymbol,
       VisitorState state,
       boolean isAnnotated,

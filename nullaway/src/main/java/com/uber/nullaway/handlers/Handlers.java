@@ -28,6 +28,7 @@ import com.uber.nullaway.handlers.contract.ContractCheckHandler;
 import com.uber.nullaway.handlers.contract.ContractHandler;
 import com.uber.nullaway.handlers.contract.fieldcontract.EnsuresNonNullHandler;
 import com.uber.nullaway.handlers.contract.fieldcontract.RequiresNonNullHandler;
+import com.uber.nullaway.handlers.temporary.FluentFutureHandler;
 
 /** Utility static methods for the handlers package. */
 public class Handlers {
@@ -56,9 +57,13 @@ public class Handlers {
       handlerListBuilder.add(new AssertionHandler(methodNameUtil));
     }
     handlerListBuilder.add(new GuavaAssertionsHandler());
-    handlerListBuilder.add(new LibraryModelsHandler(config));
+    LibraryModelsHandler libraryModelsHandler = new LibraryModelsHandler(config);
+    handlerListBuilder.add(libraryModelsHandler);
     handlerListBuilder.add(StreamNullabilityPropagatorFactory.getRxStreamNullabilityPropagator());
     handlerListBuilder.add(StreamNullabilityPropagatorFactory.getJavaStreamNullabilityPropagator());
+    handlerListBuilder.add(
+        StreamNullabilityPropagatorFactory.fromSpecs(
+            libraryModelsHandler.getStreamNullabilitySpecs()));
     handlerListBuilder.add(new ContractHandler(config));
     handlerListBuilder.add(new ApacheThriftIsSetHandler());
     handlerListBuilder.add(new GrpcHandler());
@@ -74,6 +79,8 @@ public class Handlers {
     if (config.checkContracts()) {
       handlerListBuilder.add(new ContractCheckHandler(config));
     }
+    handlerListBuilder.add(new LombokHandler(config));
+    handlerListBuilder.add(new FluentFutureHandler());
 
     return new CompositeHandler(handlerListBuilder.build());
   }

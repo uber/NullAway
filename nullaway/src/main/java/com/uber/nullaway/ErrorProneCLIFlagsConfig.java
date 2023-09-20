@@ -83,6 +83,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
   static final String FL_JI_REGEX_MODEL_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripModelJar";
   static final String FL_JI_REGEX_CODE_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripCodeJar";
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
+
   /** --- Serialization configs --- */
   static final String FL_FIX_SERIALIZATION = EP_FL_NAMESPACE + ":SerializeFixMetadata";
 
@@ -215,7 +216,7 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "Invalid -XepOpt:" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
     }
     skippedLibraryModels = getFlagStringSet(flags, FL_SKIP_LIBRARY_MODELS);
-    /** --- JarInfer configs --- */
+    /* --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
     jarInferUseReturnAnnotations = flags.getBoolean(FL_JI_USE_RETURN).orElse(false);
     // The defaults of these two options translate to: remove .aar/.jar from the file name, and also

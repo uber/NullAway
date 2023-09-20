@@ -17,11 +17,8 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
-  id "java-library"
+    id "java-library"
 }
-
-sourceCompatibility = "1.8"
-targetCompatibility = "1.8"
 
 dependencies {
     annotationProcessor project(":nullaway")
@@ -34,21 +31,16 @@ dependencies {
 }
 
 tasks.withType(JavaCompile) {
-  if (!name.toLowerCase().contains("test")) {
-    options.errorprone {
-      check("NullAway", CheckSeverity.ERROR)
-      option("NullAway:AnnotatedPackages", "com.uber")
-      option("NullAway:UnannotatedSubPackages", "com.uber.lib.unannotated")
-      if (JavaVersion.current() == JavaVersion.VERSION_1_8) {
-          // false positive warnings, only on Java 8
-          check("MissingSummary", CheckSeverity.OFF)
-          check("SameNameButDifferent", CheckSeverity.OFF)
-      }
+    if (!name.toLowerCase().contains("test")) {
+        options.errorprone {
+            check("NullAway", CheckSeverity.ERROR)
+            option("NullAway:AnnotatedPackages", "com.uber")
+            option("NullAway:UnannotatedSubPackages", "com.uber.lib.unannotated")
+        }
     }
-  }
-  if (JavaVersion.current().java9Compatible) {
     // We need to fork on JDK 16+ since Lombok accesses internal compiler APIs
     options.fork = true
-    options.forkOptions.jvmArgs += ["--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED"]
-  }
+    options.forkOptions.jvmArgs += [
+        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED"
+    ]
 }

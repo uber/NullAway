@@ -18,9 +18,12 @@ package com.uber.nullaway.testlibrarymodels;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.uber.nullaway.LibraryModels;
+import com.uber.nullaway.handlers.stream.StreamModelBuilder;
+import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 
 @AutoService(LibraryModels.class)
 public class TestLibraryModels implements LibraryModels {
@@ -66,7 +69,7 @@ public class TestLibraryModels implements LibraryModels {
   @Override
   public ImmutableSet<MethodRef> nullableReturns() {
     return ImmutableSet.of(
-        methodRef("com.uber.Foo", "bar()"),
+        methodRef("com.uber.AnnotatedWithModels", "returnsNullFromModel()"),
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"));
   }
@@ -86,5 +89,37 @@ public class TestLibraryModels implements LibraryModels {
                 "com.uber.nullaway.testdata.Util", "<T>castToNonNull(java.lang.String,T,int)"),
             1)
         .build();
+  }
+
+  @Override
+  public ImmutableList<StreamTypeRecord> customStreamNullabilitySpecs() {
+    // Identical to the default model for java.util.stream.Stream, but with the original type
+    // renamed
+    return StreamModelBuilder.start()
+        .addStreamTypeFromName("com.uber.nullaway.testdata.unannotated.CustomStream")
+        .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
+        .withMapMethodFromSignature(
+            "<R>map(java.util.function.Function<? super T,? extends R>)",
+            "apply",
+            ImmutableSet.of(0))
+        .withMapMethodFromSignature(
+            "mapToInt(java.util.function.ToIntFunction<? super T>)",
+            "applyAsInt",
+            ImmutableSet.of(0))
+        .withMapMethodFromSignature(
+            "mapToLong(java.util.function.ToLongFunction<? super T>)",
+            "applyAsLong",
+            ImmutableSet.of(0))
+        .withMapMethodFromSignature(
+            "mapToDouble(java.util.function.ToDoubleFunction<? super T>)",
+            "applyAsDouble",
+            ImmutableSet.of(0))
+        .withMapMethodFromSignature(
+            "forEach(java.util.function.Consumer<? super T>)", "accept", ImmutableSet.of(0))
+        .withMapMethodFromSignature(
+            "forEachOrdered(java.util.function.Consumer<? super T>)", "accept", ImmutableSet.of(0))
+        .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
+        .withPassthroughMethodFromSignature("distinct()")
+        .end();
   }
 }

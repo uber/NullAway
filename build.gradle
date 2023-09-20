@@ -23,29 +23,21 @@ buildscript {
 
     dependencies {
         classpath 'com.android.tools.build:gradle:7.3.0'
-        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.14.2'
-        // This restriction is needed due to our mix of Android and Java modules;
-        // without it, the build fails with a weird error.
-        // See https://stackoverflow.com/questions/70217853/how-to-include-android-project-in-a-gradle-multi-project-build
-        classpath('org.ow2.asm:asm') {
-            version {
-                strictly '9.2'
-            }
-        }
+        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.25.3'
     }
 }
 plugins {
-  id "com.github.sherter.google-java-format" version "0.9"
-  id "net.ltgt.errorprone" version "3.0.1" apply false
-  id "com.github.johnrengelman.shadow" version "8.1.0" apply false
-  id "com.github.kt3k.coveralls" version "2.12.0" apply false
-  id "me.champeau.jmh" version "0.6.8" apply false
-  id "com.github.ben-manes.versions" version "0.42.0"
+    id "com.diffplug.spotless" version "6.21.0"
+    id "net.ltgt.errorprone" version "3.1.0" apply false
+    id "com.github.johnrengelman.shadow" version "8.1.1" apply false
+    id "me.champeau.jmh" version "0.7.1" apply false
+    id "com.github.ben-manes.versions" version "0.48.0"
+    id "com.felipefzdz.gradle.shellcheck" version "1.4.6"
 }
 
 repositories {
-  // to get the google-java-format jar and dependencies
-  mavenCentral()
+    // to get the google-java-format jar and dependencies
+    mavenCentral()
 }
 
 apply from: "gradle/dependencies.gradle"
@@ -57,64 +49,41 @@ subprojects { project ->
     }
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)
-        if (JavaVersion.current().isJava9Compatible()) {
-            options.compilerArgs += [
-                    "-Xlint:deprecation",
-                    "-Xlint:rawtypes",
-                    "-Xlint:unchecked",
-                    "-Werror"
-            ]
-            options.errorprone {
-                // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
-                disableWarningsInGeneratedCode = true
-                // this check is too noisy
-                check("StringSplitter", CheckSeverity.OFF)
-                // https://github.com/google/error-prone/issues/3366
-                check("CanIgnoreReturnValueSuggester", CheckSeverity.OFF)
-                // turn up various checks
-                check("WildcardImport", CheckSeverity.ERROR)
-                check("MissingBraces", CheckSeverity.ERROR)
-                check("TypeToString", CheckSeverity.ERROR)
-                check("SymbolToString", CheckSeverity.ERROR)
-                check("MultipleTopLevelClasses", CheckSeverity.ERROR)
-                check("ClassName", CheckSeverity.ERROR)
-                check("PackageLocation", CheckSeverity.ERROR)
-                check("UnnecessaryAnonymousClass", CheckSeverity.ERROR)
-                check("UnusedException", CheckSeverity.ERROR)
-                // To enable auto-patching, uncomment the line below, replace [CheckerName] with
-                // the checker(s) you want to apply patches for (comma-separated), and above, disable
-                // "-Werror"
-//                errorproneArgs.addAll("-XepPatchChecks:[CheckerName]", "-XepPatchLocation:IN_PLACE")
-            }
-        } else {
-            // Disable Error Prone checks on JDK 8, as more recent Error Prone versions don't run on JDK 8
-            // NOTE: we use disableAllChecks rather than the enabled flag because we still want to use the
-            // JDK 9 javac packaged with Error Prone, to work around the following bug with JDK 8 javac
-            // and use of the @NullMarked / @NullUnmarked annotations from jspecify:
-            // https://github.com/jspecify/jspecify/issues/302
-            options.errorprone.disableAllChecks = true
+        options.compilerArgs += [
+            "-Xlint:deprecation",
+            "-Xlint:rawtypes",
+            "-Xlint:unchecked",
+            "-Werror"
+        ]
+        options.errorprone {
+            // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
+            disableWarningsInGeneratedCode = true
+            // this check is too noisy
+            check("StringSplitter", CheckSeverity.OFF)
+            // https://github.com/google/error-prone/issues/3366
+            check("CanIgnoreReturnValueSuggester", CheckSeverity.OFF)
+            // turn up various checks
+            check("WildcardImport", CheckSeverity.ERROR)
+            check("MissingBraces", CheckSeverity.ERROR)
+            check("TypeToString", CheckSeverity.ERROR)
+            check("SymbolToString", CheckSeverity.ERROR)
+            check("MultipleTopLevelClasses", CheckSeverity.ERROR)
+            check("ClassName", CheckSeverity.ERROR)
+            check("PackageLocation", CheckSeverity.ERROR)
+            check("UnnecessaryAnonymousClass", CheckSeverity.ERROR)
+            check("UnusedException", CheckSeverity.ERROR)
+            // To enable auto-patching, uncomment the line below, replace [CheckerName] with
+            // the checker(s) you want to apply patches for (comma-separated), and above, disable
+            // "-Werror"
+            // errorproneArgs.addAll("-XepPatchChecks:[CheckerName]", "-XepPatchLocation:IN_PLACE")
         }
     }
 
-    // We target Java 11 when building on JDK 11+, but Java 8 when building on JDK 8, since
-    // EP 2.11.0+ requires Java 11
-    if (JavaVersion.current() >= JavaVersion.VERSION_11) {
-        tasks.withType(JavaCompile) {
-            java.sourceCompatibility = "11"
-            java.targetCompatibility = "11"
-        }
-    } else {
-        tasks.withType(JavaCompile) {
-            java.sourceCompatibility = "1.8"
-            java.targetCompatibility = "1.8"
-        }
-    }
-
-    // Ensure we are running on Java 8 whenever publishing to remote repos
-    tasks.withType(PublishToMavenRepository) {
-        doFirst {
-            assert JavaVersion.current() == JavaVersion.VERSION_1_8 : "Only publish to remote repos on JDK 1.8"
-        }
+    // Target JDK 8.  We need to use the older sourceCompatibility / targetCompatibility settings to get
+    // the build to work on JDK 11+.  Once we stop supporting JDK 8, switch to using the javac "release" option
+    tasks.withType(JavaCompile) {
+        java.sourceCompatibility = "1.8"
+        java.targetCompatibility = "1.8"
     }
 
     tasks.withType(Test).configureEach {
@@ -126,12 +95,42 @@ subprojects { project ->
         google()
     }
 
+    // For some reason, spotless complains when applied to the jar-infer folder itself, even
+    // though there is no top-level :jar-infer project
+    if (project.name != "jar-infer") {
+        project.apply plugin: "com.diffplug.spotless"
+        spotless {
+            java {
+                googleJavaFormat()
+            }
+        }
+    }
 }
 
-googleJavaFormat {
-  toolVersion = "1.14.0"
-  // don't enforce formatting for generated Java code under buildSrc
-  exclude 'buildSrc/build/**/*.java'
+spotless {
+    predeclareDeps()
+    groovyGradle {
+        target '**/*.gradle'
+        greclipse()
+        indentWithSpaces(4)
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+}
+spotlessPredeclare {
+    java { googleJavaFormat('1.17.0') }
+    groovyGradle {
+        greclipse()
+    }
+}
+
+shellcheck {
+    useDocker = false
+    shellcheckBinary = "shellcheck"
+    sourceFiles =
+            fileTree(".") {
+                include("**/*.sh")
+            }
 }
 
 ////////////////////////////////////////////////////////////////////////
@@ -140,9 +139,9 @@ googleJavaFormat {
 //
 
 tasks.register('installGitHooks', Copy) {
-	from(file('config/hooks/pre-commit-stub')) {
-		rename 'pre-commit-stub', 'pre-commit'
-	}
-	into file('.git/hooks')
-	fileMode 0777
+    from(file('config/hooks/pre-commit-stub')) {
+        rename 'pre-commit-stub', 'pre-commit'
+    }
+    into file('.git/hooks')
+    fileMode 0777
 }

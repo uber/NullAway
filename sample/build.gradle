@@ -17,11 +17,8 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
-  id "java-library"
+    id "java-library"
 }
-
-sourceCompatibility = "1.8"
-targetCompatibility = "1.8"
 
 dependencies {
     annotationProcessor project(":nullaway")
@@ -32,10 +29,10 @@ dependencies {
 }
 
 tasks.withType(JavaCompile) {
-  if (!name.toLowerCase().contains("test")) {
-    options.errorprone {
-      check("NullAway", CheckSeverity.ERROR)
-      option("NullAway:AnnotatedPackages", "com.uber")
+    if (!name.toLowerCase().contains("test")) {
+        options.errorprone {
+            check("NullAway", CheckSeverity.ERROR)
+            option("NullAway:AnnotatedPackages", "com.uber")
+        }
     }
-  }
-} 
+}

@@ -19,10 +19,9 @@ import org.gradle.util.VersionNumber
 // The oldest version of Error Prone that we support running on
 def oldestErrorProneVersion = "2.4.0"
 // Latest released Error Prone version that we've tested with
-def latestErrorProneVersion = "2.18.0"
-// Default to using latest tested Error Prone version, except on Java 8, where 2.10.0 is the last version
-// that works
-def defaultErrorProneVersion =  JavaVersion.current() >= JavaVersion.VERSION_11 ? latestErrorProneVersion : "2.10.0"
+def latestErrorProneVersion = "2.21.1"
+// Default to using latest tested Error Prone version
+def defaultErrorProneVersion =  latestErrorProneVersion
 def errorProneVersionToCompileAgainst = defaultErrorProneVersion
 
 // If the epApiVersion project property is set, compile and test against that version of Error Prone
@@ -33,15 +32,15 @@ if (project.hasProperty("epApiVersion")) {
     }
     if (epApiVNum.compareTo(VersionNumber.parse(oldestErrorProneVersion)) < 0) {
         throw new IllegalArgumentException(
-                "Error Prone API version " + epApiVersion + " is too old; "
-                + oldestErrorProneVersion + " is the oldest supported version")
+        "Error Prone API version " + epApiVersion + " is too old; "
+        + oldestErrorProneVersion + " is the oldest supported version")
     }
     errorProneVersionToCompileAgainst = epApiVersion
 }
 
 def versions = [
     asm                    : "9.3",
-    checkerFramework       : "3.26.0",
+    checkerFramework       : "3.38.0",
     // for comparisons in other parts of the build
     errorProneLatest       : latestErrorProneVersion,
     // The version of Error Prone used to check NullAway's code.
@@ -49,10 +48,10 @@ def versions = [
     // The version of Error Prone that NullAway is compiled and tested against
     errorProneApi          : errorProneVersionToCompileAgainst,
     support                : "27.1.1",
-    wala                   : "1.5.8",
+    wala                   : "1.6.2",
     commonscli             : "1.4",
-    autoValue              : "1.9",
-    autoService            : "1.0.1",
+    autoValue              : "1.10.2",
+    autoService            : "1.1.1",
 ]
 
 def apt = [
@@ -78,9 +77,11 @@ def build = [
     jspecify                : "org.jspecify:jspecify:0.3.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",
     commonsIO               : "commons-io:commons-io:2.11.0",
-    wala                    : ["com.ibm.wala:com.ibm.wala.util:${versions.wala}",
-                               "com.ibm.wala:com.ibm.wala.shrike:${versions.wala}",
-                               "com.ibm.wala:com.ibm.wala.core:${versions.wala}"],
+    wala                    : [
+        "com.ibm.wala:com.ibm.wala.util:${versions.wala}",
+        "com.ibm.wala:com.ibm.wala.shrike:${versions.wala}",
+        "com.ibm.wala:com.ibm.wala.core:${versions.wala}"
+    ],
     commonscli              : "commons-cli:commons-cli:${versions.commonscli}",
 
     // android stuff
@@ -97,7 +98,10 @@ def support = [
 
 def test = [
     junit4                  : "junit:junit:4.13.2",
-    junit5Jupiter           : ["org.junit.jupiter:junit-jupiter-api:5.0.2","org.apiguardian:apiguardian-api:1.0.0"],
+    junit5Jupiter           : [
+        "org.junit.jupiter:junit-jupiter-api:5.0.2",
+        "org.apiguardian:apiguardian-api:1.0.0"
+    ],
     jetbrainsAnnotations    : "org.jetbrains:annotations:13.0",
     cfQual                  : "org.checkerframework:checker-qual:${versions.checkerFramework}",
     // 2.5.5 is the last release to contain this artifact
@@ -109,8 +113,7 @@ def test = [
     springBeans             : "org.springframework:spring-beans:5.3.7",
     springContext           : "org.springframework:spring-context:5.3.7",
     grpcCore                : "io.grpc:grpc-core:1.15.1", // Should upgrade, but this matches our guava version
-    mockito                 : "org.mockito:mockito-core:4.6.1",
-    mockitoInline           : "org.mockito:mockito-inline:4.6.1",
+    mockito                 : "org.mockito:mockito-core:5.5.0",
     javaxAnnotationApi      : "javax.annotation:javax.annotation-api:1.3.2",
     assertJ                 : "org.assertj:assertj-core:3.23.1",
 ]

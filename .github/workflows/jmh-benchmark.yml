@@ -1,0 +1,73 @@
+# This GitHub Actions workflow runs JMH benchmarks when a new comment is created on a pull request
+name: Run JMH Benchmarks for Pull Request
+
+on:
+  issue_comment: # This workflow triggers when a comment is created
+    types: [created]
+
+# Only allow one instance of JMH benchmarking to be running at any given time
+concurrency: all
+
+jobs:
+  benchmarking:
+    # Only run this job if a comment on a pull request contains '/benchmark' and is a PR on the uber/NullAway repository
+    if: github.event.issue.pull_request && contains(github.event.comment.body, '/benchmark') && github.repository == 'uber/NullAway'
+    runs-on: ubuntu-latest 
+    permissions: write-all 
+
+    steps:
+    - name: Add reaction
+      uses: peter-evans/create-or-update-comment@v3
+      with:
+        comment-id: ${{ github.event.comment.id }}
+        reactions: '+1'
+        
+    - name: Checkout repository 
+      uses: actions/checkout@v3
+
+    - name: Set branch name 
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+      run: |
+        chmod +x ./.github/workflows/get_repo_details.sh 
+        ./.github/workflows/get_repo_details.sh "${{ secrets.GITHUB_TOKEN }}" "${{ github.event.issue.number }}" "${{ github.repository }}"
+
+    - id: 'auth'
+      name: Authenticating 
+      uses: 'google-github-actions/auth@v1' 
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY_1 }}' 
+
+    - name: Set up Google Cloud SDK 
+      uses: google-github-actions/setup-gcloud@v1
+      
+    - name: Start VM
+      run: gcloud compute instances start nullway-jmh --zone=us-central1-a
+      
+    - name: Run benchmarks 
+      run: |
+        chmod +x ./.github/workflows/run_gcp_benchmarks.sh
+        ./.github/workflows/run_gcp_benchmarks.sh 
+        
+    - name: Cleanup
+      # Delete the branch directory on the Google Cloud instance
+      if: always()
+      run: |
+        ./.github/workflows/gcloud_ssh.sh " export BRANCH_NAME=${BRANCH_NAME} && rm -r -f $BRANCH_NAME"
+
+    - name: Formatting Benchmark # Create a text file containing the benchmark results
+      run:  |
+        (echo 'Main Branch:'; echo '```' ; cat main_text.txt; echo '```'; echo 'With This PR:'; echo '```' ; cat pr_text.txt; echo '```') > benchmark.txt
+   
+    - name: Comment Benchmark
+      uses: mshick/add-pr-comment@v2
+      if: always() # This step is for adding the comment
+      with:         
+        message-path: benchmark.txt  # The path to the message file to leave as a comment
+        message-id: benchmark
+    - name: Stop VM
+      if: always()
+      run: gcloud compute instances stop nullway-jmh --zone=us-central1-a
+
+      
+

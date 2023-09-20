@@ -1,5 +1,88 @@
 Changelog
 =========
+Version 0.10.14
+---------------
+IMPORTANT: This version introduces EXPERIMENTAL JDK21 support.
+* Bump Checker Framework dependency to 3.38.0 (#819)
+  - Note: Not just an internal implementation change. Needed to support JDK 21!
+* Treat parameter of generated Record.equals() methods as @Nullable (#825)
+* Build / CI tooling for NullAway itself:
+  - Fixes Codecov Report Expired error (#821)
+  - Updated Readme.md with Codecov link (#823)
+  - Remove ASM-related hack in build config (#824)
+  - Run tests on JDK 21 (#826)
+
+Version 0.10.13
+---------------
+* Allow library models to define custom stream classes (#807)
+* Avoid suggesting castToNonNull fixes in certain cases (#799)
+* Ensure castToNonNull insertion/removal suggested fixes do not remove comments (#815)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - Generics checks for method overriding (#755)
+  - Make GenericsChecks methods static (#805)
+  - Add visitors for handling different types in generic type invariance check (#806)
+* Build / CI tooling for NullAway itself:
+  - Bump versions for some dependencies (#800)
+  - Update to WALA 1.6.2 (#798)
+  - Update to Error Prone 2.21.1 (#797)
+  - Enable contract checking when building NullAway (#802)
+  - Bump Error Prone Gradle Plugin version (#804)
+  - Modify JMH Benchmark Workflow For Shellcheck (#813)
+  - Bump gradle maven publish plugin from 0.21.0 to 0.25.3 (#810)
+  - Use Spotless to enforce consistent formatting for Gradle build scripts (#809)
+  - Remove unnecessary compile dependence for jar-infer-cli (#816)
+  - Added Codecov to CI Pipeline (#820)
+
+Version 0.10.12
+---------------
+Note: This is the first release built with Java 11. In particular, running
+    JarInfer now requires a JDK 11 JVM. NullAway is still capable of analyzing JDK 8
+    source/target projects, and should be compatible with the Error Prone JDK 9 javac
+    just as the release before, but a JDK 11 javac is recommended.
+* Update to WALA 1.6.1 and remove ability to build on JDK 8 (#777)
+* Fix compatibility issue when building on JDK 17 but running on JDK 8 (#779)
+* Fix JDK compatibility issue in LombokHandler (#795)
+* Improve auto-fixing of unnecessary castToNonNull calls (#796)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - JSpecify: avoid crashes when encountering raw types (#792)
+  - Fix off-by-one error in JSpecify checking of parameter passing (#793)
+* Build / CI tooling for NullAway itself:
+  - Fix Publish Snapshot CI job (#774)
+  - Add step to create release on GitHub (#775)
+  - Build the Android sample app on JDK 17 (#776)
+  - Update to Error Prone 2.20.0 (#772)
+  - Add tasks to run JDK 8 tests on JDK 11+ (#778)
+  - Switch to Spotless for formatting Java code (#780)
+  - Added GCP JMH Benchmark Workflow (#770) 
+  - Set concurrency for JMH benchmarking workflow (#784)
+  - Disable daemon when running benchmarks (#786)
+  - Update to Gradle 8.2.1 (#781)
+
+Version 0.10.11
+---------------
+* NULL_LITERAL expressions may always be null (#749)
+* Fix error in Lombok generated code for @Nullable @Builder.Default (#765)
+* Support for specific libraries/APIs:
+  - Added support for Apache Validate (#769)
+  - Introduce FluentFutureHandler as a workaround for Guava FluentFuture (#771)
+* Internal code refactorings:
+  - [Refactor] Pass resolved Symbols into Handler methods (#729)
+  - Prepare for Nullable ASTHelpers.getSymbol (#733)
+  - Refactor: streamline mayBeNullExpr flow (#753)
+  - Refactor LibraryModelsHandler.onOverrideMayBeNullExpr (#754)
+  - Refactor simple onOverrideMayBeNullExpr handlers (#747)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - JSpecify generics checks for conditional expressions (#739)
+  - Generics checks for parameter passing (#746)
+  - Clearer printing of types in errors related to generics (#758)
+* NullAwayInfer/Annotator data serialization support [experimental]
+  - Update path serialization for class files (#752)
+* Build / CI tooling for NullAway itself:
+  - Update to Gradle 8.0.2 (#743)
+  - Fix CI on Windows (#759)
+  - Upgrade to Error Prone 2.19.1 (#763)
+  - Upgrade maven publish plugin to 0.21.0 (#773)
+
 Version 0.10.10
 ---------------
 * Add command line option to skip specific library models. (#741)

@@ -21,7 +21,8 @@
  */
 package com.uber.nullaway.handlers;
 
-import com.google.common.base.Preconditions;
+import static com.uber.nullaway.ASTHelpersBackports.getEnclosedElements;
+
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
@@ -31,6 +32,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.Objects;
@@ -52,8 +54,13 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
 
   private static final Supplier<Type> TBASE_TYPE_SUPPLIER = Suppliers.typeFromString(TBASE_NAME);
 
-  @Nullable private Optional<Type> tbaseType;
+  private Optional<Type> tbaseType;
 
+  /**
+   * This method is annotated {@code @Initializer} since it will be invoked when the first class is
+   * processed, before any other handler methods
+   */
+  @Initializer
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
@@ -142,7 +149,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
     Element getter = null;
     String fieldName = decapitalize(capPropName);
     String getterName = "get" + capPropName;
-    for (Symbol elem : symbol.owner.getEnclosedElements()) {
+    for (Symbol elem : getEnclosedElements(symbol.owner)) {
       if (elem.getKind().isField() && elem.getSimpleName().toString().equals(fieldName)) {
         if (field != null) {
           throw new RuntimeException("already found field " + fieldName);
@@ -171,7 +178,6 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
   }
 
   private boolean thriftIsSetCall(Symbol.MethodSymbol symbol, Types types) {
-    Preconditions.checkNotNull(tbaseType);
     // noinspection ConstantConditions
     return tbaseType.isPresent()
         && symbol.getSimpleName().toString().startsWith("isSet")

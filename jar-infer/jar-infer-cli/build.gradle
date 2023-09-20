@@ -4,6 +4,12 @@ plugins {
     id "com.github.johnrengelman.shadow"
 }
 
+// JarInfer requires JDK 11+, due to its dependence on WALA
+tasks.withType(JavaCompile) {
+    java.sourceCompatibility = JavaVersion.VERSION_11
+    java.targetCompatibility = JavaVersion.VERSION_11
+}
+
 repositories {
     mavenCentral()
 }
@@ -11,8 +17,6 @@ repositories {
 dependencies {
     implementation deps.build.commonscli
     implementation deps.build.guava
-    compileOnly deps.build.errorProneCheckApi
-
     implementation project(":jar-infer:jar-infer-lib")
 
     testImplementation deps.test.junit4
@@ -21,11 +25,14 @@ dependencies {
     }
 }
 
+java {
+    withJavadocJar()
+    withSourcesJar()
+}
+
 jar {
     manifest {
-        attributes(
-        'Main-Class': 'com.uber.nullaway.jarinfer.JarInfer'
-        )
+        attributes('Main-Class': 'com.uber.nullaway.jarinfer.JarInfer')
     }
     // add this classifier so that the output file for the jar task differs from
     // the output file for the shadowJar task (otherwise they overwrite each other's
@@ -35,11 +42,14 @@ jar {
 
 shadowJar {
     mergeServiceFiles()
-    configurations = [project.configurations.runtimeClasspath]
+    configurations = [
+        project.configurations.runtimeClasspath
+    ]
     archiveClassifier = ""
 }
 shadowJar.dependsOn jar
 assemble.dependsOn shadowJar
+
 
 // We disable the default maven publications to make sure only
 // our custom shadow publication is used. Since we use the empty
@@ -68,7 +78,7 @@ publishing {
             // `:javadoc` artifacts here. They are also required for Maven Central validation.
             afterEvaluate {
                 artifact project.sourcesJar
-                artifact project.javadocsJar
+                artifact project.javadocJar
             }
             // The shadow publication does not auto-configure the pom.xml file for us, so we need to
             // set it up manually. We use the opportunity to change the name and description from
@@ -96,6 +106,35 @@ publishing {
                     developerConnection = project.property('POM_SCM_DEV_CONNECTION')
                     url = project.property('POM_SCM_URL')
                 }
+            }
+        }
+    }
+
+    afterEvaluate {
+        // Below is a series of hacks needed to get publication to work with
+        // gradle-maven-publish-plugin >= 0.15.0 (itself needed after the upgrade to Gradle 8.0.2).
+        // Not sure why e.g. publishShadowPublicationToMavenCentralRepository must depend on signMavenPublication
+        // (rather than just signShadowPublication)
+        project.tasks.named('generateMetadataFileForMavenPublication').configure {
+            dependsOn 'sourcesJar'
+            dependsOn 'simpleJavadocJar'
+        }
+        if (project.tasks.findByName('signShadowPublication')) {
+            project.tasks.named('signShadowPublication').configure {
+                dependsOn 'sourcesJar'
+                dependsOn 'simpleJavadocJar'
+            }
+        }
+        project.tasks.named('publishShadowPublicationToMavenCentralRepository').configure {
+            if (project.tasks.findByName('signMavenPublication')) {
+                dependsOn 'signMavenPublication'
+            }
+        }
+        project.tasks.named('publishShadowPublicationToMavenLocal').configure {
+            dependsOn 'sourcesJar'
+            dependsOn 'simpleJavadocJar'
+            if (project.tasks.findByName('signMavenPublication')) {
+                dependsOn 'signMavenPublication'
             }
         }
     }

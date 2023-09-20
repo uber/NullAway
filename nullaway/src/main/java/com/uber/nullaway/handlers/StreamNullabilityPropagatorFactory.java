@@ -1,4 +1,5 @@
 package com.uber.nullaway.handlers;
+
 /*
  * Copyright (c) 2017 Uber Technologies, Inc.
  *
@@ -28,6 +29,8 @@ import com.uber.nullaway.handlers.stream.StreamModelBuilder;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 
 public class StreamNullabilityPropagatorFactory {
+
+  /** Returns a handler for the standard Java 8 stream APIs. */
   public static StreamNullabilityPropagator getJavaStreamNullabilityPropagator() {
     ImmutableList<StreamTypeRecord> streamModels =
         StreamModelBuilder.start()
@@ -77,6 +80,7 @@ public class StreamNullabilityPropagatorFactory {
     return new StreamNullabilityPropagator(streamModels);
   }
 
+  /** Returns a handler for io.reactivex.* stream APIs */
   public static StreamNullabilityPropagator getRxStreamNullabilityPropagator() {
     ImmutableList<StreamTypeRecord> rxModels =
         StreamModelBuilder.start()
@@ -135,5 +139,20 @@ public class StreamNullabilityPropagatorFactory {
             .end();
 
     return new StreamNullabilityPropagator(rxModels);
+  }
+
+  /**
+   * Create a new StreamNullabilityPropagator from a list of StreamTypeRecord specs.
+   *
+   * <p>This is used to create a new StreamNullabilityPropagator based on stream API specs provided
+   * by library models.
+   *
+   * @param streamNullabilitySpecs the list of StreamTypeRecord objects defining one or more stream
+   *     APIs (from {@link StreamModelBuilder}).
+   * @return A handler corresponding to the stream APIs defined by the given specs.
+   */
+  public static StreamNullabilityPropagator fromSpecs(
+      ImmutableList<StreamTypeRecord> streamNullabilitySpecs) {
+    return new StreamNullabilityPropagator(streamNullabilitySpecs);
   }
 }

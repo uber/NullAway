@@ -409,6 +409,32 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * This test is solely to check if we can run through some of the {@link
+   * com.uber.nullaway.handlers.LombokHandler} logic without crashing. It does not check that the
+   * logic is correct.
+   */
+  @Test
+  public void lombokHandlerRunsWithoutCrashing() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable Object test;",
+            "  @lombok.Generated",
+            "  Object $default$test() {",
+            "    return new Object();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void systemConsoleNullable() {
     defaultCompilationHelper
@@ -487,6 +513,388 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
             "    if (s2 instanceof CharSequence) {",
             "      CharSequence.class.cast(s2).hashCode();",
             "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateNotNull() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String s) {",
+            "    Validate.notNull(s);",
+            "    int l = s.length();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateNotNullWithMessage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String s) {",
+            "    Validate.notNull(s, \"Message\");",
+            "    int l = s.length();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateArrayNotEmptyWithMessage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String[] s) {",
+            "    Validate.notEmpty(s, \"Message\");",
+            "    int l = s.length;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateArrayNotEmpty() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String[] s) {",
+            "    Validate.notEmpty(s);",
+            "    int l = s.length;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateListNotEmptyWithMessage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable List<String> s) {",
+            "    Validate.notEmpty(s, \"Message\");",
+            "    int l = s.size();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateListNotEmpty() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable List<String> s) {",
+            "    Validate.notEmpty(s);",
+            "    int l = s.size();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateMapNotEmptyWithMessage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.Map;",
+            "public class Foo {",
+            "  public void bar(@Nullable Map<String, String> s) {",
+            "    Validate.notEmpty(s, \"Message\");",
+            "    int l = s.size();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateMapNotEmpty() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.Map;",
+            "public class Foo {",
+            "  public void bar(@Nullable Map<String, String> s) {",
+            "    Validate.notEmpty(s);",
+            "    int l = s.size();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateStringNotEmptyWithMessage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String s) {",
+            "    Validate.notEmpty(s, \"Message\");",
+            "    int l = s.length();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateStringNotEmpty() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String s) {",
+            "    Validate.notEmpty(s);",
+            "    int l = s.length();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateStringNotBlankWithMessage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String s) {",
+            "    Validate.notBlank(s, \"Message\");",
+            "    int l = s.length();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateStringNotBlank() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String s) {",
+            "    Validate.notBlank(s);",
+            "    int l = s.length();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateArrayNoNullElementsWithMessage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String[] s) {",
+            "    Validate.noNullElements(s, \"Message\");",
+            "    int l = s.length;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateArrayNoNullElements() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String[] s) {",
+            "    Validate.noNullElements(s);",
+            "    int l = s.length;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateIterableNoNullElementsWithMessage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.Iterator;",
+            "public class Foo {",
+            "  public void bar(@Nullable Iterable<String> s) {",
+            "    Validate.noNullElements(s, \"Message\");",
+            "    Iterator<String> l = s.iterator();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateIterableNoNullElements() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.Iterator;",
+            "public class Foo {",
+            "  public void bar(@Nullable Iterable<String> s) {",
+            "    Validate.noNullElements(s);",
+            "    Iterator<String> l = s.iterator();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateArrayValidIndexWithMessage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String[] s) {",
+            "    Validate.validIndex(s, 0, \"Message\");",
+            "    int l = s.length;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateArrayValidIndex() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String[] s) {",
+            "    Validate.validIndex(s, 0);",
+            "    int l = s.length;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateCollectionValidIndexWithMessage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable List<String> s) {",
+            "    Validate.validIndex(s, 0, \"Message\");",
+            "    int l = s.size();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateCollectionValidIndex() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable List<String> s) {",
+            "    Validate.validIndex(s, 0);",
+            "    int l = s.size();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateStringValidIndexWithMessage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String s) {",
+            "    Validate.validIndex(s, 0, \"Message\");",
+            "    int l = s.length();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheValidateStringValidIndex() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.lang3.Validate;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public void bar(@Nullable String s) {",
+            "    Validate.validIndex(s, 0);",
+            "    int l = s.length();",
             "  }",
             "}")
         .doTest();

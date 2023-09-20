@@ -1,4 +1,5 @@
 package com.uber.nullaway.handlers.stream;
+
 /*
  * Copyright (c) 2017 Uber Technologies, Inc.
  *
@@ -24,6 +25,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.predicates.TypePredicate;
+import com.google.errorprone.predicates.type.DescendantOf;
+import com.google.errorprone.suppliers.Suppliers;
 import java.util.ArrayList;
 import java.util.List;
 import javax.annotation.Nullable;
@@ -87,6 +90,16 @@ public class StreamModelBuilder {
     this.tp = tp;
     initializeBuilders();
     return this;
+  }
+
+  /**
+   * Add a stream type to our models based on the type's fully qualified name.
+   *
+   * @param fullyQualifiedName the FQN of the class/interface in our stream-based API.
+   * @return This builder (for chaining).
+   */
+  public StreamModelBuilder addStreamTypeFromName(String fullyQualifiedName) {
+    return this.addStreamType(new DescendantOf(Suppliers.typeFromString(fullyQualifiedName)));
   }
 
   private void initializeBuilders() {
