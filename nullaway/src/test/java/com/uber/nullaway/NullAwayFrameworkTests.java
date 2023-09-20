@@ -263,6 +263,43 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void springTestAutowiredFieldTest() {
+    defaultCompilationHelper
+        .addSourceFile("springboot-annotations/MockBean.java")
+        .addSourceFile("springboot-annotations/SpyBean.java")
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.springframework.stereotype.Component;",
+            "@Component",
+            "public class Foo {",
+            "  @Nullable String bar;",
+            "  public void setBar(String s) {",
+            "    bar = s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "TestCase.java",
+            "package com.uber;",
+            "import org.junit.jupiter.api.Test;",
+            "import org.springframework.boot.test.mock.mockito.SpyBean;",
+            "import org.springframework.boot.test.mock.mockito.MockBean;",
+            "public class TestCase {",
+            "  @SpyBean",
+            "  private Foo spy;", // Initialized by spring test (via Mockito).
+            "  @MockBean",
+            "  private Foo mock;", // Initialized by spring test (via Mockito).
+            "  @Test",
+            "  void springTest() {",
+            "    spy.setBar(\"hello\");",
+            "    mock.setBar(\"hello\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void springAutowiredConstructorTest() {
     defaultCompilationHelper
         .addSourceLines(
