@@ -1,7 +1,8 @@
 package com.uber.nullaway;
 
-import java.util.Arrays;
 import org.junit.Test;
+
+import java.util.Arrays;
 
 public class NullAwayFrameworkTests extends NullAwayTestsBase {
   @Test
@@ -265,6 +266,8 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
   @Test
   public void springTestAutowiredFieldTest() {
     defaultCompilationHelper
+        .addSourceFile("springboot-annotations/MockBean.java")
+        .addSourceFile("springboot-annotations/SpyBean.java")
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
