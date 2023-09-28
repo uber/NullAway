@@ -189,7 +189,7 @@ public class NullAwaySwitchTests {
             "    a,",
             "    b,",
             "  }",
-            "  // NOTE: we should report a bug here for nullableEn but cannot do so until",
+            "  // NOTE: we should report a bug here for nullableEnum but cannot do so until",
             "  // Error Prone supports matching switch expressions",
             "  static Object handleNullableEnum(@Nullable NullableEnum nullableEnum) {",
             "    return switch (nullableEnum) {",
