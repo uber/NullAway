@@ -176,6 +176,9 @@ public class NullAwaySwitchTests {
         .doTest();
   }
 
+  // Ignoring this unit test to prevent crashes until Checker Framework
+  // can handle null case. 
+
   @Ignore
   @Test
   public void testSwitchExprNullCase() {
