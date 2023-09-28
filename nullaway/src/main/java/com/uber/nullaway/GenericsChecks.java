@@ -4,6 +4,7 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
@@ -723,7 +724,11 @@ public final class GenericsChecks {
         throw new RuntimeException(
             "method should be inside a NewClassTree " + state.getSourceForNode(path.getLeaf()));
       }
-      return getTreeType(newClassTree, state);
+      Type typeFromTree = getTreeType(newClassTree, state);
+      if (typeFromTree != null) {
+        Verify.verify(state.getTypes().isAssignable(symbol.type, typeFromTree));
+      }
+      return typeFromTree;
     } else {
       return symbol.type;
     }
