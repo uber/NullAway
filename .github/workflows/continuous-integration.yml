@@ -36,21 +36,13 @@ jobs:
     steps:
       - name: Check out NullAway sources
         uses: actions/checkout@v3
-      - name: 'Set up JDK 21 so it is available'
+      - name: 'Set up JDKs'
         uses: actions/setup-java@v3
         with:
-          java-version: '21-ea'
-          distribution: 'temurin'
-      - name: 'Set up JDK 17 on Windows'
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-        if: matrix.os == 'windows-latest'
-      - name: 'Set up JDK ${{ matrix.java }}'
-        uses: actions/setup-java@v3
-        with:
-          java-version: ${{ matrix.java }}
+          java-version: |
+            21-ea
+            17
+            ${{ matrix.java }}
           distribution: 'temurin'
       - name: Build and test using Java ${{ matrix.java }} and Error Prone ${{ matrix.epVersion }}
         env:
@@ -99,7 +91,9 @@ jobs:
       - name: 'Set up JDK 11'
         uses: actions/setup-java@v3
         with:
-          java-version: 11
+          java-version: |
+            21-ea
+            11
           distribution: 'temurin'
       - name: 'Publish'
         uses: gradle/gradle-build-action@v2
