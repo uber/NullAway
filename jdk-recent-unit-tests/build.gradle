@@ -52,9 +52,6 @@ test {
 }
 
 tasks.getByName('testJdk21').configure {
-    jvmArgs += [
-        // Expose a module path for tests as a JVM property.
-        // Used by com.uber.nullaway.jdk17.NullAwayModuleInfoTests
-        "-Dtest.module.path=${configurations.testModulePath.asPath}"
-    ]
+    // We don't need this task since we already run the tests on JDK 21
+    onlyIf { false }
 }
