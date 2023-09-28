@@ -25,6 +25,7 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.util.Arrays;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -170,6 +171,32 @@ public class NullAwaySwitchTests {
             "    // Here we just test to make sure there is no crash.  We need better",
             "    // generics support to do a more substantive test.",
             "    Function<SwitchExpr,Object> f = (s) -> switch (s.i) { case 3, 4, 5 -> new Object(); default -> \"hello\"; };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Ignore
+  @Test
+  public void testSwitchExprNullCase() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SwitchExpr.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class SwitchExpr {",
+            "  public enum NullableEnum {",
+            "    a,",
+            "    b,",
+            "  }",
+            "  // NOTE: we should report a bug here for nullableEn but cannot do so until",
+            "  // Error Prone supports matching switch expressions",
+            "  static Object handleNullableEnum(@Nullable NullableEnum nullableEnum) {",
+            "    return switch (nullableEnum) {",
+            "      case a -> new Object();",
+            "      case b -> new Object();",
+            "      case null -> throw new IllegalArgumentException(\"NullableEnum parameter is required\");",
+            "    };",
             "  }",
             "}")
         .doTest();
