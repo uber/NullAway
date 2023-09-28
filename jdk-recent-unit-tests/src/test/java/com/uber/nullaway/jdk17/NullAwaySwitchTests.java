@@ -176,10 +176,7 @@ public class NullAwaySwitchTests {
         .doTest();
   }
 
-  // Ignoring this unit test to prevent crashes until Checker Framework
-  // can handle null case. 
-
-  @Ignore
+  @Ignore("requires fix for crash in Checker dataflow library")
   @Test
   public void testSwitchExprNullCase() {
     defaultCompilationHelper
