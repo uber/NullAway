@@ -21,36 +21,28 @@ jobs:
             epVersion: 2.4.0
           - os: macos-latest
             java: 11
-            epVersion: 2.21.1
+            epVersion: 2.22.0
           - os: ubuntu-latest
             java: 11
-            epVersion: 2.21.1
+            epVersion: 2.22.0
           - os: windows-latest
             java: 11
-            epVersion: 2.21.1
+            epVersion: 2.22.0
           - os: ubuntu-latest
             java: 17
-            epVersion: 2.21.1
+            epVersion: 2.22.0
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out NullAway sources
         uses: actions/checkout@v3
-      - name: 'Set up JDK 21 so it is available'
+      - name: 'Set up JDKs'
         uses: actions/setup-java@v3
         with:
-          java-version: '21-ea'
-          distribution: 'temurin'
-      - name: 'Set up JDK 17 on Windows'
-        uses: actions/setup-java@v3
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-        if: matrix.os == 'windows-latest'
-      - name: 'Set up JDK ${{ matrix.java }}'
-        uses: actions/setup-java@v3
-        with:
-          java-version: ${{ matrix.java }}
+          java-version: |
+            21-ea
+            17
+            ${{ matrix.java }}
           distribution: 'temurin'
       - name: Build and test using Java ${{ matrix.java }} and Error Prone ${{ matrix.epVersion }}
         env:
@@ -71,7 +63,7 @@ jobs:
         with:
           arguments: codeCoverageReport
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.21.1' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.22.0' && github.repository == 'uber/NullAway'
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         with:
@@ -99,7 +91,9 @@ jobs:
       - name: 'Set up JDK 11'
         uses: actions/setup-java@v3
         with:
-          java-version: 11
+          java-version: |
+            21-ea
+            11
           distribution: 'temurin'
       - name: 'Publish'
         uses: gradle/gradle-build-action@v2
