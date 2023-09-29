@@ -205,9 +205,11 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "      abstract R apply(P p);",
             "    }",
             "  }",
-            "  static void positiveParam(Wrapper<@Nullable String>.Fn<String> p1) {",
-            "    // BUG: Diagnostic contains: Cannot assign from type Test.Wrapper<@Nullable String>.Fn<String> to type Test.Wrapper<String>.Fn<String>",
-            "    Wrapper<String>.Fn<String> p2 = p1;",
+            "  static void param(@Nullable Wrapper<String>.Fn<String> p) {}",
+            "  static void positiveParam() {",
+            "    Wrapper<@Nullable String>.Fn<String> x = null;",
+            "    // BUG: Diagnostic contains: Cannot pass parameter of type Test.Wrapper<@Nullable String>.Fn<String>",
+            "    param(x);",
             "  }",
             "  static void positiveAssign() {",
             "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
@@ -217,6 +219,18 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  static @Nullable Wrapper<String>.Fn<String> positiveReturn() {",
             "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
             "    // BUG: Diagnostic contains: Cannot return expression of type Test.Wrapper<@Nullable String>.Fn<String>",
+            "    return p1;",
+            "  }",
+            "  static void negativeParam() {",
+            "    Wrapper<String>.Fn<String> x = null;",
+            "    param(x);",
+            "  }",
+            "  static void negativeAssign() {",
+            "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
+            "    Wrapper<@Nullable String>.Fn<String> p2 = p1;",
+            "  }",
+            "  static @Nullable Wrapper<@Nullable String>.Fn<String> negativeReturn() {",
+            "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
             "    return p1;",
             "  }",
             "}")
@@ -1058,7 +1072,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
 
   @Ignore("https://github.com/uber/NullAway/issues/836")
   @Test
-  public void anonymousNestedClasses() {
+  public void overrideAnonymousNestedClass() {
     makeHelper()
         .addSourceLines(
             "Test.java",
