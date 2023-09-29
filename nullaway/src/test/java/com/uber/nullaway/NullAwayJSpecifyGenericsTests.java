@@ -2,6 +2,7 @@ package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
@@ -186,6 +187,37 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    DifferentAnnotTypeParam2<String> t2 = new DifferentAnnotTypeParam2<@Nullable String>();",
             "    // BUG: Diagnostic contains: Generic type parameter",
             "    DifferentAnnotTypeParam1<String> t3 = new DifferentAnnotTypeParam1<@Nullable String>();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nestedGenericTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  class Wrapper<P extends @Nullable Object> {",
+            "    abstract class Fn<R extends @Nullable Object> {",
+            "      abstract R apply(P p);",
+            "    }",
+            "  }",
+            "  static void positiveParam(Wrapper<@Nullable String>.Fn<String> p1) {",
+            "    // BUG: Diagnostic contains: Cannot assign from type Test.Wrapper<@Nullable String>.Fn<String> to type Test.Wrapper<String>.Fn<String>",
+            "    Wrapper<String>.Fn<String> p2 = p1;",
+            "  }",
+            "  static void positiveAssign() {",
+            "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
+            "    // BUG: Diagnostic contains: Cannot assign from type Test.Wrapper<@Nullable String>.Fn<String> to type Test.Wrapper<String>.Fn<String>",
+            "    Wrapper<String>.Fn<String> p2 = p1;",
+            "  }",
+            "  static @Nullable Wrapper<String>.Fn<String> positiveReturn() {",
+            "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
+            "    // BUG: Diagnostic contains: Cannot return expression of type Test.Wrapper<@Nullable String>.Fn<String>",
+            "    return p1;",
             "  }",
             "}")
         .doTest();
@@ -1024,7 +1056,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  // @Ignore("https://github.com/uber/NullAway/issues/836")
+  @Ignore("https://github.com/uber/NullAway/issues/836")
   @Test
   public void anonymousNestedClasses() {
     makeHelper()
@@ -1038,16 +1070,11 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "      abstract R apply(P p);",
             "    }",
             "  }",
-            //            "  void anonymousNestedClasses() {",
-            //            "    Wrapper<@Nullable String>.Fn<String> fn1 = (this.new
-            // Wrapper<@Nullable String>()).new Fn<String>() {",
-            //            "      // BUG: Diagnostic contains: parameter s is @NonNull, but parameter
-            // in superclass method",
-            //            "      public String apply(String s) { return s; }",
-            //            "    };",
-            //            "  }",
-            "  static void param(Wrapper<@Nullable String>.Fn<String> p1) {",
-            "    Wrapper<String>.Fn<String> p2 = p1;",
+            "  void anonymousNestedClasses() {",
+            "    Wrapper<@Nullable String>.Fn<String> fn1 = (this.new Wrapper<@Nullable String>()).new Fn<String>() {",
+            "      // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method",
+            "      public String apply(String s) { return s; }",
+            "    };",
             "  }",
             "}")
         .doTest();
