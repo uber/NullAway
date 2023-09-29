@@ -1025,7 +1025,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("Need to add support for this case")
+  @Ignore("https://github.com/uber/NullAway/issues/836")
   @Test
   public void overrideAnonymousNestedClass() {
     makeHelper()

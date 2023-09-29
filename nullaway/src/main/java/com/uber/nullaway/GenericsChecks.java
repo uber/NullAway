@@ -1,10 +1,10 @@
 package com.uber.nullaway;
 
+import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
@@ -726,7 +726,7 @@ public final class GenericsChecks {
       }
       Type typeFromTree = getTreeType(newClassTree, state);
       if (typeFromTree != null) {
-        Verify.verify(state.getTypes().isAssignable(symbol.type, typeFromTree));
+        verify(state.getTypes().isAssignable(symbol.type, typeFromTree));
       }
       return typeFromTree;
     } else {
