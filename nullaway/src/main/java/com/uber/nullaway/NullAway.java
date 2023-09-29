@@ -738,7 +738,7 @@ public class NullAway extends BugChecker
                     ? GenericsChecks.getGenericMethodParameterNullness(
                         i,
                         overriddenMethod,
-                        overridingParamSymbols.get(i).owner.owner.type,
+                        overridingParamSymbols.get(i).owner.owner,
                         state,
                         config)
                     : Nullness.NONNULL);
@@ -944,7 +944,7 @@ public class NullAway extends BugChecker
     // if the super method returns nonnull, overriding method better not return nullable
     // Note that, for the overriding method, the permissive default is non-null,
     // but it's nullable for the overridden one.
-    if (overriddenMethodReturnsNonNull(overriddenMethod, overridingMethod.owner.type, state)
+    if (overriddenMethodReturnsNonNull(overriddenMethod, overridingMethod.owner, state)
         && getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL)
             .equals(Nullness.NULLABLE)
         && (memberReferenceTree == null
@@ -983,7 +983,7 @@ public class NullAway extends BugChecker
   }
 
   private boolean overriddenMethodReturnsNonNull(
-      Symbol.MethodSymbol overriddenMethod, Type overridingMethodType, VisitorState state) {
+      Symbol.MethodSymbol overriddenMethod, Symbol enclosingSymbol, VisitorState state) {
     Nullness methodReturnNullness =
         getMethodReturnNullness(overriddenMethod, state, Nullness.NULLABLE);
     if (!methodReturnNullness.equals(Nullness.NONNULL)) {
@@ -993,7 +993,7 @@ public class NullAway extends BugChecker
     // using the type parameters from the type enclosing the overriding method
     if (config.isJSpecifyMode()) {
       return GenericsChecks.getGenericMethodReturnTypeNullness(
-              overriddenMethod, overridingMethodType, state, config)
+              overriddenMethod, enclosingSymbol, state, config)
           .equals(Nullness.NONNULL);
     }
     return true;

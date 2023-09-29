@@ -1,5 +1,6 @@
 package com.uber.nullaway;
 
+import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static java.util.stream.Collectors.joining;
 
@@ -22,6 +23,7 @@ import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.SimpleTreeVisitor;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
@@ -686,14 +688,53 @@ public final class GenericsChecks {
    * String}.
    *
    * @param method the generic method
-   * @param enclosingType the enclosing type in which we want to know {@code method}'s return type
-   *     nullability
+   * @param enclosingSymbol the enclosing class in which we want to know {@code method}'s return
+   *     type nullability
    * @param state Visitor state
    * @param config The analysis config
    * @return nullability of the return type of {@code method} in the context of {@code
    *     enclosingType}
    */
   public static Nullness getGenericMethodReturnTypeNullness(
+      Symbol.MethodSymbol method, Symbol enclosingSymbol, VisitorState state, Config config) {
+    Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
+    if (enclosingType == null) {
+      // we have no additional information from generics, so return NONNULL (presence of a @Nullable
+      // annotation should have been handled by the caller)
+      return Nullness.NONNULL;
+    }
+    return getGenericMethodReturnTypeNullness(method, enclosingType, state, config);
+  }
+
+  /**
+   * Get the type for the symbol, accounting for anonymous classes
+   *
+   * @param symbol the symbol
+   * @param state the visitor state
+   * @return the type for {@code symbol}
+   */
+  @Nullable
+  private static Type getTypeForSymbol(Symbol symbol, VisitorState state) {
+    if (symbol.isAnonymous()) {
+      // For anonymous classes, symbol.type does not contain annotations on generic type parameters.
+      // So, we get a correct type from the enclosing NewClassTree.
+      TreePath path = state.getPath();
+      NewClassTree newClassTree = ASTHelpers.findEnclosingNode(path, NewClassTree.class);
+      if (newClassTree == null) {
+        throw new RuntimeException(
+            "method should be inside a NewClassTree " + state.getSourceForNode(path.getLeaf()));
+      }
+      Type typeFromTree = getTreeType(newClassTree, state);
+      if (typeFromTree != null) {
+        verify(state.getTypes().isAssignable(symbol.type, typeFromTree));
+      }
+      return typeFromTree;
+    } else {
+      return symbol.type;
+    }
+  }
+
+  private static Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
     Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
     if (!(overriddenMethodType instanceof Type.MethodType)) {
@@ -743,7 +784,7 @@ public final class GenericsChecks {
     }
     Type methodReceiverType =
         castToNonNull(
-            ASTHelpers.getType(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
+            getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state));
     return getGenericMethodReturnTypeNullness(
         invokedMethodSymbol, methodReceiverType, state, config);
   }
@@ -791,11 +832,11 @@ public final class GenericsChecks {
     if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
       return Nullness.NONNULL;
     }
-    Type methodReceiverType =
+    Type enclosingType =
         castToNonNull(
-            ASTHelpers.getType(((MemberSelectTree) tree.getMethodSelect()).getExpression()));
+            getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state));
     return getGenericMethodParameterNullness(
-        paramIndex, invokedMethodSymbol, methodReceiverType, state, config);
+        paramIndex, invokedMethodSymbol, enclosingType, state, config);
   }
 
   /**
@@ -819,6 +860,35 @@ public final class GenericsChecks {
    * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
    * {@code P}. Hence, overriding method {@code C.apply} must take a {@code @Nullable String} as a
    * parameter.
+   *
+   * @param parameterIndex index of the parameter
+   * @param method the generic method
+   * @param enclosingSymbol the enclosing symbol in which we want to know {@code method}'s parameter
+   *     type nullability
+   * @param state the visitor state
+   * @param config the config
+   * @return nullability of the relevant parameter type of {@code method} in the context of {@code
+   *     enclosingSymbol}
+   */
+  public static Nullness getGenericMethodParameterNullness(
+      int parameterIndex,
+      Symbol.MethodSymbol method,
+      Symbol enclosingSymbol,
+      VisitorState state,
+      Config config) {
+    Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
+    if (enclosingType == null) {
+      // we have no additional information from generics, so return NONNULL (presence of a @Nullable
+      // annotation should have been handled by the caller)
+      return Nullness.NONNULL;
+    }
+    return getGenericMethodParameterNullness(parameterIndex, method, enclosingType, state, config);
+  }
+
+  /**
+   * Just like {@link #getGenericMethodParameterNullness(int, Symbol.MethodSymbol, Symbol,
+   * VisitorState, Config)}, but takes the enclosing {@code Type} rather than the enclosing {@code
+   * Symbol}.
    *
    * @param parameterIndex index of the parameter
    * @param method the generic method

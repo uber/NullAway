@@ -2,6 +2,7 @@ package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
@@ -970,6 +971,163 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: passing @Nullable parameter",
             "    f2.apply(null);",
             " }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void overrideExplicitlyTypedAnonymousClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    R apply(P p);",
+            "  }",
+            "  static abstract class FnClass<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    abstract R apply(P p);",
+            "  }",
+            "  static void anonymousClasses() {",
+            "    Fn<@Nullable String, String> fn1 = new Fn<@Nullable String, String>() {",
+            "      // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "    FnClass<String, String> fn2 = new FnClass<String, String>() {",
+            "      // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    Fn<String, @Nullable String> fn3 = new Fn<String, @Nullable String>() {",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    FnClass<@Nullable String, String> fn4 = new FnClass<@Nullable String, String>() {",
+            "      public String apply(@Nullable String s) { return \"hello\"; }",
+            "    };",
+            "  }",
+            "  static void anonymousClassesFullName() {",
+            "    Test.Fn<@Nullable String, String> fn1 = new Test.Fn<@Nullable String, String>() {",
+            "      // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "    Test.FnClass<String, String> fn2 = new Test.FnClass<String, String>() {",
+            "      // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    Test.Fn<String, @Nullable String> fn3 = new Test.Fn<String, @Nullable String>() {",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    Test.FnClass<@Nullable String, String> fn4 = new Test.FnClass<@Nullable String, String>() {",
+            "      public String apply(@Nullable String s) { return \"hello\"; }",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/836")
+  @Test
+  public void overrideAnonymousNestedClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  class Wrapper<P extends @Nullable Object> {",
+            "    abstract class Fn<R extends @Nullable Object> {",
+            "      abstract R apply(P p);",
+            "    }",
+            "  }",
+            "  void anonymousNestedClasses() {",
+            "    Wrapper<@Nullable String>.Fn<String> fn1 = (this.new Wrapper<@Nullable String>()).new Fn<String>() {",
+            "      // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void explicitlyTypedAnonymousClassAsReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    R apply(P p);",
+            "  }",
+            "  static abstract class FnClass<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    abstract R apply(P p);",
+            "  }",
+            "  static void anonymousClasses() {",
+            "    String s1 = (new Fn<String, @Nullable String>() {",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    }).apply(\"hi\");",
+            "    // BUG: Diagnostic contains: dereferenced expression s1",
+            "    s1.hashCode();",
+            "    String s2 = (new FnClass<String, @Nullable String>() {",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    }).apply(\"hi\");",
+            "    // BUG: Diagnostic contains: dereferenced expression s2",
+            "    s2.hashCode();",
+            "    (new Fn<String, String>() {",
+            "      public String apply(String s) { return \"hi\"; }",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    }).apply(null);",
+            "    (new FnClass<String, String>() {",
+            "      public String apply(String s) { return \"hi\"; }",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    }).apply(null);",
+            "    (new Fn<@Nullable String, String>() {",
+            "      public String apply(@Nullable String s) { return \"hi\"; }",
+            "    }).apply(null);",
+            "    (new FnClass<@Nullable String, String>() {",
+            "      public String apply(@Nullable String s) { return \"hi\"; }",
+            "    }).apply(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  /** Diamond anonymous classes are not supported yet; tests are for future reference */
+  @Test
+  public void overrideDiamondAnonymousClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    R apply(P p);",
+            "  }",
+            "  static abstract class FnClass<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    abstract R apply(P p);",
+            "  }",
+            "  static void anonymousClasses() {",
+            "    Fn<@Nullable String, String> fn1 = new Fn<>() {",
+            "      // TODO: should report a bug here",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "    FnClass<@Nullable String, String> fn2 = new FnClass<>() {",
+            "      // TODO: should report a bug here",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "    Fn<String, @Nullable String> fn3 = new Fn<>() {",
+            "      // TODO: this is a false positive",
+            "      // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    FnClass<String, @Nullable String> fn4 = new FnClass<>() {",
+            "      // TODO: this is a false positive",
+            "      // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "  }",
             "}")
         .doTest();
   }
