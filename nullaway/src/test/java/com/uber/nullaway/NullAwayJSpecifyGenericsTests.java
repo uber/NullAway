@@ -2,6 +2,7 @@ package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
@@ -1002,6 +1003,46 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    };",
             "    FnClass<@Nullable String, String> fn4 = new FnClass<@Nullable String, String>() {",
             "      public String apply(@Nullable String s) { return \"hello\"; }",
+            "    };",
+            "  }",
+            "  static void anonymousClassesFullName() {",
+            "    Test.Fn<@Nullable String, String> fn1 = new Test.Fn<@Nullable String, String>() {",
+            "      // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "    Test.FnClass<String, String> fn2 = new Test.FnClass<String, String>() {",
+            "      // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    Test.Fn<String, @Nullable String> fn3 = new Test.Fn<String, @Nullable String>() {",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    Test.FnClass<@Nullable String, String> fn4 = new Test.FnClass<@Nullable String, String>() {",
+            "      public String apply(@Nullable String s) { return \"hello\"; }",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Ignore("Need to add support for this case")
+  @Test
+  public void overrideAnonymousNestedClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  class Wrapper<P extends @Nullable Object> {",
+            "    abstract class Fn<R extends @Nullable Object> {",
+            "      abstract R apply(P p);",
+            "    }",
+            "  }",
+            "  void anonymousNestedClasses() {",
+            "    Wrapper<@Nullable String>.Fn<String> fn1 = (this.new Wrapper<@Nullable String>()).new Fn<String>() {",
+            "      // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method",
+            "      public String apply(String s) { return s; }",
             "    };",
             "  }",
             "}")
