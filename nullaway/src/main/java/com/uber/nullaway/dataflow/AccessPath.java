@@ -35,6 +35,7 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.NullabilityUtil;
+import com.uber.nullaway.annotations.JacocoIgnoreGenerated;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
@@ -648,7 +649,14 @@ public final class AccessPath implements MapKey {
       return iteratorVarElement;
     }
 
+    /**
+     * We ignore this method for code coverage since there is non-determinism somewhere deep in a
+     * Map implementation such that, depending on how AccessPaths get bucketed in the Map (which
+     * depends on non-deterministic hash codes), sometimes this method is called and sometimes it is
+     * not.
+     */
     @Override
+    @JacocoIgnoreGenerated
     public boolean equals(Object o) {
       if (this == o) {
         return true;
