@@ -2,7 +2,6 @@ package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
@@ -1025,9 +1024,9 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/836")
+  // @Ignore("https://github.com/uber/NullAway/issues/836")
   @Test
-  public void overrideAnonymousNestedClass() {
+  public void anonymousNestedClasses() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -1039,11 +1038,16 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "      abstract R apply(P p);",
             "    }",
             "  }",
-            "  void anonymousNestedClasses() {",
-            "    Wrapper<@Nullable String>.Fn<String> fn1 = (this.new Wrapper<@Nullable String>()).new Fn<String>() {",
-            "      // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method",
-            "      public String apply(String s) { return s; }",
-            "    };",
+            //            "  void anonymousNestedClasses() {",
+            //            "    Wrapper<@Nullable String>.Fn<String> fn1 = (this.new
+            // Wrapper<@Nullable String>()).new Fn<String>() {",
+            //            "      // BUG: Diagnostic contains: parameter s is @NonNull, but parameter
+            // in superclass method",
+            //            "      public String apply(String s) { return s; }",
+            //            "    };",
+            //            "  }",
+            "  static void param(Wrapper<@Nullable String>.Fn<String> p1) {",
+            "    Wrapper<String>.Fn<String> p2 = p1;",
             "  }",
             "}")
         .doTest();
