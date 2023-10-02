@@ -72,6 +72,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.ClassNameNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ConditionalAndNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ConditionalNotNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ConditionalOrNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.DeconstructorPatternNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.DoubleLiteralNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.EqualToNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ExplicitThisNode;
@@ -1081,6 +1082,13 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitExpressionStatement(
       ExpressionStatementNode expressionStatementNode,
+      TransferInput<Nullness, NullnessStore> input) {
+    return noStoreChanges(NULLABLE, input);
+  }
+
+  @Override
+  public TransferResult<Nullness, NullnessStore> visitDeconstructorPattern(
+      DeconstructorPatternNode deconstructorPatternNode,
       TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }

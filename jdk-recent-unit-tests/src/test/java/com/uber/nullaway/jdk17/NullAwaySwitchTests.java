@@ -25,7 +25,6 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.util.Arrays;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -176,7 +175,6 @@ public class NullAwaySwitchTests {
         .doTest();
   }
 
-  @Ignore("requires fix for crash in Checker dataflow library")
   @Test
   public void testSwitchExprNullCase() {
     defaultCompilationHelper
