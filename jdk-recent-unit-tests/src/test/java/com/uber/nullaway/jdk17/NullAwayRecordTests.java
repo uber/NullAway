@@ -210,4 +210,24 @@ public class NullAwayRecordTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void recordDeconstructionPattern() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Records.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Records {",
+            "  record Rec(Object first, @Nullable Object second) { }",
+            "  void recordDeconstruction(Object obj) {",
+            "    if (obj instanceof Rec(Object f, @Nullable Object s)) {",
+            "      f.toString();",
+            "      // TODO: NullAway should report a warning here!",
+            "      s.toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
