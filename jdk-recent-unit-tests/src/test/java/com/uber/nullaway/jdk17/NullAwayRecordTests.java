@@ -242,6 +242,7 @@ public class NullAwayRecordTests {
             "  record Rec(Object first, @Nullable Object second) { }",
             "  int recordDeconstructionSwitchCase(Object obj) {",
             "    return switch (obj) {",
+            "      // TODO: NullAway should report a warning here!",
             "      case Rec(Object f, @Nullable Object s) -> s.toString().length();",
             "      default -> 0;",
             "    };",
