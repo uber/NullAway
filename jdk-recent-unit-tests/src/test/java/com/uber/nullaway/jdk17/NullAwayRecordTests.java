@@ -210,4 +210,46 @@ public class NullAwayRecordTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void recordDeconstructionPatternInstanceOf() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Records.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Records {",
+            "  record Rec(Object first, @Nullable Object second) { }",
+            "  void recordDeconstructionInstanceOf(Object obj) {",
+            "    if (obj instanceof Rec(Object f, @Nullable Object s)) {",
+            "      f.toString();",
+            "      // TODO: NullAway should report a warning here!",
+            "      // See https://github.com/uber/NullAway/issues/840",
+            "      s.toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void recordDeconstructionPatternSwitchCase() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Records.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Records {",
+            "  record Rec(Object first, @Nullable Object second) { }",
+            "  int recordDeconstructionSwitchCase(Object obj) {",
+            "    return switch (obj) {",
+            "      // TODO: NullAway should report a warning here!",
+            "      // See https://github.com/uber/NullAway/issues/840",
+            "      case Rec(Object f, @Nullable Object s) -> s.toString().length();",
+            "      default -> 0;",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
+import javax.lang.model.type.ExecutableType;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
@@ -739,9 +740,10 @@ public final class GenericsChecks {
   private static Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
     Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
-    if (!(overriddenMethodType instanceof Type.MethodType)) {
-      throw new RuntimeException("expected method type but instead got " + overriddenMethodType);
-    }
+    verify(
+        overriddenMethodType instanceof ExecutableType,
+        "expected ExecutableType but instead got %s",
+        overriddenMethodType.getClass());
     return getTypeNullness(overriddenMethodType.getReturnType(), config);
   }
 

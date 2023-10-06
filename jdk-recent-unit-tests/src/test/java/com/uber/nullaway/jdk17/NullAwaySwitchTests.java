@@ -25,7 +25,6 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.util.Arrays;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -176,7 +175,6 @@ public class NullAwaySwitchTests {
         .doTest();
   }
 
-  @Ignore("requires fix for crash in Checker dataflow library")
   @Test
   public void testSwitchExprNullCase() {
     defaultCompilationHelper
@@ -194,6 +192,15 @@ public class NullAwaySwitchTests {
             "      case A -> new Object();",
             "      case B -> new Object();",
             "      case null -> throw new IllegalArgumentException(\"NullableEnum parameter is required\");",
+            "    };",
+            "  }",
+            "  static Object handleNullableEnumNoCaseNull(@Nullable NullableEnum nullableEnum) {",
+            "    // NOTE: in this case NullAway should report a bug, as there will be an NPE if nullableEnum",
+            "    // is null (since there is no `case null` in the switch).  This requires Error Prone support",
+            "    // for matching on switch expressions (https://github.com/google/error-prone/issues/4119)",
+            "    return switch (nullableEnum) {",
+            "      case A -> new Object();",
+            "      case B -> new Object();",
             "    };",
             "  }",
             "}")
