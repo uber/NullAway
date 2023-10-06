@@ -738,10 +738,10 @@ public final class GenericsChecks {
   private static Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
     Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
-    if (!(overriddenMethodType instanceof ExecutableType)) {
-      throw new RuntimeException(
-          "expected ExecutableType but instead got " + overriddenMethodType.getClass());
-    }
+    verify(
+        overriddenMethodType instanceof ExecutableType,
+        "expected ExecutableType but instead got %s",
+        overriddenMethodType.getClass());
     return getTypeNullness(overriddenMethodType.getReturnType(), config);
   }
 
