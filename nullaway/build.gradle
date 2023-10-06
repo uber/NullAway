@@ -168,6 +168,7 @@ tasks.register('buildWithNullAway', JavaCompile) {
         option("NullAway:CheckOptionalEmptiness")
         option("NullAway:AcknowledgeRestrictiveAnnotations")
         option("NullAway:CheckContracts")
+        option("NullAway:JSpecifyMode")
     }
     // Make sure the jar has already been built
     dependsOn 'jar'
