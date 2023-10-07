@@ -35,7 +35,7 @@ dependencies {
 def jdk8Test = tasks.register("testJdk8", Test) {
     onlyIf {
         // Only if we are using a version of Error Prone compatible with JDK 8
-        deps.versions.errorProneApi == "2.4.0"
+        deps.versions.errorProneApi == "2.10.0"
     }
 
     javaLauncher = javaToolchains.launcherFor {
