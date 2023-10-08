@@ -618,7 +618,14 @@ public final class AccessPath implements MapKey {
       return Long.hashCode(this.key);
     }
 
+    /**
+     * We ignore this method for code coverage since there is non-determinism somewhere deep in a
+     * Map implementation such that, depending on how AccessPaths get bucketed in the Map (which
+     * depends on non-deterministic hash codes), sometimes this method is called and sometimes it is
+     * not.
+     */
     @Override
+    @JacocoIgnoreGenerated
     public boolean equals(Object obj) {
       if (obj instanceof NumericMapKey) {
         return this.key == ((NumericMapKey) obj).key;
