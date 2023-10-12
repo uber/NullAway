@@ -739,6 +739,7 @@ public class NullAway extends BugChecker
                         i,
                         overriddenMethod,
                         overridingParamSymbols.get(i).owner.owner,
+                        memberReferenceTree,
                         state,
                         config)
                     : Nullness.NONNULL);

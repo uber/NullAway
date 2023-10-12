@@ -15,6 +15,7 @@ import com.sun.source.tree.ArrayTypeTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
@@ -876,9 +877,13 @@ public final class GenericsChecks {
       int parameterIndex,
       Symbol.MethodSymbol method,
       Symbol enclosingSymbol,
+      @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state,
       Config config) {
-    Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
+    Type enclosingType =
+        (memberReferenceTree != null)
+            ? ASTHelpers.getType(memberReferenceTree)
+            : getTypeForSymbol(enclosingSymbol, state);
     if (enclosingType == null) {
       // we have no additional information from generics, so return NONNULL (presence of a @Nullable
       // annotation should have been handled by the caller)
@@ -889,8 +894,8 @@ public final class GenericsChecks {
 
   /**
    * Just like {@link #getGenericMethodParameterNullness(int, Symbol.MethodSymbol, Symbol,
-   * VisitorState, Config)}, but takes the enclosing {@code Type} rather than the enclosing {@code
-   * Symbol}.
+   * MemberReferenceTree, VisitorState, Config)}, but takes the enclosing {@code Type} rather than
+   * the enclosing {@code Symbol}.
    *
    * @param parameterIndex index of the parameter
    * @param method the generic method
