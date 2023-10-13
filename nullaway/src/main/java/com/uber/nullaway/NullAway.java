@@ -201,7 +201,6 @@ public class NullAway extends BugChecker
      * class has a mix of annotatedness, depending on presence of {@link
      * org.jspecify.annotations.NullMarked} annotations
      */
-    @SuppressWarnings("JavadocReference")
     PARTIALLY_MARKED
   }
 
