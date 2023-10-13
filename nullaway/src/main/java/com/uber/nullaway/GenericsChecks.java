@@ -903,8 +903,8 @@ public final class GenericsChecks {
       VisitorState state,
       Config config) {
     if (enclosingType == null) {
-      // we have no additional information from generics, so return NONNULL (presence of a @Nullable
-      // annotation should have been handled by the caller)
+      // we have no additional information from generics, so return NONNULL (presence of a top-level
+      // @Nullable annotation is handled elsewhere)
       return Nullness.NONNULL;
     }
     Type methodType = state.getTypes().memberType(enclosingType, method);
