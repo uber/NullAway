@@ -429,7 +429,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    return o.toString();",
             "  }",
             "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: referenced method is @NonNull",
+            "    // BUG: Diagnostic contains: parameter o of referenced method is @NonNull",
             "    A<@Nullable Object> p = Test::foo;",
             "  }",
             "  static void testNegative() {",
