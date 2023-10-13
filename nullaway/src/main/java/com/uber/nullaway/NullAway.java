@@ -201,6 +201,7 @@ public class NullAway extends BugChecker
      * class has a mix of annotatedness, depending on presence of {@link
      * org.jspecify.annotations.NullMarked} annotations
      */
+    @SuppressWarnings("JavadocReference")
     PARTIALLY_MARKED
   }
 
@@ -735,13 +736,19 @@ public class NullAway extends BugChecker
             Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)
                 ? Nullness.NULLABLE
                 : (config.isJSpecifyMode()
-                    ? GenericsChecks.getGenericMethodParameterNullness(
-                        i,
-                        overriddenMethod,
-                        overridingParamSymbols.get(i).owner.owner,
-                        memberReferenceTree,
-                        state,
-                        config)
+                    ? (memberReferenceTree != null)
+                        ? GenericsChecks.getGenericMethodParameterNullness(
+                            i,
+                            overriddenMethod,
+                            ASTHelpers.getType(memberReferenceTree),
+                            state,
+                            config)
+                        : GenericsChecks.getGenericMethodParameterNullness(
+                            i,
+                            overriddenMethod,
+                            overridingParamSymbols.get(i).owner.owner,
+                            state,
+                            config)
                     : Nullness.NONNULL);
       }
     }
