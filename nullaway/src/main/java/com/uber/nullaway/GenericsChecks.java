@@ -699,11 +699,6 @@ public final class GenericsChecks {
   public static Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Symbol enclosingSymbol, VisitorState state, Config config) {
     Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
-    if (enclosingType == null) {
-      // we have no additional information from generics, so return NONNULL (presence of a @Nullable
-      // annotation should have been handled by the caller)
-      return Nullness.NONNULL;
-    }
     return getGenericMethodReturnTypeNullness(method, enclosingType, state, config);
   }
 
