@@ -879,11 +879,6 @@ public final class GenericsChecks {
       VisitorState state,
       Config config) {
     Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
-    if (enclosingType == null) {
-      // we have no additional information from generics, so return NONNULL (presence of a @Nullable
-      // annotation should have been handled by the caller)
-      return Nullness.NONNULL;
-    }
     return getGenericMethodParameterNullness(parameterIndex, method, enclosingType, state, config);
   }
 
@@ -904,9 +899,14 @@ public final class GenericsChecks {
   public static Nullness getGenericMethodParameterNullness(
       int parameterIndex,
       Symbol.MethodSymbol method,
-      Type enclosingType,
+      @Nullable Type enclosingType,
       VisitorState state,
       Config config) {
+    if (enclosingType == null) {
+      // we have no additional information from generics, so return NONNULL (presence of a top-level
+      // @Nullable annotation is handled elsewhere)
+      return Nullness.NONNULL;
+    }
     Type methodType = state.getTypes().memberType(enclosingType, method);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getTypeNullness(paramType, config);
