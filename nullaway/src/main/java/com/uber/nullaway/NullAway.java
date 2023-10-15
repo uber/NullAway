@@ -944,7 +944,8 @@ public class NullAway extends BugChecker
     // if the super method returns nonnull, overriding method better not return nullable
     // Note that, for the overriding method, the permissive default is non-null,
     // but it's nullable for the overridden one.
-    if (overriddenMethodReturnsNonNull(overriddenMethod, overridingMethod.owner, state)
+    if (overriddenMethodReturnsNonNull(
+            overriddenMethod, overridingMethod.owner, memberReferenceTree, state)
         && getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL)
             .equals(Nullness.NULLABLE)
         && (memberReferenceTree == null
@@ -983,7 +984,10 @@ public class NullAway extends BugChecker
   }
 
   private boolean overriddenMethodReturnsNonNull(
-      Symbol.MethodSymbol overriddenMethod, Symbol enclosingSymbol, VisitorState state) {
+      Symbol.MethodSymbol overriddenMethod,
+      Symbol enclosingSymbol,
+      @Nullable MemberReferenceTree memberReferenceTree,
+      VisitorState state) {
     Nullness methodReturnNullness =
         getMethodReturnNullness(overriddenMethod, state, Nullness.NULLABLE);
     if (!methodReturnNullness.equals(Nullness.NONNULL)) {
@@ -992,9 +996,14 @@ public class NullAway extends BugChecker
     // In JSpecify mode, for generic methods, we additionally need to check the return nullness
     // using the type parameters from the type enclosing the overriding method
     if (config.isJSpecifyMode()) {
-      return GenericsChecks.getGenericMethodReturnTypeNullness(
-              overriddenMethod, enclosingSymbol, state, config)
-          .equals(Nullness.NONNULL);
+
+      return (memberReferenceTree != null)
+          ? GenericsChecks.getGenericMethodReturnTypeNullness(
+                  overriddenMethod, ASTHelpers.getType(memberReferenceTree), state, config)
+              .equals(Nullness.NONNULL)
+          : GenericsChecks.getGenericMethodReturnTypeNullness(
+                  overriddenMethod, enclosingSymbol, state, config)
+              .equals(Nullness.NONNULL);
     }
     return true;
   }

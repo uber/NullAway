@@ -441,6 +441,31 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testForMethodReferenceReturnType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    T1 function(Object o);",
+            "  }",
+            "  static @Nullable String foo(Object o) {",
+            "    return o.toString();",
+            "  }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: referenced method returns @Nullable",
+            "    A<String> p = Test::foo;",
+            "  }",
+            "  static void testNegative() {",
+            "    A<@Nullable String> p = Test::foo;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testForLambdasInAnAssignment() {
     makeHelper()
         .addSourceLines(

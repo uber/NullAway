@@ -735,7 +735,7 @@ public final class GenericsChecks {
     }
   }
 
-  private static Nullness getGenericMethodReturnTypeNullness(
+  static Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
     Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
     verify(
