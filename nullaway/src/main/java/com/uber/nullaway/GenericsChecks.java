@@ -736,7 +736,12 @@ public final class GenericsChecks {
   }
 
   static Nullness getGenericMethodReturnTypeNullness(
-      Symbol.MethodSymbol method, Type enclosingType, VisitorState state, Config config) {
+      Symbol.MethodSymbol method, @Nullable Type enclosingType, VisitorState state, Config config) {
+    if (enclosingType == null) {
+      // we have no additional information from generics, so return NONNULL (presence of a @Nullable
+      // annotation should have been handled by the caller)
+      return Nullness.NONNULL;
+    }
     Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
     verify(
         overriddenMethodType instanceof ExecutableType,
