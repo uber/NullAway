@@ -996,14 +996,18 @@ public class NullAway extends BugChecker
     // In JSpecify mode, for generic methods, we additionally need to check the return nullness
     // using the type parameters from the type enclosing the overriding method
     if (config.isJSpecifyMode()) {
-
-      return (memberReferenceTree != null)
-          ? GenericsChecks.getGenericMethodReturnTypeNullness(
-                  overriddenMethod, ASTHelpers.getType(memberReferenceTree), state, config)
-              .equals(Nullness.NONNULL)
-          : GenericsChecks.getGenericMethodReturnTypeNullness(
-                  overriddenMethod, enclosingSymbol, state, config)
-              .equals(Nullness.NONNULL);
+      if (memberReferenceTree != null) {
+        // For a method reference, we get generic type arguments from javac's inferred type for the
+        // tree which properly preserves type-use annotations
+        return GenericsChecks.getGenericMethodReturnTypeNullness(
+                overriddenMethod, ASTHelpers.getType(memberReferenceTree), state, config)
+            .equals(Nullness.NONNULL);
+      } else {
+        // Using the enclosing class of the overriding method to find generic type arguments
+        return GenericsChecks.getGenericMethodReturnTypeNullness(
+                overriddenMethod, enclosingSymbol, state, config)
+            .equals(Nullness.NONNULL);
+      }
     }
     return true;
   }
