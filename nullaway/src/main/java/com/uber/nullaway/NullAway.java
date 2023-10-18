@@ -1014,7 +1014,7 @@ public class NullAway extends BugChecker
                 overriddenMethod, ASTHelpers.getType(memberReferenceTree), state, config)
             .equals(Nullness.NONNULL);
       } else {
-        // Using the enclosing class of the overriding method to find generic type arguments
+        // Use the enclosing class of the overriding method to find generic type arguments
         return GenericsChecks.getGenericMethodReturnTypeNullness(
                 overriddenMethod, enclosingSymbol, state, config)
             .equals(Nullness.NONNULL);
