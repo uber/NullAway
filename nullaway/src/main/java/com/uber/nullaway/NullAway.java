@@ -731,17 +731,28 @@ public class NullAway extends BugChecker
     // -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations flag and its handler).
     if (isOverriddenMethodAnnotated) {
       for (int i = 0; i < superParamSymbols.size(); i++) {
-        overriddenMethodArgNullnessMap[i] =
-            Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)
-                ? Nullness.NULLABLE
-                : (config.isJSpecifyMode()
-                    ? GenericsChecks.getGenericMethodParameterNullness(
-                        i,
-                        overriddenMethod,
-                        overridingParamSymbols.get(i).owner.owner,
-                        state,
-                        config)
-                    : Nullness.NONNULL);
+        Nullness paramNullness;
+        if (Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)) {
+          paramNullness = Nullness.NULLABLE;
+        } else if (config.isJSpecifyMode()) {
+          // Check if the parameter type is a type variable and the corresponding generic type
+          // argument is @Nullable
+          if (memberReferenceTree != null) {
+            // For a method reference, we get generic type arguments from the javac's inferred type
+            // for the tree, which seems to properly preserve type-use annotations
+            paramNullness =
+                GenericsChecks.getGenericMethodParameterNullness(
+                    i, overriddenMethod, ASTHelpers.getType(memberReferenceTree), state, config);
+          } else {
+            // Use the enclosing class of the overriding method to find generic type arguments
+            paramNullness =
+                GenericsChecks.getGenericMethodParameterNullness(
+                    i, overriddenMethod, overridingParamSymbols.get(i).owner.owner, state, config);
+          }
+        } else {
+          paramNullness = Nullness.NONNULL;
+        }
+        overriddenMethodArgNullnessMap[i] = paramNullness;
       }
     }
 
