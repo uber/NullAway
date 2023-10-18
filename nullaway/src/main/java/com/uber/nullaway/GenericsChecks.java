@@ -1009,6 +1009,7 @@ public final class GenericsChecks {
 
     @Override
     public String visitWildcardType(Type.WildcardType t, Void unused) {
+      // NOTE: we have not tested this code yet as we do not yet support wildcard types
       StringBuilder sb = new StringBuilder();
       sb.append(t.kind);
       if (t.kind != BoundKind.UNBOUND) {
