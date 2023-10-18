@@ -193,6 +193,51 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nestedGenericTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  class Wrapper<P extends @Nullable Object> {",
+            "    abstract class Fn<R extends @Nullable Object> {",
+            "      abstract R apply(P p);",
+            "    }",
+            "  }",
+            "  static void param(@Nullable Wrapper<String>.Fn<String> p) {}",
+            "  static void positiveParam() {",
+            "    Wrapper<@Nullable String>.Fn<String> x = null;",
+            "    // BUG: Diagnostic contains: Cannot pass parameter of type Test.Wrapper<@Nullable String>.Fn<String>",
+            "    param(x);",
+            "  }",
+            "  static void positiveAssign() {",
+            "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
+            "    // BUG: Diagnostic contains: Cannot assign from type Test.Wrapper<@Nullable String>.Fn<String> to type Test.Wrapper<String>.Fn<String>",
+            "    Wrapper<String>.Fn<String> p2 = p1;",
+            "  }",
+            "  static @Nullable Wrapper<String>.Fn<String> positiveReturn() {",
+            "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
+            "    // BUG: Diagnostic contains: Cannot return expression of type Test.Wrapper<@Nullable String>.Fn<String>",
+            "    return p1;",
+            "  }",
+            "  static void negativeParam() {",
+            "    Wrapper<String>.Fn<String> x = null;",
+            "    param(x);",
+            "  }",
+            "  static void negativeAssign() {",
+            "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
+            "    Wrapper<@Nullable String>.Fn<String> p2 = p1;",
+            "  }",
+            "  static @Nullable Wrapper<@Nullable String>.Fn<String> negativeReturn() {",
+            "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
+            "    return p1;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void downcastInstantiation() {
     makeHelper()
         .addSourceLines(
@@ -280,7 +325,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {}",
             "  class FnImpl implements Fn<@Nullable String, @Nullable String> {}",
             "  void testPositive() {",
-            "    // BUG: Diagnostic contains: Cannot assign from type FnImpl",
+            "    // BUG: Diagnostic contains: Cannot assign from type Test.FnImpl",
             "    Fn<@Nullable String, String> f = new FnImpl();",
             "  }",
             "  void testNegative() {",
@@ -1173,14 +1218,14 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             " }",
             " class TestFunc1 implements Fn<P<@Nullable String, String>, @Nullable String> {",
             " @Override",
-            "  // BUG: Diagnostic contains: Method returns P<@Nullable String, @Nullable String>, but overridden method",
+            "  // BUG: Diagnostic contains: Method returns Test.P<@Nullable String, @Nullable String>, but overridden method",
             " public P<@Nullable String, @Nullable String> apply() {",
             "   return new P<@Nullable String, @Nullable String>();",
             "  }",
             " }",
             " class TestFunc2 implements Fn<P<@Nullable String, @Nullable String>, @Nullable String> {",
             "   @Override",
-            "   // BUG: Diagnostic contains: Method returns P<@Nullable String, String>, but overridden method returns",
+            "   // BUG: Diagnostic contains: Method returns Test.P<@Nullable String, String>, but overridden method returns",
             "   public P<@Nullable String, String> apply() {",
             "     return new P<@Nullable String, String>();",
             "   }",
@@ -1209,7 +1254,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             " }",
             " class TestFunc implements Fn<P<String, String>, String> {",
             " @Override",
-            "  // BUG: Diagnostic contains: Parameter has type P<@Nullable String, String>, but overridden method has parameter type P<String, String>",
+            "  // BUG: Diagnostic contains: Parameter has type Test.P<@Nullable String, String>, but overridden method has parameter type Test.P<String, String>",
             "  public String apply(P<@Nullable String, String> p, String s) {",
             "    return s;",
             "  }",
