@@ -180,9 +180,9 @@ public class NullabilityUtil {
    * @param symbol the symbol
    * @return all annotations on the symbol and on the type of the symbol
    */
-  public static Stream<? extends AnnotationMirror> getAllAnnotations(Symbol symbol) {
+  public static Stream<? extends AnnotationMirror> getAllAnnotations(Symbol symbol, Config config) {
     // for methods, we care about annotations on the return type, not on the method type itself
-    Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations(symbol);
+    Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations(symbol, config);
     return Stream.concat(symbol.getAnnotationMirrors().stream(), typeUseAnnotations);
   }
 
@@ -277,19 +277,22 @@ public class NullabilityUtil {
    * Gets the type use annotations on a symbol, ignoring annotations on components of the type (type
    * arguments, wildcards, etc.)
    */
-  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(Symbol symbol) {
+  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(
+      Symbol symbol, Config config) {
     Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
     if (symbol instanceof Symbol.MethodSymbol) {
       // for methods, we want annotations on the return type
       return rawTypeAttributes.filter(
-          (t) -> t.position.type.equals(TargetType.METHOD_RETURN) && isDirectTypeUseAnnotation(t));
+          (t) ->
+              t.position.type.equals(TargetType.METHOD_RETURN)
+                  && isDirectTypeUseAnnotation(t, config));
     } else {
       // filter for annotations directly on the type
-      return rawTypeAttributes.filter(NullabilityUtil::isDirectTypeUseAnnotation);
+      return rawTypeAttributes.filter(t -> NullabilityUtil.isDirectTypeUseAnnotation(t, config));
     }
   }
 
-  private static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t) {
+  private static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t, Config config) {
     // location is a list of TypePathEntry objects, indicating whether the annotation is
     // on an array, inner type, wildcard, or type argument. If it's empty, then the
     // annotation is directly on the type.
@@ -305,6 +308,9 @@ public class NullabilityUtil {
     // proper deprecation of the incorrect behaviors for type use annotations when their
     // semantics don't match those of a declaration annotation in the same position.
     // See https://github.com/uber/NullAway/issues/708
+    if (config.isJSpecifyMode()) {
+      return isDirectTypeUseAnnotationJSpecify(t);
+    }
     boolean locationHasInnerTypes = false;
     boolean locationHasArray = false;
     for (TypePathEntry entry : t.position.location) {
@@ -322,6 +328,12 @@ public class NullabilityUtil {
     }
     // Make sure it's not a mix of inner types and arrays for this annotation's location
     return !(locationHasInnerTypes && locationHasArray);
+  }
+
+  private static boolean isDirectTypeUseAnnotationJSpecify(Attribute.TypeCompound t) {
+    // Currently we are ignoring @Nullable annotations on type in JSpecify mode.
+    // Eventually, this should return true if annotation is on type.
+    return t.position.location.isEmpty();
   }
 
   /**
