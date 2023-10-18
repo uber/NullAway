@@ -547,7 +547,8 @@ public final class GenericsChecks {
         }
       }
       // If there is an enclosing type (for non-static inner classes), its type argument nullability
-      // should also match
+      // should also match.  When there is no enclosing type, getEnclosingType() returns a NoType
+      // object, which gets handled by the fallback visitType() method
       return lhsType.getEnclosingType().accept(this, rhsType.getEnclosingType());
     }
 
