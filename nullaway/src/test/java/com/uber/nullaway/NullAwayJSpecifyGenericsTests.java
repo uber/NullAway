@@ -440,7 +440,28 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testForMethodReferenceReturnType() {
+  public void testForMethodReferenceForClassFieldAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    T1 function(Object o);",
+            "  }",
+            "  static @Nullable String foo(Object o) {",
+            "    return o.toString();",
+            "  }",
+            "  // BUG: Diagnostic contains: referenced method returns @Nullable",
+            "  A<String> positiveField = Test::foo;",
+            "  A<@Nullable String> negativeField = Test::foo;",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForMethodReferenceReturnTypeInAnAssignment() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -459,6 +480,60 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  }",
             "  static void testNegative() {",
             "    A<@Nullable String> p = Test::foo;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForMethodReferenceWhenReturned() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    T1 function(Object o);",
+            "  }",
+            "  static @Nullable String foo(Object o) {",
+            "    return o.toString();",
+            "  }",
+            "  static A<String> testPositive() {",
+            "    // BUG: Diagnostic contains: referenced method returns @Nullable",
+            "    return Test::foo;",
+            "  }",
+            "  static A<@Nullable String> testNegative() {",
+            "    return Test::foo;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForMethodReferenceAsMethodParameter() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    T1 function(Object o);",
+            "  }",
+            "  static @Nullable String foo(Object o) {",
+            "    return o.toString();",
+            "  }",
+            "  static void fooPositive(A<String> a) {",
+            "  }",
+            "  static void fooNegative(A<@Nullable String> a) {",
+            "  }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: referenced method returns @Nullable",
+            "    fooPositive(Test::foo);",
+            "  }",
+            "  static void testNegative() {",
+            "    fooNegative(Test::foo);",
             "  }",
             "}")
         .doTest();
