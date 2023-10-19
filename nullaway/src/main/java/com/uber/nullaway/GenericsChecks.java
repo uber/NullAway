@@ -129,9 +129,9 @@ public final class GenericsChecks {
             ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
             String.format(
                 "Cannot assign from type "
-                    + prettyTypeForError(rhsType)
+                    + prettyTypeForError(rhsType, state)
                     + " to type "
-                    + prettyTypeForError(lhsType)
+                    + prettyTypeForError(lhsType, state)
                     + " due to mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -146,9 +146,9 @@ public final class GenericsChecks {
             ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
             String.format(
                 "Cannot return expression of type "
-                    + prettyTypeForError(returnType)
+                    + prettyTypeForError(returnType, state)
                     + " from method with return type "
-                    + prettyTypeForError(methodType)
+                    + prettyTypeForError(methodType, state)
                     + " due to mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -163,9 +163,9 @@ public final class GenericsChecks {
             ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
             String.format(
                 "Conditional expression must have type "
-                    + prettyTypeForError(expressionType)
+                    + prettyTypeForError(expressionType, state)
                     + " but the sub-expression has type "
-                    + prettyTypeForError(subPartType)
+                    + prettyTypeForError(subPartType, state)
                     + ", which has mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -183,9 +183,9 @@ public final class GenericsChecks {
         new ErrorMessage(
             ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
             "Cannot pass parameter of type "
-                + prettyTypeForError(actualParameterType)
+                + prettyTypeForError(actualParameterType, state)
                 + ", as formal parameter has type "
-                + prettyTypeForError(formalParameterType)
+                + prettyTypeForError(formalParameterType, state)
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -203,9 +203,9 @@ public final class GenericsChecks {
         new ErrorMessage(
             ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN_GENERIC,
             "Method returns "
-                + prettyTypeForError(overridingMethodReturnType)
+                + prettyTypeForError(overridingMethodReturnType, state)
                 + ", but overridden method returns "
-                + prettyTypeForError(overriddenMethodReturnType)
+                + prettyTypeForError(overriddenMethodReturnType, state)
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -223,9 +223,9 @@ public final class GenericsChecks {
         new ErrorMessage(
             ErrorMessage.MessageTypes.WRONG_OVERRIDE_PARAM_GENERIC,
             "Parameter has type "
-                + prettyTypeForError(methodParamType)
+                + prettyTypeForError(methodParamType, state)
                 + ", but overridden method has parameter type "
-                + prettyTypeForError(typeParameterType)
+                + prettyTypeForError(typeParameterType, state)
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
@@ -546,7 +546,10 @@ public final class GenericsChecks {
           return false;
         }
       }
-      return true;
+      // If there is an enclosing type (for non-static inner classes), its type argument nullability
+      // should also match.  When there is no enclosing type, getEnclosingType() returns a NoType
+      // object, which gets handled by the fallback visitType() method
+      return lhsType.getEnclosingType().accept(this, rhsType.getEnclosingType());
     }
 
     @Override
@@ -992,57 +995,66 @@ public final class GenericsChecks {
    * Returns a pretty-printed representation of type suitable for error messages. The representation
    * uses simple names rather than fully-qualified names, and retains all type-use annotations.
    */
-  public static String prettyTypeForError(Type type) {
-    return type.accept(PRETTY_TYPE_VISITOR, null);
+  public static String prettyTypeForError(Type type, VisitorState state) {
+    return type.accept(new PrettyTypeVisitor(state), null);
   }
 
   /** This code is a modified version of code in {@link com.google.errorprone.util.Signatures} */
-  private static final Type.Visitor<String, Void> PRETTY_TYPE_VISITOR =
-      new Types.DefaultTypeVisitor<String, Void>() {
-        @Override
-        public String visitWildcardType(Type.WildcardType t, Void unused) {
-          StringBuilder sb = new StringBuilder();
-          sb.append(t.kind);
-          if (t.kind != BoundKind.UNBOUND) {
-            sb.append(t.type.accept(this, null));
-          }
-          return sb.toString();
-        }
+  private static final class PrettyTypeVisitor extends Types.DefaultTypeVisitor<String, Void> {
 
-        @Override
-        public String visitClassType(Type.ClassType t, Void s) {
-          StringBuilder sb = new StringBuilder();
-          for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
-            sb.append('@');
-            sb.append(compound.type.accept(this, null));
-            sb.append(' ');
-          }
-          sb.append(t.tsym.getSimpleName());
-          if (t.getTypeArguments().nonEmpty()) {
-            sb.append('<');
-            sb.append(
-                t.getTypeArguments().stream()
-                    .map(a -> a.accept(this, null))
-                    .collect(joining(", ")));
-            sb.append(">");
-          }
-          return sb.toString();
-        }
+    private final VisitorState state;
 
-        @Override
-        public String visitCapturedType(Type.CapturedType t, Void s) {
-          return t.wildcard.accept(this, null);
-        }
+    PrettyTypeVisitor(VisitorState state) {
+      this.state = state;
+    }
 
-        @Override
-        public String visitArrayType(Type.ArrayType t, Void unused) {
-          // TODO properly print cases like int @Nullable[]
-          return t.elemtype.accept(this, null) + "[]";
-        }
+    @Override
+    public String visitWildcardType(Type.WildcardType t, Void unused) {
+      // NOTE: we have not tested this code yet as we do not yet support wildcard types
+      StringBuilder sb = new StringBuilder();
+      sb.append(t.kind);
+      if (t.kind != BoundKind.UNBOUND) {
+        sb.append(t.type.accept(this, null));
+      }
+      return sb.toString();
+    }
 
-        @Override
-        public String visitType(Type t, Void s) {
-          return t.toString();
-        }
-      };
+    @Override
+    public String visitClassType(Type.ClassType t, Void s) {
+      StringBuilder sb = new StringBuilder();
+      Type enclosingType = t.getEnclosingType();
+      if (!ASTHelpers.isSameType(enclosingType, Type.noType, state)) {
+        sb.append(enclosingType.accept(this, null)).append('.');
+      }
+      for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
+        sb.append('@');
+        sb.append(compound.type.accept(this, null));
+        sb.append(' ');
+      }
+      sb.append(t.tsym.getSimpleName());
+      if (t.getTypeArguments().nonEmpty()) {
+        sb.append('<');
+        sb.append(
+            t.getTypeArguments().stream().map(a -> a.accept(this, null)).collect(joining(", ")));
+        sb.append(">");
+      }
+      return sb.toString();
+    }
+
+    @Override
+    public String visitCapturedType(Type.CapturedType t, Void s) {
+      return t.wildcard.accept(this, null);
+    }
+
+    @Override
+    public String visitArrayType(Type.ArrayType t, Void unused) {
+      // TODO properly print cases like int @Nullable[]
+      return t.elemtype.accept(this, null) + "[]";
+    }
+
+    @Override
+    public String visitType(Type t, Void s) {
+      return t.toString();
+    }
+  }
 }
