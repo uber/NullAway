@@ -17,7 +17,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "class Test {",
             "  static @Nullable Integer [] fizz = {1};",
             "  static void foo() {",
-            "  // Ok since @Nullable annotations on type are ignored currently.",
+            "  // OK: @Nullable annotations on type are ignored currently.",
             "  // however, this should report an error eventually.",
             "  int bar = fizz.length;",
             "  }",
@@ -53,6 +53,8 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "class Test {",
             "  static String @Nullable [] fizz = {\"1\"};",
             "  static void foo() {",
+            "    // This currently reports an error since fizz is @Nullable,",
+            "    // but it should eventually report due to fizz[0] being @Nullable",
             "    // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable",
             "    int bar = fizz[0].length();",
             "  }",
@@ -60,7 +62,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("We do not support annotations on array currently")
+  @Ignore("We do not support annotations on array elements currently")
   @Test
   public void ArrayElementAnnotationAssignment() {
     makeHelper()
@@ -70,11 +72,12 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "  Object fizz = new Object();",
-            "  void m( @Nullable Integer [] foo) {",
-            "    // BUG: Diagnostic contains: dereferenced expression arr[0] is @Nullable",
-            "    int bar = foo[0];",
-            "    //valid assignment",
-            "    fizz = foo;",
+            "  Object bar = new Object();",
+            "  void m( Integer @Nullable [] foo) {",
+            "    // BUG: assigning @Nullable expression to @NonNull field",
+            "    fizz = foo[0];",
+            "    // OK: valid assignment since only elements can be null",
+            "    bar = foo;",
             "  }",
             "}")
         .doTest();
