@@ -308,9 +308,7 @@ public class NullabilityUtil {
     // proper deprecation of the incorrect behaviors for type use annotations when their
     // semantics don't match those of a declaration annotation in the same position.
     // See https://github.com/uber/NullAway/issues/708
-    if (config.isJSpecifyMode()) {
-      return isDirectTypeUseAnnotationJSpecify(t);
-    }
+
     boolean locationHasInnerTypes = false;
     boolean locationHasArray = false;
     for (TypePathEntry entry : t.position.location) {
@@ -319,6 +317,11 @@ public class NullabilityUtil {
           locationHasInnerTypes = true;
           break;
         case ARRAY:
+          // Currently we are ignoring @Nullable annotations on type in JSpecify mode.
+          // Eventually, this should return true if annotation is on type.
+          if (config.isJSpecifyMode()) {
+            return false;
+          }
           locationHasArray = true;
           break;
         default:
@@ -328,12 +331,6 @@ public class NullabilityUtil {
     }
     // Make sure it's not a mix of inner types and arrays for this annotation's location
     return !(locationHasInnerTypes && locationHasArray);
-  }
-
-  private static boolean isDirectTypeUseAnnotationJSpecify(Attribute.TypeCompound t) {
-    // Currently we are ignoring @Nullable annotations on type in JSpecify mode.
-    // Eventually, this should return true if annotation is on type.
-    return t.position.location.isEmpty();
   }
 
   /**
