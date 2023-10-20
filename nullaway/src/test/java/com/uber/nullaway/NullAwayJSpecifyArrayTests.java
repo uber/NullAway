@@ -52,7 +52,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "class Test {",
             "  static @Nullable String [] fizz = {\"1\"};",
             "  static void foo() {",
-            "      // BUG: Diagnostic contains: dereferenced expression fizz[0] is @Nullable. ",
+            "      // BUG: Diagnostic contains: dereferenced expression fizz[0] is @Nullable.",
             "      int bar = fizz[0].length();",
             "  }",
             "}")
