@@ -318,7 +318,6 @@ public class NullabilityUtil {
     // proper deprecation of the incorrect behaviors for type use annotations when their
     // semantics don't match those of a declaration annotation in the same position.
     // See https://github.com/uber/NullAway/issues/708
-
     boolean locationHasInnerTypes = false;
     boolean locationHasArray = false;
     for (TypePathEntry entry : t.position.location) {
