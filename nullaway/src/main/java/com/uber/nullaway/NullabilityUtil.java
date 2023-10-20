@@ -326,10 +326,8 @@ public class NullabilityUtil {
           locationHasInnerTypes = true;
           break;
         case ARRAY:
-          // Currently we are ignoring @Nullable annotations on type in JSpecify mode.
-          // Eventually, this should return true, and array access should be handled
-          // elsewhere.
           if (config.isJSpecifyMode()) {
+            // Ignoring @Nullable annotations on array dimensions in JSpecify mode
             return false;
           }
           locationHasArray = true;
