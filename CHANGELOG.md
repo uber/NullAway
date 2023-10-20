@@ -1,5 +1,23 @@
 Changelog
 =========
+Version 0.10.15
+---------------
+* [IMPORTANT] Update minimum Error Prone version and Guava version (#843)
+  NullAway now requires Error Prone 2.10.0 or later
+* Add Spring mock/testing annotations to excluded field annotation list (#757)
+* Update to Checker Framework 3.39.0 (#839) [Support for JDK 21 constructs]
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - Properly check generic method overriding in explicitly-typed anonymous classes (#808)
+  - JSpecify: handle incorrect method parameter nullability for method reference (#845)
+  - JSpecify: initial handling of generic enclosing types for inner classes (#837)
+* Build / CI tooling for NullAway itself:
+  - Update Gradle and a couple of plugin versions (#832)
+  - Run recent JDK tests on JDK 21 (#834)
+  - Fix which JDKs are installed on CI (#835)
+  - Update to Error Prone 2.22.0 (#833)
+  - Ignore code coverage for method executed non-deterministically in tests (#838 and #844)
+  - Build NullAway with JSpecify mode enabled (#841)
+
 Version 0.10.14
 ---------------
 IMPORTANT: This version introduces EXPERIMENTAL JDK21 support.
