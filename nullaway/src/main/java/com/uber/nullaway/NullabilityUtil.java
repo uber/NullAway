@@ -292,6 +292,14 @@ public class NullabilityUtil {
     }
   }
 
+  /**
+   * Should a type-use annotation be treated as applying directly to the top-level type?
+   *
+   * @param t the annotation and its position in the type
+   * @param config NullAway configuration
+   * @return {@code true} if the annotation should be treated as applying directly to the top-level
+   *     type, false otherwise
+   */
   private static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t, Config config) {
     // location is a list of TypePathEntry objects, indicating whether the annotation is
     // on an array, inner type, wildcard, or type argument. If it's empty, then the
@@ -299,8 +307,10 @@ public class NullabilityUtil {
     // We care about both annotations directly on the outer type and also those directly
     // on an inner type or array dimension, but wish to discard annotations on wildcards,
     // or type arguments.
-    // For arrays, we treat annotations on the outer type and on any dimension of the array
-    // as applying to the nullability of the array itself, not the elements.
+    // For arrays, outside JSpecify mode, we treat annotations on the outer type and on any
+    // dimension of the array as applying to the nullability of the array itself, not the elements.
+    // In JSpecify mode, annotations on array dimensions are *not* treated as applying to the
+    // top-level type, consistent with the JSpecify spec.
     // We don't allow mixing of inner types and array dimensions in the same location
     // (i.e. `Foo.@Nullable Bar []` is meaningless).
     // These aren't correct semantics for type use annotations, but a series of hacky
