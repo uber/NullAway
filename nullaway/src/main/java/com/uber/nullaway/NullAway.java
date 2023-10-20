@@ -957,7 +957,8 @@ public class NullAway extends BugChecker
     // if the super method returns nonnull, overriding method better not return nullable
     // Note that, for the overriding method, the permissive default is non-null,
     // but it's nullable for the overridden one.
-    if (overriddenMethodReturnsNonNull(overriddenMethod, overridingMethod.owner, state)
+    if (overriddenMethodReturnsNonNull(
+            overriddenMethod, overridingMethod.owner, memberReferenceTree, state)
         && getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL)
             .equals(Nullness.NULLABLE)
         && (memberReferenceTree == null
@@ -996,18 +997,30 @@ public class NullAway extends BugChecker
   }
 
   private boolean overriddenMethodReturnsNonNull(
-      Symbol.MethodSymbol overriddenMethod, Symbol enclosingSymbol, VisitorState state) {
+      Symbol.MethodSymbol overriddenMethod,
+      Symbol enclosingSymbol,
+      @Nullable MemberReferenceTree memberReferenceTree,
+      VisitorState state) {
     Nullness methodReturnNullness =
         getMethodReturnNullness(overriddenMethod, state, Nullness.NULLABLE);
     if (!methodReturnNullness.equals(Nullness.NONNULL)) {
       return false;
     }
     // In JSpecify mode, for generic methods, we additionally need to check the return nullness
-    // using the type parameters from the type enclosing the overriding method
+    // using the type arguments from the type enclosing the overriding method
     if (config.isJSpecifyMode()) {
-      return GenericsChecks.getGenericMethodReturnTypeNullness(
-              overriddenMethod, enclosingSymbol, state, config)
-          .equals(Nullness.NONNULL);
+      if (memberReferenceTree != null) {
+        // For a method reference, we get generic type arguments from javac's inferred type for the
+        // tree, which properly preserves type-use annotations
+        return GenericsChecks.getGenericMethodReturnTypeNullness(
+                overriddenMethod, ASTHelpers.getType(memberReferenceTree), state, config)
+            .equals(Nullness.NONNULL);
+      } else {
+        // Use the enclosing class of the overriding method to find generic type arguments
+        return GenericsChecks.getGenericMethodReturnTypeNullness(
+                overriddenMethod, enclosingSymbol, state, config)
+            .equals(Nullness.NONNULL);
+      }
     }
     return true;
   }
