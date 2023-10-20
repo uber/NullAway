@@ -15,6 +15,8 @@
  */
 package com.uber.nullaway.jarinfer;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import java.io.BufferedReader;
@@ -227,7 +229,7 @@ public final class BytecodeAnnotator {
     } else if (entryName.equals("META-INF/MANIFEST.MF")) {
       // Read full file
       StringBuilder stringBuilder = new StringBuilder();
-      BufferedReader br = new BufferedReader(new InputStreamReader(is, "UTF-8"));
+      BufferedReader br = new BufferedReader(new InputStreamReader(is, UTF_8));
       String currentLine;
       while ((currentLine = br.readLine()) != null) {
         stringBuilder.append(currentLine + "\n");
@@ -240,7 +242,7 @@ public final class BytecodeAnnotator {
         throw new SignedJarException(SIGNED_JAR_ERROR_MESSAGE);
       }
       jarOS.putNextEntry(new ZipEntry(jarEntry.getName()));
-      jarOS.write(manifestMinusDigests.getBytes("UTF-8"));
+      jarOS.write(manifestMinusDigests.getBytes(UTF_8));
     } else if (entryName.startsWith("META-INF/")
         && (entryName.endsWith(".DSA")
             || entryName.endsWith(".RSA")

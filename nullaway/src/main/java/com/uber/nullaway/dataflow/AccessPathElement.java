@@ -3,6 +3,7 @@ package com.uber.nullaway.dataflow;
 import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 
@@ -31,18 +32,12 @@ public final class AccessPathElement {
     return this.javaElement;
   }
 
-  public @Nullable ImmutableList<String> getConstantArguments() {
-    return this.constantArguments;
-  }
-
   @Override
   public boolean equals(Object obj) {
     if (obj instanceof AccessPathElement) {
       AccessPathElement otherNode = (AccessPathElement) obj;
       return this.javaElement.equals(otherNode.javaElement)
-          && (constantArguments == null
-              ? otherNode.constantArguments == null
-              : constantArguments.equals(otherNode.constantArguments));
+          && Objects.equals(constantArguments, otherNode.constantArguments);
     } else {
       return false;
     }
