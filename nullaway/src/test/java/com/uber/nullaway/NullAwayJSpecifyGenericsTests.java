@@ -607,6 +607,28 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testForLambdasInAnAssignmentWithoutJSpecifyMode() {
+    makeHelperWithoutJSpecifyMode()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    String function(T1 o);",
+            "  }",
+            "  static void testPositive() {",
+            "    // Using outside JSpecify Mode So we don't get a bug here",
+            "    A<@Nullable Object> p = o -> o.toString();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<Object> p = o -> o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testForDiamondInAnAssignment() {
     makeHelper()
         .addSourceLines(
@@ -1425,5 +1447,9 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
     return makeTestHelperWithArgs(
         Arrays.asList(
             "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+  }
+
+  private CompilationTestHelper makeHelperWithoutJSpecifyMode() {
+    return makeTestHelperWithArgs(Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber"));
   }
 }
