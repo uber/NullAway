@@ -106,9 +106,11 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         if (Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config)) {
           // Get the Nullness if the Annotation is directly written with the parameter
           fiArgumentPositionNullness[i] = NULLABLE;
-        } else if (Nullness.hasNullableAnnotation(
-            overridenMethodParamTypeList.get(i).getAnnotationMirrors().stream(), config)) {
-          // Get the Nullness if the Annotation is indirectly applied through a generic type
+        } else if (config.isJSpecifyMode()
+            && Nullness.hasNullableAnnotation(
+                overridenMethodParamTypeList.get(i).getAnnotationMirrors().stream(), config)) {
+          // Get the Nullness if the Annotation is indirectly applied through a generic type if we
+          // are in JSpecify mode
           fiArgumentPositionNullness[i] = NULLABLE;
         } else {
           fiArgumentPositionNullness[i] = NONNULL;
