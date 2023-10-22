@@ -327,7 +327,7 @@ public class NullabilityUtil {
           break;
         case ARRAY:
           if (config.isJSpecifyMode()) {
-            // Ignoring @Nullable annotations on array type in JSpecify mode
+            // In JSpecify mode, annotations on array element types do not apply to the top-level type
             return false;
           }
           locationHasArray = true;
