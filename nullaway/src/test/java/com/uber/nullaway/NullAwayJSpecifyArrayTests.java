@@ -2,7 +2,6 @@ package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
@@ -41,7 +40,6 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("Array type annotations aren't supported currently.")
   @Test
   public void arrayTypeAnnotationDereference() {
     makeHelper()
@@ -52,14 +50,13 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "class Test {",
             "  static @Nullable String [] fizz = {\"1\"};",
             "  static void foo() {",
-            "      // BUG: Diagnostic contains: dereferenced expression fizz[0] is @Nullable.",
+            "      // TODO: This should report an error due to dereference of @Nullable fizz[0]",
             "      int bar = fizz[0].length();",
             "  }",
             "}")
         .doTest();
   }
 
-  @Ignore("Array type annotations aren't supported currently.")
   @Test
   public void arrayTypeAnnotationAssignment() {
     makeHelper()
@@ -71,7 +68,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "  Object fizz = new Object();",
             "  Object bar = new Object();",
             "  void m( @Nullable Integer [] foo) {",
-            "      // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "      // TODO: This should report an error due to assignment of @Nullable fizz[0] to @NonNull field",
             "      fizz = foo[0];",
             "      // OK: valid assignment since only elements can be null",
             "      bar = foo;",
