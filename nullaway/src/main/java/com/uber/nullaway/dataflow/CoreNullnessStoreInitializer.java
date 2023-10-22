@@ -94,8 +94,8 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code, types);
     com.sun.tools.javac.util.List<Symbol.VarSymbol> fiMethodParameters =
         fiMethodSymbol.getParameters();
-    // This obtains the Types of the functional interface method with preserved annotations in case
-    // of generic types
+    // This obtains the Types of the functional interface method parameters with preserved
+    // annotations in case of generic types
     List<Type> overridenMethodParamTypeList =
         types.memberType(ASTHelpers.getType(code), fiMethodSymbol).getParameterTypes();
     // If fiArgumentPositionNullness[i] == null, parameter position i is unannotated
