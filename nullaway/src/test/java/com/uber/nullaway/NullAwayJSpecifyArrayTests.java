@@ -41,7 +41,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void arrayTypeAnnotationDereference() {
+  public void arrayContentsAnnotationDereference() {
     makeHelper()
         .addSourceLines(
             "Test.java",
