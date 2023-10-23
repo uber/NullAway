@@ -68,7 +68,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "  Object fizz = new Object();",
             "  Object bar = new Object();",
             "  void m( @Nullable Integer [] foo) {",
-            "      // TODO: This should report an error due to assignment of @Nullable fizz[0] to @NonNull field",
+            "      // TODO: This should report an error due to assignment of @Nullable foo[0] to @NonNull field",
             "      fizz = foo[0];",
             "      // OK: valid assignment since only elements can be null",
             "      bar = foo;",
