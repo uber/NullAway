@@ -7,7 +7,7 @@ import org.junit.Test;
 public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
 
   @Test
-  public void arrayDimensionAnnotationDereference() {
+  public void arrayTopLevelAnnotationDereference() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -24,7 +24,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void arrayDimensionAnnotationAssignment() {
+  public void arrayTopLevelAnnotationAssignment() {
     makeHelper()
         .addSourceLines(
             "Test.java",
