@@ -585,7 +585,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testForLambdasInAnAssignment() {
+  public void testForLambdasInAnAssignmentWithSingleParam() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -601,6 +601,28 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  }",
             "  static void testNegative() {",
             "    A<Object> p = o -> o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForLambdasInAnAssignmentWithMultipleParams() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object,T2 extends @Nullable Object> {",
+            "    String function(T1 o1,T2 o2);",
+            "  }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: dereferenced expression o1 is @Nullable",
+            "    A<@Nullable Object,Object> p = (o1,o2) -> o1.toString();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<@Nullable Object,Object> p = (o1,o2) -> o2.toString();",
             "  }",
             "}")
         .doTest();
