@@ -58,7 +58,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void arrayTypeAnnotationAssignment() {
+  public void arrayContentsAnnotationAssignment() {
     makeHelper()
         .addSourceLines(
             "Test.java",
