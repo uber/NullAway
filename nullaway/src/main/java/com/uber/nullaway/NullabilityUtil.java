@@ -180,9 +180,9 @@ public class NullabilityUtil {
    * @param symbol the symbol
    * @return all annotations on the symbol and on the type of the symbol
    */
-  public static Stream<? extends AnnotationMirror> getAllAnnotations(Symbol symbol) {
+  public static Stream<? extends AnnotationMirror> getAllAnnotations(Symbol symbol, Config config) {
     // for methods, we care about annotations on the return type, not on the method type itself
-    Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations(symbol);
+    Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations(symbol, config);
     return Stream.concat(symbol.getAnnotationMirrors().stream(), typeUseAnnotations);
   }
 
@@ -277,27 +277,44 @@ public class NullabilityUtil {
    * Gets the type use annotations on a symbol, ignoring annotations on components of the type (type
    * arguments, wildcards, etc.)
    */
-  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(Symbol symbol) {
+  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(
+      Symbol symbol, Config config) {
     Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
     if (symbol instanceof Symbol.MethodSymbol) {
       // for methods, we want annotations on the return type
       return rawTypeAttributes.filter(
-          (t) -> t.position.type.equals(TargetType.METHOD_RETURN) && isDirectTypeUseAnnotation(t));
+          (t) ->
+              t.position.type.equals(TargetType.METHOD_RETURN)
+                  && isDirectTypeUseAnnotation(t, config));
     } else {
       // filter for annotations directly on the type
-      return rawTypeAttributes.filter(NullabilityUtil::isDirectTypeUseAnnotation);
+      return rawTypeAttributes.filter(t -> NullabilityUtil.isDirectTypeUseAnnotation(t, config));
     }
   }
 
-  private static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t) {
+  /**
+   * Check whether a type-use annotation should be treated as applying directly to the top-level
+   * type
+   *
+   * <p>For example {@code @Nullable List<T> lst} is a direct type use annotation of {@code lst},
+   * but {@code List<@Nullable T> lst} is not.
+   *
+   * @param t the annotation and its position in the type
+   * @param config NullAway configuration
+   * @return {@code true} if the annotation should be treated as applying directly to the top-level
+   *     type, false otherwise
+   */
+  private static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t, Config config) {
     // location is a list of TypePathEntry objects, indicating whether the annotation is
     // on an array, inner type, wildcard, or type argument. If it's empty, then the
     // annotation is directly on the type.
     // We care about both annotations directly on the outer type and also those directly
     // on an inner type or array dimension, but wish to discard annotations on wildcards,
     // or type arguments.
-    // For arrays, we treat annotations on the outer type and on any dimension of the array
-    // as applying to the nullability of the array itself, not the elements.
+    // For arrays, outside JSpecify mode, we treat annotations on the outer type and on any
+    // dimension of the array as applying to the nullability of the array itself, not the elements.
+    // In JSpecify mode, annotations on array dimensions are *not* treated as applying to the
+    // top-level type, consistent with the JSpecify spec.
     // We don't allow mixing of inner types and array dimensions in the same location
     // (i.e. `Foo.@Nullable Bar []` is meaningless).
     // These aren't correct semantics for type use annotations, but a series of hacky
@@ -313,6 +330,11 @@ public class NullabilityUtil {
           locationHasInnerTypes = true;
           break;
         case ARRAY:
+          if (config.isJSpecifyMode()) {
+            // In JSpecify mode, annotations on array element types do not apply to the top-level
+            // type
+            return false;
+          }
           locationHasArray = true;
           break;
         default:

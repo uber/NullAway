@@ -1962,7 +1962,8 @@ public class NullAway extends BugChecker
   }
 
   private boolean symbolHasExternalInitAnnotation(Symbol symbol) {
-    return StreamSupport.stream(NullabilityUtil.getAllAnnotations(symbol).spliterator(), false)
+    return StreamSupport.stream(
+            NullabilityUtil.getAllAnnotations(symbol, config).spliterator(), false)
         .map((anno) -> anno.getAnnotationType().toString())
         .anyMatch(config::isExternalInitClassAnnotation);
   }
@@ -2219,7 +2220,7 @@ public class NullAway extends BugChecker
   }
 
   private boolean skipDueToFieldAnnotation(Symbol fieldSymbol) {
-    return NullabilityUtil.getAllAnnotations(fieldSymbol)
+    return NullabilityUtil.getAllAnnotations(fieldSymbol, config)
         .map(anno -> anno.getAnnotationType().toString())
         .anyMatch(config::isExcludedFieldAnnotation);
   }
