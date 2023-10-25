@@ -69,12 +69,37 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "  Object fizz = new Object();",
-            "  Object bar = new Object();",
             "  void m( @Nullable Integer [] foo) {",
             "      // TODO: This should report an error due to assignment of @Nullable foo[0] to @NonNull field",
             "      fizz = foo[0];",
             "      // OK: valid assignment since only elements can be null",
-            "      bar = foo;",
+            "      fizz = foo;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  /* Currently in JSpecify mode, JSpecify syntax only applies to
+  type-use annotations. Declaration annotations preserve their existing behavior,
+  with annotations being treated on the top-level type.
+   */
+  @Test
+  public void arrayDeclarationAnnotation() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  static @Nullable String [] fizz = {\"1\"};",
+            "  static Object o1 = new Object();",
+            "  static void foo() {",
+            "      // This should not report an error while using JSpecify type-use annotation",
+            "      // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "      o1 = fizz;",
+            "      // This should not report an error while using JSpecify type-use annotation",
+            "      // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable",
+            "      o1 = fizz.length;",
             "  }",
             "}")
         .doTest();
