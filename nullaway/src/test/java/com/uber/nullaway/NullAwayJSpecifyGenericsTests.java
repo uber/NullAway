@@ -585,7 +585,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testForLambdasInAnAssignment() {
+  public void testForLambdasInAnAssignmentWithSingleParam() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -596,8 +596,51 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    String function(T1 o);",
             "  }",
             "  static void testPositive() {",
-            "    // TODO: we should report an error here, since the lambda cannot take",
-            "    // a @Nullable parameter.  we don't catch this yet",
+            "    // BUG: Diagnostic contains: dereferenced expression o is @Nullable",
+            "    A<@Nullable Object> p = o -> o.toString();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<Object> p = o -> o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForLambdasInAnAssignmentWithMultipleParams() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object,T2 extends @Nullable Object> {",
+            "    String function(T1 o1,T2 o2);",
+            "  }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: dereferenced expression o1 is @Nullable",
+            "    A<@Nullable Object,Object> p = (o1,o2) -> o1.toString();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<@Nullable Object,Object> p = (o1,o2) -> o2.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForLambdasInAnAssignmentWithoutJSpecifyMode() {
+    makeHelperWithoutJSpecifyMode()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    String function(T1 o);",
+            "  }",
+            "  static void testPositive() {",
+            "    // Using outside JSpecify Mode So we don't get a bug here",
             "    A<@Nullable Object> p = o -> o.toString();",
             "  }",
             "  static void testNegative() {",
@@ -1426,5 +1469,9 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
     return makeTestHelperWithArgs(
         Arrays.asList(
             "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+  }
+
+  private CompilationTestHelper makeHelperWithoutJSpecifyMode() {
+    return makeTestHelperWithArgs(Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber"));
   }
 }
