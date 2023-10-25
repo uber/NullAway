@@ -3,10 +3,12 @@ package com.uber.nullaway.dataflow;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
+import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.CodeAnnotationInfo;
@@ -92,13 +94,27 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code, types);
     com.sun.tools.javac.util.List<Symbol.VarSymbol> fiMethodParameters =
         fiMethodSymbol.getParameters();
+    // This obtains the types of the functional interface method parameters with preserved
+    // annotations in case of generic type arguments.  Only used in JSpecify mode.
+    List<Type> overridenMethodParamTypeList =
+        types.memberType(ASTHelpers.getType(code), fiMethodSymbol).getParameterTypes();
     // If fiArgumentPositionNullness[i] == null, parameter position i is unannotated
     Nullness[] fiArgumentPositionNullness = new Nullness[fiMethodParameters.size()];
     final boolean isFIAnnotated = !codeAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config);
     if (isFIAnnotated) {
       for (int i = 0; i < fiMethodParameters.size(); i++) {
-        fiArgumentPositionNullness[i] =
-            Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config) ? NULLABLE : NONNULL;
+        if (Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config)) {
+          // Get the Nullness if the Annotation is directly written with the parameter
+          fiArgumentPositionNullness[i] = NULLABLE;
+        } else if (config.isJSpecifyMode()
+            && Nullness.hasNullableAnnotation(
+                overridenMethodParamTypeList.get(i).getAnnotationMirrors().stream(), config)) {
+          // Get the Nullness if the Annotation is indirectly applied through a generic type if we
+          // are in JSpecify mode
+          fiArgumentPositionNullness[i] = NULLABLE;
+        } else {
+          fiArgumentPositionNullness[i] = NONNULL;
+        }
       }
     }
     fiArgumentPositionNullness =
