@@ -293,10 +293,11 @@ public class NullabilityUtil {
   }
 
   /**
-   * Check whether a type-use annotation should be treated as applying directly to the top-level type
+   * Check whether a type-use annotation should be treated as applying directly to the top-level
+   * type
    *
-   * For example {@code @Nullable List<T> lst} is a direct type use annotation of {@code lst},
-   * but   {@code List<@Nullable T> lst} is not.
+   * <p>For example {@code @Nullable List<T> lst} is a direct type use annotation of {@code lst},
+   * but {@code List<@Nullable T> lst} is not.
    *
    * @param t the annotation and its position in the type
    * @param config NullAway configuration
