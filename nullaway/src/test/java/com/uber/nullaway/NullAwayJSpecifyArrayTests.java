@@ -49,9 +49,12 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "  static @Nullable String [] fizz = {\"1\"};",
+            "  static Object foo = new Object();",
             "  static void foo() {",
             "      // TODO: This should report an error due to dereference of @Nullable fizz[0]",
             "      int bar = fizz[0].length();",
+            "      // OK: valid dereference since only elements can be null",
+            "      foo = fizz.length;",
             "  }",
             "}")
         .doTest();
