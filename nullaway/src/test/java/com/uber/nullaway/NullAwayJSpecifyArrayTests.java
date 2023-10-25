@@ -83,9 +83,10 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /* Currently in JSpecify mode, JSpecify syntax only applies to
-  type-use annotations. Declaration annotations preserve their existing behavior,
-  with annotations being treated on the top-level type.
+  /**
+   * Currently in JSpecify mode, JSpecify syntax only applies to type-use annotations. Declaration
+   * annotations preserve their existing behavior, with annotations being treated on the top-level
+   * type. We will very likely revisit this design in the future.
    */
   @Test
   public void arrayDeclarationAnnotation() {
