@@ -16,8 +16,12 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "class Test {",
             "  static Integer @Nullable [] fizz = {1};",
             "  static void foo() {",
-            "     // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable",
-            "     int bar = fizz.length;",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable",
+            "    int bar = fizz.length;",
+            "  }",
+            "  static void bar() {",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable",
+            "    int bar = fizz[0];",
             "  }",
             "}")
         .doTest();
@@ -53,7 +57,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "  static void foo() {",
             "      // TODO: This should report an error due to dereference of @Nullable fizz[0]",
             "      int bar = fizz[0].length();",
-            "      // OK: valid dereference since only elements can be null",
+            "      // OK: valid dereference since only elements of the array can be null",
             "      foo = fizz.length;",
             "  }",
             "}")
