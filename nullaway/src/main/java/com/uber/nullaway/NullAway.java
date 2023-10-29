@@ -873,6 +873,13 @@ public class NullAway extends BugChecker
         retExpr, methodSymbol, this, state);
     if (getMethodReturnNullness(methodSymbol, state, Nullness.NULLABLE).equals(Nullness.NULLABLE)) {
       return Description.NO_MATCH;
+    } else if (config.isJSpecifyMode()
+        && GenericsChecks.getGenericMethodReturnTypeNullness(
+                methodSymbol, ASTHelpers.getType(tree), state, config)
+            .equals(Nullness.NULLABLE)) {
+      // Get the Nullness if the Annotation is indirectly applied through a generic type if we
+      // are in JSpecify mode
+      return Description.NO_MATCH;
     }
     if (mayBeNullExpr(state, retExpr)) {
       return errorBuilder.createErrorDescriptionForNullAssignment(

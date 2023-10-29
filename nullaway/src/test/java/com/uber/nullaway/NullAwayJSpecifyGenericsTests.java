@@ -651,6 +651,24 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testForLambdaReturnTypeInAnAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    T1 function(Object o);",
+            "  }",
+            "  static void testNegative() {",
+            "    A<@Nullable String> p = x -> null;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testForDiamondInAnAssignment() {
     makeHelper()
         .addSourceLines(
