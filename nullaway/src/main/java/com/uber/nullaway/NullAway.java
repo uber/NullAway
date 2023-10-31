@@ -388,8 +388,9 @@ public class NullAway extends BugChecker
       methodSymbol =
           NullabilityUtil.getFunctionalInterfaceMethod(
               (LambdaExpressionTree) leaf, state.getTypes());
+      return checkReturnExpression(tree, (LambdaExpressionTree) leaf, retExpr, methodSymbol, state);
     }
-    return checkReturnExpression(tree, retExpr, methodSymbol, state);
+    return checkReturnExpression(tree, null, retExpr, methodSymbol, state);
   }
 
   @Override
@@ -854,7 +855,11 @@ public class NullAway extends BugChecker
   }
 
   private Description checkReturnExpression(
-      Tree tree, ExpressionTree retExpr, Symbol.MethodSymbol methodSymbol, VisitorState state) {
+      Tree errorTree,
+      @Nullable LambdaExpressionTree lambdaTree,
+      ExpressionTree retExpr,
+      Symbol.MethodSymbol methodSymbol,
+      VisitorState state) {
     Type returnType = methodSymbol.getReturnType();
     if (returnType.isPrimitive()) {
       // check for unboxing
@@ -874,8 +879,9 @@ public class NullAway extends BugChecker
     if (getMethodReturnNullness(methodSymbol, state, Nullness.NULLABLE).equals(Nullness.NULLABLE)) {
       return Description.NO_MATCH;
     } else if (config.isJSpecifyMode()
+        && null != lambdaTree
         && GenericsChecks.getGenericMethodReturnTypeNullness(
-                methodSymbol, ASTHelpers.getType(tree), state, config)
+                methodSymbol, ASTHelpers.getType(lambdaTree), state, config)
             .equals(Nullness.NULLABLE)) {
       // Get the Nullness if the Annotation is indirectly applied through a generic type if we
       // are in JSpecify mode
@@ -887,7 +893,7 @@ public class NullAway extends BugChecker
               MessageTypes.RETURN_NULLABLE,
               "returning @Nullable expression from method with @NonNull return type"),
           retExpr,
-          buildDescription(tree),
+          buildDescription(errorTree),
           state,
           methodSymbol);
     }
@@ -923,7 +929,7 @@ public class NullAway extends BugChecker
     if (tree.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION
         && funcInterfaceMethod.getReturnType().getKind() != TypeKind.VOID) {
       ExpressionTree resExpr = (ExpressionTree) tree.getBody();
-      return checkReturnExpression(tree, resExpr, funcInterfaceMethod, state);
+      return checkReturnExpression(tree, tree, resExpr, funcInterfaceMethod, state);
     }
     return Description.NO_MATCH;
   }
