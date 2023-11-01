@@ -380,16 +380,16 @@ public class NullAway extends BugChecker
     }
     Tree leaf = enclosingMethodOrLambda.getLeaf();
     Symbol.MethodSymbol methodSymbol;
+    LambdaExpressionTree lambdaTree = null;
     if (leaf instanceof MethodTree) {
       MethodTree enclosingMethod = (MethodTree) leaf;
       methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
     } else {
       // we have a lambda
-      methodSymbol =
-          NullabilityUtil.getFunctionalInterfaceMethod(
-              (LambdaExpressionTree) leaf, state.getTypes());
+      lambdaTree = (LambdaExpressionTree) leaf;
+      methodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(lambdaTree, state.getTypes());
     }
-    return checkReturnExpression(tree, retExpr, methodSymbol, state);
+    return checkReturnExpression(retExpr, methodSymbol, lambdaTree, tree, state);
   }
 
   @Override
@@ -853,8 +853,26 @@ public class NullAway extends BugChecker
         methodSymbol, state, isMethodAnnotated, methodReturnNullness);
   }
 
+  /**
+   * Checks that if a returned expression is {@code @Nullable}, the enclosing method does not have a
+   * {@code @NonNull} return type. Also performs an unboxing check on the returned expression.
+   * Finally, in JSpecify mode, also checks that the nullability of generic type arguments of the
+   * returned expression's type match the method return type.
+   *
+   * @param retExpr the expression being returned
+   * @param methodSymbol symbol for the enclosing method
+   * @param lambdaTree if return is inside a lambda, the tree for the lambda, otherwise {@code null}
+   * @param errorTree tree on which to report an error if needed
+   * @param state the visitor state
+   * @return {@link Description} of the returning {@code @Nullable} from {@code @NonNull} method
+   *     error if one is to be reported, otherwise {@link Description#NO_MATCH}
+   */
   private Description checkReturnExpression(
-      Tree tree, ExpressionTree retExpr, Symbol.MethodSymbol methodSymbol, VisitorState state) {
+      ExpressionTree retExpr,
+      Symbol.MethodSymbol methodSymbol,
+      @Nullable LambdaExpressionTree lambdaTree,
+      Tree errorTree,
+      VisitorState state) {
     Type returnType = methodSymbol.getReturnType();
     if (returnType.isPrimitive()) {
       // check for unboxing
@@ -867,20 +885,33 @@ public class NullAway extends BugChecker
       // support)
       return Description.NO_MATCH;
     }
-    // Do the generics checks here, since we need to check the type arguments regardless of the
-    // top-level nullability of the return type
+
+    // Check generic type arguments for returned expression here, since we need to check the type
+    // arguments regardless of the top-level nullability of the return type
     GenericsChecks.checkTypeParameterNullnessForFunctionReturnType(
         retExpr, methodSymbol, this, state);
+
+    // Now, perform the check for returning @Nullable from @NonNull.  First, we check if the return
+    // type is @Nullable, and if so, bail out.
     if (getMethodReturnNullness(methodSymbol, state, Nullness.NULLABLE).equals(Nullness.NULLABLE)) {
       return Description.NO_MATCH;
+    } else if (config.isJSpecifyMode()
+        && lambdaTree != null
+        && GenericsChecks.getGenericMethodReturnTypeNullness(
+                methodSymbol, ASTHelpers.getType(lambdaTree), state, config)
+            .equals(Nullness.NULLABLE)) {
+      // In JSpecify mode, the return type of a lambda may be @Nullable via a type argument
+      return Description.NO_MATCH;
     }
+
+    // Return type is @NonNull.  Check if the expression is @Nullable
     if (mayBeNullExpr(state, retExpr)) {
       return errorBuilder.createErrorDescriptionForNullAssignment(
           new ErrorMessage(
               MessageTypes.RETURN_NULLABLE,
               "returning @Nullable expression from method with @NonNull return type"),
           retExpr,
-          buildDescription(tree),
+          buildDescription(errorTree),
           state,
           methodSymbol);
     }
@@ -916,7 +947,7 @@ public class NullAway extends BugChecker
     if (tree.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION
         && funcInterfaceMethod.getReturnType().getKind() != TypeKind.VOID) {
       ExpressionTree resExpr = (ExpressionTree) tree.getBody();
-      return checkReturnExpression(tree, resExpr, funcInterfaceMethod, state);
+      return checkReturnExpression(resExpr, funcInterfaceMethod, tree, tree, state);
     }
     return Description.NO_MATCH;
   }
