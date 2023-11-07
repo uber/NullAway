@@ -1479,6 +1479,9 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  static void testNegative() {",
             "   funcImmutableSet(ImmutableSet.of());",
             "  }",
+            "  static void testNegative2() {",
+            "   funcImmutableSet(ImmutableSet.of(new Object()));",
+            "  }",
             "}")
         .doTest();
   }
