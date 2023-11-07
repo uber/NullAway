@@ -784,7 +784,7 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
-    if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
+    if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }
     Type methodReceiverType =
@@ -834,7 +834,7 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
-    if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
+    if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }
     Type enclosingType =

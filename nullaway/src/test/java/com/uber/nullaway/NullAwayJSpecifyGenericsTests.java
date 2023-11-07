@@ -1465,10 +1465,35 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void testForGuavaRawTypeBuildIssue() {
+    makeHelperWithGuava()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.google.common.collect.ImmutableSet;",
+            "class Test {",
+            "  static void funcImmutableSet(ImmutableSet<Object> is){",
+            "  }",
+            "  static void testNegative() {",
+            "   funcImmutableSet(ImmutableSet.of());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
             "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+  }
+
+  private CompilationTestHelper makeHelperWithGuava() {
+    return makeTestHelperWithArgs(
+        Arrays.asList(
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common",
+            "-XepOpt:NullAway:JSpecifyMode=true"));
   }
 
   private CompilationTestHelper makeHelperWithoutJSpecifyMode() {
