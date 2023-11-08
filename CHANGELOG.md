@@ -1,5 +1,18 @@
 Changelog
 =========
+Version 0.10.16
+---------------
+NOTE: Maven Central signing key rotated for this release following a revocation.
+
+* Minor cleanup in AccessPathElement (#851)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - JSpecify: handle return types of method references in Java Generics (#847)
+  - JSpecify: handle Nullability for lambda expression parameters for Generic Types (#852)
+  - JSpecify: Modify Array Type Use Annotation Syntax (#850)
+  - JSpecify: handle Nullability for return types of lambda expressions for Generic Types (#854)
+* Build / CI tooling for NullAway itself:
+  - Update to Gradle 8.4 and Error Prone 2.23.0 (#849)
+
 Version 0.10.15
 ---------------
 * [IMPORTANT] Update minimum Error Prone version and Guava version (#843)
