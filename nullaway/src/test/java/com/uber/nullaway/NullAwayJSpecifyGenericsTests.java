@@ -1494,6 +1494,34 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void testForStaticMethodCallAsAParam() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T> {",
+            "   public static <T> A<T> returnA(){",
+            "     return new A<T>();",
+            "   }",
+            "   public static <T> A<T> returnAWithParam(Object o){",
+            "     return new A<T>();",
+            "   }",
+            "  }",
+            "  static void func(A<Object> a){",
+            "  }",
+            "  static void testNegative() {",
+            "   func(A.returnA());",
+            "  }",
+            "  static void testNegative2() {",
+            "   func(A.returnAWithParam(new Object()));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
