@@ -651,6 +651,35 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testForLambdaReturnTypeInAnAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    T1 function(Object o);",
+            "  }",
+            "  static void testPositive1() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "    A<String> p = x -> null;",
+            "  }",
+            "  static void testPositive2() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "    A<String> p = x -> { return null; };",
+            "  }",
+            "  static void testNegative1() {",
+            "    A<@Nullable String> p = x -> null;",
+            "  }",
+            "  static void testNegative2() {",
+            "    A<@Nullable String> p = x -> { return null; };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testForDiamondInAnAssignment() {
     makeHelper()
         .addSourceLines(
