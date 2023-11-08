@@ -1466,21 +1466,28 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testForGuavaRawTypeBuildIssue() {
-    makeHelperWithGuava()
+  public void testForStaticMethodCallAsAParam() {
+    makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
-            "import com.google.common.collect.ImmutableSet;",
             "class Test {",
-            "  static void funcImmutableSet(ImmutableSet<Object> is){",
+            "  static class A<T> {",
+            "   public static <T> A<T> returnA(){",
+            "     return new A<T>();",
+            "   }",
+            "   public static <T> A<T> returnAWithParam(Object o){",
+            "     return new A<T>();",
+            "   }",
+            "  }",
+            "  static void func(A<Object> a){",
             "  }",
             "  static void testNegative() {",
-            "   funcImmutableSet(ImmutableSet.of());",
+            "   func(A.returnA());",
             "  }",
             "  static void testNegative2() {",
-            "   funcImmutableSet(ImmutableSet.of(new Object()));",
+            "   func(A.returnAWithParam(new Object()));",
             "  }",
             "}")
         .doTest();
@@ -1490,13 +1497,6 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
     return makeTestHelperWithArgs(
         Arrays.asList(
             "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
-  }
-
-  private CompilationTestHelper makeHelperWithGuava() {
-    return makeTestHelperWithArgs(
-        Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common",
-            "-XepOpt:NullAway:JSpecifyMode=true"));
   }
 
   private CompilationTestHelper makeHelperWithoutJSpecifyMode() {
