@@ -787,6 +787,18 @@ public final class GenericsChecks {
     if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }
+    Tree expressionTree = ((MemberSelectTree) tree.getMethodSelect()).getExpression();
+    if (expressionTree instanceof NewClassTree
+        && ((NewClassTree) expressionTree).getIdentifier() instanceof ParameterizedTypeTree) {
+      ParameterizedTypeTree paramTypedTree =
+          (ParameterizedTypeTree) ((NewClassTree) expressionTree).getIdentifier();
+      // The case of having a diamond operator
+      if (paramTypedTree.getTypeArguments().isEmpty()) {
+        // bail out
+        // TODO: support diamond operators
+        return Nullness.NONNULL;
+      }
+    }
     Type methodReceiverType =
         castToNonNull(
             getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state));
