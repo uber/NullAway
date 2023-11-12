@@ -784,17 +784,17 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
-    if (!(tree.getMethodSelect() instanceof MemberSelectTree)
-        || invokedMethodSymbol.isStatic()
-        || null
-            == getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state)) {
+    if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }
     Type methodReceiverType =
-        castToNonNull(
-            getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state));
-    return getGenericMethodReturnTypeNullness(
-        invokedMethodSymbol, methodReceiverType, state, config);
+        getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state);
+    if (null == methodReceiverType) {
+      return Nullness.NONNULL;
+    } else {
+      return getGenericMethodReturnTypeNullness(
+          invokedMethodSymbol, castToNonNull(methodReceiverType), state, config);
+    }
   }
 
   /**
