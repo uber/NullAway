@@ -793,7 +793,7 @@ public final class GenericsChecks {
       return Nullness.NONNULL;
     } else {
       return getGenericMethodReturnTypeNullness(
-          invokedMethodSymbol, castToNonNull(methodReceiverType), state, config);
+          invokedMethodSymbol, methodReceiverType, state, config);
     }
   }
 
