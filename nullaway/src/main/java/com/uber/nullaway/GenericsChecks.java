@@ -789,7 +789,7 @@ public final class GenericsChecks {
     }
     Type methodReceiverType =
         getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state);
-    if (null == methodReceiverType) {
+    if (methodReceiverType == null) {
       return Nullness.NONNULL;
     } else {
       return getGenericMethodReturnTypeNullness(
