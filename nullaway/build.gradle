@@ -128,7 +128,7 @@ tasks.named('testJdk21', Test).configure {
     filter {
         // JSpecify Generics tests do not yet pass on JDK 21
         // See https://github.com/uber/NullAway/issues/827
-        excludeTestsMatching "com.uber.nullaway.NullAwayJSpecifyGenericsTests"
+        //excludeTestsMatching "com.uber.nullaway.NullAwayJSpecifyGenericsTests"
     }
 }
 
