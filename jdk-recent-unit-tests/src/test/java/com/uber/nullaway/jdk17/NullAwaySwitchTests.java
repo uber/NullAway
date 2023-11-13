@@ -174,4 +174,36 @@ public class NullAwaySwitchTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testSwitchExprNullCase() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SwitchExpr.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class SwitchExpr {",
+            "  public enum NullableEnum {",
+            "    A,",
+            "    B,",
+            "  }",
+            "  static Object handleNullableEnum(@Nullable NullableEnum nullableEnum) {",
+            "    return switch (nullableEnum) {",
+            "      case A -> new Object();",
+            "      case B -> new Object();",
+            "      case null -> throw new IllegalArgumentException(\"NullableEnum parameter is required\");",
+            "    };",
+            "  }",
+            "  static Object handleNullableEnumNoCaseNull(@Nullable NullableEnum nullableEnum) {",
+            "    // NOTE: in this case NullAway should report a bug, as there will be an NPE if nullableEnum",
+            "    // is null (since there is no `case null` in the switch).  This requires Error Prone support",
+            "    // for matching on switch expressions (https://github.com/google/error-prone/issues/4119)",
+            "    return switch (nullableEnum) {",
+            "      case A -> new Object();",
+            "      case B -> new Object();",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

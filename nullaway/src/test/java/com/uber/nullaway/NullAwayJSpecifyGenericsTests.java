@@ -2,6 +2,7 @@ package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
@@ -192,6 +193,51 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nestedGenericTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  class Wrapper<P extends @Nullable Object> {",
+            "    abstract class Fn<R extends @Nullable Object> {",
+            "      abstract R apply(P p);",
+            "    }",
+            "  }",
+            "  static void param(@Nullable Wrapper<String>.Fn<String> p) {}",
+            "  static void positiveParam() {",
+            "    Wrapper<@Nullable String>.Fn<String> x = null;",
+            "    // BUG: Diagnostic contains: Cannot pass parameter of type Test.Wrapper<@Nullable String>.Fn<String>",
+            "    param(x);",
+            "  }",
+            "  static void positiveAssign() {",
+            "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
+            "    // BUG: Diagnostic contains: Cannot assign from type Test.Wrapper<@Nullable String>.Fn<String> to type Test.Wrapper<String>.Fn<String>",
+            "    Wrapper<String>.Fn<String> p2 = p1;",
+            "  }",
+            "  static @Nullable Wrapper<String>.Fn<String> positiveReturn() {",
+            "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
+            "    // BUG: Diagnostic contains: Cannot return expression of type Test.Wrapper<@Nullable String>.Fn<String>",
+            "    return p1;",
+            "  }",
+            "  static void negativeParam() {",
+            "    Wrapper<String>.Fn<String> x = null;",
+            "    param(x);",
+            "  }",
+            "  static void negativeAssign() {",
+            "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
+            "    Wrapper<@Nullable String>.Fn<String> p2 = p1;",
+            "  }",
+            "  static @Nullable Wrapper<@Nullable String>.Fn<String> negativeReturn() {",
+            "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
+            "    return p1;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void downcastInstantiation() {
     makeHelper()
         .addSourceLines(
@@ -279,7 +325,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {}",
             "  class FnImpl implements Fn<@Nullable String, @Nullable String> {}",
             "  void testPositive() {",
-            "    // BUG: Diagnostic contains: Cannot assign from type FnImpl",
+            "    // BUG: Diagnostic contains: Cannot assign from type Test.FnImpl",
             "    Fn<@Nullable String, String> f = new FnImpl();",
             "  }",
             "  void testNegative() {",
@@ -428,8 +474,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    return o.toString();",
             "  }",
             "  static void testPositive() {",
-            "    // TODO: we should report an error here, since Test::foo cannot take",
-            "    // a @Nullable parameter.  we don't catch this yet",
+            "    // BUG: Diagnostic contains: parameter o of referenced method is @NonNull",
             "    A<@Nullable Object> p = Test::foo;",
             "  }",
             "  static void testNegative() {",
@@ -440,7 +485,107 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testForLambdasInAnAssignment() {
+  public void testForMethodReferenceForClassFieldAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    T1 function(Object o);",
+            "  }",
+            "  static @Nullable String foo(Object o) {",
+            "    return o.toString();",
+            "  }",
+            "  // BUG: Diagnostic contains: referenced method returns @Nullable",
+            "  A<String> positiveField = Test::foo;",
+            "  A<@Nullable String> negativeField = Test::foo;",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForMethodReferenceReturnTypeInAnAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    T1 function(Object o);",
+            "  }",
+            "  static @Nullable String foo(Object o) {",
+            "    return o.toString();",
+            "  }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: referenced method returns @Nullable",
+            "    A<String> p = Test::foo;",
+            "  }",
+            "  static void testNegative() {",
+            "    A<@Nullable String> p = Test::foo;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForMethodReferenceWhenReturned() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    T1 function(Object o);",
+            "  }",
+            "  static @Nullable String foo(Object o) {",
+            "    return o.toString();",
+            "  }",
+            "  static A<String> testPositive() {",
+            "    // BUG: Diagnostic contains: referenced method returns @Nullable",
+            "    return Test::foo;",
+            "  }",
+            "  static A<@Nullable String> testNegative() {",
+            "    return Test::foo;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForMethodReferenceAsMethodParameter() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    T1 function(Object o);",
+            "  }",
+            "  static @Nullable String foo(Object o) {",
+            "    return o.toString();",
+            "  }",
+            "  static void fooPositive(A<String> a) {",
+            "  }",
+            "  static void fooNegative(A<@Nullable String> a) {",
+            "  }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: referenced method returns @Nullable",
+            "    fooPositive(Test::foo);",
+            "  }",
+            "  static void testNegative() {",
+            "    fooNegative(Test::foo);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForLambdasInAnAssignmentWithSingleParam() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -451,12 +596,84 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    String function(T1 o);",
             "  }",
             "  static void testPositive() {",
-            "    // TODO: we should report an error here, since the lambda cannot take",
-            "    // a @Nullable parameter.  we don't catch this yet",
+            "    // BUG: Diagnostic contains: dereferenced expression o is @Nullable",
             "    A<@Nullable Object> p = o -> o.toString();",
             "  }",
             "  static void testNegative() {",
             "    A<Object> p = o -> o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForLambdasInAnAssignmentWithMultipleParams() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object,T2 extends @Nullable Object> {",
+            "    String function(T1 o1,T2 o2);",
+            "  }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: dereferenced expression o1 is @Nullable",
+            "    A<@Nullable Object,Object> p = (o1,o2) -> o1.toString();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<@Nullable Object,Object> p = (o1,o2) -> o2.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForLambdasInAnAssignmentWithoutJSpecifyMode() {
+    makeHelperWithoutJSpecifyMode()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    String function(T1 o);",
+            "  }",
+            "  static void testPositive() {",
+            "    // Using outside JSpecify Mode So we don't get a bug here",
+            "    A<@Nullable Object> p = o -> o.toString();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<Object> p = o -> o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForLambdaReturnTypeInAnAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    T1 function(Object o);",
+            "  }",
+            "  static void testPositive1() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "    A<String> p = x -> null;",
+            "  }",
+            "  static void testPositive2() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "    A<String> p = x -> { return null; };",
+            "  }",
+            "  static void testNegative1() {",
+            "    A<@Nullable String> p = x -> null;",
+            "  }",
+            "  static void testNegative2() {",
+            "    A<@Nullable String> p = x -> { return null; };",
             "  }",
             "}")
         .doTest();
@@ -761,6 +978,85 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nestedGenericTypeAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    A<A<@Nullable String>[]> var1 = new A<A<String>[]>();",
+            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    A<A<String>[]> var2 = new A<A<@Nullable String>[]>();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<A<@Nullable String>[]> var1 = new A<A<@Nullable String>[]>();",
+            "    A<A<String>[]> var2 = new A<A<String>[]>();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void genericPrimitiveArrayTypeAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: Cannot assign from type A<int[]>",
+            "    A<int @Nullable[]> x = new A<int[]>();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<int @Nullable[]> x = new A<int @Nullable[]>();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nestedGenericTypeVariables() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static class B<T> {",
+            "    void foo() {",
+            "      A<A<T>[]> x = new A<A<T>[]>();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nestedGenericWildcardTypeVariables() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static class B<T> {",
+            "    void foo() {",
+            "      A<A<? extends String>[]> x = new A<A<? extends String>[]>();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void overrideReturnTypes() {
     makeHelper()
         .addSourceLines(
@@ -896,6 +1192,163 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void overrideExplicitlyTypedAnonymousClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    R apply(P p);",
+            "  }",
+            "  static abstract class FnClass<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    abstract R apply(P p);",
+            "  }",
+            "  static void anonymousClasses() {",
+            "    Fn<@Nullable String, String> fn1 = new Fn<@Nullable String, String>() {",
+            "      // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "    FnClass<String, String> fn2 = new FnClass<String, String>() {",
+            "      // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    Fn<String, @Nullable String> fn3 = new Fn<String, @Nullable String>() {",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    FnClass<@Nullable String, String> fn4 = new FnClass<@Nullable String, String>() {",
+            "      public String apply(@Nullable String s) { return \"hello\"; }",
+            "    };",
+            "  }",
+            "  static void anonymousClassesFullName() {",
+            "    Test.Fn<@Nullable String, String> fn1 = new Test.Fn<@Nullable String, String>() {",
+            "      // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "    Test.FnClass<String, String> fn2 = new Test.FnClass<String, String>() {",
+            "      // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    Test.Fn<String, @Nullable String> fn3 = new Test.Fn<String, @Nullable String>() {",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    Test.FnClass<@Nullable String, String> fn4 = new Test.FnClass<@Nullable String, String>() {",
+            "      public String apply(@Nullable String s) { return \"hello\"; }",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/836")
+  @Test
+  public void overrideAnonymousNestedClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  class Wrapper<P extends @Nullable Object> {",
+            "    abstract class Fn<R extends @Nullable Object> {",
+            "      abstract R apply(P p);",
+            "    }",
+            "  }",
+            "  void anonymousNestedClasses() {",
+            "    Wrapper<@Nullable String>.Fn<String> fn1 = (this.new Wrapper<@Nullable String>()).new Fn<String>() {",
+            "      // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void explicitlyTypedAnonymousClassAsReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    R apply(P p);",
+            "  }",
+            "  static abstract class FnClass<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    abstract R apply(P p);",
+            "  }",
+            "  static void anonymousClasses() {",
+            "    String s1 = (new Fn<String, @Nullable String>() {",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    }).apply(\"hi\");",
+            "    // BUG: Diagnostic contains: dereferenced expression s1",
+            "    s1.hashCode();",
+            "    String s2 = (new FnClass<String, @Nullable String>() {",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    }).apply(\"hi\");",
+            "    // BUG: Diagnostic contains: dereferenced expression s2",
+            "    s2.hashCode();",
+            "    (new Fn<String, String>() {",
+            "      public String apply(String s) { return \"hi\"; }",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    }).apply(null);",
+            "    (new FnClass<String, String>() {",
+            "      public String apply(String s) { return \"hi\"; }",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    }).apply(null);",
+            "    (new Fn<@Nullable String, String>() {",
+            "      public String apply(@Nullable String s) { return \"hi\"; }",
+            "    }).apply(null);",
+            "    (new FnClass<@Nullable String, String>() {",
+            "      public String apply(@Nullable String s) { return \"hi\"; }",
+            "    }).apply(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  /** Diamond anonymous classes are not supported yet; tests are for future reference */
+  @Test
+  public void overrideDiamondAnonymousClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    R apply(P p);",
+            "  }",
+            "  static abstract class FnClass<P extends @Nullable Object, R extends @Nullable Object> {",
+            "    abstract R apply(P p);",
+            "  }",
+            "  static void anonymousClasses() {",
+            "    Fn<@Nullable String, String> fn1 = new Fn<>() {",
+            "      // TODO: should report a bug here",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "    FnClass<@Nullable String, String> fn2 = new FnClass<>() {",
+            "      // TODO: should report a bug here",
+            "      public String apply(String s) { return s; }",
+            "    };",
+            "    Fn<String, @Nullable String> fn3 = new Fn<>() {",
+            "      // TODO: this is a false positive",
+            "      // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "    FnClass<String, @Nullable String> fn4 = new FnClass<>() {",
+            "      // TODO: this is a false positive",
+            "      // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
+            "      public @Nullable String apply(String s) { return null; }",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullableGenericTypeVariableReturnType() {
     makeHelper()
         .addSourceLines(
@@ -937,14 +1390,14 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             " }",
             " class TestFunc1 implements Fn<P<@Nullable String, String>, @Nullable String> {",
             " @Override",
-            "  // BUG: Diagnostic contains: Method returns P<@Nullable String, @Nullable String>, but overridden method",
+            "  // BUG: Diagnostic contains: Method returns Test.P<@Nullable String, @Nullable String>, but overridden method",
             " public P<@Nullable String, @Nullable String> apply() {",
             "   return new P<@Nullable String, @Nullable String>();",
             "  }",
             " }",
             " class TestFunc2 implements Fn<P<@Nullable String, @Nullable String>, @Nullable String> {",
             "   @Override",
-            "   // BUG: Diagnostic contains: Method returns P<@Nullable String, String>, but overridden method returns",
+            "   // BUG: Diagnostic contains: Method returns Test.P<@Nullable String, String>, but overridden method returns",
             "   public P<@Nullable String, String> apply() {",
             "     return new P<@Nullable String, String>();",
             "   }",
@@ -973,7 +1426,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             " }",
             " class TestFunc implements Fn<P<String, String>, String> {",
             " @Override",
-            "  // BUG: Diagnostic contains: Parameter has type P<@Nullable String, String>, but overridden method has parameter type P<String, String>",
+            "  // BUG: Diagnostic contains: Parameter has type Test.P<@Nullable String, String>, but overridden method has parameter type Test.P<String, String>",
             "  public String apply(P<@Nullable String, String> p, String s) {",
             "    return s;",
             "  }",
@@ -1041,9 +1494,59 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void testForStaticMethodCallAsAParam() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T> {",
+            "   public static <T> A<T> returnA(){",
+            "     return new A<T>();",
+            "   }",
+            "   public static <T> A<T> returnAWithParam(Object o){",
+            "     return new A<T>();",
+            "   }",
+            "  }",
+            "  static void func(A<Object> a){",
+            "  }",
+            "  static void testNegative() {",
+            "   func(A.returnA());",
+            "  }",
+            "  static void testNegative2() {",
+            "   func(A.returnAWithParam(new Object()));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForDiamondOperatorReturnedAsAMethodCaller() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class B<T>{",
+            "   String build(){return \"x\";}",
+            "  }",
+            "  static String testNegative() {",
+            "   return new B<>().build();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
             "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+  }
+
+  private CompilationTestHelper makeHelperWithoutJSpecifyMode() {
+    return makeTestHelperWithArgs(Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber"));
   }
 }

@@ -18,15 +18,14 @@
 plugins {
     id 'java'
     id 'jacoco'
-    id 'com.github.kt3k.coveralls'
 }
 
-// Use JDK 17 for this module, via a toolchain.  We need JDK 17 since this module
-// depends on jdk17-unit-tests.
+// Use JDK 21 for this module, via a toolchain.  We need JDK 21 since this module
+// depends on jdk-recent-unit-tests.
 // We must null out sourceCompatibility and targetCompatibility to use toolchains.
 java.sourceCompatibility = null
 java.targetCompatibility = null
-java.toolchain.languageVersion.set JavaLanguageVersion.of(17)
+java.toolchain.languageVersion.set JavaLanguageVersion.of(21)
 
 // A resolvable configuration to collect source code
 def sourcesPath = configurations.create("sourcesPath") {
@@ -71,19 +70,6 @@ def codeCoverageReport = tasks.register('codeCoverageReport', JacocoReport) {
     }
 }
 
-coveralls {
-    jacocoReportPath = "build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml"
-    afterEvaluate {
-        sourceDirs = sourcesPath.incoming.artifactView { lenient(true) }.files as List<String>
-    }
-}
-
-def coverallsTask = tasks.named('coveralls')
-
-coverallsTask.configure {
-    dependsOn 'codeCoverageReport'
-}
-
 // These dependencies indicate which projects have tests or tested code we want to include
 // when computing overall coverage.  We aim to measure coverage for all code that actually ships
 // in a Maven artifact (so, e.g., we do not measure coverage for the jmh module)
@@ -93,5 +79,5 @@ dependencies {
     implementation project(':jar-infer:jar-infer-lib')
     implementation project(':jar-infer:nullaway-integration-test')
     implementation project(':guava-recent-unit-tests')
-    implementation project(':jdk17-unit-tests')
+    implementation project(':jdk-recent-unit-tests')
 }

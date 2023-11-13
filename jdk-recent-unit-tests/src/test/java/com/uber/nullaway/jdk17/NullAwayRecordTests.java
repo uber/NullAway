@@ -178,4 +178,78 @@ public class NullAwayRecordTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void recordEqualsNull() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Records.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Records {",
+            "  public void recordEqualsNull() {",
+            "    record Rec() {",
+            "      void print(Object o) { System.out.println(o.toString()); }",
+            "      void equals(Integer i1, Integer i2) { }",
+            "      boolean equals(String i1, String i2) { return false; }",
+            "      boolean equals(Long l1) { return false; }",
+            "    }",
+            "    Object o = null;",
+            "    // null can be passed to the generated equals() method taking an Object parameter",
+            "    new Rec().equals(o);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    new Rec().print(null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    new Rec().equals(null, Integer.valueOf(100));",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    new Rec().equals(\"hello\", null);",
+            "    Long l = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'l'",
+            "    new Rec().equals(l);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void recordDeconstructionPatternInstanceOf() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Records.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Records {",
+            "  record Rec(Object first, @Nullable Object second) { }",
+            "  void recordDeconstructionInstanceOf(Object obj) {",
+            "    if (obj instanceof Rec(Object f, @Nullable Object s)) {",
+            "      f.toString();",
+            "      // TODO: NullAway should report a warning here!",
+            "      // See https://github.com/uber/NullAway/issues/840",
+            "      s.toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void recordDeconstructionPatternSwitchCase() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Records.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Records {",
+            "  record Rec(Object first, @Nullable Object second) { }",
+            "  int recordDeconstructionSwitchCase(Object obj) {",
+            "    return switch (obj) {",
+            "      // TODO: NullAway should report a warning here!",
+            "      // See https://github.com/uber/NullAway/issues/840",
+            "      case Rec(Object f, @Nullable Object s) -> s.toString().length();",
+            "      default -> 0;",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

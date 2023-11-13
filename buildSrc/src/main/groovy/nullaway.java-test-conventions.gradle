@@ -1,0 +1,120 @@
+/*
+ * Copyright (C) 2023. Uber Technologies
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// Mostly taken from official Gradle sample: https://docs.gradle.org/current/samples/sample_jvm_multi_project_with_code_coverage.html
+plugins {
+    id 'jacoco'
+}
+
+jacoco {
+    toolVersion = "0.8.10"
+}
+
+// Do not generate reports for individual projects
+tasks.named("jacocoTestReport") {
+    enabled = false
+}
+
+// Share sources folder with other projects for aggregated JaCoCo reports
+configurations.create('transitiveSourcesElements') {
+    visible = false
+    canBeResolved = false
+    canBeConsumed = true
+    extendsFrom(configurations.implementation)
+    attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
+        attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, 'source-folders'))
+    }
+    sourceSets.main.java.srcDirs.forEach {
+        outgoing.artifact(it)
+    }
+}
+
+// Share the coverage data to be aggregated for the whole product
+configurations.create('coverageDataElements') {
+    visible = false
+    canBeResolved = false
+    canBeConsumed = true
+    extendsFrom(configurations.implementation)
+    attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
+        attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, 'jacoco-coverage-data'))
+    }
+    // This will cause the test task to run if the coverage data is requested by the aggregation task
+    outgoing.artifact(tasks.named("test").map { task ->
+        task.extensions.getByType(JacocoTaskExtension).destinationFile
+    })
+}
+
+test {
+    maxHeapSize = "1024m"
+    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
+    jvmArgs += [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        // Accessed by Lombok tests
+        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+    ]
+}
+
+// Create a task to test on JDK 21
+def testJdk21 = tasks.register("testJdk21", Test) {
+    onlyIf {
+        // Only test on JDK 21 when using the latest Error Prone version
+        deps.versions.errorProneApi == deps.versions.errorProneLatest
+    }
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+
+    description = "Runs the test suite on JDK 21"
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+
+    // Copy inputs from normal Test task.
+    def testTask = tasks.getByName("test")
+    classpath = testTask.classpath
+    testClassesDirs = testTask.testClassesDirs
+    maxHeapSize = "1024m"
+    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
+    jvmArgs += [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        // Accessed by Lombok tests
+        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+    ]
+}
+
+tasks.named('check').configure {
+    dependsOn testJdk21
+}

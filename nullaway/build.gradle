@@ -17,7 +17,7 @@ import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
     id 'java-library'
-    id 'nullaway.jacoco-conventions'
+    id 'nullaway.java-test-conventions'
 }
 
 configurations {
@@ -62,40 +62,12 @@ dependencies {
     testImplementation deps.test.grpcCore
     testImplementation project(":test-java-lib-lombok")
     testImplementation deps.test.mockito
-    testImplementation deps.test.mockitoInline
     testImplementation deps.test.javaxAnnotationApi
     testImplementation deps.test.assertJ
 }
 
 javadoc {
     failOnError = false
-}
-
-
-test {
-    maxHeapSize = "1024m"
-    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
-    jvmArgs += [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-        // Accessed by Lombok tests
-        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
-    ]
-    if (deps.versions.errorProneApi == "2.4.0" && JavaVersion.current() >= JavaVersion.VERSION_17) {
-        // This test does not pass on JDK 17 with Error Prone 2.4.0 due to a Mockito incompatibility.  Skip it (the
-        // test passes with more recent Error Prone versions on JDK 17)
-        filter {
-            excludeTestsMatching "com.uber.nullaway.NullAwaySerializationTest.suggestNullableArgumentOnBytecodeNoFileInfo"
-        }
-    }
 }
 
 apply plugin: 'com.vanniktech.maven.publish'
@@ -124,7 +96,7 @@ apply plugin: 'com.vanniktech.maven.publish'
 def jdk8Test = tasks.register("testJdk8", Test) {
     onlyIf {
         // Only if we are using a version of Error Prone compatible with JDK 8
-        deps.versions.errorProneApi == "2.4.0"
+        deps.versions.errorProneApi == "2.10.0"
     }
 
     javaLauncher = javaToolchains.launcherFor {
@@ -139,41 +111,25 @@ def jdk8Test = tasks.register("testJdk8", Test) {
     classpath = testTask.classpath
     testClassesDirs = testTask.testClassesDirs
     jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
-}
-
-// Create a task to test on JDK 8
-def jdk21Test = tasks.register("testJdk21", Test) {
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(21)
+    filter {
+        // JDK 8 does not support diamonds on anonymous classes
+        excludeTestsMatching "com.uber.nullaway.NullAwayJSpecifyGenericsTests.overrideDiamondAnonymousClass"
+        // tests cannot run on JDK 8 since Mockito version no longer supports it
+        excludeTestsMatching "com.uber.nullaway.NullAwaySerializationTest.initializationError"
+        excludeTestsMatching "com.uber.nullaway.handlers.contract.ContractUtilsTest.getEmptyAntecedent"
     }
-
-    description = "Runs the test suite on JDK 21"
-    group = LifecycleBasePlugin.VERIFICATION_GROUP
-
-    // Copy inputs from normal Test task.
-    def testTask = tasks.getByName("test")
-    classpath = testTask.classpath
-    testClassesDirs = testTask.testClassesDirs
-    maxHeapSize = "1024m"
-    // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
-    jvmArgs += [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-        // Accessed by Lombok tests
-        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
-    ]
 }
 
 tasks.named('check').configure {
     dependsOn(jdk8Test)
+}
+
+tasks.named('testJdk21', Test).configure {
+    filter {
+        // JSpecify Generics tests do not yet pass on JDK 21
+        // See https://github.com/uber/NullAway/issues/827
+        excludeTestsMatching "com.uber.nullaway.NullAwayJSpecifyGenericsTests"
+    }
 }
 
 // Create a task to build NullAway with NullAway checking enabled
@@ -196,11 +152,12 @@ tasks.register('buildWithNullAway', JavaCompile) {
             sourceSets.main.compileClasspath)
     options.errorprone.enabled = true
     options.errorprone {
-        option("NullAway:AnnotatedPackages", "com.uber,org.checkerframework.nullaway")
+        option("NullAway:AnnotatedPackages", "com.uber,org.checkerframework.nullaway,com.google.common")
         option("NullAway:CastToNonNullMethod", "com.uber.nullaway.NullabilityUtil.castToNonNull")
         option("NullAway:CheckOptionalEmptiness")
         option("NullAway:AcknowledgeRestrictiveAnnotations")
         option("NullAway:CheckContracts")
+        option("NullAway:JSpecifyMode")
     }
     // Make sure the jar has already been built
     dependsOn 'jar'

@@ -1,5 +1,69 @@
 Changelog
 =========
+Version 0.10.16
+---------------
+NOTE: Maven Central signing key rotated for this release following a revocation.
+
+* Minor cleanup in AccessPathElement (#851)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - JSpecify: handle return types of method references in Java Generics (#847)
+  - JSpecify: handle Nullability for lambda expression parameters for Generic Types (#852)
+  - JSpecify: Modify Array Type Use Annotation Syntax (#850)
+  - JSpecify: handle Nullability for return types of lambda expressions for Generic Types (#854)
+* Build / CI tooling for NullAway itself:
+  - Update to Gradle 8.4 and Error Prone 2.23.0 (#849)
+
+Version 0.10.15
+---------------
+* [IMPORTANT] Update minimum Error Prone version and Guava version (#843)
+  NullAway now requires Error Prone 2.10.0 or later
+* Add Spring mock/testing annotations to excluded field annotation list (#757)
+* Update to Checker Framework 3.39.0 (#839) [Support for JDK 21 constructs]
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - Properly check generic method overriding in explicitly-typed anonymous classes (#808)
+  - JSpecify: handle incorrect method parameter nullability for method reference (#845)
+  - JSpecify: initial handling of generic enclosing types for inner classes (#837)
+* Build / CI tooling for NullAway itself:
+  - Update Gradle and a couple of plugin versions (#832)
+  - Run recent JDK tests on JDK 21 (#834)
+  - Fix which JDKs are installed on CI (#835)
+  - Update to Error Prone 2.22.0 (#833)
+  - Ignore code coverage for method executed non-deterministically in tests (#838 and #844)
+  - Build NullAway with JSpecify mode enabled (#841)
+
+Version 0.10.14
+---------------
+IMPORTANT: This version introduces EXPERIMENTAL JDK21 support.
+* Bump Checker Framework dependency to 3.38.0 (#819)
+  - Note: Not just an internal implementation change. Needed to support JDK 21!
+* Treat parameter of generated Record.equals() methods as @Nullable (#825)
+* Build / CI tooling for NullAway itself:
+  - Fixes Codecov Report Expired error (#821)
+  - Updated Readme.md with Codecov link (#823)
+  - Remove ASM-related hack in build config (#824)
+  - Run tests on JDK 21 (#826)
+
+Version 0.10.13
+---------------
+* Allow library models to define custom stream classes (#807)
+* Avoid suggesting castToNonNull fixes in certain cases (#799)
+* Ensure castToNonNull insertion/removal suggested fixes do not remove comments (#815)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - Generics checks for method overriding (#755)
+  - Make GenericsChecks methods static (#805)
+  - Add visitors for handling different types in generic type invariance check (#806)
+* Build / CI tooling for NullAway itself:
+  - Bump versions for some dependencies (#800)
+  - Update to WALA 1.6.2 (#798)
+  - Update to Error Prone 2.21.1 (#797)
+  - Enable contract checking when building NullAway (#802)
+  - Bump Error Prone Gradle Plugin version (#804)
+  - Modify JMH Benchmark Workflow For Shellcheck (#813)
+  - Bump gradle maven publish plugin from 0.21.0 to 0.25.3 (#810)
+  - Use Spotless to enforce consistent formatting for Gradle build scripts (#809)
+  - Remove unnecessary compile dependence for jar-infer-cli (#816)
+  - Added Codecov to CI Pipeline (#820)
+
 Version 0.10.12
 ---------------
 Note: This is the first release built with Java 11. In particular, running
