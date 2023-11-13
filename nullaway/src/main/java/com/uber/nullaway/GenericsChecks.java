@@ -788,10 +788,13 @@ public final class GenericsChecks {
       return Nullness.NONNULL;
     }
     Type methodReceiverType =
-        castToNonNull(
-            getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state));
-    return getGenericMethodReturnTypeNullness(
-        invokedMethodSymbol, methodReceiverType, state, config);
+        getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state);
+    if (methodReceiverType == null) {
+      return Nullness.NONNULL;
+    } else {
+      return getGenericMethodReturnTypeNullness(
+          invokedMethodSymbol, methodReceiverType, state, config);
+    }
   }
 
   /**
