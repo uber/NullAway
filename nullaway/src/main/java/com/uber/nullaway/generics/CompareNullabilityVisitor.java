@@ -1,6 +1,7 @@
 package com.uber.nullaway.generics;
 
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
@@ -43,17 +44,19 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
       boolean isLHSNullableAnnotated = false;
       List<Attribute.TypeCompound> lhsAnnotations = lhsTypeArgument.getAnnotationMirrors();
       // To ensure that we are checking only jspecify nullable annotations
+      Type jspecifyNullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
       for (Attribute.TypeCompound annotation : lhsAnnotations) {
-        if (annotation.getAnnotationType().toString().equals(GenericsChecks.NULLABLE_NAME)) {
+        if (ASTHelpers.isSameType(
+            (Type) annotation.getAnnotationType(), jspecifyNullableType, state)) {
           isLHSNullableAnnotated = true;
           break;
         }
       }
       boolean isRHSNullableAnnotated = false;
       List<Attribute.TypeCompound> rhsAnnotations = rhsTypeArgument.getAnnotationMirrors();
-      // To ensure that we are checking only jspecify nullable annotations
       for (Attribute.TypeCompound annotation : rhsAnnotations) {
-        if (annotation.getAnnotationType().toString().equals(GenericsChecks.NULLABLE_NAME)) {
+        if (ASTHelpers.isSameType(
+            (Type) annotation.getAnnotationType(), jspecifyNullableType, state)) {
           isRHSNullableAnnotated = true;
           break;
         }

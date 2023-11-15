@@ -42,7 +42,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   public Type visitParameterizedType(ParameterizedTypeTree tree, Void p) {
     Type.ClassType type = (Type.ClassType) ASTHelpers.getType(tree);
     Preconditions.checkNotNull(type);
-    Type nullableType = GenericsChecks.NULLABLE_TYPE_SUPPLIER.get(state);
+    Type nullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
     List<? extends Tree> typeArguments = tree.getTypeArguments();
     List<Type> newTypeArgs = new ArrayList<>();
     for (int i = 0; i < typeArguments.size(); i++) {

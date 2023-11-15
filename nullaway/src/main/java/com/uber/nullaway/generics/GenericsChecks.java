@@ -38,9 +38,13 @@ import javax.lang.model.type.ExecutableType;
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
 
-  static final String NULLABLE_NAME = "org.jspecify.annotations.Nullable";
-
-  static final Supplier<Type> NULLABLE_TYPE_SUPPLIER = Suppliers.typeFromString(NULLABLE_NAME);
+  /**
+   * Supplier for the JSpecify {@code @Nullable} annotation. Required since for now, certain checks
+   * related to generics specifically look for {@code @org.jspecify.ananotations.Nullable}
+   * annotations and do not apply to other {@code @Nullable} annotations.
+   */
+  static final Supplier<Type> JSPECIFY_NULLABLE_TYPE_SUPPLIER =
+      Suppliers.typeFromString("org.jspecify.annotations.Nullable");
 
   /** Do not instantiate; all methods should be static */
   private GenericsChecks() {}
