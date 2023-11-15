@@ -627,14 +627,17 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
-    if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
+    if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }
     Type methodReceiverType =
-        castToNonNull(
-            getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state));
-    return getGenericMethodReturnTypeNullness(
-        invokedMethodSymbol, methodReceiverType, state, config);
+        getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state);
+    if (methodReceiverType == null) {
+      return Nullness.NONNULL;
+    } else {
+      return getGenericMethodReturnTypeNullness(
+          invokedMethodSymbol, methodReceiverType, state, config);
+    }
   }
 
   /**
@@ -677,7 +680,7 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
-    if (!(tree.getMethodSelect() instanceof MemberSelectTree)) {
+    if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }
     Type enclosingType =
