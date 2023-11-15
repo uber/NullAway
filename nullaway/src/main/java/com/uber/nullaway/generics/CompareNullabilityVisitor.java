@@ -24,7 +24,7 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
     Types types = state.getTypes();
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
-    rhsType = (Type.ClassType) types.asSuper(rhsType, lhsType.tsym);
+    rhsType = types.asSuper(rhsType, lhsType.tsym);
     // This is impossible, considering the fact that standard Java subtyping succeeds before
     // running NullAway
     if (rhsType == null) {

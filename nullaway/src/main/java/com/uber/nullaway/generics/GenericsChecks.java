@@ -40,7 +40,7 @@ public final class GenericsChecks {
 
   /**
    * Supplier for the JSpecify {@code @Nullable} annotation. Required since for now, certain checks
-   * related to generics specifically look for {@code @org.jspecify.ananotations.Nullable}
+   * related to generics specifically look for {@code @org.jspecify.annotations.Nullable}
    * annotations and do not apply to other {@code @Nullable} annotations.
    */
   static final Supplier<Type> JSPECIFY_NULLABLE_TYPE_SUPPLIER =
@@ -64,7 +64,7 @@ public final class GenericsChecks {
       return;
     }
     List<? extends Tree> typeArguments = tree.getTypeArguments();
-    if (typeArguments.size() == 0) {
+    if (typeArguments.isEmpty()) {
       return;
     }
     Map<Integer, Tree> nullableTypeArguments = new HashMap<>();
@@ -302,8 +302,7 @@ public final class GenericsChecks {
     Type rhsType = getTreeType(rhsTree, state);
 
     if (lhsType instanceof Type.ClassType && rhsType instanceof Type.ClassType) {
-      boolean isAssignmentValid =
-          compareNullabilityAnnotations((Type.ClassType) lhsType, (Type.ClassType) rhsType, state);
+      boolean isAssignmentValid = compareNullabilityAnnotations(lhsType, rhsType, state);
       if (!isAssignmentValid) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
       }
@@ -337,8 +336,7 @@ public final class GenericsChecks {
     if (formalReturnType instanceof Type.ClassType
         && returnExpressionType instanceof Type.ClassType) {
       boolean isReturnTypeValid =
-          compareNullabilityAnnotations(
-              (Type.ClassType) formalReturnType, (Type.ClassType) returnExpressionType, state);
+          compareNullabilityAnnotations(formalReturnType, returnExpressionType, state);
       if (!isReturnTypeValid) {
         reportInvalidReturnTypeError(
             retExpr, formalReturnType, returnExpressionType, state, analysis);
@@ -411,15 +409,13 @@ public final class GenericsChecks {
     // type of the whole expression
     if (condExprType instanceof Type.ClassType) {
       if (truePartType instanceof Type.ClassType) {
-        if (!compareNullabilityAnnotations(
-            (Type.ClassType) condExprType, (Type.ClassType) truePartType, state)) {
+        if (!compareNullabilityAnnotations(condExprType, truePartType, state)) {
           reportMismatchedTypeForTernaryOperator(
               truePartTree, condExprType, truePartType, state, analysis);
         }
       }
       if (falsePartType instanceof Type.ClassType) {
-        if (!compareNullabilityAnnotations(
-            (Type.ClassType) condExprType, (Type.ClassType) falsePartType, state)) {
+        if (!compareNullabilityAnnotations(condExprType, falsePartType, state)) {
           reportMismatchedTypeForTernaryOperator(
               falsePartTree, condExprType, falsePartType, state, analysis);
         }
@@ -458,8 +454,7 @@ public final class GenericsChecks {
         Type actualParameter = getTreeType(actualParams.get(i), state);
         if (formalParameter instanceof Type.ClassType
             && actualParameter instanceof Type.ClassType) {
-          if (!compareNullabilityAnnotations(
-              (Type.ClassType) formalParameter, (Type.ClassType) actualParameter, state)) {
+          if (!compareNullabilityAnnotations(formalParameter, actualParameter, state)) {
             reportInvalidParametersNullabilityError(
                 formalParameter, actualParameter, actualParams.get(i), state, analysis);
           }
@@ -470,13 +465,12 @@ public final class GenericsChecks {
       Type.ArrayType varargsArrayType =
           (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
       Type varargsElementType = varargsArrayType.elemtype;
-      if (varargsElementType.getTypeArguments().size() > 0) {
+      if (!varargsElementType.getTypeArguments().isEmpty()) {
         for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
           Type actualParameter = getTreeType(actualParams.get(i), state);
           if (varargsElementType instanceof Type.ClassType
               && actualParameter instanceof Type.ClassType) {
-            if (!compareNullabilityAnnotations(
-                (Type.ClassType) varargsElementType, (Type.ClassType) actualParameter, state)) {
+            if (!compareNullabilityAnnotations(varargsElementType, actualParameter, state)) {
               reportInvalidParametersNullabilityError(
                   varargsElementType, actualParameter, actualParams.get(i), state, analysis);
             }
@@ -786,9 +780,7 @@ public final class GenericsChecks {
       if (overriddenMethodParameterType instanceof Type.ClassType
           && overridingMethodParameterType instanceof Type.ClassType) {
         if (!compareNullabilityAnnotations(
-            (Type.ClassType) overriddenMethodParameterType,
-            (Type.ClassType) overridingMethodParameterType,
-            state)) {
+            overriddenMethodParameterType, overridingMethodParameterType, state)) {
           reportInvalidOverridingMethodParamTypeError(
               methodParameters.get(i),
               overriddenMethodParameterType,
@@ -819,9 +811,7 @@ public final class GenericsChecks {
     }
     Preconditions.checkArgument(overridingMethodReturnType instanceof Type.ClassType);
     if (!compareNullabilityAnnotations(
-        (Type.ClassType) overriddenMethodReturnType,
-        (Type.ClassType) overridingMethodReturnType,
-        state)) {
+        overriddenMethodReturnType, overridingMethodReturnType, state)) {
       reportInvalidOverridingMethodReturnTypeError(
           tree, overriddenMethodReturnType, overridingMethodReturnType, analysis, state);
     }
