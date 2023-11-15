@@ -292,6 +292,26 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericsChecksForAssignmentsWithNonJSpecifyAnnotations() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "class Test {",
+            "  static class NullableTypeParam<E extends @Nullable Object> {}",
+            "  static void testNoWarningForMismatch(NullableTypeParam<@Nullable String> t1) {",
+            "    // no error here since we only do our checks for JSpecify @Nullable annotations",
+            "    NullableTypeParam<String> t2 = t1;",
+            "  }",
+            "  static void testNegative(NullableTypeParam<@Nullable String> t1) {",
+            "    NullableTypeParam<@Nullable String> t2 = t1;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nestedChecksForAssignmentsMultipleArguments() {
     makeHelper()
         .addSourceLines(
