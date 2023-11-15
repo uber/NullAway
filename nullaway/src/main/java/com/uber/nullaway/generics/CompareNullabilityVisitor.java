@@ -44,23 +44,19 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
       boolean isLHSNullableAnnotated = false;
       List<Attribute.TypeCompound> lhsAnnotations = lhsTypeArgument.getAnnotationMirrors();
       // To ensure that we are checking only jspecify nullable annotations
+      Type jspecifyNullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
       for (Attribute.TypeCompound annotation : lhsAnnotations) {
         if (ASTHelpers.isSameType(
-            (Type) annotation.getAnnotationType(),
-            GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state),
-            state)) {
+            (Type) annotation.getAnnotationType(), jspecifyNullableType, state)) {
           isLHSNullableAnnotated = true;
           break;
         }
       }
       boolean isRHSNullableAnnotated = false;
       List<Attribute.TypeCompound> rhsAnnotations = rhsTypeArgument.getAnnotationMirrors();
-      // To ensure that we are checking only jspecify nullable annotations
       for (Attribute.TypeCompound annotation : rhsAnnotations) {
         if (ASTHelpers.isSameType(
-            (Type) annotation.getAnnotationType(),
-            GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state),
-            state)) {
+            (Type) annotation.getAnnotationType(), jspecifyNullableType, state)) {
           isRHSNullableAnnotated = true;
           break;
         }
