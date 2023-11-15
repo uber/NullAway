@@ -92,7 +92,7 @@ public class ErrorBuilder {
    *     expression into a @NonNull target, and this parameter is the Symbol for that target.
    * @return the error description
    */
-  Description createErrorDescription(
+  public Description createErrorDescription(
       ErrorMessage errorMessage,
       Description.Builder descriptionBuilder,
       VisitorState state,
