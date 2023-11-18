@@ -333,8 +333,7 @@ public final class GenericsChecks {
       return;
     }
     Type returnExpressionType = getTreeType(retExpr, state);
-    if (formalReturnType instanceof Type.ClassType
-        && returnExpressionType instanceof Type.ClassType) {
+    if (formalReturnType != null && returnExpressionType != null) {
       boolean isReturnTypeValid =
           compareNullabilityAnnotations(formalReturnType, returnExpressionType, state);
       if (!isReturnTypeValid) {
@@ -414,7 +413,7 @@ public final class GenericsChecks {
               truePartTree, condExprType, truePartType, state, analysis);
         }
       }
-      if (falsePartType instanceof Type.ClassType) {
+      if (falsePartType != null) {
         if (!compareNullabilityAnnotations(condExprType, falsePartType, state)) {
           reportMismatchedTypeForTernaryOperator(
               falsePartTree, condExprType, falsePartType, state, analysis);

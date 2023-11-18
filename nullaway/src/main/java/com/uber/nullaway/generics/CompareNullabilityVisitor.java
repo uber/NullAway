@@ -6,6 +6,7 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import java.util.List;
+import javax.lang.model.type.NullType;
 
 /**
  * Visitor that checks equality of nullability annotations for all nested generic type arguments
@@ -21,22 +22,25 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
 
   @Override
   public Boolean visitClassType(Type.ClassType lhsType, Type rhsType) {
+    if (rhsType instanceof NullType) {
+      return true;
+    }
     Types types = state.getTypes();
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
-    rhsType = types.asSuper(rhsType, lhsType.tsym);
+    Type rhsTypeAsSuper = types.asSuper(rhsType, lhsType.tsym);
     // This is impossible, considering the fact that standard Java subtyping succeeds before
     // running NullAway
-    if (rhsType == null) {
+    if (rhsTypeAsSuper == null) {
       throw new RuntimeException("Did not find supertype of " + rhsType + " matching " + lhsType);
     }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
-    List<Type> rhsTypeArguments = rhsType.getTypeArguments();
+    List<Type> rhsTypeArguments = rhsTypeAsSuper.getTypeArguments();
     // This is impossible, considering the fact that standard Java subtyping succeeds before
     // running NullAway
     if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
       throw new RuntimeException(
-          "Number of types arguments in " + rhsType + " does not match " + lhsType);
+          "Number of types arguments in " + rhsTypeAsSuper + " does not match " + lhsType);
     }
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
@@ -77,6 +81,9 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
 
   @Override
   public Boolean visitArrayType(Type.ArrayType lhsType, Type rhsType) {
+    if (rhsType instanceof NullType) {
+      return true;
+    }
     Type.ArrayType arrRhsType = (Type.ArrayType) rhsType;
     return lhsType.getComponentType().accept(this, arrRhsType.getComponentType());
   }
