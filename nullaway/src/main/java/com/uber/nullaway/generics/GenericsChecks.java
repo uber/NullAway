@@ -3,6 +3,7 @@ package com.uber.nullaway.generics;
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
+import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
@@ -332,7 +333,8 @@ public final class GenericsChecks {
       return;
     }
     Type returnExpressionType = getTreeType(retExpr, state);
-    if (returnExpressionType != null) {
+    if (formalReturnType instanceof Type.ClassType
+        && returnExpressionType instanceof Type.ClassType) {
       boolean isReturnTypeValid =
           compareNullabilityAnnotations(formalReturnType, returnExpressionType, state);
       if (!isReturnTypeValid) {
@@ -412,7 +414,7 @@ public final class GenericsChecks {
               truePartTree, condExprType, truePartType, state, analysis);
         }
       }
-      if (falsePartType != null) {
+      if (falsePartType instanceof Type.ClassType) {
         if (!compareNullabilityAnnotations(condExprType, falsePartType, state)) {
           reportMismatchedTypeForTernaryOperator(
               falsePartTree, condExprType, falsePartType, state, analysis);
@@ -773,14 +775,16 @@ public final class GenericsChecks {
     for (int i = 0; i < methodParameters.size(); i++) {
       Type overridingMethodParameterType = ASTHelpers.getType(methodParameters.get(i));
       Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
-      if (!compareNullabilityAnnotations(
-          overriddenMethodParameterType, overridingMethodParameterType, state)) {
-        reportInvalidOverridingMethodParamTypeError(
-            methodParameters.get(i),
-            overriddenMethodParameterType,
-            overridingMethodParameterType,
-            analysis,
-            state);
+      if (overriddenMethodParameterType != null && overridingMethodParameterType != null) {
+        if (!compareNullabilityAnnotations(
+            overriddenMethodParameterType, overridingMethodParameterType, state)) {
+          reportInvalidOverridingMethodParamTypeError(
+              methodParameters.get(i),
+              overriddenMethodParameterType,
+              overridingMethodParameterType,
+              analysis,
+              state);
+        }
       }
     }
   }
@@ -799,6 +803,10 @@ public final class GenericsChecks {
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
     Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
     Type overridingMethodReturnType = ASTHelpers.getType(tree.getReturnType());
+    if (overriddenMethodReturnType == null) {
+      return;
+    }
+    Preconditions.checkArgument(overridingMethodReturnType != null);
     if (!compareNullabilityAnnotations(
         overriddenMethodReturnType, overridingMethodReturnType, state)) {
       reportInvalidOverridingMethodReturnTypeError(
