@@ -102,7 +102,7 @@ def test = [
         "org.junit.jupiter:junit-jupiter-api:5.0.2",
         "org.apiguardian:apiguardian-api:1.0.0"
     ],
-    jetbrainsAnnotations    : "org.jetbrains:annotations:13.0",
+    jetbrainsAnnotations    : "org.jetbrains:annotations:24.1.0",
     cfQual                  : "org.checkerframework:checker-qual:${versions.checkerFramework}",
     // 2.5.5 is the last release to contain this artifact
     cfCompatQual            : "org.checkerframework:checker-compat-qual:2.5.5",
