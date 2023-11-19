@@ -175,7 +175,8 @@ public class NullabilityUtil {
 
   /**
    * NOTE: this method does not work for getting all annotations of parameters of methods from class
-   * files. For that case, use {@link #getAllAnnotationsForParameter(Symbol.MethodSymbol, int)}
+   * files. For that case, use {@link #getAllAnnotationsForParameter(Symbol.MethodSymbol, int,
+   * Config)}
    *
    * @param symbol the symbol
    * @return all annotations on the symbol and on the type of the symbol
@@ -259,10 +260,11 @@ public class NullabilityUtil {
    *
    * @param symbol the method symbol
    * @param paramInd index of the parameter
+   * @param config NullAway configuration
    * @return all declaration and type-use annotations for the parameter
    */
   public static Stream<? extends AnnotationMirror> getAllAnnotationsForParameter(
-      Symbol.MethodSymbol symbol, int paramInd) {
+      Symbol.MethodSymbol symbol, int paramInd, Config config) {
     Symbol.VarSymbol varSymbol = symbol.getParameters().get(paramInd);
     return Stream.concat(
         varSymbol.getAnnotationMirrors().stream(),
@@ -270,7 +272,8 @@ public class NullabilityUtil {
             .filter(
                 t ->
                     t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
-                        && t.position.parameter_index == paramInd));
+                        && t.position.parameter_index == paramInd
+                        && NullabilityUtil.isDirectTypeUseAnnotation(t, config)));
   }
 
   /**
