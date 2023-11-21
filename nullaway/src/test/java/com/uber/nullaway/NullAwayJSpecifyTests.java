@@ -988,6 +988,31 @@ public class NullAwayJSpecifyTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullUnmarkedRestrictiveAnnotationsAndGenerics() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullUnmarked;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import org.jetbrains.annotations.NotNull;",
+            "import java.util.List;",
+            "public class Test {",
+            "  @NullUnmarked",
+            "  public static void takesNullable(@Nullable List<@NotNull String> l) {}",
+            "  public static void test() {",
+            "    takesNullable(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullMarkedStaticImports() {
     makeTestHelperWithArgs(
             Arrays.asList(

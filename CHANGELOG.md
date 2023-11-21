@@ -1,5 +1,16 @@
 Changelog
 =========
+Version 0.10.17
+---------------
+* Fix bug with computing direct type use annotations on parameters (#864)
+* Model Apache Flink's RichFunction.open as an @Initializer method (#862)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - JSpecify: adding com.google.common to annotated packages in build.gradle (#857)
+  - JSpecify: handling the return of a diamond operator anonymous object method caller (#858)
+  - Create com.uber.nullaway.generics package (#855)
+  - Clarifications and small fixes for checking JSpecify @Nullable annotation (#859)
+  - Apply minor cleanups suggested by IntelliJ in generics code (#860)
+
 Version 0.10.16
 ---------------
 NOTE: Maven Central signing key rotated for this release following a revocation.

@@ -130,7 +130,11 @@ final class ErrorProneCLIFlagsConfig extends AbstractConfig {
           "androidx.fragment.app.Fragment.onActivityCreated",
           "androidx.fragment.app.Fragment.onViewCreated",
           // Multidex app
-          "android.support.multidex.Application.onCreate");
+          "android.support.multidex.Application.onCreate",
+          // Apache Flink
+          // See docs:
+          // https://nightlies.apache.org/flink/flink-docs-master/api/java/org/apache/flink/api/common/functions/RichFunction.html#open-org.apache.flink.api.common.functions.OpenContext-
+          "org.apache.flink.api.common.functions.RichFunction.open");
 
   static final ImmutableSet<String> DEFAULT_INITIALIZER_ANNOT =
       ImmutableSet.of(
