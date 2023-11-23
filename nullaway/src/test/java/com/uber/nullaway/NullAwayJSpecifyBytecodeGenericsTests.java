@@ -6,6 +6,7 @@ import org.junit.Test;
 
 public class NullAwayJSpecifyBytecodeGenericsTests extends NullAwayTestsBase {
 
+  // TODO test passing parameters and returns where the method is in bytecode
   @Test
   public void basicTypeParamInstantiation() {
     makeHelper()
