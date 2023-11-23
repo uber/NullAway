@@ -120,6 +120,8 @@ public class NullAwayJSpecifyBytecodeGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  // TODO test for overriding methods from bytecode
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
