@@ -48,6 +48,29 @@ public class NullAwayJSpecifyBytecodeGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericsChecksForFieldAssignments() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.lib.generics.NullableTypeParam;",
+            "class Test {",
+            "  static void testPositive(NullableTypeParam<String> t1) {",
+            "    // BUG: Diagnostic contains: Cannot assign from type NullableTypeParam<String>",
+            "    NullableTypeParam.staticField = t1;",
+            "    // BUG: Diagnostic contains: Cannot assign from type NullableTypeParam<@Nullable String>",
+            "    NullableTypeParam<String> t2 = NullableTypeParam.staticField;",
+            "  }",
+            "  static void testNegative(NullableTypeParam<@Nullable String> t1) {",
+            "    NullableTypeParam.staticField = t1;",
+            "    NullableTypeParam<@Nullable String> t2 = NullableTypeParam.staticField;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void genericsChecksForParamPassingAndReturns() {
     makeHelper()
         .addSourceLines(
