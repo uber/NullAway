@@ -46,6 +46,32 @@ public class NullAwayJSpecifyBytecodeGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void multipleTypeParametersInstantiation() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.lib.generics.MixedTypeParam;",
+            "class Test {",
+            "  static class PartiallyInvalidSubclass",
+            "      // BUG: Diagnostic contains: Generic type parameter",
+            "      extends MixedTypeParam<@Nullable String, String, String, @Nullable String> {}",
+            "  static class ValidSubclass1",
+            "      extends MixedTypeParam<String, @Nullable String, @Nullable String, String> {}",
+            "  static class PartiallyInvalidSubclass2",
+            "      extends MixedTypeParam<",
+            "          String,",
+            "          String,",
+            "          String,",
+            "          // BUG: Diagnostic contains: Generic type parameter",
+            "          @Nullable String> {}",
+            "  static class ValidSubclass2 extends MixedTypeParam<String, String, String, String> {}",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
