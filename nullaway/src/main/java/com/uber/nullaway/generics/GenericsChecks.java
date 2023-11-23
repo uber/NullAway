@@ -23,6 +23,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorBuilder;
@@ -87,24 +88,45 @@ public final class GenericsChecks {
     if (baseType == null) {
       return;
     }
+    boolean[] typeParamsWithNullableUpperBound =
+        getTypeParamsWithNullableUpperBound(baseType, config, state);
     com.sun.tools.javac.util.List<Type> baseTypeArgs = baseType.tsym.type.getTypeArguments();
     for (int i = 0; i < baseTypeArgs.size(); i++) {
-      if (nullableTypeArguments.containsKey(i)) {
+      if (nullableTypeArguments.containsKey(i) && !typeParamsWithNullableUpperBound[i]) {
+        reportInvalidInstantiationError(
+            nullableTypeArguments.get(i), baseType, baseTypeArgs.get(i), state, analysis);
+      }
+    }
+  }
 
-        Type typeVariable = baseTypeArgs.get(i);
-        Type upperBound = typeVariable.getUpperBound();
-        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-            upperBound.getAnnotationMirrors();
-        boolean hasNullableAnnotation =
-            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-        // if base type argument does not have @Nullable annotation then the instantiation is
-        // invalid
-        if (!hasNullableAnnotation) {
-          reportInvalidInstantiationError(
-              nullableTypeArguments.get(i), baseType, typeVariable, state, analysis);
+  private static boolean[] getTypeParamsWithNullableUpperBound(
+      Type type, Config config, VisitorState state) {
+    Symbol.TypeSymbol tsym = type.tsym;
+    com.sun.tools.javac.util.List<Type> baseTypeArgs = tsym.type.getTypeArguments();
+    boolean[] result = new boolean[baseTypeArgs.size()];
+    for (int i = 0; i < baseTypeArgs.size(); i++) {
+      Type typeVariable = baseTypeArgs.get(i);
+      Type upperBound = typeVariable.getUpperBound();
+      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+          upperBound.getAnnotationMirrors();
+      if (Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)) {
+        result[i] = true;
+      }
+    }
+    // for handling bytecodes
+    com.sun.tools.javac.util.List<Attribute.TypeCompound> rawTypeAttributes =
+        tsym.getRawTypeAttributes();
+    if (rawTypeAttributes != null) {
+      for (Attribute.TypeCompound typeCompound : rawTypeAttributes) {
+        if (typeCompound.position.type.equals(TargetType.CLASS_TYPE_PARAMETER_BOUND)
+            && ASTHelpers.isSameType(
+                typeCompound.type, JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state), state)) {
+          int index = typeCompound.position.parameter_index;
+          result[index] = true;
         }
       }
     }
+    return result;
   }
 
   private static void reportInvalidInstantiationError(
