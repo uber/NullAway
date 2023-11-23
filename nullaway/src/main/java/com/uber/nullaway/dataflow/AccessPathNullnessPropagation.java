@@ -26,9 +26,10 @@ import static org.checkerframework.nullaway.javacutil.TreeUtils.elementFromDecla
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.suppliers.Supplier;
-import com.google.errorprone.suppliers.Suppliers;
+import com.google.errorprone.matchers.Matcher;
+import com.google.errorprone.matchers.method.MethodMatchers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -141,10 +142,11 @@ public class AccessPathNullnessPropagation
 
   private static final boolean NO_STORE_CHANGE = false;
 
-  private static final Supplier<Type> SET_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Set");
+  private static final Matcher<ExpressionTree> SET_ITERATOR_METHOD_MATCHER =
+      MethodMatchers.instanceMethod().onDescendantOf("java.util.Set").named("iterator");
 
-  private static final Supplier<Type> ITERATOR_TYPE_SUPPLIER =
-      Suppliers.typeFromString("java.util.Iterator");
+  private static final Matcher<ExpressionTree> ITERATOR_NEXT_METHOD_MATCHER =
+      MethodMatchers.instanceMethod().onDescendantOf("java.util.Iterator").named("next");
 
   private final Nullness defaultAssumption;
 
@@ -577,7 +579,7 @@ public class AccessPathNullnessPropagation
             AccessPath.mapWithIteratorContentsKey(mapNode, lhs, apContext);
         if (mapWithIteratorContentsKey != null) {
           // put sanity check here to minimize perf impact
-          if (!isCallToMethod(rhsInv, SET_TYPE_SUPPLIER, "iterator")) {
+          if (!SET_ITERATOR_METHOD_MATCHER.matches(rhsInv.getTree(), state)) {
             throw new RuntimeException(
                 "expected call to iterator(), instead saw "
                     + state.getSourceForNode(rhsInv.getTree()));
@@ -602,7 +604,7 @@ public class AccessPathNullnessPropagation
                 .getMapGetIteratorContentsAccessPath((LocalVariableNode) receiver);
         if (mapGetPath != null) {
           // put sanity check here to minimize perf impact
-          if (!isCallToMethod(methodInv, ITERATOR_TYPE_SUPPLIER, "next")) {
+          if (!ITERATOR_NEXT_METHOD_MATCHER.matches(methodInv.getTree(), state)) {
             throw new RuntimeException(
                 "expected call to next(), instead saw "
                     + state.getSourceForNode(methodInv.getTree()));
@@ -631,16 +633,6 @@ public class AccessPathNullnessPropagation
       }
     }
     return null;
-  }
-
-  private boolean isCallToMethod(
-      MethodInvocationNode invocationNode,
-      Supplier<Type> containingTypeSupplier,
-      String methodName) {
-    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocationNode.getTree());
-    return symbol != null
-        && symbol.getSimpleName().contentEquals(methodName)
-        && ASTHelpers.isSubtype(symbol.owner.type, containingTypeSupplier.get(state), state);
   }
 
   /**
