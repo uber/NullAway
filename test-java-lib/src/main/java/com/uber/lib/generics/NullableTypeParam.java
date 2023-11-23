@@ -1,4 +1,4 @@
-package com.uber.lib;
+package com.uber.lib.generics;
 
 import org.jspecify.annotations.Nullable;
 
