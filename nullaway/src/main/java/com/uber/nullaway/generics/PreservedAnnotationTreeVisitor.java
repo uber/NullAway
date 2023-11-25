@@ -80,7 +80,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
               : com.sun.tools.javac.util.List.nil();
       TypeMetadata typeMetadata = tmBuilder.create(nullableAnnotationCompound);
       Type currentTypeArgType = curTypeArg.accept(this, null);
-      Type newTypeArgType = currentTypeArgType.cloneWithMetadata(typeMetadata);
+      Type newTypeArgType = tmBuilder.cloneTypeWithMetaData(currentTypeArgType, typeMetadata);
       newTypeArgs.add(newTypeArgType);
     }
     Type.ClassType finalType =
@@ -97,6 +97,8 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
 
   private interface TypeMetadataBuilder {
     TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs);
+
+    Type cloneTypeWithMetaData(Type typeToBeCloned, TypeMetadata metaData);
   }
 
   private static class JDK17AndEarlierTypeMetadataBuilder implements TypeMetadataBuilder {
@@ -105,11 +107,18 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     public TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs) {
       return new TypeMetadata(new TypeMetadata.Annotations(attrs));
     }
+
+    @Override
+    public Type cloneTypeWithMetaData(Type typeToBeCloned, TypeMetadata metaData) {
+      return typeToBeCloned.cloneWithMetadata(metaData);
+    }
   }
 
   private static class JDK21TypeMetadataBuilder implements TypeMetadataBuilder {
 
     private static final MethodHandle typeMetadataHandle = createHandle();
+    private static final MethodHandle cloneAddMetadataHandle = createAddMethodHandle();
+    private static final MethodHandle cloneDropMetadataHandle = createDropMethodHandle();
 
     private static MethodHandle createHandle() {
       MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -123,12 +132,53 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
       }
     }
 
+    private static MethodHandle createAddMethodHandle() {
+      MethodHandles.Lookup lookup = MethodHandles.lookup();
+      MethodType mt = MethodType.methodType(Type.class, TypeMetadata.class);
+      try {
+        return lookup.findVirtual(com.sun.tools.javac.code.Type.class, "addMetadata", mt);
+      } catch (NoSuchMethodException e) {
+        throw new RuntimeException(e);
+      } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    private static MethodHandle createDropMethodHandle() {
+      MethodHandles.Lookup lookup = MethodHandles.lookup();
+      MethodType mt = MethodType.methodType(Type.class, Class.class);
+      try {
+        return lookup.findVirtual(com.sun.tools.javac.code.Type.class, "dropMetadata", mt);
+      } catch (NoSuchMethodException e) {
+        throw new RuntimeException(e);
+      } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
     @Override
     public TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs) {
       ListBuffer<Attribute.TypeCompound> b = new ListBuffer<>();
       b.appendList(attrs);
       try {
         return (TypeMetadata) typeMetadataHandle.invoke(b);
+      } catch (Throwable e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public Type cloneTypeWithMetaData(Type typeToBeCloned, TypeMetadata metaData) {
+      try {
+        Type clonedType = null;
+        if (metaData.getClass().getComponentType() != null) {
+          clonedType = (Type) cloneAddMetadataHandle.invoke(typeToBeCloned, metaData);
+        } else {
+          Type clonedTypeDrop =
+              (Type) cloneDropMetadataHandle.invoke(typeToBeCloned, metaData.getClass());
+          clonedType = (Type) cloneAddMetadataHandle.invoke(clonedTypeDrop, metaData);
+        }
+        return clonedType;
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
