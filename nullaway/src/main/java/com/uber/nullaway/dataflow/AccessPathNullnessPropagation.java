@@ -25,6 +25,7 @@ import static javax.lang.model.element.ElementKind.EXCEPTION_PARAMETER;
 import static org.checkerframework.nullaway.javacutil.TreeUtils.elementFromDeclaration;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.VerifyException;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
@@ -578,7 +579,7 @@ public class AccessPathNullnessPropagation
         if (mapWithIteratorContentsKey != null) {
           // put sanity check here to minimize perf impact
           if (!isCallToMethod(rhsInv, SET_TYPE_SUPPLIER, "iterator")) {
-            throw new RuntimeException(
+            throw new VerifyException(
                 "expected call to iterator(), instead saw "
                     + state.getSourceForNode(rhsInv.getTree()));
           }
@@ -603,7 +604,7 @@ public class AccessPathNullnessPropagation
         if (mapGetPath != null) {
           // put sanity check here to minimize perf impact
           if (!isCallToMethod(methodInv, ITERATOR_TYPE_SUPPLIER, "next")) {
-            throw new RuntimeException(
+            throw new VerifyException(
                 "expected call to next(), instead saw "
                     + state.getSourceForNode(methodInv.getTree()));
           }
