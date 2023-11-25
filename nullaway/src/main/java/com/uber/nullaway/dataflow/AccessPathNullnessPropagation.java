@@ -637,10 +637,12 @@ public class AccessPathNullnessPropagation
       MethodInvocationNode invocationNode,
       Supplier<Type> containingTypeSupplier,
       String methodName) {
-    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocationNode.getTree());
+    MethodInvocationTree invocationTree = invocationNode.getTree();
+    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocationTree);
     return symbol != null
         && symbol.getSimpleName().contentEquals(methodName)
-        && ASTHelpers.isSubtype(symbol.owner.type, containingTypeSupplier.get(state), state);
+        && ASTHelpers.isSubtype(
+            ASTHelpers.getReceiverType(invocationTree), containingTypeSupplier.get(state), state);
   }
 
   /**
