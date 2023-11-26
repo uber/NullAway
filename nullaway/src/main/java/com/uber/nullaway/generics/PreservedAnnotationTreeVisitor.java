@@ -170,15 +170,11 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     @Override
     public Type cloneTypeWithMetaData(Type typeToBeCloned, TypeMetadata metaData) {
       try {
-        Type clonedType = null;
-        if (metaData.getClass().getComponentType() != null) {
-          clonedType = (Type) cloneAddMetadataHandle.invoke(typeToBeCloned, metaData);
-        } else {
-          Type clonedTypeDrop =
-              (Type) cloneDropMetadataHandle.invoke(typeToBeCloned, metaData.getClass());
-          clonedType = (Type) cloneAddMetadataHandle.invoke(clonedTypeDrop, metaData);
-        }
-        return clonedType;
+        // In Jdk21 addMetadata works if there is no metadata associated with the type, so we create
+        // a copy without the existing metadata first and then add it
+        Type clonedTypeWithoutMetadata =
+            (Type) cloneDropMetadataHandle.invoke(typeToBeCloned, metaData.getClass());
+        return (Type) cloneAddMetadataHandle.invoke(clonedTypeWithoutMetadata, metaData);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
