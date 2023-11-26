@@ -117,8 +117,10 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   private static class JDK21TypeMetadataBuilder implements TypeMetadataBuilder {
 
     private static final MethodHandle typeMetadataHandle = createHandle();
-    private static final MethodHandle cloneAddMetadataHandle = createAddMethodHandle();
-    private static final MethodHandle cloneDropMetadataHandle = createDropMethodHandle();
+    private static final MethodHandle cloneAddMetadataHandle =
+        createVirtualMethodHandle(Type.class, TypeMetadata.class, Type.class, "addMetadata");
+    private static final MethodHandle cloneDropMetadataHandle =
+        createVirtualMethodHandle(Type.class, Class.class, Type.class, "dropMetadata");
 
     private static MethodHandle createHandle() {
       MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -132,23 +134,12 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
       }
     }
 
-    private static MethodHandle createAddMethodHandle() {
+    private static MethodHandle createVirtualMethodHandle(
+        Class<?> retTypeClass, Class<?> paramTypeClass, Class<?> refClass, String methodName) {
       MethodHandles.Lookup lookup = MethodHandles.lookup();
-      MethodType mt = MethodType.methodType(Type.class, TypeMetadata.class);
+      MethodType mt = MethodType.methodType(retTypeClass, paramTypeClass);
       try {
-        return lookup.findVirtual(com.sun.tools.javac.code.Type.class, "addMetadata", mt);
-      } catch (NoSuchMethodException e) {
-        throw new RuntimeException(e);
-      } catch (IllegalAccessException e) {
-        throw new RuntimeException(e);
-      }
-    }
-
-    private static MethodHandle createDropMethodHandle() {
-      MethodHandles.Lookup lookup = MethodHandles.lookup();
-      MethodType mt = MethodType.methodType(Type.class, Class.class);
-      try {
-        return lookup.findVirtual(com.sun.tools.javac.code.Type.class, "dropMetadata", mt);
+        return lookup.findVirtual(refClass, methodName, mt);
       } catch (NoSuchMethodException e) {
         throw new RuntimeException(e);
       } catch (IllegalAccessException e) {
