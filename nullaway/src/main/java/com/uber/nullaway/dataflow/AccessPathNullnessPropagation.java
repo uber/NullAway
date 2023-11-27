@@ -25,6 +25,7 @@ import static javax.lang.model.element.ElementKind.EXCEPTION_PARAMETER;
 import static org.checkerframework.nullaway.javacutil.TreeUtils.elementFromDeclaration;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.VerifyException;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
@@ -578,7 +579,7 @@ public class AccessPathNullnessPropagation
         if (mapWithIteratorContentsKey != null) {
           // put sanity check here to minimize perf impact
           if (!isCallToMethod(rhsInv, SET_TYPE_SUPPLIER, "iterator")) {
-            throw new RuntimeException(
+            throw new VerifyException(
                 "expected call to iterator(), instead saw "
                     + state.getSourceForNode(rhsInv.getTree()));
           }
@@ -603,7 +604,7 @@ public class AccessPathNullnessPropagation
         if (mapGetPath != null) {
           // put sanity check here to minimize perf impact
           if (!isCallToMethod(methodInv, ITERATOR_TYPE_SUPPLIER, "next")) {
-            throw new RuntimeException(
+            throw new VerifyException(
                 "expected call to next(), instead saw "
                     + state.getSourceForNode(methodInv.getTree()));
           }
@@ -633,14 +634,32 @@ public class AccessPathNullnessPropagation
     return null;
   }
 
+  /**
+   * Checks if an invocation node represents a call to a method on a given type
+   *
+   * @param invocationNode the invocation node
+   * @param containingTypeSupplier supplier for the type containing the method
+   * @param methodName name of the method
+   * @return true if the invocation node represents a call to the method on the type
+   */
   private boolean isCallToMethod(
       MethodInvocationNode invocationNode,
       Supplier<Type> containingTypeSupplier,
       String methodName) {
-    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocationNode.getTree());
-    return symbol != null
-        && symbol.getSimpleName().contentEquals(methodName)
-        && ASTHelpers.isSubtype(symbol.owner.type, containingTypeSupplier.get(state), state);
+    MethodInvocationTree invocationTree = invocationNode.getTree();
+    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocationTree);
+    if (symbol != null && symbol.getSimpleName().contentEquals(methodName)) {
+      // NOTE: previously we checked if symbol.owner.type was a subtype of the containing type.
+      // However, symbol.owner.type refers to the static type at the call site, in which the target
+      // class/interface might be a supertype of the containing type with some Java compilers.
+      // Instead, we now check if the static type of the receiver at the invocation is a subtype of
+      // the containing type (as this guarantees a method in the containing type or one of its
+      // subtypes will be invoked, assuming such a method exists).  See
+      // https://github.com/uber/NullAway/issues/866.
+      return ASTHelpers.isSubtype(
+          ASTHelpers.getReceiverType(invocationTree), containingTypeSupplier.get(state), state);
+    }
+    return false;
   }
 
   /**
