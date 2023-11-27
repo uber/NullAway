@@ -634,16 +634,30 @@ public class AccessPathNullnessPropagation
     return null;
   }
 
+  /**
+   * Checks if an invocation node represents a call to a method on a given type
+   *
+   * @param invocationNode the invocation node
+   * @param containingTypeSupplier supplier for the type containing the method
+   * @param methodName name of the method
+   * @return true if the invocation node represents a call to the method on the type
+   */
   private boolean isCallToMethod(
       MethodInvocationNode invocationNode,
       Supplier<Type> containingTypeSupplier,
       String methodName) {
     MethodInvocationTree invocationTree = invocationNode.getTree();
     Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocationTree);
-    return symbol != null
-        && symbol.getSimpleName().contentEquals(methodName)
-        && ASTHelpers.isSubtype(
-            ASTHelpers.getReceiverType(invocationTree), containingTypeSupplier.get(state), state);
+    if (symbol != null && symbol.getSimpleName().contentEquals(methodName)) {
+      // NOTE: previously we checked if symbol.owner.type was a subtype of the containing type.
+      // However, symbol.owner.type refers to the static type at the call site, which might be a
+      // supertype of the containing type with some Java compilers.  Instead, we check if the type
+      // of the receiver at the invocation is a subtype of the containing type.  See
+      // https://github.com/uber/NullAway/issues/866.
+      return ASTHelpers.isSubtype(
+          ASTHelpers.getReceiverType(invocationTree), containingTypeSupplier.get(state), state);
+    }
+    return false;
   }
 
   /**
