@@ -650,9 +650,11 @@ public class AccessPathNullnessPropagation
     Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocationTree);
     if (symbol != null && symbol.getSimpleName().contentEquals(methodName)) {
       // NOTE: previously we checked if symbol.owner.type was a subtype of the containing type.
-      // However, symbol.owner.type refers to the static type at the call site, which might be a
-      // supertype of the containing type with some Java compilers.  Instead, we check if the type
-      // of the receiver at the invocation is a subtype of the containing type.  See
+      // However, symbol.owner.type refers to the static type at the call site, in which the target
+      // class/interface might be a supertype of the containing type with some Java compilers.
+      // Instead, we now check if the static type of the receiver at the invocation is a subtype of
+      // the containing type (as this guarantees a method in the containing type or one of its
+      // subtypes will be invoked, assuming such a method exists).  See
       // https://github.com/uber/NullAway/issues/866.
       return ASTHelpers.isSubtype(
           ASTHelpers.getReceiverType(invocationTree), containingTypeSupplier.get(state), state);
