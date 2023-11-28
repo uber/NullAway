@@ -80,7 +80,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
               : com.sun.tools.javac.util.List.nil();
       TypeMetadata typeMetadata = tmBuilder.create(nullableAnnotationCompound);
       Type currentTypeArgType = curTypeArg.accept(this, null);
-      Type newTypeArgType = tmBuilder.cloneTypeWithMetaData(currentTypeArgType, typeMetadata);
+      Type newTypeArgType = tmBuilder.cloneTypeWithMetadata(currentTypeArgType, typeMetadata);
       newTypeArgs.add(newTypeArgType);
     }
     Type.ClassType finalType =
@@ -98,7 +98,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   private interface TypeMetadataBuilder {
     TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs);
 
-    Type cloneTypeWithMetaData(Type typeToBeCloned, TypeMetadata metaData);
+    Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metaData);
   }
 
   private static class JDK17AndEarlierTypeMetadataBuilder implements TypeMetadataBuilder {
@@ -109,17 +109,17 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     }
 
     @Override
-    public Type cloneTypeWithMetaData(Type typeToBeCloned, TypeMetadata metaData) {
-      return typeToBeCloned.cloneWithMetadata(metaData);
+    public Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metadata) {
+      return typeToBeCloned.cloneWithMetadata(metadata);
     }
   }
 
   private static class JDK21TypeMetadataBuilder implements TypeMetadataBuilder {
 
     private static final MethodHandle typeMetadataHandle = createHandle();
-    private static final MethodHandle cloneAddMetadataHandle =
+    private static final MethodHandle addMetadataHandle =
         createVirtualMethodHandle(Type.class, TypeMetadata.class, Type.class, "addMetadata");
-    private static final MethodHandle cloneDropMetadataHandle =
+    private static final MethodHandle dropMetadataHandle =
         createVirtualMethodHandle(Type.class, Class.class, Type.class, "dropMetadata");
 
     private static MethodHandle createHandle() {
@@ -159,13 +159,13 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     }
 
     @Override
-    public Type cloneTypeWithMetaData(Type typeToBeCloned, TypeMetadata metaData) {
+    public Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metadata) {
       try {
         // In Jdk21 addMetadata works if there is no metadata associated with the type, so we create
         // a copy without the existing metadata first and then add it
         Type clonedTypeWithoutMetadata =
-            (Type) cloneDropMetadataHandle.invoke(typeToBeCloned, metaData.getClass());
-        return (Type) cloneAddMetadataHandle.invoke(clonedTypeWithoutMetadata, metaData);
+            (Type) dropMetadataHandle.invoke(typeToBeCloned, metadata.getClass());
+        return (Type) addMetadataHandle.invoke(clonedTypeWithoutMetadata, metadata);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
