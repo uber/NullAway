@@ -1,5 +1,9 @@
 Changelog
 =========
+Version 0.10.18
+---------------
+* Fix assertion check for structure of enhanced-for loop over a Map keySet (#868)
+
 Version 0.10.17
 ---------------
 * Fix bug with computing direct type use annotations on parameters (#864)
