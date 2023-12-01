@@ -133,7 +133,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
 
   /**
    * Provides implementations for methods under TypeMetadataBuilder compatible with the updates made
-   * to the library methods for Jdk 21. The implementation calls the logic specific to Jdk 21
+   * to the library methods for Jdk 21. The implementation calls the logic specific to JDK 21
    * indirectly using MethodHandles since we still need the code to compile on earlier versions.
    */
   private static class JDK21TypeMetadataBuilder implements TypeMetadataBuilder {
