@@ -95,12 +95,20 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     return castToNonNull(ASTHelpers.getType(node));
   }
 
+  /**
+   * Provides abstraction for using Type and TypeMetadata library methods for different Jdk version
+   * implementations.
+   */
   private interface TypeMetadataBuilder {
     TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs);
 
     Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metaData);
   }
 
+  /**
+   * Provides implementations for methods under TypeMetadataBuilder compatible with Jdk 17 and
+   * earlier versions.
+   */
   private static class JDK17AndEarlierTypeMetadataBuilder implements TypeMetadataBuilder {
 
     @Override
@@ -108,12 +116,24 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
       return new TypeMetadata(new TypeMetadata.Annotations(attrs));
     }
 
+    /**
+     * Clones the given type with the specified Metadata for getting the right Nullability.
+     *
+     * @param typeToBeCloned The Type we want to clone with the required Nullability Metadata
+     * @param metadata The required Nullability metadata which is lost from the type
+     * @return Type after it has been cloned by applying the required Nullability metadata
+     */
     @Override
     public Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metadata) {
       return typeToBeCloned.cloneWithMetadata(metadata);
     }
   }
 
+  /**
+   * Provides implementations for methods under TypeMetadataBuilder compatible with the updates made
+   * to the library methods for Jdk 21. The implementation calls the logic specific to Jdk 21
+   * indirectly using MethodHandles since we still need the code to compile on earlier versions.
+   */
   private static class JDK21TypeMetadataBuilder implements TypeMetadataBuilder {
 
     private static final MethodHandle typeMetadataHandle = createHandle();
@@ -134,6 +154,15 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
       }
     }
 
+    /**
+     * Used to get a MethodHandle for a virtual method from the specified class
+     *
+     * @param retTypeClass Class to indicate the return type of the desired method
+     * @param paramTypeClass Class to indicate the parameter type of the desired method
+     * @param refClass Class within which the desired method is contained
+     * @param methodName Name of the desired method
+     * @return The appropriate MethodHandle for the virtual method
+     */
     private static MethodHandle createVirtualMethodHandle(
         Class<?> retTypeClass, Class<?> paramTypeClass, Class<?> refClass, String methodName) {
       MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -158,6 +187,14 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
       }
     }
 
+    /**
+     * Calls dropMetadata and addMetadata using MethodHandles for Jdk21 Implementation which
+     * deprecated the cloneWithMetadata method.
+     *
+     * @param typeToBeCloned The Type we want to clone with the required Nullability metadata
+     * @param metadata The required Nullability metadata
+     * @return Cloned Type with the necessary Nullability metadata
+     */
     @Override
     public Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metadata) {
       try {
