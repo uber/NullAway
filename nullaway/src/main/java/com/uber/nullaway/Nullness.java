@@ -218,7 +218,7 @@ public enum Nullness implements AbstractValue<Nullness> {
       return true;
     }
     return hasNullableAnnotation(
-        NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd), config);
+        NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd, config), config);
   }
 
   private static boolean isRecordEqualsParam(Symbol.MethodSymbol symbol, int paramInd) {
@@ -249,6 +249,6 @@ public enum Nullness implements AbstractValue<Nullness> {
   public static boolean paramHasNonNullAnnotation(
       Symbol.MethodSymbol symbol, int paramInd, Config config) {
     return hasNonNullAnnotation(
-        NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd), config);
+        NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd, config), config);
   }
 }
