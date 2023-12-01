@@ -78,9 +78,10 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
                       new Attribute.TypeCompound(
                           nullableType, com.sun.tools.javac.util.List.nil(), null)))
               : com.sun.tools.javac.util.List.nil();
-      TypeMetadata typeMetadata = tmBuilder.create(nullableAnnotationCompound);
+      TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(nullableAnnotationCompound);
       Type currentTypeArgType = curTypeArg.accept(this, null);
-      Type newTypeArgType = tmBuilder.cloneTypeWithMetadata(currentTypeArgType, typeMetadata);
+      Type newTypeArgType =
+          TYPE_METADATA_BUILDER.cloneTypeWithMetadata(currentTypeArgType, typeMetadata);
       newTypeArgs.add(newTypeArgType);
     }
     Type.ClassType finalType =
@@ -96,8 +97,8 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   }
 
   /**
-   * Provides abstraction for using Type and TypeMetadata library methods for different Jdk version
-   * implementations.
+   * Abstracts over the different APIs for building {@link TypeMetadata} objects in different JDK
+   * versions.
    */
   private interface TypeMetadataBuilder {
     TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs);
@@ -106,7 +107,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   }
 
   /**
-   * Provides implementations for methods under TypeMetadataBuilder compatible with Jdk 17 and
+   * Provides implementations for methods under TypeMetadataBuilder compatible with JDK 17 and
    * earlier versions.
    */
   private static class JDK17AndEarlierTypeMetadataBuilder implements TypeMetadataBuilder {
@@ -117,7 +118,8 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     }
 
     /**
-     * Clones the given type with the specified Metadata for getting the right Nullability.
+     * Clones the given type with the specified Metadata for getting the right nullability
+     * annotations.
      *
      * @param typeToBeCloned The Type we want to clone with the required Nullability Metadata
      * @param metadata The required Nullability metadata which is lost from the type
@@ -188,8 +190,8 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     }
 
     /**
-     * Calls dropMetadata and addMetadata using MethodHandles for Jdk21 Implementation which
-     * deprecated the cloneWithMetadata method.
+     * Calls dropMetadata and addMetadata using MethodHandles for JDK 21, which removed the previous
+     * cloneWithMetadata method.
      *
      * @param typeToBeCloned The Type we want to clone with the required Nullability metadata
      * @param metadata The required Nullability metadata
@@ -198,8 +200,8 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     @Override
     public Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metadata) {
       try {
-        // In Jdk21 addMetadata works if there is no metadata associated with the type, so we create
-        // a copy without the existing metadata first and then add it
+        // In JDK 21 addMetadata works if there is no metadata associated with the type, so we
+        // create a copy without the existing metadata first and then add it
         Type clonedTypeWithoutMetadata =
             (Type) dropMetadataHandle.invoke(typeToBeCloned, metadata.getClass());
         return (Type) addMetadataHandle.invoke(clonedTypeWithoutMetadata, metadata);
@@ -209,11 +211,17 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     }
   }
 
-  private static final TypeMetadataBuilder tmBuilder =
+  /** The TypeMetadataBuilder to be used for the current JDK version. */
+  private static final TypeMetadataBuilder TYPE_METADATA_BUILDER =
       getVersion() >= 21
           ? new JDK21TypeMetadataBuilder()
           : new JDK17AndEarlierTypeMetadataBuilder();
 
+  /**
+   * Utility method to get the current JDK version, that works on Java 8 and above.
+   *
+   * @return the current JDK version
+   */
   private static int getVersion() {
     String version = System.getProperty("java.version");
     if (version.startsWith("1.")) {

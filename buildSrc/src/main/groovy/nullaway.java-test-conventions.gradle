@@ -117,6 +117,8 @@ configurations.create('coverageDataElements') {
     }
     // This will cause the test tasks to run if the coverage data is requested by the aggregation task
     tasks.withType(Test).forEach {task ->
+        // tasks.named(task.name) is a hack to introduce the right task dependence in Gradle.  We will fix this
+        // correctly when addressing https://github.com/uber/NullAway/issues/871
         outgoing.artifact(tasks.named(task.name).map { t -> t.extensions.getByType(JacocoTaskExtension).destinationFile })
     }
 }
