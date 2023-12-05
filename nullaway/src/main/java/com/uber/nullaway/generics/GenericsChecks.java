@@ -301,7 +301,7 @@ public final class GenericsChecks {
     Type lhsType = getTreeType(lhsTree, state);
     Type rhsType = getTreeType(rhsTree, state);
 
-    if (lhsType instanceof Type.ClassType && rhsType instanceof Type.ClassType) {
+    if (lhsType != null && rhsType != null) {
       boolean isAssignmentValid = compareNullabilityAnnotations(lhsType, rhsType, state);
       if (!isAssignmentValid) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
@@ -333,8 +333,7 @@ public final class GenericsChecks {
       return;
     }
     Type returnExpressionType = getTreeType(retExpr, state);
-    if (formalReturnType instanceof Type.ClassType
-        && returnExpressionType instanceof Type.ClassType) {
+    if (formalReturnType != null && returnExpressionType != null) {
       boolean isReturnTypeValid =
           compareNullabilityAnnotations(formalReturnType, returnExpressionType, state);
       if (!isReturnTypeValid) {
@@ -407,14 +406,14 @@ public final class GenericsChecks {
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
     // the nullability annotations, we check that the true and false parts are assignable to the
     // type of the whole expression
-    if (condExprType instanceof Type.ClassType) {
-      if (truePartType instanceof Type.ClassType) {
+    if (condExprType != null) {
+      if (truePartType != null) {
         if (!compareNullabilityAnnotations(condExprType, truePartType, state)) {
           reportMismatchedTypeForTernaryOperator(
               truePartTree, condExprType, truePartType, state, analysis);
         }
       }
-      if (falsePartType instanceof Type.ClassType) {
+      if (falsePartType != null) {
         if (!compareNullabilityAnnotations(condExprType, falsePartType, state)) {
           reportMismatchedTypeForTernaryOperator(
               falsePartTree, condExprType, falsePartType, state, analysis);
@@ -452,8 +451,7 @@ public final class GenericsChecks {
       Type formalParameter = formalParams.get(i).type;
       if (!formalParameter.getTypeArguments().isEmpty()) {
         Type actualParameter = getTreeType(actualParams.get(i), state);
-        if (formalParameter instanceof Type.ClassType
-            && actualParameter instanceof Type.ClassType) {
+        if (actualParameter != null) {
           if (!compareNullabilityAnnotations(formalParameter, actualParameter, state)) {
             reportInvalidParametersNullabilityError(
                 formalParameter, actualParameter, actualParams.get(i), state, analysis);
@@ -468,8 +466,7 @@ public final class GenericsChecks {
       if (!varargsElementType.getTypeArguments().isEmpty()) {
         for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
           Type actualParameter = getTreeType(actualParams.get(i), state);
-          if (varargsElementType instanceof Type.ClassType
-              && actualParameter instanceof Type.ClassType) {
+          if (actualParameter != null) {
             if (!compareNullabilityAnnotations(varargsElementType, actualParameter, state)) {
               reportInvalidParametersNullabilityError(
                   varargsElementType, actualParameter, actualParams.get(i), state, analysis);
@@ -777,8 +774,7 @@ public final class GenericsChecks {
     for (int i = 0; i < methodParameters.size(); i++) {
       Type overridingMethodParameterType = ASTHelpers.getType(methodParameters.get(i));
       Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
-      if (overriddenMethodParameterType instanceof Type.ClassType
-          && overridingMethodParameterType instanceof Type.ClassType) {
+      if (overriddenMethodParameterType != null && overridingMethodParameterType != null) {
         if (!compareNullabilityAnnotations(
             overriddenMethodParameterType, overridingMethodParameterType, state)) {
           reportInvalidOverridingMethodParamTypeError(
@@ -806,10 +802,10 @@ public final class GenericsChecks {
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
     Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
     Type overridingMethodReturnType = ASTHelpers.getType(tree.getReturnType());
-    if (!(overriddenMethodReturnType instanceof Type.ClassType)) {
+    if (overriddenMethodReturnType == null) {
       return;
     }
-    Preconditions.checkArgument(overridingMethodReturnType instanceof Type.ClassType);
+    Preconditions.checkArgument(overridingMethodReturnType != null);
     if (!compareNullabilityAnnotations(
         overriddenMethodReturnType, overridingMethodReturnType, state)) {
       reportInvalidOverridingMethodReturnTypeError(

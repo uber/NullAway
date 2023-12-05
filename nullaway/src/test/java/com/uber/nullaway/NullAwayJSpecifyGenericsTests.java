@@ -1021,6 +1021,23 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nestedGenericTypeAssignment2() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    A<A<String>[]> var2 = new A<A<@Nullable String>[]>();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void genericPrimitiveArrayTypeAssignment() {
     makeHelper()
         .addSourceLines(
@@ -1555,6 +1572,44 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  }",
             "  static String testNegative() {",
             "   return new B<>().build();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForNullRhsTypeWhenReturnedForGenericType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static A<String> testPositive() {",
+            "   // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "   return null;",
+            "  }",
+            "  static @Nullable A<String> testNegative() {",
+            "   return null;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForNullTypeRhsTypeForArrayType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "import java.util.ArrayList;",
+            "class Test {",
+            "  static void testNegative() {",
+            "   List<String> a = new ArrayList<String>();",
+            "   Object[] o = a != null ? a.toArray() : null;",
             "  }",
             "}")
         .doTest();
