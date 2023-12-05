@@ -1609,7 +1609,7 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static void testNegative() {",
             "   List<String> a = new ArrayList<String>();",
-            "   Object[] o = a!=null?a.toArray():null;",
+            "   Object[] o = a != null ? a.toArray() : null;",
             "  }",
             "}")
         .doTest();
