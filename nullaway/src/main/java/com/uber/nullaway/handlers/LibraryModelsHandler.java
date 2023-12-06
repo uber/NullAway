@@ -82,11 +82,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
   @Override
   public Nullness[] onOverrideMethodInvocationParametersNullability(
-      Context context,
+      VisitorState state,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
       Nullness[] argumentPositionNullness) {
-    OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(context);
+    OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(state.context);
     ImmutableSet<Integer> nullableParamsFromModel =
         optimizedLibraryModels.explicitlyNullableParameters(methodSymbol);
     ImmutableSet<Integer> nonNullParamsFromModel =
