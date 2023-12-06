@@ -83,10 +83,12 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.tree.WhileLoopTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.Trees;
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeAnnotationPosition;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
@@ -2283,7 +2285,21 @@ public class NullAway extends BugChecker
         // obviously null
         return true;
       case ARRAY_ACCESS:
-        // unsound!  we cannot check for nullness of array contents yet
+        if (config.isJSpecifyMode()) {
+          ArrayAccessTree arrayAccess = (ArrayAccessTree) expr;
+          ExpressionTree arrayExpr = arrayAccess.getExpression();
+          Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
+          if (arraySymbol != null) {
+            for (Attribute.TypeCompound t : arraySymbol.getRawTypeAttributes()) {
+              for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
+                if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+                  return true;
+                }
+              }
+            }
+          }
+        }
+        return false;
       case NEW_CLASS:
       case NEW_ARRAY:
         // for string concatenation, auto-boxing
