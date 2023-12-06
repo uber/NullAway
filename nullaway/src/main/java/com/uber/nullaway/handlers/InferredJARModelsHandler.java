@@ -28,7 +28,6 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -122,7 +121,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
 
   @Override
   public Nullness[] onOverrideMethodInvocationParametersNullability(
-      Context context,
+      VisitorState state,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
       Nullness[] argumentPositionNullness) {

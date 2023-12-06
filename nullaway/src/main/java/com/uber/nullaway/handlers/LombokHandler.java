@@ -86,4 +86,19 @@ public class LombokHandler extends BaseNoOpHandler {
     }
     return returnNullness;
   }
+
+  @Override
+  public Nullness[] onOverrideMethodInvocationParametersNullability(
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      boolean isAnnotated,
+      Nullness[] argumentPositionNullness) {
+    if (ASTHelpers.hasAnnotation(methodSymbol, LOMBOK_GENERATED_ANNOTATION_NAME, state)) {
+      if (methodSymbol.getSimpleName().contentEquals("equals")) {
+        // Lombok-generated equals method is not annotated with @Nullable, but it should be.
+        argumentPositionNullness[0] = Nullness.NULLABLE;
+      }
+    }
+    return argumentPositionNullness;
+  }
 }
