@@ -182,7 +182,7 @@ public interface Handler {
    * considered isAnnotated or not. We use a mutable map for performance, but it should not outlive
    * the chain of handler invocations.
    *
-   * @param context The current context.
+   * @param state The current visitor state.
    * @param methodSymbol The method symbol for the method in question.
    * @param isAnnotated A boolean flag indicating whether the called method is considered to be
    *     within isAnnotated or unannotated code, used to avoid querying for this information
@@ -195,7 +195,7 @@ public interface Handler {
    *     handler.
    */
   Nullness[] onOverrideMethodInvocationParametersNullability(
-      Context context,
+      VisitorState state,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
       Nullness[] argumentPositionNullness);
