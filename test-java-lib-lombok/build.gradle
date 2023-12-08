@@ -44,3 +44,7 @@ tasks.withType(JavaCompile) {
         "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED"
     ]
 }
+
+tasks.named('compileJava') {
+    inputs.file('lombok.config')
+}
