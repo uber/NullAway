@@ -80,13 +80,13 @@ Unlike other annotation processors above, Lombok modifies the in-memory AST of t
 
 We do not particularly recommend using NullAway with Lombok. However, NullAway encodes some knowledge of common Lombok annotations and we do try for best-effort compatibility. In particular, common usages like `@lombok.Builder` and `@Data` classes should be supported.
 
-In order for NullAway to successfully detect Lombok generated code within the in-memory Java AST, the following configuration option must be passed to Lombok as part of an applicable `lombok.config` file:
+For the best compatibility with NullAway, add the following configuration options to an applicable `lombok.config` file:
 
 ```
-addLombokGeneratedAnnotation
+lombok.addLombokGeneratedAnnotation = true
+lombok.addNullAnnotations = <flavor>
 ```
-
-This causes Lombok to add `@lombok.Generated` to the methods/classes it generates. NullAway will ignore (i.e. not check) the implementation of this generated code, treating it as unannotated. 
+See the [Lombok configuration documentation](https://projectlombok.org/features/configuration) for more details.  The `addLombokGeneratedAnnotation` option causes Lombok to add `@lombok.Generated` to the methods/classes it generates.  NullAway will ignore (i.e. not check) the implementation of this generated code, treating it as unannotated.  The `addNullAnnotations` options causes Lombok to add nullability annotations to its generated code, which can remove certain NullAway false positives.  In particular, with this option enabled, Lombok adds a `@Nullable` annotation to the parameter of every generated `equals()` method, and then NullAway will not warn if a `@Nullable` argument is passed to such a method.  
 
 ## Code Example
 
