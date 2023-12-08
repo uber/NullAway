@@ -45,6 +45,7 @@ tasks.withType(JavaCompile) {
     ]
 }
 
+// Needed so that compilation re-runs if the lombok.config is changed
 tasks.named('compileJava') {
     inputs.file('lombok.config')
 }
