@@ -266,13 +266,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         return false;
       }
       String fieldName = varSymbol.getSimpleName().toString();
-      String enclosingClass = classSymbol.flatName().toString();
+      String enclosingClassName = classSymbol.flatName().toString();
       // check presence
       return libraryModels.nullableFields().stream()
           .anyMatch(
               fieldRef ->
                   fieldRef.fieldName.equals(fieldName)
-                      && fieldRef.enclosingClass.equals(enclosingClass));
+                      && fieldRef.enclosingClass.equals(enclosingClassName));
     }
     return false;
   }
