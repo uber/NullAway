@@ -132,7 +132,8 @@ public interface LibraryModels {
   ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods();
 
   /**
-   * Get the set of library fields that may be null.
+   * Get the set of library fields that may be null. This is mostly used to index the impact of
+   * making fields nullable on downstream dependencies.
    *
    * @return set of library fields that may be null
    */
