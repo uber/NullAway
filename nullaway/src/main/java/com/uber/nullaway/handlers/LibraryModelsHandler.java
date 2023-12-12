@@ -90,7 +90,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates updates) {
-    return isNullableFieldInLibraryModel(symbol)
+    return isNullableFieldInLibraryModels(symbol)
         ? NullnessHint.HINT_NULLABLE
         : NullnessHint.UNKNOWN;
   }
@@ -147,7 +147,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       @Nullable Symbol exprSymbol,
       VisitorState state,
       boolean exprMayBeNull) {
-    if (isNullableFieldInLibraryModel(exprSymbol)) {
+    if (isNullableFieldInLibraryModels(exprSymbol)) {
       return true;
     }
     if (!(expr.getKind() == Tree.Kind.METHOD_INVOCATION
@@ -257,7 +257,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
    * @param symbol The symbol to check.
    * @return True if the symbol is a field that is marked as nullable in any of our library models.
    */
-  private boolean isNullableFieldInLibraryModel(@Nullable Symbol symbol) {
+  private boolean isNullableFieldInLibraryModels(@Nullable Symbol symbol) {
     if (symbol instanceof Symbol.VarSymbol && symbol.getKind().isField()) {
       Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) symbol;
       Symbol.ClassSymbol classSymbol = varSymbol.enclClass();
