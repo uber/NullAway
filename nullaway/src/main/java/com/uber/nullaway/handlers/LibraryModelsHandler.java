@@ -873,7 +873,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     @Override
     public ImmutableSet<FieldRef> nullableFields() {
-      // No nullable field by default.
+      // No nullable fields by default.
       return ImmutableSet.of();
     }
   }
