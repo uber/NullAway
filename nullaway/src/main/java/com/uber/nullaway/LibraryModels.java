@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -254,56 +255,15 @@ public interface LibraryModels {
   }
 
   /** Representation of a field as a qualified class name + a field name */
-  final class FieldRef {
+  @AutoValue
+  abstract class FieldRef {
 
-    public final String enclosingClass;
+    public abstract String getEnclosingClassName();
 
-    public final String fieldName;
+    public abstract String getFieldName();
 
-    private FieldRef(String enclosingClass, String fieldName) {
-      this.enclosingClass = enclosingClass;
-      this.fieldName = fieldName;
-    }
-
-    /**
-     * Construct a field reference.
-     *
-     * @param enclosingClass containing flat name class
-     * @param fieldName field name
-     * @return corresponding {@link FieldRef}
-     */
     public static FieldRef fieldRef(String enclosingClass, String fieldName) {
-      return new FieldRef(enclosingClass, fieldName);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      FieldRef fieldRef = (FieldRef) o;
-      return Objects.equals(enclosingClass, fieldRef.enclosingClass)
-          && Objects.equals(fieldName, fieldRef.fieldName);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(enclosingClass, fieldName);
-    }
-
-    @Override
-    public String toString() {
-      return "FieldRef{"
-          + "enclosingClass='"
-          + enclosingClass
-          + '\''
-          + ", field name='"
-          + fieldName
-          + '\''
-          + '}';
+      return new AutoValue_LibraryModels_FieldRef(enclosingClass, fieldName);
     }
   }
 }

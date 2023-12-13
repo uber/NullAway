@@ -273,8 +273,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       return libraryModels.nullableFields().stream()
           .anyMatch(
               fieldRef ->
-                  fieldRef.fieldName.equals(fieldName)
-                      && fieldRef.enclosingClass.equals(enclosingClassName));
+                  fieldRef.getFieldName().equals(fieldName)
+                      && fieldRef.getEnclosingClassName().equals(enclosingClassName));
     }
     return false;
   }
