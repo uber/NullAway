@@ -258,6 +258,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
    * @return True if the symbol is a field that is marked as nullable in any of our library models.
    */
   private boolean isNullableFieldInLibraryModels(@Nullable Symbol symbol) {
+    if (libraryModels.nullableFields().isEmpty()) {
+      // no need to do any work if there are no nullable fields.
+      return false;
+    }
     if (symbol instanceof Symbol.VarSymbol && symbol.getKind().isField()) {
       Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) symbol;
       Symbol.ClassSymbol classSymbol = varSymbol.enclClass();
