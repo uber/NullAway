@@ -254,6 +254,10 @@ public class NullAwayCustomLibraryModelsTests extends NullAwayTestsBase {
             "         this.nonnullField = uwm.nullableFieldUnannotated1;",
             "      }",
             "   }",
+            "   String dereferenceTest() {",
+            "      // BUG: Diagnostic contains: dereferenced expression uwm.nullableFieldUnannotated1 is @Nullable",
+            "      return uwm.nullableFieldUnannotated1.toString();",
+            "   }",
             "}")
         .doTest();
   }
