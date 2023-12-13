@@ -249,9 +249,9 @@ public class NullAwayCustomLibraryModelsTests extends NullAwayTestsBase {
             "      this.nonnullField = uwm.nullableFieldUnannotated2;",
             "   }",
             "   void flowTest() {",
-            "      if(uwm.nullableFieldUnannotated1 != null){",
-            "      // no error here, to check that library models only initialize flow store",
-            "      this.nonnullField = uwm.nullableFieldUnannotated1;",
+            "      if(uwm.nullableFieldUnannotated1 != null) {",
+            "         // no error here, to check that library models only initialize flow store",
+            "         this.nonnullField = uwm.nullableFieldUnannotated1;",
             "      }",
             "   }",
             "}")
