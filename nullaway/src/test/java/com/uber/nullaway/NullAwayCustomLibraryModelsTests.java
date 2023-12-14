@@ -250,13 +250,16 @@ public class NullAwayCustomLibraryModelsTests extends NullAwayTestsBase {
             "   }",
             "   void flowTest() {",
             "      if(uwm.nullableFieldUnannotated1 != null) {",
-            "         // no error here, to check that library models only initialize flow store",
+            "         // no error here, to check that library models only initialize  flow store",
             "         this.nonnullField = uwm.nullableFieldUnannotated1;",
             "      }",
             "   }",
             "   String dereferenceTest() {",
             "      // BUG: Diagnostic contains: dereferenced expression uwm.nullableFieldUnannotated1 is @Nullable",
             "      return uwm.nullableFieldUnannotated1.toString();",
+            "   }",
+            "   void assignmentTest() {",
+            "      uwm.nullableFieldUnannotated1 = null;",
             "   }",
             "}")
         .doTest();

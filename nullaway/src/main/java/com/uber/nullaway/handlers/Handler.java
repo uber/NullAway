@@ -174,6 +174,15 @@ public interface Handler {
       Nullness returnNullness);
 
   /**
+   * Called to potentially override the nullability of a field which is not annotated as @Nullable.
+   *
+   * @param field The symbol for the field in question.
+   * @param fieldNullness field Nullness computed by upstream handlers or NullAway core.
+   * @return Updated field nullability computed by this handler.
+   */
+  Nullness onOverrideFieldNullability(Symbol field, Nullness fieldNullness);
+
+  /**
    * Called after the analysis determines the nullability of a method's arguments, allowing handlers
    * to override.
    *

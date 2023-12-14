@@ -136,6 +136,14 @@ class CompositeHandler implements Handler {
   }
 
   @Override
+  public Nullness onOverrideFieldNullability(Symbol field, Nullness fieldNullness) {
+    for (Handler h : handlers) {
+      fieldNullness = h.onOverrideFieldNullability(field, fieldNullness);
+    }
+    return fieldNullness;
+  }
+
+  @Override
   public Nullness[] onOverrideMethodInvocationParametersNullability(
       VisitorState state,
       Symbol.MethodSymbol methodSymbol,
