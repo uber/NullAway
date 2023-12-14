@@ -136,11 +136,15 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public Nullness onOverrideFieldNullability(Symbol field, Nullness fieldNullness) {
+  public boolean onOverrideFieldNullability(Symbol field) {
     for (Handler h : handlers) {
-      fieldNullness = h.onOverrideFieldNullability(field, fieldNullness);
+      if (h.onOverrideFieldNullability(field)) {
+        // If any handler determines that the field is @Nullable, we should acknowledge that and
+        // treat it as such.
+        return true;
+      }
     }
-    return fieldNullness;
+    return false;
   }
 
   @Override

@@ -119,9 +119,9 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public Nullness onOverrideFieldNullability(Symbol field, Nullness fieldNullness) {
+  public boolean onOverrideFieldNullability(Symbol field) {
     // NoOp
-    return fieldNullness;
+    return false;
   }
 
   @Override

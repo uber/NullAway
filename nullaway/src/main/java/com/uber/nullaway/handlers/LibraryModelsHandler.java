@@ -82,11 +82,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public Nullness onOverrideFieldNullability(Symbol field, Nullness fieldNullness) {
-    if (fieldNullness.equals(NONNULL) && isNullableFieldInLibraryModels(field)) {
-      return NULLABLE;
-    }
-    return fieldNullness;
+  public boolean onOverrideFieldNullability(Symbol field) {
+    return isNullableFieldInLibraryModels(field);
   }
 
   @Override
