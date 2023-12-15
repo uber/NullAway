@@ -277,9 +277,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       }
       String fieldName = varSymbol.getSimpleName().toString();
       String enclosingClassName = classSymbol.flatName().toString();
-      // check presence. This is a bit inefficient, but it's only used while indexing impact of
-      // making fields @Nullable on downstream dependencies. Also, the set of nullable fields is not
-      // expected to be large. We can optimize in future if needed.
+      // This check could be optimized further in the future if needed
       return libraryModels.nullableFields().contains(fieldRef(enclosingClassName, fieldName));
     }
     return false;
