@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -130,6 +131,13 @@ public interface LibraryModels {
    * because there might be no general, automated way of synthesizing the required arguments.
    */
   ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods();
+
+  /**
+   * Get the set of library fields that may be {@code null}.
+   *
+   * @return set of library fields that may be {@code null}.
+   */
+  ImmutableSet<FieldRef> nullableFields();
 
   /**
    * Get a list of custom stream library specifications.
@@ -242,6 +250,19 @@ public interface LibraryModels {
           + fullMethodSig
           + '\''
           + '}';
+    }
+  }
+
+  /** Representation of a field as a qualified class name + a field name */
+  @AutoValue
+  abstract class FieldRef {
+
+    public abstract String getEnclosingClassName();
+
+    public abstract String getFieldName();
+
+    public static FieldRef fieldRef(String enclosingClass, String fieldName) {
+      return new AutoValue_LibraryModels_FieldRef(enclosingClass, fieldName);
     }
   }
 }

@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.LibraryModels.FieldRef.fieldRef;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
@@ -57,6 +58,7 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nullable;
+import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 
@@ -78,6 +80,25 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     super();
     this.config = config;
     libraryModels = loadLibraryModels(config);
+  }
+
+  @Override
+  public boolean onOverrideFieldNullability(Symbol field) {
+    return isNullableFieldInLibraryModels(field);
+  }
+
+  @Override
+  public NullnessHint onDataflowVisitFieldAccess(
+      FieldAccessNode node,
+      Symbol symbol,
+      Types types,
+      Context context,
+      AccessPath.AccessPathContext apContext,
+      AccessPathNullnessPropagation.SubNodeValues inputs,
+      AccessPathNullnessPropagation.Updates updates) {
+    return isNullableFieldInLibraryModels(symbol)
+        ? NullnessHint.HINT_NULLABLE
+        : NullnessHint.UNKNOWN;
   }
 
   @Override
@@ -132,6 +153,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       @Nullable Symbol exprSymbol,
       VisitorState state,
       boolean exprMayBeNull) {
+    if (isNullableFieldInLibraryModels(exprSymbol)) {
+      return true;
+    }
     if (!(expr.getKind() == Tree.Kind.METHOD_INVOCATION
         && exprSymbol instanceof Symbol.MethodSymbol)) {
       return exprMayBeNull;
@@ -231,6 +255,32 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     } else {
       return NullnessHint.UNKNOWN;
     }
+  }
+
+  /**
+   * Check if the given symbol is a field that is marked as nullable in any of our library models.
+   *
+   * @param symbol The symbol to check.
+   * @return True if the symbol is a field that is marked as nullable in any of our library models.
+   */
+  private boolean isNullableFieldInLibraryModels(@Nullable Symbol symbol) {
+    if (libraryModels.nullableFields().isEmpty()) {
+      // no need to do any work if there are no nullable fields.
+      return false;
+    }
+    if (symbol instanceof Symbol.VarSymbol && symbol.getKind().isField()) {
+      Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) symbol;
+      Symbol.ClassSymbol classSymbol = varSymbol.enclClass();
+      if (classSymbol == null) {
+        // e.g. .class expressions
+        return false;
+      }
+      String fieldName = varSymbol.getSimpleName().toString();
+      String enclosingClassName = classSymbol.flatName().toString();
+      // This check could be optimized further in the future if needed
+      return libraryModels.nullableFields().contains(fieldRef(enclosingClassName, fieldName));
+    }
+    return false;
   }
 
   private void setConditionalArgumentNullness(
@@ -824,6 +874,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
       return CAST_TO_NONNULL_METHODS;
     }
+
+    @Override
+    public ImmutableSet<FieldRef> nullableFields() {
+      // No nullable fields by default.
+      return ImmutableSet.of();
+    }
   }
 
   private static class CombinedLibraryModels implements LibraryModels {
@@ -845,6 +901,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private final ImmutableSet<MethodRef> nullableReturns;
 
     private final ImmutableSet<MethodRef> nonNullReturns;
+
+    private final ImmutableSet<FieldRef> nullableFields;
 
     private final ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods;
 
@@ -870,6 +928,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           new ImmutableSetMultimap.Builder<>();
       ImmutableList.Builder<StreamTypeRecord> customStreamNullabilitySpecsBuilder =
           new ImmutableList.Builder<>();
+      ImmutableSet.Builder<FieldRef> nullableFieldsBuilder = new ImmutableSet.Builder<>();
       for (LibraryModels libraryModels : models) {
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.failIfNullParameters().entries()) {
           if (shouldSkipModel(entry.getKey())) {
@@ -932,6 +991,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         for (StreamTypeRecord streamTypeRecord : libraryModels.customStreamNullabilitySpecs()) {
           customStreamNullabilitySpecsBuilder.add(streamTypeRecord);
         }
+        for (FieldRef fieldRef : libraryModels.nullableFields()) {
+          nullableFieldsBuilder.add(fieldRef);
+        }
       }
       failIfNullParameters = failIfNullParametersBuilder.build();
       explicitlyNullableParameters = explicitlyNullableParametersBuilder.build();
@@ -943,6 +1005,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       nonNullReturns = nonNullReturnsBuilder.build();
       castToNonNullMethods = castToNonNullMethodsBuilder.build();
       customStreamNullabilitySpecs = customStreamNullabilitySpecsBuilder.build();
+      nullableFields = nullableFieldsBuilder.build();
     }
 
     private boolean shouldSkipModel(MethodRef key) {
@@ -987,6 +1050,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSet<MethodRef> nonNullReturns() {
       return nonNullReturns;
+    }
+
+    @Override
+    public ImmutableSet<FieldRef> nullableFields() {
+      return nullableFields;
     }
 
     @Override

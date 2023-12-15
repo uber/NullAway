@@ -486,7 +486,8 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    if (Nullness.hasNullableAnnotation(assigned, config)) {
+    if (Nullness.hasNullableAnnotation(assigned, config)
+        || handler.onOverrideFieldNullability(assigned)) {
       // field already annotated
       return Description.NO_MATCH;
     }
