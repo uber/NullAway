@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.LibraryModels.FieldRef.fieldRef;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
@@ -279,11 +280,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       // check presence. This is a bit inefficient, but it's only used while indexing impact of
       // making fields @Nullable on downstream dependencies. Also, the set of nullable fields is not
       // expected to be large. We can optimize in future if needed.
-      return libraryModels.nullableFields().stream()
-          .anyMatch(
-              fieldRef ->
-                  fieldRef.getFieldName().equals(fieldName)
-                      && fieldRef.getEnclosingClassName().equals(enclosingClassName));
+      return libraryModels.nullableFields().contains(fieldRef(enclosingClassName, fieldName));
     }
     return false;
   }
