@@ -136,18 +136,6 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public boolean onOverrideFieldNullability(Symbol field) {
-    for (Handler h : handlers) {
-      if (h.onOverrideFieldNullability(field)) {
-        // If any handler determines that the field is @Nullable, we should acknowledge that and
-        // treat it as such.
-        return true;
-      }
-    }
-    return false;
-  }
-
-  @Override
   public Nullness[] onOverrideMethodInvocationParametersNullability(
       VisitorState state,
       Symbol.MethodSymbol methodSymbol,

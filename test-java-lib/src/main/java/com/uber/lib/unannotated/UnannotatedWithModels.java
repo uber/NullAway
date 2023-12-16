@@ -2,10 +2,6 @@ package com.uber.lib.unannotated;
 
 public class UnannotatedWithModels {
 
-  public Object nullableFieldUnannotated1;
-
-  public Object nullableFieldUnannotated2;
-
   public Object returnsNullUnannotated() {
     return null;
   }
