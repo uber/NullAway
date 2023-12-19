@@ -67,7 +67,7 @@ def build = [
     asm                     : "org.ow2.asm:asm:${versions.asm}",
     asmTree                 : "org.ow2.asm:asm-tree:${versions.asm}",
     errorProneCheckApi      : "com.google.errorprone:error_prone_check_api:${versions.errorProneApi}",
-    errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProne}",
+    errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProneApi}",
     errorProneCoreForApi    : "com.google.errorprone:error_prone_core:${versions.errorProneApi}",
     errorProneJavac         : "com.google.errorprone:javac:9+181-r4173-1",
     errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProneApi}",
