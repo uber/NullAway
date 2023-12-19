@@ -80,8 +80,6 @@ subprojects { project ->
             disableWarningsInGeneratedCode = true
             // this check is too noisy
             check("StringSplitter", CheckSeverity.OFF)
-            // https://github.com/google/error-prone/issues/3366
-            check("CanIgnoreReturnValueSuggester", CheckSeverity.OFF)
             // turn up various checks
             check("WildcardImport", CheckSeverity.ERROR)
             check("MissingBraces", CheckSeverity.ERROR)
