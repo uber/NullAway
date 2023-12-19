@@ -42,6 +42,7 @@ repositories {
 
 apply from: "gradle/dependencies.gradle"
 
+// Returns true if the project's purpose is to test a NullAway build outside of unit tests or is a sample project
 boolean isTestProject(Project p) {
     def testProjs = [
         "test-java-lib",
@@ -56,6 +57,8 @@ boolean isTestProject(Project p) {
 subprojects { project ->
     project.apply plugin: "net.ltgt.errorprone"
     if (isTestProject(project)) {
+        // Compile the project using the same Error Prone version as the API dependence.  This way, we test that we can
+        // still compile the project with old Error Prone versions.
         project.dependencies {
             errorprone deps.build.errorProneCoreForApi
         }

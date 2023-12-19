@@ -37,6 +37,7 @@ tasks.withType(JavaCompile) {
             option("NullAway:AnnotatedPackages", "com.uber")
             option("NullAway:UnannotatedSubPackages", "com.uber.lib.unannotated")
             if (deps.versions.errorProneApi != deps.versions.errorProneLatest) {
+                // These checks are incompatible with Lombok in older Error Prone versions, so disable them
                 check("MissingBraces", CheckSeverity.OFF)
                 check("SameNameButDifferent", CheckSeverity.OFF)
                 check("MissingOverride", CheckSeverity.OFF)
