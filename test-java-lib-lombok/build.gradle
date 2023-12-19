@@ -36,7 +36,12 @@ tasks.withType(JavaCompile) {
             check("NullAway", CheckSeverity.ERROR)
             option("NullAway:AnnotatedPackages", "com.uber")
             option("NullAway:UnannotatedSubPackages", "com.uber.lib.unannotated")
-            check("MissingBraces", CheckSeverity.OFF)
+            if (deps.versions.errorProneApi != deps.versions.errorProneLatest) {
+                check("MissingBraces", CheckSeverity.OFF)
+                check("SameNameButDifferent", CheckSeverity.OFF)
+                check("MissingOverride", CheckSeverity.OFF)
+                check("MissingSummary", CheckSeverity.OFF)
+            }
         }
     }
     // We need to fork on JDK 16+ since Lombok accesses internal compiler APIs
