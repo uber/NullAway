@@ -213,8 +213,7 @@ public final class BytecodeAnnotator {
   }
 
   /**
-   * Create a zip entry with creation time to 0 to ensure that jars is always have the same
-   * checksum.
+   * Create a zip entry with creation time of 0 to ensure that jars always have the same checksum.
    *
    * @param name of the zip entry.
    * @return the zip entry.
