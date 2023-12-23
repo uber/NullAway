@@ -88,6 +88,16 @@ public class AssertionHandler extends BaseNoOpHandler {
     return NullnessHint.UNKNOWN;
   }
 
+  /**
+   * Returns the AccessPath for the argument of an assertThat() call, if present as a valid nested
+   * receiver expression of a method invocation
+   *
+   * @param node the method invocation node
+   * @param state the visitor state
+   * @param apContext the access path context
+   * @return the AccessPath for the argument of the assertThat() call, if present, otherwise {@code
+   *     null}
+   */
   private @Nullable AccessPath getAccessPathForNotNullExpr(
       MethodInvocationNode node, VisitorState state, AccessPath.AccessPathContext apContext) {
     Node receiver = node.getTarget().getReceiver();
@@ -97,7 +107,8 @@ public class AssertionHandler extends BaseNoOpHandler {
       if (methodNameUtil.isMethodAssertThat(receiver_symbol)) {
         Node arg = receiver_method.getArgument(0);
         return AccessPath.getAccessPathForNode(arg, state, apContext);
-      } else if (methodNameUtil.isMethodDescribedAs(receiver_symbol)) {
+      } else if (methodNameUtil.isMethodAssertJDescribedAs(receiver_symbol)) {
+        // For calls to as() or describedAs(), we recursively search for the assertThat() call
         return getAccessPathForNotNullExpr(receiver_method, state, apContext);
       }
     }
