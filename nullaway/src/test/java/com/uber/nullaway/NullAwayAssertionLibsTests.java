@@ -394,6 +394,39 @@ public class NullAwayAssertionLibsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void assertJAssertThatIsNotNullUnhandled() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.assertj.core.api.Assertions.assertThat;",
+            "class Test {",
+            "  private void foo(@Nullable Object o) {",
+            "    org.assertj.core.api.ObjectAssert t = assertThat(o);",
+            "    t.isNotNull();",
+            "    // False positive",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    o.toString();",
+            "  }",
+            "  private void foo2(@Nullable Object o) {",
+            "    assertThat(o).isEqualToIgnoringNullFields(o).describedAs(\"test\").isNotNull();",
+            "    // False positive",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void supportAssertJAssertThatIsNotNull_String() {
     makeTestHelperWithArgs(
             Arrays.asList(
