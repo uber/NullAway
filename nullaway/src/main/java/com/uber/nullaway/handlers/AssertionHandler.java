@@ -61,7 +61,7 @@ public class AssertionHandler extends BaseNoOpHandler {
     // assertThat(A).isInstanceOf(Foo.class)
     // A will not be NULL after this statement.
     if (methodNameUtil.isMethodIsNotNull(callee) || methodNameUtil.isMethodIsInstanceOf(callee)) {
-      AccessPath ap = getAccessPathForNotNullExpr(node, state, apContext);
+      AccessPath ap = getAccessPathForNotNullAssertThatExpr(node, state, apContext);
       if (ap != null) {
         bothUpdates.set(ap, NONNULL);
       }
@@ -98,7 +98,7 @@ public class AssertionHandler extends BaseNoOpHandler {
    * @return the AccessPath for the argument of the assertThat() call, if present, otherwise {@code
    *     null}
    */
-  private @Nullable AccessPath getAccessPathForNotNullExpr(
+  private @Nullable AccessPath getAccessPathForNotNullAssertThatExpr(
       MethodInvocationNode node, VisitorState state, AccessPath.AccessPathContext apContext) {
     Node receiver = node.getTarget().getReceiver();
     if (receiver instanceof MethodInvocationNode) {
@@ -109,7 +109,7 @@ public class AssertionHandler extends BaseNoOpHandler {
         return AccessPath.getAccessPathForNode(arg, state, apContext);
       } else if (methodNameUtil.isMethodAssertJDescribedAs(receiver_symbol)) {
         // For calls to as() or describedAs(), we recursively search for the assertThat() call
-        return getAccessPathForNotNullExpr(receiver_method, state, apContext);
+        return getAccessPathForNotNullAssertThatExpr(receiver_method, state, apContext);
       }
     }
     return null;
