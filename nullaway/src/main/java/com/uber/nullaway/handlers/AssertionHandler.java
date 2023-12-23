@@ -30,6 +30,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.List;
+import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 
@@ -60,17 +61,9 @@ public class AssertionHandler extends BaseNoOpHandler {
     // assertThat(A).isInstanceOf(Foo.class)
     // A will not be NULL after this statement.
     if (methodNameUtil.isMethodIsNotNull(callee) || methodNameUtil.isMethodIsInstanceOf(callee)) {
-      Node receiver = node.getTarget().getReceiver();
-      if (receiver instanceof MethodInvocationNode) {
-        MethodInvocationNode receiver_method = (MethodInvocationNode) receiver;
-        Symbol.MethodSymbol receiver_symbol = ASTHelpers.getSymbol(receiver_method.getTree());
-        if (methodNameUtil.isMethodAssertThat(receiver_symbol)) {
-          Node arg = receiver_method.getArgument(0);
-          AccessPath ap = AccessPath.getAccessPathForNode(arg, state, apContext);
-          if (ap != null) {
-            bothUpdates.set(ap, NONNULL);
-          }
-        }
+      AccessPath ap = getAccessPathForNotNullExpr(node, state, apContext);
+      if (ap != null) {
+        bothUpdates.set(ap, NONNULL);
       }
     }
 
@@ -93,5 +86,21 @@ public class AssertionHandler extends BaseNoOpHandler {
     }
 
     return NullnessHint.UNKNOWN;
+  }
+
+  private @Nullable AccessPath getAccessPathForNotNullExpr(
+      MethodInvocationNode node, VisitorState state, AccessPath.AccessPathContext apContext) {
+    Node receiver = node.getTarget().getReceiver();
+    if (receiver instanceof MethodInvocationNode) {
+      MethodInvocationNode receiver_method = (MethodInvocationNode) receiver;
+      Symbol.MethodSymbol receiver_symbol = ASTHelpers.getSymbol(receiver_method.getTree());
+      if (methodNameUtil.isMethodAssertThat(receiver_symbol)) {
+        Node arg = receiver_method.getArgument(0);
+        return AccessPath.getAccessPathForNode(arg, state, apContext);
+      } else if (methodNameUtil.isMethodDescribedAs(receiver_symbol)) {
+        return getAccessPathForNotNullExpr(receiver_method, state, apContext);
+      }
+    }
+    return null;
   }
 }

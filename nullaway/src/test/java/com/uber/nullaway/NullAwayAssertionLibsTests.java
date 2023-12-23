@@ -366,6 +366,34 @@ public class NullAwayAssertionLibsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void supportAssertJAssertThatIsNotNullWithDescription_Object() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.lang.Object;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "import static org.assertj.core.api.Assertions.assertThat;",
+            "class Test {",
+            "  private void foo(@Nullable Object o) {",
+            "    assertThat(o).as(\"test\").isNotNull();",
+            "    o.toString();",
+            "  }",
+            "  private void foo2(@Nullable Object o) {",
+            "    assertThat(o).describedAs(\"test\").isNotNull();",
+            "    o.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void supportAssertJAssertThatIsNotNull_String() {
     makeTestHelperWithArgs(
             Arrays.asList(
