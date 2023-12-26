@@ -220,10 +220,15 @@ class MethodNameUtil {
         || matchesMethod(methodSymbol, assertThat, assertThatOwnerAssertJ);
   }
 
+  /**
+   * Returns true if the method is describedAs() or as() from AssertJ. Note that this implementation
+   * does not check the ower, as there are many possible implementations. This method should only be
+   * used in a caller content where it is clear that the operation is related to use of AssertJ.
+   *
+   * @param methodSymbol symbol for the method
+   * @return {@code true} iff the method is describedAs() or as() from AssertJ
+   */
   public boolean isMethodAssertJDescribedAs(Symbol.MethodSymbol methodSymbol) {
-    // describedAs() and as() are equivalent.  Also, we do not check the owner, as there are many
-    // possible implementations.  This method should only be used in a caller content where it is
-    // clear that the operation is related to use of AssertJ.
     return methodSymbol.name.equals(as) || methodSymbol.name.equals(describedAs);
   }
 
