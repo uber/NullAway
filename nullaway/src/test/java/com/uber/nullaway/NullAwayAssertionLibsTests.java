@@ -389,6 +389,10 @@ public class NullAwayAssertionLibsTests extends NullAwayTestsBase {
             "    assertThat(o).describedAs(\"test\").isNotNull();",
             "    o.toString();",
             "  }",
+            "  private void foo3(@Nullable Object o) {",
+            "    assertThat(o).describedAs(\"test1\").as(\"test2\").isNotNull();",
+            "    o.toString();",
+            "  }",
             "}")
         .doTest();
   }
