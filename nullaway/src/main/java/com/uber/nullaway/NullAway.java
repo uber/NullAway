@@ -761,7 +761,10 @@ public class NullAway extends BugChecker
     // Check handlers for any further/overriding nullness information
     overriddenMethodArgNullnessMap =
         handler.onOverrideMethodInvocationParametersNullability(
-            state, overriddenMethod, isOverriddenMethodAnnotated, overriddenMethodArgNullnessMap);
+            state.context,
+            overriddenMethod,
+            isOverriddenMethodAnnotated,
+            overriddenMethodArgNullnessMap);
 
     // If we have an unbound method reference, the first parameter of the overridden method must be
     // @NonNull, as this parameter will be used as a method receiver inside the generated lambda.
@@ -1712,7 +1715,7 @@ public class NullAway extends BugChecker
     // Allow handlers to override the list of non-null argument positions
     argumentPositionNullness =
         handler.onOverrideMethodInvocationParametersNullability(
-            state, methodSymbol, isMethodAnnotated, argumentPositionNullness);
+            state.context, methodSymbol, isMethodAnnotated, argumentPositionNullness);
 
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference

@@ -86,26 +86,4 @@ public class LombokHandler extends BaseNoOpHandler {
     }
     return returnNullness;
   }
-
-  /**
-   * Mark the first argument of Lombok-generated {@code equals} methods as {@code @Nullable}, since
-   * Lombok does not generate the annotation.
-   */
-  @Override
-  public Nullness[] onOverrideMethodInvocationParametersNullability(
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
-      boolean isAnnotated,
-      Nullness[] argumentPositionNullness) {
-    if (ASTHelpers.hasAnnotation(methodSymbol, LOMBOK_GENERATED_ANNOTATION_NAME, state)) {
-      // We assume that Lombok-generated equals methods with a single argument override
-      // Object.equals and are not an overload.
-      if (methodSymbol.getSimpleName().contentEquals("equals")
-          && methodSymbol.params().size() == 1) {
-        // The parameter is not annotated with @Nullable, but it should be.
-        argumentPositionNullness[0] = Nullness.NULLABLE;
-      }
-    }
-    return argumentPositionNullness;
-  }
 }
