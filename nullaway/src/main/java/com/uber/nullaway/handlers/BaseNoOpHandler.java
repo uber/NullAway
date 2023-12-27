@@ -126,7 +126,7 @@ public abstract class BaseNoOpHandler implements Handler {
 
   @Override
   public Nullness[] onOverrideMethodInvocationParametersNullability(
-      VisitorState state,
+      Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
       Nullness[] argumentPositionNullness) {
