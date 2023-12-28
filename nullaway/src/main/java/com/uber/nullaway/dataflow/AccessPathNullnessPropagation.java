@@ -206,7 +206,7 @@ public class AccessPathNullnessPropagation
   public NullnessStore initialStore(
       UnderlyingAST underlyingAST, List<LocalVariableNode> parameters) {
     return nullnessStoreInitializer.getInitialStore(
-        underlyingAST, parameters, handler, state, config);
+        underlyingAST, parameters, handler, state.context, state.getTypes(), config);
   }
 
   @Override

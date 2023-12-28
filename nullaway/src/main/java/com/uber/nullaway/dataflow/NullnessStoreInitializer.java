@@ -1,10 +1,10 @@
 package com.uber.nullaway.dataflow;
 
-import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
@@ -30,7 +30,8 @@ public abstract class NullnessStoreInitializer {
    * @param underlyingAST The AST node being matched.
    * @param parameters list of local variable nodes.
    * @param handler reference to the handler invoked.
-   * @param state the visitor state.
+   * @param context context.
+   * @param types types.
    * @param config config for analysis.
    * @return Initial Nullness store.
    */
@@ -38,7 +39,8 @@ public abstract class NullnessStoreInitializer {
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
       Handler handler,
-      VisitorState state,
+      Context context,
+      Types types,
       Config config);
 
   /**

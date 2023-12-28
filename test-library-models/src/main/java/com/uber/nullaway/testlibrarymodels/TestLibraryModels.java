@@ -15,6 +15,7 @@
  */
 package com.uber.nullaway.testlibrarymodels;
 
+import static com.uber.nullaway.LibraryModels.FieldRef.fieldRef;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 
 import com.google.auto.service.AutoService;
@@ -121,5 +122,14 @@ public class TestLibraryModels implements LibraryModels {
         .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
         .withPassthroughMethodFromSignature("distinct()")
         .end();
+  }
+
+  @Override
+  public ImmutableSet<FieldRef> nullableFields() {
+    return ImmutableSet.<FieldRef>builder()
+        .add(
+            fieldRef("com.uber.lib.unannotated.UnannotatedWithModels", "nullableFieldUnannotated1"),
+            fieldRef("com.uber.lib.unannotated.UnannotatedWithModels", "nullableFieldUnannotated2"))
+        .build();
   }
 }
