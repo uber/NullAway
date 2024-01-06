@@ -118,7 +118,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
             "class Test {",
-            "  static @Nullable String [] fizz = {\"1\"};",
+            "  static @Nullable String @Nullable [] fizz = {\"1\"};",
             "  static Object foo = new Object();",
             "  static void foo() {",
             "     if (fizz != null) {",
