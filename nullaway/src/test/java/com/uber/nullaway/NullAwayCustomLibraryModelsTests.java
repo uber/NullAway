@@ -227,4 +227,41 @@ public class NullAwayCustomLibraryModelsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void libraryModelsAndOverridingFieldNullability() {
+    makeLibraryModelsTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.unannotated.UnannotatedWithModels;",
+            "public class Test {",
+            "   UnannotatedWithModels uwm = new UnannotatedWithModels();",
+            "   Object nonnullField = new Object();",
+            "   void assignNullableFromLibraryModelField() {",
+            "      // BUG: Diagnostic contains: assigning @Nullable",
+            "      this.nonnullField = uwm.nullableFieldUnannotated1;",
+            "      // BUG: Diagnostic contains: assigning @Nullable",
+            "      this.nonnullField = uwm.nullableFieldUnannotated2;",
+            "   }",
+            "   void flowTest() {",
+            "      if(uwm.nullableFieldUnannotated1 != null) {",
+            "         // no error here, to check that library models only initialize  flow store",
+            "         this.nonnullField = uwm.nullableFieldUnannotated1;",
+            "      }",
+            "   }",
+            "   String dereferenceTest() {",
+            "      // BUG: Diagnostic contains: dereferenced expression uwm.nullableFieldUnannotated1 is @Nullable",
+            "      return uwm.nullableFieldUnannotated1.toString();",
+            "   }",
+            "   void assignmentTest() {",
+            "      uwm.nullableFieldUnannotated1 = null;",
+            "   }",
+            "}")
+        .doTest();
+  }
 }

@@ -38,9 +38,4 @@ class UsesDTO {
     s += (ldto.getNullableField() == null ? "" : ldto.getNullableField().toString());
     return s;
   }
-
-  public static boolean callEquals(LombokDTO ldto, @Nullable Object o) {
-    // No error should be reported since equals() parameter should be treated as @Nullable
-    return ldto.equals(o);
-  }
 }

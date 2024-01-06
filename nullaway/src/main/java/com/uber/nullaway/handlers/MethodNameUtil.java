@@ -56,6 +56,9 @@ class MethodNameUtil {
   private static final String IS_PRESENT_OWNER_ASSERTJ =
       "org.assertj.core.api.AbstractOptionalAssert";
   private static final String ASSERT_THAT_METHOD = "assertThat";
+  private static final String AS_METHOD = "as";
+  private static final String DESCRIBED_AS_METHOD = "describedAs";
+
   private static final String ASSERT_THAT_OWNER_TRUTH = "com.google.common.truth.Truth";
   private static final String ASSERT_THAT_OWNER_ASSERTJ = "org.assertj.core.api.Assertions";
 
@@ -101,6 +104,9 @@ class MethodNameUtil {
   private Name assertThatOwnerTruth;
   private Name assertThatOwnerAssertJ;
 
+  private Name as;
+  private Name describedAs;
+
   // Names for junit assertion libraries.
   private Name hamcrestAssertClass;
   private Name junitAssertClass;
@@ -140,6 +146,9 @@ class MethodNameUtil {
     assertThat = table.fromString(ASSERT_THAT_METHOD);
     assertThatOwnerTruth = table.fromString(ASSERT_THAT_OWNER_TRUTH);
     assertThatOwnerAssertJ = table.fromString(ASSERT_THAT_OWNER_ASSERTJ);
+
+    as = table.fromString(AS_METHOD);
+    describedAs = table.fromString(DESCRIBED_AS_METHOD);
 
     isPresent = table.fromString(IS_PRESENT_METHOD);
     isNotEmpty = table.fromString(IS_NOT_EMPTY_METHOD);
@@ -209,6 +218,18 @@ class MethodNameUtil {
   boolean isMethodAssertThat(Symbol.MethodSymbol methodSymbol) {
     return matchesMethod(methodSymbol, assertThat, assertThatOwnerTruth)
         || matchesMethod(methodSymbol, assertThat, assertThatOwnerAssertJ);
+  }
+
+  /**
+   * Returns true if the method is describedAs() or as() from AssertJ. Note that this implementation
+   * does not check the ower, as there are many possible implementations. This method should only be
+   * used in a caller content where it is clear that the operation is related to use of AssertJ.
+   *
+   * @param methodSymbol symbol for the method
+   * @return {@code true} iff the method is describedAs() or as() from AssertJ
+   */
+  public boolean isMethodAssertJDescribedAs(Symbol.MethodSymbol methodSymbol) {
+    return methodSymbol.name.equals(as) || methodSymbol.name.equals(describedAs);
   }
 
   boolean isMethodHamcrestAssertThat(Symbol.MethodSymbol methodSymbol) {

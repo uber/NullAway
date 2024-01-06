@@ -174,6 +174,16 @@ public interface Handler {
       Nullness returnNullness);
 
   /**
+   * Called to potentially override the nullability of a field which is not annotated as @Nullable.
+   * If the field is decided to be @Nullable by this handler, the field should be treated
+   * as @Nullable anyway.
+   *
+   * @param field The symbol for the field in question.
+   * @return true if the field should be treated as @Nullable, false otherwise.
+   */
+  boolean onOverrideFieldNullability(Symbol field);
+
+  /**
    * Called after the analysis determines the nullability of a method's arguments, allowing handlers
    * to override.
    *
@@ -182,7 +192,7 @@ public interface Handler {
    * considered isAnnotated or not. We use a mutable map for performance, but it should not outlive
    * the chain of handler invocations.
    *
-   * @param state The current visitor state.
+   * @param context The current context.
    * @param methodSymbol The method symbol for the method in question.
    * @param isAnnotated A boolean flag indicating whether the called method is considered to be
    *     within isAnnotated or unannotated code, used to avoid querying for this information
@@ -195,7 +205,7 @@ public interface Handler {
    *     handler.
    */
   Nullness[] onOverrideMethodInvocationParametersNullability(
-      VisitorState state,
+      Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
       Nullness[] argumentPositionNullness);

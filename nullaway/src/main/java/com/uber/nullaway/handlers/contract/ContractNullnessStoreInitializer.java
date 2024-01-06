@@ -3,11 +3,12 @@ package com.uber.nullaway.handlers.contract;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
-import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -30,7 +31,8 @@ public class ContractNullnessStoreInitializer extends NullnessStoreInitializer {
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
       Handler handler,
-      VisitorState state,
+      Context context,
+      Types types,
       Config config) {
     assert underlyingAST.getKind() == UnderlyingAST.Kind.METHOD;
 
@@ -47,7 +49,7 @@ public class ContractNullnessStoreInitializer extends NullnessStoreInitializer {
     String[] parts = clauses[0].split("->");
     String[] antecedent = parts[0].split(",");
 
-    NullnessStore envStore = getEnvNullnessStoreForClass(classTree, state.context);
+    NullnessStore envStore = getEnvNullnessStoreForClass(classTree, context);
     NullnessStore.Builder result = envStore.toBuilder();
 
     for (int i = 0; i < antecedent.length; ++i) {

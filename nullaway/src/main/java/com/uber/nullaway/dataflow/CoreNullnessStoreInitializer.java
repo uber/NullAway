@@ -3,7 +3,6 @@ package com.uber.nullaway.dataflow;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
-import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
@@ -31,9 +30,9 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
       Handler handler,
-      VisitorState state,
+      Context context,
+      Types types,
       Config config) {
-    Context context = state.context;
     if (underlyingAST.getKind().equals(UnderlyingAST.Kind.ARBITRARY_CODE)) {
       // not a method or a lambda; an initializer expression or block
       UnderlyingAST.CFGStatement ast = (UnderlyingAST.CFGStatement) underlyingAST;
@@ -45,7 +44,8 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
           (UnderlyingAST.CFGLambda) underlyingAST,
           parameters,
           handler,
-          state,
+          context,
+          types,
           config,
           getCodeAnnotationInfo(context));
     } else {
@@ -77,12 +77,13 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       UnderlyingAST.CFGLambda underlyingAST,
       List<LocalVariableNode> parameters,
       Handler handler,
-      VisitorState state,
+      Context context,
+      Types types,
       Config config,
       CodeAnnotationInfo codeAnnotationInfo) {
     // include nullness info for locals from enclosing environment
     EnclosingEnvironmentNullness environmentNullness =
-        EnclosingEnvironmentNullness.instance(state.context);
+        EnclosingEnvironmentNullness.instance(context);
     NullnessStore environmentMapping =
         Objects.requireNonNull(
             environmentNullness.getEnvironmentMapping(underlyingAST.getLambdaTree()),
@@ -90,7 +91,6 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     NullnessStore.Builder result = environmentMapping.toBuilder();
     LambdaExpressionTree code = underlyingAST.getLambdaTree();
     // need to check annotation for i'th parameter of functional interface declaration
-    Types types = state.getTypes();
     Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code, types);
     com.sun.tools.javac.util.List<Symbol.VarSymbol> fiMethodParameters =
         fiMethodSymbol.getParameters();
@@ -119,7 +119,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     }
     fiArgumentPositionNullness =
         handler.onOverrideMethodInvocationParametersNullability(
-            state, fiMethodSymbol, isFIAnnotated, fiArgumentPositionNullness);
+            context, fiMethodSymbol, isFIAnnotated, fiArgumentPositionNullness);
 
     for (int i = 0; i < parameters.size(); i++) {
       LocalVariableNode param = parameters.get(i);

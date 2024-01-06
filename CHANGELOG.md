@@ -1,5 +1,16 @@
 Changelog
 =========
+Version 0.10.19
+---------------
+* Update to Checker Framework 3.41.0 (#873)
+* Extend library models to mark fields as nullable (#878)
+  - Main use case is NullAwayAnnotator
+* Fix jarinfer cli output determinism (#884)
+* Add support for AssertJ as() and describedAs() in AssertionHandler (#885)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - JSpecify: In generics code, get rid of checks for ClassType (#863)
+* Update some dependencies (#883)
+
 Version 0.10.18
 ---------------
 * Fix assertion check for structure of enhanced-for loop over a Map keySet (#868)
