@@ -343,6 +343,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
   }
 
+  public boolean nullableUpperBoundExistsInLibModel(String className, int arg) {
+    ImmutableSet<Integer> res = libraryModels.nullableVariableTypeUpperBounds().get(className);
+    return res.contains(arg);
+  }
+
   /**
    * Get all the stream specifications loaded from any of our library models.
    *
@@ -826,7 +831,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                     "getDrawable(android.content.Context,int)"))
             .add(methodRef("android.support.design.widget.TextInputLayout", "getEditText()"))
             .build();
-
+    private static final ImmutableSetMultimap<String, Integer> NULLABLE_VARIABLE_TYPE_UPPER_BOUNDS =
+        new ImmutableSetMultimap.Builder<String, Integer>()
+            .put("java.util.function.Function", 0)
+            .put("java.util.function.Function", 1)
+            .build();
     private static final ImmutableSetMultimap<MethodRef, Integer> CAST_TO_NONNULL_METHODS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>().build();
 
@@ -871,6 +880,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     @Override
+    public ImmutableSetMultimap<String, Integer> nullableVariableTypeUpperBounds() {
+      return NULLABLE_VARIABLE_TYPE_UPPER_BOUNDS;
+    }
+
+    @Override
     public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
       return CAST_TO_NONNULL_METHODS;
     }
@@ -902,6 +916,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSet<MethodRef> nonNullReturns;
 
+    private final ImmutableSetMultimap<String, Integer> nullableVariableTypeUpperBounds;
+
     private final ImmutableSet<FieldRef> nullableFields;
 
     private final ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods;
@@ -915,6 +931,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       ImmutableSetMultimap.Builder<MethodRef, Integer> explicitlyNullableParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nonNullParametersBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      ImmutableSetMultimap.Builder<String, Integer> nullableVariableTypeUpperBoundsBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
@@ -988,6 +1006,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           }
           castToNonNullMethodsBuilder.put(entry);
         }
+        for (Map.Entry<String, Integer> entry :
+            libraryModels.nullableVariableTypeUpperBounds().entries()) {
+          nullableVariableTypeUpperBoundsBuilder.put(entry);
+        }
         for (StreamTypeRecord streamTypeRecord : libraryModels.customStreamNullabilitySpecs()) {
           customStreamNullabilitySpecsBuilder.add(streamTypeRecord);
         }
@@ -1006,6 +1028,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       castToNonNullMethods = castToNonNullMethodsBuilder.build();
       customStreamNullabilitySpecs = customStreamNullabilitySpecsBuilder.build();
       nullableFields = nullableFieldsBuilder.build();
+      nullableVariableTypeUpperBounds = nullableVariableTypeUpperBoundsBuilder.build();
     }
 
     private boolean shouldSkipModel(MethodRef key) {
@@ -1053,6 +1076,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     @Override
+    public ImmutableSetMultimap<String, Integer> nullableVariableTypeUpperBounds() {
+      return nullableVariableTypeUpperBounds;
+    }
+
+    @Override
     public ImmutableSet<FieldRef> nullableFields() {
       return nullableFields;
     }
@@ -1068,16 +1096,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
   }
 
-  /**
-   * A view of library models optimized to make lookup of {@link
-   * com.sun.tools.javac.code.Symbol.MethodSymbol}s fast
-   */
+  /** A view of library models optimized to make lookup of {@link Symbol.MethodSymbol}s fast */
   private static class OptimizedLibraryModels {
 
     /**
      * Mapping from {@link MethodRef} to some state, where lookups first check for a matching method
      * name as an optimization. The {@link Name} data structure is used to avoid unnecessary String
-     * conversions when looking up {@link com.sun.tools.javac.code.Symbol.MethodSymbol}s.
+     * conversions when looking up {@link Symbol.MethodSymbol}s.
      *
      * @param <T> the type of the associated state.
      */

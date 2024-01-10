@@ -28,6 +28,7 @@ import com.uber.nullaway.ErrorBuilder;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.handlers.LibraryModelsHandler;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -96,9 +97,12 @@ public final class GenericsChecks {
             upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
             Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+        LibraryModelsHandler libHandler = new LibraryModelsHandler(config);
+        boolean hasNullableUpperBoundLibModel =
+            libHandler.nullableUpperBoundExistsInLibModel(baseType.tsym.toString(), i);
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
-        if (!hasNullableAnnotation) {
+        if (!hasNullableAnnotation && !hasNullableUpperBoundLibModel) {
           reportInvalidInstantiationError(
               nullableTypeArguments.get(i), baseType, typeVariable, state, analysis);
         }
