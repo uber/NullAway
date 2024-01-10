@@ -1615,6 +1615,22 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void testForUtilFunctionLibModel() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "class Test {",
+            "  static void testNegative() {",
+            "   Function<String,@Nullable String> removeA = a -> a.replace(\"a\",\"\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

@@ -112,6 +112,8 @@ public interface LibraryModels {
    */
   ImmutableSet<MethodRef> nonNullReturns();
 
+  ImmutableSetMultimap<String, Integer> nullableVariableTypeUpperBounds();
+
   /**
    * Get (method, parameter) pairs that act as castToNonNull(...) methods.
    *
