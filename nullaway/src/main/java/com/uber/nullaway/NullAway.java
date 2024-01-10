@@ -476,7 +476,7 @@ public class NullAway extends BugChecker
       doUnboxingCheck(state, tree.getExpression());
     }
     // generics check
-    if (lhsType != null && lhsType.getTypeArguments().length() > 0) {
+    if (lhsType != null && lhsType.getTypeArguments().length() > 0 && config.isJSpecifyMode()) {
       GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
     }
 
@@ -695,7 +695,9 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
-    GenericsChecks.checkInstantiationForParameterizedTypedTree(tree, state, this, config);
+    if (config.isJSpecifyMode()) {
+      GenericsChecks.checkInstantiationForParameterizedTypedTree(tree, state, this, config);
+    }
     return Description.NO_MATCH;
   }
 
@@ -1424,7 +1426,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
-    if (tree.getInitializer() != null) {
+    if (tree.getInitializer() != null && config.isJSpecifyMode()) {
       GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
     }
 
@@ -1577,7 +1579,9 @@ public class NullAway extends BugChecker
   public Description matchConditionalExpression(
       ConditionalExpressionTree tree, VisitorState state) {
     if (withinAnnotatedCode(state)) {
-      GenericsChecks.checkTypeParameterNullnessForConditionalExpression(tree, this, state);
+      if (config.isJSpecifyMode()) {
+        GenericsChecks.checkTypeParameterNullnessForConditionalExpression(tree, this, state);
+      }
       doUnboxingCheck(state, tree.getCondition());
     }
     return Description.NO_MATCH;
@@ -1708,8 +1712,10 @@ public class NullAway extends BugChecker
                       : Nullness.NONNULL);
         }
       }
-      GenericsChecks.compareGenericTypeParameterNullabilityForCall(
-          formalParams, actualParams, methodSymbol.isVarArgs(), this, state);
+      if (config.isJSpecifyMode()) {
+        GenericsChecks.compareGenericTypeParameterNullabilityForCall(
+            formalParams, actualParams, methodSymbol.isVarArgs(), this, state);
+      }
     }
 
     // Allow handlers to override the list of non-null argument positions

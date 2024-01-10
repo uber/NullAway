@@ -124,14 +124,6 @@ tasks.named('check').configure {
     dependsOn(jdk8Test)
 }
 
-tasks.named('testJdk21', Test).configure {
-    filter {
-        // JSpecify Generics tests do not yet pass on JDK 21
-        // See https://github.com/uber/NullAway/issues/827
-        excludeTestsMatching "com.uber.nullaway.NullAwayJSpecifyGenericsTests"
-    }
-}
-
 // Create a task to build NullAway with NullAway checking enabled
 tasks.register('buildWithNullAway', JavaCompile) {
     onlyIf {
