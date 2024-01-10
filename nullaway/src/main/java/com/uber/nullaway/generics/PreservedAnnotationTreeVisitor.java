@@ -220,6 +220,8 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   /**
    * Utility method to get the current JDK version, that works on Java 8 and above.
    *
+   * <p>TODO remove this method once we drop support for Java 8
+   *
    * @return the current JDK version
    */
   private static int getVersion() {
