@@ -403,6 +403,18 @@ public interface Handler {
       @Nullable Integer previousArgumentPosition);
 
   /**
+   * Called to get the library models which have Nullable upper bound for their Generic Type
+   * Arguments.
+   *
+   * @param className A String containing the name of the class for which we want to check Nullable
+   *     upper bound.
+   * @param arg Indicates the generic type argument for which we want to check Nullable upper bound.
+   * @return boolean value of regardless of whether the upper bound for that argument has a Nullable
+   *     upper bound.
+   */
+  boolean onOverrideTypeParameterUpperBound(String className, int arg);
+
+  /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
    * their knowledge of the method return nullability to the rest of NullAway.
    */

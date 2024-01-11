@@ -696,7 +696,8 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     if (config.isJSpecifyMode()) {
-      GenericsChecks.checkInstantiationForParameterizedTypedTree(tree, state, this, config);
+      GenericsChecks.checkInstantiationForParameterizedTypedTree(
+          tree, state, this, config, handler);
     }
     return Description.NO_MATCH;
   }
