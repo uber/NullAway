@@ -28,7 +28,7 @@ import com.uber.nullaway.ErrorBuilder;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
-import com.uber.nullaway.handlers.LibraryModelsHandler;
+import com.uber.nullaway.handlers.Handler;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,7 +59,11 @@ public final class GenericsChecks {
    * @param config the analysis config
    */
   public static void checkInstantiationForParameterizedTypedTree(
-      ParameterizedTypeTree tree, VisitorState state, NullAway analysis, Config config) {
+      ParameterizedTypeTree tree,
+      VisitorState state,
+      NullAway analysis,
+      Config config,
+      Handler handler) {
     if (!config.isJSpecifyMode()) {
       return;
     }
@@ -97,9 +101,8 @@ public final class GenericsChecks {
             upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
             Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-        LibraryModelsHandler libHandler = new LibraryModelsHandler(config);
         boolean hasNullableUpperBoundLibModel =
-            libHandler.nullableUpperBoundExistsInLibModel(baseType.tsym.toString(), i);
+            handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation && !hasNullableUpperBoundLibModel) {
