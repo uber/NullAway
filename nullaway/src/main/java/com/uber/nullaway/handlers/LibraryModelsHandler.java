@@ -168,7 +168,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     // and any of its overriding implementations.
     // see https://github.com/uber/NullAway/issues/445 for why this is needed.
     boolean isMethodUnannotated =
-        getCodeAnnotationInfo(state.context).isSymbolUnannotated(methodSymbol, this.config);
+        getCodeAnnotationInfo(state.context).isSymbolUnannotated(methodSymbol, this.config, null);
     if (exprMayBeNull) {
       // This is the only case in which we may switch the result from @Nullable to @NonNull:
       return !optLibraryModels.hasNonNullReturn(
@@ -940,9 +940,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableList<StreamTypeRecord> customStreamNullabilitySpecs;
 
-    public CombinedLibraryModels(Iterable<LibraryModels> models, Config config) {
+    public CombinedLibraryModels(Iterable<LibraryModels> models, Config config, ImmutableSet<String> nullMarkedClasses) {
       this.config = config;
-      ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
+        this.nullMarkedClasses = nullMarkedClasses;
+        ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> explicitlyNullableParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
