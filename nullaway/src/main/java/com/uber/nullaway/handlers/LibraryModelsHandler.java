@@ -343,7 +343,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
   }
 
-  public boolean nullableUpperBoundExistsInLibModel(String className, int arg) {
+  @Override
+  public boolean onOverrideTypeParameterUpperBound(String className, int arg) {
     ImmutableSet<Integer> res = libraryModels.nullableVariableTypeUpperBounds().get(className);
     return res.contains(arg);
   }
