@@ -57,6 +57,7 @@ public final class GenericsChecks {
    * @param state visitor state
    * @param analysis the analysis object
    * @param config the analysis config
+   * @param handler the handler instance
    */
   public static void checkInstantiationForParameterizedTypedTree(
       ParameterizedTypeTree tree,
