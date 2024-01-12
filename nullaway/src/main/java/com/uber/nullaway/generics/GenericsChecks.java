@@ -102,12 +102,12 @@ public final class GenericsChecks {
         com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
             upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
-            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-        boolean hasNullableUpperBoundLibModel =
-            handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
+            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+                || handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
+        ;
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
-        if (!hasNullableAnnotation && !hasNullableUpperBoundLibModel) {
+        if (!hasNullableAnnotation) {
           reportInvalidInstantiationError(
               nullableTypeArguments.get(i), baseType, typeVariable, state, analysis);
         }

@@ -345,7 +345,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
   @Override
   public boolean onOverrideTypeParameterUpperBound(String className, int arg) {
-    ImmutableSet<Integer> res = libraryModels.nullableVariableTypeUpperBounds().get(className);
+    ImmutableSet<Integer> res = libraryModels.typeVariablesWithNullableUpperBounds().get(className);
     return res.contains(arg);
   }
 
@@ -881,7 +881,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     @Override
-    public ImmutableSetMultimap<String, Integer> nullableVariableTypeUpperBounds() {
+    public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
       return NULLABLE_VARIABLE_TYPE_UPPER_BOUNDS;
     }
 
@@ -1008,7 +1008,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           castToNonNullMethodsBuilder.put(entry);
         }
         for (Map.Entry<String, Integer> entry :
-            libraryModels.nullableVariableTypeUpperBounds().entries()) {
+            libraryModels.typeVariablesWithNullableUpperBounds().entries()) {
           nullableVariableTypeUpperBoundsBuilder.put(entry);
         }
         for (StreamTypeRecord streamTypeRecord : libraryModels.customStreamNullabilitySpecs()) {
@@ -1077,7 +1077,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     @Override
-    public ImmutableSetMultimap<String, Integer> nullableVariableTypeUpperBounds() {
+    public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
       return nullableVariableTypeUpperBounds;
     }
 
