@@ -119,7 +119,7 @@ public interface LibraryModels {
    * @return map from the className to the position of the generic type argument that has a Nullable
    *     upper bound.
    */
-  ImmutableSetMultimap<String, Integer> nullableVariableTypeUpperBounds();
+  ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds();
 
   /**
    * Get the (className, generic type argument) pairs for library Classes where the generic type
