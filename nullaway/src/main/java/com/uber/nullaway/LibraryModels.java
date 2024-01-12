@@ -112,6 +112,13 @@ public interface LibraryModels {
    */
   ImmutableSet<MethodRef> nonNullReturns();
 
+  /**
+   * Get the (className, generic type argument) pairs for library Classes where the generic type
+   * argument has a Nullable upper bound.
+   *
+   * @return map from the className to the position of the generic type argument that has a Nullable
+   *     upper bound.
+   */
   ImmutableSetMultimap<String, Integer> nullableVariableTypeUpperBounds();
 
   /**
