@@ -65,7 +65,7 @@ dependencies {
     testImplementation deps.test.javaxAnnotationApi
     testImplementation deps.test.assertJ
     // This is for a test exposing a CFG construction failure in the Checker Framework.  We can probably remove it once
-    // the issue is fixed upstream and we update.
+    // the issue is fixed upstream and we update. See https://github.com/typetools/checker-framework/issues/6396.
     testImplementation 'org.apache.spark:spark-sql_2.12:3.3.2'
 }
 

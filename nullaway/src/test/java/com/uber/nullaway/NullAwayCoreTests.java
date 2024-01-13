@@ -964,6 +964,7 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
   /**
    * This test exposes a failure in CFG construction in Checker Framework 3.41.0 and above. Once a
    * fix for this issue makes it to a Checker Framework release, we can probably remove this test.
+   * See https://github.com/typetools/checker-framework/issues/6396.
    */
   @Test
   public void cfgConstructionSymbolCompletionFailure() {
