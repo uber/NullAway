@@ -22,6 +22,7 @@ plugins {
 
 configurations {
     nullawayJar
+    errorProneOldest
 }
 
 dependencies {
@@ -64,6 +65,11 @@ dependencies {
     testImplementation deps.test.mockito
     testImplementation deps.test.javaxAnnotationApi
     testImplementation deps.test.assertJ
+
+    errorProneOldest deps.build.errorProneCheckApiOld
+    errorProneOldest(deps.build.errorProneTestHelpersOld) {
+        exclude group: "junit", module: "junit"
+    }
 }
 
 javadoc {
@@ -94,10 +100,10 @@ apply plugin: 'com.vanniktech.maven.publish'
 
 // Create a task to test on JDK 8
 def jdk8Test = tasks.register("testJdk8", Test) {
-    onlyIf {
-        // Only if we are using a version of Error Prone compatible with JDK 8
-        deps.versions.errorProneApi == "2.10.0"
-    }
+    //    onlyIf {
+    //        // Only if we are using a version of Error Prone compatible with JDK 8
+    //        deps.versions.errorProneApi == "2.10.0"
+    //    }
 
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(8)
@@ -108,7 +114,16 @@ def jdk8Test = tasks.register("testJdk8", Test) {
 
     // Copy inputs from normal Test task.
     def testTask = tasks.getByName("test")
-    classpath = testTask.classpath
+    classpath = configurations.errorProneOldest + testTask.classpath
+    // Assuming 'fileCollection' is your Gradle file collection
+    String fileNames = classpath.collect { file ->
+        file.toString()
+    }.join(', ')
+
+
+    // Print the result or use it as needed
+    //println fileNames
+
     testClassesDirs = testTask.testClassesDirs
     jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
     filter {
