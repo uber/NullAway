@@ -21,7 +21,7 @@ plugins {
 }
 
 configurations {
-    nullawayJar
+    // A configuration holding the jars for the oldest supported version of Error Prone, to use with tests
     errorProneOldest
 }
 
@@ -99,6 +99,9 @@ apply plugin: 'com.vanniktech.maven.publish'
 //    }
 
 // Create a task to test on JDK 8
+// NOTE: even when we drop JDK 8 support, we will still need a test task similar to this one for testing building
+// against a recent JDK and Error Prone version but then running on the oldest supported JDK and Error Prone version,
+// to check for binary compatibility issues.
 def jdk8Test = tasks.register("testJdk8", Test) {
     javaLauncher = javaToolchains.launcherFor {
         languageVersion = JavaLanguageVersion.of(8)
@@ -109,6 +112,9 @@ def jdk8Test = tasks.register("testJdk8", Test) {
 
     // Copy inputs from normal Test task.
     def testTask = tasks.getByName("test")
+    // A bit of a hack: we add the dependencies of the oldest supported Error Prone version to the _beginning_ of the
+    // classpath, so that they are used instead of the latest version.  This exercises the scenario of building
+    // NullAway against the latest supported Error Prone version but then running on the oldest supported version.
     classpath = configurations.errorProneOldest + testTask.classpath
 
     testClassesDirs = testTask.testClassesDirs
