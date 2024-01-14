@@ -21,16 +21,16 @@ jobs:
             epVersion: 2.10.0
           - os: macos-latest
             java: 11
-            epVersion: 2.23.0
+            epVersion: 2.24.1
           - os: ubuntu-latest
             java: 11
-            epVersion: 2.23.0
+            epVersion: 2.24.1
           - os: windows-latest
             java: 11
-            epVersion: 2.23.0
+            epVersion: 2.24.1
           - os: ubuntu-latest
             java: 17
-            epVersion: 2.23.0
+            epVersion: 2.24.1
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -63,7 +63,7 @@ jobs:
         with:
           arguments: codeCoverageReport
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.23.0' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.24.1' && github.repository == 'uber/NullAway'
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
         with:

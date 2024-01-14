@@ -960,4 +960,29 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  /**
+   * This test exposes a failure in CFG construction in Checker Framework 3.41.0 and above. Once a
+   * fix for this issue makes it to a Checker Framework release, we can probably remove this test.
+   * See https://github.com/typetools/checker-framework/issues/6396.
+   */
+  @Test
+  public void cfgConstructionSymbolCompletionFailure() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.apache.spark.sql.SparkSession;",
+            "class Test {",
+            "  static class X {",
+            "    X(SparkSession session) {}",
+            "  }",
+            "  X run() {",
+            "    try (SparkSession session = SparkSession.builder().getOrCreate()) {",
+            "      return new X(session);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
