@@ -226,7 +226,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     boolean isMethodAnnotated =
-        !getCodeAnnotationInfo(state.context).isSymbolUnannotated(callee, this.config);
+        !getCodeAnnotationInfo(state.context).isSymbolUnannotated(callee, this.config, null);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, state, apContext);
     setConditionalArgumentNullness(
         thenUpdates, elseUpdates, node.getArguments(), callee, state, apContext);
