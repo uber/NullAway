@@ -344,9 +344,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public boolean onOverrideTypeParameterUpperBound(String className, int arg) {
+  public boolean onOverrideTypeParameterUpperBound(String className, int index) {
     ImmutableSet<Integer> res = libraryModels.typeVariablesWithNullableUpperBounds().get(className);
-    return res.contains(arg);
+    return res.contains(index);
   }
 
   /**
@@ -1103,7 +1103,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     /**
      * Mapping from {@link MethodRef} to some state, where lookups first check for a matching method
      * name as an optimization. The {@link Name} data structure is used to avoid unnecessary String
-     * conversions when looking up {@link Symbol.MethodSymbol}s.
+     * conversions when looking up {@link com.sun.tools.javac.code.Symbol.MethodSymbol}s.
      *
      * @param <T> the type of the associated state.
      */

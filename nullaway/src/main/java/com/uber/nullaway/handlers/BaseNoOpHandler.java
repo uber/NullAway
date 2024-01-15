@@ -215,7 +215,7 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public boolean onOverrideTypeParameterUpperBound(String className, int arg) {
+  public boolean onOverrideTypeParameterUpperBound(String className, int index) {
     return false;
   }
 

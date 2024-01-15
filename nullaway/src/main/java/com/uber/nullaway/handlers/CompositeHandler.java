@@ -307,10 +307,10 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public boolean onOverrideTypeParameterUpperBound(String className, int arg) {
+  public boolean onOverrideTypeParameterUpperBound(String className, int index) {
     boolean result = false;
     for (Handler h : handlers) {
-      result = h.onOverrideTypeParameterUpperBound(className, arg);
+      result = h.onOverrideTypeParameterUpperBound(className, index);
       if (result) {
         break;
       }
