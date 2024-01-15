@@ -1616,14 +1616,20 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testForUtilFunctionLibModel() {
+  public void testForNullableUpperBoundsInLibModel() {
     makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
             "import java.util.function.Function;",
+            "import java.util.Map;",
+            "import java.util.HashMap;",
             "class Test {",
+            "  static void testPositive() {",
+            "   // BUG: Diagnostic contains:Generic type parameter cannot be @Nullable",
+            "   Map<@Nullable String, Integer> studentScores = new HashMap<>();",
+            "  }",
             "  static void testNegative() {",
             "   Function<String,@Nullable String> removeA = a -> a.replace(\"a\",\"\");",
             "  }",
