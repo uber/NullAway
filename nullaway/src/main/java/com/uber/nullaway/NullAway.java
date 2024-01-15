@@ -28,6 +28,7 @@ import static com.sun.source.tree.Tree.Kind.IDENTIFIER;
 import static com.sun.source.tree.Tree.Kind.OTHER;
 import static com.sun.source.tree.Tree.Kind.PARENTHESIZED;
 import static com.sun.source.tree.Tree.Kind.TYPE_CAST;
+import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
 import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
@@ -578,20 +579,20 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     switch (nullMarkingForTopLevelClass) {
       case FULLY_MARKED:
-        if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+        if (hasDirectAnnotationWithSimpleName(
             methodSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
           nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
         }
         break;
       case FULLY_UNMARKED:
-        if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+        if (hasDirectAnnotationWithSimpleName(
             methodSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
           nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
           markedMethodInUnmarkedContext = true;
         }
         break;
       case PARTIALLY_MARKED:
-        if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+        if (hasDirectAnnotationWithSimpleName(
             methodSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
           // We still care here if this is a transition between @NullUnmarked and @NullMarked code,
           // within partially marked code, see checks below for markedMethodInUnmarkedContext.
@@ -1468,10 +1469,10 @@ public class NullAway extends BugChecker
    */
   private boolean classAnnotationIntroducesPartialMarking(Symbol.ClassSymbol classSymbol) {
     return (nullMarkingForTopLevelClass == NullMarking.FULLY_UNMARKED
-            && ASTHelpers.hasDirectAnnotationWithSimpleName(
+            && hasDirectAnnotationWithSimpleName(
                 classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME))
         || (nullMarkingForTopLevelClass == NullMarking.FULLY_MARKED
-            && ASTHelpers.hasDirectAnnotationWithSimpleName(
+            && hasDirectAnnotationWithSimpleName(
                 classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME));
   }
 
@@ -2241,7 +2242,7 @@ public class NullAway extends BugChecker
   }
 
   private boolean isInitializerMethod(VisitorState state, Symbol.MethodSymbol symbol) {
-    if (ASTHelpers.hasDirectAnnotationWithSimpleName(symbol, "Initializer")
+    if (hasDirectAnnotationWithSimpleName(symbol, "Initializer")
         || config.isKnownInitializerMethod(symbol)) {
       return true;
     }

@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
@@ -81,7 +82,7 @@ public final class CodeAnnotationInfo {
     Symbol.PackageSymbol enclosingPackage = ASTHelpers.enclosingPackage(outermostClassSymbol);
     if (!config.fromExplicitlyAnnotatedPackage(className)
         && !(enclosingPackage != null
-            && ASTHelpers.hasDirectAnnotationWithSimpleName(
+            && hasDirectAnnotationWithSimpleName(
                 enclosingPackage, NullabilityUtil.NULLMARKED_SIMPLE_NAME))) {
       // By default, unknown code is unannotated unless @NullMarked or configured as annotated by
       // package name
@@ -89,7 +90,7 @@ public final class CodeAnnotationInfo {
     }
     if (config.fromExplicitlyUnannotatedPackage(className)
         || (enclosingPackage != null
-            && ASTHelpers.hasDirectAnnotationWithSimpleName(
+            && hasDirectAnnotationWithSimpleName(
                 enclosingPackage, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME))) {
       // Any code explicitly marked as unannotated in our configuration is unannotated, no matter
       // what. Similarly, any package annotated as @NullUnmarked is unannotated, even if
@@ -120,7 +121,7 @@ public final class CodeAnnotationInfo {
       return false;
     }
     Symbol.ClassSymbol outermostClassSymbol = get(classSymbol, config).outermostClassSymbol;
-    return ASTHelpers.hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated");
+    return hasDirectAnnotationWithSimpleName(outermostClassSymbol, "Generated");
   }
 
   /**
@@ -216,10 +217,10 @@ public final class CodeAnnotationInfo {
         if (enclosingMethod != null) {
           isAnnotated = recordForEnclosing.isMethodNullnessAnnotated(enclosingMethod);
         }
-        if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+        if (hasDirectAnnotationWithSimpleName(
             classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
           isAnnotated = false;
-        } else if (ASTHelpers.hasDirectAnnotationWithSimpleName(
+        } else if (hasDirectAnnotationWithSimpleName(
             classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
           isAnnotated = true;
         }
@@ -244,7 +245,7 @@ public final class CodeAnnotationInfo {
       // Generated code is or isn't excluded, depending on configuration
       // Note: In the future, we might want finer grain controls to distinguish code that is
       // generated with nullability info and without.
-      if (ASTHelpers.hasDirectAnnotationWithSimpleName(classSymbol, "Generated")) {
+      if (hasDirectAnnotationWithSimpleName(classSymbol, "Generated")) {
         return true;
       }
       ImmutableSet<String> generatedCodeAnnotations = config.getGeneratedCodeAnnotations();
@@ -259,13 +260,11 @@ public final class CodeAnnotationInfo {
 
   private boolean isAnnotatedTopLevelClass(Symbol.ClassSymbol classSymbol, Config config) {
     // First, check for an explicitly @NullUnmarked top level class
-    if (ASTHelpers.hasDirectAnnotationWithSimpleName(
-        classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
+    if (hasDirectAnnotationWithSimpleName(classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
       return false;
     }
     // Then, check if the class has a @NullMarked annotation or comes from an annotated package
-    if ((ASTHelpers.hasDirectAnnotationWithSimpleName(
-            classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)
+    if ((hasDirectAnnotationWithSimpleName(classSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)
         || fromAnnotatedPackage(classSymbol, config))) {
       // make sure it's not explicitly configured as unannotated
       return !shouldTreatAsUnannotated(classSymbol, config);
@@ -295,14 +294,12 @@ public final class CodeAnnotationInfo {
       return methodNullnessCache.computeIfAbsent(
           methodSymbol,
           m -> {
-            if (ASTHelpers.hasDirectAnnotationWithSimpleName(
-                m, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
+            if (hasDirectAnnotationWithSimpleName(m, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
               return false;
             } else if (this.isNullnessAnnotated) {
               return true;
             } else {
-              return ASTHelpers.hasDirectAnnotationWithSimpleName(
-                  m, NullabilityUtil.NULLMARKED_SIMPLE_NAME);
+              return hasDirectAnnotationWithSimpleName(m, NullabilityUtil.NULLMARKED_SIMPLE_NAME);
             }
           });
     }
