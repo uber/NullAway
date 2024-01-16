@@ -68,17 +68,7 @@ public class ExampleLibraryModels implements LibraryModels {
   }
 
   @Override
-  public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
-    return ImmutableSetMultimap.of();
-  }
-
-  @Override
   public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
     return ImmutableSetMultimap.of();
-  }
-
-  @Override
-  public ImmutableSet<FieldRef> nullableFields() {
-    return ImmutableSet.of();
   }
 }
