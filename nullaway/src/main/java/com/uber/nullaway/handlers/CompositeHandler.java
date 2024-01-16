@@ -306,6 +306,7 @@ class CompositeHandler implements Handler {
     return previousArgumentPosition;
   }
 
+  /** Returns true if any handler returns true. */
   @Override
   public boolean onOverrideTypeParameterUpperBound(String className, int index) {
     boolean result = false;
