@@ -81,11 +81,6 @@ public class TestLibraryModels implements LibraryModels {
   }
 
   @Override
-  public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
-    return ImmutableSetMultimap.of();
-  }
-
-  @Override
   public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
     return ImmutableSetMultimap.<MethodRef, Integer>builder()
         .put(
