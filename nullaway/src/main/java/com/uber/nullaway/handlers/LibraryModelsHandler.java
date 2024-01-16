@@ -1009,7 +1009,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           castToNonNullMethodsBuilder.put(entry);
         }
         nullableVariableTypeUpperBoundsBuilder.putAll(
-            libraryModels.typeVariablesWithNullableUpperBounds().entries());
+            libraryModels.typeVariablesWithNullableUpperBounds());
         for (StreamTypeRecord streamTypeRecord : libraryModels.customStreamNullabilitySpecs()) {
           customStreamNullabilitySpecsBuilder.add(streamTypeRecord);
         }
