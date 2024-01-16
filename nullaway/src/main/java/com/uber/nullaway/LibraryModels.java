@@ -119,7 +119,9 @@ public interface LibraryModels {
    * @return map from the className to the position of the generic type argument that has a Nullable
    *     upper bound.
    */
-  ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds();
+  default ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
+    return ImmutableSetMultimap.of();
+  }
 
   /**
    * Get (method, parameter) pairs that act as castToNonNull(...) methods.
@@ -146,7 +148,9 @@ public interface LibraryModels {
    *
    * @return set of library fields that may be {@code null}.
    */
-  ImmutableSet<FieldRef> nullableFields();
+  default ImmutableSet<FieldRef> nullableFields() {
+    return ImmutableSet.of();
+  }
 
   /**
    * Get a list of custom stream library specifications.
