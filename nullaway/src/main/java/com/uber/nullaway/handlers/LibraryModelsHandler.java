@@ -42,6 +42,7 @@ import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.EmptyLibraryModels;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.NullAway;
@@ -381,7 +382,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     return new CombinedLibraryModels(libModelsBuilder.build(), config);
   }
 
-  private static class DefaultLibraryModels implements LibraryModels {
+  private static class DefaultLibraryModels extends EmptyLibraryModels {
 
     private static final ImmutableSetMultimap<MethodRef, Integer> FAIL_IF_NULL_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
@@ -911,7 +912,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
   }
 
-  private static class CombinedLibraryModels implements LibraryModels {
+  private static class CombinedLibraryModels extends EmptyLibraryModels {
 
     private final Config config;
 
