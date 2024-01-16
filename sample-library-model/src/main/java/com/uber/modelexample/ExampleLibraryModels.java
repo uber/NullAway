@@ -18,16 +18,67 @@ package com.uber.modelexample;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 
 import com.google.auto.service.AutoService;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.uber.nullaway.EmptyLibraryModels;
 import com.uber.nullaway.LibraryModels;
 
 @AutoService(LibraryModels.class)
-public class ExampleLibraryModels extends EmptyLibraryModels {
+public class ExampleLibraryModels implements LibraryModels {
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
+    return ImmutableSetMultimap.of();
+  }
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
+    return ImmutableSetMultimap.of();
+  }
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
+    return ImmutableSetMultimap.of();
+  }
+
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
     return ImmutableSetMultimap.<MethodRef, Integer>builder()
         .put(methodRef("org.utilities.StringUtils", "isEmptyOrNull(java.lang.CharSequence)"), 0)
         .build();
+  }
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
+    return ImmutableSetMultimap.of();
+  }
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
+    return ImmutableSetMultimap.of();
+  }
+
+  @Override
+  public ImmutableSet<MethodRef> nullableReturns() {
+    return ImmutableSet.of();
+  }
+
+  @Override
+  public ImmutableSet<MethodRef> nonNullReturns() {
+    return ImmutableSet.of();
+  }
+
+  @Override
+  public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
+    return ImmutableSetMultimap.of();
+  }
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
+    return ImmutableSetMultimap.of();
+  }
+
+  @Override
+  public ImmutableSet<FieldRef> nullableFields() {
+    return ImmutableSet.of();
   }
 }

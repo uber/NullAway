@@ -22,13 +22,22 @@ import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.uber.nullaway.EmptyLibraryModels;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.handlers.stream.StreamModelBuilder;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 
 @AutoService(LibraryModels.class)
-public class TestLibraryModels extends EmptyLibraryModels {
+public class TestLibraryModels implements LibraryModels {
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
+    return ImmutableSetMultimap.of();
+  }
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
+    return ImmutableSetMultimap.of();
+  }
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
@@ -42,10 +51,20 @@ public class TestLibraryModels extends EmptyLibraryModels {
   }
 
   @Override
+  public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
+    return ImmutableSetMultimap.of();
+  }
+
+  @Override
   public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
     return ImmutableSetMultimap.of(
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "isNonNull(java.lang.Object)"),
         0);
+  }
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
+    return ImmutableSetMultimap.of();
   }
 
   @Override
@@ -54,6 +73,16 @@ public class TestLibraryModels extends EmptyLibraryModels {
         methodRef("com.uber.AnnotatedWithModels", "returnsNullFromModel()"),
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"));
+  }
+
+  @Override
+  public ImmutableSet<MethodRef> nonNullReturns() {
+    return ImmutableSet.of();
+  }
+
+  @Override
+  public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
+    return ImmutableSetMultimap.of();
   }
 
   @Override
