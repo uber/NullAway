@@ -836,7 +836,6 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         new ImmutableSetMultimap.Builder<String, Integer>()
             .put("java.util.function.Function", 0)
             .put("java.util.function.Function", 1)
-            .put("java.util.Map", 1)
             .build();
     private static final ImmutableSetMultimap<MethodRef, Integer> CAST_TO_NONNULL_METHODS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>().build();
