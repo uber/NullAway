@@ -403,15 +403,11 @@ public interface Handler {
       @Nullable Integer previousArgumentPosition);
 
   /**
-   * Called to get the library models which have Nullable upper bound for their Generic Type
-   * Arguments.
+   * Called to override the upper bound of some type parameter of a class to be {@code @Nullable}.
    *
-   * @param className A String containing the name of the class for which we want to check Nullable
-   *     upper bound.
-   * @param index Indicates the generic type argument for which we want to check Nullable upper
-   *     bound.
-   * @return boolean value of regardless of whether the upper bound for that argument has a Nullable
-   *     upper bound.
+   * @param className the class name
+   * @param index index of the type parameter (0-based)
+   * @return {@code true} iff upper bound of the type parameter should be {@code @Nullable}
    */
   boolean onOverrideTypeParameterUpperBound(String className, int index);
 
