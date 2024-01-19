@@ -399,14 +399,31 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
-    final Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
-    if (methodSymbol == null) {
-      throw new RuntimeException("not expecting unresolved method here");
-    }
+    Symbol.MethodSymbol methodSymbol = getSymbolForMethodInvocation(tree, state);
     handler.onMatchMethodInvocation(this, tree, state, methodSymbol);
     // assuming this list does not include the receiver
     List<? extends ExpressionTree> actualParams = tree.getArguments();
     return handleInvocation(tree, state, methodSymbol, actualParams);
+  }
+
+  private static Symbol.MethodSymbol getSymbolForMethodInvocation(
+      MethodInvocationTree tree, VisitorState state) {
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
+    if (methodSymbol == null) {
+      throw new RuntimeException("not expecting unresolved method here");
+    }
+    // For interface methods, if the method is an implicit method corresponding to a method from
+    // java.lang.Object, use the symbol for the java.lang.Object method instead.  We do this to
+    // properly treat the method as unannotated, which is particularly important for equals()
+    // methods.  This is an adaptation to a change in JDK 18; see
+    // https://bugs.openjdk.org/browse/JDK-8272564
+    if (methodSymbol.owner.isInterface()) {
+      Symbol.MethodSymbol baseSymbol = (Symbol.MethodSymbol) methodSymbol.baseSymbol();
+      if (baseSymbol != methodSymbol && baseSymbol.owner == state.getSymtab().objectType.tsym) {
+        methodSymbol = baseSymbol;
+      }
+    }
+    return methodSymbol;
   }
 
   @Override
