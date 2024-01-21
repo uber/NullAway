@@ -1615,6 +1615,26 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void overrideWithRawType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  interface Foo<T> {}",
+            "  interface Bar<T> {",
+            "    void add(Foo<T> foo);",
+            "  }",
+            "  static class Baz<T> implements Bar<T> {",
+            "    @SuppressWarnings(\"rawtypes\")",
+            "    @Override",
+            "    public void add(Foo foo) {}",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
