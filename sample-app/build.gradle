@@ -64,17 +64,6 @@ android {
             ]
         }
     }
-
-    // If you want to disable NullAway in just tests, you can do the below
-    //    DomainObjectSet<BaseVariant> testVariants = getTestVariants()
-    //    testVariants.addAll(getUnitTestVariants())
-    //    testVariants.configureEach { variant ->
-    //        variant.getJavaCompileProvider().configure {
-    //            options.errorprone {
-    //                check("NullAway", CheckSeverity.OFF)
-    //            }
-    //        }
-    //    }
 }
 
 dependencies {
