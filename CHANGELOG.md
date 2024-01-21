@@ -1,5 +1,14 @@
 Changelog
 =========
+Version 0.10.21
+---------------
+IMPORTANT: This release fixes a crash when running against <2.24.0 release of
+    Error Prone (see #894) introduced in NullAway v0.10.20 and another crash related to
+    Checker Framework (see #895) introduced in NullAway v0.10.19.
+
+* Fix backwards-incompatible calls to ASTHelpers.hasDirectAnnotationWithSimpleName (#894)
+* Downgrade to Checker Framework 3.40.0 (#895)
+
 Version 0.10.20
 ---------------
 * Fix JSpecify support on JDK 21 (#869)
