@@ -3,7 +3,6 @@ package com.uber.nullaway.generics;
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
-import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
@@ -772,7 +771,7 @@ public final class GenericsChecks {
     List<Type> overriddenMethodParameterTypes = overriddenMethodType.getParameterTypes();
     // TODO handle varargs; they are not handled for now
     for (int i = 0; i < methodParameters.size(); i++) {
-      Type overridingMethodParameterType = ASTHelpers.getType(methodParameters.get(i));
+      Type overridingMethodParameterType = getTreeType(methodParameters.get(i), state);
       Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
       if (overriddenMethodParameterType != null && overridingMethodParameterType != null) {
         if (!compareNullabilityAnnotations(
@@ -801,11 +800,10 @@ public final class GenericsChecks {
   private static void checkTypeParameterNullnessForOverridingMethodReturnType(
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
     Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
-    Type overridingMethodReturnType = ASTHelpers.getType(tree.getReturnType());
-    if (overriddenMethodReturnType == null) {
+    Type overridingMethodReturnType = getTreeType(tree.getReturnType(), state);
+    if (overriddenMethodReturnType == null || overridingMethodReturnType == null) {
       return;
     }
-    Preconditions.checkArgument(overridingMethodReturnType != null);
     if (!compareNullabilityAnnotations(
         overriddenMethodReturnType, overridingMethodReturnType, state)) {
       reportInvalidOverridingMethodReturnTypeError(
