@@ -407,9 +407,19 @@ public interface Handler {
    *
    * @param className name of the class
    * @param index index of the generic type variable (starting at 0)
-   * @return boolean true if the variable should be treated as having a {@code @Nullable} upper bound
+   * @return boolean true if the variable should be treated as having a {@code @Nullable} upper
+   *     bound
    */
   boolean onOverrideTypeParameterUpperBound(String className, int arg);
+
+  /**
+   * Called to get the library models for which a particular class is NullMarked.
+   *
+   * @param className A String containing the name of the class for which we want to check if it is
+   *     NullMarked
+   * @return boolean value of whether the class is NullMarked
+   */
+  boolean onOverrideNullMarkedClasses(String className);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
