@@ -32,6 +32,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.util.Context;
+import com.uber.nullaway.handlers.LibraryModelsHandler;
 import java.util.HashMap;
 import java.util.Map;
 import javax.lang.model.element.ElementKind;
@@ -271,9 +272,9 @@ public final class CodeAnnotationInfo {
     }
     // Check if it is NullMarked inside a Library Model when in JSpecify Mode
     if (config.isJSpecifyMode()) {
-      // LibraryModelsHandler handler = new LibraryModelsHandler(config);
-      // return handler.onOverrideNullMarkedClasses(classSymbol.toString());
-      return false;
+      // TODO: Need to replace with handler instance sent as param
+      LibraryModelsHandler handler = new LibraryModelsHandler(config);
+      return handler.onOverrideNullMarkedClasses(classSymbol.toString());
     } else {
       return false;
     }
