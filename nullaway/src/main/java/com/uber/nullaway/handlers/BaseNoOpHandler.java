@@ -220,6 +220,11 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
+  public boolean onOverrideNullMarkedClasses(String className) {
+    return false;
+  }
+
+  @Override
   public MethodInvocationNode onCFGBuildPhase1AfterVisitMethodInvocation(
       NullAwayCFGBuilder.NullAwayCFGTranslationPhaseOne phase,
       MethodInvocationTree tree,

@@ -269,7 +269,14 @@ public final class CodeAnnotationInfo {
       // make sure it's not explicitly configured as unannotated
       return !shouldTreatAsUnannotated(classSymbol, config);
     }
-    return false;
+    // Check if it is NullMarked inside a Library Model when in JSpecify Mode
+    if (config.isJSpecifyMode()) {
+      // LibraryModelsHandler handler = new LibraryModelsHandler(config);
+      // return handler.onOverrideNullMarkedClasses(classSymbol.toString());
+      return false;
+    } else {
+      return false;
+    }
   }
 
   /**

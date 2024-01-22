@@ -124,6 +124,15 @@ public interface LibraryModels {
   }
 
   /**
+   * Get the set of library classes that are NullMarked.
+   *
+   * @return set of library classes that are NullMarked.
+   */
+  default ImmutableSet<String> nullMarkedClasses() {
+    return ImmutableSet.of();
+  }
+
+  /**
    * Get (method, parameter) pairs that act as castToNonNull(...) methods.
    *
    * <p>Here, the parameter index determines the argument position of the reference being cast to

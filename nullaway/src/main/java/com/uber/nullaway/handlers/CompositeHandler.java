@@ -318,4 +318,16 @@ class CompositeHandler implements Handler {
     }
     return result;
   }
+
+  @Override
+  public boolean onOverrideNullMarkedClasses(String className) {
+    boolean result = false;
+    for (Handler h : handlers) {
+      result = h.onOverrideNullMarkedClasses(className);
+      if (result) {
+        break;
+      }
+    }
+    return result;
+  }
 }

@@ -349,6 +349,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     return res.contains(index);
   }
 
+  @Override
+  public boolean onOverrideNullMarkedClasses(String className) {
+    return libraryModels.nullMarkedClasses().contains(className);
+  }
+
   /**
    * Get all the stream specifications loaded from any of our library models.
    *
@@ -837,6 +842,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put("java.util.function.Function", 0)
             .put("java.util.function.Function", 1)
             .build();
+
+    private static final ImmutableSet<String> NULLMARKED_CLASSES =
+        new ImmutableSet.Builder<String>().add("java.util.function.Function").build();
     private static final ImmutableSetMultimap<MethodRef, Integer> CAST_TO_NONNULL_METHODS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>().build();
 
@@ -886,6 +894,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     @Override
+    public ImmutableSet<String> nullMarkedClasses() {
+      return NULLMARKED_CLASSES;
+    }
+
+    @Override
     public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
       return CAST_TO_NONNULL_METHODS;
     }
@@ -919,6 +932,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSetMultimap<String, Integer> nullableVariableTypeUpperBounds;
 
+    private final ImmutableSet<String> nullMarkedClasses;
+
     private final ImmutableSet<FieldRef> nullableFields;
 
     private final ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods;
@@ -935,6 +950,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<String, Integer> nullableVariableTypeUpperBoundsBuilder =
           new ImmutableSetMultimap.Builder<>();
+      ImmutableSet.Builder<String> nullMarkedClassesBuilder = new ImmutableSet.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesFalseParametersBuilder =
@@ -1009,6 +1025,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         }
         nullableVariableTypeUpperBoundsBuilder.putAll(
             libraryModels.typeVariablesWithNullableUpperBounds());
+        for (String name : libraryModels.nullMarkedClasses()) {
+          nullMarkedClassesBuilder.add(name);
+        }
         for (StreamTypeRecord streamTypeRecord : libraryModels.customStreamNullabilitySpecs()) {
           customStreamNullabilitySpecsBuilder.add(streamTypeRecord);
         }
@@ -1028,6 +1047,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       customStreamNullabilitySpecs = customStreamNullabilitySpecsBuilder.build();
       nullableFields = nullableFieldsBuilder.build();
       nullableVariableTypeUpperBounds = nullableVariableTypeUpperBoundsBuilder.build();
+      nullMarkedClasses = nullMarkedClassesBuilder.build();
     }
 
     private boolean shouldSkipModel(MethodRef key) {
@@ -1077,6 +1097,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
       return nullableVariableTypeUpperBounds;
+    }
+
+    @Override
+    public ImmutableSet<String> nullMarkedClasses() {
+      return nullMarkedClasses;
     }
 
     @Override
