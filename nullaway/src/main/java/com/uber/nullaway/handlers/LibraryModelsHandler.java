@@ -1120,7 +1120,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
   }
 
-  /** A view of library models optimized to make lookup of {@link Symbol.MethodSymbol}s fast */
+  /**
+   * A view of library models optimized to make lookup of {@link
+   * com.sun.tools.javac.code.Symbol.MethodSymbol}s fast
+   */
   private static class OptimizedLibraryModels {
 
     /**

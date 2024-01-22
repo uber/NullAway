@@ -403,14 +403,13 @@ public interface Handler {
       @Nullable Integer previousArgumentPosition);
 
   /**
-   * Method to override the nullability of the upper bound for a generic type variable on a class.
+   * Called to override the upper bound of some type parameter of a class to be {@code @Nullable}.
    *
-   * @param className name of the class
-   * @param index index of the generic type variable (starting at 0)
-   * @return boolean true if the variable should be treated as having a {@code @Nullable} upper
-   *     bound
+   * @param className the class name
+   * @param index index of the type parameter (0-based)
+   * @return {@code true} iff upper bound of the type parameter should be {@code @Nullable}
    */
-  boolean onOverrideTypeParameterUpperBound(String className, int arg);
+  boolean onOverrideTypeParameterUpperBound(String className, int index);
 
   /**
    * Called to get the library models for which a particular class is NullMarked.
