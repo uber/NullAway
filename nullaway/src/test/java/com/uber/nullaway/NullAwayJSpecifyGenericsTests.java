@@ -1665,12 +1665,16 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  @Nullable",
             "  static Integer foo(){",
-            "   return null;",
-            "   }",
+            "    return null;",
+            "  }",
+            "  @Nullable",
+            "  static Integer foo2(Integer i){",
+            "    return null;",
+            "  }",
             "  static void testNegative() {",
-            "   List<Integer> numbers = Arrays.asList(1, 2, 3, 4, 5);",
-            "   List<Integer> doubledNumbers = numbers.stream().map(number -> foo()).collect(Collectors.toList());",
-            // TODO need the same test but with a method reference
+            "    List<Integer> numbers = Arrays.asList(1, 2, 3, 4, 5);",
+            "    List<Integer> doubledNumbers = numbers.stream().map(number -> foo()).collect(Collectors.toList());",
+            "    List<Integer> other = numbers.stream().map(Test::foo2).collect(Collectors.toList());",
             "  }",
             "}")
         .doTest();

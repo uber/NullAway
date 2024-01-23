@@ -905,7 +905,7 @@ public class NullAway extends BugChecker
       if (GenericsChecks.getGenericMethodReturnTypeNullness(
                   methodSymbol, ASTHelpers.getType(lambdaTree), state, config)
               .equals(Nullness.NULLABLE)
-          || GenericsChecks.passingLambdaWithGenericReturnToUnmarkedCode(
+          || GenericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
               methodSymbol, lambdaTree, state, config, codeAnnotationInfo)) {
         // In JSpecify mode, the return type of a lambda may be @Nullable via a type argument
         return Description.NO_MATCH;
@@ -1052,8 +1052,10 @@ public class NullAway extends BugChecker
         // For a method reference, we get generic type arguments from javac's inferred type for the
         // tree, which properly preserves type-use annotations
         return GenericsChecks.getGenericMethodReturnTypeNullness(
-                overriddenMethod, ASTHelpers.getType(memberReferenceTree), state, config)
-            .equals(Nullness.NONNULL);
+                    overriddenMethod, ASTHelpers.getType(memberReferenceTree), state, config)
+                .equals(Nullness.NONNULL)
+            && !GenericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
+                overriddenMethod, memberReferenceTree, state, config, codeAnnotationInfo);
       } else {
         // Use the enclosing class of the overriding method to find generic type arguments
         return GenericsChecks.getGenericMethodReturnTypeNullness(

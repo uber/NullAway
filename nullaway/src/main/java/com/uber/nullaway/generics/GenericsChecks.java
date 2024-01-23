@@ -13,7 +13,6 @@ import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
@@ -846,9 +845,9 @@ public final class GenericsChecks {
     return type.accept(new GenericTypePrettyPrintingVisitor(state), null);
   }
 
-  public static boolean passingLambdaWithGenericReturnToUnmarkedCode(
+  public static boolean passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
       Symbol.MethodSymbol methodSymbol,
-      LambdaExpressionTree lambdaTree,
+      ExpressionTree expressionTree,
       VisitorState state,
       Config config,
       CodeAnnotationInfo codeAnnotationInfo) {
@@ -859,7 +858,7 @@ public final class GenericsChecks {
     }
     boolean callingUnannotated = false;
     TreePath path = state.getPath();
-    while (path != null && !path.getLeaf().equals(lambdaTree)) {
+    while (path != null && !path.getLeaf().equals(expressionTree)) {
       path = path.getParentPath();
     }
     verify(path != null, "did not find lambda tree in TreePath");
