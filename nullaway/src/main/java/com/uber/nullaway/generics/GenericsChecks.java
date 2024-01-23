@@ -13,6 +13,7 @@ import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
@@ -24,6 +25,7 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorBuilder;
 import com.uber.nullaway.ErrorMessage;
@@ -35,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.TypeVariable;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
@@ -532,7 +535,7 @@ public final class GenericsChecks {
    *     }
    * </pre>
    *
-   * Within the context of class {@code C}, the method {@code Fn.apply} has a return type of
+   * <p>Within the context of class {@code C}, the method {@code Fn.apply} has a return type of
    * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
    * {@code R}. Hence, it is valid for overriding method {@code C.apply} to return {@code @Nullable
    * String}.
@@ -616,7 +619,7 @@ public final class GenericsChecks {
    *     }
    * </pre>
    *
-   * The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
+   * <p>The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
    * variable {@code R}. So, the call {@code f.apply("hello")} returns {@code @Nullable} and an
    * error should be reported.
    *
@@ -666,7 +669,7 @@ public final class GenericsChecks {
    *     }
    * </pre>
    *
-   * The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
+   * <p>The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
    * variable {@code P}. So, it is legal to pass {@code null} as a parameter to {@code f.apply}.
    *
    * @param paramIndex parameter index
@@ -710,7 +713,7 @@ public final class GenericsChecks {
    *     }
    * </pre>
    *
-   * Within the context of class {@code C}, the method {@code Fn.apply} has a parameter type of
+   * <p>Within the context of class {@code C}, the method {@code Fn.apply} has a parameter type of
    * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
    * {@code P}. Hence, overriding method {@code C.apply} must take a {@code @Nullable String} as a
    * parameter.
@@ -840,5 +843,31 @@ public final class GenericsChecks {
    */
   public static String prettyTypeForError(Type type, VisitorState state) {
     return type.accept(new GenericTypePrettyPrintingVisitor(state), null);
+  }
+
+  public static boolean passingLambdaWithGenericReturnToUnmarkedCode(
+      Symbol.MethodSymbol methodSymbol,
+      LambdaExpressionTree lambdaTree,
+      VisitorState state,
+      Config config,
+      CodeAnnotationInfo codeAnnotationInfo) {
+    Type methodType = methodSymbol.type;
+    boolean returnsGeneric = methodType.getReturnType() instanceof TypeVariable;
+    if (!returnsGeneric) {
+      return false;
+    }
+    boolean callingUnannotated = false;
+    TreePath path = state.getPath();
+    while (path != null && !path.getLeaf().equals(lambdaTree)) {
+      path = path.getParentPath();
+    }
+    verify(path != null, "did not find lambda tree in TreePath");
+    Tree parentOfLambdaTree = path.getParentPath().getLeaf();
+    if (parentOfLambdaTree instanceof MethodInvocationTree) {
+      Symbol.MethodSymbol parentMethodSymbol =
+          ASTHelpers.getSymbol((MethodInvocationTree) parentOfLambdaTree);
+      callingUnannotated = codeAnnotationInfo.isSymbolUnannotated(parentMethodSymbol, config);
+    }
+    return callingUnannotated;
   }
 }

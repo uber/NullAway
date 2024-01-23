@@ -917,13 +917,15 @@ public class NullAway extends BugChecker
     // type is @Nullable, and if so, bail out.
     if (getMethodReturnNullness(methodSymbol, state, Nullness.NULLABLE).equals(Nullness.NULLABLE)) {
       return Description.NO_MATCH;
-    } else if (config.isJSpecifyMode()
-        && lambdaTree != null
-        && GenericsChecks.getGenericMethodReturnTypeNullness(
-                methodSymbol, ASTHelpers.getType(lambdaTree), state, config)
-            .equals(Nullness.NULLABLE)) {
-      // In JSpecify mode, the return type of a lambda may be @Nullable via a type argument
-      return Description.NO_MATCH;
+    } else if (config.isJSpecifyMode() && lambdaTree != null) {
+      if (GenericsChecks.getGenericMethodReturnTypeNullness(
+                  methodSymbol, ASTHelpers.getType(lambdaTree), state, config)
+              .equals(Nullness.NULLABLE)
+          || GenericsChecks.passingLambdaWithGenericReturnToUnmarkedCode(
+              methodSymbol, lambdaTree, state, config, codeAnnotationInfo)) {
+        // In JSpecify mode, the return type of a lambda may be @Nullable via a type argument
+        return Description.NO_MATCH;
+      }
     }
 
     // Return type is @NonNull.  Check if the expression is @Nullable
