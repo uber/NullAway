@@ -2288,22 +2288,6 @@ public class NullAway extends BugChecker
       case NULL_LITERAL:
         // obviously null
         return true;
-      case ARRAY_ACCESS:
-        if (config.isJSpecifyMode()) {
-          ArrayAccessTree arrayAccess = (ArrayAccessTree) expr;
-          ExpressionTree arrayExpr = arrayAccess.getExpression();
-          Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
-          if (arraySymbol != null) {
-            for (Attribute.TypeCompound t : arraySymbol.getRawTypeAttributes()) {
-              for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
-                if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
-                  return true;
-                }
-              }
-            }
-          }
-        }
-        return false;
       case NEW_CLASS:
       case NEW_ARRAY:
         // for string concatenation, auto-boxing
@@ -2361,6 +2345,24 @@ public class NullAway extends BugChecker
     Symbol exprSymbol = ASTHelpers.getSymbol(expr);
     boolean exprMayBeNull;
     switch (expr.getKind()) {
+      case ARRAY_ACCESS:
+        exprMayBeNull = false;
+        if (config.isJSpecifyMode()) {
+          ArrayAccessTree arrayAccess = (ArrayAccessTree) expr;
+          ExpressionTree arrayExpr = arrayAccess.getExpression();
+          Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
+          if (arraySymbol != null) {
+            for (Attribute.TypeCompound t : arraySymbol.getRawTypeAttributes()) {
+              for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
+                if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+                  exprMayBeNull = true;
+                  break;
+                }
+              }
+            }
+          }
+        }
+        break;
       case MEMBER_SELECT:
         if (exprSymbol == null) {
           throw new IllegalStateException(
