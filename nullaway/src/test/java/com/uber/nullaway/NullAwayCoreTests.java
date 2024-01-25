@@ -985,4 +985,20 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testDefaultEqualsInInterfaceTakesNullable() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  public interface AnInterface {}",
+            "  public static boolean foo(AnInterface a, @Nullable AnInterface b) {",
+            "    return a.equals(b);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
