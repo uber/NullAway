@@ -124,7 +124,8 @@ public interface LibraryModels {
   }
 
   /**
-   * Get the set of library classes that are NullMarked.
+   * Get the set of library classes that are NullMarked. The usage is currently limited to JSpecify
+   * mode for classes with Generic type arguments.
    *
    * @return set of library classes that are NullMarked.
    */
