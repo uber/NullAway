@@ -1651,30 +1651,31 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
-    @Test
-    public void overrideWithRawType() {
-        makeHelper()
-                .addSourceLines(
-                        "Test.java",
-                        "package com.uber;",
-                        "import org.jspecify.annotations.Nullable;",
-                        "class Test {",
-                        "  interface Foo<T> {}",
-                        "  interface Bar<T> {",
-                        "    void add(Foo<T> foo);",
-                        "    @Nullable Foo<T> get();",
-                        "  }",
-                        "  static class Baz<T> implements Bar<T> {",
-                        "    @SuppressWarnings(\"rawtypes\")",
-                        "    @Override",
-                        "    public void add(Foo foo) {}",
-                        "    @SuppressWarnings(\"rawtypes\")",
-                        "    @Override",
-                        "    public @Nullable Foo get() { return null; }",
-                        "  }",
-                        "}")
-                .doTest();
-    }
+
+  @Test
+  public void overrideWithRawType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface Foo<T> {}",
+            "  interface Bar<T> {",
+            "    void add(Foo<T> foo);",
+            "    @Nullable Foo<T> get();",
+            "  }",
+            "  static class Baz<T> implements Bar<T> {",
+            "    @SuppressWarnings(\"rawtypes\")",
+            "    @Override",
+            "    public void add(Foo foo) {}",
+            "    @SuppressWarnings(\"rawtypes\")",
+            "    @Override",
+            "    public @Nullable Foo get() { return null; }",
+            "  }",
+            "}")
+        .doTest();
+  }
 
   @Test
   public void testForNullReturnLambdaFromStreamMap() {

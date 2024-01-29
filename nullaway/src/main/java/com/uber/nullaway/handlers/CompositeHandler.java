@@ -319,7 +319,7 @@ class CompositeHandler implements Handler {
     return result;
   }
 
-    /** Returns true if any handler returns true. */
+  /** Returns true if any handler returns true. */
   @Override
   public boolean onOverrideNullMarkedClasses(String className) {
     boolean result = false;
