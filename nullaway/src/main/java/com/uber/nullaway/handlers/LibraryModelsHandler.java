@@ -940,10 +940,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableList<StreamTypeRecord> customStreamNullabilitySpecs;
 
-    public CombinedLibraryModels(Iterable<LibraryModels> models, Config config, ImmutableSet<String> nullMarkedClasses) {
+    public CombinedLibraryModels(Iterable<LibraryModels> models, Config config) {
       this.config = config;
-        this.nullMarkedClasses = nullMarkedClasses;
-        ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
+      ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> explicitlyNullableParametersBuilder =
           new ImmutableSetMultimap.Builder<>();

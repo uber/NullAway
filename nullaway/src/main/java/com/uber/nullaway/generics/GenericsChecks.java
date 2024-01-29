@@ -3,7 +3,6 @@ package com.uber.nullaway.generics;
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
-import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
@@ -856,6 +855,7 @@ public final class GenericsChecks {
    * @param expressionTree the expression <em>e</em>
    * @param state visitor state
    * @param config NullAway configuration
+   * @param handler NullAway handler
    * @param codeAnnotationInfo information on which code is annotated
    */
   public static boolean passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
@@ -863,7 +863,8 @@ public final class GenericsChecks {
       ExpressionTree expressionTree,
       VisitorState state,
       Config config,
-      CodeAnnotationInfo codeAnnotationInfo) {
+      CodeAnnotationInfo codeAnnotationInfo,
+      Handler handler) {
     Type methodType = methodSymbol.type;
     boolean returnsGeneric = methodType.getReturnType() instanceof TypeVariable;
     if (!returnsGeneric) {
@@ -879,7 +880,8 @@ public final class GenericsChecks {
     if (parentOfLambdaTree instanceof MethodInvocationTree) {
       Symbol.MethodSymbol parentMethodSymbol =
           ASTHelpers.getSymbol((MethodInvocationTree) parentOfLambdaTree);
-      callingUnannotated = codeAnnotationInfo.isSymbolUnannotated(parentMethodSymbol, config);
+      callingUnannotated =
+          codeAnnotationInfo.isSymbolUnannotated(parentMethodSymbol, config, handler);
     }
     return callingUnannotated;
   }
