@@ -845,6 +845,20 @@ public final class GenericsChecks {
     return type.accept(new GenericTypePrettyPrintingVisitor(state), null);
   }
 
+  /**
+   * Checks if a given expression <em>e</em> is a lambda or method reference such that (1) the
+   * declared return type of the method for <em>e</em> is a generic type variable, and (2)
+   * <em>e</em> is being passed as a parameter to an unannotated method. In such cases, the caller
+   * should treat <em>e</em> as being allowed to return a {@code Nullable} value, even if the
+   * locally-computed type of the expression is not {@code @Nullable}. This special treatment is
+   * necessary to properly avoid reporting errors when interacting with unannotated / unmarked code.
+   *
+   * @param methodSymbol the symbol for the method corresponding to <em>e</em>
+   * @param expressionTree the expression <em>e</em>
+   * @param state visitor state
+   * @param config NullAway configuration
+   * @param codeAnnotationInfo information on which code is annotated
+   */
   public static boolean passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
       Symbol.MethodSymbol methodSymbol,
       ExpressionTree expressionTree,
@@ -861,7 +875,7 @@ public final class GenericsChecks {
     while (path != null && !path.getLeaf().equals(expressionTree)) {
       path = path.getParentPath();
     }
-    verify(path != null, "did not find lambda tree in TreePath");
+    verify(path != null, "did not find lambda or method reference tree in TreePath");
     Tree parentOfLambdaTree = path.getParentPath().getLeaf();
     if (parentOfLambdaTree instanceof MethodInvocationTree) {
       Symbol.MethodSymbol parentMethodSymbol =
