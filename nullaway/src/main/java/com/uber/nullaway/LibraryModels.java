@@ -113,6 +113,26 @@ public interface LibraryModels {
   ImmutableSet<MethodRef> nonNullReturns();
 
   /**
+   * Get the (className, type argument index) pairs for library classes where the generic type
+   * argument has a {@code @Nullable} upper bound. Only used in JSpecify mode.
+   *
+   * @return map from the className to the positions of the generic type arguments that have a
+   *     {@code Nullable} upper bound.
+   */
+  default ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
+    return ImmutableSetMultimap.of();
+  }
+
+  /**
+   * Get the set of library classes that are NullMarked. Only used in JSpecify mode.
+   *
+   * @return set of library classes that are NullMarked.
+   */
+  default ImmutableSet<String> nullMarkedClasses() {
+    return ImmutableSet.of();
+  }
+
+  /**
    * Get (method, parameter) pairs that act as castToNonNull(...) methods.
    *
    * <p>Here, the parameter index determines the argument position of the reference being cast to
@@ -137,7 +157,9 @@ public interface LibraryModels {
    *
    * @return set of library fields that may be {@code null}.
    */
-  ImmutableSet<FieldRef> nullableFields();
+  default ImmutableSet<FieldRef> nullableFields() {
+    return ImmutableSet.of();
+  }
 
   /**
    * Get a list of custom stream library specifications.

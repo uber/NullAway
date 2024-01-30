@@ -1616,6 +1616,43 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testForNullableUpperBoundsInLibModel() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "class Test {",
+            "  static String foo(@Nullable String a) {",
+            "    if(a!=null){ ",
+            "     return a.replace(\"a\",\"\");",
+            "    }else{",
+            "     return \"\";",
+            "    }",
+            "  }",
+            "  static void testPositiveMethodRef() {",
+            "   Function<String,@Nullable String> removeA = Test::foo;",
+            "   // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "   removeA.apply(null);",
+            "  }",
+            "  static void testNegativeMethodRef() {",
+            "   Function<@Nullable String,@Nullable String> removeA = Test::foo;",
+            "   removeA.apply(null);",
+            "  }",
+            "  static void testPositiveLambda() {",
+            "   Function<String,@Nullable String> removeA = a -> a.replace(\"a\",\"\");",
+            "   // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "   removeA.apply(null);",
+            "  }",
+            "  static void testNegative() {",
+            "   Function<String,@Nullable String> removeA = a -> a.replace(\"a\",\"\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void overrideWithRawType() {
     makeHelper()
         .addSourceLines(
@@ -1635,6 +1672,34 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "    @SuppressWarnings(\"rawtypes\")",
             "    @Override",
             "    public @Nullable Foo get() { return null; }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForNullReturnLambdaFromStreamMap() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "import java.util.Arrays;",
+            "import java.util.stream.Collectors;",
+            "class Test {",
+            "  @Nullable",
+            "  static Integer foo(){",
+            "    return null;",
+            "  }",
+            "  @Nullable",
+            "  static Integer foo2(Integer i){",
+            "    return null;",
+            "  }",
+            "  static void testNegative() {",
+            "    List<Integer> numbers = Arrays.asList(1, 2, 3, 4, 5);",
+            "    List<Integer> doubledNumbers = numbers.stream().map(number -> foo()).collect(Collectors.toList());",
+            "    List<Integer> other = numbers.stream().map(Test::foo2).collect(Collectors.toList());",
             "  }",
             "}")
         .doTest();
