@@ -114,7 +114,7 @@ public interface LibraryModels {
 
   /**
    * Get the (className, type argument index) pairs for library classes where the generic type
-   * argument has a {@code @Nullable} upper bound.
+   * argument has a {@code @Nullable} upper bound. Only used in JSpecify mode.
    *
    * @return map from the className to the positions of the generic type arguments that have a
    *     {@code Nullable} upper bound.
@@ -124,7 +124,7 @@ public interface LibraryModels {
   }
 
   /**
-   * Get the set of library classes that are NullMarked.
+   * Get the set of library classes that are NullMarked. Only used in JSpecify mode.
    *
    * @return set of library classes that are NullMarked.
    */
