@@ -410,7 +410,7 @@ public interface Handler {
    * @return boolean true if the variable should be treated as having a {@code @Nullable} upper
    *     bound
    */
-  boolean onOverrideTypeParameterUpperBound(String className, int arg);
+  boolean onOverrideTypeParameterUpperBound(String className, int index);
 
   /**
    * Called to get the library models for which a particular class is NullMarked.
