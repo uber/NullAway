@@ -1,14 +1,5 @@
 Changelog
 =========
-Version 0.10.22
----------------
-IMPORTANT: The support for JDK 8 is deprecated in this release and will be removed in
-    an upcoming release.
-
-* Fix bug with implicit equals() methods in interfaces (#898)
-* Fix crash with raw types in overrides in JSpecify mode (#899)
-* Docs fix: Update instructions for Android and our sample app (#900)
-
 Version 0.10.21
 ---------------
 IMPORTANT: This release fixes a crash when running against <2.24.0 release of
