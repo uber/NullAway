@@ -91,16 +91,12 @@ public class FixSerializationConfig {
 
   public DocumentBuilderFactory safeDocumentBuilderFactory() {
     DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-    try {
-      dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-      dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-      dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
-      dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-      dbf.setFeature("http://apache.org/xml/features/dom/create-entity-ref-nodes", false);
-      dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-    } catch (ParserConfigurationException e) {
-      log.warn(e);
-    }
+    dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+    dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+    dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+    dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+    dbf.setFeature("http://apache.org/xml/features/dom/create-entity-ref-nodes", false);
+    dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
     return dbf;
   }
 
