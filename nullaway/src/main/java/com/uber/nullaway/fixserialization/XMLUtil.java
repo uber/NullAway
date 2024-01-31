@@ -94,6 +94,21 @@ public class XMLUtil {
     return new DefaultXMLValueProvider<>(null, klass);
   }
 
+  public DocumentBuilderFactory safeDocumentBuilderFactory() {
+    DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+    try {
+      dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+      dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+      dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+      dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+      dbf.setFeature("http://apache.org/xml/features/dom/create-entity-ref-nodes", false);
+      dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+    } catch (ParserConfigurationException e) {
+      log.warn(e);
+    }
+    return dbf;
+  }
+
   /**
    * Writes the {@link FixSerializationConfig} in {@code XML} format.
    *
@@ -101,7 +116,7 @@ public class XMLUtil {
    * @param path Path to write the config at.
    */
   public static void writeInXMLFormat(FixSerializationConfig config, String path) {
-    DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+    DocumentBuilderFactory docFactory = safeDocumentBuilderFactory();
     try {
       DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
       Document doc = docBuilder.newDocument();
