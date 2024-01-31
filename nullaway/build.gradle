@@ -39,7 +39,7 @@ dependencies {
     compileOnly deps.build.errorProneCheckApi
     implementation deps.build.checkerDataflow
     implementation deps.build.guava
-
+    implementation 'com.github.javaparser:javaparser-core:3.25.8'
     testImplementation project(":annotations")
     testImplementation deps.test.junit4
     testImplementation(deps.build.errorProneTestHelpers) {
