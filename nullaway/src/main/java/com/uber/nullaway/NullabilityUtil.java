@@ -361,7 +361,7 @@ public class NullabilityUtil {
       Symbol symbol, Config config, CodeAnnotationInfo codeAnnotationInfo) {
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
-            || codeAnnotationInfo.isSymbolUnannotated(symbol, config))
+            || codeAnnotationInfo.isSymbolUnannotated(symbol, config, null))
         && Nullness.hasNullableAnnotation(symbol, config);
   }
 
