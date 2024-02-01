@@ -1003,14 +1003,14 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testFoo() {
+  public void testStaticImportFromSubclass() {
     defaultCompilationHelper
         .addSourceLines(
             "Superclass.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "class Superclass {",
-            "    public static String foo(@Nullable Object ignored) { return \"Nonsense java black magic!\"; };",
+            "    public static String foo(@Nullable Object ignored) { return \"\"; };",
             "}")
         .addSourceLines(
             "Subclass.java", "package com.uber;", "class Subclass extends Superclass {}")
@@ -1024,7 +1024,7 @@ public class NullAwayCoreTests extends NullAwayTestsBase {
             "        System.out.println(Superclass.foo(null));",
             "        // Calling foo() through Subclass: also safe",
             "        System.out.println(Subclass.foo(null));",
-            "        // Static import from Subclass: also safe but produces error currently",
+            "        // Static import from Subclass: also safe",
             "        System.out.println(foo(null));",
             "    }",
             "}")
