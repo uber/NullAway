@@ -94,7 +94,7 @@ public class XMLUtil {
     return new DefaultXMLValueProvider<>(null, klass);
   }
 
-  public DocumentBuilderFactory safeDocumentBuilderFactory() {
+  public static DocumentBuilderFactory safeDocumentBuilderFactory() {
     DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
     dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
     dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
