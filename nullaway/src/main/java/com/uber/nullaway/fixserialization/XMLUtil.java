@@ -16,7 +16,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
  * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
  * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
- * OUT OF OR IN CONNECTION WITH com.uber.nullaway.fixserializationTHE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
 
@@ -24,6 +24,7 @@ package com.uber.nullaway.fixserialization;
 
 import java.io.File;
 import javax.annotation.Nullable;
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -94,14 +95,24 @@ public class XMLUtil {
     return new DefaultXMLValueProvider<>(null, klass);
   }
 
+  /**
+   * Returns a secure DocumentBuilderFactory object for parsing XML documents.
+   * By setting a series of security features, it helps prevent common XML injection attacks and enhances the security of XML document parsing.
+   *
+   * @return A secure DocumentBuilderFactory object
+   */
   public static DocumentBuilderFactory safeDocumentBuilderFactory() {
     DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
-    dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-    dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
-    dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
-    dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
-    dbf.setFeature("http://apache.org/xml/features/dom/create-entity-ref-nodes", false);
-    dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+    try {
+      dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+      dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+      dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+      dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+      dbf.setFeature("http://apache.org/xml/features/dom/create-entity-ref-nodes", false);
+      dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+    }catch (ParserConfigurationException e) {
+      throw new RuntimeException("Error happened in build doc.", e);
+    }
     return dbf;
   }
 

@@ -89,8 +89,6 @@ public class FixSerializationConfig {
     serializer = new Serializer(this, initializeAdapter(SerializationAdapter.LATEST_VERSION));
   }
 
-
-
   /**
    * Sets all flags based on their values in the configuration file.
    *
