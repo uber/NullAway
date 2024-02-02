@@ -100,7 +100,7 @@ public class FixSerializationConfig {
   public FixSerializationConfig(String configFilePath, int serializationVersion) {
     Document document;
     try {
-      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+      DocumentBuilderFactory factory = XMLUtil.safeDocumentBuilderFactory();
       DocumentBuilder builder = factory.newDocumentBuilder();
       document = builder.parse(Files.newInputStream(Paths.get(configFilePath)));
       document.normalize();
