@@ -413,11 +413,10 @@ public interface Handler {
   boolean onOverrideTypeParameterUpperBound(String className, int index);
 
   /**
-   * Called to get the library models for which a particular class is NullMarked.
+   * Method to override the null-markedness of a class.
    *
-   * @param className A String containing the name of the class for which we want to check if it is
-   *     NullMarked
-   * @return boolean value of whether the class is NullMarked
+   * @param className name of the class
+   * @return boolean true if the class should be treated as {@code @NullMarked}
    */
   boolean onOverrideNullMarkedClasses(String className);
 

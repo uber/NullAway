@@ -1678,28 +1678,33 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testForNullReturnLambdaFromStreamMap() {
+  public void passAnnotatedLambdaOrMethodRefToUnannotatedCode() {
     makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.NullUnmarked;",
             "import org.jspecify.annotations.Nullable;",
-            "import java.util.List;",
-            "import java.util.Arrays;",
-            "import java.util.stream.Collectors;",
             "class Test {",
-            "  @Nullable",
-            "  static Integer foo(){",
-            "    return null;",
+            "  static interface Fn<S extends @Nullable Object, T extends @Nullable Object> {",
+            "    T apply(S s);",
             "  }",
-            "  @Nullable",
-            "  static Integer foo2(Integer i){",
-            "    return null;",
+            "  @NullUnmarked",
+            "  static class C1 {",
+            "    static void foo(Fn<String, String> f) {}",
             "  }",
-            "  static void testNegative() {",
-            "    List<Integer> numbers = Arrays.asList(1, 2, 3, 4, 5);",
-            "    List<Integer> doubledNumbers = numbers.stream().map(number -> foo()).collect(Collectors.toList());",
-            "    List<Integer> other = numbers.stream().map(Test::foo2).collect(Collectors.toList());",
+            "  @NullMarked",
+            "  static class C2 {",
+            "    static void m1() {",
+            "      // no error here since C1 is @NullUnmarked",
+            "      C1.foo(s -> null);",
+            "    }",
+            "    static @Nullable String baz(String s) { return null; }",
+            "    static void m2() {",
+            "      // no error here since C1 is @NullUnmarked",
+            "      C1.foo(C2::baz);",
+            "    }",
             "  }",
             "}")
         .doTest();

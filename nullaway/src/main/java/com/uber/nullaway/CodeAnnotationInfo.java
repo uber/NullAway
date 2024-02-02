@@ -268,6 +268,15 @@ public final class CodeAnnotationInfo {
     return false;
   }
 
+  /**
+   * Check if a non-nested class should be treated as nullness-annotated.
+   *
+   * @param classSymbol symbol for the class
+   * @param config NullAway config
+   * @param handler optional NullAway handler. If present, used to check if a class is NullMarked
+   *     based on {@link Handler#onOverrideNullMarkedClasses(String)}
+   * @return {@code true} iff the class should be treated as nullness-annotated
+   */
   private boolean isAnnotatedTopLevelClass(
       Symbol.ClassSymbol classSymbol, Config config, @Nullable Handler handler) {
     // First, check for an explicitly @NullUnmarked top level class
