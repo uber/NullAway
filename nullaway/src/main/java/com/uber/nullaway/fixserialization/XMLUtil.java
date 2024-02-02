@@ -96,8 +96,9 @@ public class XMLUtil {
   }
 
   /**
-   * Returns a secure DocumentBuilderFactory object for parsing XML documents.
-   * By setting a series of security features, it helps prevent common XML injection attacks and enhances the security of XML document parsing.
+   * Returns a secure DocumentBuilderFactory object for parsing XML documents. By setting a series
+   * of security features, it helps prevent common XML injection attacks and enhances the security
+   * of XML document parsing.
    *
    * @return A secure DocumentBuilderFactory object
    */
@@ -110,7 +111,7 @@ public class XMLUtil {
       dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
       dbf.setFeature("http://apache.org/xml/features/dom/create-entity-ref-nodes", false);
       dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-    }catch (ParserConfigurationException e) {
+    } catch (ParserConfigurationException e) {
       throw new RuntimeException("Error happened in build doc.", e);
     }
     return dbf;
