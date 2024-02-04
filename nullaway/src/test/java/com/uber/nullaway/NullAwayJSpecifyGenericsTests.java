@@ -1673,6 +1673,13 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
             "  static void testNegative() {",
             "   Function<String,@Nullable String> removeA = a -> a.replace(\"a\",\"\");",
             "  }",
+            "  static @Nullable String foo2(@Nullable String b) {",
+            "    return null;",
+            "  }",
+            "  static Function<String,String> testPositiveReturn() {",
+            "    // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method",
+            "    return Test::foo2;",
+            "  }",
             "}")
         .doTest();
   }
