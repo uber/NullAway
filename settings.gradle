@@ -6,6 +6,11 @@ pluginManagement {
     }
 }
 
+plugins {
+    // to automatically pull in relevant JDK toolchains when not present on the local machine
+    id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
+}
+
 include ':annotations'
 include ':nullaway'
 include ':sample-library-model'

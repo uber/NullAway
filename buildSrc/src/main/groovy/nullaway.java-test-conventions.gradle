@@ -44,22 +44,6 @@ configurations.create('transitiveSourcesElements') {
     }
 }
 
-// Share the coverage data to be aggregated for the whole product
-configurations.create('coverageDataElements') {
-    visible = false
-    canBeResolved = false
-    canBeConsumed = true
-    extendsFrom(configurations.implementation)
-    attributes {
-        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
-        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
-        attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, 'jacoco-coverage-data'))
-    }
-    // This will cause the test task to run if the coverage data is requested by the aggregation task
-    outgoing.artifact(tasks.named("test").map { task ->
-        task.extensions.getByType(JacocoTaskExtension).destinationFile
-    })
-}
 
 test {
     maxHeapSize = "1024m"
@@ -117,4 +101,24 @@ def testJdk21 = tasks.register("testJdk21", Test) {
 
 tasks.named('check').configure {
     dependsOn testJdk21
+}
+
+
+// Share the coverage data to be aggregated for the whole product
+configurations.create('coverageDataElements') {
+    visible = false
+    canBeResolved = false
+    canBeConsumed = true
+    extendsFrom(configurations.implementation)
+    attributes {
+        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
+        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
+        attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, 'jacoco-coverage-data'))
+    }
+    // This will cause the test tasks to run if the coverage data is requested by the aggregation task
+    tasks.withType(Test).forEach {task ->
+        // tasks.named(task.name) is a hack to introduce the right task dependence in Gradle.  We will fix this
+        // correctly when addressing https://github.com/uber/NullAway/issues/871
+        outgoing.artifact(tasks.named(task.name).map { t -> t.extensions.getByType(JacocoTaskExtension).destinationFile })
+    }
 }

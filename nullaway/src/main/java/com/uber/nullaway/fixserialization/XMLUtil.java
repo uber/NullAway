@@ -24,6 +24,7 @@ package com.uber.nullaway.fixserialization;
 
 import java.io.File;
 import javax.annotation.Nullable;
+import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -95,13 +96,35 @@ public class XMLUtil {
   }
 
   /**
+   * Returns a secure DocumentBuilderFactory object for parsing XML documents. By setting a series
+   * of security features, it helps prevent common XML injection attacks and enhances the security
+   * of XML document parsing.
+   *
+   * @return A secure DocumentBuilderFactory object
+   */
+  public static DocumentBuilderFactory safeDocumentBuilderFactory() {
+    DocumentBuilderFactory dbf = DocumentBuilderFactory.newInstance();
+    try {
+      dbf.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+      dbf.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
+      dbf.setFeature("http://xml.org/sax/features/external-general-entities", false);
+      dbf.setFeature("http://xml.org/sax/features/external-parameter-entities", false);
+      dbf.setFeature("http://apache.org/xml/features/dom/create-entity-ref-nodes", false);
+      dbf.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+    } catch (ParserConfigurationException e) {
+      throw new RuntimeException("Error happened in build doc.", e);
+    }
+    return dbf;
+  }
+
+  /**
    * Writes the {@link FixSerializationConfig} in {@code XML} format.
    *
    * @param config Config file to write.
    * @param path Path to write the config at.
    */
   public static void writeInXMLFormat(FixSerializationConfig config, String path) {
-    DocumentBuilderFactory docFactory = DocumentBuilderFactory.newInstance();
+    DocumentBuilderFactory docFactory = safeDocumentBuilderFactory();
     try {
       DocumentBuilder docBuilder = docFactory.newDocumentBuilder();
       Document doc = docBuilder.newDocument();

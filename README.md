@@ -58,15 +58,9 @@ Snapshots of the development version are available in [Sonatype's snapshots repo
 
 #### Android
 
-The configuration for an Android project is very similar to the Java case, with one key difference: The `com.google.code.findbugs:jsr305:3.0.2` dependency can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library.
+Versions 3.0.0 and later of the Gradle Error Prone Plugin [no longer support Android](https://github.com/tbroyer/gradle-errorprone-plugin/releases/tag/v3.0.0).  So if you're using a recent version of this plugin, you'll need to add some further configuration to run Error Prone and NullAway.  Our [sample app `build.gradle` file](https://github.com/uber/NullAway/blob/master/sample-app/build.gradle) shows one way to do this, but your Android project may require tweaks.  Alternately, 2.x versions of the Gradle Error Prone Plugin still support Android and may still work with your project.
 
-```gradle
-dependencies {
-  errorprone "com.uber.nullaway:nullaway:<NullAway version>"
-  errorprone "com.google.errorprone:error_prone_core:<Error Prone version>"
-}
-```
-For a more complete example see our [sample app](https://github.com/uber/NullAway/blob/master/sample-app/).  (The sample app's [`build.gradle`](https://github.com/uber/NullAway/blob/master/sample-app/) is not suitable for direct copy-pasting, as some configuration is inherited from the top-level `build.gradle`.)
+Beyond that, compared to the Java configuration, the `com.google.code.findbugs:jsr305:3.0.2` dependency can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library instead.
 
 #### Annotation Processors / Generated Code
 

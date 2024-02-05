@@ -45,27 +45,30 @@ android {
     variants.addAll(getUnitTestVariants())
     variants.configureEach { variant ->
         variant.getJavaCompileProvider().configure {
-            options.errorprone {
-                check("NullAway", CheckSeverity.ERROR)
-                option("NullAway:AnnotatedPackages", "com.uber")
-            }
+            options.compilerArgs += [
+                "-XDcompilePolicy=simple",
+                "-Xplugin:ErrorProne -XepOpt:NullAway:AnnotatedPackages=com.uber",
+            ]
+            options.fork = true
+            options.forkOptions.jvmArgs = [
+                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+                "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+                "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED"
+            ]
         }
     }
-
-    // If you want to disable NullAway in just tests, you can do the below
-    //    DomainObjectSet<BaseVariant> testVariants = getTestVariants()
-    //    testVariants.addAll(getUnitTestVariants())
-    //    testVariants.configureEach { variant ->
-    //        variant.getJavaCompileProvider().configure {
-    //            options.errorprone {
-    //                check("NullAway", CheckSeverity.OFF)
-    //            }
-    //        }
-    //    }
 }
 
 dependencies {
     implementation deps.support.appcompat
+    annotationProcessor deps.build.errorProneCore
     annotationProcessor project(":nullaway")
     annotationProcessor project(path: ":sample-library-model")
 
