@@ -41,6 +41,7 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeAnnotationPosition;
 import com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntry;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
@@ -412,5 +413,25 @@ public class NullabilityUtil {
       throw new NullPointerException("castToNonNull failed!");
     }
     return obj;
+  }
+
+  /**
+   * Checks if the given array symbol has a nullable annotation.
+   *
+   * @param arraySymbol The symbol of the array to check.
+   * @param config NullAway configuration.
+   * @return true if the array symbol has a nullable annotation, false otherwise.
+   */
+  public static boolean isArrayElementNullable(Symbol arraySymbol, Config config) {
+    for (Attribute.TypeCompound t : arraySymbol.getRawTypeAttributes()) {
+      for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
+        if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+          if (Nullness.isNullableAnnotation(t.toString(), config)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
   }
 }
