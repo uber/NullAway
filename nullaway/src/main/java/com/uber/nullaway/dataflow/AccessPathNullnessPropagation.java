@@ -31,8 +31,10 @@ import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeAnnotationPosition;
 import com.sun.tools.javac.code.TypeTag;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
@@ -794,9 +796,32 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitArrayAccess(
       ArrayAccessNode node, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates updates = new ReadableUpdates();
+
     setNonnullIfAnalyzeable(updates, node.getArray());
-    // this is unsound
-    return updateRegularStore(defaultAssumption, input, updates);
+
+    Nullness resultNullness = defaultAssumption;
+
+    // TODO: export to utility method
+    if (config.isJSpecifyMode()) {
+      Symbol arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());
+      if (arraySymbol != null) {
+        boolean isElementNullable = false;
+        for (Attribute.TypeCompound t : arraySymbol.getRawTypeAttributes()) {
+          for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
+            if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+              isElementNullable = true;
+              break;
+            }
+          }
+          if (isElementNullable) {
+            resultNullness = Nullness.NULLABLE;
+            break;
+          }
+        }
+      }
+    }
+
+    return updateRegularStore(resultNullness, input, updates);
   }
 
   @Override

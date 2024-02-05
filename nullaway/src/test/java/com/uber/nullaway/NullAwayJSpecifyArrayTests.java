@@ -123,7 +123,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "  static void foo() {",
             "     if (fizz != null) {",
             "       String s = fizz[0];",
-            "      // TODO: This should report due to dereference of @Nullable s",
+            "      // BUG: Diagnostic contains: dereferenced expression s is @Nullable",
             "       int l = s.length();",
             "     }",
             "  }",

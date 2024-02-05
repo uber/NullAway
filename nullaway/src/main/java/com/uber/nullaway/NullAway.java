@@ -2347,6 +2347,7 @@ public class NullAway extends BugChecker
     switch (expr.getKind()) {
       case ARRAY_ACCESS:
         exprMayBeNull = false;
+        // TODO: export to utility method
         if (config.isJSpecifyMode()) {
           ArrayAccessTree arrayAccess = (ArrayAccessTree) expr;
           ExpressionTree arrayExpr = arrayAccess.getExpression();
