@@ -40,7 +40,7 @@ if (project.hasProperty("epApiVersion")) {
 
 def versions = [
     asm                    : "9.3",
-    checkerFramework       : "3.41.0",
+    checkerFramework       : "3.40.0",
     // for comparisons in other parts of the build
     errorProneLatest       : latestErrorProneVersion,
     // The version of Error Prone used to check NullAway's code.
@@ -67,10 +67,12 @@ def build = [
     asm                     : "org.ow2.asm:asm:${versions.asm}",
     asmTree                 : "org.ow2.asm:asm-tree:${versions.asm}",
     errorProneCheckApi      : "com.google.errorprone:error_prone_check_api:${versions.errorProneApi}",
+    errorProneCheckApiOld   : "com.google.errorprone:error_prone_check_api:${oldestErrorProneVersion}",
     errorProneCore          : "com.google.errorprone:error_prone_core:${versions.errorProne}",
     errorProneCoreForApi    : "com.google.errorprone:error_prone_core:${versions.errorProneApi}",
     errorProneJavac         : "com.google.errorprone:javac:9+181-r4173-1",
     errorProneTestHelpers   : "com.google.errorprone:error_prone_test_helpers:${versions.errorProneApi}",
+    errorProneTestHelpersOld: "com.google.errorprone:error_prone_test_helpers:${oldestErrorProneVersion}",
     checkerDataflow         : "org.checkerframework:dataflow-nullaway:${versions.checkerFramework}",
     guava                   : "com.google.guava:guava:30.1-jre",
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
