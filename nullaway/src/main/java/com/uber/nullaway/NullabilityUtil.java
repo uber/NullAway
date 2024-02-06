@@ -416,17 +416,18 @@ public class NullabilityUtil {
   }
 
   /**
-   * Checks if the given array symbol has a nullable annotation.
+   * Checks if the given array symbol has a {@code @Nullable} annotation for its elements.
    *
    * @param arraySymbol The symbol of the array to check.
    * @param config NullAway configuration.
-   * @return true if the array symbol has a nullable annotation, false otherwise.
+   * @return true if the array symbol has a {@code @Nullable} annotation for its elements, false
+   *     otherwise
    */
   public static boolean isArrayElementNullable(Symbol arraySymbol, Config config) {
     for (Attribute.TypeCompound t : arraySymbol.getRawTypeAttributes()) {
       for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
         if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
-          if (Nullness.isNullableAnnotation(t.toString(), config)) {
+          if (Nullness.isNullableAnnotation(t.type.toString(), config)) {
             return true;
           }
         }

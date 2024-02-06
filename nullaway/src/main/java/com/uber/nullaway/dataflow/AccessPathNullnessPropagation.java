@@ -796,6 +796,7 @@ public class AccessPathNullnessPropagation
     ReadableUpdates updates = new ReadableUpdates();
     setNonnullIfAnalyzeable(updates, node.getArray());
     Nullness resultNullness;
+    // Unsoundly assume @NonNull, except in JSpecify mode where we check the type
     boolean isElementNullable = false;
     if (config.isJSpecifyMode()) {
       Symbol arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());

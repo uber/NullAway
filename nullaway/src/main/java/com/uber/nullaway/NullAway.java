@@ -2367,8 +2367,10 @@ public class NullAway extends BugChecker
     boolean exprMayBeNull;
     switch (expr.getKind()) {
       case ARRAY_ACCESS:
+        // Outside JSpecify mode, we assume array contents are always non-null
         exprMayBeNull = false;
         if (config.isJSpecifyMode()) {
+          // In JSpecify mode, we check if the array element type is nullable
           ArrayAccessTree arrayAccess = (ArrayAccessTree) expr;
           ExpressionTree arrayExpr = arrayAccess.getExpression();
           Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
