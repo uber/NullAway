@@ -2309,8 +2309,6 @@ public class NullAway extends BugChecker
       case NULL_LITERAL:
         // obviously null
         return true;
-      case ARRAY_ACCESS:
-        // unsound!  we cannot check for nullness of array contents yet
       case NEW_CLASS:
       case NEW_ARRAY:
         // for string concatenation, auto-boxing
@@ -2368,6 +2366,19 @@ public class NullAway extends BugChecker
     Symbol exprSymbol = ASTHelpers.getSymbol(expr);
     boolean exprMayBeNull;
     switch (expr.getKind()) {
+      case ARRAY_ACCESS:
+        // Outside JSpecify mode, we assume array contents are always non-null
+        exprMayBeNull = false;
+        if (config.isJSpecifyMode()) {
+          // In JSpecify mode, we check if the array element type is nullable
+          ArrayAccessTree arrayAccess = (ArrayAccessTree) expr;
+          ExpressionTree arrayExpr = arrayAccess.getExpression();
+          Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
+          if (arraySymbol != null) {
+            exprMayBeNull = NullabilityUtil.isArrayElementNullable(arraySymbol, config);
+          }
+        }
+        break;
       case MEMBER_SELECT:
         if (exprSymbol == null) {
           throw new IllegalStateException(
