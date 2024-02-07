@@ -43,22 +43,34 @@ import com.github.javaparser.utils.CollectionStrategy;
 import com.github.javaparser.utils.ParserCollectionStrategy;
 import com.github.javaparser.utils.ProjectRoot;
 import com.github.javaparser.utils.SourceRoot;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.FileTime;
 import java.util.ArrayDeque;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 public class LibModelInfoExtractor {
 
+  private static Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
+
   public static void main(String[] args) {
-    for (String arg : args) {
-      processSourceFile(arg);
-    }
+    // input directory
+    processSourceFile(args[0]);
+    // output directory
+    writeToAstubx(args[1]);
   }
 
   public static void processSourceFile(String file) {
@@ -80,6 +92,40 @@ public class LibModelInfoExtractor {
                 System.err.println("IOException: " + e);
               }
             });
+  }
+
+  public static void writeToAstubx(String outputPath) {
+    Map<String, String> importedAnnotations =
+        ImmutableMap.<String, String>builder()
+            .put("Nonnull", "javax.annotation.Nonnull")
+            .put("Nullable", "javax.annotation.Nullable")
+            .build();
+    ZipOutputStream zos;
+    try {
+      zos = new ZipOutputStream(new FileOutputStream(outputPath));
+    } catch (FileNotFoundException e) {
+      throw new RuntimeException(e);
+    }
+    if (!methodRecords.isEmpty()) {
+      ZipEntry entry = new ZipEntry("META-INF/nullaway/libmodels.astubx");
+      // Set the modification/creation time to 0 to ensure that this jars always have the same
+      // checksum
+      entry.setTime(0);
+      entry.setCreationTime(FileTime.fromMillis(0));
+      try {
+        zos.putNextEntry(entry);
+        StubxFileWriter.write(
+            new DataOutputStream(zos),
+            importedAnnotations,
+            new HashMap<>(),
+            new HashMap<>(),
+            methodRecords);
+        zos.closeEntry();
+        zos.close();
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
   }
 
   public static Path dirnameToPath(String dir) {
@@ -173,7 +219,9 @@ public class LibModelInfoExtractor {
         }
       }
       // Finding All the annotations on the class or interface.
-      classOrInterfaceAnnotationsMap.put(classOrInterfaceName, cid.getAnnotations());
+      if (cid.getAnnotations().isNonEmpty()) {
+        classOrInterfaceAnnotationsMap.put(classOrInterfaceName, cid.getAnnotations());
+      }
       System.out.println("Fully qualified class name: " + classOrInterfaceName);
       nullableTypeBoundsMap.forEach(
           (p, a) -> System.out.println("Nullable Index: " + p + "\tClass: " + a));
@@ -195,10 +243,34 @@ public class LibModelInfoExtractor {
     @Override
     public MethodDeclaration visit(MethodDeclaration md, Void arg) {
       String methodName = md.getNameAsString();
+      Optional<Node> parentClassNode = md.getParentNode();
+      String parentClassName =
+          parentClassNode.isPresent()
+              ? ((ClassOrInterfaceDeclaration) parentClassNode.get()).getNameAsString()
+              : "";
+      String methodSignature = md.getSignature().toString();
       Map<String, NodeList<AnnotationExpr>> methodAnnotationsMap = new HashMap<>();
-      methodAnnotationsMap.put(methodName, md.getAnnotations());
+      Map<String, String> nonNullReturnMethods = new HashMap<>();
+      boolean isNullableAnnotationPresent = false;
+      if (md.getAnnotations().isNonEmpty()) {
+        methodAnnotationsMap.put(methodName, md.getAnnotations());
+      }
       methodAnnotationsMap.forEach(
           (m, a) -> System.out.println("Method: " + m + "\tAnnotations: " + a));
+      for (AnnotationExpr annotation : md.getAnnotations()) {
+        if (annotation.getNameAsString().equalsIgnoreCase("@Nullable")) {
+          isNullableAnnotationPresent = true;
+          break;
+        }
+      }
+      if (!isNullableAnnotationPresent) {
+        nonNullReturnMethods.put(packageName + "." + parentClassName, methodSignature);
+        methodRecords.put(
+            packageName + "." + parentClassName + ":" + methodName,
+            new MethodAnnotationsRecord(ImmutableSet.of("Nonnull"), ImmutableMap.of()));
+      }
+      nonNullReturnMethods.forEach(
+          (c, s) -> System.out.println("Enclosing Class: " + c + "\tMethod Signature: " + s));
       return md;
     }
 
