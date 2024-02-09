@@ -305,4 +305,30 @@ class CompositeHandler implements Handler {
     }
     return previousArgumentPosition;
   }
+
+  /** Returns true if any handler returns true. */
+  @Override
+  public boolean onOverrideTypeParameterUpperBound(String className, int index) {
+    boolean result = false;
+    for (Handler h : handlers) {
+      result = h.onOverrideTypeParameterUpperBound(className, index);
+      if (result) {
+        break;
+      }
+    }
+    return result;
+  }
+
+  /** Returns true if any handler returns true. */
+  @Override
+  public boolean onOverrideNullMarkedClasses(String className) {
+    boolean result = false;
+    for (Handler h : handlers) {
+      result = h.onOverrideNullMarkedClasses(className);
+      if (result) {
+        break;
+      }
+    }
+    return result;
+  }
 }

@@ -71,9 +71,4 @@ public class ExampleLibraryModels implements LibraryModels {
   public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
     return ImmutableSetMultimap.of();
   }
-
-  @Override
-  public ImmutableSet<FieldRef> nullableFields() {
-    return ImmutableSet.of();
-  }
 }
