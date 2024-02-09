@@ -167,7 +167,6 @@ public class LibModelInfoExtractor {
       return res;
     }
 
-    @SuppressWarnings("unused")
     public void visitAll(Node rootNode) {
       if (rootNode == null) {
         return;
@@ -250,7 +249,7 @@ public class LibModelInfoExtractor {
               : "";
       String methodSignature = md.getSignature().toString();
       Map<String, NodeList<AnnotationExpr>> methodAnnotationsMap = new HashMap<>();
-      Map<String, String> nonNullReturnMethods = new HashMap<>();
+      Map<String, String> nullableReturnMethods = new HashMap<>();
       boolean isNullableAnnotationPresent = false;
       if (md.getAnnotations().isNonEmpty()) {
         methodAnnotationsMap.put(methodName, md.getAnnotations());
@@ -263,13 +262,13 @@ public class LibModelInfoExtractor {
           break;
         }
       }
-      if (!isNullableAnnotationPresent) {
-        nonNullReturnMethods.put(packageName + "." + parentClassName, methodSignature);
+      if (isNullableAnnotationPresent) {
+        nullableReturnMethods.put(packageName + "." + parentClassName, methodSignature);
         methodRecords.put(
             packageName + "." + parentClassName + ":" + methodName,
-            new MethodAnnotationsRecord(ImmutableSet.of("Nonnull"), ImmutableMap.of()));
+            new MethodAnnotationsRecord(ImmutableSet.of("Nullable"), ImmutableMap.of()));
       }
-      nonNullReturnMethods.forEach(
+      nullableReturnMethods.forEach(
           (c, s) -> System.out.println("Enclosing Class: " + c + "\tMethod Signature: " + s));
       return md;
     }
