@@ -44,3 +44,8 @@ tasks.withType(JavaCompile) {
         "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED"
     ]
 }
+
+// Needed so that compilation re-runs if the lombok.config is changed
+tasks.named('compileJava') {
+    inputs.file('lombok.config')
+}
