@@ -243,10 +243,14 @@ public class LibModelInfoExtractor {
     public MethodDeclaration visit(MethodDeclaration md, Void arg) {
       String methodName = md.getNameAsString();
       Optional<Node> parentClassNode = md.getParentNode();
-      String parentClassName =
-          parentClassNode.isPresent()
-              ? ((ClassOrInterfaceDeclaration) parentClassNode.get()).getNameAsString()
-              : "";
+      String parentClassName = "";
+      if (parentClassNode.isPresent()) {
+        if (parentClassNode.get() instanceof ClassOrInterfaceDeclaration) {
+          parentClassName = ((ClassOrInterfaceDeclaration) parentClassNode.get()).getNameAsString();
+        } else if (parentClassNode.get() instanceof EnumDeclaration) {
+          parentClassName = ((EnumDeclaration) parentClassNode.get()).getNameAsString();
+        }
+      }
       String methodSignature = md.getSignature().toString();
       Map<String, NodeList<AnnotationExpr>> methodAnnotationsMap = new HashMap<>();
       Map<String, String> nullableReturnMethods = new HashMap<>();
