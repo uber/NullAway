@@ -1,10 +1,12 @@
 package com.uber.nullaway.handlers.temporary;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
@@ -35,13 +37,24 @@ public class FluentFutureHandler extends BaseNoOpHandler {
   private static final String GUAVA_FUNCTION_CLASS_NAME = "com.google.common.base.Function";
   private static final String GUAVA_ASYNC_FUNCTION_CLASS_NAME =
       "com.google.common.util.concurrent.AsyncFunction";
-  private static final String FLUENT_FUTURE_CLASS_NAME =
-      "com.google.common.util.concurrent.FluentFuture";
-  private static final String FUTURES_CLASS_NAME = "com.google.common.util.concurrent.Futures";
+
+  private static final ImmutableSet<String> FUTURES_CLASS_NAMES =
+      ImmutableSet.of(
+          "com.google.common.util.concurrent.FluentFuture",
+          "com.google.common.util.concurrent.Futures");
   private static final String FUNCTION_APPLY_METHOD_NAME = "apply";
   private static final String[] FLUENT_FUTURE_INCLUDE_LIST_METHODS = {
     "catching", "catchingAsync", "transform", "transformAsync"
   };
+
+  private final ImmutableSet<String> futuresClassNames;
+
+  public FluentFutureHandler(Config config) {
+    ImmutableSet.Builder<String> builder = ImmutableSet.builder();
+    builder.addAll(FUTURES_CLASS_NAMES);
+    builder.addAll(config.getExtraFuturesClasses());
+    futuresClassNames = builder.build();
+  }
 
   private static boolean isGuavaFunctionDotApply(Symbol.MethodSymbol methodSymbol) {
     Name className = methodSymbol.enclClass().flatName();
@@ -50,10 +63,9 @@ public class FluentFutureHandler extends BaseNoOpHandler {
         && methodSymbol.name.contentEquals(FUNCTION_APPLY_METHOD_NAME);
   }
 
-  private static boolean isFluentFutureIncludeListMethod(Symbol.MethodSymbol methodSymbol) {
+  private boolean isFluentFutureIncludeListMethod(Symbol.MethodSymbol methodSymbol) {
     Name className = methodSymbol.enclClass().flatName();
-    return (className.contentEquals(FLUENT_FUTURE_CLASS_NAME)
-            || className.contentEquals(FUTURES_CLASS_NAME))
+    return futuresClassNames.contains(className.toString())
         && Arrays.stream(FLUENT_FUTURE_INCLUDE_LIST_METHODS)
             .anyMatch(s -> methodSymbol.name.contentEquals(s));
   }
