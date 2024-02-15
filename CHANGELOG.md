@@ -1,5 +1,17 @@
 Changelog
 =========
+Version 0.10.23
+---------------
+* Update for missing a couple possibly unsafe xml parser (#902)
+* Add foojay-resolver-convention plugin (#905)
+* JSpecify: Reason about nullability of reads from arrays (#875)
+* Fix handling of static imports from subclasses (#904)
+* Adding support for nullable type upper bounds considering Library models (#903)
+* Support for extra Futures classes (#909)
+* Build / CI tooling upgrades:
+  - Bump various CI workflow versions (#906)
+
+
 Version 0.10.22
 ---------------
 IMPORTANT: The support for JDK 8 is deprecated in this release and will be removed in
