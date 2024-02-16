@@ -77,7 +77,7 @@ We do not particularly recommend using NullAway with Lombok. However, NullAway e
 In order for NullAway to successfully detect Lombok generated code within the in-memory Java AST, the following configuration option must be passed to Lombok as part of an applicable `lombok.config` file:
 
 ```
-addLombokGeneratedAnnotation
+lombok.addLombokGeneratedAnnotation = true
 ```
 
 This causes Lombok to add `@lombok.Generated` to the methods/classes it generates. NullAway will ignore (i.e. not check) the implementation of this generated code, treating it as unannotated. 
