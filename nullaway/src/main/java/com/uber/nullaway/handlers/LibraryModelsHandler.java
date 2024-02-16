@@ -681,6 +681,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put(methodRef("java.util.ArrayDeque", "offer(E)"), 0)
             .put(methodRef("java.util.ArrayDeque", "push(E)"), 0)
             .put(methodRef("java.util.ArrayDeque", "<T>toArray(T[])"), 0)
+            .put(
+                methodRef(
+                    "java.nio.file.Files",
+                    "isDirectory(java.nio.file.Path,java.nio.file.LinkOption...)"),
+                0)
             .build();
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_TRUE_PARAMETERS =
