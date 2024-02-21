@@ -1,4 +1,4 @@
-package com.uber.nullaway;
+package com.uber.nullaway.libmodel;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;

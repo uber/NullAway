@@ -20,7 +20,7 @@
  * THE SOFTWARE.
  */
 
-package com.uber.nullaway;
+package com.uber.nullaway.libmodel;
 
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
