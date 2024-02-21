@@ -39,7 +39,6 @@ dependencies {
     compileOnly deps.build.errorProneCheckApi
     implementation deps.build.checkerDataflow
     implementation deps.build.guava
-    implementation deps.build.javaparser
     testImplementation project(":annotations")
     testImplementation deps.test.junit4
     testImplementation(deps.build.errorProneTestHelpers) {
