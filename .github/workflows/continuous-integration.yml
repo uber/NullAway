@@ -68,6 +68,7 @@ jobs:
         uses: codecov/codecov-action@v4
         with:
           files: ./code-coverage-report/build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
         if: steps.jacoco_report.outcome == 'success'
       - name: Test publishToMavenLocal flow
         env:
