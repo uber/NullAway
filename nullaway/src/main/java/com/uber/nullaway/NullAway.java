@@ -986,6 +986,14 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
+    // Technically the qualifier expression of a method reference gets passed to
+    // Objects.requireNonNull, but it's fine to treat it as a dereference for error-checking
+    // purposes.  The error message will be slightly inaccurate
+    Description derefErrorDescription =
+        matchDereference(tree.getQualifierExpression(), tree, state);
+    if (derefErrorDescription != Description.NO_MATCH) {
+      state.reportMatch(derefErrorDescription);
+    }
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(tree);
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
