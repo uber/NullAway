@@ -403,6 +403,24 @@ public interface Handler {
       @Nullable Integer previousArgumentPosition);
 
   /**
+   * Method to override the nullability of the upper bound for a generic type variable on a class.
+   *
+   * @param className name of the class
+   * @param index index of the generic type variable (starting at 0)
+   * @return boolean true if the variable should be treated as having a {@code @Nullable} upper
+   *     bound
+   */
+  boolean onOverrideTypeParameterUpperBound(String className, int index);
+
+  /**
+   * Method to override the null-markedness of a class.
+   *
+   * @param className name of the class
+   * @return boolean true if the class should be treated as {@code @NullMarked}
+   */
+  boolean onOverrideNullMarkedClasses(String className);
+
+  /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
    * their knowledge of the method return nullability to the rest of NullAway.
    */

@@ -899,4 +899,22 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void filesIsDirectory() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import java.nio.file.Files;",
+            "import java.nio.file.Path;",
+            "import org.jetbrains.annotations.Nullable;",
+            "public class Foo {",
+            "  public boolean bar(@Nullable Path p) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'p' where @NonNull is required",
+            "    return Files.isDirectory(p);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

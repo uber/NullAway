@@ -55,7 +55,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "  static @Nullable String [] fizz = {\"1\"};",
             "  static Object foo = new Object();",
             "  static void foo() {",
-            "      // TODO: This should report an error due to dereference of @Nullable fizz[0]",
+            "      // BUG: Diagnostic contains: dereferenced expression fizz[0] is @Nullable",
             "      int bar = fizz[0].length();",
             "      // OK: valid dereference since only elements of the array can be null",
             "      foo = fizz.length;",
@@ -74,7 +74,7 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "class Test {",
             "  Object fizz = new Object();",
             "  void m( @Nullable Integer [] foo) {",
-            "      // TODO: This should report an error due to assignment of @Nullable foo[0] to @NonNull field",
+            "      // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
             "      fizz = foo[0];",
             "      // OK: valid assignment since only elements can be null",
             "      fizz = foo;",
@@ -105,6 +105,31 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
             "      // This should not report an error while using JSpecify type-use annotation",
             "      // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable",
             "      o1 = fizz.length;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void arrayContentsAndTopLevelAnnotation() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String @Nullable [] fizz = {\"1\"};",
+            "  static Object foo = new Object();",
+            "  static void foo() {",
+            "     if (fizz != null) {",
+            "        String s = fizz[0];",
+            "        // BUG: Diagnostic contains: dereferenced expression s is @Nullable",
+            "        int l1 = s.length();",
+            "        if (s != null){",
+            "           // OK: handled by null check",
+            "           int l2 = s.length();",
+            "        }",
+            "     }",
             "  }",
             "}")
         .doTest();
