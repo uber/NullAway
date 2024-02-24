@@ -103,6 +103,8 @@ public abstract class AbstractConfig implements Config {
 
   protected ImmutableSet<String> skippedLibraryModels;
 
+  protected ImmutableSet<String> extraFuturesClasses;
+
   /** --- JarInfer configs --- */
   protected boolean jarInferEnabled;
 
@@ -297,6 +299,11 @@ public abstract class AbstractConfig implements Config {
   @Override
   public boolean isSkippedLibraryModel(String classDotMethod) {
     return skippedLibraryModels.contains(classDotMethod);
+  }
+
+  @Override
+  public ImmutableSet<String> getExtraFuturesClasses() {
+    return extraFuturesClasses;
   }
 
   @AutoValue

@@ -168,7 +168,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     // and any of its overriding implementations.
     // see https://github.com/uber/NullAway/issues/445 for why this is needed.
     boolean isMethodUnannotated =
-        getCodeAnnotationInfo(state.context).isSymbolUnannotated(methodSymbol, this.config);
+        getCodeAnnotationInfo(state.context).isSymbolUnannotated(methodSymbol, this.config, null);
     if (exprMayBeNull) {
       // This is the only case in which we may switch the result from @Nullable to @NonNull:
       return !optLibraryModels.hasNonNullReturn(
@@ -226,7 +226,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     boolean isMethodAnnotated =
-        !getCodeAnnotationInfo(state.context).isSymbolUnannotated(callee, this.config);
+        !getCodeAnnotationInfo(state.context).isSymbolUnannotated(callee, this.config, null);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, state, apContext);
     setConditionalArgumentNullness(
         thenUpdates, elseUpdates, node.getArguments(), callee, state, apContext);
@@ -341,6 +341,17 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         accessPathsAtIndexes(requiredNonNullParameters, arguments, state, apContext)) {
       bothUpdates.set(accessPath, NONNULL);
     }
+  }
+
+  @Override
+  public boolean onOverrideTypeParameterUpperBound(String className, int index) {
+    ImmutableSet<Integer> res = libraryModels.typeVariablesWithNullableUpperBounds().get(className);
+    return res.contains(index);
+  }
+
+  @Override
+  public boolean onOverrideNullMarkedClasses(String className) {
+    return libraryModels.nullMarkedClasses().contains(className);
   }
 
   /**
@@ -670,6 +681,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put(methodRef("java.util.ArrayDeque", "offer(E)"), 0)
             .put(methodRef("java.util.ArrayDeque", "push(E)"), 0)
             .put(methodRef("java.util.ArrayDeque", "<T>toArray(T[])"), 0)
+            .put(
+                methodRef(
+                    "java.nio.file.Files",
+                    "isDirectory(java.nio.file.Path,java.nio.file.LinkOption...)"),
+                0)
             .build();
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_TRUE_PARAMETERS =
@@ -826,7 +842,14 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                     "getDrawable(android.content.Context,int)"))
             .add(methodRef("android.support.design.widget.TextInputLayout", "getEditText()"))
             .build();
+    private static final ImmutableSetMultimap<String, Integer> NULLABLE_VARIABLE_TYPE_UPPER_BOUNDS =
+        new ImmutableSetMultimap.Builder<String, Integer>()
+            .put("java.util.function.Function", 0)
+            .put("java.util.function.Function", 1)
+            .build();
 
+    private static final ImmutableSet<String> NULLMARKED_CLASSES =
+        new ImmutableSet.Builder<String>().add("java.util.function.Function").build();
     private static final ImmutableSetMultimap<MethodRef, Integer> CAST_TO_NONNULL_METHODS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>().build();
 
@@ -871,6 +894,16 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     @Override
+    public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
+      return NULLABLE_VARIABLE_TYPE_UPPER_BOUNDS;
+    }
+
+    @Override
+    public ImmutableSet<String> nullMarkedClasses() {
+      return NULLMARKED_CLASSES;
+    }
+
+    @Override
     public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
       return CAST_TO_NONNULL_METHODS;
     }
@@ -902,6 +935,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSet<MethodRef> nonNullReturns;
 
+    private final ImmutableSetMultimap<String, Integer> nullableVariableTypeUpperBounds;
+
+    private final ImmutableSet<String> nullMarkedClasses;
+
     private final ImmutableSet<FieldRef> nullableFields;
 
     private final ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods;
@@ -916,6 +953,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nonNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
+      ImmutableSetMultimap.Builder<String, Integer> nullableVariableTypeUpperBoundsBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      ImmutableSet.Builder<String> nullMarkedClassesBuilder = new ImmutableSet.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesFalseParametersBuilder =
@@ -988,6 +1028,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           }
           castToNonNullMethodsBuilder.put(entry);
         }
+        nullableVariableTypeUpperBoundsBuilder.putAll(
+            libraryModels.typeVariablesWithNullableUpperBounds());
+        for (String name : libraryModels.nullMarkedClasses()) {
+          nullMarkedClassesBuilder.add(name);
+        }
         for (StreamTypeRecord streamTypeRecord : libraryModels.customStreamNullabilitySpecs()) {
           customStreamNullabilitySpecsBuilder.add(streamTypeRecord);
         }
@@ -1006,6 +1051,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       castToNonNullMethods = castToNonNullMethodsBuilder.build();
       customStreamNullabilitySpecs = customStreamNullabilitySpecsBuilder.build();
       nullableFields = nullableFieldsBuilder.build();
+      nullableVariableTypeUpperBounds = nullableVariableTypeUpperBoundsBuilder.build();
+      nullMarkedClasses = nullMarkedClassesBuilder.build();
     }
 
     private boolean shouldSkipModel(MethodRef key) {
@@ -1050,6 +1097,16 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSet<MethodRef> nonNullReturns() {
       return nonNullReturns;
+    }
+
+    @Override
+    public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
+      return nullableVariableTypeUpperBounds;
+    }
+
+    @Override
+    public ImmutableSet<String> nullMarkedClasses() {
+      return nullMarkedClasses;
     }
 
     @Override

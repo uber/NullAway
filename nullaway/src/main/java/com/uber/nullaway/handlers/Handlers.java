@@ -80,7 +80,7 @@ public class Handlers {
       handlerListBuilder.add(new ContractCheckHandler(config));
     }
     handlerListBuilder.add(new LombokHandler(config));
-    handlerListBuilder.add(new FluentFutureHandler());
+    handlerListBuilder.add(new FluentFutureHandler(config));
 
     return new CompositeHandler(handlerListBuilder.build());
   }
