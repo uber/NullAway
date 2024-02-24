@@ -97,7 +97,7 @@ subprojects { project ->
 
     // For some reason, spotless complains when applied to the jar-infer folder itself, even
     // though there is no top-level :jar-infer project
-    if (project.name != "jar-infer") {
+    if (project.name != "jar-infer"&&project.name != "lib-model") {
         project.apply plugin: "com.diffplug.spotless"
         spotless {
             java {

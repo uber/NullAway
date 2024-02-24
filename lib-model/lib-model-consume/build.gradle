@@ -18,13 +18,22 @@ plugins {
     id "nullaway.java-test-conventions"
 }
 
+jar{
+    manifest {
+        attributes('Main-Class':'com.uber.nullaway.libmodel.LibModelInfoExtractor')
+    }
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
 dependencies {
     testImplementation deps.test.junit4
     testImplementation(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
     testImplementation project(":nullaway")
-    testImplementation project(":lib-model-consume")
+    testImplementation project(":lib-model:lib-model-test")
     implementation deps.build.guava
     implementation deps.build.javaparser
     compileOnly deps.apt.autoService

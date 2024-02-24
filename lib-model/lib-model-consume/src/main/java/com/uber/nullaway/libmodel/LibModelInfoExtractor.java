@@ -99,26 +99,26 @@ public class LibModelInfoExtractor {
             .put("Nonnull", "javax.annotation.Nonnull")
             .put("Nullable", "javax.annotation.Nullable")
             .build();
-    // ZipOutputStream zos;
+    //     ZipOutputStream zos;
     DataOutputStream dos;
     try {
-      // zos = new ZipOutputStream(new FileOutputStream(outputPath));
+      //       zos = new ZipOutputStream(Files.newOutputStream(Paths.get(outputPath)));
       dos = new DataOutputStream(Files.newOutputStream(Paths.get(outputPath)));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
     if (!methodRecords.isEmpty()) {
-      ZipEntry entry = new ZipEntry("/Users/abhijitkulkarni/libmodels.astubx");
+      ZipEntry entry = new ZipEntry("META-INF/nullaway/libmodels.astubx");
       // Set the modification/creation time to 0 to ensure that this jars always have the same
       // checksum
       entry.setTime(0);
       entry.setCreationTime(FileTime.fromMillis(0));
       try {
-        // zos.putNextEntry(entry);
+        //         zos.putNextEntry(entry);
         StubxFileWriter.write(
             dos, importedAnnotations, new HashMap<>(), new HashMap<>(), methodRecords);
-        // zos.closeEntry();
-        // zos.close();
+        //         zos.closeEntry();
+        //         zos.close();
         dos.close();
       } catch (IOException e) {
         throw new RuntimeException(e);

@@ -1,4 +1,4 @@
-package com.uber.nullaway.provider;
+package com.uber.nullaway.libmodel.provider;
 
 import com.google.auto.service.AutoService;
 import com.uber.nullaway.jarinfer.JarInferStubxProvider;
