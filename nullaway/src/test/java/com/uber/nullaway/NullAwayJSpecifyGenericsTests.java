@@ -1640,6 +1640,83 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void testForNullableUpperBoundsInLibModel() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "class Test {",
+            "  static String foo(@Nullable String a) {",
+            "    if(a!=null){ ",
+            "     return a.replace(\"a\",\"\");",
+            "    }else{",
+            "     return \"\";",
+            "    }",
+            "  }",
+            "  static void testPositiveMethodRef() {",
+            "   Function<String,@Nullable String> removeA = Test::foo;",
+            "   // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "   removeA.apply(null);",
+            "  }",
+            "  static void testNegativeMethodRef() {",
+            "   Function<@Nullable String,@Nullable String> removeA = Test::foo;",
+            "   removeA.apply(null);",
+            "  }",
+            "  static void testPositiveLambda() {",
+            "   Function<String,@Nullable String> removeA = a -> a.replace(\"a\",\"\");",
+            "   // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "   removeA.apply(null);",
+            "  }",
+            "  static void testNegative() {",
+            "   Function<String,@Nullable String> removeA = a -> a.replace(\"a\",\"\");",
+            "  }",
+            "  static @Nullable String foo2(@Nullable String b) {",
+            "    return null;",
+            "  }",
+            "  static Function<String,String> testPositiveReturn() {",
+            "    // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method",
+            "    return Test::foo2;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void passAnnotatedLambdaOrMethodRefToUnannotatedCode() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.NullUnmarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static interface Fn<S extends @Nullable Object, T extends @Nullable Object> {",
+            "    T apply(S s);",
+            "  }",
+            "  @NullUnmarked",
+            "  static class C1 {",
+            "    static void foo(Fn<String, String> f) {}",
+            "  }",
+            "  @NullMarked",
+            "  static class C2 {",
+            "    static void m1() {",
+            "      // no error here since C1 is @NullUnmarked",
+            "      C1.foo(s -> null);",
+            "    }",
+            "    static @Nullable String baz(String s) { return null; }",
+            "    static void m2() {",
+            "      // no error here since C1 is @NullUnmarked",
+            "      C1.foo(C2::baz);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

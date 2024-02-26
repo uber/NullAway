@@ -263,6 +263,13 @@ public interface Config {
    */
   boolean isSkippedLibraryModel(String classDotMethod);
 
+  /**
+   * Gets the set of classes that should be treated as equivalent to a Guava fluent futures class.
+   *
+   * @see com.uber.nullaway.handlers.temporary.FluentFutureHandler
+   */
+  Set<String> getExtraFuturesClasses();
+
   // --- JarInfer configs ---
 
   /**

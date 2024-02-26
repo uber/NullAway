@@ -23,16 +23,19 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorBuilder;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.handlers.Handler;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.TypeVariable;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
@@ -56,9 +59,14 @@ public final class GenericsChecks {
    * @param state visitor state
    * @param analysis the analysis object
    * @param config the analysis config
+   * @param handler the handler instance
    */
   public static void checkInstantiationForParameterizedTypedTree(
-      ParameterizedTypeTree tree, VisitorState state, NullAway analysis, Config config) {
+      ParameterizedTypeTree tree,
+      VisitorState state,
+      NullAway analysis,
+      Config config,
+      Handler handler) {
     if (!config.isJSpecifyMode()) {
       return;
     }
@@ -95,7 +103,8 @@ public final class GenericsChecks {
         com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
             upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
-            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+                || handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation) {
@@ -523,7 +532,7 @@ public final class GenericsChecks {
    *     }
    * </pre>
    *
-   * Within the context of class {@code C}, the method {@code Fn.apply} has a return type of
+   * <p>Within the context of class {@code C}, the method {@code Fn.apply} has a return type of
    * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
    * {@code R}. Hence, it is valid for overriding method {@code C.apply} to return {@code @Nullable
    * String}.
@@ -607,7 +616,7 @@ public final class GenericsChecks {
    *     }
    * </pre>
    *
-   * The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
+   * <p>The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
    * variable {@code R}. So, the call {@code f.apply("hello")} returns {@code @Nullable} and an
    * error should be reported.
    *
@@ -657,7 +666,7 @@ public final class GenericsChecks {
    *     }
    * </pre>
    *
-   * The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
+   * <p>The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
    * variable {@code P}. So, it is legal to pass {@code null} as a parameter to {@code f.apply}.
    *
    * @param paramIndex parameter index
@@ -701,7 +710,7 @@ public final class GenericsChecks {
    *     }
    * </pre>
    *
-   * Within the context of class {@code C}, the method {@code Fn.apply} has a parameter type of
+   * <p>Within the context of class {@code C}, the method {@code Fn.apply} has a parameter type of
    * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
    * {@code P}. Hence, overriding method {@code C.apply} must take a {@code @Nullable String} as a
    * parameter.
@@ -831,5 +840,48 @@ public final class GenericsChecks {
    */
   public static String prettyTypeForError(Type type, VisitorState state) {
     return type.accept(new GenericTypePrettyPrintingVisitor(state), null);
+  }
+
+  /**
+   * Checks if a given expression <em>e</em> is a lambda or method reference such that (1) the
+   * declared return type of the method for <em>e</em> is a generic type variable, and (2)
+   * <em>e</em> is being passed as a parameter to an unannotated method. In such cases, the caller
+   * should treat <em>e</em> as being allowed to return a {@code Nullable} value, even if the
+   * locally-computed type of the expression is not {@code @Nullable}. This special treatment is
+   * necessary to properly avoid reporting errors when interacting with unannotated / unmarked code.
+   *
+   * @param methodSymbol the symbol for the method corresponding to <em>e</em>
+   * @param expressionTree the expression <em>e</em>
+   * @param state visitor state
+   * @param config NullAway configuration
+   * @param handler NullAway handler
+   * @param codeAnnotationInfo information on which code is annotated
+   */
+  public static boolean passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
+      Symbol.MethodSymbol methodSymbol,
+      ExpressionTree expressionTree,
+      VisitorState state,
+      Config config,
+      CodeAnnotationInfo codeAnnotationInfo,
+      Handler handler) {
+    Type methodType = methodSymbol.type;
+    boolean returnsGeneric = methodType.getReturnType() instanceof TypeVariable;
+    if (!returnsGeneric) {
+      return false;
+    }
+    boolean callingUnannotated = false;
+    TreePath path = state.getPath();
+    while (path != null && !path.getLeaf().equals(expressionTree)) {
+      path = path.getParentPath();
+    }
+    verify(path != null, "did not find lambda or method reference tree in TreePath");
+    Tree parentOfLambdaTree = path.getParentPath().getLeaf();
+    if (parentOfLambdaTree instanceof MethodInvocationTree) {
+      Symbol.MethodSymbol parentMethodSymbol =
+          ASTHelpers.getSymbol((MethodInvocationTree) parentOfLambdaTree);
+      callingUnannotated =
+          codeAnnotationInfo.isSymbolUnannotated(parentMethodSymbol, config, handler);
+    }
+    return callingUnannotated;
   }
 }

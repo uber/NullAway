@@ -1,5 +1,6 @@
 package com.uber.nullaway;
 
+import java.util.Arrays;
 import org.junit.Test;
 
 public class NullAwayFunctionalInterfaceNullabilityTests extends NullAwayTestsBase {
@@ -103,6 +104,50 @@ public class NullAwayFunctionalInterfaceNullabilityTests extends NullAwayTestsBa
             "  private static ListenableFuture<@Nullable String> futuresTransform(Executor executor) {",
             "    return Futures",
             "        .transform(Futures.immediateFuture(\"hi\"), s -> { return null; }, executor);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void extraFuturesClassesLambda() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:ExtraFuturesClasses=com.uber.extra.MyFutures"))
+        .addSourceLines(
+            "MyFutures.java",
+            "package com.uber.extra;",
+            "import com.google.common.base.Function;",
+            "import com.google.common.util.concurrent.Futures;",
+            "import com.google.common.util.concurrent.ListenableFuture;",
+            "import java.util.concurrent.Executor;",
+            "public class MyFutures {",
+            "  public static <V> ListenableFuture<V> transform(ListenableFuture<V> future, Function<V, V> function, Executor executor) {",
+            "    return Futures.transform(future, function, executor);",
+            "  }",
+            "}")
+        .addSourceLines(
+            "TestMyFutures.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.google.common.base.Function;",
+            "import com.google.common.util.concurrent.FluentFuture;",
+            "import com.google.common.util.concurrent.Futures;",
+            "import com.google.common.util.concurrent.ListenableFuture;",
+            "import java.util.concurrent.Executor;",
+            "class TestGuava {",
+            "  private static void takeFn(Function<String, String> f) { }",
+            "  private static void passToAnnotatedFunction() {",
+            "    // Normally we get an error since Guava Functions are modeled to have a @NonNull return",
+            "    // BUG: Diagnostic contains: returning @Nullable expression from method",
+            "    takeFn(s -> { return null; });",
+            "  }",
+            "  private static void passToExtraFuturesClass(ListenableFuture<String> f, Executor e) {",
+            "    // here we do not expect an error since MyFutures is in the extra futures classes",
+            "    com.uber.extra.MyFutures.transform(f, u -> { return null; }, e);",
             "  }",
             "}")
         .doTest();
