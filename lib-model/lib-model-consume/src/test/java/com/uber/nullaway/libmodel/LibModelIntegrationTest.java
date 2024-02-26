@@ -8,7 +8,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-public class ConsumeLibModelIntegrationTest {
+public class LibModelIntegrationTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
