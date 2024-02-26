@@ -52,14 +52,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.attribute.FileTime;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.zip.ZipEntry;
 
 public class LibModelInfoExtractor {
 
@@ -70,6 +68,12 @@ public class LibModelInfoExtractor {
     processSourceFile(args[0]);
     // output directory
     writeToAstubx(args[1]);
+  }
+
+  @SuppressWarnings("unused")
+  public static Map<String, MethodAnnotationsRecord> runLibModelProcess(String[] args) {
+    main(args);
+    return methodRecords;
   }
 
   public static void processSourceFile(String file) {
@@ -99,26 +103,18 @@ public class LibModelInfoExtractor {
             .put("Nonnull", "javax.annotation.Nonnull")
             .put("Nullable", "javax.annotation.Nullable")
             .build();
-    //     ZipOutputStream zos;
     DataOutputStream dos;
     try {
-      //       zos = new ZipOutputStream(Files.newOutputStream(Paths.get(outputPath)));
-      dos = new DataOutputStream(Files.newOutputStream(Paths.get(outputPath)));
+      Path opPath = Paths.get(outputPath);
+      Files.createDirectories(opPath.getParent());
+      dos = new DataOutputStream(Files.newOutputStream(opPath));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
     if (!methodRecords.isEmpty()) {
-      ZipEntry entry = new ZipEntry("META-INF/nullaway/libmodels.astubx");
-      // Set the modification/creation time to 0 to ensure that this jars always have the same
-      // checksum
-      entry.setTime(0);
-      entry.setCreationTime(FileTime.fromMillis(0));
       try {
-        //         zos.putNextEntry(entry);
         StubxFileWriter.write(
             dos, importedAnnotations, new HashMap<>(), new HashMap<>(), methodRecords);
-        //         zos.closeEntry();
-        //         zos.close();
         dos.close();
       } catch (IOException e) {
         throw new RuntimeException(e);
