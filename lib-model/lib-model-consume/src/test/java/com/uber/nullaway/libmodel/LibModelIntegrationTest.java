@@ -20,33 +20,6 @@ public class LibModelIntegrationTest {
   }
 
   @Test
-  public void libModelArrayTypeNullableReturnsTest() {
-    compilationHelper
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JarInferEnabled=true",
-                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import java.util.Vector;",
-            "class Test {",
-            "  static Vector<Integer> vector = new Vector<>();",
-            "  static void test(Object[] value){",
-            "  }",
-            "  static void test1() {",
-            "    vector.add(1);",
-            "    test(vector.toArray());",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
   public void libModelNullableReturnsTest() {
     compilationHelper
         .setArgs(
@@ -60,14 +33,14 @@ public class LibModelIntegrationTest {
             "Test.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
-            "import java.util.Scanner;",
+            "import com.uber.nullaway.libmodel.AnnotationExample;",
             "class Test {",
-            "  static Scanner scanner = new Scanner(\"nullaway test\");",
+            "  static AnnotationExample annotationExample = new AnnotationExample();",
             "  static void test(String value){",
             "  }",
             "  static void test1() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'scanner.findInLine(\"world\")'",
-            "    test(scanner.findInLine(\"world\"));",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'annotationExample.makeUpperCase(\"nullaway\")'",
+            "    test(annotationExample.makeUpperCase(\"nullaway\"));",
             "  }",
             "}")
         .doTest();

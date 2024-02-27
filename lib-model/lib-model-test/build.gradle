@@ -20,7 +20,7 @@ plugins {
 
 evaluationDependsOn(":lib-model:lib-model-consume")
 
-def jdkPath = "${rootProject.projectDir}/lib-model/lib-model-test/src/main/resources/sample_jspecify_jdk/src"
+def jdkPath = "${rootProject.projectDir}/lib-model/lib-model-test/src/main/resources/sample_annotated/src"
 def astubxPath = "com/uber/nullaway/libmodel/provider/libmodels.astubx"
 
 jar {
