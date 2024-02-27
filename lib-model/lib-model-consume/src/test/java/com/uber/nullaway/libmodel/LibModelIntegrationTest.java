@@ -20,7 +20,7 @@ public class LibModelIntegrationTest {
   }
 
   @Test
-  public void jarinferNullableReturnsTestForLibModel() {
+  public void libModelArrayTypeNullableReturnsTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -40,8 +40,34 @@ public class LibModelIntegrationTest {
             "  }",
             "  static void test1() {",
             "    vector.add(1);",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter",
             "    test(vector.toArray());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void libModelNullableReturnsTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import java.util.Scanner;",
+            "class Test {",
+            "  static Scanner scanner = new Scanner(\"nullaway test\");",
+            "  static void test(String value){",
+            "  }",
+            "  static void test1() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'scanner.findInLine(\"world\")'",
+            "    test(scanner.findInLine(\"world\"));",
             "  }",
             "}")
         .doTest();

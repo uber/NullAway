@@ -267,7 +267,10 @@ public class LibModelInfoExtractor {
       if (md.getType() instanceof ClassOrInterfaceType) {
         methodReturnType = md.getType().getChildNodes().get(0).toString();
       } else if (md.getType() instanceof ArrayType) {
-        methodReturnType = "Array";
+        // methodReturnType = "Array";
+        // TODO: Figure out the right way to handle Array types
+        // For now we don't consider it as Nullable
+        isNullableAnnotationPresent = false;
       } else {
         methodReturnType = md.getType().toString();
       }
