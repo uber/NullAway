@@ -139,13 +139,10 @@ public class LibModelInfoExtractor {
     return Paths.get(absoluteDir);
   }
 
-  /** Callback to process each Java file; see class documentation for details. */
   private static class MinimizerCallback implements SourceRoot.Callback {
 
-    /** The visitor instance. */
     private final CompilationUnitVisitor mv;
 
-    /** Create a MinimizerCallback instance. */
     public MinimizerCallback() {
       this.mv = new CompilationUnitVisitor();
     }
