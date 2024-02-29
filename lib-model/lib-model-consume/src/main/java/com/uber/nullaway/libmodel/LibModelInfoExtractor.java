@@ -139,7 +139,7 @@ public class LibModelInfoExtractor {
     return Paths.get(absoluteDir);
   }
 
-  private static class MinimizerCallback implements SourceRoot.Callback {
+  private static class AnnotationCollectorCallback implements SourceRoot.Callback {
 
     private final CompilationUnitVisitor mv;
 
