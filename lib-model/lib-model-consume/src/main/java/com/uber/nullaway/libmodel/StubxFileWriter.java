@@ -93,13 +93,13 @@ final class StubxFileWriter {
     int methodAnnotationSize = 0;
     int methodArgumentRecordsSize = 0;
     for (Map.Entry<String, MethodAnnotationsRecord> entry : methodRecords.entrySet()) {
-      methodAnnotationSize += entry.getValue().getMethodAnnotations().size();
-      methodArgumentRecordsSize += entry.getValue().getArgumentAnnotations().size();
+      methodAnnotationSize += entry.getValue().methodAnnotations().size();
+      methodArgumentRecordsSize += entry.getValue().argumentAnnotations().size();
     }
     out.writeInt(methodAnnotationSize);
     // Followed by those records as pairs of ints pointing into the dictionary
     for (Map.Entry<String, MethodAnnotationsRecord> entry : methodRecords.entrySet()) {
-      for (String annot : entry.getValue().getMethodAnnotations()) {
+      for (String annot : entry.getValue().methodAnnotations()) {
         out.writeInt(encodingDictionary.get(entry.getKey()));
         out.writeInt(encodingDictionary.get(importedAnnotations.get(annot)));
       }
@@ -110,7 +110,7 @@ final class StubxFileWriter {
     //  argument position)
     for (Map.Entry<String, MethodAnnotationsRecord> entry : methodRecords.entrySet()) {
       for (Map.Entry<Integer, ImmutableSet<String>> argEntry :
-          entry.getValue().getArgumentAnnotations().entrySet()) {
+          entry.getValue().argumentAnnotations().entrySet()) {
         for (String annot : argEntry.getValue()) {
           out.writeInt(encodingDictionary.get(entry.getKey()));
           out.writeInt(argEntry.getKey());

@@ -1,26 +1,20 @@
 package com.uber.nullaway.libmodel;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 /** A record describing the annotations associated with a java method and its arguments. */
-final class MethodAnnotationsRecord {
-  private final ImmutableSet<String> methodAnnotations;
-  // 0 means receiver
-  private final ImmutableMap<Integer, ImmutableSet<String>> argumentAnnotations;
+@AutoValue
+abstract class MethodAnnotationsRecord {
 
-  MethodAnnotationsRecord(
+  static MethodAnnotationsRecord create(
       ImmutableSet<String> methodAnnotations,
       ImmutableMap<Integer, ImmutableSet<String>> argumentAnnotations) {
-    this.methodAnnotations = methodAnnotations;
-    this.argumentAnnotations = argumentAnnotations;
+    return new AutoValue_MethodAnnotationsRecord(methodAnnotations, argumentAnnotations);
   }
 
-  ImmutableSet<String> getMethodAnnotations() {
-    return methodAnnotations;
-  }
+  abstract ImmutableSet<String> methodAnnotations();
 
-  ImmutableMap<Integer, ImmutableSet<String>> getArgumentAnnotations() {
-    return argumentAnnotations;
-  }
+  abstract ImmutableMap<Integer, ImmutableSet<String>> argumentAnnotations();
 }

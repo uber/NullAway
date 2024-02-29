@@ -263,7 +263,7 @@ public class LibModelInfoExtractor {
         nullableReturnMethods.put(packageName + "." + parentClassName, methodSignature);
         methodRecords.put(
             packageName + "." + parentClassName + ":" + methodReturnType + " " + methodSignature,
-            new MethodAnnotationsRecord(ImmutableSet.of("Nullable"), ImmutableMap.of()));
+            MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
       }
       nullableReturnMethods.forEach(
           (c, s) -> System.out.println("Enclosing Class: " + c + "\tMethod Signature: " + s));
