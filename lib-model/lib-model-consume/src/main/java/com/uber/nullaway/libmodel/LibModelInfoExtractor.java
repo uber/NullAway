@@ -39,7 +39,7 @@ import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import com.github.javaparser.ast.type.ArrayType;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.TypeParameter;
-import com.github.javaparser.ast.visitor.ModifierVisitor;
+import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import com.github.javaparser.utils.CollectionStrategy;
 import com.github.javaparser.utils.ParserCollectionStrategy;
 import com.github.javaparser.utils.ProjectRoot;
@@ -65,20 +65,14 @@ public class LibModelInfoExtractor {
 
   public static void main(String[] args) {
     // input directory
-    processSourceFile(args[0]);
+    processDirectory(args[0]);
     // output directory
     writeToAstubx(args[1]);
   }
 
-  @SuppressWarnings("unused")
-  public static Map<String, MethodAnnotationsRecord> runLibModelProcess(String[] args) {
-    main(args);
-    return methodRecords;
-  }
-
-  public static void processSourceFile(String file) {
+  public static void processDirectory(String file) {
     Path root = dirnameToPath(file);
-    MinimizerCallback mc = new MinimizerCallback();
+    AnnotationCollectorCallback mc = new AnnotationCollectorCallback();
     CollectionStrategy strategy = new ParserCollectionStrategy();
     // Required to include directories that contain a module-info.java, which don't parse by
     // default.
@@ -141,10 +135,10 @@ public class LibModelInfoExtractor {
 
   private static class AnnotationCollectorCallback implements SourceRoot.Callback {
 
-    private final CompilationUnitVisitor mv;
+    private final AnnotationCollectionVisitor mv;
 
-    public MinimizerCallback() {
-      this.mv = new CompilationUnitVisitor();
+    public AnnotationCollectorCallback() {
+      this.mv = new AnnotationCollectionVisitor();
     }
 
     @Override
@@ -177,19 +171,18 @@ public class LibModelInfoExtractor {
     }
   }
 
-  private static class CompilationUnitVisitor extends ModifierVisitor<Void> {
+  private static class AnnotationCollectionVisitor extends VoidVisitorAdapter<Void> {
 
     private String packageName = "";
 
     @Override
-    public PackageDeclaration visit(PackageDeclaration n, Void arg) {
+    public void visit(PackageDeclaration n, Void arg) {
       this.packageName = n.getNameAsString();
       //      System.out.println("Package name: " + packageName);
-      return n;
     }
 
     @Override
-    public ClassOrInterfaceDeclaration visit(ClassOrInterfaceDeclaration cid, Void arg) {
+    public void visit(ClassOrInterfaceDeclaration cid, Void arg) {
       String classOrInterfaceName = packageName + "." + cid.getNameAsString();
       @SuppressWarnings("all")
       Map<Integer, String> nullableTypeBoundsMap = new HashMap<>();
@@ -219,21 +212,16 @@ public class LibModelInfoExtractor {
           (p, a) -> System.out.println("Nullable Index: " + p + "\tClass: " + a));
       classOrInterfaceAnnotationsMap.forEach(
           (c, a) -> System.out.println("Class: " + c + "\tAnnotations: " + a));*/
-      return cid;
     }
 
     @Override
-    public EnumDeclaration visit(EnumDeclaration ed, Void arg) {
-      return ed;
-    }
+    public void visit(EnumDeclaration ed, Void arg) {}
 
     @Override
-    public ConstructorDeclaration visit(ConstructorDeclaration cd, Void arg) {
-      return cd;
-    }
+    public void visit(ConstructorDeclaration cd, Void arg) {}
 
     @Override
-    public MethodDeclaration visit(MethodDeclaration md, Void arg) {
+    public void visit(MethodDeclaration md, Void arg) {
       String methodName = md.getNameAsString();
       Optional<Node> parentClassNode = md.getParentNode();
       String parentClassName = "";
@@ -279,22 +267,15 @@ public class LibModelInfoExtractor {
       }
       nullableReturnMethods.forEach(
           (c, s) -> System.out.println("Enclosing Class: " + c + "\tMethod Signature: " + s));
-      return md;
     }
 
     @Override
-    public FieldDeclaration visit(FieldDeclaration fd, Void arg) {
-      return fd;
-    }
+    public void visit(FieldDeclaration fd, Void arg) {}
 
     @Override
-    public InitializerDeclaration visit(InitializerDeclaration id, Void arg) {
-      return id;
-    }
+    public void visit(InitializerDeclaration id, Void arg) {}
 
     @Override
-    public NormalAnnotationExpr visit(NormalAnnotationExpr nae, Void arg) {
-      return nae;
-    }
+    public void visit(NormalAnnotationExpr nae, Void arg) {}
   }
 }

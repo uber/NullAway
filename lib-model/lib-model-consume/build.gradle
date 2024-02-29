@@ -36,7 +36,5 @@ dependencies {
     testImplementation project(":lib-model:lib-model-test")
     implementation deps.build.guava
     implementation deps.build.javaparser
-    compileOnly deps.apt.autoService
-    annotationProcessor deps.apt.autoService
     compileOnly project(":nullaway")
 }
