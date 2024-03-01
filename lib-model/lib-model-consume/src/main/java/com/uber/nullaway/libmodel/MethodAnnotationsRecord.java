@@ -6,9 +6,9 @@ import com.google.common.collect.ImmutableSet;
 
 /** A record describing the annotations associated with a java method and its arguments. */
 @AutoValue
-abstract class MethodAnnotationsRecord {
+public abstract class MethodAnnotationsRecord {
 
-  static MethodAnnotationsRecord create(
+  public static MethodAnnotationsRecord create(
       ImmutableSet<String> methodAnnotations,
       ImmutableMap<Integer, ImmutableSet<String>> argumentAnnotations) {
     return new AutoValue_MethodAnnotationsRecord(methodAnnotations, argumentAnnotations);

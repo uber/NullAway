@@ -107,7 +107,7 @@ public class LibModelInfoExtractor {
     }
     if (!methodRecords.isEmpty()) {
       try {
-        StubxFileWriter.write(
+        StubxWriter.write(
             dos, importedAnnotations, new HashMap<>(), new HashMap<>(), methodRecords);
         dos.close();
       } catch (IOException e) {

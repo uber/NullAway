@@ -18,6 +18,7 @@ dependencies {
     implementation deps.build.commonscli
     implementation deps.build.guava
     implementation project(":jar-infer:jar-infer-lib")
+    implementation project(":lib-model:lib-model-consume")
 
     testImplementation deps.test.junit4
     testImplementation(deps.build.errorProneTestHelpers) {
