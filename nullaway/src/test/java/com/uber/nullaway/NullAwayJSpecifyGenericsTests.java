@@ -1717,6 +1717,27 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void testRawTypeReceiverCast() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T> {",
+            "    void foo(T n) {}",
+            "  }",
+            "  static class B {",
+            "    static <T> void bar(A<T> a) {",
+            "      ((A) a).foo(new Object());",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
