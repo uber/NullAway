@@ -309,7 +309,7 @@ public final class GenericsChecks {
     Type lhsType = getTreeType(lhsTree, state);
     Type rhsType = getTreeType(rhsTree, state);
 
-    if (lhsType != null && rhsType != null) {
+    if (lhsType != null && rhsType != null && !lhsType.isPrimitive() && !rhsType.isPrimitive()) {
       boolean isAssignmentValid = compareNullabilityAnnotations(lhsType, rhsType, state);
       if (!isAssignmentValid) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
