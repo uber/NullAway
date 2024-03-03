@@ -30,10 +30,15 @@ public class NullAwayJava8Tests extends NullAwayTestsBase {
             "Test.java",
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
+            "import java.util.Arrays;",
             "class Test {",
-            "  public static boolean test(@Nullable String text, java.util.Set<String> s) {",
+            "  public static boolean testPositive(@Nullable String text, java.util.Set<String> s) {",
             "    // BUG: Diagnostic contains: dereferenced expression text is @Nullable",
             "    return s.stream().anyMatch(text::contains);",
+            "  }",
+            "  public static String[] testNegative(Object[] arr) {",
+            "    // also tests we don't crash when the qualifier expression of a method reference is a type",
+            "    return Arrays.stream(arr).map(Object::toString).toArray(String[]::new);",
             "  }",
             "}")
         .doTest();
