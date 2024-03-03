@@ -1723,8 +1723,6 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "  static class A<T> {",
             "    void foo(T n) {}",
