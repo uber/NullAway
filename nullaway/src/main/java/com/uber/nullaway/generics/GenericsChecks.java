@@ -1,7 +1,6 @@
 package com.uber.nullaway.generics;
 
 import static com.google.common.base.Verify.verify;
-import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
@@ -687,8 +686,7 @@ public final class GenericsChecks {
       return Nullness.NONNULL;
     }
     Type enclosingType =
-        castToNonNull(
-            getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state));
+        getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state);
     return getGenericMethodParameterNullness(
         paramIndex, invokedMethodSymbol, enclosingType, state, config);
   }

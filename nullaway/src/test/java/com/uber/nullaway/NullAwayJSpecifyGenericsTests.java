@@ -1718,6 +1718,24 @@ public class NullAwayJSpecifyGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testRawTypeReceiverCast() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  static class A<T> {",
+            "    void foo(T n) {}",
+            "  }",
+            "  static class B {",
+            "    static <T> void bar(A<T> a) {",
+            "      ((A) a).foo(new Object());",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   public void boxInteger() {
     makeHelper()
         .addSourceLines(
