@@ -22,7 +22,7 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
 
   @Override
   public Boolean visitClassType(Type.ClassType lhsType, Type rhsType) {
-    if (rhsType instanceof NullType) {
+    if (rhsType instanceof NullType || rhsType.isPrimitive()) {
       return true;
     }
     Types types = state.getTypes();
