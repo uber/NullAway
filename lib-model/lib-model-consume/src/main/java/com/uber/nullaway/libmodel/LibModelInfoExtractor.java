@@ -61,18 +61,18 @@ import java.util.Optional;
 
 public class LibModelInfoExtractor {
 
-  private static Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
-
   public static void main(String[] args) {
+    Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
+    LibModelInfoExtractor libModelInfoExtractor = new LibModelInfoExtractor();
     // input directory
-    processDirectory(args[0]);
+    libModelInfoExtractor.processDirectory(args[0], methodRecords);
     // output directory
-    writeToAstubx(args[1]);
+    libModelInfoExtractor.writeToAstubx(args[1], methodRecords);
   }
 
-  public static void processDirectory(String file) {
+  public void processDirectory(String file, Map<String, MethodAnnotationsRecord> methodRecords) {
     Path root = dirnameToPath(file);
-    AnnotationCollectorCallback mc = new AnnotationCollectorCallback();
+    AnnotationCollectorCallback mc = new AnnotationCollectorCallback(methodRecords);
     CollectionStrategy strategy = new ParserCollectionStrategy();
     // Required to include directories that contain a module-info.java, which don't parse by
     // default.
@@ -91,7 +91,7 @@ public class LibModelInfoExtractor {
             });
   }
 
-  public static void writeToAstubx(String outputPath) {
+  public void writeToAstubx(String outputPath, Map<String, MethodAnnotationsRecord> methodRecords) {
     Map<String, String> importedAnnotations =
         ImmutableMap.<String, String>builder()
             .put("Nonnull", "javax.annotation.Nonnull")
@@ -116,7 +116,7 @@ public class LibModelInfoExtractor {
     }
   }
 
-  public static Path dirnameToPath(String dir) {
+  public Path dirnameToPath(String dir) {
     File f = new File(dir);
     if (!f.exists()) {
       System.err.printf("Directory %s (%s) does not exist.%n", dir, f);
@@ -136,8 +136,10 @@ public class LibModelInfoExtractor {
   private static class AnnotationCollectorCallback implements SourceRoot.Callback {
 
     private final AnnotationCollectionVisitor mv;
+    private Map<String, MethodAnnotationsRecord> methodRecords;
 
-    public AnnotationCollectorCallback() {
+    public AnnotationCollectorCallback(Map<String, MethodAnnotationsRecord> methodRecords) {
+      this.methodRecords = methodRecords;
       this.mv = new AnnotationCollectionVisitor();
     }
 
@@ -160,7 +162,7 @@ public class LibModelInfoExtractor {
       stack.addFirst(rootNode);
       while (!stack.isEmpty()) {
         Node current = stack.removeFirst();
-        current.accept(mv, null);
+        current.accept(mv, this.methodRecords);
         List<Node> children = current.getChildNodes();
         if (children != null) {
           for (Node child : children) {
@@ -171,18 +173,19 @@ public class LibModelInfoExtractor {
     }
   }
 
-  private static class AnnotationCollectionVisitor extends VoidVisitorAdapter<Void> {
+  private static class AnnotationCollectionVisitor
+      extends VoidVisitorAdapter<Map<String, MethodAnnotationsRecord>> {
 
     private String packageName = "";
 
     @Override
-    public void visit(PackageDeclaration n, Void arg) {
+    public void visit(PackageDeclaration n, Map<String, MethodAnnotationsRecord> methodRecordsMap) {
       this.packageName = n.getNameAsString();
-      //      System.out.println("Package name: " + packageName);
     }
 
     @Override
-    public void visit(ClassOrInterfaceDeclaration cid, Void arg) {
+    public void visit(
+        ClassOrInterfaceDeclaration cid, Map<String, MethodAnnotationsRecord> methodRecordsMap) {
       String classOrInterfaceName = packageName + "." + cid.getNameAsString();
       @SuppressWarnings("all")
       Map<Integer, String> nullableTypeBoundsMap = new HashMap<>();
@@ -215,13 +218,14 @@ public class LibModelInfoExtractor {
     }
 
     @Override
-    public void visit(EnumDeclaration ed, Void arg) {}
+    public void visit(EnumDeclaration ed, Map<String, MethodAnnotationsRecord> methodRecordsMap) {}
 
     @Override
-    public void visit(ConstructorDeclaration cd, Void arg) {}
+    public void visit(
+        ConstructorDeclaration cd, Map<String, MethodAnnotationsRecord> methodRecordsMap) {}
 
     @Override
-    public void visit(MethodDeclaration md, Void arg) {
+    public void visit(MethodDeclaration md, Map<String, MethodAnnotationsRecord> methodRecordsMap) {
       String methodName = md.getNameAsString();
       Optional<Node> parentClassNode = md.getParentNode();
       String parentClassName = "";
@@ -261,7 +265,7 @@ public class LibModelInfoExtractor {
       }
       if (isNullableAnnotationPresent) {
         nullableReturnMethods.put(packageName + "." + parentClassName, methodSignature);
-        methodRecords.put(
+        methodRecordsMap.put(
             packageName + "." + parentClassName + ":" + methodReturnType + " " + methodSignature,
             MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
       }
@@ -270,12 +274,14 @@ public class LibModelInfoExtractor {
     }
 
     @Override
-    public void visit(FieldDeclaration fd, Void arg) {}
+    public void visit(FieldDeclaration fd, Map<String, MethodAnnotationsRecord> methodRecordsMap) {}
 
     @Override
-    public void visit(InitializerDeclaration id, Void arg) {}
+    public void visit(
+        InitializerDeclaration id, Map<String, MethodAnnotationsRecord> methodRecordsMap) {}
 
     @Override
-    public void visit(NormalAnnotationExpr nae, Void arg) {}
+    public void visit(
+        NormalAnnotationExpr nae, Map<String, MethodAnnotationsRecord> methodRecordsMap) {}
   }
 }
