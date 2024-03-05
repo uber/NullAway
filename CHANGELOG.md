@@ -1,5 +1,19 @@
 Changelog
 =========
+Version 0.10.24
+---------------
+* Add library model for Files.isDirectory (#913)
+* JSpecify test case for generic methods (#918)
+* Check dereference of qualifier expression in method reference (#920)
+* JSpecify: skip checking when type is primitive (#924)
+* Fix another JSpecify raw type issue (#925)
+* Fix handling of references to methods of array types and type variables (#926)
+* Build / CI / Documentation upgrades/fixes:
+  - Fix lombok config example more correctly on README (#911)
+  - Update to Gradle 8.6 (#914)
+  - Update to Error Prone 2.25.0 (#916)
+  - Add codecov token (#921)
+
 Version 0.10.23
 ---------------
 * Update for missing a couple possibly unsafe xml parser (#902)
@@ -10,7 +24,6 @@ Version 0.10.23
 * Support for extra Futures classes (#909)
 * Build / CI tooling upgrades:
   - Bump various CI workflow versions (#906)
-
 
 Version 0.10.22
 ---------------

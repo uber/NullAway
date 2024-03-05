@@ -2326,7 +2326,7 @@ public class NullAway extends BugChecker
         return true;
       case NEW_CLASS:
       case NEW_ARRAY:
-        // for string concatenation, auto-boxing
+      case ARRAY_TYPE:
       case LAMBDA_EXPRESSION:
         // Lambdas may return null, but the lambda literal itself should not be null
       case MEMBER_REFERENCE:
@@ -2485,7 +2485,8 @@ public class NullAway extends BugChecker
     if (baseExpressionSymbol != null) {
       if (baseExpressionSymbol.type.isPrimitive()
           || baseExpressionSymbol.getKind() == ElementKind.PACKAGE
-          || ElementUtils.isTypeElement(baseExpressionSymbol)) {
+          || ElementUtils.isTypeElement(baseExpressionSymbol)
+          || baseExpressionSymbol.getKind() == ElementKind.TYPE_PARAMETER) {
         // we know we don't have a null dereference here
         return Description.NO_MATCH;
       }
