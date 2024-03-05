@@ -35,7 +35,7 @@ jar {
 
 jar.doLast {
     javaexec {
-        classpath = files("${rootProject.projectDir}/lib-model/lib-model-consume/build/libs/lib-model-consume.jar")
+        classpath = files("${rootProject.projectDir}/lib-model/lib-model-consume-cli/build/libs/lib-model-consume-cli.jar")
         main = "com.uber.nullaway.libmodel.LibModelInfoExtractor"
         args = [
             jdkPath,
@@ -55,4 +55,4 @@ dependencies {
     implementation deps.build.jsr305Annotations
 }
 
-jar.dependsOn ":lib-model:lib-model-consume:assemble"
+jar.dependsOn ":lib-model:lib-model-consume-cli:assemble"
