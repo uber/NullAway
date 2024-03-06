@@ -27,14 +27,8 @@ jar{
 }
 
 dependencies {
-    testImplementation deps.test.junit4
-    testImplementation(deps.build.errorProneTestHelpers) {
-        exclude group: "junit", module: "junit"
-    }
-    testImplementation project(":nullaway")
     implementation project(":lib-model:lib-model-consume")
     implementation deps.build.guava
     implementation deps.build.javaparser
-    compileOnly project(":nullaway")
 }
 jar.dependsOn ":lib-model:lib-model-consume:assemble"
