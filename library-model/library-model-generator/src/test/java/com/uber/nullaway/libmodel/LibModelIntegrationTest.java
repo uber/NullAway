@@ -45,4 +45,31 @@ public class LibModelIntegrationTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void libModelNullableReturnsArrayTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.libmodel.AnnotationExample;",
+            "class Test {",
+            "  static AnnotationExample annotationExample = new AnnotationExample();",
+            "  static void test(Integer[] value){",
+            "  }",
+            "  static void test1() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'annotationExample.generateIntArray(7)'",
+            "    test(annotationExample.generateIntArray(7));",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

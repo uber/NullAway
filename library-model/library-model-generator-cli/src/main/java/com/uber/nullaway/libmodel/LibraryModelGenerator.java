@@ -83,7 +83,7 @@ public class LibraryModelGenerator {
   }
 
   /**
-   * Parses the source files within the directory using javaparser.
+   * Parses all the source files within the directory using javaparser.
    *
    * @param sourceDirectoryRoot Directory containing annotated java source files.
    * @return a Map containing the Nullability annotation information from the source files.
@@ -191,8 +191,6 @@ public class LibraryModelGenerator {
       String classOrInterfaceName = packageName + "." + cid.getNameAsString();
       @SuppressWarnings("all")
       Map<Integer, String> nullableTypeBoundsMap = new HashMap<>();
-      @SuppressWarnings("all")
-      Map<String, NodeList<AnnotationExpr>> classOrInterfaceAnnotationsMap = new HashMap<>();
       List<TypeParameter> paramList = cid.getTypeParameters();
       // Finding Nullable upper bounds for generic type parameters.
       for (int i = 0; i < paramList.size(); i++) {
@@ -208,21 +206,11 @@ public class LibraryModelGenerator {
           nullableTypeBoundsMap.put(i, classOrInterfaceName);
         }
       }
-      // Finding All the annotations on the class or interface.
-      if (cid.getAnnotations().isNonEmpty()) {
-        classOrInterfaceAnnotationsMap.put(classOrInterfaceName, cid.getAnnotations());
-      }
-      /*System.out.println("Fully qualified class name: " + classOrInterfaceName);
-      nullableTypeBoundsMap.forEach(
-          (p, a) -> System.out.println("Nullable Index: " + p + "\tClass: " + a));
-      classOrInterfaceAnnotationsMap.forEach(
-          (c, a) -> System.out.println("Class: " + c + "\tAnnotations: " + a));*/
       super.visit(cid, null);
     }
 
     @Override
     public void visit(MethodDeclaration md, Void arg) {
-      String methodName = md.getNameAsString();
       Optional<Node> parentClassNode = md.getParentNode();
       String parentClassName = "";
       if (parentClassNode.isPresent()) {
@@ -232,42 +220,58 @@ public class LibraryModelGenerator {
           parentClassName = ((EnumDeclaration) parentClassNode.get()).getNameAsString();
         }
       }
-      String methodSignature = md.getSignature().toString();
-      @SuppressWarnings("all")
-      Map<String, NodeList<AnnotationExpr>> methodAnnotationsMap = new HashMap<>();
-      Map<String, String> nullableReturnMethods = new HashMap<>();
-      boolean isNullableAnnotationPresent = false;
-      if (md.getAnnotations().isNonEmpty()) {
-        methodAnnotationsMap.put(methodName, md.getAnnotations());
-      }
-      /*methodAnnotationsMap.forEach(
-      (m, a) -> System.out.println("Method: " + m + "\tAnnotations: " + a));*/
-      for (AnnotationExpr annotation : md.getAnnotations()) {
-        if (annotation.getNameAsString().equalsIgnoreCase("Nullable")) {
-          isNullableAnnotationPresent = true;
-          break;
-        }
-      }
-      String methodReturnType = "";
-      if (md.getType() instanceof ClassOrInterfaceType) {
-        methodReturnType = md.getType().getChildNodes().get(0).toString();
-      } else if (md.getType() instanceof ArrayType) {
-        // methodReturnType = "Array";
-        // TODO: Figure out the right way to handle Array types
-        // For now we don't consider it as Nullable
-        isNullableAnnotationPresent = false;
-      } else {
-        methodReturnType = md.getType().toString();
-      }
-      if (isNullableAnnotationPresent) {
-        nullableReturnMethods.put(packageName + "." + parentClassName, methodSignature);
+      if (hasNullableReturn(md)) {
         methodRecords.put(
-            packageName + "." + parentClassName + ":" + methodReturnType + " " + methodSignature,
+            packageName
+                + "."
+                + parentClassName
+                + ":"
+                + getMethodReturnTypeString(md)
+                + " "
+                + md.getSignature().toString(),
             MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
       }
-      nullableReturnMethods.forEach(
-          (c, s) -> System.out.println("Enclosing Class: " + c + "\tMethod Signature: " + s));
       super.visit(md, null);
+    }
+
+    /**
+     * Takes a MethodDeclaration and Tells us whether it can return null.
+     *
+     * @param md MethodDeclaration.
+     * @return Whether the method can return null.
+     */
+    private boolean hasNullableReturn(MethodDeclaration md) {
+      if (md.getType() instanceof ArrayType) {
+        for (AnnotationExpr annotation : md.getType().getAnnotations()) {
+          if (annotation.getNameAsString().equalsIgnoreCase("Nullable")) {
+            return true;
+          }
+        }
+      } else {
+        for (AnnotationExpr annotation : md.getAnnotations()) {
+          if (annotation.getNameAsString().equalsIgnoreCase("Nullable")) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    /**
+     * Takes a MethodDeclaration and returns the String value for the return type that will be
+     * written into the astubx file.
+     *
+     * @param md MethodDeclaration.
+     * @return The return type string value to be written into the astubx file.
+     */
+    private String getMethodReturnTypeString(MethodDeclaration md) {
+      if (md.getType() instanceof ClassOrInterfaceType) {
+        return md.getType().getChildNodes().get(0).toString();
+      } else if (md.getType() instanceof ArrayType) {
+        return "Array";
+      } else {
+        return md.getType().toString();
+      }
     }
   }
 }
