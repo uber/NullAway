@@ -20,7 +20,7 @@ plugins {
 
 jar{
     manifest {
-        attributes('Main-Class':'com.uber.nullaway.libmodel.LibModelInfoExtractor')
+        attributes('Main-Class':'com.uber.nullaway.libmodel.LibraryModelGenerator')
     }
     // add this classifier so that the output file for the jar task differs from
     // the output file for the shadowJar task (otherwise they overwrite each other's

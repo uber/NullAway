@@ -29,13 +29,9 @@ import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
-import com.github.javaparser.ast.body.ConstructorDeclaration;
 import com.github.javaparser.ast.body.EnumDeclaration;
-import com.github.javaparser.ast.body.FieldDeclaration;
-import com.github.javaparser.ast.body.InitializerDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
-import com.github.javaparser.ast.expr.NormalAnnotationExpr;
 import com.github.javaparser.ast.type.ArrayType;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.TypeParameter;
@@ -52,27 +48,50 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-public class LibModelInfoExtractor {
+/**
+ * Utilized for generating an astubx file from a directory containing annotated Java source code.
+ *
+ * <p>This class utilizes com.github.javaparser APIs to analyze Java source files within a specified
+ * directory. It processes the annotated Java source code to generate an astubx file that contains
+ * the required annotation information to be able to generate library models.
+ */
+public class LibraryModelGenerator {
 
+  /**
+   * This is the main method of the cli tool. It parses the source files within a specified
+   * directory, obtains meaningful Nullability annotation information and writes it into an astubx
+   * file.
+   *
+   * @param args Command line arguments for the directory containing source files and the output
+   *     directory.
+   */
   public static void main(String[] args) {
-    Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
-    LibModelInfoExtractor libModelInfoExtractor = new LibModelInfoExtractor();
-    // input directory
-    libModelInfoExtractor.processDirectory(args[0], methodRecords);
-    // output directory
-    libModelInfoExtractor.writeToAstubx(args[1], methodRecords);
+    LibraryModelGenerator libraryModelGenerator = new LibraryModelGenerator();
+    libraryModelGenerator.generateAstubxForLibraryModels(args[0], args[1]);
   }
 
-  public void processDirectory(String file, Map<String, MethodAnnotationsRecord> methodRecords) {
-    Path root = dirnameToPath(file);
-    AnnotationCollectorCallback mc = new AnnotationCollectorCallback(methodRecords);
+  public void generateAstubxForLibraryModels(String inputSourceDirectory, String outputDirectory) {
+    Map<String, MethodAnnotationsRecord> methodRecords = processDirectory(inputSourceDirectory);
+    writeToAstubx(outputDirectory, methodRecords);
+  }
+
+  /**
+   * Parses the source files within the directory using javaparser.
+   *
+   * @param sourceDirectoryRoot Directory containing annotated java source files.
+   * @return a Map containing the Nullability annotation information from the source files.
+   */
+  private Map<String, MethodAnnotationsRecord> processDirectory(String sourceDirectoryRoot) {
+    Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
+    Path root = dirnameToPath(sourceDirectoryRoot);
+    AnnotationCollectorCallback ac = new AnnotationCollectorCallback(methodRecords);
     CollectionStrategy strategy = new ParserCollectionStrategy();
     // Required to include directories that contain a module-info.java, which don't parse by
     // default.
@@ -84,48 +103,42 @@ public class LibModelInfoExtractor {
         .forEach(
             sourceRoot -> {
               try {
-                sourceRoot.parse("", mc);
+                sourceRoot.parse("", ac);
               } catch (IOException e) {
-                System.err.println("IOException: " + e);
+                throw new RuntimeException(e);
               }
             });
+    return methodRecords;
   }
 
-  public void writeToAstubx(String outputPath, Map<String, MethodAnnotationsRecord> methodRecords) {
+  /**
+   * Writes the Nullability annotation information into the output directory as an astubx file.
+   *
+   * @param outputPath Output Directory.
+   * @param methodRecords Map containing the collected Nullability annotation information.
+   */
+  private void writeToAstubx(
+      String outputPath, Map<String, MethodAnnotationsRecord> methodRecords) {
+    if (methodRecords.isEmpty()) {
+      return;
+    }
     Map<String, String> importedAnnotations =
         ImmutableMap.<String, String>builder()
             .put("Nonnull", "javax.annotation.Nonnull")
             .put("Nullable", "javax.annotation.Nullable")
             .build();
-    DataOutputStream dos;
-    try {
-      Path opPath = Paths.get(outputPath);
-      Files.createDirectories(opPath.getParent());
-      dos = new DataOutputStream(Files.newOutputStream(opPath));
+    Path outputPathInstance = Paths.get(outputPath);
+    try (DataOutputStream dos = new DataOutputStream(Files.newOutputStream(outputPathInstance))) {
+      Files.createDirectories(outputPathInstance.getParent());
+      StubxWriter.write(
+          dos, importedAnnotations, Collections.emptyMap(), Collections.emptyMap(), methodRecords);
     } catch (IOException e) {
       throw new RuntimeException(e);
-    }
-    if (!methodRecords.isEmpty()) {
-      try {
-        StubxWriter.write(
-            dos, importedAnnotations, new HashMap<>(), new HashMap<>(), methodRecords);
-        dos.close();
-      } catch (IOException e) {
-        throw new RuntimeException(e);
-      }
     }
   }
 
   public Path dirnameToPath(String dir) {
     File f = new File(dir);
-    if (!f.exists()) {
-      System.err.printf("Directory %s (%s) does not exist.%n", dir, f);
-      System.exit(1);
-    }
-    if (!f.isDirectory()) {
-      System.err.printf("Not a directory: %s (%s).%n", dir, f);
-      System.exit(1);
-    }
     String absoluteDir = f.getAbsolutePath();
     if (absoluteDir.endsWith("/.")) {
       absoluteDir = absoluteDir.substring(0, absoluteDir.length() - 2);
@@ -135,12 +148,10 @@ public class LibModelInfoExtractor {
 
   private static class AnnotationCollectorCallback implements SourceRoot.Callback {
 
-    private final AnnotationCollectionVisitor mv;
-    private Map<String, MethodAnnotationsRecord> methodRecords;
+    private final AnnotationCollectionVisitor annotationCollectionVisitor;
 
     public AnnotationCollectorCallback(Map<String, MethodAnnotationsRecord> methodRecords) {
-      this.methodRecords = methodRecords;
-      this.mv = new AnnotationCollectionVisitor();
+      this.annotationCollectionVisitor = new AnnotationCollectionVisitor(methodRecords);
     }
 
     @Override
@@ -149,43 +160,29 @@ public class LibModelInfoExtractor {
       Optional<CompilationUnit> opt = result.getResult();
       if (opt.isPresent()) {
         CompilationUnit cu = opt.get();
-        visitAll(cu);
+        cu.accept(annotationCollectionVisitor, null);
       }
       return res;
     }
-
-    public void visitAll(Node rootNode) {
-      if (rootNode == null) {
-        return;
-      }
-      ArrayDeque<Node> stack = new ArrayDeque<>();
-      stack.addFirst(rootNode);
-      while (!stack.isEmpty()) {
-        Node current = stack.removeFirst();
-        current.accept(mv, this.methodRecords);
-        List<Node> children = current.getChildNodes();
-        if (children != null) {
-          for (Node child : children) {
-            stack.addFirst(child);
-          }
-        }
-      }
-    }
   }
 
-  private static class AnnotationCollectionVisitor
-      extends VoidVisitorAdapter<Map<String, MethodAnnotationsRecord>> {
+  private static class AnnotationCollectionVisitor extends VoidVisitorAdapter<Void> {
 
     private String packageName = "";
+    private Map<String, MethodAnnotationsRecord> methodRecords;
 
-    @Override
-    public void visit(PackageDeclaration n, Map<String, MethodAnnotationsRecord> methodRecordsMap) {
-      this.packageName = n.getNameAsString();
+    public AnnotationCollectionVisitor(Map<String, MethodAnnotationsRecord> methodRecords) {
+      this.methodRecords = methodRecords;
     }
 
     @Override
-    public void visit(
-        ClassOrInterfaceDeclaration cid, Map<String, MethodAnnotationsRecord> methodRecordsMap) {
+    public void visit(PackageDeclaration pd, Void arg) {
+      this.packageName = pd.getNameAsString();
+      super.visit(pd, null);
+    }
+
+    @Override
+    public void visit(ClassOrInterfaceDeclaration cid, Void arg) {
       String classOrInterfaceName = packageName + "." + cid.getNameAsString();
       @SuppressWarnings("all")
       Map<Integer, String> nullableTypeBoundsMap = new HashMap<>();
@@ -215,17 +212,11 @@ public class LibModelInfoExtractor {
           (p, a) -> System.out.println("Nullable Index: " + p + "\tClass: " + a));
       classOrInterfaceAnnotationsMap.forEach(
           (c, a) -> System.out.println("Class: " + c + "\tAnnotations: " + a));*/
+      super.visit(cid, null);
     }
 
     @Override
-    public void visit(EnumDeclaration ed, Map<String, MethodAnnotationsRecord> methodRecordsMap) {}
-
-    @Override
-    public void visit(
-        ConstructorDeclaration cd, Map<String, MethodAnnotationsRecord> methodRecordsMap) {}
-
-    @Override
-    public void visit(MethodDeclaration md, Map<String, MethodAnnotationsRecord> methodRecordsMap) {
+    public void visit(MethodDeclaration md, Void arg) {
       String methodName = md.getNameAsString();
       Optional<Node> parentClassNode = md.getParentNode();
       String parentClassName = "";
@@ -265,23 +256,13 @@ public class LibModelInfoExtractor {
       }
       if (isNullableAnnotationPresent) {
         nullableReturnMethods.put(packageName + "." + parentClassName, methodSignature);
-        methodRecordsMap.put(
+        methodRecords.put(
             packageName + "." + parentClassName + ":" + methodReturnType + " " + methodSignature,
             MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
       }
       nullableReturnMethods.forEach(
           (c, s) -> System.out.println("Enclosing Class: " + c + "\tMethod Signature: " + s));
+      super.visit(md, null);
     }
-
-    @Override
-    public void visit(FieldDeclaration fd, Map<String, MethodAnnotationsRecord> methodRecordsMap) {}
-
-    @Override
-    public void visit(
-        InitializerDeclaration id, Map<String, MethodAnnotationsRecord> methodRecordsMap) {}
-
-    @Override
-    public void visit(
-        NormalAnnotationExpr nae, Map<String, MethodAnnotationsRecord> methodRecordsMap) {}
   }
 }
