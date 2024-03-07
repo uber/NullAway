@@ -15,20 +15,31 @@
  */
 plugins {
     id "java-library"
+    id "com.github.johnrengelman.shadow"
 }
 
 jar{
     manifest {
         attributes('Main-Class':'com.uber.nullaway.libmodel.LibModelInfoExtractor')
     }
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    }
+    // add this classifier so that the output file for the jar task differs from
+    // the output file for the shadowJar task (otherwise they overwrite each other's
+    // outputs, forcing the tasks to always re-run)
+    archiveClassifier = "nonshadow"
 }
+
+shadowJar {
+    mergeServiceFiles()
+    configurations = [
+            project.configurations.runtimeClasspath
+    ]
+    archiveClassifier = ""
+}
+shadowJar.dependsOn jar
+assemble.dependsOn shadowJar
 
 dependencies {
     implementation project(":library-model:library-model-generator")
     implementation deps.build.guava
     implementation deps.build.javaparser
 }
-jar.dependsOn ":library-model:library-model-generator:assemble"
