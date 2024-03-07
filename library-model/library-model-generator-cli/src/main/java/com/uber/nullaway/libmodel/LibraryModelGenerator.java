@@ -235,10 +235,10 @@ public class LibraryModelGenerator {
     }
 
     /**
-     * Takes a MethodDeclaration and Tells us whether it can return null.
+     * Determines if a MethodDeclaration can return null.
      *
-     * @param md MethodDeclaration.
-     * @return Whether the method can return null.
+     * @param md The MethodDeclaration instance.
+     * @return {@code true} if the method can return null, {@code false} otherwise.
      */
     private boolean hasNullableReturn(MethodDeclaration md) {
       if (md.getType() instanceof ArrayType) {
@@ -261,7 +261,7 @@ public class LibraryModelGenerator {
      * Takes a MethodDeclaration and returns the String value for the return type that will be
      * written into the astubx file.
      *
-     * @param md MethodDeclaration.
+     * @param md The MethodDeclaration instance.
      * @return The return type string value to be written into the astubx file.
      */
     private String getMethodReturnTypeString(MethodDeclaration md) {
