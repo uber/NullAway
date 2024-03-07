@@ -15,20 +15,17 @@
  */
 plugins {
     id "java-library"
-}
-
-jar{
-    manifest {
-        attributes('Main-Class':'com.uber.nullaway.libmodel.LibModelInfoExtractor')
-    }
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    }
+    id "nullaway.java-test-conventions"
 }
 
 dependencies {
-    implementation project(":lib-model:lib-model-consume")
+    testImplementation deps.test.junit4
+    testImplementation(deps.build.errorProneTestHelpers) {
+        exclude group: "junit", module: "junit"
+    }
+    testImplementation project(":nullaway")
+    testImplementation project(":library-model:library-model-generator-integration-test")
     implementation deps.build.guava
-    implementation deps.build.javaparser
+    compileOnly deps.apt.autoValueAnnot
+    annotationProcessor deps.apt.autoValue
 }
-jar.dependsOn ":lib-model:lib-model-consume:assemble"

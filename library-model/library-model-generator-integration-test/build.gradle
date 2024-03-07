@@ -18,9 +18,9 @@ plugins {
     id "java-library"
 }
 
-evaluationDependsOn(":lib-model:lib-model-consume")
+evaluationDependsOn(":library-model:library-model-generator")
 
-def jdkPath = "${rootProject.projectDir}/lib-model/lib-model-test/src/main/resources/sample_annotated/src"
+def jdkPath = "${rootProject.projectDir}/library-model/library-model-generator-integration-test/src/main/resources/sample_annotated/src"
 def astubxPath = "com/uber/nullaway/libmodel/provider/libmodels.astubx"
 
 jar {
@@ -35,7 +35,7 @@ jar {
 
 jar.doLast {
     javaexec {
-        classpath = files("${rootProject.projectDir}/lib-model/lib-model-consume-cli/build/libs/lib-model-consume-cli.jar")
+        classpath = files("${rootProject.projectDir}/library-model/library-model-generator-cli/build/libs/library-model-generator-cli.jar")
         main = "com.uber.nullaway.libmodel.LibModelInfoExtractor"
         args = [
             jdkPath,
@@ -44,7 +44,7 @@ jar.doLast {
     }
     exec {
         workingDir "./build/libs"
-        commandLine "jar", "uf", "lib-model-test.jar", astubxPath
+        commandLine "jar", "uf", "library-model-generator-integration-test.jar", astubxPath
     }
 }
 
@@ -55,4 +55,4 @@ dependencies {
     implementation deps.build.jsr305Annotations
 }
 
-jar.dependsOn ":lib-model:lib-model-consume-cli:assemble"
+jar.dependsOn ":library-model:library-model-generator-cli:assemble"

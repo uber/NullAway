@@ -37,7 +37,7 @@ dependencies {
     api deps.build.guava
     api deps.build.commonsIO
     compileOnly deps.build.errorProneCheckApi
-    implementation project(":lib-model:lib-model-consume")
+    implementation project(":library-model:library-model-generator")
 
     testImplementation deps.test.junit4
     testImplementation(deps.build.errorProneTestHelpers) {

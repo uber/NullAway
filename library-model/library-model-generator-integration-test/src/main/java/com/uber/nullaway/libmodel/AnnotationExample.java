@@ -10,4 +10,14 @@ public class AnnotationExample {
       return inputString.toUpperCase(Locale.ROOT);
     }
   }
+
+  public String[] makeUpperCaseArray(String inputString) {
+    if (inputString == null || inputString.isEmpty()) {
+      return null;
+    } else {
+      String[] result = new String[1];
+      result[0] = inputString.toUpperCase(Locale.ROOT);
+      return result;
+    }
+  }
 }
