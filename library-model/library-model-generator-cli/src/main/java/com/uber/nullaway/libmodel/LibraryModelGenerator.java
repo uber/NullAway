@@ -123,15 +123,20 @@ public class LibraryModelGenerator {
       return;
     }
     Map<String, String> importedAnnotations =
-        ImmutableMap.<String, String>builder()
-            .put("Nonnull", "javax.annotation.Nonnull")
-            .put("Nullable", "javax.annotation.Nullable")
-            .build();
+        ImmutableMap.of(
+            "Nonnull", "javax.annotation.Nonnull",
+            "Nullable", "javax.annotation.Nullable");
     Path outputPathInstance = Paths.get(outputPath);
-    try (DataOutputStream dos = new DataOutputStream(Files.newOutputStream(outputPathInstance))) {
+    try {
       Files.createDirectories(outputPathInstance.getParent());
-      StubxWriter.write(
-          dos, importedAnnotations, Collections.emptyMap(), Collections.emptyMap(), methodRecords);
+      try (DataOutputStream dos = new DataOutputStream(Files.newOutputStream(outputPathInstance))) {
+        StubxWriter.write(
+            dos,
+            importedAnnotations,
+            Collections.emptyMap(),
+            Collections.emptyMap(),
+            methodRecords);
+      }
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
