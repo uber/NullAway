@@ -22,4 +22,8 @@ public class AnnotationExample {
       return result;
     }
   }
+
+  public String nullReturn() {
+    return null;
+  }
 }

@@ -25,6 +25,7 @@ package com.uber.nullaway.libmodel;
 import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.PackageDeclaration;
@@ -174,7 +175,10 @@ public class LibraryModelGenerator {
   private static class AnnotationCollectionVisitor extends VoidVisitorAdapter<Void> {
 
     private String packageName = "";
+    private boolean isJspecifyNullableImportPresent = false;
     private Map<String, MethodAnnotationsRecord> methodRecords;
+    private static final String ARRAY_RETURN_TYPE_STRING = "Array";
+    private static final String JSPECIFY_NULLABLE_IMPORT = "org.jspecify.annotations.Nullable";
 
     public AnnotationCollectionVisitor(Map<String, MethodAnnotationsRecord> methodRecords) {
       this.methodRecords = methodRecords;
@@ -184,6 +188,14 @@ public class LibraryModelGenerator {
     public void visit(PackageDeclaration pd, Void arg) {
       this.packageName = pd.getNameAsString();
       super.visit(pd, null);
+    }
+
+    @Override
+    public void visit(ImportDeclaration id, Void arg) {
+      if (id.getName().toString().contains(JSPECIFY_NULLABLE_IMPORT)) {
+        this.isJspecifyNullableImportPresent = true;
+      }
+      super.visit(id, null);
     }
 
     @Override
@@ -243,13 +255,13 @@ public class LibraryModelGenerator {
     private boolean hasNullableReturn(MethodDeclaration md) {
       if (md.getType() instanceof ArrayType) {
         for (AnnotationExpr annotation : md.getType().getAnnotations()) {
-          if (annotation.getNameAsString().equalsIgnoreCase("Nullable")) {
+          if (isAnnotationNullable(annotation)) {
             return true;
           }
         }
       } else {
         for (AnnotationExpr annotation : md.getAnnotations()) {
-          if (annotation.getNameAsString().equalsIgnoreCase("Nullable")) {
+          if (isAnnotationNullable(annotation)) {
             return true;
           }
         }
@@ -268,10 +280,16 @@ public class LibraryModelGenerator {
       if (md.getType() instanceof ClassOrInterfaceType) {
         return md.getType().getChildNodes().get(0).toString();
       } else if (md.getType() instanceof ArrayType) {
-        return "Array";
+        return ARRAY_RETURN_TYPE_STRING;
       } else {
         return md.getType().toString();
       }
+    }
+
+    private boolean isAnnotationNullable(AnnotationExpr annotation) {
+      return (annotation.getNameAsString().equalsIgnoreCase("Nullable")
+              && this.isJspecifyNullableImportPresent)
+          || annotation.getNameAsString().equalsIgnoreCase(JSPECIFY_NULLABLE_IMPORT);
     }
   }
 }

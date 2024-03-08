@@ -32,15 +32,17 @@ public class LibModelIntegrationTest {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import javax.annotation.Nullable;",
             "import com.uber.nullaway.libmodel.AnnotationExample;",
             "class Test {",
             "  static AnnotationExample annotationExample = new AnnotationExample();",
             "  static void test(String value){",
             "  }",
-            "  static void test1() {",
+            "  static void testPositive() {",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'annotationExample.makeUpperCase(\"nullaway\")'",
             "    test(annotationExample.makeUpperCase(\"nullaway\"));",
+            "  }",
+            "  static void testNegative() {",
+            "    test(annotationExample.nullReturn());",
             "  }",
             "}")
         .doTest();
@@ -59,7 +61,6 @@ public class LibModelIntegrationTest {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import javax.annotation.Nullable;",
             "import com.uber.nullaway.libmodel.AnnotationExample;",
             "class Test {",
             "  static AnnotationExample annotationExample = new AnnotationExample();",

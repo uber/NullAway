@@ -26,4 +26,9 @@ public class AnnotationExample {
             return result;
         }
     }
+
+    @javax.annotation.Nullable
+    public String nullReturn() {
+        return null;
+    }
 }
