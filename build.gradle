@@ -95,8 +95,8 @@ subprojects { project ->
         google()
     }
 
-    // For some reason, spotless complains when applied to the jar-infer folder itself, even
-    // though there is no top-level :jar-infer project
+    // For some reason, spotless complains when applied to the folders containing projects
+    // when they do not have a build.gradle file
     if (project.name != "jar-infer" && project.name != "library-model") {
         project.apply plugin: "com.diffplug.spotless"
         spotless {
