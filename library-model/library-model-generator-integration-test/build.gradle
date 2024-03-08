@@ -18,9 +18,7 @@ plugins {
     id "java-library"
 }
 
-evaluationDependsOn(":library-model:library-model-generator")
-
-def jdkPath = "${rootProject.projectDir}/library-model/library-model-generator-integration-test/src/main/resources/sample_annotated/src"
+def testInputsPath = "${rootProject.projectDir}/library-model/library-model-generator-integration-test/src/main/resources/sample_annotated/src"
 def astubxPath = "com/uber/nullaway/libmodel/provider/libmodels.astubx"
 
 jar {
@@ -36,9 +34,9 @@ jar {
 jar.doLast {
     javaexec {
         classpath = files("${rootProject.projectDir}/library-model/library-model-generator-cli/build/libs/library-model-generator-cli.jar")
-        main = "com.uber.nullaway.libmodel.LibraryModelGenerator"
+        main = "com.uber.nullaway.libmodel.LibraryModelGeneratorCLI"
         args = [
-            jdkPath,
+            testInputsPath,
             "${jar.destinationDirectory.get()}/${astubxPath}"
         ]
     }

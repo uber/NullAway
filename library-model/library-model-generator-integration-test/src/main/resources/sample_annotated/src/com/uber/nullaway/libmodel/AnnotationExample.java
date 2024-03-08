@@ -27,6 +27,8 @@ public class AnnotationExample {
         }
     }
 
+
+    //This is to test that the Nullable annotation here does not get processed since it is not JSpecify.
     @javax.annotation.Nullable
     public String nullReturn() {
         return null;

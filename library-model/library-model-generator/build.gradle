@@ -26,6 +26,7 @@ dependencies {
     testImplementation project(":nullaway")
     testImplementation project(":library-model:library-model-generator-integration-test")
     implementation deps.build.guava
+    implementation deps.build.javaparser
     compileOnly deps.apt.autoValueAnnot
     annotationProcessor deps.apt.autoValue
 }

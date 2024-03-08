@@ -65,19 +65,6 @@ import java.util.Optional;
  */
 public class LibraryModelGenerator {
 
-  /**
-   * This is the main method of the cli tool. It parses the source files within a specified
-   * directory, obtains meaningful Nullability annotation information and writes it into an astubx
-   * file.
-   *
-   * @param args Command line arguments for the directory containing source files and the output
-   *     directory.
-   */
-  public static void main(String[] args) {
-    LibraryModelGenerator libraryModelGenerator = new LibraryModelGenerator();
-    libraryModelGenerator.generateAstubxForLibraryModels(args[0], args[1]);
-  }
-
   public void generateAstubxForLibraryModels(String inputSourceDirectory, String outputDirectory) {
     Map<String, MethodAnnotationsRecord> methodRecords = processDirectory(inputSourceDirectory);
     writeToAstubx(outputDirectory, methodRecords);
@@ -243,6 +230,8 @@ public class LibraryModelGenerator {
                 + md.getSignature().toString(),
             MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
       }
+      for (int i = 0; i < md.getParameters().size(); i++) {}
+
       super.visit(md, null);
     }
 
@@ -254,6 +243,9 @@ public class LibraryModelGenerator {
      */
     private boolean hasNullableReturn(MethodDeclaration md) {
       if (md.getType() instanceof ArrayType) {
+        /* For an Array return type the annotation is on the type when the Array instance is
+        Nullable(Object @Nullable []) and on the node when the elements inside are
+        Nullable(@Nullable Object []) */
         for (AnnotationExpr annotation : md.getType().getAnnotations()) {
           if (isAnnotationNullable(annotation)) {
             return true;
@@ -287,6 +279,7 @@ public class LibraryModelGenerator {
     }
 
     private boolean isAnnotationNullable(AnnotationExpr annotation) {
+      // Since we only want to consider jspecify Nullable annotations.
       return (annotation.getNameAsString().equalsIgnoreCase("Nullable")
               && this.isJspecifyNullableImportPresent)
           || annotation.getNameAsString().equalsIgnoreCase(JSPECIFY_NULLABLE_IMPORT);
