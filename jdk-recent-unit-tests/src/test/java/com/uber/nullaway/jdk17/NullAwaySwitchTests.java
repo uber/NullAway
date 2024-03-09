@@ -206,4 +206,26 @@ public class NullAwaySwitchTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testSwitchExprNullCaseDataflow() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SwitchNullCase.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class SwitchNullCase {",
+            "  public enum NullableEnum {",
+            "    A,",
+            "    B,",
+            "  }",
+            "  static Object handleNullableEnumCaseNullDefaultExpr(@Nullable NullableEnum nullableEnum) {",
+            "    return switch (nullableEnum) {",
+            "      case null -> new Object();",
+            "      default -> nullableEnum.toString();",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

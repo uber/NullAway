@@ -932,6 +932,19 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitCase(
       CaseNode caseNode, TransferInput<Nullness, NullnessStore> input) {
+    for (Node operand : caseNode.getCaseOperands()) {
+      if (operand instanceof NullLiteralNode) {
+        ReadableUpdates thenUpdates = new ReadableUpdates();
+        ReadableUpdates elseUpdates = new ReadableUpdates();
+        Node switchOperand = caseNode.getSwitchOperand().getExpression();
+        handleEqualityComparison(
+            true, switchOperand, operand, values(input), thenUpdates, elseUpdates);
+        ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
+        ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
+        return conditionalResult(
+            thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
+      }
+    }
     return noStoreChanges(NULLABLE, input);
   }
 
