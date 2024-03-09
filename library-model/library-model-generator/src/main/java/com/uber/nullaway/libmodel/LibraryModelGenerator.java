@@ -230,8 +230,6 @@ public class LibraryModelGenerator {
                 + md.getSignature().toString(),
             MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
       }
-      for (int i = 0; i < md.getParameters().size(); i++) {}
-
       super.visit(md, null);
     }
 
