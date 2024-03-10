@@ -930,11 +930,9 @@ public class AccessPathNullnessPropagation
       return noStoreChanges(NULLABLE, input);
     } else {
       // `null` can only appear on its own as a case operand, or together with the default case
-      // (i.e.,
-      // `case null, default:`).  So, it is safe to only look at the first case operand, and update
-      // the stores based on that.  We treat the case operation as an equality comparison between
-      // the
-      // switch expression and the case operand.
+      // (i.e., `case null, default:`).  So, it is safe to only look at the first case operand, and
+      // update the stores based on that.  We treat the case operation as an equality comparison
+      // between the switch expression and the case operand.
       Node switchOperand = caseNode.getSwitchOperand().getExpression();
       Node caseOperand = caseOperands.get(0);
       return handleEqualityComparison(input, switchOperand, caseOperand, true);
