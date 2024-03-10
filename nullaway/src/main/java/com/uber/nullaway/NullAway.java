@@ -499,6 +499,7 @@ public class NullAway extends BugChecker
     }
 
     if (config.isJSpecifyMode() && tree.getVariable() instanceof ArrayAccessTree) {
+      // check for a write of a @Nullable value into @NonNull array contents
       ArrayAccessTree arrayAccess = (ArrayAccessTree) tree.getVariable();
       ExpressionTree arrayExpr = arrayAccess.getExpression();
       ExpressionTree expression = tree.getExpression();
