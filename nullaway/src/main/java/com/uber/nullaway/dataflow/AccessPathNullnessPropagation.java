@@ -409,6 +409,13 @@ public class AccessPathNullnessPropagation
         input, equalToNode.getLeftOperand(), equalToNode.getRightOperand(), true);
   }
 
+  @Override
+  public TransferResult<Nullness, NullnessStore> visitNotEqual(
+      NotEqualNode notEqualNode, TransferInput<Nullness, NullnessStore> input) {
+    return handleEqualityComparison(
+        input, notEqualNode.getLeftOperand(), notEqualNode.getRightOperand(), false);
+  }
+
   /**
    * Handle nullability refinements from an equality comparison.
    *
@@ -453,13 +460,6 @@ public class AccessPathNullnessPropagation
     ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
     return conditionalResult(
         thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
-  }
-
-  @Override
-  public TransferResult<Nullness, NullnessStore> visitNotEqual(
-      NotEqualNode notEqualNode, TransferInput<Nullness, NullnessStore> input) {
-    return handleEqualityComparison(
-        input, notEqualNode.getLeftOperand(), notEqualNode.getRightOperand(), false);
   }
 
   @Override
