@@ -27,7 +27,6 @@ import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.Node;
-import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.EnumDeclaration;
@@ -35,7 +34,6 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.type.ArrayType;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
-import com.github.javaparser.ast.type.TypeParameter;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import com.github.javaparser.utils.CollectionStrategy;
 import com.github.javaparser.utils.ParserCollectionStrategy;
@@ -50,9 +48,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -163,8 +159,11 @@ public class LibraryModelGenerator {
 
     private String packageName = "";
     private boolean isJspecifyNullableImportPresent = false;
+    private boolean isNullMarked = false;
     private Map<String, MethodAnnotationsRecord> methodRecords;
     private static final String ARRAY_RETURN_TYPE_STRING = "Array";
+    private static final String NULL_MARKED = "NullMarked";
+    private static final String NULLABLE = "Nullable";
     private static final String JSPECIFY_NULLABLE_IMPORT = "org.jspecify.annotations.Nullable";
 
     public AnnotationCollectionVisitor(Map<String, MethodAnnotationsRecord> methodRecords) {
@@ -187,24 +186,13 @@ public class LibraryModelGenerator {
 
     @Override
     public void visit(ClassOrInterfaceDeclaration cid, Void arg) {
-      String classOrInterfaceName = packageName + "." + cid.getNameAsString();
-      @SuppressWarnings("all")
-      Map<Integer, String> nullableTypeBoundsMap = new HashMap<>();
-      List<TypeParameter> paramList = cid.getTypeParameters();
-      // Finding Nullable upper bounds for generic type parameters.
-      for (int i = 0; i < paramList.size(); i++) {
-        boolean hasNullableUpperBound = false;
-        NodeList<ClassOrInterfaceType> upperBoundList = paramList.get(i).getTypeBound();
-        for (ClassOrInterfaceType upperBound : upperBoundList) {
-          if (upperBound.isAnnotationPresent("Nullable")) {
-            hasNullableUpperBound = true;
-            break;
-          }
-        }
-        if (hasNullableUpperBound) {
-          nullableTypeBoundsMap.put(i, classOrInterfaceName);
-        }
-      }
+      cid.getAnnotations()
+          .forEach(
+              a -> {
+                if (a.getNameAsString().equalsIgnoreCase(NULL_MARKED)) {
+                  this.isNullMarked = true;
+                }
+              });
       super.visit(cid, null);
     }
 
@@ -219,7 +207,7 @@ public class LibraryModelGenerator {
           parentClassName = ((EnumDeclaration) parentClassNode.get()).getNameAsString();
         }
       }
-      if (hasNullableReturn(md)) {
+      if (this.isNullMarked && hasNullableReturn(md)) {
         methodRecords.put(
             packageName
                 + "."
@@ -278,7 +266,7 @@ public class LibraryModelGenerator {
 
     private boolean isAnnotationNullable(AnnotationExpr annotation) {
       // Since we only want to consider jspecify Nullable annotations.
-      return (annotation.getNameAsString().equalsIgnoreCase("Nullable")
+      return (annotation.getNameAsString().equalsIgnoreCase(NULLABLE)
               && this.isJspecifyNullableImportPresent)
           || annotation.getNameAsString().equalsIgnoreCase(JSPECIFY_NULLABLE_IMPORT);
     }
