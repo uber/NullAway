@@ -27,6 +27,10 @@ public class AnnotationExample {
         }
     }
 
+    /**
+     * This method exists to test that
+     * we do not process this annotation.
+     */
     @javax.annotation.Nullable
     public String nullReturn() {
         return null;
