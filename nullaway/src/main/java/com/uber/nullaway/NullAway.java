@@ -507,8 +507,14 @@ public class NullAway extends BugChecker
       if (arraySymbol != null) {
         boolean isElementNullable = isArrayElementNullable(arraySymbol, config);
         if (!isElementNullable && mayBeNullExpr(state, expression)) {
-          String message = "assigning @Nullable expression to @NonNull field.";
-          return buildDescription(tree).setMessage(message).build();
+          final String message = "Writing @Nullable expression into array with @NonNull contents.";
+          ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ASSIGN_ARRAY_NULLABLE, message);
+          return errorBuilder.createErrorDescription(
+              errorMessage,
+              expression,
+              buildDescription(expression),
+              state,
+              ASTHelpers.getSymbol(tree.getVariable()));
         }
       }
     }

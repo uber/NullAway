@@ -58,6 +58,7 @@ public class ErrorMessage {
     PASS_NULLABLE_GENERIC,
     WRONG_OVERRIDE_RETURN_GENERIC,
     WRONG_OVERRIDE_PARAM_GENERIC,
+    ASSIGN_ARRAY_NULLABLE,
   }
 
   public String getMessage() {
