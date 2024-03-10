@@ -32,6 +32,7 @@ import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpl
 import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+import static com.uber.nullaway.NullabilityUtil.isArrayElementNullable;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
@@ -495,6 +496,20 @@ public class NullAway extends BugChecker
     // generics check
     if (lhsType != null && lhsType.getTypeArguments().length() > 0 && config.isJSpecifyMode()) {
       GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
+    }
+
+    if (config.isJSpecifyMode() && tree.getVariable() instanceof ArrayAccessTree) {
+      ArrayAccessTree arrayAccess = (ArrayAccessTree) tree.getVariable();
+      ExpressionTree arrayExpr = arrayAccess.getExpression();
+      ExpressionTree expression = tree.getExpression();
+      Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
+      if (arraySymbol != null) {
+        boolean isElementNullable = isArrayElementNullable(arraySymbol, config);
+        if (!isElementNullable && mayBeNullExpr(state, expression)) {
+          String message = "assigning @Nullable expression to @NonNull field.";
+          return buildDescription(tree).setMessage(message).build();
+        }
+      }
     }
 
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
