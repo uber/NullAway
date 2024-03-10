@@ -405,54 +405,36 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitEqualTo(
       EqualToNode equalToNode, TransferInput<Nullness, NullnessStore> input) {
-    ReadableUpdates thenUpdates = new ReadableUpdates();
-    ReadableUpdates elseUpdates = new ReadableUpdates();
-    handleEqualityComparison(
-        true,
-        equalToNode.getLeftOperand(),
-        equalToNode.getRightOperand(),
-        values(input),
-        thenUpdates,
-        elseUpdates);
-    ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
-    ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
-    return conditionalResult(
-        thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
+    return handleEqualityComparison(
+        input, equalToNode.getLeftOperand(), equalToNode.getRightOperand(), true);
   }
 
-  @Override
-  public TransferResult<Nullness, NullnessStore> visitNotEqual(
-      NotEqualNode notEqualNode, TransferInput<Nullness, NullnessStore> input) {
+  /**
+   * Handle nullability refinements from an equality comparison.
+   *
+   * @param input transfer input for the operation
+   * @param leftOperand left operand of the comparison
+   * @param rightOperand right operand of the comparison
+   * @param equalTo if {@code true}, the comparison is an equality comparison, otherwise it is a
+   *     dis-equality ({@code !=}) comparison
+   * @return a TransferResult reflecting any updates from the comparison
+   */
+  private TransferResult<Nullness, NullnessStore> handleEqualityComparison(
+      TransferInput<Nullness, NullnessStore> input,
+      Node leftOperand,
+      Node rightOperand,
+      boolean equalTo) {
     ReadableUpdates thenUpdates = new ReadableUpdates();
     ReadableUpdates elseUpdates = new ReadableUpdates();
-    handleEqualityComparison(
-        false,
-        notEqualNode.getLeftOperand(),
-        notEqualNode.getRightOperand(),
-        values(input),
-        thenUpdates,
-        elseUpdates);
-    ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
-    ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
-    return conditionalResult(
-        thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
-  }
-
-  private void handleEqualityComparison(
-      boolean equalTo,
-      Node leftNode,
-      Node rightNode,
-      SubNodeValues inputs,
-      Updates thenUpdates,
-      Updates elseUpdates) {
-    Nullness leftVal = inputs.valueOfSubNode(leftNode);
-    Nullness rightVal = inputs.valueOfSubNode(rightNode);
+    SubNodeValues inputs = values(input);
+    Nullness leftVal = inputs.valueOfSubNode(leftOperand);
+    Nullness rightVal = inputs.valueOfSubNode(rightOperand);
     Nullness equalBranchValue = leftVal.greatestLowerBound(rightVal);
     Updates equalBranchUpdates = equalTo ? thenUpdates : elseUpdates;
     Updates notEqualBranchUpdates = equalTo ? elseUpdates : thenUpdates;
 
-    Node realLeftNode = unwrapAssignExpr(leftNode);
-    Node realRightNode = unwrapAssignExpr(rightNode);
+    Node realLeftNode = unwrapAssignExpr(leftOperand);
+    Node realRightNode = unwrapAssignExpr(rightOperand);
 
     AccessPath leftAP = AccessPath.getAccessPathForNode(realLeftNode, state, apContext);
     if (leftAP != null) {
@@ -467,6 +449,17 @@ public class AccessPathNullnessPropagation
       notEqualBranchUpdates.set(
           rightAP, rightVal.greatestLowerBound(leftVal.deducedValueWhenNotEqual()));
     }
+    ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
+    ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
+    return conditionalResult(
+        thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
+  }
+
+  @Override
+  public TransferResult<Nullness, NullnessStore> visitNotEqual(
+      NotEqualNode notEqualNode, TransferInput<Nullness, NullnessStore> input) {
+    return handleEqualityComparison(
+        input, notEqualNode.getLeftOperand(), notEqualNode.getRightOperand(), false);
   }
 
   @Override
@@ -932,20 +925,20 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitCase(
       CaseNode caseNode, TransferInput<Nullness, NullnessStore> input) {
-    for (Node operand : caseNode.getCaseOperands()) {
-      if (operand instanceof NullLiteralNode) {
-        ReadableUpdates thenUpdates = new ReadableUpdates();
-        ReadableUpdates elseUpdates = new ReadableUpdates();
-        Node switchOperand = caseNode.getSwitchOperand().getExpression();
-        handleEqualityComparison(
-            true, switchOperand, operand, values(input), thenUpdates, elseUpdates);
-        ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
-        ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
-        return conditionalResult(
-            thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
-      }
+    List<Node> caseOperands = caseNode.getCaseOperands();
+    if (caseOperands.isEmpty()) {
+      return noStoreChanges(NULLABLE, input);
+    } else {
+      // `null` can only appear on its own as a case operand, or together with the default case
+      // (i.e.,
+      // `case null, default:`).  So, it is safe to only look at the first case operand, and update
+      // the stores based on that.  We treat the case operation as an equality comparison between
+      // the
+      // switch expression and the case operand.
+      Node switchOperand = caseNode.getSwitchOperand().getExpression();
+      Node caseOperand = caseOperands.get(0);
+      return handleEqualityComparison(input, switchOperand, caseOperand, true);
     }
-    return noStoreChanges(NULLABLE, input);
   }
 
   @Override
