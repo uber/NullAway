@@ -509,10 +509,12 @@ public class NullAway extends BugChecker
         if (!isElementNullable && mayBeNullExpr(state, expression)) {
           final String message = "Writing @Nullable expression into array with @NonNull contents.";
           ErrorMessage errorMessage = new ErrorMessage(MessageTypes.ASSIGN_ARRAY_NULLABLE, message);
+          // Future enhancements which auto-fix such warnings will require modification to this
+          // logic
           return errorBuilder.createErrorDescription(
               errorMessage,
               expression,
-              buildDescription(expression),
+              buildDescription(tree),
               state,
               ASTHelpers.getSymbol(tree.getVariable()));
         }
