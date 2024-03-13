@@ -32,6 +32,7 @@ import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpl
 import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+import static com.uber.nullaway.NullabilityUtil.isArrayElementNullable;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
@@ -495,6 +496,30 @@ public class NullAway extends BugChecker
     // generics check
     if (lhsType != null && lhsType.getTypeArguments().length() > 0 && config.isJSpecifyMode()) {
       GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
+    }
+
+    if (config.isJSpecifyMode() && tree.getVariable() instanceof ArrayAccessTree) {
+      // check for a write of a @Nullable value into @NonNull array contents
+      ArrayAccessTree arrayAccess = (ArrayAccessTree) tree.getVariable();
+      ExpressionTree arrayExpr = arrayAccess.getExpression();
+      ExpressionTree expression = tree.getExpression();
+      Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
+      if (arraySymbol != null) {
+        boolean isElementNullable = isArrayElementNullable(arraySymbol, config);
+        if (!isElementNullable && mayBeNullExpr(state, expression)) {
+          final String message = "Writing @Nullable expression into array with @NonNull contents.";
+          ErrorMessage errorMessage =
+              new ErrorMessage(MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY, message);
+          // Future enhancements which auto-fix such warnings will require modification to this
+          // logic
+          return errorBuilder.createErrorDescription(
+              errorMessage,
+              expression,
+              buildDescription(tree),
+              state,
+              ASTHelpers.getSymbol(tree.getVariable()));
+        }
+      }
     }
 
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());

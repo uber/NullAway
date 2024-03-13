@@ -135,6 +135,83 @@ public class NullAwayJSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nullableAssignmentNonnullArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static String [] foo = new String[10];",
+            "  static void foo() {",
+            "    // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents",
+            "    foo[1] = null;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableAssignmentNullableArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String [] foo = new String[10];",
+            "  static void foo() {",
+            "    // OK: since array elements are @Nullable",
+            "    foo[1] = null;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableAssignmentLocalArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static void foo() {",
+            "    String [] nonNullArray = new String[10];",
+            "    @Nullable String [] nullableArray = new String[10];",
+            "    // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents",
+            "    nonNullArray[1] = null;",
+            "    // OK: since array elements are @Nullable",
+            "    nullableArray[1] = null;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableAssignmentParameterArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static void fizz(String[] nonNullArray, @Nullable String[] nullableArray) {",
+            "    // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents",
+            "    nonNullArray[1] = null;",
+            "    // OK: since array elements are @Nullable",
+            "    nullableArray[1] = null;",
+            "  }",
+            "  public static void main(String[] args) {",
+            "    String[] foo = new String[10];",
+            "    @Nullable String[] bar = new String[10];",
+            "    fizz(foo, bar);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
