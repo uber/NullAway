@@ -15,16 +15,9 @@
  */
 plugins {
     id "java-library"
-    id "nullaway.java-test-conventions"
 }
 
 dependencies {
-    testImplementation deps.test.junit4
-    testImplementation(deps.build.errorProneTestHelpers) {
-        exclude group: "junit", module: "junit"
-    }
-    testImplementation project(":nullaway")
-    testImplementation project(":library-model:library-model-generator-integration-test")
     implementation deps.build.guava
     implementation deps.build.javaparser
     compileOnly deps.apt.autoValueAnnot
