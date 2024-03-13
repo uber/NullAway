@@ -8,7 +8,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-public class LibModelIntegrationTest {
+public class LibraryModelIntegrationTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
@@ -20,7 +20,7 @@ public class LibModelIntegrationTest {
   }
 
   @Test
-  public void libModelNullableReturnsTest() {
+  public void libraryModelNullableReturnsTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -49,7 +49,7 @@ public class LibModelIntegrationTest {
   }
 
   @Test
-  public void libModelNullableReturnsArrayTest() {
+  public void libraryModelNullableReturnsArrayTest() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -66,9 +66,32 @@ public class LibModelIntegrationTest {
             "  static AnnotationExample annotationExample = new AnnotationExample();",
             "  static void test(Integer[] value){",
             "  }",
-            "  static void test1() {",
+            "  static void testPositive() {",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'annotationExample.generateIntArray(7)'",
             "    test(annotationExample.generateIntArray(7));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void libModelNullableParamTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.libmodel.AnnotationExample;",
+            "class Test {",
+            "  static AnnotationExample annotationExample = new AnnotationExample();",
+            "  static void testNegative() {",
+            "    annotationExample.nullDereference(null);",
             "  }",
             "}")
         .doTest();
