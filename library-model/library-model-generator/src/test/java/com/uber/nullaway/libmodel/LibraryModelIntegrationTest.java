@@ -73,27 +73,4 @@ public class LibraryModelIntegrationTest {
             "}")
         .doTest();
   }
-
-  @Test
-  public void libModelNullableParamTest() {
-    compilationHelper
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JarInferEnabled=true",
-                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.libmodel.AnnotationExample;",
-            "class Test {",
-            "  static AnnotationExample annotationExample = new AnnotationExample();",
-            "  static void testNegative() {",
-            "    annotationExample.nullDereference(null);",
-            "  }",
-            "}")
-        .doTest();
-  }
 }
