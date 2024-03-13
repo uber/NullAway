@@ -1,0 +1,56 @@
+/*
+ * Copyright (C) 2017. Uber Technologies
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id "java-library"
+}
+
+def testInputsPath = "${rootProject.projectDir}/library-model/test-library-model-generator/src/main/resources/sample_annotated/src"
+def astubxPath = "com/uber/nullaway/libmodel/provider/libmodels.astubx"
+
+jar {
+    manifest {
+        attributes(
+                'Created-By'     : "Gradle ${gradle.gradleVersion}",
+                'Build-Jdk'      : "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
+                'Build-OS'       : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
+                )
+    }
+}
+
+jar.doLast {
+    javaexec {
+        classpath = files("${rootProject.projectDir}/library-model/library-model-generator-cli/build/libs/library-model-generator-cli.jar")
+        main = "com.uber.nullaway.libmodel.LibraryModelGeneratorCLI"
+        args = [
+            testInputsPath,
+            "${jar.destinationDirectory.get()}/${astubxPath}"
+        ]
+    }
+    exec {
+        workingDir "./build/libs"
+        commandLine "jar", "uf", "test-library-model-generator.jar", astubxPath
+    }
+}
+
+dependencies {
+    compileOnly deps.apt.autoService
+    annotationProcessor deps.apt.autoService
+    compileOnly project(":nullaway")
+    implementation deps.build.jsr305Annotations
+}
+
+jar.dependsOn ":library-model:library-model-generator-cli:assemble"

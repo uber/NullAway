@@ -13,44 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 plugins {
     id "java-library"
-}
-
-def testInputsPath = "${rootProject.projectDir}/library-model/library-model-generator-integration-test/src/main/resources/sample_annotated/src"
-def astubxPath = "com/uber/nullaway/libmodel/provider/libmodels.astubx"
-
-jar {
-    manifest {
-        attributes(
-                'Created-By'     : "Gradle ${gradle.gradleVersion}",
-                'Build-Jdk'      : "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
-                'Build-OS'       : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
-                )
-    }
-}
-
-jar.doLast {
-    javaexec {
-        classpath = files("${rootProject.projectDir}/library-model/library-model-generator-cli/build/libs/library-model-generator-cli.jar")
-        main = "com.uber.nullaway.libmodel.LibraryModelGeneratorCLI"
-        args = [
-            testInputsPath,
-            "${jar.destinationDirectory.get()}/${astubxPath}"
-        ]
-    }
-    exec {
-        workingDir "./build/libs"
-        commandLine "jar", "uf", "library-model-generator-integration-test.jar", astubxPath
-    }
+    id "nullaway.java-test-conventions"
 }
 
 dependencies {
-    compileOnly deps.apt.autoService
-    annotationProcessor deps.apt.autoService
-    compileOnly project(":nullaway")
-    implementation deps.build.jsr305Annotations
+    testImplementation project(":nullaway")
+    testImplementation project(":library-model:test-library-model-generator")
+    testImplementation deps.test.junit4
+    testImplementation(deps.build.errorProneTestHelpers) {
+        exclude group: "junit", module: "junit"
+    }
+    implementation deps.build.guava
+    implementation deps.build.javaparser
+    compileOnly deps.apt.autoValueAnnot
+    annotationProcessor deps.apt.autoValue
 }
-
-jar.dependsOn ":library-model:library-model-generator-cli:assemble"
