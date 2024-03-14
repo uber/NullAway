@@ -186,6 +186,8 @@ public class LibraryModelGenerator {
 
     @Override
     public void visit(ClassOrInterfaceDeclaration cid, Void arg) {
+      /*Currently, this logic only supports @NullMarked annotations on top-level classes and
+      does not handle cases where @NullMarked appears on some nested classes but not others*/
       cid.getAnnotations()
           .forEach(
               a -> {
