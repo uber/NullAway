@@ -4,5 +4,7 @@ import com.google.common.collect.ImmutableSet;
 
 public interface StreamMethodRecord {
 
+  String innerMethodName();
+
   ImmutableSet<Integer> argsFromStream();
 }

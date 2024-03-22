@@ -28,7 +28,8 @@ public class MaplikeMethodRecord implements StreamMethodRecord {
 
   private final String innerMethodName;
 
-  public String getInnerMethodName() {
+  @Override
+  public String innerMethodName() {
     return innerMethodName;
   }
 

@@ -60,6 +60,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -214,7 +215,10 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
             // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
             if (annonClassBody != null) {
               MaplikeMethodRecord methodRecord = streamType.getMaplikeMethodRecord(methodSymbol);
-              handleMapAnonClass(methodRecord, tree, annonClassBody);
+              handleMapOrCollectAnonClass(
+                  methodRecord,
+                  annonClassBody,
+                  t -> observableCallToInnerMethodOrLambda.put(tree, t));
             }
           } else if (argTree instanceof LambdaExpressionTree) {
             observableCallToInnerMethodOrLambda.put(tree, argTree);
@@ -250,10 +254,18 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
         List<? extends ExpressionTree> arguments = collectInvokeArg.getArguments();
         for (int ind : collectlikeMethodRecord.argsToCollectorFactoryMethod()) {
           ExpressionTree factoryMethodArg = arguments.get(ind);
-          // TODO handle anonymous classes!
-          if (factoryMethodArg instanceof LambdaExpressionTree) {
-            collectCallToInnerMethodsOrLambdas.put(tree, factoryMethodArg);
-          } else if (factoryMethodArg instanceof MemberReferenceTree) {
+          // TODO eventually, support method references, though this is likely only useful in
+          // JSpecify mode with generics checking
+          if (factoryMethodArg instanceof NewClassTree) {
+            ClassTree anonClassBody = ((NewClassTree) factoryMethodArg).getClassBody();
+            // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
+            if (anonClassBody != null) {
+              handleMapOrCollectAnonClass(
+                  collectlikeMethodRecord,
+                  anonClassBody,
+                  t -> collectCallToInnerMethodsOrLambdas.put(tree, t));
+            }
+          } else if (factoryMethodArg instanceof LambdaExpressionTree) {
             collectCallToInnerMethodsOrLambdas.put(tree, factoryMethodArg);
           }
         }
@@ -339,14 +351,12 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
     handleChainFromFilter(streamType, observableDotFilter, lambdaTree, state);
   }
 
-  private void handleMapAnonClass(
-      MaplikeMethodRecord methodRecord,
-      MethodInvocationTree observableDotMap,
-      ClassTree annonClassBody) {
-    for (Tree t : annonClassBody.getMembers()) {
+  private void handleMapOrCollectAnonClass(
+      StreamMethodRecord methodRecord, ClassTree anonClassBody, Consumer<Tree> consumer) {
+    for (Tree t : anonClassBody.getMembers()) {
       if (t instanceof MethodTree
-          && ((MethodTree) t).getName().toString().equals(methodRecord.getInnerMethodName())) {
-        observableCallToInnerMethodOrLambda.put(observableDotMap, t);
+          && ((MethodTree) t).getName().toString().equals(methodRecord.innerMethodName())) {
+        consumer.accept(t);
       }
     }
   }

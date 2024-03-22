@@ -57,15 +57,16 @@ public abstract class CollectlikeMethodRecord implements StreamMethodRecord {
    */
   public abstract String collectorFactoryMethodSignature();
 
-  public abstract ImmutableSet<Integer> argsToCollectorFactoryMethod();
-
-  /** Name of the method that gets passed the elements of the stream */
-  public abstract String innerMethodName();
-
   /**
    * The indices of the arguments to the collector factory method that are passed the elements of
    * the stream
    */
+  public abstract ImmutableSet<Integer> argsToCollectorFactoryMethod();
+
+  /** Name of the method that gets passed the elements of the stream */
+  @Override
+  public abstract String innerMethodName();
+
   @Override
   public abstract ImmutableSet<Integer> argsFromStream();
 }
