@@ -46,6 +46,7 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
+import org.checkerframework.nullaway.dataflow.cfg.node.ClassNameNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.IntegerLiteralNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
@@ -477,6 +478,19 @@ public final class AccessPath implements MapKey {
       result =
           new AccessPath(
               ((LocalVariableNode) node).getElement(), ImmutableList.copyOf(elements), mapKey);
+    } else if (node instanceof ClassNameNode) {
+      // It is useful to make an access path if elements.size() > 1 and elements.getFirst() is
+      // "this".  In this case, we may have an access of a field of an enclosing class from a nested
+      // class.  Tracking an access path for "Foo.this" alone is not useful, since that can never be
+      // null.  Also, we do not attempt to canonicalize cases where "Foo.this" is used to refer to
+      // the receiver of the current method instead of "this".
+      if (elements.size() > 1
+          && elements.getFirst().getJavaElement().getSimpleName().contentEquals("this")) {
+        Element rootElement = elements.pop().getJavaElement();
+        result = new AccessPath(rootElement, ImmutableList.copyOf(elements), mapKey);
+      } else {
+        result = null;
+      }
     } else if (node instanceof ThisNode || node instanceof SuperNode) {
       result = new AccessPath(null, ImmutableList.copyOf(elements), mapKey);
     } else {
