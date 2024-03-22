@@ -52,6 +52,7 @@ import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.handlers.stream.CollectlikeMethodRecord;
 import com.uber.nullaway.handlers.stream.MaplikeMethodRecord;
+import com.uber.nullaway.handlers.stream.StreamMethodRecord;
 import com.uber.nullaway.handlers.stream.StreamMethodToFilterInstanceRecord;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import java.util.LinkedHashMap;
@@ -484,7 +485,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       // Plug Nullness info from filter method into entry to map method.
       Tree filterTree = callInstanceRecord.getFilter();
       assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
-      MaplikeMethodRecord mapMR = (MaplikeMethodRecord) callInstanceRecord.getMaplikeMethodRecord();
+      StreamMethodRecord mapMR = callInstanceRecord.getMaplikeMethodRecord();
       for (int argIdx : mapMR.argsFromStream()) {
         LocalVariableNode filterLocalName;
         LocalVariableNode mapLocalName;
