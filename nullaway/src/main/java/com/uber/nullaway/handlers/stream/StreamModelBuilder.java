@@ -48,6 +48,7 @@ public class StreamModelBuilder {
   private ImmutableSet.Builder<String> filterMethodSimpleNames;
   private ImmutableMap.Builder<String, MaplikeMethodRecord> mapMethodSigToRecord;
   private ImmutableMap.Builder<String, MaplikeMethodRecord> mapMethodSimpleNameToRecord;
+  private ImmutableMap.Builder<String, CollectlikeMethodRecord> collectMethodSigToRecord;
   private ImmutableSet.Builder<String> passthroughMethodSigs;
   private ImmutableSet.Builder<String> passthroughMethodSimpleNames;
 
@@ -74,6 +75,7 @@ public class StreamModelBuilder {
               filterMethodSimpleNames.build(),
               mapMethodSigToRecord.build(),
               mapMethodSimpleNameToRecord.build(),
+              collectMethodSigToRecord.build(),
               passthroughMethodSigs.build(),
               passthroughMethodSimpleNames.build()));
     }

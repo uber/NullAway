@@ -29,6 +29,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.predicates.TypePredicate;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import javax.annotation.Nullable;
 
 /** An immutable model describing a class from a stream-based API such as RxJava. */
 public class StreamTypeRecord {
@@ -46,6 +47,8 @@ public class StreamTypeRecord {
   private final ImmutableMap<String, MaplikeMethodRecord> mapMethodSigToRecord;
   private final ImmutableMap<String, MaplikeMethodRecord> mapMethodSimpleNameToRecord;
 
+  private final ImmutableMap<String, CollectlikeMethodRecord> collectMethodSigToRecord;
+
   // List of methods of java.util.stream.Stream through which we just propagate the nullability
   // information of the last call, e.g. m() in Observable.filter(...).m().map(...) means the
   // nullability information from filter(...) should still be propagated to map(...), ignoring the
@@ -61,6 +64,7 @@ public class StreamTypeRecord {
       ImmutableSet<String> filterMethodSimpleNames,
       ImmutableMap<String, MaplikeMethodRecord> mapMethodSigToRecord,
       ImmutableMap<String, MaplikeMethodRecord> mapMethodSimpleNameToRecord,
+      ImmutableMap<String, CollectlikeMethodRecord> collectMethodSigToRecord,
       ImmutableSet<String> passthroughMethodSigs,
       ImmutableSet<String> passthroughMethodSimpleNames) {
     this.typePredicate = typePredicate;
@@ -68,6 +72,7 @@ public class StreamTypeRecord {
     this.filterMethodSimpleNames = filterMethodSimpleNames;
     this.mapMethodSigToRecord = mapMethodSigToRecord;
     this.mapMethodSimpleNameToRecord = mapMethodSimpleNameToRecord;
+    this.collectMethodSigToRecord = collectMethodSigToRecord;
     this.passthroughMethodSigs = passthroughMethodSigs;
     this.passthroughMethodSimpleNames = passthroughMethodSimpleNames;
   }
@@ -94,6 +99,11 @@ public class StreamTypeRecord {
               mapMethodSimpleNameToRecord.get(methodSymbol.getQualifiedName().toString()));
     }
     return record;
+  }
+
+  @Nullable
+  public CollectlikeMethodRecord getCollectlikeMethodRecord(Symbol.MethodSymbol methodSymbol) {
+    return collectMethodSigToRecord.get(methodSymbol.toString());
   }
 
   public boolean isPassthroughMethod(Symbol.MethodSymbol methodSymbol) {

@@ -110,11 +110,13 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   // e.g. In the example above:
   //   observable.filter() => A.filter
   //   observable.filter().map() => B.apply
+  // TODO we need to add mappings here for a Collectors.toMap call
   private final Map<MethodInvocationTree, Tree> observableCallToInnerMethodOrLambda =
       new LinkedHashMap<>();
 
   // Map from map method (or lambda) to corresponding previous filter method (e.g. B.apply =>
   // A.filter)
+  // TODO we need to add mappings here for a Collectors.toMap call
   private final Map<Tree, MaplikeToFilterInstanceRecord> mapToFilterMap = new LinkedHashMap<>();
 
   /*
