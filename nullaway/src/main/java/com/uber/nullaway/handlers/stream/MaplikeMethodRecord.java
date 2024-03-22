@@ -21,10 +21,10 @@ package com.uber.nullaway.handlers.stream;
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-import java.util.Set;
+import com.google.common.collect.ImmutableSet;
 
 /** An immutable model describing a map-like method from a stream-based API such as RxJava. */
-public class MaplikeMethodRecord {
+public class MaplikeMethodRecord implements StreamMethodRecord {
 
   private final String innerMethodName;
 
@@ -32,13 +32,14 @@ public class MaplikeMethodRecord {
     return innerMethodName;
   }
 
-  private final Set<Integer> argsFromStream;
+  private final ImmutableSet<Integer> argsFromStream;
 
-  public Set<Integer> getArgsFromStream() {
+  @Override
+  public ImmutableSet<Integer> argsFromStream() {
     return argsFromStream;
   }
 
-  public MaplikeMethodRecord(String innerMethodName, Set<Integer> argsFromStream) {
+  public MaplikeMethodRecord(String innerMethodName, ImmutableSet<Integer> argsFromStream) {
     this.innerMethodName = innerMethodName;
     this.argsFromStream = argsFromStream;
   }

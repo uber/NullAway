@@ -176,6 +176,7 @@ public class StreamModelBuilder {
       String collectMethodSig,
       String collectorFactoryMethodClass,
       String collectorFactoryMethodSig,
+      ImmutableSet<Integer> argsToCollectorFactoryMethod,
       String innerMethodName,
       ImmutableSet<Integer> argsFromStream) {
     this.collectMethodSigToRecord.put(
@@ -183,6 +184,7 @@ public class StreamModelBuilder {
         CollectlikeMethodRecord.create(
             collectorFactoryMethodClass,
             collectorFactoryMethodSig,
+            argsToCollectorFactoryMethod,
             innerMethodName,
             argsFromStream));
     return this;

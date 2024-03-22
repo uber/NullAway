@@ -24,6 +24,8 @@ package com.uber.nullaway.handlers;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Multimap;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -48,8 +50,9 @@ import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathElement;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.NullnessStore;
+import com.uber.nullaway.handlers.stream.CollectlikeMethodRecord;
 import com.uber.nullaway.handlers.stream.MaplikeMethodRecord;
-import com.uber.nullaway.handlers.stream.MaplikeToFilterInstanceRecord;
+import com.uber.nullaway.handlers.stream.StreamMethodToFilterInstanceRecord;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -110,14 +113,16 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   // e.g. In the example above:
   //   observable.filter() => A.filter
   //   observable.filter().map() => B.apply
-  // TODO we need to add mappings here for a Collectors.toMap call
   private final Map<MethodInvocationTree, Tree> observableCallToInnerMethodOrLambda =
       new LinkedHashMap<>();
 
+  private final Multimap<MethodInvocationTree, Tree> collectCallToInnerMethodsOrLambdas =
+      LinkedHashMultimap.create();
+
   // Map from map method (or lambda) to corresponding previous filter method (e.g. B.apply =>
   // A.filter)
-  // TODO we need to add mappings here for a Collectors.toMap call
-  private final Map<Tree, MaplikeToFilterInstanceRecord> mapToFilterMap = new LinkedHashMap<>();
+  private final Map<Tree, StreamMethodToFilterInstanceRecord> streamRecordToFilterMap =
+      new LinkedHashMap<>();
 
   /*
    * Note that the above methods imply a diagram like the following:
@@ -165,7 +170,8 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
     this.filterMethodOrLambdaSet.clear();
     this.observableOuterCallInChain.clear();
     this.observableCallToInnerMethodOrLambda.clear();
-    this.mapToFilterMap.clear();
+    this.collectCallToInnerMethodsOrLambdas.clear();
+    this.streamRecordToFilterMap.clear();
     this.filterToNSMap.clear();
     this.bodyToMethodOrLambda.clear();
     this.returnToEnclosingMethodOrLambda.clear();
@@ -203,16 +209,51 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
             && methodSymbol.getParameters().length() == 1) {
           ExpressionTree argTree = tree.getArguments().get(0);
           if (argTree instanceof NewClassTree) {
-            ClassTree anonClassBody = ((NewClassTree) argTree).getClassBody();
+            ClassTree annonClassBody = ((NewClassTree) argTree).getClassBody();
             // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
-            if (anonClassBody != null) {
+            if (annonClassBody != null) {
               MaplikeMethodRecord methodRecord = streamType.getMaplikeMethodRecord(methodSymbol);
-              handleMapAnonClass(methodRecord, tree, anonClassBody);
+              handleMapAnonClass(methodRecord, tree, annonClassBody);
             }
           } else if (argTree instanceof LambdaExpressionTree) {
             observableCallToInnerMethodOrLambda.put(tree, argTree);
           } else if (argTree instanceof MemberReferenceTree) {
             observableCallToInnerMethodOrLambda.put(tree, argTree);
+          }
+        } else {
+          CollectlikeMethodRecord collectlikeMethodRecord =
+              streamType.getCollectlikeMethodRecord(methodSymbol);
+          if (collectlikeMethodRecord != null && methodSymbol.getParameters().length() == 1) {
+            handleCollectCall(tree, methodSymbol, collectlikeMethodRecord);
+          }
+        }
+      }
+    }
+  }
+
+  private void handleCollectCall(
+      MethodInvocationTree tree,
+      Symbol.MethodSymbol unused,
+      CollectlikeMethodRecord collectlikeMethodRecord) {
+    ExpressionTree argTree = tree.getArguments().get(0);
+    if (argTree instanceof MethodInvocationTree) {
+      MethodInvocationTree collectInvokeArg = (MethodInvocationTree) argTree;
+      Symbol.MethodSymbol collectInvokeArgSymbol = ASTHelpers.getSymbol(collectInvokeArg);
+      if (collectInvokeArgSymbol
+              .owner
+              .getQualifiedName()
+              .contentEquals(collectlikeMethodRecord.collectorFactoryMethodClass())
+          && collectInvokeArgSymbol
+              .toString()
+              .equals(collectlikeMethodRecord.collectorFactoryMethodSignature())) {
+        List<? extends ExpressionTree> arguments = collectInvokeArg.getArguments();
+        for (int ind : collectlikeMethodRecord.argsFromStream()) {
+          ExpressionTree factoryMethodArg = arguments.get(ind);
+          // TODO handle anonymous classes!
+          if (factoryMethodArg instanceof LambdaExpressionTree) {
+            collectCallToInnerMethodsOrLambdas.put(tree, factoryMethodArg);
+          } else if (factoryMethodArg instanceof MemberReferenceTree) {
+            collectCallToInnerMethodsOrLambdas.put(tree, factoryMethodArg);
           }
         }
       }
@@ -247,10 +288,25 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
         // Update mapToFilterMap
         Symbol.MethodSymbol mapMethod = ASTHelpers.getSymbol(outerCallInChain);
         if (streamType.isMapMethod(mapMethod)) {
-          MaplikeToFilterInstanceRecord record =
-              new MaplikeToFilterInstanceRecord(
+          StreamMethodToFilterInstanceRecord record =
+              new StreamMethodToFilterInstanceRecord(
                   streamType.getMaplikeMethodRecord(mapMethod), filterMethodOrLambda);
-          mapToFilterMap.put(observableCallToInnerMethodOrLambda.get(outerCallInChain), record);
+          streamRecordToFilterMap.put(
+              observableCallToInnerMethodOrLambda.get(outerCallInChain), record);
+        }
+      } else if (collectCallToInnerMethodsOrLambdas.containsKey(outerCallInChain)) {
+        // Update collectToFilterMap
+        Symbol.MethodSymbol collectMethod = ASTHelpers.getSymbol(outerCallInChain);
+        CollectlikeMethodRecord collectlikeMethodRecord =
+            streamType.getCollectlikeMethodRecord(collectMethod);
+        if (collectlikeMethodRecord != null) {
+          for (Tree innerMethodOrLambda :
+              collectCallToInnerMethodsOrLambdas.get(outerCallInChain)) {
+            StreamMethodToFilterInstanceRecord record =
+                new StreamMethodToFilterInstanceRecord(
+                    collectlikeMethodRecord, filterMethodOrLambda);
+            streamRecordToFilterMap.put(innerMethodOrLambda, record);
+          }
         }
       }
     } while (outerCallInChain != null
@@ -297,7 +353,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
-    if (mapToFilterMap.containsKey(tree)) {
+    if (streamRecordToFilterMap.containsKey(tree)) {
       bodyToMethodOrLambda.put(tree.getBody(), tree);
     }
   }
@@ -316,7 +372,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
       nullnessAnalysis.forceRunOnMethod(state.getPath(), state.context);
     }
-    if (mapToFilterMap.containsKey(tree)) {
+    if (streamRecordToFilterMap.containsKey(tree)) {
       bodyToMethodOrLambda.put(tree.getBody(), tree);
     }
   }
@@ -327,7 +383,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       MemberReferenceTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
-    MaplikeToFilterInstanceRecord callInstanceRecord = mapToFilterMap.get(tree);
+    StreamMethodToFilterInstanceRecord callInstanceRecord = streamRecordToFilterMap.get(tree);
     if (callInstanceRecord != null && ((JCTree.JCMemberReference) tree).kind.isUnbound()) {
       // Unbound method reference, check if we know the corresponding path to be NonNull from the
       // previous filter.
@@ -423,13 +479,13 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       return nullnessBuilder;
     }
     assert (tree instanceof MethodTree || tree instanceof LambdaExpressionTree);
-    MaplikeToFilterInstanceRecord callInstanceRecord = mapToFilterMap.get(tree);
+    StreamMethodToFilterInstanceRecord callInstanceRecord = streamRecordToFilterMap.get(tree);
     if (callInstanceRecord != null) {
       // Plug Nullness info from filter method into entry to map method.
       Tree filterTree = callInstanceRecord.getFilter();
       assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
-      MaplikeMethodRecord mapMR = callInstanceRecord.getMaplikeMethodRecord();
-      for (int argIdx : mapMR.getArgsFromStream()) {
+      MaplikeMethodRecord mapMR = (MaplikeMethodRecord) callInstanceRecord.getMaplikeMethodRecord();
+      for (int argIdx : mapMR.argsFromStream()) {
         LocalVariableNode filterLocalName;
         LocalVariableNode mapLocalName;
         if (filterTree instanceof MethodTree) {

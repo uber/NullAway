@@ -31,36 +31,41 @@ import java.util.stream.Collector;
  * java.util.stream.Stream#collect(Collector)}.
  */
 @AutoValue
-public abstract class CollectlikeMethodRecord {
+public abstract class CollectlikeMethodRecord implements StreamMethodRecord {
 
   public static CollectlikeMethodRecord create(
       String collectorFactoryMethodClass,
       String collectorFactoryMethodSignature,
+      ImmutableSet<Integer> argsToCollectorFactoryMethod,
       String innerMethodName,
       ImmutableSet<Integer> argsFromStream) {
     return new AutoValue_CollectlikeMethodRecord(
         collectorFactoryMethodClass,
         collectorFactoryMethodSignature,
+        argsToCollectorFactoryMethod,
         innerMethodName,
         argsFromStream);
   }
 
   /** The fully qualified name of the class that contains the collector factory method. */
-  abstract String collectorFactoryClass();
+  public abstract String collectorFactoryMethodClass();
 
   /**
    * The signature of the factory method that creates the {@link Collector} instance passed to the
    * collect method, e.g., the signature of {@link java.util.stream.Collectors#toMap(Function,
    * Function)}
    */
-  abstract String collectorFactoryMethodSignature();
+  public abstract String collectorFactoryMethodSignature();
+
+  public abstract ImmutableSet<Integer> argsToCollectorFactoryMethod();
 
   /** Name of the method that gets passed the elements of the stream */
-  abstract String innerMethodName();
+  public abstract String innerMethodName();
 
   /**
    * The indices of the arguments to the collector factory method that are passed the elements of
    * the stream
    */
-  abstract ImmutableSet<Integer> argsFromStream();
+  @Override
+  public abstract ImmutableSet<Integer> argsFromStream();
 }

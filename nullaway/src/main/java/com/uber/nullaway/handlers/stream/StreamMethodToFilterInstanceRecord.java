@@ -29,11 +29,11 @@ import com.sun.source.tree.Tree;
  * Internal bookeeping record that keeps track of the model of a map-like method and the previous
  * filter method's inner method tree. See RxNullabilityPropagator documentation and diagram.
  */
-public class MaplikeToFilterInstanceRecord {
+public class StreamMethodToFilterInstanceRecord {
 
-  private final MaplikeMethodRecord mapMR;
+  private final StreamMethodRecord mapMR;
 
-  public MaplikeMethodRecord getMaplikeMethodRecord() {
+  public StreamMethodRecord getMaplikeMethodRecord() {
     return mapMR;
   }
 
@@ -43,7 +43,7 @@ public class MaplikeToFilterInstanceRecord {
     return filter;
   }
 
-  public MaplikeToFilterInstanceRecord(MaplikeMethodRecord mapMR, Tree filter) {
+  public StreamMethodToFilterInstanceRecord(StreamMethodRecord mapMR, Tree filter) {
     assert (filter instanceof MethodTree || filter instanceof LambdaExpressionTree);
     this.mapMR = mapMR;
     this.filter = filter;
