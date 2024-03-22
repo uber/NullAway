@@ -34,12 +34,19 @@ import java.util.stream.Collector;
 public abstract class CollectlikeMethodRecord {
 
   public static CollectlikeMethodRecord create(
+      String collectorFactoryMethodClass,
       String collectorFactoryMethodSignature,
       String innerMethodName,
       ImmutableSet<Integer> argsFromStream) {
     return new AutoValue_CollectlikeMethodRecord(
-        collectorFactoryMethodSignature, innerMethodName, argsFromStream);
+        collectorFactoryMethodClass,
+        collectorFactoryMethodSignature,
+        innerMethodName,
+        argsFromStream);
   }
+
+  /** The fully qualified name of the class that contains the collector factory method. */
+  abstract String collectorFactoryClass();
 
   /**
    * The signature of the factory method that creates the {@link Collector} instance passed to the

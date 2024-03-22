@@ -39,6 +39,30 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void streamSupportCollectorsToMap() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.*;",
+            "import java.util.stream.*;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "    static class Foo {",
+            "      @Nullable String bar;",
+            "      String baz = \"baz\";",
+            "    }",
+            "    Map<Integer, String> test() {",
+            "      List<Foo> foos = new ArrayList<>();",
+            "      return foos.stream()",
+            "          .filter(foo -> foo.bar != null)",
+            "          .collect(Collectors.toMap(foo -> foo.bar.length(), foo -> foo.baz));",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void supportObjectsIsNull() {
     defaultCompilationHelper
         .addSourceLines(

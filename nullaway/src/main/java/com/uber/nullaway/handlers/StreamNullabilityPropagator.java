@@ -203,11 +203,11 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
             && methodSymbol.getParameters().length() == 1) {
           ExpressionTree argTree = tree.getArguments().get(0);
           if (argTree instanceof NewClassTree) {
-            ClassTree annonClassBody = ((NewClassTree) argTree).getClassBody();
+            ClassTree anonClassBody = ((NewClassTree) argTree).getClassBody();
             // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
-            if (annonClassBody != null) {
+            if (anonClassBody != null) {
               MaplikeMethodRecord methodRecord = streamType.getMaplikeMethodRecord(methodSymbol);
-              handleMapAnonClass(methodRecord, tree, annonClassBody);
+              handleMapAnonClass(methodRecord, tree, anonClassBody);
             }
           } else if (argTree instanceof LambdaExpressionTree) {
             observableCallToInnerMethodOrLambda.put(tree, argTree);

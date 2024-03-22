@@ -109,6 +109,7 @@ public class StreamModelBuilder {
     this.filterMethodSimpleNames = ImmutableSet.builder();
     this.mapMethodSigToRecord = ImmutableMap.builder();
     this.mapMethodSimpleNameToRecord = ImmutableMap.builder();
+    this.collectMethodSigToRecord = ImmutableMap.builder();
     this.passthroughMethodSigs = ImmutableSet.builder();
     this.passthroughMethodSimpleNames = ImmutableSet.builder();
   }
@@ -168,6 +169,22 @@ public class StreamModelBuilder {
       String methodSimpleName, String innerMethodName, ImmutableSet<Integer> argsFromStream) {
     this.mapMethodSimpleNameToRecord.put(
         methodSimpleName, new MaplikeMethodRecord(innerMethodName, argsFromStream));
+    return this;
+  }
+
+  public StreamModelBuilder withCollectMethodFromSignature(
+      String collectMethodSig,
+      String collectorFactoryMethodClass,
+      String collectorFactoryMethodSig,
+      String innerMethodName,
+      ImmutableSet<Integer> argsFromStream) {
+    this.collectMethodSigToRecord.put(
+        collectMethodSig,
+        CollectlikeMethodRecord.create(
+            collectorFactoryMethodClass,
+            collectorFactoryMethodSig,
+            innerMethodName,
+            argsFromStream));
     return this;
   }
 
