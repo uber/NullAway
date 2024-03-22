@@ -31,6 +31,10 @@ import java.util.stream.DoubleStream;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 import java.util.stream.Stream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 
 public class NullAwayStreamSupportNegativeCases {
@@ -335,6 +339,21 @@ public class NullAwayStreamSupportNegativeCases {
       } else {
         return stream.filter(s -> "CONST".equals(s.toString()));
       }
+    }
+  }
+
+  private static class CollectorsToMapExample {
+
+    static class Foo {
+      @Nullable String bar;
+      String baz = "baz";
+    }
+
+    Map<Integer, String> streams2() {
+      List<Foo> foos = new ArrayList<>();
+      return foos.stream()
+          .filter(foo -> foo.bar != null)
+          .collect(Collectors.toMap(foo -> foo.bar.length(), foo -> foo.baz));
     }
   }
 }
