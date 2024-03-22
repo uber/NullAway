@@ -248,7 +248,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
               .toString()
               .equals(collectlikeMethodRecord.collectorFactoryMethodSignature())) {
         List<? extends ExpressionTree> arguments = collectInvokeArg.getArguments();
-        for (int ind : collectlikeMethodRecord.argsFromStream()) {
+        for (int ind : collectlikeMethodRecord.argsToCollectorFactoryMethod()) {
           ExpressionTree factoryMethodArg = arguments.get(ind);
           // TODO handle anonymous classes!
           if (factoryMethodArg instanceof LambdaExpressionTree) {

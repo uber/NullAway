@@ -52,11 +52,17 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
             "      @Nullable String bar;",
             "      String baz = \"baz\";",
             "    }",
-            "    Map<Integer, String> test() {",
+            "    Map<Integer, String> test1() {",
             "      List<Foo> foos = new ArrayList<>();",
             "      return foos.stream()",
             "          .filter(foo -> foo.bar != null)",
             "          .collect(Collectors.toMap(foo -> foo.bar.length(), foo -> foo.baz));",
+            "    }",
+            "    Map<String, Integer> test2() {",
+            "      List<Foo> foos = new ArrayList<>();",
+            "      return foos.stream()",
+            "          .filter(foo -> foo.bar != null)",
+            "          .collect(Collectors.toMap(foo -> foo.baz, foo -> foo.bar.length()));",
             "    }",
             "}")
         .doTest();
