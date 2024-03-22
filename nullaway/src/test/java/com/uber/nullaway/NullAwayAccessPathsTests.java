@@ -379,4 +379,59 @@ public class NullAwayAccessPathsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testAccessUsingExplicitThis() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Foo {",
+            "  @Nullable public Object bar;",
+            "  public class Nested {",
+            "    @Nullable public Object bar;",
+            "    public void testNegative1() {",
+            "      if (Foo.this.bar != null) {",
+            "        Foo.this.bar.toString();",
+            "      }",
+            "    }",
+            "    public void testNegative2() {",
+            "      // Foo.this can never be null",
+            "      Foo.this.toString();",
+            "    }",
+            "    public void testPositive() {",
+            "      if (Foo.this.bar != null) {",
+            "        // BUG: Diagnostic contains: dereferenced expression this.bar is @Nullable",
+            "        this.bar.toString();",
+            "      }",
+            "      if (this.bar != null) {",
+            "        // BUG: Diagnostic contains: dereferenced expression Foo.this.bar is @Nullable",
+            "        Foo.this.bar.toString();",
+            "      }",
+            "    }",
+            "  }",
+            "  public void testUnhandled1() {",
+            "    if (bar != null) {",
+            "      // This is safe but we don't currently handle it",
+            "      // BUG: Diagnostic contains: dereferenced expression Foo.this.bar is @Nullable",
+            "      Foo.this.bar.toString();",
+            "    }",
+            "  }",
+            "  public void testUnhandled2() {",
+            "    if (Foo.this.bar != null) {",
+            "      // This is safe but we don't currently handle it",
+            "      // BUG: Diagnostic contains: dereferenced expression bar is @Nullable",
+            "      bar.toString();",
+            "    }",
+            "  }",
+            "  public void testNegative1() {",
+            "    if (bar != null) {",
+            "      // This is safe and handled",
+            "      this.bar.toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
