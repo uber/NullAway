@@ -51,9 +51,9 @@ import com.uber.nullaway.dataflow.AccessPathElement;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.handlers.stream.CollectlikeMethodRecord;
+import com.uber.nullaway.handlers.stream.MapOrCollectLikeMethodRecord;
+import com.uber.nullaway.handlers.stream.MapOrCollectMethodToFilterInstanceRecord;
 import com.uber.nullaway.handlers.stream.MaplikeMethodRecord;
-import com.uber.nullaway.handlers.stream.StreamMethodRecord;
-import com.uber.nullaway.handlers.stream.StreamMethodToFilterInstanceRecord;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -123,7 +123,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
 
   // Map from map method (or lambda) to corresponding previous filter method (e.g. B.apply =>
   // A.filter)
-  private final Map<Tree, StreamMethodToFilterInstanceRecord> streamRecordToFilterMap =
+  private final Map<Tree, MapOrCollectMethodToFilterInstanceRecord> streamRecordToFilterMap =
       new LinkedHashMap<>();
 
   /*
@@ -301,8 +301,8 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
         // Update mapToFilterMap
         Symbol.MethodSymbol mapMethod = ASTHelpers.getSymbol(outerCallInChain);
         if (streamType.isMapMethod(mapMethod)) {
-          StreamMethodToFilterInstanceRecord record =
-              new StreamMethodToFilterInstanceRecord(
+          MapOrCollectMethodToFilterInstanceRecord record =
+              new MapOrCollectMethodToFilterInstanceRecord(
                   streamType.getMaplikeMethodRecord(mapMethod), filterMethodOrLambda);
           streamRecordToFilterMap.put(
               observableCallToInnerMethodOrLambda.get(outerCallInChain), record);
@@ -315,8 +315,8 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
         if (collectlikeMethodRecord != null) {
           for (Tree innerMethodOrLambda :
               collectCallToInnerMethodsOrLambdas.get(outerCallInChain)) {
-            StreamMethodToFilterInstanceRecord record =
-                new StreamMethodToFilterInstanceRecord(
+            MapOrCollectMethodToFilterInstanceRecord record =
+                new MapOrCollectMethodToFilterInstanceRecord(
                     collectlikeMethodRecord, filterMethodOrLambda);
             streamRecordToFilterMap.put(innerMethodOrLambda, record);
           }
@@ -352,7 +352,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   }
 
   private void handleMapOrCollectAnonClass(
-      StreamMethodRecord methodRecord, ClassTree anonClassBody, Consumer<Tree> consumer) {
+      MapOrCollectLikeMethodRecord methodRecord, ClassTree anonClassBody, Consumer<Tree> consumer) {
     for (Tree t : anonClassBody.getMembers()) {
       if (t instanceof MethodTree
           && ((MethodTree) t).getName().toString().equals(methodRecord.innerMethodName())) {
@@ -394,7 +394,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       MemberReferenceTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
-    StreamMethodToFilterInstanceRecord callInstanceRecord = streamRecordToFilterMap.get(tree);
+    MapOrCollectMethodToFilterInstanceRecord callInstanceRecord = streamRecordToFilterMap.get(tree);
     if (callInstanceRecord != null && ((JCTree.JCMemberReference) tree).kind.isUnbound()) {
       // Unbound method reference, check if we know the corresponding path to be NonNull from the
       // previous filter.
@@ -490,13 +490,14 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       return nullnessBuilder;
     }
     assert (tree instanceof MethodTree || tree instanceof LambdaExpressionTree);
-    StreamMethodToFilterInstanceRecord callInstanceRecord = streamRecordToFilterMap.get(tree);
+    MapOrCollectMethodToFilterInstanceRecord callInstanceRecord = streamRecordToFilterMap.get(tree);
     if (callInstanceRecord != null) {
       // Plug Nullness info from filter method into entry to map method.
       Tree filterTree = callInstanceRecord.getFilter();
       assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
-      StreamMethodRecord mapMR = callInstanceRecord.getMaplikeMethodRecord();
-      for (int argIdx : mapMR.argsFromStream()) {
+      MapOrCollectLikeMethodRecord methodRecord =
+          callInstanceRecord.getMapOrCollectLikeMethodRecord();
+      for (int argIdx : methodRecord.argsFromStream()) {
         LocalVariableNode filterLocalName;
         LocalVariableNode mapLocalName;
         if (filterTree instanceof MethodTree) {

@@ -24,7 +24,7 @@ package com.uber.nullaway.handlers.stream;
 import com.google.common.collect.ImmutableSet;
 
 /** An immutable model describing a map-like method from a stream-based API such as RxJava. */
-public class MaplikeMethodRecord implements StreamMethodRecord {
+public class MaplikeMethodRecord implements MapOrCollectLikeMethodRecord {
 
   private final String innerMethodName;
 

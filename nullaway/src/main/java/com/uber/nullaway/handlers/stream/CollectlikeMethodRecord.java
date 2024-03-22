@@ -31,7 +31,7 @@ import java.util.stream.Collector;
  * java.util.stream.Stream#collect(Collector)}.
  */
 @AutoValue
-public abstract class CollectlikeMethodRecord implements StreamMethodRecord {
+public abstract class CollectlikeMethodRecord implements MapOrCollectLikeMethodRecord {
 
   public static CollectlikeMethodRecord create(
       String collectorFactoryMethodClass,
