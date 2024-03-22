@@ -36,6 +36,11 @@ public class LibraryModelGeneratorCLI {
    *     directory.
    */
   public static void main(String[] args) {
+    if (args.length != 2) {
+      System.out.println(
+          "Incorrect number of command line arguments. Required arguments:  <inputSourceDirectory> <outputDirectory>");
+      return;
+    }
     LibraryModelGenerator libraryModelGenerator = new LibraryModelGenerator();
     libraryModelGenerator.generateAstubxForLibraryModels(args[0], args[1]);
   }
