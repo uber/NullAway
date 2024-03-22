@@ -123,7 +123,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
 
   // Map from map method (or lambda) to corresponding previous filter method (e.g. B.apply =>
   // A.filter)
-  private final Map<Tree, MapOrCollectMethodToFilterInstanceRecord> streamRecordToFilterMap =
+  private final Map<Tree, MapOrCollectMethodToFilterInstanceRecord> mapOrCollectRecordToFilterMap =
       new LinkedHashMap<>();
 
   /*
@@ -173,7 +173,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
     this.observableOuterCallInChain.clear();
     this.observableCallToInnerMethodOrLambda.clear();
     this.collectCallToInnerMethodsOrLambdas.clear();
-    this.streamRecordToFilterMap.clear();
+    this.mapOrCollectRecordToFilterMap.clear();
     this.filterToNSMap.clear();
     this.bodyToMethodOrLambda.clear();
     this.returnToEnclosingMethodOrLambda.clear();
@@ -304,7 +304,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
           MapOrCollectMethodToFilterInstanceRecord record =
               new MapOrCollectMethodToFilterInstanceRecord(
                   streamType.getMaplikeMethodRecord(mapMethod), filterMethodOrLambda);
-          streamRecordToFilterMap.put(
+          mapOrCollectRecordToFilterMap.put(
               observableCallToInnerMethodOrLambda.get(outerCallInChain), record);
         }
       } else if (collectCallToInnerMethodsOrLambdas.containsKey(outerCallInChain)) {
@@ -318,7 +318,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
             MapOrCollectMethodToFilterInstanceRecord record =
                 new MapOrCollectMethodToFilterInstanceRecord(
                     collectlikeMethodRecord, filterMethodOrLambda);
-            streamRecordToFilterMap.put(innerMethodOrLambda, record);
+            mapOrCollectRecordToFilterMap.put(innerMethodOrLambda, record);
           }
         }
       }
@@ -364,7 +364,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   @Override
   public void onMatchMethod(
       NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
-    if (streamRecordToFilterMap.containsKey(tree)) {
+    if (mapOrCollectRecordToFilterMap.containsKey(tree)) {
       bodyToMethodOrLambda.put(tree.getBody(), tree);
     }
   }
@@ -383,7 +383,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
       nullnessAnalysis.forceRunOnMethod(state.getPath(), state.context);
     }
-    if (streamRecordToFilterMap.containsKey(tree)) {
+    if (mapOrCollectRecordToFilterMap.containsKey(tree)) {
       bodyToMethodOrLambda.put(tree.getBody(), tree);
     }
   }
@@ -394,7 +394,8 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       MemberReferenceTree tree,
       VisitorState state,
       Symbol.MethodSymbol methodSymbol) {
-    MapOrCollectMethodToFilterInstanceRecord callInstanceRecord = streamRecordToFilterMap.get(tree);
+    MapOrCollectMethodToFilterInstanceRecord callInstanceRecord =
+        mapOrCollectRecordToFilterMap.get(tree);
     if (callInstanceRecord != null && ((JCTree.JCMemberReference) tree).kind.isUnbound()) {
       // Unbound method reference, check if we know the corresponding path to be NonNull from the
       // previous filter.
@@ -490,7 +491,8 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       return nullnessBuilder;
     }
     assert (tree instanceof MethodTree || tree instanceof LambdaExpressionTree);
-    MapOrCollectMethodToFilterInstanceRecord callInstanceRecord = streamRecordToFilterMap.get(tree);
+    MapOrCollectMethodToFilterInstanceRecord callInstanceRecord =
+        mapOrCollectRecordToFilterMap.get(tree);
     if (callInstanceRecord != null) {
       // Plug Nullness info from filter method into entry to map method.
       Tree filterTree = callInstanceRecord.getFilter();
