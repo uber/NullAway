@@ -41,7 +41,7 @@ public abstract class CollectLikeMethodRecord implements MapOrCollectLikeMethodR
       ImmutableSet<Integer> argsToCollectorFactoryMethod,
       String innerMethodName,
       ImmutableSet<Integer> argsFromStream) {
-    return new AutoValue_CollectlikeMethodRecord(
+    return new AutoValue_CollectLikeMethodRecord(
         collectorFactoryMethodClass,
         collectorFactoryMethodSignature,
         argsToCollectorFactoryMethod,

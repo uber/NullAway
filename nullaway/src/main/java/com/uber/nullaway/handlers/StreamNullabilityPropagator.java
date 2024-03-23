@@ -118,11 +118,14 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   private final Map<MethodInvocationTree, Tree> observableCallToInnerMethodOrLambda =
       new LinkedHashMap<>();
 
+  // Maps collect calls in the observable call chain to the relevant inner methods or lambdas.
+  // We need a Multimap here since there may be multiple relevant methods / lambdas.
+  // E.g.: stream.filter(...).collect(Collectors.toMap(l1, l2)) => {l1,l2}
   private final Multimap<MethodInvocationTree, Tree> collectCallToInnerMethodsOrLambdas =
       LinkedHashMultimap.create();
 
-  // Map from map method (or lambda) to corresponding previous filter method (e.g. B.apply =>
-  // A.filter)
+  // Map from map or collect method (or lambda) to corresponding previous filter method (e.g.
+  // B.apply => A.filter)
   private final Map<Tree, MapOrCollectMethodToFilterInstanceRecord> mapOrCollectRecordToFilterMap =
       new LinkedHashMap<>();
 
