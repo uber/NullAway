@@ -317,6 +317,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
         CollectLikeMethodRecord collectlikeMethodRecord =
             streamType.getCollectlikeMethodRecord(collectMethod);
         if (collectlikeMethodRecord != null) {
+          // Update mapOrCollectRecordToFilterMap for all relevant methods / lambdas
           for (Tree innerMethodOrLambda :
               collectCallToInnerMethodsOrLambdas.get(outerCallInChain)) {
             MapOrCollectMethodToFilterInstanceRecord record =
