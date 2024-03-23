@@ -108,8 +108,8 @@ public class LibraryModelGenerator {
     }
     Map<String, String> importedAnnotations =
         ImmutableMap.of(
-            "Nonnull", "javax.annotation.Nonnull",
-            "Nullable", "javax.annotation.Nullable");
+            "NonNull", "org.jspecify.annotations.NonNull",
+            "Nullable", "org.jspecify.annotations.Nullable");
     Path outputPathInstance = Paths.get(outputPath);
     try {
       Files.createDirectories(outputPathInstance.getParent());
@@ -186,8 +186,11 @@ public class LibraryModelGenerator {
 
     @Override
     public void visit(ClassOrInterfaceDeclaration cid, Void arg) {
-      /*Currently, this logic only supports @NullMarked annotations on top-level classes and
-      does not handle cases where @NullMarked appears on some nested classes but not others*/
+      /*This logic assumes an explicit @NullMarked annotation on the top-level class within a
+      source file, and it's expected that each source file contains only one top-level class. The
+      logic does not currently handle cases where @NullMarked annotations appear on some nested
+      classes but not others. It also does not consider annotations within package-info.java or
+      module-info.java files at this time.*/
       cid.getAnnotations()
           .forEach(
               a -> {

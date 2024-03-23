@@ -30,6 +30,8 @@ public class AnnotationExample {
     /**
      * This method exists to test that
      * we do not process this annotation.
+     * Since for the purposes of this tool,
+     * we are only considering the jspecify annotation.
      */
     @javax.annotation.Nullable
     public String nullReturn() {
