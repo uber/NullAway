@@ -65,6 +65,8 @@ public class StreamNullabilityPropagatorFactory {
                 "accept",
                 ImmutableSet.of(0))
             .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
+            // Names and relevant arguments of all the methods of java.util.stream.Stream that
+            // behave like .collect(...) for the purposes of this checker
             .withCollectMethodFromSignature(
                 "<R,A>collect(java.util.stream.Collector<? super T,A,R>)",
                 "java.util.stream.Collectors",

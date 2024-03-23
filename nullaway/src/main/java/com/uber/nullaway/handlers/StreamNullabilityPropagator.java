@@ -50,10 +50,10 @@ import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathElement;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.NullnessStore;
-import com.uber.nullaway.handlers.stream.CollectlikeMethodRecord;
+import com.uber.nullaway.handlers.stream.CollectLikeMethodRecord;
+import com.uber.nullaway.handlers.stream.MapLikeMethodRecord;
 import com.uber.nullaway.handlers.stream.MapOrCollectLikeMethodRecord;
 import com.uber.nullaway.handlers.stream.MapOrCollectMethodToFilterInstanceRecord;
-import com.uber.nullaway.handlers.stream.MaplikeMethodRecord;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -214,8 +214,8 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
             ClassTree annonClassBody = ((NewClassTree) argTree).getClassBody();
             // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
             if (annonClassBody != null) {
-              MaplikeMethodRecord methodRecord = streamType.getMaplikeMethodRecord(methodSymbol);
-              handleMapOrCollectAnonClass(
+              MapLikeMethodRecord methodRecord = streamType.getMaplikeMethodRecord(methodSymbol);
+              handleMapOrCollectAnonClassBody(
                   methodRecord,
                   annonClassBody,
                   t -> observableCallToInnerMethodOrLambda.put(tree, t));
@@ -226,20 +226,22 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
             observableCallToInnerMethodOrLambda.put(tree, argTree);
           }
         } else {
-          CollectlikeMethodRecord collectlikeMethodRecord =
+          CollectLikeMethodRecord collectlikeMethodRecord =
               streamType.getCollectlikeMethodRecord(methodSymbol);
           if (collectlikeMethodRecord != null && methodSymbol.getParameters().length() == 1) {
-            handleCollectCall(tree, methodSymbol, collectlikeMethodRecord);
+            handleCollectCall(tree, collectlikeMethodRecord);
           }
         }
       }
     }
   }
 
+  /**
+   * Handles a call to a collect-like method. If the argument to the method is supported, updates
+   * the {@link #collectCallToInnerMethodsOrLambdas} map appropriately.
+   */
   private void handleCollectCall(
-      MethodInvocationTree tree,
-      Symbol.MethodSymbol unused,
-      CollectlikeMethodRecord collectlikeMethodRecord) {
+      MethodInvocationTree tree, CollectLikeMethodRecord collectlikeMethodRecord) {
     ExpressionTree argTree = tree.getArguments().get(0);
     if (argTree instanceof MethodInvocationTree) {
       MethodInvocationTree collectInvokeArg = (MethodInvocationTree) argTree;
@@ -260,7 +262,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
             ClassTree anonClassBody = ((NewClassTree) factoryMethodArg).getClassBody();
             // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
             if (anonClassBody != null) {
-              handleMapOrCollectAnonClass(
+              handleMapOrCollectAnonClassBody(
                   collectlikeMethodRecord,
                   anonClassBody,
                   t -> collectCallToInnerMethodsOrLambdas.put(tree, t));
@@ -298,7 +300,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       // Check for a map method (which might be a pass-through method or the first method after a
       // pass-through chain)
       if (observableCallToInnerMethodOrLambda.containsKey(outerCallInChain)) {
-        // Update mapToFilterMap
+        // Update mapOrCollectRecordToFilterMap
         Symbol.MethodSymbol mapMethod = ASTHelpers.getSymbol(outerCallInChain);
         if (streamType.isMapMethod(mapMethod)) {
           MapOrCollectMethodToFilterInstanceRecord record =
@@ -308,9 +310,8 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
               observableCallToInnerMethodOrLambda.get(outerCallInChain), record);
         }
       } else if (collectCallToInnerMethodsOrLambdas.containsKey(outerCallInChain)) {
-        // Update collectToFilterMap
         Symbol.MethodSymbol collectMethod = ASTHelpers.getSymbol(outerCallInChain);
-        CollectlikeMethodRecord collectlikeMethodRecord =
+        CollectLikeMethodRecord collectlikeMethodRecord =
             streamType.getCollectlikeMethodRecord(collectMethod);
         if (collectlikeMethodRecord != null) {
           for (Tree innerMethodOrLambda :
@@ -351,7 +352,11 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
     handleChainFromFilter(streamType, observableDotFilter, lambdaTree, state);
   }
 
-  private void handleMapOrCollectAnonClass(
+  /**
+   * If the relevant inner method from the method record is found in the class body, the consumer is
+   * called with the corresponding MethodTree.
+   */
+  private void handleMapOrCollectAnonClassBody(
       MapOrCollectLikeMethodRecord methodRecord, ClassTree anonClassBody, Consumer<Tree> consumer) {
     for (Tree t : anonClassBody.getMembers()) {
       if (t instanceof MethodTree

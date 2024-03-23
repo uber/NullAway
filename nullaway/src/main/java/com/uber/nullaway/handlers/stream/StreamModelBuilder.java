@@ -46,9 +46,9 @@ public class StreamModelBuilder {
   private @Nullable TypePredicate tp = null;
   private ImmutableSet.Builder<String> filterMethodSigs;
   private ImmutableSet.Builder<String> filterMethodSimpleNames;
-  private ImmutableMap.Builder<String, MaplikeMethodRecord> mapMethodSigToRecord;
-  private ImmutableMap.Builder<String, MaplikeMethodRecord> mapMethodSimpleNameToRecord;
-  private ImmutableMap.Builder<String, CollectlikeMethodRecord> collectMethodSigToRecord;
+  private ImmutableMap.Builder<String, MapLikeMethodRecord> mapMethodSigToRecord;
+  private ImmutableMap.Builder<String, MapLikeMethodRecord> mapMethodSimpleNameToRecord;
+  private ImmutableMap.Builder<String, CollectLikeMethodRecord> collectMethodSigToRecord;
   private ImmutableSet.Builder<String> passthroughMethodSigs;
   private ImmutableSet.Builder<String> passthroughMethodSimpleNames;
 
@@ -150,7 +150,7 @@ public class StreamModelBuilder {
   public StreamModelBuilder withMapMethodFromSignature(
       String methodSig, String innerMethodName, ImmutableSet<Integer> argsFromStream) {
     this.mapMethodSigToRecord.put(
-        methodSig, new MaplikeMethodRecord(innerMethodName, argsFromStream));
+        methodSig, new MapLikeMethodRecord(innerMethodName, argsFromStream));
     return this;
   }
 
@@ -168,7 +168,7 @@ public class StreamModelBuilder {
   public StreamModelBuilder withMapMethodAllFromName(
       String methodSimpleName, String innerMethodName, ImmutableSet<Integer> argsFromStream) {
     this.mapMethodSimpleNameToRecord.put(
-        methodSimpleName, new MaplikeMethodRecord(innerMethodName, argsFromStream));
+        methodSimpleName, new MapLikeMethodRecord(innerMethodName, argsFromStream));
     return this;
   }
 
@@ -181,7 +181,7 @@ public class StreamModelBuilder {
       ImmutableSet<Integer> argsFromStream) {
     this.collectMethodSigToRecord.put(
         collectMethodSig,
-        CollectlikeMethodRecord.create(
+        CollectLikeMethodRecord.create(
             collectorFactoryMethodClass,
             collectorFactoryMethodSig,
             argsToCollectorFactoryMethod,
@@ -235,7 +235,7 @@ public class StreamModelBuilder {
   public StreamModelBuilder withUseAndPassthroughMethodFromSignature(
       String passthroughMethodSig, String innerMethodName, ImmutableSet<Integer> argsFromStream) {
     this.mapMethodSigToRecord.put(
-        passthroughMethodSig, new MaplikeMethodRecord(innerMethodName, argsFromStream));
+        passthroughMethodSig, new MapLikeMethodRecord(innerMethodName, argsFromStream));
     this.passthroughMethodSigs.add(passthroughMethodSig);
     return this;
   }
@@ -255,7 +255,7 @@ public class StreamModelBuilder {
   public StreamModelBuilder withUseAndPassthroughMethodAllFromName(
       String methodSimpleName, String innerMethodName, ImmutableSet<Integer> argsFromStream) {
     this.mapMethodSimpleNameToRecord.put(
-        methodSimpleName, new MaplikeMethodRecord(innerMethodName, argsFromStream));
+        methodSimpleName, new MapLikeMethodRecord(innerMethodName, argsFromStream));
     this.passthroughMethodSimpleNames.add(methodSimpleName);
     return this;
   }

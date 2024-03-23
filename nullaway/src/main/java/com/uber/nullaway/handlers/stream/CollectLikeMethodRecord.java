@@ -28,12 +28,14 @@ import java.util.stream.Collector;
 
 /**
  * An immutable model describing a collect-like method from a stream-based API, such as {@link
- * java.util.stream.Stream#collect(Collector)}.
+ * java.util.stream.Stream#collect(Collector)}. Such methods are distinguished from map-like methods
+ * in that they take a {@link Collector} instance as an argument. We match specific factory methods
+ * that create a {@link Collector} and track the arguments to those factory methods.
  */
 @AutoValue
-public abstract class CollectlikeMethodRecord implements MapOrCollectLikeMethodRecord {
+public abstract class CollectLikeMethodRecord implements MapOrCollectLikeMethodRecord {
 
-  public static CollectlikeMethodRecord create(
+  public static CollectLikeMethodRecord create(
       String collectorFactoryMethodClass,
       String collectorFactoryMethodSignature,
       ImmutableSet<Integer> argsToCollectorFactoryMethod,

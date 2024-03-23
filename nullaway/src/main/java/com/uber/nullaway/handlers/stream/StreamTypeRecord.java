@@ -44,10 +44,10 @@ public class StreamTypeRecord {
   // Names and relevant arguments of all the methods of this type that behave like .map(...) for
   // the purposes of this checker (the listed arguments are those that take the potentially
   // filtered objects from the stream)
-  private final ImmutableMap<String, MaplikeMethodRecord> mapMethodSigToRecord;
-  private final ImmutableMap<String, MaplikeMethodRecord> mapMethodSimpleNameToRecord;
+  private final ImmutableMap<String, MapLikeMethodRecord> mapMethodSigToRecord;
+  private final ImmutableMap<String, MapLikeMethodRecord> mapMethodSimpleNameToRecord;
 
-  private final ImmutableMap<String, CollectlikeMethodRecord> collectMethodSigToRecord;
+  private final ImmutableMap<String, CollectLikeMethodRecord> collectMethodSigToRecord;
 
   // List of methods of java.util.stream.Stream through which we just propagate the nullability
   // information of the last call, e.g. m() in Observable.filter(...).m().map(...) means the
@@ -62,9 +62,9 @@ public class StreamTypeRecord {
       TypePredicate typePredicate,
       ImmutableSet<String> filterMethodSigs,
       ImmutableSet<String> filterMethodSimpleNames,
-      ImmutableMap<String, MaplikeMethodRecord> mapMethodSigToRecord,
-      ImmutableMap<String, MaplikeMethodRecord> mapMethodSimpleNameToRecord,
-      ImmutableMap<String, CollectlikeMethodRecord> collectMethodSigToRecord,
+      ImmutableMap<String, MapLikeMethodRecord> mapMethodSigToRecord,
+      ImmutableMap<String, MapLikeMethodRecord> mapMethodSimpleNameToRecord,
+      ImmutableMap<String, CollectLikeMethodRecord> collectMethodSigToRecord,
       ImmutableSet<String> passthroughMethodSigs,
       ImmutableSet<String> passthroughMethodSimpleNames) {
     this.typePredicate = typePredicate;
@@ -91,8 +91,8 @@ public class StreamTypeRecord {
         || mapMethodSimpleNameToRecord.containsKey(methodSymbol.getQualifiedName().toString());
   }
 
-  public MaplikeMethodRecord getMaplikeMethodRecord(Symbol.MethodSymbol methodSymbol) {
-    MaplikeMethodRecord record = mapMethodSigToRecord.get(methodSymbol.toString());
+  public MapLikeMethodRecord getMaplikeMethodRecord(Symbol.MethodSymbol methodSymbol) {
+    MapLikeMethodRecord record = mapMethodSigToRecord.get(methodSymbol.toString());
     if (record == null) {
       record =
           castToNonNull(
@@ -102,7 +102,7 @@ public class StreamTypeRecord {
   }
 
   @Nullable
-  public CollectlikeMethodRecord getCollectlikeMethodRecord(Symbol.MethodSymbol methodSymbol) {
+  public CollectLikeMethodRecord getCollectlikeMethodRecord(Symbol.MethodSymbol methodSymbol) {
     return collectMethodSigToRecord.get(methodSymbol.toString());
   }
 
