@@ -188,7 +188,7 @@ public class LibraryModelGenerator {
       source file, and it's expected that each source file contains only one top-level class. The
       logic does not currently handle cases where @NullMarked annotations appear on some nested
       classes but not others. It also does not consider annotations within package-info.java or
-      module-info.java files at this time.*/
+      module-info.java files.*/
       parentName.append(".").append(cid.getNameAsString());
       cid.getAnnotations()
           .forEach(
@@ -256,7 +256,7 @@ public class LibraryModelGenerator {
     }
 
     private boolean isAnnotationNullable(AnnotationExpr annotation) {
-      // Since we only want to consider jspecify Nullable annotations.
+      // We only consider jspecify Nullable annotations(star imports are not supported).
       return (annotation.getNameAsString().equalsIgnoreCase(NULLABLE)
               && this.isJspecifyNullableImportPresent)
           || annotation.getNameAsString().equalsIgnoreCase(JSPECIFY_NULLABLE_IMPORT);
