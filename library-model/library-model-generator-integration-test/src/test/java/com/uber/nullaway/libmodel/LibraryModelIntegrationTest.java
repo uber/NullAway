@@ -73,4 +73,28 @@ public class LibraryModelIntegrationTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void libraryModelWithoutJarInferEnabledTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.libmodel.AnnotationExample;",
+            "class Test {",
+            "  static AnnotationExample annotationExample = new AnnotationExample();",
+            "  static void test(String value){",
+            "  }",
+            "  static void testNegative() {",
+            "    // Since the JarInferEnabled and JarInferUseReturnAnnotations flags are not set, we don't get an error here",
+            "    test(annotationExample.makeUpperCase(\"nullaway\"));",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
