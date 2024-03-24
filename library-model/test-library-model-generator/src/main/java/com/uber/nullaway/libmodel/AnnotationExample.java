@@ -32,4 +32,11 @@ public class AnnotationExample {
   public String nullReturn() {
     return null;
   }
+
+  public static class InnerExample {
+
+    public String returnNull() {
+      return null;
+    }
+  }
 }

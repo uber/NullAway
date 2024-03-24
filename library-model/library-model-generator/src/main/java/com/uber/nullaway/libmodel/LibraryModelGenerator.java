@@ -26,10 +26,8 @@ import com.github.javaparser.ParseResult;
 import com.github.javaparser.ParserConfiguration.LanguageLevel;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.ImportDeclaration;
-import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
-import com.github.javaparser.ast.body.EnumDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.type.ArrayType;
@@ -157,7 +155,7 @@ public class LibraryModelGenerator {
 
   private static class AnnotationCollectionVisitor extends VoidVisitorAdapter<Void> {
 
-    private String packageName = "";
+    private StringBuilder parentName;
     private boolean isJspecifyNullableImportPresent = false;
     private boolean isNullMarked = false;
     private Map<String, MethodAnnotationsRecord> methodRecords;
@@ -172,7 +170,7 @@ public class LibraryModelGenerator {
 
     @Override
     public void visit(PackageDeclaration pd, Void arg) {
-      this.packageName = pd.getNameAsString();
+      this.parentName = new StringBuilder(pd.getNameAsString());
       super.visit(pd, null);
     }
 
@@ -191,6 +189,7 @@ public class LibraryModelGenerator {
       logic does not currently handle cases where @NullMarked annotations appear on some nested
       classes but not others. It also does not consider annotations within package-info.java or
       module-info.java files at this time.*/
+      parentName.append(".").append(cid.getNameAsString());
       cid.getAnnotations()
           .forEach(
               a -> {
@@ -199,28 +198,15 @@ public class LibraryModelGenerator {
                 }
               });
       super.visit(cid, null);
+      // We reset the variable that constructs the parent name after visiting all the children.
+      parentName.delete(parentName.lastIndexOf("." + cid.getNameAsString()), parentName.length());
     }
 
     @Override
     public void visit(MethodDeclaration md, Void arg) {
-      Optional<Node> parentClassNode = md.getParentNode();
-      String parentClassName = "";
-      if (parentClassNode.isPresent()) {
-        if (parentClassNode.get() instanceof ClassOrInterfaceDeclaration) {
-          parentClassName = ((ClassOrInterfaceDeclaration) parentClassNode.get()).getNameAsString();
-        } else if (parentClassNode.get() instanceof EnumDeclaration) {
-          parentClassName = ((EnumDeclaration) parentClassNode.get()).getNameAsString();
-        }
-      }
       if (this.isNullMarked && hasNullableReturn(md)) {
         methodRecords.put(
-            packageName
-                + "."
-                + parentClassName
-                + ":"
-                + getMethodReturnTypeString(md)
-                + " "
-                + md.getSignature().toString(),
+            parentName + ":" + getMethodReturnTypeString(md) + " " + md.getSignature().toString(),
             MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
       }
       super.visit(md, null);

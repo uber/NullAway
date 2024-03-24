@@ -97,4 +97,30 @@ public class LibraryModelIntegrationTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void libraryModelInnerClassNullableReturnsTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.libmodel.AnnotationExample;",
+            "class Test {",
+            "  static AnnotationExample.InnerExample innerExample = new AnnotationExample.InnerExample();",
+            "  static void test(String value){",
+            "  }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'innerExample.returnNull()'",
+            "    test(innerExample.returnNull());",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
