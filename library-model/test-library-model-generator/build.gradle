@@ -34,7 +34,6 @@ jar {
 jar.doLast {
     javaexec {
         classpath = files("${rootProject.projectDir}/library-model/library-model-generator-cli/build/libs/library-model-generator-cli.jar")
-        main = "com.uber.nullaway.libmodel.LibraryModelGeneratorCLI"
         args = [
             testInputsPath,
             "${jar.destinationDirectory.get()}/${astubxPath}"
