@@ -206,4 +206,42 @@ public class NullAwaySwitchTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testSwitchExprNullCaseDataflow() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SwitchNullCase.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class SwitchNullCase {",
+            "  public enum NullableEnum {",
+            "    A,",
+            "    B,",
+            "  }",
+            "  static Object testPositive1(@Nullable NullableEnum nullableEnum) {",
+            "    return switch (nullableEnum) {",
+            "      case A -> new Object();",
+            "      // BUG: Diagnostic contains: dereferenced expression nullableEnum is @Nullable",
+            "      case null -> nullableEnum.hashCode();",
+            "      default -> nullableEnum.toString();",
+            "    };",
+            "  }",
+            "  static Object testPositive2(@Nullable NullableEnum nullableEnum) {",
+            "    return switch (nullableEnum) {",
+            "      case A -> new Object();",
+            "      // BUG: Diagnostic contains: dereferenced expression nullableEnum is @Nullable",
+            "      case null, default -> nullableEnum.toString();",
+            "    };",
+            "  }",
+            "  static Object testNegative(@Nullable NullableEnum nullableEnum) {",
+            "    return switch (nullableEnum) {",
+            "      case A, B -> nullableEnum.hashCode();",
+            "      case null -> new Object();",
+            "      default -> nullableEnum.toString();",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
