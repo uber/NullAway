@@ -49,7 +49,10 @@ public abstract class CollectLikeMethodRecord implements MapOrCollectLikeMethodR
         argsFromStream);
   }
 
-  /** The fully qualified name of the class that contains the collector factory method. */
+  /**
+   * The fully qualified name of the class that contains the collector factory method, e.g., {@code
+   * java.util.stream.Collectors}.
+   */
   public abstract String collectorFactoryMethodClass();
 
   /**
@@ -60,15 +63,24 @@ public abstract class CollectLikeMethodRecord implements MapOrCollectLikeMethodR
   public abstract String collectorFactoryMethodSignature();
 
   /**
-   * The indices of the arguments to the collector factory method that are passed the elements of
-   * the stream
+   * The indices of the arguments to the collector factory method that are lambdas (or anonymous
+   * classes) which get invoked with the elements of the stream
    */
   public abstract ImmutableSet<Integer> argsToCollectorFactoryMethod();
 
-  /** Name of the method that gets passed the elements of the stream */
+  /**
+   * Name of the method that gets passed the elements of the stream, e.g., "apply" for an anonymous
+   * class implementing {@link Function}. We assume that all such methods have the same name.
+   */
   @Override
   public abstract String innerMethodName();
 
+  /**
+   * Argument indices to which stream elements are directly passed. We assume the same indices are
+   * used for all methods getting passed elements from the stream.
+   *
+   * @return
+   */
   @Override
   public abstract ImmutableSet<Integer> argsFromStream();
 }

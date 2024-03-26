@@ -172,6 +172,27 @@ public class StreamModelBuilder {
     return this;
   }
 
+  /**
+   * Add a model for a collect method that takes a collector factory method as its argument to the
+   * last stream type. See the methods of {@link CollectLikeMethodRecord} for further details.
+   *
+   * @param collectMethodSig The full sub-signature (everything except the receiver type) of the
+   *     collect method, e.g. {@code "<R,A>collect(java.util.stream.Collector<? super T,A,R>)"}.
+   * @param collectorFactoryMethodClass The fully qualified name of the class that contains the
+   *     collector factory method; see {@link
+   *     CollectLikeMethodRecord#collectorFactoryMethodClass()}.
+   * @param collectorFactoryMethodSig The signature of the factory method that creates the collector
+   *     instance passed to the collect method; see {@link
+   *     CollectLikeMethodRecord#collectorFactoryMethodSignature()}.
+   * @param argsToCollectorFactoryMethod The indices of the arguments to the collector factory
+   *     method; see {@link CollectLikeMethodRecord#argsToCollectorFactoryMethod()}.
+   * @param innerMethodName Name of the method that gets passed the elements of the stream; see
+   *     {@link CollectLikeMethodRecord#innerMethodName()}.
+   * @param argsFromStream Argument indices to which stream elements are directly passed; see {@link
+   *     CollectLikeMethodRecord#argsFromStream()}.
+   * @return This builder (for chaining).
+   * @see CollectLikeMethodRecord
+   */
   public StreamModelBuilder withCollectMethodFromSignature(
       String collectMethodSig,
       String collectorFactoryMethodClass,
