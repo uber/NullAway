@@ -99,9 +99,9 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
    *
    * We also support collect-like methods, which take a collector factory method as an argument, e.g.:
    *
-   * stream.filter(...).collect(Collectors.toMap(v -> e1, v -> e2))
+   * stream.filter(...).collect(Collectors.toMap(l1, l2)) (where l1 and l2 are lambdas)
    *
-   * For such scenarios, the lambdas v -> e1 and v -> e2 (or the named method in the equivalent anonymous class) serve
+   * For such scenarios, the lambdas l1 and l2 (or the named method in the equivalent anonymous class) serve
    * an equivalent role to the map methods discussed above.
    *
    * This class works by building the following maps which keep enough state outside of the standard dataflow
@@ -132,7 +132,8 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       LinkedHashMultimap.create();
 
   // Map from map or collect method (or lambda) to corresponding previous filter method (e.g.
-  // B.apply => A.filter)
+  // B.apply => A.filter for the map example above, or l1 => A.filter and l2 => A.filter for the
+  // collect example above)
   private final Map<Tree, MapOrCollectMethodToFilterInstanceRecord> mapOrCollectRecordToFilterMap =
       new LinkedHashMap<>();
 
