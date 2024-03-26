@@ -22,6 +22,7 @@ package com.uber.nullaway.handlers;
  * THE SOFTWARE.
  */
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedHashMultimap;
@@ -125,11 +126,26 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   private final Map<MethodInvocationTree, Tree> observableCallToInnerMethodOrLambda =
       new LinkedHashMap<>();
 
-  // Maps collect calls in the observable call chain to the relevant inner methods or lambdas.
+  @AutoValue
+  abstract static class CollectRecordAndInnerMethod {
+
+    static CollectRecordAndInnerMethod create(
+        CollectLikeMethodRecord collectlikeMethodRecord, Tree innerMethodOrLambda) {
+      return new AutoValue_StreamNullabilityPropagator_CollectRecordAndInnerMethod(
+          collectlikeMethodRecord, innerMethodOrLambda);
+    }
+
+    abstract CollectLikeMethodRecord getCollectLikeMethodRecord();
+
+    abstract Tree getInnerMethodOrLambda();
+  }
+
+  // Maps collect calls in the observable call chain to the relevant (collect record, inner method
+  // or lambda) pairs.
   // We need a Multimap here since there may be multiple relevant methods / lambdas.
-  // E.g.: stream.filter(...).collect(Collectors.toMap(l1, l2)) => {l1,l2}
-  private final Multimap<MethodInvocationTree, Tree> collectCallToInnerMethodsOrLambdas =
-      LinkedHashMultimap.create();
+  // E.g.: stream.filter(...).collect(Collectors.toMap(l1, l2)) => (record for toMap, {l1,l2})
+  private final Multimap<MethodInvocationTree, CollectRecordAndInnerMethod>
+      collectCallToRecordsAndInnerMethodsOrLambdas = LinkedHashMultimap.create();
 
   // Map from map or collect method (or lambda) to corresponding previous filter method (e.g.
   // B.apply => A.filter for the map example above, or l1 => A.filter and l2 => A.filter for the
@@ -183,7 +199,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
     this.filterMethodOrLambdaSet.clear();
     this.observableOuterCallInChain.clear();
     this.observableCallToInnerMethodOrLambda.clear();
-    this.collectCallToInnerMethodsOrLambdas.clear();
+    this.collectCallToRecordsAndInnerMethodsOrLambdas.clear();
     this.mapOrCollectRecordToFilterMap.clear();
     this.filterToNSMap.clear();
     this.bodyToMethodOrLambda.clear();
@@ -237,10 +253,14 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
             observableCallToInnerMethodOrLambda.put(tree, argTree);
           }
         } else {
-          CollectLikeMethodRecord collectlikeMethodRecord =
-              streamType.getCollectlikeMethodRecord(methodSymbol);
-          if (collectlikeMethodRecord != null && methodSymbol.getParameters().length() == 1) {
-            handleCollectCall(tree, collectlikeMethodRecord);
+          if (methodSymbol.getParameters().length() == 1) {
+            for (CollectLikeMethodRecord collectlikeMethodRecord :
+                streamType.getCollectlikeMethodRecords(methodSymbol)) {
+              boolean handled = handleCollectCall(tree, collectlikeMethodRecord);
+              if (handled) {
+                break;
+              }
+            }
           }
         }
       }
@@ -249,13 +269,15 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
 
   /**
    * Handles a call to a collect-like method. If the argument to the method is supported, updates
-   * the {@link #collectCallToInnerMethodsOrLambdas} map appropriately.
+   * the {@link #collectCallToRecordsAndInnerMethodsOrLambdas} map appropriately.
    *
    * @param collectInvocationTree The MethodInvocationTree representing the call to the collect-like
    *     method.
    * @param collectlikeMethodRecord The record representing the collect-like method.
+   * @return true if the argument to the collect method was a call to the factory method in the
+   *     record, false otherwise.
    */
-  private void handleCollectCall(
+  private boolean handleCollectCall(
       MethodInvocationTree collectInvocationTree, CollectLikeMethodRecord collectlikeMethodRecord) {
     ExpressionTree argTree = collectInvocationTree.getArguments().get(0);
     if (argTree instanceof MethodInvocationTree) {
@@ -282,14 +304,21 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
               handleMapOrCollectAnonClassBody(
                   collectlikeMethodRecord,
                   anonClassBody,
-                  t -> collectCallToInnerMethodsOrLambdas.put(collectInvocationTree, t));
+                  t ->
+                      collectCallToRecordsAndInnerMethodsOrLambdas.put(
+                          collectInvocationTree,
+                          CollectRecordAndInnerMethod.create(collectlikeMethodRecord, t)));
             }
           } else if (factoryMethodArg instanceof LambdaExpressionTree) {
-            collectCallToInnerMethodsOrLambdas.put(collectInvocationTree, factoryMethodArg);
+            collectCallToRecordsAndInnerMethodsOrLambdas.put(
+                collectInvocationTree,
+                CollectRecordAndInnerMethod.create(collectlikeMethodRecord, factoryMethodArg));
           }
         }
+        return true;
       }
     }
+    return false;
   }
 
   private void buildObservableCallChain(MethodInvocationTree tree) {
@@ -326,19 +355,15 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
           mapOrCollectRecordToFilterMap.put(
               observableCallToInnerMethodOrLambda.get(outerCallInChain), record);
         }
-      } else if (collectCallToInnerMethodsOrLambdas.containsKey(outerCallInChain)) {
-        Symbol.MethodSymbol collectMethod = ASTHelpers.getSymbol(outerCallInChain);
-        CollectLikeMethodRecord collectlikeMethodRecord =
-            streamType.getCollectlikeMethodRecord(collectMethod);
-        if (collectlikeMethodRecord != null) {
-          // Update mapOrCollectRecordToFilterMap for all relevant methods / lambdas
-          for (Tree innerMethodOrLambda :
-              collectCallToInnerMethodsOrLambdas.get(outerCallInChain)) {
-            MapOrCollectMethodToFilterInstanceRecord record =
-                new MapOrCollectMethodToFilterInstanceRecord(
-                    collectlikeMethodRecord, filterMethodOrLambda);
-            mapOrCollectRecordToFilterMap.put(innerMethodOrLambda, record);
-          }
+      } else if (collectCallToRecordsAndInnerMethodsOrLambdas.containsKey(outerCallInChain)) {
+        // Update mapOrCollectRecordToFilterMap for all relevant methods / lambdas
+        for (CollectRecordAndInnerMethod collectRecordAndInnerMethod :
+            collectCallToRecordsAndInnerMethodsOrLambdas.get(outerCallInChain)) {
+          MapOrCollectMethodToFilterInstanceRecord record =
+              new MapOrCollectMethodToFilterInstanceRecord(
+                  collectRecordAndInnerMethod.getCollectLikeMethodRecord(), filterMethodOrLambda);
+          mapOrCollectRecordToFilterMap.put(
+              collectRecordAndInnerMethod.getInnerMethodOrLambda(), record);
         }
       }
     } while (outerCallInChain != null

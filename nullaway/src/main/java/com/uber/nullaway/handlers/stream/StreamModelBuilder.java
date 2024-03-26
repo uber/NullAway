@@ -23,6 +23,7 @@ package com.uber.nullaway.handlers.stream;
  */
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.predicates.TypePredicate;
 import com.google.errorprone.predicates.type.DescendantOf;
@@ -48,7 +49,7 @@ public class StreamModelBuilder {
   private ImmutableSet.Builder<String> filterMethodSimpleNames;
   private ImmutableMap.Builder<String, MapLikeMethodRecord> mapMethodSigToRecord;
   private ImmutableMap.Builder<String, MapLikeMethodRecord> mapMethodSimpleNameToRecord;
-  private ImmutableMap.Builder<String, CollectLikeMethodRecord> collectMethodSigToRecord;
+  private ImmutableMultimap.Builder<String, CollectLikeMethodRecord> collectMethodSigToRecords;
   private ImmutableSet.Builder<String> passthroughMethodSigs;
   private ImmutableSet.Builder<String> passthroughMethodSimpleNames;
 
@@ -75,7 +76,7 @@ public class StreamModelBuilder {
               filterMethodSimpleNames.build(),
               mapMethodSigToRecord.build(),
               mapMethodSimpleNameToRecord.build(),
-              collectMethodSigToRecord.build(),
+              collectMethodSigToRecords.build(),
               passthroughMethodSigs.build(),
               passthroughMethodSimpleNames.build()));
     }
@@ -109,7 +110,7 @@ public class StreamModelBuilder {
     this.filterMethodSimpleNames = ImmutableSet.builder();
     this.mapMethodSigToRecord = ImmutableMap.builder();
     this.mapMethodSimpleNameToRecord = ImmutableMap.builder();
-    this.collectMethodSigToRecord = ImmutableMap.builder();
+    this.collectMethodSigToRecords = ImmutableMultimap.builder();
     this.passthroughMethodSigs = ImmutableSet.builder();
     this.passthroughMethodSimpleNames = ImmutableSet.builder();
   }
@@ -200,7 +201,7 @@ public class StreamModelBuilder {
       ImmutableSet<Integer> argsToCollectorFactoryMethod,
       String innerMethodName,
       ImmutableSet<Integer> argsFromStream) {
-    this.collectMethodSigToRecord.put(
+    this.collectMethodSigToRecords.put(
         collectMethodSig,
         CollectLikeMethodRecord.create(
             collectorFactoryMethodClass,

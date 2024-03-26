@@ -23,13 +23,14 @@ package com.uber.nullaway.handlers.stream;
  */
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.predicates.TypePredicate;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
-import javax.annotation.Nullable;
 
 /** An immutable model describing a class from a stream-based API such as RxJava. */
 public class StreamTypeRecord {
@@ -47,7 +48,7 @@ public class StreamTypeRecord {
   private final ImmutableMap<String, MapLikeMethodRecord> mapMethodSigToRecord;
   private final ImmutableMap<String, MapLikeMethodRecord> mapMethodSimpleNameToRecord;
 
-  private final ImmutableMap<String, CollectLikeMethodRecord> collectMethodSigToRecord;
+  private final ImmutableMultimap<String, CollectLikeMethodRecord> collectMethodSigToRecords;
 
   // List of methods of java.util.stream.Stream through which we just propagate the nullability
   // information of the last call, e.g. m() in Observable.filter(...).m().map(...) means the
@@ -64,7 +65,7 @@ public class StreamTypeRecord {
       ImmutableSet<String> filterMethodSimpleNames,
       ImmutableMap<String, MapLikeMethodRecord> mapMethodSigToRecord,
       ImmutableMap<String, MapLikeMethodRecord> mapMethodSimpleNameToRecord,
-      ImmutableMap<String, CollectLikeMethodRecord> collectMethodSigToRecord,
+      ImmutableMultimap<String, CollectLikeMethodRecord> collectMethodSigToRecords,
       ImmutableSet<String> passthroughMethodSigs,
       ImmutableSet<String> passthroughMethodSimpleNames) {
     this.typePredicate = typePredicate;
@@ -72,7 +73,7 @@ public class StreamTypeRecord {
     this.filterMethodSimpleNames = filterMethodSimpleNames;
     this.mapMethodSigToRecord = mapMethodSigToRecord;
     this.mapMethodSimpleNameToRecord = mapMethodSimpleNameToRecord;
-    this.collectMethodSigToRecord = collectMethodSigToRecord;
+    this.collectMethodSigToRecords = collectMethodSigToRecords;
     this.passthroughMethodSigs = passthroughMethodSigs;
     this.passthroughMethodSimpleNames = passthroughMethodSimpleNames;
   }
@@ -101,9 +102,9 @@ public class StreamTypeRecord {
     return record;
   }
 
-  @Nullable
-  public CollectLikeMethodRecord getCollectlikeMethodRecord(Symbol.MethodSymbol methodSymbol) {
-    return collectMethodSigToRecord.get(methodSymbol.toString());
+  public ImmutableCollection<CollectLikeMethodRecord> getCollectlikeMethodRecords(
+      Symbol.MethodSymbol methodSymbol) {
+    return collectMethodSigToRecords.get(methodSymbol.toString());
   }
 
   public boolean isPassthroughMethod(Symbol.MethodSymbol methodSymbol) {

@@ -93,6 +93,37 @@ public class NullAwayFrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void streamSupportCollectorsGroupingBy() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.*;",
+            "import java.util.stream.*;",
+            "import java.util.function.Function;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "    static class Foo {",
+            "      @Nullable String bar;",
+            "      String baz = \"baz\";",
+            "    }",
+            "    Map<Integer, List<Foo>> testNegative() {",
+            "      List<Foo> foos = new ArrayList<>();",
+            "      return foos.stream()",
+            "          .filter(foo -> foo.bar != null)",
+            "          .collect(Collectors.groupingBy(foo -> foo.bar.length()));",
+            "    }",
+            "    Map<Integer, List<Foo>> testPositive1() {",
+            "      List<Foo> foos = new ArrayList<>();",
+            "      return foos.stream()",
+            "          // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable",
+            "          .collect(Collectors.groupingBy(foo -> foo.bar.length()));",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void supportObjectsIsNull() {
     defaultCompilationHelper
         .addSourceLines(
