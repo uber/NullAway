@@ -97,6 +97,13 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
    *   'Observable.filter'). In general, for observable.a().b().c(), c is the outer call of b and b the outer call
    *   of a in the chain.
    *
+   * We also support collect-like methods, which take a collector factory method as an argument, e.g.:
+   *
+   * stream.filter(...).collect(Collectors.toMap(v -> e1, v -> e2))
+   *
+   * For such scenarios, the lambdas v -> e1 and v -> e2 (or the named method in the equivalent anonymous class) serve
+   * an equivalent role to the map methods discussed above.
+   *
    * This class works by building the following maps which keep enough state outside of the standard dataflow
    * analysis for us to figure out what's going on:
    *
@@ -251,6 +258,8 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       MethodInvocationTree collectInvocationTree, CollectLikeMethodRecord collectlikeMethodRecord) {
     ExpressionTree argTree = collectInvocationTree.getArguments().get(0);
     if (argTree instanceof MethodInvocationTree) {
+      // the argument passed to the collect method.  We check if this is a call to the collector
+      // factory method from the record
       MethodInvocationTree collectInvokeArg = (MethodInvocationTree) argTree;
       Symbol.MethodSymbol collectInvokeArgSymbol = ASTHelpers.getSymbol(collectInvokeArg);
       if (collectInvokeArgSymbol
