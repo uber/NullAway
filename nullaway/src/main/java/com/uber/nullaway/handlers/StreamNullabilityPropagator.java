@@ -242,10 +242,14 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   /**
    * Handles a call to a collect-like method. If the argument to the method is supported, updates
    * the {@link #collectCallToInnerMethodsOrLambdas} map appropriately.
+   *
+   * @param collectInvocationTree The MethodInvocationTree representing the call to the collect-like
+   *     method.
+   * @param collectlikeMethodRecord The record representing the collect-like method.
    */
   private void handleCollectCall(
-      MethodInvocationTree tree, CollectLikeMethodRecord collectlikeMethodRecord) {
-    ExpressionTree argTree = tree.getArguments().get(0);
+      MethodInvocationTree collectInvocationTree, CollectLikeMethodRecord collectlikeMethodRecord) {
+    ExpressionTree argTree = collectInvocationTree.getArguments().get(0);
     if (argTree instanceof MethodInvocationTree) {
       MethodInvocationTree collectInvokeArg = (MethodInvocationTree) argTree;
       Symbol.MethodSymbol collectInvokeArgSymbol = ASTHelpers.getSymbol(collectInvokeArg);
@@ -268,10 +272,10 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
               handleMapOrCollectAnonClassBody(
                   collectlikeMethodRecord,
                   anonClassBody,
-                  t -> collectCallToInnerMethodsOrLambdas.put(tree, t));
+                  t -> collectCallToInnerMethodsOrLambdas.put(collectInvocationTree, t));
             }
           } else if (factoryMethodArg instanceof LambdaExpressionTree) {
-            collectCallToInnerMethodsOrLambdas.put(tree, factoryMethodArg);
+            collectCallToInnerMethodsOrLambdas.put(collectInvocationTree, factoryMethodArg);
           }
         }
       }
