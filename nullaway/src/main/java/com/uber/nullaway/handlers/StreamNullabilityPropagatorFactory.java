@@ -81,6 +81,13 @@ public class StreamNullabilityPropagatorFactory {
                 ImmutableSet.of(0),
                 "apply",
                 ImmutableSet.of(0))
+            .withCollectMethodFromSignature(
+                "<R,A>collect(java.util.stream.Collector<? super T,A,R>)",
+                "com.google.common.collect.ImmutableMap",
+                "<T,K,V>toImmutableMap(java.util.function.Function<? super T,? extends K>,java.util.function.Function<? super T,? extends V>)",
+                ImmutableSet.of(0, 1),
+                "apply",
+                ImmutableSet.of(0))
             // List of methods of java.util.stream.Stream through which we just propagate the
             // nullability information of the last call, e.g. m() in
             // Observable.filter(...).m().map(...) means the
