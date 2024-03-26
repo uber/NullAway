@@ -78,8 +78,6 @@ public abstract class CollectLikeMethodRecord implements MapOrCollectLikeMethodR
   /**
    * Argument indices to which stream elements are directly passed. We assume the same indices are
    * used for all methods getting passed elements from the stream.
-   *
-   * @return
    */
   @Override
   public abstract ImmutableSet<Integer> argsFromStream();
