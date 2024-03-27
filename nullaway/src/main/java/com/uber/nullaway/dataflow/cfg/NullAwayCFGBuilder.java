@@ -2,6 +2,7 @@ package com.uber.nullaway.dataflow.cfg;
 
 import com.google.common.base.Preconditions;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.ThrowTree;
 import com.sun.source.tree.Tree;
@@ -20,6 +21,7 @@ import org.checkerframework.nullaway.dataflow.cfg.builder.ConditionalJump;
 import org.checkerframework.nullaway.dataflow.cfg.builder.ExtendedNode;
 import org.checkerframework.nullaway.dataflow.cfg.builder.Label;
 import org.checkerframework.nullaway.dataflow.cfg.builder.PhaseOneResult;
+import org.checkerframework.nullaway.dataflow.cfg.node.IntegerLiteralNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 import org.checkerframework.nullaway.dataflow.cfg.node.ThrowNode;
@@ -149,6 +151,19 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
       insertThrowOn(true, booleanExpressionNode, errorType);
     }
 
+    /**
+     * Extend the CFG to throw an exception unconditionally.
+     *
+     * @param errorType the type of the exception to throw.
+     */
+    public void insertUnconditionalThrow(TypeMirror errorType) {
+      // the value that gets thrown does not matter; we just throw 0
+      LiteralTree dummyValueToThrowTree = treeBuilder.buildLiteral(0);
+      handleArtificialTree(dummyValueToThrowTree);
+      Node dummyValueToThrowNode = new IntegerLiteralNode(dummyValueToThrowTree);
+      insertThrow(dummyValueToThrowNode, dummyValueToThrowTree, errorType);
+    }
+
     private void insertThrowOn(boolean throwOn, Node booleanExpressionNode, TypeMirror errorType) {
       Tree tree = booleanExpressionNode.getTree();
       Preconditions.checkArgument(
@@ -165,6 +180,20 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
               throwOn ? endPrecondition : preconditionEntry);
       this.extendWithExtendedNode(cjump);
       this.addLabelForNextNode(preconditionEntry);
+      insertThrow(booleanExpressionNode, booleanExpressionTree, errorType);
+      this.addLabelForNextNode(endPrecondition);
+    }
+
+    /**
+     * Extend the CFG to throw an exception with the given type, using the given expression tree as
+     * the thrown expression.
+     *
+     * @param thrownExpressionNode node representing the expression to throw
+     * @param thrownExpressionTree tree representing the expression to throw
+     * @param errorType the type of the exception to throw
+     */
+    private void insertThrow(
+        Node thrownExpressionNode, ExpressionTree thrownExpressionTree, TypeMirror errorType) {
       ExtendedNode exNode =
           this.extendWithNodeWithException(
               new ThrowNode(
@@ -173,7 +202,7 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
                     // typing.
                     @Override
                     public ExpressionTree getExpression() {
-                      return booleanExpressionTree;
+                      return thrownExpressionTree;
                     }
 
                     @Override
@@ -186,11 +215,10 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
                       return visitor.visitThrow(this, data);
                     }
                   },
-                  booleanExpressionNode,
+                  thrownExpressionNode,
                   this.env.getTypeUtils()),
               errorType);
       exNode.setTerminatesExecution(true);
-      this.addLabelForNextNode(endPrecondition);
     }
 
     @Override
