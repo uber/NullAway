@@ -21,25 +21,32 @@ package com.uber.nullaway.handlers.stream;
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
-import java.util.Set;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
 
-/** An immutable model describing a map-like method from a stream-based API such as RxJava. */
-public class MaplikeMethodRecord {
+/**
+ * Internal bookeeping record that keeps track of the model of a map-like method and the previous
+ * filter method's inner method tree. See RxNullabilityPropagator documentation and diagram.
+ */
+public class MapOrCollectMethodToFilterInstanceRecord {
 
-  private final String innerMethodName;
+  private final MapOrCollectLikeMethodRecord methodRecord;
 
-  public String getInnerMethodName() {
-    return innerMethodName;
+  public MapOrCollectLikeMethodRecord getMapOrCollectLikeMethodRecord() {
+    return methodRecord;
   }
 
-  private final Set<Integer> argsFromStream;
+  private final Tree filter;
 
-  public Set<Integer> getArgsFromStream() {
-    return argsFromStream;
+  public Tree getFilter() {
+    return filter;
   }
 
-  public MaplikeMethodRecord(String innerMethodName, Set<Integer> argsFromStream) {
-    this.innerMethodName = innerMethodName;
-    this.argsFromStream = argsFromStream;
+  public MapOrCollectMethodToFilterInstanceRecord(
+      MapOrCollectLikeMethodRecord methodRecord, Tree filter) {
+    assert (filter instanceof MethodTree || filter instanceof LambdaExpressionTree);
+    this.methodRecord = methodRecord;
+    this.filter = filter;
   }
 }
