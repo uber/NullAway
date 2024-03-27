@@ -282,6 +282,12 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
             "    }",
             "    return o1.toString();",
             "  }",
+            "  String test5(@Nullable Object o1) {",
+            "    if (o1 == null) {",
+            "      Validation.fail();",
+            "    }",
+            "    return o1.toString();",
+            "  }",
             "}")
         .doTest();
   }
@@ -606,6 +612,10 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
             "  @Contract(\"_ -> fail\")",
             "  static void fail(String msg) {",
             "    throw new RuntimeException(msg);",
+            "  }",
+            "  @Contract(\" -> fail\")",
+            "  static void fail() {",
+            "    throw new RuntimeException(\"something failed\");",
             "  }",
             "  @Contract(\"true -> true; false -> false\")",
             "  static boolean identity(boolean value) {",
