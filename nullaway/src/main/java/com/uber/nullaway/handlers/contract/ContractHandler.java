@@ -156,13 +156,16 @@ public class ContractHandler extends BaseNoOpHandler {
         }
       }
       if (supported) {
+        // In practice the failure may not be RuntimeException, however the
+        // throw is inserted after the method invocation where we must assume that
+        // any invocation is capable of throwing an unchecked throwable.
         if (runtimeExceptionType == null) {
           runtimeExceptionType = phase.classToErrorType(RuntimeException.class);
         }
-        // In practice the failure may not be RuntimeException, however the conditional
-        // throw is inserted after the method invocation where we must assume that
-        // any invocation is capable of throwing an unchecked throwable.
         Preconditions.checkNotNull(runtimeExceptionType);
+        // If arg != null, we found a single boolean antecedent that determines whether the call
+        // fails, as reflected by booleanConstraint.  Otherwise, all antecedents are '_' (or there
+        // are no antecedents), meaning the method fails unconditionally
         if (arg != null) {
           if (booleanConstraint) {
             phase.insertThrowOnTrue(arg, runtimeExceptionType);
@@ -170,7 +173,6 @@ public class ContractHandler extends BaseNoOpHandler {
             phase.insertThrowOnFalse(arg, runtimeExceptionType);
           }
         } else {
-          // the method unconditionally fails
           phase.insertUnconditionalThrow(runtimeExceptionType);
         }
       }
