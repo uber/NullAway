@@ -151,7 +151,13 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
       insertThrowOn(true, booleanExpressionNode, errorType);
     }
 
+    /**
+     * Extend the CFG to throw an exception unconditionally.
+     *
+     * @param errorType the type of the exception to throw.
+     */
     public void insertUnconditionalThrow(TypeMirror errorType) {
+      // the value that gets thrown does not matter; we just throw 0
       LiteralTree dummyValueToThrowTree = treeBuilder.buildLiteral(0);
       handleArtificialTree(dummyValueToThrowTree);
       Node dummyValueToThrowNode = new IntegerLiteralNode(dummyValueToThrowTree);
@@ -178,6 +184,14 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
       this.addLabelForNextNode(endPrecondition);
     }
 
+    /**
+     * Extend the CFG to throw an exception with the given type, using the given expression tree as
+     * the thrown expression.
+     *
+     * @param thrownExpressionNode node representing the expression to throw
+     * @param thrownExpressionTree tree representing the expression to throw
+     * @param errorType the type of the exception to throw
+     */
     private void insertThrow(
         Node thrownExpressionNode, ExpressionTree thrownExpressionTree, TypeMirror errorType) {
       ExtendedNode exNode =
