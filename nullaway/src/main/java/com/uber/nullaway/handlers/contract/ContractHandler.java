@@ -155,7 +155,7 @@ public class ContractHandler extends BaseNoOpHandler {
           break;
         }
       }
-      if (arg != null && supported) {
+      if (supported) {
         if (runtimeExceptionType == null) {
           runtimeExceptionType = phase.classToErrorType(RuntimeException.class);
         }
@@ -163,10 +163,15 @@ public class ContractHandler extends BaseNoOpHandler {
         // throw is inserted after the method invocation where we must assume that
         // any invocation is capable of throwing an unchecked throwable.
         Preconditions.checkNotNull(runtimeExceptionType);
-        if (booleanConstraint) {
-          phase.insertThrowOnTrue(arg, runtimeExceptionType);
+        if (arg != null) {
+          if (booleanConstraint) {
+            phase.insertThrowOnTrue(arg, runtimeExceptionType);
+          } else {
+            phase.insertThrowOnFalse(arg, runtimeExceptionType);
+          }
         } else {
-          phase.insertThrowOnFalse(arg, runtimeExceptionType);
+          // the method unconditionally fails
+          phase.insertUnconditionalThrow(runtimeExceptionType);
         }
       }
     }
