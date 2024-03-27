@@ -23,7 +23,9 @@ package com.uber.nullaway.handlers.stream;
  */
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
+import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.predicates.TypePredicate;
@@ -43,8 +45,10 @@ public class StreamTypeRecord {
   // Names and relevant arguments of all the methods of this type that behave like .map(...) for
   // the purposes of this checker (the listed arguments are those that take the potentially
   // filtered objects from the stream)
-  private final ImmutableMap<String, MaplikeMethodRecord> mapMethodSigToRecord;
-  private final ImmutableMap<String, MaplikeMethodRecord> mapMethodSimpleNameToRecord;
+  private final ImmutableMap<String, MapLikeMethodRecord> mapMethodSigToRecord;
+  private final ImmutableMap<String, MapLikeMethodRecord> mapMethodSimpleNameToRecord;
+
+  private final ImmutableMultimap<String, CollectLikeMethodRecord> collectMethodSigToRecords;
 
   // List of methods of java.util.stream.Stream through which we just propagate the nullability
   // information of the last call, e.g. m() in Observable.filter(...).m().map(...) means the
@@ -59,8 +63,9 @@ public class StreamTypeRecord {
       TypePredicate typePredicate,
       ImmutableSet<String> filterMethodSigs,
       ImmutableSet<String> filterMethodSimpleNames,
-      ImmutableMap<String, MaplikeMethodRecord> mapMethodSigToRecord,
-      ImmutableMap<String, MaplikeMethodRecord> mapMethodSimpleNameToRecord,
+      ImmutableMap<String, MapLikeMethodRecord> mapMethodSigToRecord,
+      ImmutableMap<String, MapLikeMethodRecord> mapMethodSimpleNameToRecord,
+      ImmutableMultimap<String, CollectLikeMethodRecord> collectMethodSigToRecords,
       ImmutableSet<String> passthroughMethodSigs,
       ImmutableSet<String> passthroughMethodSimpleNames) {
     this.typePredicate = typePredicate;
@@ -68,6 +73,7 @@ public class StreamTypeRecord {
     this.filterMethodSimpleNames = filterMethodSimpleNames;
     this.mapMethodSigToRecord = mapMethodSigToRecord;
     this.mapMethodSimpleNameToRecord = mapMethodSimpleNameToRecord;
+    this.collectMethodSigToRecords = collectMethodSigToRecords;
     this.passthroughMethodSigs = passthroughMethodSigs;
     this.passthroughMethodSimpleNames = passthroughMethodSimpleNames;
   }
@@ -86,14 +92,19 @@ public class StreamTypeRecord {
         || mapMethodSimpleNameToRecord.containsKey(methodSymbol.getQualifiedName().toString());
   }
 
-  public MaplikeMethodRecord getMaplikeMethodRecord(Symbol.MethodSymbol methodSymbol) {
-    MaplikeMethodRecord record = mapMethodSigToRecord.get(methodSymbol.toString());
+  public MapLikeMethodRecord getMaplikeMethodRecord(Symbol.MethodSymbol methodSymbol) {
+    MapLikeMethodRecord record = mapMethodSigToRecord.get(methodSymbol.toString());
     if (record == null) {
       record =
           castToNonNull(
               mapMethodSimpleNameToRecord.get(methodSymbol.getQualifiedName().toString()));
     }
     return record;
+  }
+
+  public ImmutableCollection<CollectLikeMethodRecord> getCollectlikeMethodRecords(
+      Symbol.MethodSymbol methodSymbol) {
+    return collectMethodSigToRecords.get(methodSymbol.toString());
   }
 
   public boolean isPassthroughMethod(Symbol.MethodSymbol methodSymbol) {
