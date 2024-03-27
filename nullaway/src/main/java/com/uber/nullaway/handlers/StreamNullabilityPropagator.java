@@ -254,6 +254,11 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
           }
         } else {
           if (methodSymbol.getParameters().length() == 1) {
+            // We can have multiple CollectLikeMethodRecords for a single collect method, reflecting
+            // the different possible collector factory methods whose result may be passed to a
+            // collect call.  At a single collect call site, at most one of these records will be
+            // relevant. So, we loop through them all, but break out of the loop as soon as we find
+            // one that matches.
             for (CollectLikeMethodRecord collectlikeMethodRecord :
                 streamType.getCollectlikeMethodRecords(methodSymbol)) {
               boolean handled = handleCollectCall(tree, collectlikeMethodRecord);
