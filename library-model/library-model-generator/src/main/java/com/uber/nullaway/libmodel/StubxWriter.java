@@ -1,4 +1,4 @@
-package com.uber.nullaway.jarinfer;
+package com.uber.nullaway.libmodel;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.Set;
 
 /** Simple writer for the astubx format. */
-final class StubxWriter {
+public final class StubxWriter {
   /**
    * The file magic number for version 0 .astubx files. It should be the first four bytes of any
    * compatible .astubx file.
@@ -31,7 +31,7 @@ final class StubxWriter {
    *     MethodAnnotationsRecord}
    * @exception IOException On output error.
    */
-  static void write(
+  public static void write(
       DataOutputStream out,
       Map<String, String> importedAnnotations,
       Map<String, Set<String>> packageAnnotations,
@@ -93,13 +93,13 @@ final class StubxWriter {
     int methodAnnotationSize = 0;
     int methodArgumentRecordsSize = 0;
     for (Map.Entry<String, MethodAnnotationsRecord> entry : methodRecords.entrySet()) {
-      methodAnnotationSize += entry.getValue().getMethodAnnotations().size();
-      methodArgumentRecordsSize += entry.getValue().getArgumentAnnotations().size();
+      methodAnnotationSize += entry.getValue().methodAnnotations().size();
+      methodArgumentRecordsSize += entry.getValue().argumentAnnotations().size();
     }
     out.writeInt(methodAnnotationSize);
     // Followed by those records as pairs of ints pointing into the dictionary
     for (Map.Entry<String, MethodAnnotationsRecord> entry : methodRecords.entrySet()) {
-      for (String annot : entry.getValue().getMethodAnnotations()) {
+      for (String annot : entry.getValue().methodAnnotations()) {
         out.writeInt(encodingDictionary.get(entry.getKey()));
         out.writeInt(encodingDictionary.get(importedAnnotations.get(annot)));
       }
@@ -110,7 +110,7 @@ final class StubxWriter {
     //  argument position)
     for (Map.Entry<String, MethodAnnotationsRecord> entry : methodRecords.entrySet()) {
       for (Map.Entry<Integer, ImmutableSet<String>> argEntry :
-          entry.getValue().getArgumentAnnotations().entrySet()) {
+          entry.getValue().argumentAnnotations().entrySet()) {
         for (String annot : argEntry.getValue()) {
           out.writeInt(encodingDictionary.get(entry.getKey()));
           out.writeInt(argEntry.getKey());

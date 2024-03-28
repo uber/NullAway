@@ -80,4 +80,6 @@ dependencies {
     implementation project(':jar-infer:nullaway-integration-test')
     implementation project(':guava-recent-unit-tests')
     implementation project(':jdk-recent-unit-tests')
+    implementation project(':library-model:library-model-generator')
+    implementation project(':library-model:library-model-generator-integration-test')
 }
