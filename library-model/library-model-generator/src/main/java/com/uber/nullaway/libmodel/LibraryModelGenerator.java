@@ -155,7 +155,7 @@ public class LibraryModelGenerator {
 
   private static class AnnotationCollectionVisitor extends VoidVisitorAdapter<Void> {
 
-    private StringBuilder parentName;
+    private String parentName = "";
     private boolean isJspecifyNullableImportPresent = false;
     private boolean isNullMarked = false;
     private Map<String, MethodAnnotationsRecord> methodRecords;
@@ -170,7 +170,7 @@ public class LibraryModelGenerator {
 
     @Override
     public void visit(PackageDeclaration pd, Void arg) {
-      this.parentName = new StringBuilder(pd.getNameAsString());
+      this.parentName = pd.getNameAsString();
       super.visit(pd, null);
     }
 
@@ -189,7 +189,7 @@ public class LibraryModelGenerator {
       logic does not currently handle cases where @NullMarked annotations appear on some nested
       classes but not others. It also does not consider annotations within package-info.java or
       module-info.java files.*/
-      parentName.append(".").append(cid.getNameAsString());
+      parentName += "." + cid.getNameAsString();
       cid.getAnnotations()
           .forEach(
               a -> {
@@ -199,7 +199,7 @@ public class LibraryModelGenerator {
               });
       super.visit(cid, null);
       // We reset the variable that constructs the parent name after visiting all the children.
-      parentName.delete(parentName.lastIndexOf("." + cid.getNameAsString()), parentName.length());
+      parentName = parentName.substring(0, parentName.lastIndexOf("." + cid.getNameAsString()));
     }
 
     @Override
