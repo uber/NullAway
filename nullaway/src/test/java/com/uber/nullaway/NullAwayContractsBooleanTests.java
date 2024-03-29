@@ -249,6 +249,50 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void unconditionalFail() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test1(@Nullable Object o1) {",
+            "    if (o1 == null) {",
+            "      Validation.fail(\"o1 should not be null\");",
+            "    }",
+            "    return o1.toString();",
+            "  }",
+            "  String test2(@Nullable Object o1) {",
+            "    if (o1 != null) {",
+            "      Validation.fail(\"o1 should be null\");",
+            "    }",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    return o1.toString();",
+            "  }",
+            "  String test3(@Nullable Object o1) {",
+            "    Validation.fail(\"always fail\");",
+            "    // this is unreachable code, so we do not report an error",
+            "    return o1.toString();",
+            "  }",
+            "  String test4(@Nullable Object o1) {",
+            "    if (o1 != null) {",
+            "      System.out.println(o1.toString());",
+            "    } else {",
+            "      Validation.fail(\"o1 should not be null\");",
+            "    }",
+            "    return o1.toString();",
+            "  }",
+            "  String test5(@Nullable Object o1) {",
+            "    if (o1 == null) {",
+            "      Validation.fail();",
+            "    }",
+            "    return o1.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void identityNotNull() {
     helper()
         .addSourceLines(
@@ -564,6 +608,14 @@ public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
             "  @Contract(\"true -> fail\")",
             "  static void checkFalse(boolean value) {",
             "    if (value) throw new RuntimeException();",
+            "  }",
+            "  @Contract(\"_ -> fail\")",
+            "  static void fail(String msg) {",
+            "    throw new RuntimeException(msg);",
+            "  }",
+            "  @Contract(\" -> fail\")",
+            "  static void fail() {",
+            "    throw new RuntimeException(\"something failed\");",
             "  }",
             "  @Contract(\"true -> true; false -> false\")",
             "  static boolean identity(boolean value) {",
