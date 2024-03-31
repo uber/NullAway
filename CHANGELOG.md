@@ -1,5 +1,16 @@
 Changelog
 =========
+Version 0.10.25
+---------------
+* JSpecify: Handle @nullable assignments to @nonnull arrays (#929)
+* Handle JDK 21 case operands in type refinement (#928)
+* Track access paths of the form Foo.this.bar (#937)
+* Add test for boolean contract with extra message argument (#945)
+* Collectors.toMap handling for streams (#938)
+* Handle methods that fail unconditionally in ContractHandler (#946)
+* Build / CI tooling upgrades:
+  - Update various dependencies (#939)
+
 Version 0.10.24
 ---------------
 * Add library model for Files.isDirectory (#913)
