@@ -35,7 +35,6 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.io.InputStream;
-import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -70,8 +69,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     super();
     this.config = config;
     this.cacheUtil = new StubxCacheUtil("JI");
-    argAnnotCache = new LinkedHashMap<>();
-    cacheUtil.loadStubxFiles();
+    argAnnotCache = cacheUtil.loadStubxFiles();
     // Load Android SDK JarInfer models
     try {
       InputStream androidStubxIS =
