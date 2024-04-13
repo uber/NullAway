@@ -22,6 +22,7 @@ dependencies {
     testImplementation project(":nullaway")
     testImplementation project(":library-model:test-library-model-generator")
     testImplementation deps.test.junit4
+    testImplementation deps.build.jspecify
     testImplementation(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }

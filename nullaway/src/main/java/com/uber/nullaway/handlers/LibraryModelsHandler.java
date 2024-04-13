@@ -378,6 +378,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         ServiceLoader.load(LibraryModels.class, LibraryModels.class.getClassLoader());
     ImmutableSet.Builder<LibraryModels> libModelsBuilder = new ImmutableSet.Builder<>();
     libModelsBuilder.add(new DefaultLibraryModels()).addAll(externalLibraryModels);
+    if (config.isJarInferEnabled()) {
+      libModelsBuilder.add(new ExternalStubxLibraryModels());
+    }
     return new CombinedLibraryModels(libModelsBuilder.build(), config);
   }
 
@@ -1279,6 +1282,87 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         }
       }
       return null;
+    }
+  }
+
+  /** Constructs Library Models from stubx files */
+  private static class ExternalStubxLibraryModels implements LibraryModels {
+
+    private static final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
+
+    static {
+      argAnnotCache = new StubxCacheUtil("LM").loadStubxFiles();
+    }
+
+    @Override
+    public ImmutableSet<String> nullMarkedClasses() {
+      Set<String> cachedNullMarkedClasses = argAnnotCache.keySet();
+      return new ImmutableSet.Builder<String>().addAll(cachedNullMarkedClasses).build();
+    }
+
+    @Override
+    public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
+      ImmutableSetMultimap.Builder<String, Integer> mapBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      for (Map.Entry<String, Map<String, Map<Integer, Set<String>>>> entry :
+          argAnnotCache.entrySet()) {
+        String className = entry.getKey();
+        Map<String, Map<Integer, Set<String>>> innerMap = entry.getValue();
+        String generic_key = className + ":-1_GENERIC_TYPE";
+        if (innerMap.containsKey(generic_key)) {
+          Map<Integer, Set<String>> innerInnerMap = innerMap.get(generic_key);
+          for (Map.Entry<Integer, Set<String>> innerEntry : innerInnerMap.entrySet()) {
+            Integer innerInnerKey = innerEntry.getKey();
+            mapBuilder.put(className, innerInnerKey);
+          }
+        }
+      }
+      return mapBuilder.build();
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
+      return ImmutableSetMultimap.of();
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
+      return ImmutableSetMultimap.of();
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
+      return ImmutableSetMultimap.of();
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
+      return ImmutableSetMultimap.of();
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
+      return ImmutableSetMultimap.of();
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
+      return ImmutableSetMultimap.of();
+    }
+
+    @Override
+    public ImmutableSet<MethodRef> nullableReturns() {
+      return ImmutableSet.of();
+    }
+
+    @Override
+    public ImmutableSet<MethodRef> nonNullReturns() {
+      return ImmutableSet.of();
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
+      return ImmutableSetMultimap.of();
     }
   }
 }

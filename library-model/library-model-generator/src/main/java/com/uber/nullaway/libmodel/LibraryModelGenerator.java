@@ -32,6 +32,7 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.type.ArrayType;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.TypeParameter;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import com.github.javaparser.utils.CollectionStrategy;
 import com.github.javaparser.utils.ParserCollectionStrategy;
@@ -47,6 +48,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -163,6 +165,8 @@ public class LibraryModelGenerator {
     private static final String NULL_MARKED = "NullMarked";
     private static final String NULLABLE = "Nullable";
     private static final String JSPECIFY_NULLABLE_IMPORT = "org.jspecify.annotations.Nullable";
+    private static final String GENERIC_TYPE_IDENTIFIER =
+        "-1_GENERIC_TYPE"; // A Specialized identifier to store generic type parameter for a class
 
     public AnnotationCollectionVisitor(Map<String, MethodAnnotationsRecord> methodRecords) {
       this.methodRecords = methodRecords;
@@ -197,6 +201,17 @@ public class LibraryModelGenerator {
                   this.isNullMarked = true;
                 }
               });
+      ImmutableMap<Integer, ImmutableSet<String>> genericParamAnnotationsMap =
+          getGenericTypeParameterNullableUpperBounds(cid);
+      /*
+       We insert a specialized MethodAnnotationsRecord object to store the generic type parameter nullability
+       information for the class by using an identifier that can never be an actual method name.
+      */
+      if (this.isNullMarked && !genericParamAnnotationsMap.isEmpty()) {
+        methodRecords.put(
+            parentName + ":" + GENERIC_TYPE_IDENTIFIER,
+            MethodAnnotationsRecord.create(ImmutableSet.of(), genericParamAnnotationsMap));
+      }
       super.visit(cid, null);
       // We reset the variable that constructs the parent name after visiting all the children.
       parentName = parentName.substring(0, parentName.lastIndexOf("." + cid.getNameAsString()));
@@ -260,6 +275,30 @@ public class LibraryModelGenerator {
       return (annotation.getNameAsString().equalsIgnoreCase(NULLABLE)
               && this.isJspecifyNullableImportPresent)
           || annotation.getNameAsString().equalsIgnoreCase(JSPECIFY_NULLABLE_IMPORT);
+    }
+
+    /**
+     * Takes a ClassOrInterfaceDeclaration instance and returns a Map of the indexes and a set of
+     * annotations for generic type parameters with Nullable upper bounds.
+     *
+     * @param cid ClassOrInterfaceDeclaration instance.
+     * @return Map of annotations for generic type parameters with Nullable upper bounds.
+     */
+    private ImmutableMap<Integer, ImmutableSet<String>> getGenericTypeParameterNullableUpperBounds(
+        ClassOrInterfaceDeclaration cid) {
+      ImmutableMap<Integer, ImmutableSet<String>> genericParamAnnotationsMap;
+      ImmutableMap.Builder<Integer, ImmutableSet<String>> mapBuilder = ImmutableMap.builder();
+      List<TypeParameter> typeParamList = cid.getTypeParameters();
+      for (int i = 0; i < typeParamList.size(); i++) {
+        TypeParameter param = typeParamList.get(i);
+        for (ClassOrInterfaceType type : param.getTypeBound()) {
+          if (type.isAnnotationPresent(NULLABLE)) {
+            mapBuilder.put(i, ImmutableSet.of(NULLABLE));
+          }
+        }
+      }
+      genericParamAnnotationsMap = mapBuilder.build();
+      return genericParamAnnotationsMap;
     }
   }
 }

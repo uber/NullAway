@@ -45,4 +45,11 @@ public class AnnotationExample {
             return null;
         }
     }
+
+    public static class GenericExample<T extends @Nullable Object> {
+
+        public T getNull() {
+            return null;
+        }
+    }
 }

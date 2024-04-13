@@ -123,4 +123,32 @@ public class LibraryModelIntegrationTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void libraryModelInnerClassNullableUpperBoundsTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.libmodel.AnnotationExample;",
+            "class Test {",
+            "  static AnnotationExample.GenericExample<@Nullable Object> genericExample = new AnnotationExample.GenericExample<@Nullable Object>();",
+            "  static void test(Object value){",
+            "  }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'genericExample.getNull()'",
+            "    test(genericExample.getNull());",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

@@ -39,4 +39,11 @@ public class AnnotationExample {
       return null;
     }
   }
+
+  public static class GenericExample<T> {
+
+    public T getNull() {
+      return null;
+    }
+  }
 }
