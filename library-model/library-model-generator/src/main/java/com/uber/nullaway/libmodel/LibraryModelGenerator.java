@@ -166,7 +166,7 @@ public class LibraryModelGenerator {
     private static final String NULLABLE = "Nullable";
     private static final String JSPECIFY_NULLABLE_IMPORT = "org.jspecify.annotations.Nullable";
     private static final String GENERIC_TYPE_IDENTIFIER =
-        "-1_GENERIC_TYPE"; // A Specialized identifier to store generic type parameter for a class
+        "-1_GENERIC_TYPE"; // A Specialized identifier to store generic type parameter nullability
 
     public AnnotationCollectionVisitor(Map<String, MethodAnnotationsRecord> methodRecords) {
       this.methodRecords = methodRecords;
