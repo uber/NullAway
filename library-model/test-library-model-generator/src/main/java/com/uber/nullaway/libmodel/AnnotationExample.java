@@ -40,6 +40,7 @@ public class AnnotationExample {
     }
   }
 
+  /** In the library model we add a {@code @Nullable} upper bound for T */
   public static class UpperBoundExample<T> {
 
     public T getNull() {
