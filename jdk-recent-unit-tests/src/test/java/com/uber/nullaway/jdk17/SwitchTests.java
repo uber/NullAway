@@ -30,7 +30,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 /** NullAway unit tests involving language features available on JDK 17 but not JDK 11. */
-public class NullAwaySwitchTests {
+public class SwitchTests {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 

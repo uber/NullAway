@@ -10,7 +10,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 /** Tests for support of the {@code Optional.isEmpty()} API. This API was introduced in JDK 11. */
-public class NullAwayOptionalEmptyTests {
+public class OptionalEmptyTests {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
