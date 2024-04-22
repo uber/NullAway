@@ -124,9 +124,9 @@ def jdk8Test = tasks.register("testJdk8", Test) {
     jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
     filter {
         // JDK 8 does not support diamonds on anonymous classes
-        excludeTestsMatching "com.uber.nullaway.NullAwayJSpecifyGenericsTests.overrideDiamondAnonymousClass"
+        excludeTestsMatching "com.uber.nullaway.jspecify.GenericsTests.overrideDiamondAnonymousClass"
         // tests cannot run on JDK 8 since Mockito version no longer supports it
-        excludeTestsMatching "com.uber.nullaway.NullAwaySerializationTest.initializationError"
+        excludeTestsMatching "com.uber.nullaway.SerializationTest.initializationError"
         excludeTestsMatching "com.uber.nullaway.handlers.contract.ContractUtilsTest.getEmptyAntecedent"
     }
 }
