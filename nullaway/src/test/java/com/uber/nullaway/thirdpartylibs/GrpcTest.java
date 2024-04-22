@@ -35,7 +35,7 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
 @SuppressWarnings("CheckTestExtendsBaseClass")
-public class NullAwayGrpcTest {
+public class GrpcTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 

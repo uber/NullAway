@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayGuavaAssertionsTests extends NullAwayTestsBase {
+public class GuavaAssertionsTests extends NullAwayTestsBase {
 
   @Test
   public void checkNotNullTest() {

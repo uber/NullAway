@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayAcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
+public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
 
   @Test
   public void generatedAsUnannotatedPlusRestrictive() {

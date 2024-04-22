@@ -27,7 +27,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class NullAwayTypeUseAnnotationsTests extends NullAwayTestsBase {
+public class TypeUseAnnotationsTests extends NullAwayTestsBase {
 
   @Test
   public void annotationAppliedToTypeParameter() {
@@ -227,6 +227,39 @@ public class NullAwayTypeUseAnnotationsTests extends NullAwayTestsBase {
             "  // nor the natural position of a declaration annotation at the start of the type!",
             "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
             "  A.B.@Nullable C [][] foo4 = null;",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void typeParameterAnnotationIsDistinctFromMethodReturnAnnotation() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Supplier;",
+            "public class Test {",
+            "  public static <R> @Nullable Supplier<@Nullable R> getNullableSupplierOfNullable() {",
+            "    return new Supplier<R>() {",
+            "      @Nullable",
+            "      public R get() { return null; }",
+            "    };",
+            "  }",
+            "  public static <R> Supplier<@Nullable R> getNonNullSupplierOfNullable() {",
+            "    return new Supplier<R>() {",
+            "      @Nullable",
+            "      public R get() { return null; }",
+            "    };",
+            "  }",
+            "  public static String test1() {",
+            "    // BUG: Diagnostic contains: dereferenced expression getNullableSupplierOfNullable() is @Nullable",
+            "    return getNullableSupplierOfNullable().toString();",
+            "  }",
+            "  public static String test2() {",
+            "    // The supplier contains null, but isn't itself nullable. Check against a past FP",
+            "    return getNonNullSupplierOfNullable().toString();",
+            "  }",
             "}")
         .doTest();
   }

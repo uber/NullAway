@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayUnannotatedTests extends NullAwayTestsBase {
+public class UnannotatedTests extends NullAwayTestsBase {
 
   @Test
   public void coreNullabilitySkipClass() {

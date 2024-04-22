@@ -4,7 +4,7 @@ import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayContractsBooleanTests extends NullAwayTestsBase {
+public class ContractsBooleanTests extends NullAwayTestsBase {
 
   @Test
   public void nonNullCheckIsTrueIsNotNullable() {

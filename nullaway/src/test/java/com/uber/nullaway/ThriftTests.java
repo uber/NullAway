@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayThriftTests extends NullAwayTestsBase {
+public class ThriftTests extends NullAwayTestsBase {
   @Test
   public void testThriftIsSet() {
     defaultCompilationHelper

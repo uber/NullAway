@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayContractsTests extends NullAwayTestsBase {
+public class ContractsTests extends NullAwayTestsBase {
 
   @Test
   public void checkContractPositiveCases() {

@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayFunctionalInterfaceNullabilityTests extends NullAwayTestsBase {
+public class FunctionalInterfaceNullabilityTests extends NullAwayTestsBase {
 
   @Test
   public void multipleTypeParametersInstantiation() {

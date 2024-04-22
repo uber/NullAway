@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayFrameworkTests extends NullAwayTestsBase {
+public class FrameworkTests extends NullAwayTestsBase {
   @Test
   public void lombokSupportTesting() {
     defaultCompilationHelper.addSourceFile("lombok/LombokBuilderInit.java").doTest();

@@ -2,7 +2,7 @@ package com.uber.nullaway;
 
 import org.junit.Test;
 
-public class NullAwayKeySetIteratorTests extends NullAwayTestsBase {
+public class KeySetIteratorTests extends NullAwayTestsBase {
 
   @Test
   public void mapKeySetIteratorBasic() {

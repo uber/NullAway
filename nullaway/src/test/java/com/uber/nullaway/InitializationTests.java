@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayInitializationTests extends NullAwayTestsBase {
+public class InitializationTests extends NullAwayTestsBase {
   @Test
   public void initFieldPositiveCases() {
     defaultCompilationHelper.addSourceFile("CheckFieldInitPositiveCases.java").doTest();

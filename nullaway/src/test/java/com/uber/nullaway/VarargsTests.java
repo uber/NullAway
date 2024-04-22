@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayVarargsTests extends NullAwayTestsBase {
+public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void testNonNullVarargs() {

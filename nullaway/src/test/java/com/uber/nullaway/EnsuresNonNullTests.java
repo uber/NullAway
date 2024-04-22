@@ -2,7 +2,7 @@ package com.uber.nullaway;
 
 import org.junit.Test;
 
-public class NullAwayEnsuresNonNullTests extends NullAwayTestsBase {
+public class EnsuresNonNullTests extends NullAwayTestsBase {
 
   @Test
   public void requiresNonNullInterpretation() {

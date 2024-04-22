@@ -2,7 +2,7 @@ package com.uber.nullaway;
 
 import org.junit.Test;
 
-public class NullAwayAccessPathsTests extends NullAwayTestsBase {
+public class AccessPathsTests extends NullAwayTestsBase {
 
   @Test
   public void testConstantsInAccessPathsNegative() {

@@ -29,7 +29,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.junit.Test;
 
-public class NullAwayCustomLibraryModelsTests extends NullAwayTestsBase {
+public class CustomLibraryModelsTests extends NullAwayTestsBase {
 
   private CompilationTestHelper makeLibraryModelsTestHelperWithArgs(List<String> args) {
     // Adding directly to args will throw an UnsupportedOperationException, since that list is

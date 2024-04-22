@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayAssertionLibsTests extends NullAwayTestsBase {
+public class AssertionLibsTests extends NullAwayTestsBase {
 
   @Test
   public void supportTruthAssertThatIsNotNull_Object() {

@@ -56,7 +56,7 @@ import org.mockito.stubbing.Answer;
 
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
-public class NullAwaySerializationTest extends NullAwayTestsBase {
+public class SerializationTest extends NullAwayTestsBase {
   private String configPath;
   private Path root;
   private final DisplayFactory<FixDisplay> fixDisplayFactory;
@@ -71,7 +71,7 @@ public class NullAwaySerializationTest extends NullAwayTestsBase {
   private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
   private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
 
-  public NullAwaySerializationTest() {
+  public SerializationTest() {
     this.fixDisplayFactory =
         values -> {
           Preconditions.checkArgument(

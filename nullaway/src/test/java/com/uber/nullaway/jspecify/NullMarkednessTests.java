@@ -1,9 +1,10 @@
-package com.uber.nullaway;
+package com.uber.nullaway.jspecify;
 
+import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayJSpecifyTests extends NullAwayTestsBase {
+public class NullMarkednessTests extends NullAwayTestsBase {
 
   @Test
   public void nullMarkedPackageLevel() {

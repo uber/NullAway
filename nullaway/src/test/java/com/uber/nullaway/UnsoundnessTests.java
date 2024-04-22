@@ -6,7 +6,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 /** Unit tests showing cases where NullAway is unsound. Useful for documentation purposes. */
-public class NullAwayUnsoundnessTests extends NullAwayTestsBase {
+public class UnsoundnessTests extends NullAwayTestsBase {
 
   @Before
   @Override

@@ -2,7 +2,7 @@ package com.uber.nullaway;
 
 import org.junit.Test;
 
-public class NullAwayBytecodeInteractionsTests extends NullAwayTestsBase {
+public class BytecodeInteractionsTests extends NullAwayTestsBase {
   @Test
   public void typeUseJarReturn() {
     defaultCompilationHelper

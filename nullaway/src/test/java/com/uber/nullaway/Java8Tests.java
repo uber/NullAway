@@ -2,7 +2,7 @@ package com.uber.nullaway;
 
 import org.junit.Test;
 
-public class NullAwayJava8Tests extends NullAwayTestsBase {
+public class Java8Tests extends NullAwayTestsBase {
   @Test
   public void java8PositiveCases() {
     defaultCompilationHelper.addSourceFile("NullAwayJava8PositiveCases.java").doTest();
