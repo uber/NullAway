@@ -341,6 +341,8 @@ public interface Handler {
 
   Predicate<AccessPath> FALSE_AP_PREDICATE = ap -> false;
 
+  Predicate<AccessPath> TRUE_AP_PREDICATE = ap -> true;
+
   /**
    * Called during dataflow analysis initialization to register structurally immutable types.
    *

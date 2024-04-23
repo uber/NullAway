@@ -1,6 +1,5 @@
 package com.uber.nullaway;
 
-import org.junit.Ignore;
 import org.junit.Test;
 
 /**
@@ -10,7 +9,6 @@ import org.junit.Test;
 public class SyncLambdasTests extends NullAwayTestsBase {
 
   @Test
-  @Ignore("temporary")
   public void testForEach() {
     defaultCompilationHelper
         .addSourceLines(

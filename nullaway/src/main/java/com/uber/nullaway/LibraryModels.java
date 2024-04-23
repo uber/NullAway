@@ -196,7 +196,7 @@ public interface LibraryModels {
    *  </code>
    * </ul>
    */
-  final class MethodRef {
+  public final class MethodRef {
 
     public final String enclosingClass;
 
