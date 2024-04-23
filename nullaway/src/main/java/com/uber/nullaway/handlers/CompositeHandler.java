@@ -260,7 +260,9 @@ class CompositeHandler implements Handler {
     for (Handler h : handlers) {
       Predicate<AccessPath> curFilter = h.getAccessPathPredForSavedContext(path, state);
       if (curFilter != Handler.FALSE_AP_PREDICATE) {
-        if (filter == Handler.FALSE_AP_PREDICATE) {
+        if (curFilter == Handler.TRUE_AP_PREDICATE) {
+          return curFilter;
+        } else if (filter == Handler.FALSE_AP_PREDICATE) {
           filter = curFilter;
         } else {
           filter = filter.or(curFilter);

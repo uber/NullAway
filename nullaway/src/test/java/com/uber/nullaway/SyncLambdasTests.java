@@ -32,4 +32,28 @@ public class SyncLambdasTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testForEachOnHashMap() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.HashMap;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class Test {",
+            "    private @Nullable HashMap<Object, Object> target;",
+            "    private @Nullable HashMap<Object, Object> resolved;",
+            "    public void initialize() {",
+            "        if (this.target == null) {",
+            "            throw new IllegalArgumentException();",
+            "        }",
+            "        this.resolved = new HashMap<>();",
+            "        this.target.forEach((key, value) -> {",
+            "            this.resolved.put(key, value);",
+            "        });",
+            "    }",
+            "}")
+        .doTest();
+  }
 }
