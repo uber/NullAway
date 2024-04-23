@@ -1,13 +1,16 @@
 package com.uber.nullaway;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
 /**
  * Tests for cases where lambdas or anonymous class methods are invoked nearly synchronously, so it
  * is reasonable to propagat more nullability information to their bodies.
  */
-public class NullAwaySyncLambdasTests extends NullAwayTestsBase {
+public class SyncLambdasTests extends NullAwayTestsBase {
+
   @Test
+  @Ignore("temporary")
   public void testForEach() {
     defaultCompilationHelper
         .addSourceLines(

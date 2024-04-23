@@ -32,6 +32,7 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -45,6 +46,7 @@ import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
@@ -253,12 +255,19 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state) {
-    boolean shouldFilter = false;
+  public Predicate<AccessPath> getAccessPathPredForSavedContext(TreePath path, VisitorState state) {
+    Predicate<AccessPath> filter = Handler.FALSE_AP_PREDICATE;
     for (Handler h : handlers) {
-      shouldFilter |= h.includeApInfoInSavedContext(accessPath, state);
+      Predicate<AccessPath> curFilter = h.getAccessPathPredForSavedContext(path, state);
+      if (curFilter != Handler.FALSE_AP_PREDICATE) {
+        if (filter == Handler.FALSE_AP_PREDICATE) {
+          filter = curFilter;
+        } else {
+          filter = filter.or(curFilter);
+        }
+      }
     }
-    return shouldFilter;
+    return filter;
   }
 
   @Override

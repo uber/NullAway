@@ -223,6 +223,7 @@ public final class AccessPathNullnessAnalysis {
     if (store == null) {
       return NullnessStore.empty();
     }
+    Predicate<AccessPath> handlerPredicate = handler.getAccessPathPredForSavedContext(path, state);
     return store.filterAccessPaths(
         (ap) -> {
           boolean allAPNonRootElementsAreFinalFields = true;
@@ -243,7 +244,7 @@ public final class AccessPathNullnessAnalysis {
                     && e.getModifiers().contains(Modifier.FINAL));
           }
 
-          return handler.includeApInfoInSavedContext(ap, state);
+          return handlerPredicate.test(ap);
         });
   }
 
