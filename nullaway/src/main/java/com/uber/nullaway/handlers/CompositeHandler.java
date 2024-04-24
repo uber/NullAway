@@ -254,15 +254,18 @@ class CompositeHandler implements Handler {
     return Optional.empty();
   }
 
+  static final Predicate<AccessPath> FALSE_AP_PREDICATE = ap -> false;
+  static final Predicate<AccessPath> TRUE_AP_PREDICATE = ap -> true;
+
   @Override
   public Predicate<AccessPath> getAccessPathPredForSavedContext(TreePath path, VisitorState state) {
-    Predicate<AccessPath> filter = Handler.FALSE_AP_PREDICATE;
+    Predicate<AccessPath> filter = FALSE_AP_PREDICATE;
     for (Handler h : handlers) {
       Predicate<AccessPath> curFilter = h.getAccessPathPredForSavedContext(path, state);
-      if (curFilter != Handler.FALSE_AP_PREDICATE) {
-        if (curFilter == Handler.TRUE_AP_PREDICATE) {
+      if (curFilter != FALSE_AP_PREDICATE) {
+        if (curFilter == TRUE_AP_PREDICATE) {
           return curFilter;
-        } else if (filter == Handler.FALSE_AP_PREDICATE) {
+        } else if (filter == FALSE_AP_PREDICATE) {
           filter = curFilter;
         } else {
           filter = filter.or(curFilter);

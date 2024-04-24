@@ -202,7 +202,7 @@ public abstract class BaseNoOpHandler implements Handler {
 
   @Override
   public Predicate<AccessPath> getAccessPathPredForSavedContext(TreePath path, VisitorState state) {
-    return Handler.FALSE_AP_PREDICATE;
+    return CompositeHandler.FALSE_AP_PREDICATE;
   }
 
   @Override
