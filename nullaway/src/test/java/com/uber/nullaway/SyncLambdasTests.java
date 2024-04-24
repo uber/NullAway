@@ -86,4 +86,26 @@ public class SyncLambdasTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void removeIf() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.List;",
+            "import java.util.ArrayList;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class Test {",
+            "    private @Nullable Object f;",
+            "    public void test1() {",
+            "        if (this.f == null) {",
+            "            throw new IllegalArgumentException();",
+            "        }",
+            "        List<Object> l = new ArrayList<>();",
+            "        l.removeIf(v -> this.f.toString().equals(v.toString()));",
+            "    }",
+            "}")
+        .doTest();
+  }
 }

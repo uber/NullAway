@@ -12,7 +12,7 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.LibraryModels;
+import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.dataflow.AccessPath;
 import java.util.function.Predicate;
 
@@ -20,14 +20,19 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
 
   // TODO this should work on subtypes of the methods as well, like java.util.HashMap.  Use a
   // Matcher?
-  private static final ImmutableMap<String, ImmutableMap<LibraryModels.MethodRef, Integer>>
+  private static final ImmutableMap<String, ImmutableMap<MethodRef, Integer>>
       METHOD_NAME_TO_SIG_AND_PARAM_INDEX =
           ImmutableMap.of(
               "forEach",
               ImmutableMap.of(
-                  LibraryModels.MethodRef.methodRef(
+                  MethodRef.methodRef(
                       "java.util.Map",
                       "forEach(java.util.function.BiConsumer<? super K,? super V>)"),
+                  0),
+              "removeIf",
+              ImmutableMap.of(
+                  MethodRef.methodRef(
+                      "java.util.Collection", "removeIf(java.util.function.Predicate<? super E>)"),
                   0));
 
   @Override
@@ -46,9 +51,9 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
       }
       String invokedMethodName = symbol.getSimpleName().toString();
       if (METHOD_NAME_TO_SIG_AND_PARAM_INDEX.containsKey(invokedMethodName)) {
-        ImmutableMap<LibraryModels.MethodRef, Integer> entriesForMethodName =
+        ImmutableMap<MethodRef, Integer> entriesForMethodName =
             METHOD_NAME_TO_SIG_AND_PARAM_INDEX.get(invokedMethodName);
-        for (LibraryModels.MethodRef methodRef : entriesForMethodName.keySet()) {
+        for (MethodRef methodRef : entriesForMethodName.keySet()) {
           if (symbol.toString().equals(methodRef.fullMethodSig)
               && ASTHelpers.isSubtype(
                   symbol.owner.type, state.getTypeFromString(methodRef.enclosingClass), state)) {
