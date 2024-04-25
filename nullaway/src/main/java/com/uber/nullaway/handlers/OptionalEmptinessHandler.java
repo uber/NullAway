@@ -165,7 +165,8 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public Predicate<AccessPath> getAccessPathPredForSavedContext(TreePath path, VisitorState state) {
+  public Predicate<AccessPath> getAccessPathPredicateForNestedMethod(
+      TreePath path, VisitorState state) {
     return ap -> {
       if (ap.getElements().size() == 1) {
         final Element e = ap.getRoot();

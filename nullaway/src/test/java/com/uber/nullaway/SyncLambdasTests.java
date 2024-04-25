@@ -4,7 +4,7 @@ import org.junit.Test;
 
 /**
  * Tests for cases where lambdas or anonymous class methods are invoked nearly synchronously, so it
- * is reasonable to propagat more nullability information to their bodies.
+ * is reasonable to propagate more nullability information to their bodies.
  */
 public class SyncLambdasTests extends NullAwayTestsBase {
 
@@ -26,6 +26,7 @@ public class SyncLambdasTests extends NullAwayTestsBase {
             "        }",
             "        this.resolved = new HashMap<>();",
             "        this.target.forEach((key, value) -> {",
+            "            // no error here as info gets propagated",
             "            this.resolved.put(key, value);",
             "        });",
             "    }",
@@ -50,6 +51,7 @@ public class SyncLambdasTests extends NullAwayTestsBase {
             "        }",
             "        this.resolved = new HashMap<>();",
             "        this.target.forEach((key, value) -> {",
+            "            // no error here as info gets propagated",
             "            this.resolved.put(key, value);",
             "        });",
             "    }",
@@ -79,6 +81,7 @@ public class SyncLambdasTests extends NullAwayTestsBase {
             "        }",
             "        this.resolved = new MyMap<>();",
             "        this.target.forEach((key, value) -> {",
+            "            // error since this is a custom type, not inheriting from java.util.Map",
             "            // BUG: Diagnostic contains: dereferenced expression this.resolved is @Nullable",
             "            this.resolved.put(key, value);",
             "        });",
@@ -125,6 +128,7 @@ public class SyncLambdasTests extends NullAwayTestsBase {
             "            throw new IllegalArgumentException();",
             "        }",
             "        List<Object> l = new ArrayList<>();",
+            "        // this.f being non-null gets propagated to all callback lambdas",
             "        l.stream().filter(v -> this.f.toString().equals(v.toString()))",
             "         .map(v -> this.f.toString())",
             "         .forEach(v -> System.out.println(this.f.hashCode() + v.toString()));",

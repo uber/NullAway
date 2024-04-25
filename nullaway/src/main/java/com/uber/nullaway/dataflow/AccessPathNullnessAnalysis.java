@@ -223,7 +223,8 @@ public final class AccessPathNullnessAnalysis {
     if (store == null) {
       return NullnessStore.empty();
     }
-    Predicate<AccessPath> handlerPredicate = handler.getAccessPathPredForSavedContext(path, state);
+    Predicate<AccessPath> handlerPredicate =
+        handler.getAccessPathPredicateForNestedMethod(path, state);
     return store.filterAccessPaths(
         (ap) -> {
           boolean allAPNonRootElementsAreFinalFields = true;

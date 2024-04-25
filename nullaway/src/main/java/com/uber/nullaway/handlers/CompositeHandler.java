@@ -254,14 +254,26 @@ class CompositeHandler implements Handler {
     return Optional.empty();
   }
 
+  /**
+   * An AccessPath predicate that always returns false. Used for optimizing
+   * getAccessPathPredicateForNestedMethod.
+   */
   static final Predicate<AccessPath> FALSE_AP_PREDICATE = ap -> false;
+
+  /**
+   * An AccessPath predicate that always returns true. Used for optimizing
+   * getAccessPathPredicateForNestedMethod.
+   */
   static final Predicate<AccessPath> TRUE_AP_PREDICATE = ap -> true;
 
   @Override
-  public Predicate<AccessPath> getAccessPathPredForSavedContext(TreePath path, VisitorState state) {
+  public Predicate<AccessPath> getAccessPathPredicateForNestedMethod(
+      TreePath path, VisitorState state) {
     Predicate<AccessPath> filter = FALSE_AP_PREDICATE;
     for (Handler h : handlers) {
-      Predicate<AccessPath> curFilter = h.getAccessPathPredForSavedContext(path, state);
+      Predicate<AccessPath> curFilter = h.getAccessPathPredicateForNestedMethod(path, state);
+      // here we do some optimization, to try to avoid unnecessarily returning a deeply nested
+      // Predicate object (which would be more costly to test)
       if (curFilter != FALSE_AP_PREDICATE) {
         if (curFilter == TRUE_AP_PREDICATE) {
           return curFilter;

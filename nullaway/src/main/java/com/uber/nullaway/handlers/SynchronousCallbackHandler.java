@@ -23,7 +23,7 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
 
   /**
    * Maps method name to full information about the corresponding methods and what parameter is the
-   * relevant callback
+   * relevant callback. We key on method name to quickly eliminate most cases when doing a lookup.
    */
   private static final ImmutableMap<String, ImmutableMap<MethodRef, Integer>>
       METHOD_NAME_TO_SIG_AND_PARAM_INDEX =
@@ -44,7 +44,8 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
       Suppliers.typeFromString("java.util.stream.Stream");
 
   @Override
-  public Predicate<AccessPath> getAccessPathPredForSavedContext(TreePath path, VisitorState state) {
+  public Predicate<AccessPath> getAccessPathPredicateForNestedMethod(
+      TreePath path, VisitorState state) {
     Tree leafNode = path.getLeaf();
     Preconditions.checkArgument(
         leafNode instanceof ClassTree || leafNode instanceof LambdaExpressionTree,
