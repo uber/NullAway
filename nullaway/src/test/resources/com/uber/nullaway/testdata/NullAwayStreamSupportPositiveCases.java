@@ -192,7 +192,7 @@ public class NullAwayStreamSupportPositiveCases {
     private Stream<T> test2(Stream<T> stream) {
       Preconditions.checkNotNull(ref);
       // no error since we propagate nullability facts to stream callbacks, which
-      // in sane code are invoked soon after the stream is
+      // in sane code are invoked soon after the stream is created
       return stream.filter(s -> ref.equals(s));
     }
   }
