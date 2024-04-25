@@ -33,6 +33,9 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
                   MethodRef.methodRef(
                       "java.util.Map",
                       "forEach(java.util.function.BiConsumer<? super K,? super V>)"),
+                  0,
+                  MethodRef.methodRef(
+                      "java.lang.Iterable", "forEach(java.util.function.Consumer<? super T>)"),
                   0),
               "removeIf",
               ImmutableMap.of(

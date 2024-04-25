@@ -91,6 +91,30 @@ public class SyncLambdasTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void forEachOnIterable() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.List;",
+            "import java.util.ArrayList;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class Test {",
+            "    private @Nullable Object f;",
+            "    public void test1() {",
+            "        if (this.f == null) {",
+            "            throw new IllegalArgumentException();",
+            "        }",
+            "        List<Object> l = new ArrayList<>();",
+            "        l.forEach(v -> System.out.println(v + this.f.toString()));",
+            "        Iterable<Object> l2 = l;",
+            "        l2.forEach(v -> System.out.println(v + this.f.toString()));",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void removeIf() {
     defaultCompilationHelper
         .addSourceLines(
