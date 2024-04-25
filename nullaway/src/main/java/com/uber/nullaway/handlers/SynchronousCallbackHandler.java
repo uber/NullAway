@@ -5,6 +5,8 @@ import static com.uber.nullaway.handlers.CompositeHandler.FALSE_AP_PREDICATE;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
@@ -12,14 +14,17 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.dataflow.AccessPath;
 import java.util.function.Predicate;
 
 public class SynchronousCallbackHandler extends BaseNoOpHandler {
 
-  // TODO this should work on subtypes of the methods as well, like java.util.HashMap.  Use a
-  // Matcher?
+  /**
+   * Maps method name to full information about the corresponding methods and what parameter is the
+   * relevant callback
+   */
   private static final ImmutableMap<String, ImmutableMap<MethodRef, Integer>>
       METHOD_NAME_TO_SIG_AND_PARAM_INDEX =
           ImmutableMap.of(
@@ -35,6 +40,9 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
                       "java.util.Collection", "removeIf(java.util.function.Predicate<? super E>)"),
                   0));
 
+  private static final Supplier<Type> STREAM_TYPE_SUPPLIER =
+      Suppliers.typeFromString("java.util.stream.Stream");
+
   @Override
   public Predicate<AccessPath> getAccessPathPredForSavedContext(TreePath path, VisitorState state) {
     Tree leafNode = path.getLeaf();
@@ -49,6 +57,11 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
       if (symbol == null) {
         return FALSE_AP_PREDICATE;
       }
+      Type ownerType = symbol.owner.type;
+      if (ASTHelpers.isSameType(ownerType, STREAM_TYPE_SUPPLIER.get(state), state)) {
+        // preserve access paths for all callbacks passed to stream methods
+        return CompositeHandler.TRUE_AP_PREDICATE;
+      }
       String invokedMethodName = symbol.getSimpleName().toString();
       if (METHOD_NAME_TO_SIG_AND_PARAM_INDEX.containsKey(invokedMethodName)) {
         ImmutableMap<MethodRef, Integer> entriesForMethodName =
@@ -56,7 +69,7 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
         for (MethodRef methodRef : entriesForMethodName.keySet()) {
           if (symbol.toString().equals(methodRef.fullMethodSig)
               && ASTHelpers.isSubtype(
-                  symbol.owner.type, state.getTypeFromString(methodRef.enclosingClass), state)) {
+                  ownerType, state.getTypeFromString(methodRef.enclosingClass), state)) {
             int parameterIndex = -1;
             for (int i = 0; i < methodInvocationTree.getArguments().size(); i++) {
               if (methodInvocationTree.getArguments().get(i) == leafNode) {
