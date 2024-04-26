@@ -45,26 +45,8 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
       Type rhsTypeArgument = rhsTypeArguments.get(i);
-      boolean isLHSNullableAnnotated = false;
-      List<Attribute.TypeCompound> lhsAnnotations = lhsTypeArgument.getAnnotationMirrors();
-      // To ensure that we are checking only jspecify nullable annotations
-      Type jspecifyNullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
-      for (Attribute.TypeCompound annotation : lhsAnnotations) {
-        if (ASTHelpers.isSameType(
-            (Type) annotation.getAnnotationType(), jspecifyNullableType, state)) {
-          isLHSNullableAnnotated = true;
-          break;
-        }
-      }
-      boolean isRHSNullableAnnotated = false;
-      List<Attribute.TypeCompound> rhsAnnotations = rhsTypeArgument.getAnnotationMirrors();
-      for (Attribute.TypeCompound annotation : rhsAnnotations) {
-        if (ASTHelpers.isSameType(
-            (Type) annotation.getAnnotationType(), jspecifyNullableType, state)) {
-          isRHSNullableAnnotated = true;
-          break;
-        }
-      }
+      boolean isLHSNullableAnnotated = isNullableAnnotated(lhsTypeArgument);
+      boolean isRHSNullableAnnotated = isNullableAnnotated(rhsTypeArgument);
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
         return false;
       }
@@ -79,13 +61,35 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
     return lhsType.getEnclosingType().accept(this, rhsType.getEnclosingType());
   }
 
+  private boolean isNullableAnnotated(Type type) {
+    boolean result = false;
+    // To ensure that we are checking only jspecify nullable annotations
+    Type jspecifyNullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
+    List<Attribute.TypeCompound> lhsAnnotations = type.getAnnotationMirrors();
+    for (Attribute.TypeCompound annotation : lhsAnnotations) {
+      if (ASTHelpers.isSameType(
+          (Type) annotation.getAnnotationType(), jspecifyNullableType, state)) {
+        result = true;
+        break;
+      }
+    }
+    return result;
+  }
+
   @Override
   public Boolean visitArrayType(Type.ArrayType lhsType, Type rhsType) {
     if (rhsType instanceof NullType) {
       return true;
     }
     Type.ArrayType arrRhsType = (Type.ArrayType) rhsType;
-    return lhsType.getComponentType().accept(this, arrRhsType.getComponentType());
+    Type lhsComponentType = lhsType.getComponentType();
+    Type rhsComponentType = arrRhsType.getComponentType();
+    boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType);
+    boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType);
+    if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
+      return false;
+    }
+    return lhsComponentType.accept(this, rhsComponentType);
   }
 
   @Override
