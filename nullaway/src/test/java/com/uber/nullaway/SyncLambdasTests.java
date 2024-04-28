@@ -83,7 +83,7 @@ public class SyncLambdasTests extends NullAwayTestsBase {
             "        this.target.forEach((key, value) -> {",
             "            // error since this is a custom type, not inheriting from java.util.Map",
             "            // BUG: Diagnostic contains: dereferenced expression this.resolved is @Nullable",
-            "            this.resolved.put(key, value);",
+            "            System.out.println(this.resolved.toString());",
             "        });",
             "    }",
             "}")
