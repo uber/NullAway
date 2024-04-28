@@ -109,6 +109,9 @@ public class SyncLambdasTests extends NullAwayTestsBase {
             "        l.forEach(v -> System.out.println(v + this.f.toString()));",
             "        Iterable<Object> l2 = l;",
             "        l2.forEach(v -> System.out.println(v + this.f.toString()));",
+            "        this.f = null;",
+            "        // BUG: Diagnostic contains: dereferenced expression this.f is @Nullable",
+            "        l2.forEach(v -> System.out.println(v + this.f.toString()));",
             "    }",
             "}")
         .doTest();
