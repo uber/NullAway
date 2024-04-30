@@ -31,6 +31,7 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -45,6 +46,7 @@ import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
@@ -327,15 +329,16 @@ public interface Handler {
       ExpressionTree expr, ExpressionTree baseExpr, VisitorState state);
 
   /**
-   * Called when the store access paths are filtered for local variable information before an
-   * expression.
+   * Called when determining which access path nullability information should be preserved when
+   * analyzing a nested method, i.e., a lambda expression or a method in an anonymous or local
+   * class.
    *
-   * @param accessPath The access path that needs to be checked if filtered.
+   * @param path The tree path to the node for the nested method.
    * @param state The current visitor state.
-   * @return true if the nullability information for this accesspath should be treated as part of
-   *     the surrounding context when processing a lambda expression or anonymous class declaration.
+   * @return A predicate that determines which access paths should be preserved when analyzing the
+   *     nested method.
    */
-  boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state);
+  Predicate<AccessPath> getAccessPathPredicateForNestedMethod(TreePath path, VisitorState state);
 
   /**
    * Called during dataflow analysis initialization to register structurally immutable types.

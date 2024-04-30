@@ -463,7 +463,8 @@ public class NullAway extends BugChecker
     // 2. we keep info on all locals rather than just effectively final ones for simplicity
     EnclosingEnvironmentNullness.instance(state.context)
         .addEnvironmentMapping(
-            treePath.getLeaf(), analysis.getNullnessInfoBeforeNewContext(treePath, state, handler));
+            treePath.getLeaf(),
+            analysis.getNullnessInfoBeforeNestedMethodNode(treePath, state, handler));
   }
 
   private Symbol.MethodSymbol getSymbolOfSuperConstructor(
