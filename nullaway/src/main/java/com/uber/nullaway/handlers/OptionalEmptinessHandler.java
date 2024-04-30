@@ -50,7 +50,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -162,21 +161,6 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
             state.context,
             OptionalContentVariableElement.instance(state.context))
         == Nullness.NULLABLE;
-  }
-
-  @Override
-  public Predicate<AccessPath> getAccessPathPredicateForNestedMethod(
-      TreePath path, VisitorState state) {
-    return ap -> {
-      if (ap.getElements().size() == 1) {
-        final Element e = ap.getRoot();
-        if (e != null) {
-          return e.getKind().equals(ElementKind.LOCAL_VARIABLE)
-              && ap.getElements().get(0).getJavaElement() instanceof OptionalContentVariableElement;
-        }
-      }
-      return false;
-    };
   }
 
   private void handleTestAssertions(
