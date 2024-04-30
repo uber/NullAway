@@ -22,6 +22,9 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.handlers.AccessPathPredicates.FALSE_AP_PREDICATE;
+import static com.uber.nullaway.handlers.AccessPathPredicates.TRUE_AP_PREDICATE;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
@@ -253,18 +256,6 @@ class CompositeHandler implements Handler {
     }
     return Optional.empty();
   }
-
-  /**
-   * An AccessPath predicate that always returns false. Used for optimizing
-   * getAccessPathPredicateForNestedMethod.
-   */
-  static final Predicate<AccessPath> FALSE_AP_PREDICATE = ap -> false;
-
-  /**
-   * An AccessPath predicate that always returns true. Used for optimizing
-   * getAccessPathPredicateForNestedMethod.
-   */
-  static final Predicate<AccessPath> TRUE_AP_PREDICATE = ap -> true;
 
   @Override
   public Predicate<AccessPath> getAccessPathPredicateForNestedMethod(

@@ -1,6 +1,7 @@
 package com.uber.nullaway.handlers;
 
-import static com.uber.nullaway.handlers.CompositeHandler.FALSE_AP_PREDICATE;
+import static com.uber.nullaway.handlers.AccessPathPredicates.FALSE_AP_PREDICATE;
+import static com.uber.nullaway.handlers.AccessPathPredicates.TRUE_AP_PREDICATE;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
@@ -64,7 +65,7 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
       Type ownerType = symbol.owner.type;
       if (ASTHelpers.isSameType(ownerType, STREAM_TYPE_SUPPLIER.get(state), state)) {
         // preserve access paths for all callbacks passed to stream methods
-        return CompositeHandler.TRUE_AP_PREDICATE;
+        return TRUE_AP_PREDICATE;
       }
       String invokedMethodName = symbol.getSimpleName().toString();
       if (METHOD_NAME_TO_SIG_AND_PARAM_INDEX.containsKey(invokedMethodName)) {
@@ -82,7 +83,7 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
               }
             }
             if (parameterIndex == entriesForMethodName.get(methodRef)) {
-              return CompositeHandler.TRUE_AP_PREDICATE;
+              return TRUE_AP_PREDICATE;
             }
           }
         }
