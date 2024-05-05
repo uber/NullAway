@@ -191,6 +191,29 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableAssignmentParameterArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static void fizz(String[] nonNullArray, @Nullable String[] nullableArray) {",
+            "    // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents",
+            "    nonNullArray[1] = null;",
+            "    // OK: since array elements are @Nullable",
+            "    nullableArray[1] = null;",
+            "  }",
+            "  public static void main(String[] args) {",
+            "    String[] foo = new String[10];",
+            "    @Nullable String[] bar = new String[10];",
+            "    fizz(foo, bar);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void arraySubtyping() {
     makeHelper()
         .addSourceLines(
