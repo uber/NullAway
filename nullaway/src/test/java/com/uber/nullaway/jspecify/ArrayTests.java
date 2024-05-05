@@ -198,7 +198,7 @@ public class ArrayTests extends NullAwayTestsBase {
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
             "class Test {",
-            "  static void test1(@Nullable Integer[] nullableIntArr, Integer[] nonnullIntArr) {",
+            "  static void test(@Nullable Integer[] nullableIntArr, Integer[] nonnullIntArr) {",
             "    // legal",
             "    Integer[] x1 = nonnullIntArr;",
             "    // legal",
@@ -207,6 +207,29 @@ public class ArrayTests extends NullAwayTestsBase {
             "    x2 = nonnullIntArr;",
             "    // BUG: Diagnostic contains: Cannot assign from type @Nullable Integer[] to type Integer[]",
             "    x1 = nullableIntArr;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void arraySubtypingWithNewExpression() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static void test() {",
+            "    // legal",
+            "    Integer[] x1 = new Integer[0];",
+            "    // legal (don't need to write @Nullable on array component type in new expression)",
+            "    @Nullable Integer[] x2 = new Integer[0];",
+            "    // legal",
+            "    x2 = new @Nullable Integer[0];",
+            "    // illegal, but we do not catch it yet as we don't compute the right type for the NewArrayTree",
+            "    // BUG: Diagnostic contains: Cannot assign from type @Nullable Integer[] to type Integer[]",
+            "    x1 = new @Nullable Integer[0];",
             "  }",
             "}")
         .doTest();
