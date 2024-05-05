@@ -86,7 +86,8 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
     Type rhsComponentType = arrRhsType.getComponentType();
     boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType);
     boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType);
-    if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
+    // allow for covariant arrays; see https://github.com/jspecify/jspecify/issues/65
+    if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
       return false;
     }
     return lhsComponentType.accept(this, rhsComponentType);

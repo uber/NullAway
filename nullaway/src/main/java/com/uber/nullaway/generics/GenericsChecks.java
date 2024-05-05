@@ -270,6 +270,9 @@ public final class GenericsChecks {
         // instead
         VariableTree varTree = (VariableTree) tree;
         result = ASTHelpers.getSymbol(varTree).type;
+      } else if (tree instanceof AssignmentTree) {
+        AssignmentTree assignmentTree = (AssignmentTree) tree;
+        result = ASTHelpers.getSymbol(assignmentTree.getVariable()).type;
       } else {
         result = ASTHelpers.getType(tree);
       }
@@ -297,21 +300,16 @@ public final class GenericsChecks {
     if (!analysis.getConfig().isJSpecifyMode()) {
       return;
     }
-    Tree lhsTree;
     Tree rhsTree;
     Type lhsType;
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
       rhsTree = varTree.getInitializer();
-      // TODO even this is unreliable, like for local variable declarations.  Get the symbol for the
-      // variable and get the type from there?
-      lhsType = getTreeType(varTree, state);
     } else {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
-      lhsTree = assignmentTree.getVariable();
       rhsTree = assignmentTree.getExpression();
-      lhsType = getTreeType(lhsTree, state);
     }
+    lhsType = getTreeType(tree, state);
     // rhsTree can be null for a VariableTree.  Also, we don't need to do a check
     // if rhsTree is the null literal
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {

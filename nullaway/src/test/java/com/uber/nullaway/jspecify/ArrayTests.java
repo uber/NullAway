@@ -198,9 +198,15 @@ public class ArrayTests extends NullAwayTestsBase {
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
             "class Test {",
-            "  static void test1(@Nullable Integer[] p) {",
+            "  static void test1(@Nullable Integer[] nullableIntArr, Integer[] nonnullIntArr) {",
+            "    // legal",
+            "    Integer[] x1 = nonnullIntArr;",
+            "    // legal",
+            "    @Nullable Integer[] x2 = nullableIntArr;",
+            "    // legal (covariant array subtypes)",
+            "    x2 = nonnullIntArr;",
             "    // BUG: Diagnostic contains: Cannot assign from type @Nullable Integer[] to type Integer[]",
-            "    Integer[] q = p;",
+            "    x1 = nullableIntArr;",
             "  }",
             "}")
         .doTest();
