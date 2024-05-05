@@ -291,21 +291,25 @@ public final class GenericsChecks {
     }
     Tree lhsTree;
     Tree rhsTree;
+    Type lhsType;
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
       lhsTree = varTree.getType();
       rhsTree = varTree.getInitializer();
+      // TODO even this is unreliable, like for local variable declarations.  Get the symbol for the
+      // variable and get the type from there?
+      lhsType = getTreeType(varTree, state);
     } else {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
       lhsTree = assignmentTree.getVariable();
       rhsTree = assignmentTree.getExpression();
+      lhsType = getTreeType(lhsTree, state);
     }
     // rhsTree can be null for a VariableTree.  Also, we don't need to do a check
     // if rhsTree is the null literal
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
-    Type lhsType = getTreeType(lhsTree, state);
     Type rhsType = getTreeType(rhsTree, state);
 
     if (lhsType != null && rhsType != null) {
