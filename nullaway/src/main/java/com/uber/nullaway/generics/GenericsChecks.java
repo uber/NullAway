@@ -264,7 +264,15 @@ public final class GenericsChecks {
       }
       return typeWithPreservedAnnotations(paramTypedTree, state);
     } else {
-      Type result = ASTHelpers.getType(tree);
+      Type result;
+      if (tree instanceof VariableTree) {
+        // types on the tree are unreliable; get the type from the symbol for the declared variable
+        // instead
+        VariableTree varTree = (VariableTree) tree;
+        result = ASTHelpers.getSymbol(varTree).type;
+      } else {
+        result = ASTHelpers.getType(tree);
+      }
       if (result != null && result.isRaw()) {
         // bail out of any checking involving raw types for now
         return null;
@@ -294,7 +302,6 @@ public final class GenericsChecks {
     Type lhsType;
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
-      lhsTree = varTree.getType();
       rhsTree = varTree.getInitializer();
       // TODO even this is unreliable, like for local variable declarations.  Get the symbol for the
       // variable and get the type from there?
