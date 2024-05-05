@@ -69,6 +69,7 @@ public class Handlers {
     handlerListBuilder.add(new GrpcHandler());
     handlerListBuilder.add(new RequiresNonNullHandler());
     handlerListBuilder.add(new EnsuresNonNullHandler());
+    handlerListBuilder.add(new SynchronousCallbackHandler());
     if (config.serializationIsActive() && config.getSerializationConfig().fieldInitInfoEnabled) {
       handlerListBuilder.add(
           new FieldInitializationSerializationHandler(config.getSerializationConfig()));
