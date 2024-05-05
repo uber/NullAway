@@ -1,5 +1,11 @@
 Changelog
 =========
+Version 0.10.26
+---------------
+* External Library Models Integration (#922)
+* Rename test classes (#951)
+* Propagate more nullability info to lambdas known to be invoked synchronously (#952)
+
 Version 0.10.25
 ---------------
 * JSpecify: Handle @nullable assignments to @nonnull arrays (#929)
