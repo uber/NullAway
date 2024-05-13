@@ -166,9 +166,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
       MethodType mt = MethodType.methodType(com.sun.tools.javac.util.List.class);
       try {
         return lookup.findVirtual(Type.class, "getMetadata", mt);
-      } catch (NoSuchMethodException e) {
-        throw new RuntimeException(e);
-      } catch (IllegalAccessException e) {
+      } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new RuntimeException(e);
       }
     }
@@ -176,24 +174,14 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     private static MethodHandle createClassTypeConstructorHandle() {
       try {
         MethodHandles.Lookup lookup = MethodHandles.lookup();
-
-        // Define the constructor parameter types
-        Class<?> typeClass = Type.class;
-        Class<?> listClass = com.sun.tools.javac.util.List.class;
-        Class<?> typeSymbolClass = Symbol.TypeSymbol.class;
-
-        // Create a method type for the constructor
         MethodType methodType =
             MethodType.methodType(
                 void.class, // return type for a constructor is void
-                typeClass,
-                listClass,
-                typeSymbolClass,
-                listClass);
-
-        // Find the constructor MethodHandle
-        MethodHandle constructorHandle = lookup.findConstructor(Type.ClassType.class, methodType);
-        return constructorHandle;
+                Type.class,
+                com.sun.tools.javac.util.List.class,
+                Symbol.TypeSymbol.class,
+                com.sun.tools.javac.util.List.class);
+        return lookup.findConstructor(Type.ClassType.class, methodType);
       } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new RuntimeException(e);
       }
