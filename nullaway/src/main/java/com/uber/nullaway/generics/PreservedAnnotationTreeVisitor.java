@@ -56,8 +56,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
 
   @Override
   public Type visitAnnotatedType(AnnotatedTypeTree annotatedType, Void unused) {
-    List<? extends AnnotationTree> annotations =
-        annotatedType != null ? annotatedType.getAnnotations() : Collections.emptyList();
+    List<? extends AnnotationTree> annotations = annotatedType.getAnnotations();
     boolean hasNullableAnnotation = false;
     Type nullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
     for (AnnotationTree annotation : annotations) {
