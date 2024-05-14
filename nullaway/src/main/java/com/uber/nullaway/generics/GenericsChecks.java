@@ -14,6 +14,7 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
@@ -263,16 +264,26 @@ public final class GenericsChecks {
         return null;
       }
       return typeWithPreservedAnnotations(paramTypedTree, state);
+    } else if (tree instanceof NewArrayTree
+        && ((NewArrayTree) tree).getType() instanceof AnnotatedTypeTree) {
+      return typeWithPreservedAnnotations(tree, state);
     } else {
       Type result;
       if (tree instanceof VariableTree) {
-        // types on the tree are unreliable; get the type from the symbol for the declared variable
-        // instead
+        // type on the tree itself can be unreliable; get the type from the symbol for the declared
+        // variable instead
         VariableTree varTree = (VariableTree) tree;
         result = ASTHelpers.getSymbol(varTree).type;
       } else if (tree instanceof AssignmentTree) {
+        // type on the tree itself can be unreliable; get the type from the symbol for the assigned
+        // location instead, if available
         AssignmentTree assignmentTree = (AssignmentTree) tree;
-        result = ASTHelpers.getSymbol(assignmentTree.getVariable()).type;
+        Symbol lhsSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
+        if (lhsSymbol != null) {
+          result = lhsSymbol.type;
+        } else {
+          result = ASTHelpers.getType(assignmentTree);
+        }
       } else {
         result = ASTHelpers.getType(tree);
       }
@@ -387,9 +398,8 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @return A Type with preserved annotations.
    */
-  private static Type.ClassType typeWithPreservedAnnotations(
-      ParameterizedTypeTree tree, VisitorState state) {
-    return (Type.ClassType) tree.accept(new PreservedAnnotationTreeVisitor(state), null);
+  private static Type typeWithPreservedAnnotations(Tree tree, VisitorState state) {
+    return tree.accept(new PreservedAnnotationTreeVisitor(state), null);
   }
 
   /**

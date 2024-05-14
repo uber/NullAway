@@ -7,6 +7,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ArrayTypeTree;
+import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.SimpleTreeVisitor;
@@ -34,6 +35,12 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
 
   PreservedAnnotationTreeVisitor(VisitorState state) {
     this.state = state;
+  }
+
+  @Override
+  public Type visitNewArray(NewArrayTree tree, Void p) {
+    Type elemType = tree.getType().accept(this, null);
+    return new Type.ArrayType(elemType, castToNonNull(ASTHelpers.getType(tree)).tsym);
   }
 
   @Override
