@@ -371,9 +371,8 @@ public final class GenericsChecks {
   }
 
   /**
-   * Compare two types from an assignment for identical type parameter nullability, recursively
-   * checking nested generic types. See <a
-   * href="https://jspecify.dev/docs/spec/#nullness-delegating-subtyping">the JSpecify
+   * Compare two types for identical type parameter nullability, recursively checking nested generic
+   * types. See <a href="https://jspecify.dev/docs/spec/#nullness-delegating-subtyping">the JSpecify
    * specification</a> and <a
    * href="https://docs.oracle.com/javase/specs/jls/se14/html/jls-4.html#jls-4.10.2">the JLS
    * subtyping rules for class and interface types</a>.
@@ -389,6 +388,14 @@ public final class GenericsChecks {
     return lhsType.accept(new CheckIdenticalNullabilityVisitor(state), rhsType);
   }
 
+  /**
+   * Like {@link #identicalTypeParameterNullability(Type, Type, VisitorState)}, but allows for
+   * covariant array subtyping at the top level.
+   *
+   * @param lhsType type for the lhs of the assignment
+   * @param rhsType type for the rhs of the assignment
+   * @param state the visitor state
+   */
   private static boolean subtypeParameterNullability(
       Type lhsType, Type rhsType, VisitorState state) {
     if (lhsType.getKind().equals(TypeKind.ARRAY) && rhsType.getKind().equals(TypeKind.ARRAY)) {
