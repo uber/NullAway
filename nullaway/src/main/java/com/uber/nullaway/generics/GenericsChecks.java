@@ -246,7 +246,7 @@ public final class GenericsChecks {
    *
    * <p>This method is required because in some cases, the type returned by {@link
    * com.google.errorprone.util.ASTHelpers#getType(Tree)} fails to preserve type use annotations,
-   * particularly when dealing with {@link com.sun.source.tree.NewClassTree} (e.g., {@code new
+   * e.g., when dealing with {@link com.sun.source.tree.NewClassTree} (e.g., {@code new
    * Foo<@Nullable A>}).
    *
    * @param tree A tree for which we need the type with preserved annotations.
