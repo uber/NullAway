@@ -329,7 +329,7 @@ public final class GenericsChecks {
     Type rhsType = getTreeType(rhsTree, state);
 
     if (lhsType != null && rhsType != null) {
-      boolean isAssignmentValid = compareNullabilityAnnotations(lhsType, rhsType, state);
+      boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
       if (!isAssignmentValid) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
       }
@@ -362,7 +362,7 @@ public final class GenericsChecks {
     Type returnExpressionType = getTreeType(retExpr, state);
     if (formalReturnType != null && returnExpressionType != null) {
       boolean isReturnTypeValid =
-          compareNullabilityAnnotations(formalReturnType, returnExpressionType, state);
+          subtypeParameterNullability(formalReturnType, returnExpressionType, state);
       if (!isReturnTypeValid) {
         reportInvalidReturnTypeError(
             retExpr, formalReturnType, returnExpressionType, state, analysis);
@@ -382,11 +382,17 @@ public final class GenericsChecks {
    * @param rhsType type for the rhs of the assignment
    * @param state the visitor state
    */
-  private static boolean compareNullabilityAnnotations(
+  private static boolean identicalTypeParameterNullability(
       Type lhsType, Type rhsType, VisitorState state) {
     // it is fair to assume rhyType should be the same as lhsType as the Java compiler has passed
     // before NullAway.
     return lhsType.accept(new CompareNullabilityVisitor(state), rhsType);
+  }
+
+  private static boolean subtypeParameterNullability(
+      Type lhsType, Type rhsType, VisitorState state) {
+    // TODO: handle arrays properly
+    return identicalTypeParameterNullability(lhsType, rhsType, state);
   }
 
   /**
@@ -434,13 +440,13 @@ public final class GenericsChecks {
     // type of the whole expression
     if (condExprType != null) {
       if (truePartType != null) {
-        if (!compareNullabilityAnnotations(condExprType, truePartType, state)) {
+        if (!subtypeParameterNullability(condExprType, truePartType, state)) {
           reportMismatchedTypeForTernaryOperator(
               truePartTree, condExprType, truePartType, state, analysis);
         }
       }
       if (falsePartType != null) {
-        if (!compareNullabilityAnnotations(condExprType, falsePartType, state)) {
+        if (!subtypeParameterNullability(condExprType, falsePartType, state)) {
           reportMismatchedTypeForTernaryOperator(
               falsePartTree, condExprType, falsePartType, state, analysis);
         }
@@ -478,7 +484,7 @@ public final class GenericsChecks {
       if (!formalParameter.getTypeArguments().isEmpty()) {
         Type actualParameter = getTreeType(actualParams.get(i), state);
         if (actualParameter != null) {
-          if (!compareNullabilityAnnotations(formalParameter, actualParameter, state)) {
+          if (!subtypeParameterNullability(formalParameter, actualParameter, state)) {
             reportInvalidParametersNullabilityError(
                 formalParameter, actualParameter, actualParams.get(i), state, analysis);
           }
@@ -493,7 +499,7 @@ public final class GenericsChecks {
         for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
           Type actualParameter = getTreeType(actualParams.get(i), state);
           if (actualParameter != null) {
-            if (!compareNullabilityAnnotations(varargsElementType, actualParameter, state)) {
+            if (!subtypeParameterNullability(varargsElementType, actualParameter, state)) {
               reportInvalidParametersNullabilityError(
                   varargsElementType, actualParameter, actualParams.get(i), state, analysis);
             }
@@ -800,7 +806,7 @@ public final class GenericsChecks {
       Type overridingMethodParameterType = getTreeType(methodParameters.get(i), state);
       Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
       if (overriddenMethodParameterType != null && overridingMethodParameterType != null) {
-        if (!compareNullabilityAnnotations(
+        if (!identicalTypeParameterNullability(
             overriddenMethodParameterType, overridingMethodParameterType, state)) {
           reportInvalidOverridingMethodParamTypeError(
               methodParameters.get(i),
@@ -830,7 +836,7 @@ public final class GenericsChecks {
     if (overriddenMethodReturnType == null || overridingMethodReturnType == null) {
       return;
     }
-    if (!compareNullabilityAnnotations(
+    if (!identicalTypeParameterNullability(
         overriddenMethodReturnType, overridingMethodReturnType, state)) {
       reportInvalidOverridingMethodReturnTypeError(
           tree, overriddenMethodReturnType, overridingMethodReturnType, analysis, state);

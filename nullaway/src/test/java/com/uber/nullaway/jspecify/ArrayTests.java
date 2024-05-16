@@ -267,6 +267,7 @@ public class ArrayTests extends NullAwayTestsBase {
             "import java.util.List;",
             "class Test {",
             "  void foo(List<@Nullable Integer[]> l) {}",
+            "  // BUG: Diagnostic contains: something",
             "  void foo2(List<Integer[]> p) {",
             "    foo(p);",
             "  }",
