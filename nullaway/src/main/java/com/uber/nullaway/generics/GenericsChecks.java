@@ -396,15 +396,19 @@ public final class GenericsChecks {
     if (lhsType.getKind().equals(TypeKind.ARRAY) && rhsType.getKind().equals(TypeKind.ARRAY)) {
       Type.ArrayType lhsArrayType = (Type.ArrayType) lhsType;
       Type.ArrayType rhsArrayType = (Type.ArrayType) rhsType;
-      // allow for covariant arrays; see https://github.com/jspecify/jspecify/issues/65
       Type lhsComponentType = lhsArrayType.getComponentType();
       Type rhsComponentType = rhsArrayType.getComponentType();
-      boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType);
-      boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType);
-      // isRHSNullableAnnotated && !isLHSNullableAnnotated
-      return subtypeParameterNullability(lhsArrayType.elemtype, rhsArrayType.elemtype, state);
+      boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType, state);
+      boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType, state);
+      // allow for covariant arrays; see https://github.com/jspecify/jspecify/issues/65
+      if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
+        return false;
+      }
+      return identicalTypeParameterNullability(
+          lhsArrayType.getComponentType(), rhsArrayType.getComponentType(), state);
+    } else {
+      return identicalTypeParameterNullability(lhsType, rhsType, state);
     }
-    return identicalTypeParameterNullability(lhsType, rhsType, state);
   }
 
   /**
@@ -918,5 +922,20 @@ public final class GenericsChecks {
           codeAnnotationInfo.isSymbolUnannotated(parentMethodSymbol, config, handler);
     }
     return callingUnannotated;
+  }
+
+  public static boolean isNullableAnnotated(Type type, VisitorState state) {
+    boolean result = false;
+    // To ensure that we are checking only jspecify nullable annotations
+    Type jspecifyNullableType = JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
+    List<Attribute.TypeCompound> lhsAnnotations = type.getAnnotationMirrors();
+    for (Attribute.TypeCompound annotation : lhsAnnotations) {
+      if (ASTHelpers.isSameType(
+          (Type) annotation.getAnnotationType(), jspecifyNullableType, state)) {
+        result = true;
+        break;
+      }
+    }
+    return result;
   }
 }

@@ -1,8 +1,6 @@
 package com.uber.nullaway.generics;
 
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.util.ASTHelpers;
-import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import java.util.List;
@@ -45,8 +43,8 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
       Type rhsTypeArgument = rhsTypeArguments.get(i);
-      boolean isLHSNullableAnnotated = isNullableAnnotated(lhsTypeArgument);
-      boolean isRHSNullableAnnotated = isNullableAnnotated(rhsTypeArgument);
+      boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsTypeArgument, state);
+      boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsTypeArgument, state);
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
         return false;
       }
@@ -61,21 +59,6 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
     return lhsType.getEnclosingType().accept(this, rhsType.getEnclosingType());
   }
 
-  private boolean isNullableAnnotated(Type type) {
-    boolean result = false;
-    // To ensure that we are checking only jspecify nullable annotations
-    Type jspecifyNullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
-    List<Attribute.TypeCompound> lhsAnnotations = type.getAnnotationMirrors();
-    for (Attribute.TypeCompound annotation : lhsAnnotations) {
-      if (ASTHelpers.isSameType(
-          (Type) annotation.getAnnotationType(), jspecifyNullableType, state)) {
-        result = true;
-        break;
-      }
-    }
-    return result;
-  }
-
   @Override
   public Boolean visitArrayType(Type.ArrayType lhsType, Type rhsType) {
     if (rhsType instanceof NullType) {
@@ -84,8 +67,8 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
     Type.ArrayType arrRhsType = (Type.ArrayType) rhsType;
     Type lhsComponentType = lhsType.getComponentType();
     Type rhsComponentType = arrRhsType.getComponentType();
-    boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType);
-    boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType);
+    boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsComponentType, state);
+    boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsComponentType, state);
     if (isRHSNullableAnnotated != isLHSNullableAnnotated) {
       return false;
     }
