@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
 
 /** Methods for performing checks related to generic types and nullability. */
@@ -392,6 +393,17 @@ public final class GenericsChecks {
   private static boolean subtypeParameterNullability(
       Type lhsType, Type rhsType, VisitorState state) {
     // TODO: handle arrays properly
+    if (lhsType.getKind().equals(TypeKind.ARRAY) && rhsType.getKind().equals(TypeKind.ARRAY)) {
+      Type.ArrayType lhsArrayType = (Type.ArrayType) lhsType;
+      Type.ArrayType rhsArrayType = (Type.ArrayType) rhsType;
+      // allow for covariant arrays; see https://github.com/jspecify/jspecify/issues/65
+      Type lhsComponentType = lhsArrayType.getComponentType();
+      Type rhsComponentType = rhsArrayType.getComponentType();
+      boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType);
+      boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType);
+      // isRHSNullableAnnotated && !isLHSNullableAnnotated
+      return subtypeParameterNullability(lhsArrayType.elemtype, rhsArrayType.elemtype, state);
+    }
     return identicalTypeParameterNullability(lhsType, rhsType, state);
   }
 
