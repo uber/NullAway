@@ -258,7 +258,7 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void arraysAndGenerics1() {
+  public void arraysAndGenerics() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -267,8 +267,11 @@ public class ArrayTests extends NullAwayTestsBase {
             "import java.util.List;",
             "class Test {",
             "  void foo(List<@Nullable Integer[]> l) {}",
-            "  void foo2(List<Integer[]> p) {",
+            "  void testPositive(List<Integer[]> p) {",
             "    // BUG: Diagnostic contains: Cannot pass parameter of type List<Integer[]>",
+            "    foo(p);",
+            "  }",
+            "  void testNegative(List<@Nullable Integer[]> p) {",
             "    foo(p);",
             "  }",
             "}")

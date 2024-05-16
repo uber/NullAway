@@ -271,13 +271,13 @@ public final class GenericsChecks {
     } else {
       Type result;
       if (tree instanceof VariableTree) {
-        // type on the tree itself can be unreliable; get the type from the symbol for the declared
-        // variable instead
+        // type on the tree itself can be missing nested annotations for arrays; get the type from
+        // the symbol for the declared variable instead
         VariableTree varTree = (VariableTree) tree;
         result = ASTHelpers.getSymbol(varTree).type;
       } else if (tree instanceof AssignmentTree) {
-        // type on the tree itself can be unreliable; get the type from the symbol for the assigned
-        // location instead, if available
+        // type on the tree itself can be missing nested annotations for arrays; get the type from
+        // the symbol for the assigned location instead, if available
         AssignmentTree assignmentTree = (AssignmentTree) tree;
         Symbol lhsSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
         if (lhsSymbol != null) {
@@ -312,8 +312,8 @@ public final class GenericsChecks {
     if (!analysis.getConfig().isJSpecifyMode()) {
       return;
     }
+    Type lhsType = getTreeType(tree, state);
     Tree rhsTree;
-    Type lhsType;
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
       rhsTree = varTree.getInitializer();
@@ -321,7 +321,6 @@ public final class GenericsChecks {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
       rhsTree = assignmentTree.getExpression();
     }
-    lhsType = getTreeType(tree, state);
     // rhsTree can be null for a VariableTree.  Also, we don't need to do a check
     // if rhsTree is the null literal
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
@@ -392,20 +391,21 @@ public final class GenericsChecks {
 
   private static boolean subtypeParameterNullability(
       Type lhsType, Type rhsType, VisitorState state) {
-    // TODO: handle arrays properly
     if (lhsType.getKind().equals(TypeKind.ARRAY) && rhsType.getKind().equals(TypeKind.ARRAY)) {
+      // for array types we must allow covariance, i.e., an array of @NonNull references is a
+      // subtype of an array of @Nullable references; see
+      // https://github.com/jspecify/jspecify/issues/65
       Type.ArrayType lhsArrayType = (Type.ArrayType) lhsType;
       Type.ArrayType rhsArrayType = (Type.ArrayType) rhsType;
       Type lhsComponentType = lhsArrayType.getComponentType();
       Type rhsComponentType = rhsArrayType.getComponentType();
       boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType, state);
       boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType, state);
-      // allow for covariant arrays; see https://github.com/jspecify/jspecify/issues/65
+      // an array of @Nullable references is _not_ a subtype of an array of @NonNull references
       if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
         return false;
       }
-      return identicalTypeParameterNullability(
-          lhsArrayType.getComponentType(), rhsArrayType.getComponentType(), state);
+      return identicalTypeParameterNullability(lhsComponentType, rhsComponentType, state);
     } else {
       return identicalTypeParameterNullability(lhsType, rhsType, state);
     }
