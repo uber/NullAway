@@ -383,8 +383,6 @@ public final class GenericsChecks {
    */
   private static boolean identicalTypeParameterNullability(
       Type lhsType, Type rhsType, VisitorState state) {
-    // it is fair to assume rhyType should be the same as lhsType as the Java compiler has passed
-    // before NullAway.
     return lhsType.accept(new CheckIdenticalNullabilityVisitor(state), rhsType);
   }
 
