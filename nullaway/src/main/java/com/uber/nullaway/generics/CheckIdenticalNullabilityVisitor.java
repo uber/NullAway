@@ -7,14 +7,14 @@ import java.util.List;
 import javax.lang.model.type.NullType;
 
 /**
- * Visitor that checks equality of nullability annotations for all nested generic type arguments
- * within a type. Compares the Type it is called upon, i.e. the LHS type and the Type passed as an
- * argument, i.e. The RHS type.
+ * Visitor that checks for identical nullability annotations at all nesting levels within two types.
+ * Compares the Type it is called upon, i.e. the LHS type and the Type passed as an argument, i.e.
+ * The RHS type.
  */
-public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
+public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
   private final VisitorState state;
 
-  CompareNullabilityVisitor(VisitorState state) {
+  CheckIdenticalNullabilityVisitor(VisitorState state) {
     this.state = state;
   }
 

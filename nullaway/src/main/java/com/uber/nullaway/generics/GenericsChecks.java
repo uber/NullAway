@@ -386,7 +386,7 @@ public final class GenericsChecks {
       Type lhsType, Type rhsType, VisitorState state) {
     // it is fair to assume rhyType should be the same as lhsType as the Java compiler has passed
     // before NullAway.
-    return lhsType.accept(new CompareNullabilityVisitor(state), rhsType);
+    return lhsType.accept(new CheckIdenticalNullabilityVisitor(state), rhsType);
   }
 
   private static boolean subtypeParameterNullability(
