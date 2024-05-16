@@ -278,6 +278,30 @@ public class ArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void genericArrayOverrideReturnType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "class Test {",
+            "  class Super {",
+            "    @Nullable Integer[] foo() { return new @Nullable Integer[0]; }",
+            "    Integer[] bar() { return new Integer[0]; }",
+            "  }",
+            "  class Sub extends Super {",
+            "    @Override",
+            "    Integer[] foo() { return new Integer[0]; }",
+            "    @Override",
+            "    // BUG: Diagnostic contains: Method returns @Nullable Integer[], but overridden method returns Integer[]",
+            "    @Nullable Integer[] bar() { return new @Nullable Integer[0]; }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

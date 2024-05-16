@@ -853,15 +853,19 @@ public final class GenericsChecks {
   private static void checkTypeParameterNullnessForOverridingMethodReturnType(
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
     Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
-    Type overridingMethodReturnType = getTreeType(tree.getReturnType(), state);
-    if (overriddenMethodReturnType == null || overridingMethodReturnType == null) {
+    Type overridingMethodReturnType = getMethodType(tree).getReturnType();
+    if (overriddenMethodReturnType.isRaw() || overridingMethodReturnType.isRaw()) {
       return;
     }
-    if (!identicalTypeParameterNullability(
+    if (!subtypeParameterNullability(
         overriddenMethodReturnType, overridingMethodReturnType, state)) {
       reportInvalidOverridingMethodReturnTypeError(
           tree, overriddenMethodReturnType, overridingMethodReturnType, analysis, state);
     }
+  }
+
+  private static Type getMethodType(MethodTree tree) {
+    return ASTHelpers.getSymbol(tree).asType();
   }
 
   /**
