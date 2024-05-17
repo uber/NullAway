@@ -827,8 +827,9 @@ public final class GenericsChecks {
       Type overridingMethodParameterType = getTreeType(methodParameters.get(i), state);
       Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
       if (overriddenMethodParameterType != null && overridingMethodParameterType != null) {
-        if (!identicalTypeParameterNullability(
-            overriddenMethodParameterType, overridingMethodParameterType, state)) {
+        // allow contravariant subtyping
+        if (!subtypeParameterNullability(
+            overridingMethodParameterType, overriddenMethodParameterType, state)) {
           reportInvalidOverridingMethodParamTypeError(
               methodParameters.get(i),
               overriddenMethodParameterType,
@@ -853,19 +854,16 @@ public final class GenericsChecks {
   private static void checkTypeParameterNullnessForOverridingMethodReturnType(
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
     Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
-    Type overridingMethodReturnType = getMethodType(tree).getReturnType();
+    Type overridingMethodReturnType = ASTHelpers.getSymbol(tree).getReturnType();
     if (overriddenMethodReturnType.isRaw() || overridingMethodReturnType.isRaw()) {
       return;
     }
+    // allow covariant subtyping
     if (!subtypeParameterNullability(
         overriddenMethodReturnType, overridingMethodReturnType, state)) {
       reportInvalidOverridingMethodReturnTypeError(
           tree, overriddenMethodReturnType, overridingMethodReturnType, analysis, state);
     }
-  }
-
-  private static Type getMethodType(MethodTree tree) {
-    return ASTHelpers.getSymbol(tree).asType();
   }
 
   /**

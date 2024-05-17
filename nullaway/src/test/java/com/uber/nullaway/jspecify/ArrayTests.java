@@ -302,6 +302,30 @@ public class ArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void genericArrayOverrideParameterType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "class Test {",
+            "  class Super {",
+            "    void foo(@Nullable Integer[] p) { }",
+            "    void bar(Integer[] p) { }",
+            "  }",
+            "  class Sub extends Super {",
+            "    @Override",
+            "    // BUG: Diagnostic contains: Parameter has type Integer[], but overridden method has parameter type @Nullable Integer[]",
+            "    void foo(Integer[] p) { }",
+            "    @Override",
+            "    void bar(@Nullable Integer[] p) { }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
