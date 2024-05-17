@@ -223,7 +223,7 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
 
     @Override
     public MethodInvocationNode visitMethodInvocation(MethodInvocationTree tree, Void p) {
-      MethodInvocationNode originalNode = super.visitMethodInvocation(tree, p);
+      MethodInvocationNode originalNode = super.visitMethodInvocation(tree, null);
       return handler.onCFGBuildPhase1AfterVisitMethodInvocation(this, tree, originalNode);
     }
   }
