@@ -349,6 +349,9 @@ public class ArrayTests extends NullAwayTestsBase {
             "    @Nullable Integer[] t2 = n ? new Integer[0] : new @Nullable Integer[0];",
             "    return n ? new @Nullable Integer[0] : new @Nullable Integer[0];",
             "  }",
+            "  static void testNegativeTernaryMethodArgument(boolean t) {",
+            "    Integer[] a = testPositive(t ? new Integer[0] : new Integer[0], t);",
+            "  }",
             "}")
         .doTest();
   }
