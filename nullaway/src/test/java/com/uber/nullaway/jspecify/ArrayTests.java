@@ -213,6 +213,149 @@ public class ArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void arraySubtyping() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static void test(@Nullable Integer[] nullableIntArr, Integer[] nonnullIntArr) {",
+            "    // legal",
+            "    Integer[] x1 = nonnullIntArr;",
+            "    // legal",
+            "    @Nullable Integer[] x2 = nullableIntArr;",
+            "    // legal (covariant array subtypes)",
+            "    x2 = nonnullIntArr;",
+            "    // BUG: Diagnostic contains: Cannot assign from type @Nullable Integer[] to type Integer[]",
+            "    x1 = nullableIntArr;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void arraySubtypingWithNewExpression() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static void test() {",
+            "    // legal",
+            "    Integer[] x1 = new Integer[0];",
+            "    // legal (covariant array subtypes)",
+            "    @Nullable Integer[] x2 = new Integer[0];",
+            "    // legal",
+            "    x2 = new @Nullable Integer[0];",
+            "    // BUG: Diagnostic contains: Cannot assign from type @Nullable Integer[] to type Integer[]",
+            "    x1 = new @Nullable Integer[0];",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void arraysAndGenerics() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "class Test {",
+            "  void foo(List<@Nullable Integer[]> l) {}",
+            "  void testPositive(List<Integer[]> p) {",
+            "    // BUG: Diagnostic contains: Cannot pass parameter of type List<Integer[]>",
+            "    foo(p);",
+            "  }",
+            "  void testNegative(List<@Nullable Integer[]> p) {",
+            "    foo(p);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void overridesReturnType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "class Test {",
+            "  class Super {",
+            "    @Nullable Integer[] foo() { return new @Nullable Integer[0]; }",
+            "    Integer[] bar() { return new Integer[0]; }",
+            "  }",
+            "  class Sub extends Super {",
+            "    @Override",
+            "    Integer[] foo() { return new Integer[0]; }",
+            "    @Override",
+            "    // BUG: Diagnostic contains: Method returns @Nullable Integer[], but overridden method returns Integer[]",
+            "    @Nullable Integer[] bar() { return new @Nullable Integer[0]; }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void overridesParameterType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "class Test {",
+            "  class Super {",
+            "    void foo(@Nullable Integer[] p) { }",
+            "    void bar(Integer[] p) { }",
+            "  }",
+            "  class Sub extends Super {",
+            "    @Override",
+            "    // BUG: Diagnostic contains: Parameter has type Integer[], but overridden method has parameter type @Nullable Integer[]",
+            "    void foo(Integer[] p) { }",
+            "    @Override",
+            "    void bar(@Nullable Integer[] p) { }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void ternaryOperator() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static Integer[] testPositive(Integer[] p, boolean t) {",
+            "    // BUG: Diagnostic contains: Conditional expression must have type Integer[]",
+            "    Integer[] t1 = t ? new Integer[0] : new @Nullable Integer[0];",
+            "    // BUG: Diagnostic contains: Conditional expression must have type",
+            "    return t ? new @Nullable Integer[0] : new @Nullable Integer[0];",
+            "  }",
+            "  static void testPositiveTernaryMethodArgument(boolean t) {",
+            "    // BUG: Diagnostic contains: Conditional expression must have type",
+            "    Integer[] a = testPositive(t ? new Integer[0] : new @Nullable Integer[0], t);",
+            "  }",
+            "  static @Nullable Integer[] testNegative(boolean n) {",
+            "    @Nullable Integer[] t1 = n ? new @Nullable Integer[0] : new @Nullable Integer[0];",
+            "    @Nullable Integer[] t2 = n ? new Integer[0] : new @Nullable Integer[0];",
+            "    return n ? new @Nullable Integer[0] : new @Nullable Integer[0];",
+            "  }",
+            "  static void testNegativeTernaryMethodArgument(boolean t) {",
+            "    Integer[] a = testPositive(t ? new Integer[0] : new Integer[0], t);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

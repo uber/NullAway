@@ -495,7 +495,7 @@ public class NullAway extends BugChecker
       doUnboxingCheck(state, tree.getExpression());
     }
     // generics check
-    if (lhsType != null && lhsType.getTypeArguments().length() > 0 && config.isJSpecifyMode()) {
+    if (lhsType != null && config.isJSpecifyMode()) {
       GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
     }
 

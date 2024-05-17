@@ -1,22 +1,20 @@
 package com.uber.nullaway.generics;
 
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.util.ASTHelpers;
-import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import java.util.List;
 import javax.lang.model.type.NullType;
 
 /**
- * Visitor that checks equality of nullability annotations for all nested generic type arguments
- * within a type. Compares the Type it is called upon, i.e. the LHS type and the Type passed as an
- * argument, i.e. The RHS type.
+ * Visitor that checks for identical nullability annotations at all nesting levels within two types.
+ * Compares the Type it is called upon, i.e. the LHS type and the Type passed as an argument, i.e.
+ * The RHS type.
  */
-public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
+public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
   private final VisitorState state;
 
-  CompareNullabilityVisitor(VisitorState state) {
+  CheckIdenticalNullabilityVisitor(VisitorState state) {
     this.state = state;
   }
 
@@ -45,26 +43,8 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
       Type rhsTypeArgument = rhsTypeArguments.get(i);
-      boolean isLHSNullableAnnotated = false;
-      List<Attribute.TypeCompound> lhsAnnotations = lhsTypeArgument.getAnnotationMirrors();
-      // To ensure that we are checking only jspecify nullable annotations
-      Type jspecifyNullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
-      for (Attribute.TypeCompound annotation : lhsAnnotations) {
-        if (ASTHelpers.isSameType(
-            (Type) annotation.getAnnotationType(), jspecifyNullableType, state)) {
-          isLHSNullableAnnotated = true;
-          break;
-        }
-      }
-      boolean isRHSNullableAnnotated = false;
-      List<Attribute.TypeCompound> rhsAnnotations = rhsTypeArgument.getAnnotationMirrors();
-      for (Attribute.TypeCompound annotation : rhsAnnotations) {
-        if (ASTHelpers.isSameType(
-            (Type) annotation.getAnnotationType(), jspecifyNullableType, state)) {
-          isRHSNullableAnnotated = true;
-          break;
-        }
-      }
+      boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsTypeArgument, state);
+      boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsTypeArgument, state);
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
         return false;
       }
@@ -85,7 +65,14 @@ public class CompareNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean,
       return true;
     }
     Type.ArrayType arrRhsType = (Type.ArrayType) rhsType;
-    return lhsType.getComponentType().accept(this, arrRhsType.getComponentType());
+    Type lhsComponentType = lhsType.getComponentType();
+    Type rhsComponentType = arrRhsType.getComponentType();
+    boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsComponentType, state);
+    boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsComponentType, state);
+    if (isRHSNullableAnnotated != isLHSNullableAnnotated) {
+      return false;
+    }
+    return lhsComponentType.accept(this, rhsComponentType);
   }
 
   @Override
