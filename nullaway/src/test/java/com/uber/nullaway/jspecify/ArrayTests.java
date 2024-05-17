@@ -279,7 +279,7 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void genericArrayOverrideReturnType() {
+  public void overridesReturnType() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -303,7 +303,7 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void genericArrayOverrideParameterType() {
+  public void overridesParameterType() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -321,6 +321,33 @@ public class ArrayTests extends NullAwayTestsBase {
             "    void foo(Integer[] p) { }",
             "    @Override",
             "    void bar(@Nullable Integer[] p) { }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void ternaryOperator() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static Integer[] testPositive(Integer[] p, boolean t) {",
+            "    // BUG: Diagnostic contains: Conditional expression must have type Integer[]",
+            "    Integer[] t1 = t ? new Integer[0] : new @Nullable Integer[0];",
+            "    // BUG: Diagnostic contains: Conditional expression must have type",
+            "    return t ? new @Nullable Integer[0] : new @Nullable Integer[0];",
+            "  }",
+            "  static void testPositiveTernaryMethodArgument(boolean t) {",
+            "    // BUG: Diagnostic contains: Conditional expression must have type",
+            "    Integer[] a = testPositive(t ? new Integer[0] : new @Nullable Integer[0], t);",
+            "  }",
+            "  static @Nullable Integer[] testNegative(boolean n) {",
+            "    @Nullable Integer[] t1 = n ? new @Nullable Integer[0] : new @Nullable Integer[0];",
+            "    @Nullable Integer[] t2 = n ? new Integer[0] : new @Nullable Integer[0];",
+            "    return n ? new @Nullable Integer[0] : new @Nullable Integer[0];",
             "  }",
             "}")
         .doTest();

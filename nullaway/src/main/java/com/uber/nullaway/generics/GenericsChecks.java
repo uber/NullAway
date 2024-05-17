@@ -453,7 +453,7 @@ public final class GenericsChecks {
     Tree truePartTree = tree.getTrueExpression();
     Tree falsePartTree = tree.getFalseExpression();
 
-    Type condExprType = getTreeType(tree, state);
+    Type condExprType = getConditionalExpressionType(tree, state);
     Type truePartType = getTreeType(truePartTree, state);
     Type falsePartType = getTreeType(falsePartTree, state);
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
@@ -473,6 +473,18 @@ public final class GenericsChecks {
         }
       }
     }
+  }
+
+  @Nullable
+  private static Type getConditionalExpressionType(
+      ConditionalExpressionTree tree, VisitorState state) {
+    // hack: sometimes array nullability doesn't get computed correctly for a conditional expression
+    // on the RHS of an assignment.  So, look at the type of the assignment tree.
+    Tree parent = state.getPath().getParentPath().getLeaf();
+    if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
+      return getTreeType(parent, state);
+    }
+    return getTreeType(tree, state);
   }
 
   /**
@@ -854,6 +866,8 @@ public final class GenericsChecks {
   private static void checkTypeParameterNullnessForOverridingMethodReturnType(
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
     Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
+    // We get the return type from the Symbol; the type attached to tree may not have correct
+    // annotations for array types
     Type overridingMethodReturnType = ASTHelpers.getSymbol(tree).getReturnType();
     if (overriddenMethodReturnType.isRaw() || overridingMethodReturnType.isRaw()) {
       return;
