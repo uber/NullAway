@@ -156,7 +156,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
                         returnState,
                         null));
           }
-          return super.visitReturn(returnTree, unused);
+          return super.visitReturn(returnTree, null);
         }
       }.scan(state.getPath(), null);
     }
