@@ -63,6 +63,7 @@ public final class GenericsChecks {
    * @param handler the handler instance
    */
   public static void checkInstantiationForParameterizedTypedTree(
+      boolean isNullUnmarked,
       ParameterizedTypeTree tree,
       VisitorState state,
       NullAway analysis,
@@ -105,7 +106,8 @@ public final class GenericsChecks {
             upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
             Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
-                || handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
+                || handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i)
+                || isNullUnmarked;
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation) {

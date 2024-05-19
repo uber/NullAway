@@ -1737,6 +1737,33 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void testUseOfUnannotatedCode() {
+    makeHelper()
+            .addSourceLines(
+                    "Test.java",
+                    "package com.uber;",
+                    "import org.jspecify.annotations.NullMarked;",
+                    "import org.jspecify.annotations.NullUnmarked;",
+                    "import org.jspecify.annotations.Nullable;",
+                    "class Test {",
+                    "  @NullUnmarked",
+                    "  static class nullUnmarkedClass<S> {",
+                    "      static <T> void m1(T t) {}",
+                    "    }",
+                    "  @NullMarked",
+                    "  static class markedClass {",
+                    "    static void testInstantiation() {",
+                    "      new nullUnmarkedClass<@Nullable String>();",
+                    "    }",
+                    "    static void testAssignment() {",
+                    "      nullUnmarkedClass<@Nullable Integer> var = null;",
+                    "    }",
+                    "  }",
+                    "}")
+            .doTest();
+  }
+
   public void boxInteger() {
     makeHelper()
         .addSourceLines(
