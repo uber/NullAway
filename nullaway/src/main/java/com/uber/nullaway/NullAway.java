@@ -739,7 +739,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    Symbol calledClass = ASTHelpers.getSymbol(tree);
+    Symbol calledClass = castToNonNull(ASTHelpers.getSymbol(tree));
     boolean isNullUnmarked = codeAnnotationInfo.isSymbolUnannotated(calledClass, config, handler);
 
     if (config.isJSpecifyMode()) {
