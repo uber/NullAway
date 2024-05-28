@@ -37,6 +37,7 @@ import com.uber.nullaway.annotations.EnsuresNonNull;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
+import com.uber.nullaway.handlers.MethodAnalysisContext;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
 import java.util.Iterator;
@@ -70,19 +71,23 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
    */
   @Override
   protected boolean validateAnnotationSemantics(
-      NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol) {
+      MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     String message;
     if (tree.getBody() == null) {
       return true;
     }
     Set<String> nonnullFieldsOfReceiverAtExit =
-        analysis
-            .getNullnessAnalysis(state)
-            .getNonnullFieldsOfReceiverAtExit(new TreePath(state.getPath(), tree), state.context)
+        methodAnalysisContext
+            .getAnalysis()
+            .getNullnessAnalysis(methodAnalysisContext.getState())
+            .getNonnullFieldsOfReceiverAtExit(
+                new TreePath(methodAnalysisContext.getState().getPath(), tree),
+                methodAnalysisContext.getState().context)
             .stream()
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
-    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
+    Set<String> fieldNames =
+        getAnnotationValueArray(methodAnalysisContext.getMethodSymbol(), annotName, false);
     if (fieldNames == null) {
       fieldNames = Collections.emptySet();
     }
@@ -92,20 +97,24 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       fieldNames.removeAll(nonnullFieldsOfReceiverAtExit);
       message =
           "method: "
-              + methodSymbol
+              + methodAnalysisContext.getMethodSymbol()
               + " is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter"
               + " must be guaranteed to be nonnull at exit point. However, the method's body fails to ensure this for the following fields: "
               + fieldNames;
 
-      state.reportMatch(
-          analysis
-              .getErrorBuilder()
-              .createErrorDescription(
-                  new ErrorMessage(ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED, message),
-                  tree,
-                  analysis.buildDescription(tree),
-                  state,
-                  null));
+      methodAnalysisContext
+          .getState()
+          .reportMatch(
+              methodAnalysisContext
+                  .getAnalysis()
+                  .getErrorBuilder()
+                  .createErrorDescription(
+                      new ErrorMessage(
+                          ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED, message),
+                      tree,
+                      methodAnalysisContext.getAnalysis().buildDescription(tree),
+                      methodAnalysisContext.getState(),
+                      null));
       return false;
     }
     return true;

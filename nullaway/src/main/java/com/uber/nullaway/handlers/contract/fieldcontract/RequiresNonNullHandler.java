@@ -40,6 +40,7 @@ import com.uber.nullaway.annotations.RequiresNonNull;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
+import com.uber.nullaway.handlers.MethodAnalysisContext;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
 import java.util.Iterator;
@@ -71,7 +72,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
   /** All methods can add the precondition of {@code RequiresNonNull}. */
   @Override
   protected boolean validateAnnotationSemantics(
-      NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol) {
+      MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     return true;
   }
 
@@ -129,20 +130,21 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
    */
   @Override
   public void onMatchMethodInvocation(
-      NullAway analysis,
-      MethodInvocationTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
-    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
+      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
+    Set<String> fieldNames =
+        getAnnotationValueArray(methodAnalysisContext.getMethodSymbol(), annotName, false);
     if (fieldNames == null) {
-      super.onMatchMethodInvocation(analysis, tree, state, methodSymbol);
+      super.onMatchMethodInvocation(tree, methodAnalysisContext);
       return;
     }
     fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
-      Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
+      Symbol.ClassSymbol classSymbol =
+          ASTHelpers.enclosingClass(methodAnalysisContext.getMethodSymbol());
       Preconditions.checkNotNull(
-          classSymbol, "Could not find the enclosing class for method symbol: " + methodSymbol);
+          classSymbol,
+          "Could not find the enclosing class for method symbol: "
+              + methodAnalysisContext.getMethodSymbol());
       VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
       if (field == null) {
         // we will report an error on the method declaration
@@ -150,22 +152,31 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       }
       ExpressionTree methodSelectTree = tree.getMethodSelect();
       Nullness nullness =
-          analysis
-              .getNullnessAnalysis(state)
+          methodAnalysisContext
+              .getAnalysis()
+              .getNullnessAnalysis(methodAnalysisContext.getState())
               .getNullnessOfFieldForReceiverTree(
-                  state.getPath(), state.context, methodSelectTree, field, true);
+                  methodAnalysisContext.getState().getPath(),
+                  methodAnalysisContext.getState().context,
+                  methodSelectTree,
+                  field,
+                  true);
       if (NullabilityUtil.nullnessToBool(nullness)) {
         String message = "Expected field " + fieldName + " to be non-null at call site";
 
-        state.reportMatch(
-            analysis
-                .getErrorBuilder()
-                .createErrorDescription(
-                    new ErrorMessage(ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED, message),
-                    tree,
-                    analysis.buildDescription(tree),
-                    state,
-                    null));
+        methodAnalysisContext
+            .getState()
+            .reportMatch(
+                methodAnalysisContext
+                    .getAnalysis()
+                    .getErrorBuilder()
+                    .createErrorDescription(
+                        new ErrorMessage(
+                            ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED, message),
+                        tree,
+                        methodAnalysisContext.getAnalysis().buildDescription(tree),
+                        methodAnalysisContext.getState(),
+                        null));
       }
     }
   }

@@ -60,27 +60,26 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   /**
    * Verifies that the method being processed adheres to the annotation specifications.
    *
-   * @param analysis NullAway instance.
    * @param tree Method tree under processing.
-   * @param state Error Prone {@link VisitorState}.
-   * @param methodSymbol Processing method symbol.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   @Override
-  public void onMatchMethod(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+  public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     Set<String> annotationContent =
-        NullabilityUtil.getAnnotationValueArray(methodSymbol, annotName, false);
+        NullabilityUtil.getAnnotationValueArray(
+            methodAnalysisContext.getMethodSymbol(), annotName, false);
     boolean isAnnotated = annotationContent != null;
     boolean isValid =
         isAnnotated
             && validateAnnotationSyntax(
-                castToNonNull(annotationContent), analysis, tree, state, methodSymbol)
-            && validateAnnotationSemantics(analysis, state, tree, methodSymbol);
+                castToNonNull(annotationContent), tree, methodAnalysisContext)
+            && validateAnnotationSemantics(tree, methodAnalysisContext);
     if (isAnnotated && !isValid) {
       return;
     }
     Symbol.MethodSymbol closestOverriddenMethod =
-        NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
+        NullabilityUtil.getClosestOverriddenMethod(
+            methodAnalysisContext.getMethodSymbol(), methodAnalysisContext.getState().getTypes());
     if (closestOverriddenMethod == null) {
       return;
     }
@@ -90,8 +89,13 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     } else {
       fieldNames = Collections.emptySet();
     }
-    validateOverridingRules(fieldNames, analysis, state, tree, closestOverriddenMethod);
-    super.onMatchMethod(analysis, tree, state, methodSymbol);
+    validateOverridingRules(
+        fieldNames,
+        methodAnalysisContext.getAnalysis(),
+        methodAnalysisContext.getState(),
+        tree,
+        closestOverriddenMethod);
+    super.onMatchMethod(tree, methodAnalysisContext);
   }
 
   /**
@@ -117,9 +121,10 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    * Validates that a method implementation matches the semantics of the annotation.
    *
    * @return Returns true, if the annotation conforms to the semantic rules.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   protected abstract boolean validateAnnotationSemantics(
-      NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol);
+      MethodTree tree, MethodAnalysisContext methodAnalysisContext);
 
   /**
    * Validates whether the parameter inside annotation conforms to the syntax rules. Parameters must
@@ -137,13 +142,10 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    * <p>
    *
    * @return Returns true, if the annotation conforms to the syntax rules.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   protected boolean validateAnnotationSyntax(
-      Set<String> content,
-      NullAway analysis,
-      MethodTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      Set<String> content, MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     String message;
     if (content.isEmpty()) {
       // we should not allow useless annotations.
@@ -151,15 +153,18 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
           "empty @"
               + annotName
               + " is the default precondition for every method, please remove it.";
-      state.reportMatch(
-          analysis
-              .getErrorBuilder()
-              .createErrorDescription(
-                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                  tree,
-                  analysis.buildDescription(tree),
-                  state,
-                  null));
+      methodAnalysisContext
+          .getState()
+          .reportMatch(
+              methodAnalysisContext
+                  .getAnalysis()
+                  .getErrorBuilder()
+                  .createErrorDescription(
+                      new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                      tree,
+                      methodAnalysisContext.getAnalysis().buildDescription(tree),
+                      methodAnalysisContext.getState(),
+                      null));
       return false;
     } else {
       for (String fieldName : content) {
@@ -172,22 +177,26 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                     + fieldName
                     + " is not supported";
 
-            state.reportMatch(
-                analysis
-                    .getErrorBuilder()
-                    .createErrorDescription(
-                        new ErrorMessage(
-                            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                        tree,
-                        analysis.buildDescription(tree),
-                        state,
-                        null));
+            methodAnalysisContext
+                .getState()
+                .reportMatch(
+                    methodAnalysisContext
+                        .getAnalysis()
+                        .getErrorBuilder()
+                        .createErrorDescription(
+                            new ErrorMessage(
+                                ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                            tree,
+                            methodAnalysisContext.getAnalysis().buildDescription(tree),
+                            methodAnalysisContext.getState(),
+                            null));
             return false;
           } else {
             fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
           }
         }
-        Symbol.ClassSymbol classSymbol = castToNonNull(ASTHelpers.enclosingClass(methodSymbol));
+        Symbol.ClassSymbol classSymbol =
+            castToNonNull(ASTHelpers.enclosingClass(methodAnalysisContext.getMethodSymbol()));
         VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
         if (field == null) {
           message =
@@ -197,15 +206,19 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                   + fieldName
                   + " in class "
                   + classSymbol.getSimpleName();
-          state.reportMatch(
-              analysis
-                  .getErrorBuilder()
-                  .createErrorDescription(
-                      new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                      tree,
-                      analysis.buildDescription(tree),
-                      state,
-                      null));
+          methodAnalysisContext
+              .getState()
+              .reportMatch(
+                  methodAnalysisContext
+                      .getAnalysis()
+                      .getErrorBuilder()
+                      .createErrorDescription(
+                          new ErrorMessage(
+                              ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                          tree,
+                          methodAnalysisContext.getAnalysis().buildDescription(tree),
+                          methodAnalysisContext.getState(),
+                          null));
           return false;
         }
       }

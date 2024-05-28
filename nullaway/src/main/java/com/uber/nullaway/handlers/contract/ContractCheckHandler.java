@@ -35,9 +35,9 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
+import com.uber.nullaway.handlers.MethodAnalysisContext;
 
 /**
  * This Handler parses the jetbrains @Contract annotation and tries to check if the contract is
@@ -58,8 +58,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public void onMatchMethod(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+  public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
@@ -73,8 +72,20 @@ public class ContractCheckHandler extends BaseNoOpHandler {
 
       String clause = clauses[0];
       String[] antecedent =
-          getAntecedent(clause, tree, analysis, state, callee, tree.getParameters().size());
-      String consequent = getConsequent(clause, tree, analysis, state, callee);
+          getAntecedent(
+              clause,
+              tree,
+              methodAnalysisContext.getAnalysis(),
+              methodAnalysisContext.getState(),
+              callee,
+              tree.getParameters().size());
+      String consequent =
+          getConsequent(
+              clause,
+              tree,
+              methodAnalysisContext.getAnalysis(),
+              methodAnalysisContext.getState(),
+              callee);
 
       boolean supported = true;
 
@@ -100,9 +111,11 @@ public class ContractCheckHandler extends BaseNoOpHandler {
         @Override
         public Void visitReturn(ReturnTree returnTree, Void unused) {
 
-          final VisitorState returnState = state.withPath(getCurrentPath());
+          final VisitorState returnState =
+              methodAnalysisContext.getState().withPath(getCurrentPath());
           final Nullness nullness =
-              analysis
+              methodAnalysisContext
+                  .getAnalysis()
                   .getNullnessAnalysis(returnState)
                   .getNullnessForContractDataflow(
                       new TreePath(returnState.getPath(), returnTree.getExpression()),
@@ -146,19 +159,20 @@ public class ContractCheckHandler extends BaseNoOpHandler {
             }
 
             returnState.reportMatch(
-                analysis
+                methodAnalysisContext
+                    .getAnalysis()
                     .getErrorBuilder()
                     .createErrorDescription(
                         new ErrorMessage(
                             ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
                         returnTree,
-                        analysis.buildDescription(returnTree),
+                        methodAnalysisContext.getAnalysis().buildDescription(returnTree),
                         returnState,
                         null));
           }
           return super.visitReturn(returnTree, null);
         }
-      }.scan(state.getPath(), null);
+      }.scan(methodAnalysisContext.getState().getPath(), null);
     }
   }
 }

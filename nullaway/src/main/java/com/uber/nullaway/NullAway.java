@@ -98,6 +98,7 @@ import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
+import com.uber.nullaway.handlers.MethodAnalysisContext;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -402,7 +403,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Symbol.MethodSymbol methodSymbol = getSymbolForMethodInvocation(tree);
-    handler.onMatchMethodInvocation(this, tree, state, methodSymbol);
+    handler.onMatchMethodInvocation(tree, new MethodAnalysisContext(this, state, methodSymbol));
     // assuming this list does not include the receiver
     List<? extends ExpressionTree> actualParams = tree.getArguments();
     return handleInvocation(tree, state, methodSymbol, actualParams);
@@ -671,7 +672,7 @@ public class NullAway extends BugChecker
     // overridden method (if overridden method is in an annotated
     // package)
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
-    handler.onMatchMethod(this, tree, state, methodSymbol);
+    handler.onMatchMethod(tree, new MethodAnalysisContext(this, state, methodSymbol));
     boolean isOverriding = ASTHelpers.hasAnnotation(methodSymbol, "java.lang.Override", state);
     boolean exhaustiveOverride = config.exhaustiveOverride();
     if (isOverriding || !exhaustiveOverride) {
@@ -979,7 +980,8 @@ public class NullAway extends BugChecker
     // we need to update environment mapping before running the handler, as some handlers
     // (like Rx nullability) run dataflow analysis
     updateEnvironmentMapping(state.getPath(), state);
-    handler.onMatchLambdaExpression(this, tree, state, funcInterfaceMethod);
+    handler.onMatchLambdaExpression(
+        tree, new MethodAnalysisContext(this, state, funcInterfaceMethod));
     if (codeAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config, handler)) {
       return Description.NO_MATCH;
     }
@@ -1023,7 +1025,7 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(tree);
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
-    handler.onMatchMethodReference(this, tree, state, referencedMethod);
+    handler.onMatchMethodReference(tree, new MethodAnalysisContext(this, state, referencedMethod));
     return checkOverriding(funcInterfaceSymbol, referencedMethod, tree, state);
   }
 
@@ -1467,7 +1469,7 @@ public class NullAway extends BugChecker
       } else {
         castToNonNullArg =
             handler.castToNonNullArgumentPositionsForMethod(
-                this, state, methodSymbol, arguments, null);
+                arguments, null, new MethodAnalysisContext(this, state, methodSymbol));
       }
       if (castToNonNullArg != null && leaf.equals(arguments.get(castToNonNullArg))) {
         return true;
@@ -1840,7 +1842,7 @@ public class NullAway extends BugChecker
     } else {
       castToNonNullPosition =
           handler.castToNonNullArgumentPositionsForMethod(
-              this, state, methodSymbol, actualParams, null);
+              actualParams, null, new MethodAnalysisContext(this, state, methodSymbol));
     }
     if (castToNonNullPosition != null) {
       ExpressionTree actual = actualParams.get(castToNonNullPosition);
