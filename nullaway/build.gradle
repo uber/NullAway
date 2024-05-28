@@ -85,21 +85,21 @@ apply plugin: 'com.vanniktech.maven.publish'
 // JDK-internal APIs that are not exposed otherwise.  Since we currently target JDK 8, we do not need to pass the
 // arguments, as encapsulation of JDK internals is not enforced on JDK 8.  In fact, the arguments cause a compiler error
 // when targeting JDK 8.  Leaving commented so we can easily add them back once we target JDK 11.
-//    tasks.withType(JavaCompile).configureEach {
-//        options.compilerArgs += [
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
-//        ]
-//    }
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += [
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
+    ]
+}
 
 // Create a task to test on JDK 8
 // NOTE: even when we drop JDK 8 support, we will still need a test task similar to this one for testing building
