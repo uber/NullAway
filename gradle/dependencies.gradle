@@ -17,7 +17,7 @@ import org.gradle.util.VersionNumber
  */
 
 // The oldest version of Error Prone that we support running on
-def oldestErrorProneVersion = "2.10.0"
+def oldestErrorProneVersion = "2.14.0"
 // Latest released Error Prone version that we've tested with
 def latestErrorProneVersion = "2.27.1"
 // Default to using latest tested Error Prone version
