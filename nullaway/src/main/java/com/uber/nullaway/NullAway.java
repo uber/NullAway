@@ -151,12 +151,10 @@ import org.checkerframework.nullaway.javacutil.TreeUtils;
  */
 @AutoService(BugChecker.class)
 @BugPattern(
-    name = "NullAway",
     altNames = {"CheckNullabilityTypes"},
     summary = "Nullability type error.",
     tags = BugPattern.StandardTags.LIKELY_ERROR,
     severity = WARNING)
-@SuppressWarnings("BugPatternNaming") // remove once we require EP 2.11+
 public class NullAway extends BugChecker
     implements BugChecker.MethodInvocationTreeMatcher,
         BugChecker.AssignmentTreeMatcher,
