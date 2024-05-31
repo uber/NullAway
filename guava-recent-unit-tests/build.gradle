@@ -41,7 +41,8 @@ dependencies {
     }
 }
 
-// Create a task to test on JDK 8
+// Create a task to test with the oldest supported version of Error Prone
+// (while still building against the latest supported version)
 def epOldestTest = tasks.register("testErrorProneOldest", Test) {
 
     javaLauncher = javaToolchains.launcherFor {
