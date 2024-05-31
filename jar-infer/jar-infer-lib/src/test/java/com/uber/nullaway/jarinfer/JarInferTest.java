@@ -525,7 +525,7 @@ public class JarInferTest {
     var ksPwdArray = ksPwd.toCharArray();
     var keystore = KeyStore.getInstance(new File(ksPath), ksPwdArray);
     var protParam = new KeyStore.PasswordProtection(ksPwdArray);
-    var pkEntry = (KeyStore.PrivateKeyEntry) keystore.getEntry("codecheck", protParam);
+    var pkEntry = (KeyStore.PrivateKeyEntry) keystore.getEntry(ksPwd, protParam);
 
     JarSigner signer = new JarSigner.Builder(pkEntry).build();
     try (ZipFile in = new ZipFile(baseJarPath);
