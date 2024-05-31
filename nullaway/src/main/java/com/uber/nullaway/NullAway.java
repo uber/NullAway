@@ -115,6 +115,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.NestingKind;
 import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
@@ -266,14 +267,6 @@ public class NullAway extends BugChecker
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
   /**
-   * Used to check if a symbol represents a module in {@link #matchMemberSelect(MemberSelectTree,
-   * VisitorState)}. We need to use reflection to preserve compatibility with Java 8.
-   *
-   * <p>TODO remove this once NullAway requires JDK 11
-   */
-  @Nullable private final Class<?> moduleElementClass;
-
-  /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
    * else. Checker objects constructed with this constructor will fail with IllegalStateException if
@@ -284,7 +277,6 @@ public class NullAway extends BugChecker
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
-    moduleElementClass = null;
   }
 
   @Inject // For future Error Prone versions in which checkers are loaded using Guice
@@ -293,14 +285,6 @@ public class NullAway extends BugChecker
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames());
-    Class<?> moduleElementClass = null;
-    try {
-      moduleElementClass =
-          getClass().getClassLoader().loadClass("javax.lang.model.element.ModuleElement");
-    } catch (ClassNotFoundException e) {
-      // can occur pre JDK 11
-    }
-    this.moduleElementClass = moduleElementClass;
   }
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
@@ -584,7 +568,7 @@ public class NullAway extends BugChecker
     if (symbol == null
         || symbol.getSimpleName().toString().equals("class")
         || symbol.isEnum()
-        || isModuleSymbol(symbol)) {
+        || symbol instanceof ModuleElement) {
       return Description.NO_MATCH;
     }
 
@@ -598,15 +582,6 @@ public class NullAway extends BugChecker
       return checkForReadBeforeInit(tree, state);
     }
     return Description.NO_MATCH;
-  }
-
-  /**
-   * Checks if {@code symbol} represents a JDK 9+ module using reflection.
-   *
-   * <p>TODO just check using instanceof once NullAway requires JDK 11
-   */
-  private boolean isModuleSymbol(Symbol symbol) {
-    return moduleElementClass != null && moduleElementClass.isAssignableFrom(symbol.getClass());
   }
 
   /**
