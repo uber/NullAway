@@ -515,17 +515,16 @@ public class JarInferTest {
   /** copy the jar at {@code baseJarPath} to a signed jar at {@code signedJarPath} */
   private void copyAndSignJar(String baseJarPath, String signedJarPath)
       throws CertificateException,
-          NoSuchAlgorithmException,
           KeyStoreException,
           IOException,
+          NoSuchAlgorithmException,
           UnrecoverableEntryException {
     String ksPath =
         Thread.currentThread().getContextClassLoader().getResource("testKeyStore.jks").getPath();
-    var ksPwd = "testPassword";
-    var ksPwdArray = ksPwd.toCharArray();
-    var keystore = KeyStore.getInstance(new File(ksPath), ksPwdArray);
-    var protParam = new KeyStore.PasswordProtection(ksPwdArray);
-    var pkEntry = (KeyStore.PrivateKeyEntry) keystore.getEntry(ksPwd, protParam);
+    var ksPassword = "testPassword".toCharArray();
+    var keystore = KeyStore.getInstance(new File(ksPath), ksPassword);
+    var protParam = new KeyStore.PasswordProtection(ksPassword);
+    var pkEntry = (KeyStore.PrivateKeyEntry) keystore.getEntry("testKeystore", protParam);
 
     JarSigner signer = new JarSigner.Builder(pkEntry).build();
     try (ZipFile in = new ZipFile(baseJarPath);
