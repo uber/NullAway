@@ -526,7 +526,7 @@ public class JarInferTest {
     var protParam = new KeyStore.PasswordProtection(ksPassword);
     var pkEntry = (KeyStore.PrivateKeyEntry) keystore.getEntry("testKeystore", protParam);
 
-    JarSigner signer = new JarSigner.Builder(pkEntry).build();
+    JarSigner signer = new JarSigner.Builder(pkEntry).digestAlgorithm("SHA-256").build();
     try (ZipFile in = new ZipFile(baseJarPath);
         FileOutputStream out = new FileOutputStream(signedJarPath)) {
       signer.sign(in, out);
