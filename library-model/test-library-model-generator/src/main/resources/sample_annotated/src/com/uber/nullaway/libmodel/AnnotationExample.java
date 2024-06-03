@@ -46,7 +46,7 @@ public class AnnotationExample {
         }
     }
 
-    public static class GenericExample<T extends @Nullable Object> {
+    public static class UpperBoundExample<T extends @Nullable Object> {
 
         public T getNull() {
             return null;

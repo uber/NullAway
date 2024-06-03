@@ -141,12 +141,12 @@ public class LibraryModelIntegrationTest {
             "import org.jspecify.annotations.Nullable;",
             "import com.uber.nullaway.libmodel.AnnotationExample;",
             "class Test {",
-            "  static AnnotationExample.GenericExample<@Nullable Object> genericExample = new AnnotationExample.GenericExample<@Nullable Object>();",
+            "  static AnnotationExample.UpperBoundExample<@Nullable Object> upperBoundExample = new AnnotationExample.UpperBoundExample<@Nullable Object>();",
             "  static void test(Object value){",
             "  }",
             "  static void testPositive() {",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'genericExample.getNull()'",
-            "    test(genericExample.getNull());",
+            "    test(upperBoundExample.getNull());",
             "  }",
             "}")
         .doTest();

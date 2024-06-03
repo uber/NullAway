@@ -40,7 +40,7 @@ public class AnnotationExample {
     }
   }
 
-  public static class GenericExample<T> {
+  public static class UpperBoundExample<T> {
 
     public T getNull() {
       return null;
