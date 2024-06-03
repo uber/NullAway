@@ -33,6 +33,14 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 
+/**
+ * A class responsible for caching annotation information extracted from stubx files.
+ *
+ * <p>This class provides mechanisms to cache annotations and retrieve them efficiently when needed.
+ * It uses a nested map structure to store annotations, which are indexed by class name, method
+ * signature, and argument index. It also stores a Map containing the indices for Nullable upper
+ * bounds for generic type parameters.
+ */
 public class StubxCacheUtil {
 
   private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
@@ -51,6 +59,14 @@ public class StubxCacheUtil {
 
   private final Map<String, Integer> upperBoundCache;
 
+  /**
+   * Initializes a new {@code StubxCacheUtil} instance.
+   *
+   * <p>This sets up the caches for argument annotations and upper bounds, sets the log caller, and
+   * loads the stubx files.
+   *
+   * @param logCaller Identifier for logging purposes.
+   */
   public StubxCacheUtil(String logCaller) {
     argAnnotCache = new LinkedHashMap<>();
     upperBoundCache = new HashMap<>();
