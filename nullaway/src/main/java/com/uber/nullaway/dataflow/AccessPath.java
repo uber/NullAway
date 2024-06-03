@@ -355,8 +355,6 @@ public final class AccessPath implements MapKey {
       return ((FieldAccessNode) arrayNode).getElement();
     } else if (arrayNode instanceof MethodInvocationNode) {
       return ASTHelpers.getSymbol(((MethodInvocationNode) arrayNode).getTree());
-    } else if (arrayNode instanceof VariableDeclarationNode) {
-      return TreeUtils.elementFromDeclaration(((VariableDeclarationNode) arrayNode).getTree());
     } else {
       return null;
     }
