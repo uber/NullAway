@@ -1,5 +1,22 @@
 Changelog
 =========
+Version 0.11.0
+---------------
+IMPORTANT: Support for JDK 8 is dropped and NullAway now requires 2.14.0 or higher.
+
+* Delete OptionalEmptinessHandler method that is no longer needed (#954)
+* Refactor PreservedAnnotationTreeVisitor (#955)
+* Update to Error Prone 2.27.1 (#957)
+* JSpecify subtyping checks for arrays (#956)
+* Bump to Checker Framework 3.43.0 (#959)
+* Drop Java 8 support (#961)
+
+Version 0.10.26
+---------------
+* External Library Models Integration (#922)
+* Rename test classes (#951)
+* Propagate more nullability info to lambdas known to be invoked synchronously (#952)
+
 Version 0.10.25
 ---------------
 * JSpecify: Handle @nullable assignments to @nonnull arrays (#929)

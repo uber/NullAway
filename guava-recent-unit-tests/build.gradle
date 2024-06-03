@@ -18,6 +18,11 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
+configurations {
+    // A configuration holding the jars for the oldest supported version of Error Prone, to use with tests
+    errorProneOldest
+}
+
 // We need this separate build target to test newer versions of Guava
 // (e.g. 31+) than that which NullAway currently depends on.
 
@@ -29,29 +34,48 @@ dependencies {
     }
     testImplementation deps.build.jsr305Annotations
     testImplementation "com.google.guava:guava:31.1-jre"
+
+    errorProneOldest deps.build.errorProneCheckApiOld
+    errorProneOldest(deps.build.errorProneTestHelpersOld) {
+        exclude group: "junit", module: "junit"
+    }
 }
 
-// Create a task to test on JDK 8
-def jdk8Test = tasks.register("testJdk8", Test) {
-    onlyIf {
-        // Only if we are using a version of Error Prone compatible with JDK 8
-        deps.versions.errorProneApi == "2.10.0"
-    }
+// Create a task to test with the oldest supported version of Error Prone
+// (while still building against the latest supported version)
+def epOldestTest = tasks.register("testErrorProneOldest", Test) {
 
     javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(8)
+        languageVersion = JavaLanguageVersion.of(11)
     }
 
-    description = "Runs the test suite on JDK 8"
+    description = "Runs the test suite using the oldest supported version of Error Prone"
     group = LifecycleBasePlugin.VERIFICATION_GROUP
 
     // Copy inputs from normal Test task.
     def testTask = tasks.getByName("test")
-    classpath = testTask.classpath
+    // A bit of a hack: we add the dependencies of the oldest supported Error Prone version to the _beginning_ of the
+    // classpath, so that they are used instead of the latest version.  This exercises the scenario of building
+    // NullAway against the latest supported Error Prone version but then running on the oldest supported version.
+    classpath = configurations.errorProneOldest + testTask.classpath
     testClassesDirs = testTask.testClassesDirs
-    jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
+
+    jvmArgs += [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        // Accessed by Lombok tests
+        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+    ]
 }
 
 tasks.named('check').configure {
-    dependsOn(jdk8Test)
+    dependsOn(epOldestTest)
 }
