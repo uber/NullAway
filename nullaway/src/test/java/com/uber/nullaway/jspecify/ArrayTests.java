@@ -356,6 +356,47 @@ public class ArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void variableIndexArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String [] fizz = {\"1\"};",
+            "  static final Integer i = 0;",
+            "  static void foo() {",
+            "  if (fizz[i]!=null) { ",
+            "   fizz[i].toString();",
+            "}",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz[i] is @Nullable",
+            "   fizz[i].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void ConstantIndexArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String [] fizz = {\"1\"};",
+            "  static void foo() {",
+            "  if (fizz[0]!=null) { ",
+            "   fizz[0].toString();",
+            "}",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz[0] is @Nullable",
+            "   fizz[0].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
