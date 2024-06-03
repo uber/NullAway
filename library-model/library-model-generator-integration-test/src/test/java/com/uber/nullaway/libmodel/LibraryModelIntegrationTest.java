@@ -145,7 +145,7 @@ public class LibraryModelIntegrationTest {
             "  static void test(Object value){",
             "  }",
             "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'genericExample.getNull()'",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'upperBoundExample.getNull()'",
             "    test(upperBoundExample.getNull());",
             "  }",
             "}")
