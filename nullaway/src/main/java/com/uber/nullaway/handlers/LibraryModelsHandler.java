@@ -1289,9 +1289,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   private static class ExternalStubxLibraryModels implements LibraryModels {
 
     private static final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
+    private static final Map<String, Integer> upperBoundsCache;
 
     static {
-      argAnnotCache = new StubxCacheUtil("LM").loadStubxFiles();
+      StubxCacheUtil cacheUtil = new StubxCacheUtil("LM");
+      argAnnotCache = cacheUtil.getArgAnnotCache();
+      upperBoundsCache = cacheUtil.getUpperBoundCache();
     }
 
     @Override
@@ -1304,18 +1307,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
       ImmutableSetMultimap.Builder<String, Integer> mapBuilder =
           new ImmutableSetMultimap.Builder<>();
-      for (Map.Entry<String, Map<String, Map<Integer, Set<String>>>> entry :
-          argAnnotCache.entrySet()) {
-        String className = entry.getKey();
-        Map<String, Map<Integer, Set<String>>> innerMap = entry.getValue();
-        String generic_key = className + ":-1_GENERIC_TYPE";
-        if (innerMap.containsKey(generic_key)) {
-          Map<Integer, Set<String>> innerInnerMap = innerMap.get(generic_key);
-          for (Map.Entry<Integer, Set<String>> innerEntry : innerInnerMap.entrySet()) {
-            Integer innerInnerKey = innerEntry.getKey();
-            mapBuilder.put(className, innerInnerKey);
-          }
-        }
+      for (Map.Entry<String, Integer> entry : upperBoundsCache.entrySet()) {
+        mapBuilder.put(entry.getKey(), entry.getValue());
       }
       return mapBuilder.build();
     }

@@ -26,6 +26,7 @@ import com.uber.nullaway.jarinfer.JarInferStubxProvider;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -45,18 +46,31 @@ public class StubxCacheUtil {
   }
 
   private static final int RETURN = -1;
+
   private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
+
+  private final Map<String, Integer> upperBoundCache;
 
   public StubxCacheUtil(String logCaller) {
     argAnnotCache = new LinkedHashMap<>();
+    upperBoundCache = new HashMap<>();
     this.logCaller = logCaller;
+    loadStubxFiles();
+  }
+
+  public Map<String, Integer> getUpperBoundCache() {
+    return upperBoundCache;
+  }
+
+  public Map<String, Map<String, Map<Integer, Set<String>>>> getArgAnnotCache() {
+    return argAnnotCache;
   }
 
   /**
    * Loads all stubx files discovered in the classpath. Stubx files are discovered via
    * implementations of {@link JarInferStubxProvider} loaded using a {@link ServiceLoader}
    */
-  public Map<String, Map<String, Map<Integer, Set<String>>>> loadStubxFiles() {
+  private void loadStubxFiles() {
     Iterable<JarInferStubxProvider> astubxProviders =
         ServiceLoader.load(JarInferStubxProvider.class, StubxCacheUtil.class.getClassLoader());
     for (JarInferStubxProvider provider : astubxProviders) {
@@ -72,7 +86,6 @@ public class StubxCacheUtil {
         }
       }
     }
-    return argAnnotCache;
   }
 
   public void parseStubStream(InputStream stubxInputStream, String stubxLocation)
@@ -133,6 +146,14 @@ public class StubxCacheUtil {
           "method: " + methodSig + ", argNum: " + argNum + ", arg annotation: " + annotation);
       cacheAnnotation(methodSig, argNum, annotation);
     }
+    // read the number of nullable upper bound entries
+    int numClassesWithNullableUpperBounds = in.readInt();
+    for (int i = 0; i < numClassesWithNullableUpperBounds; i++) {
+      int numParams = in.readInt();
+      for (int j = 0; j < numParams; j++) {
+        cacheUpperBounds(strings[in.readInt()], in.readInt());
+      }
+    }
   }
 
   private void cacheAnnotation(String methodSig, Integer argNum, String annotation) {
@@ -145,5 +166,9 @@ public class StubxCacheUtil {
     Set<String> cacheForArgument =
         cacheForMethod.computeIfAbsent(argNum, s -> new LinkedHashSet<>());
     cacheForArgument.add(annotation);
+  }
+
+  private void cacheUpperBounds(String className, Integer paramIndex) {
+    upperBoundCache.put(className, paramIndex);
   }
 }

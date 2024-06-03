@@ -69,7 +69,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     super();
     this.config = config;
     this.cacheUtil = new StubxCacheUtil("JI");
-    argAnnotCache = cacheUtil.loadStubxFiles();
+    argAnnotCache = cacheUtil.getArgAnnotCache();
     // Load Android SDK JarInfer models
     try {
       InputStream androidStubxIS =
