@@ -14,6 +14,7 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import javax.annotation.Nullable;
 import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
 
 /** Methods for performing checks related to generic types and nullability. */
@@ -244,7 +246,7 @@ public final class GenericsChecks {
    *
    * <p>This method is required because in some cases, the type returned by {@link
    * com.google.errorprone.util.ASTHelpers#getType(Tree)} fails to preserve type use annotations,
-   * particularly when dealing with {@link com.sun.source.tree.NewClassTree} (e.g., {@code new
+   * e.g., when dealing with {@link com.sun.source.tree.NewClassTree} (e.g., {@code new
    * Foo<@Nullable A>}).
    *
    * @param tree A tree for which we need the type with preserved annotations.
@@ -263,8 +265,29 @@ public final class GenericsChecks {
         return null;
       }
       return typeWithPreservedAnnotations(paramTypedTree, state);
+    } else if (tree instanceof NewArrayTree
+        && ((NewArrayTree) tree).getType() instanceof AnnotatedTypeTree) {
+      return typeWithPreservedAnnotations(tree, state);
     } else {
-      Type result = ASTHelpers.getType(tree);
+      Type result;
+      if (tree instanceof VariableTree) {
+        // type on the tree itself can be missing nested annotations for arrays; get the type from
+        // the symbol for the declared variable instead
+        VariableTree varTree = (VariableTree) tree;
+        result = ASTHelpers.getSymbol(varTree).type;
+      } else if (tree instanceof AssignmentTree) {
+        // type on the tree itself can be missing nested annotations for arrays; get the type from
+        // the symbol for the assigned location instead, if available
+        AssignmentTree assignmentTree = (AssignmentTree) tree;
+        Symbol lhsSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
+        if (lhsSymbol != null) {
+          result = lhsSymbol.type;
+        } else {
+          result = ASTHelpers.getType(assignmentTree);
+        }
+      } else {
+        result = ASTHelpers.getType(tree);
+      }
       if (result != null && result.isRaw()) {
         // bail out of any checking involving raw types for now
         return null;
@@ -289,15 +312,13 @@ public final class GenericsChecks {
     if (!analysis.getConfig().isJSpecifyMode()) {
       return;
     }
-    Tree lhsTree;
+    Type lhsType = getTreeType(tree, state);
     Tree rhsTree;
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
-      lhsTree = varTree.getType();
       rhsTree = varTree.getInitializer();
     } else {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
-      lhsTree = assignmentTree.getVariable();
       rhsTree = assignmentTree.getExpression();
     }
     // rhsTree can be null for a VariableTree.  Also, we don't need to do a check
@@ -305,11 +326,10 @@ public final class GenericsChecks {
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
-    Type lhsType = getTreeType(lhsTree, state);
     Type rhsType = getTreeType(rhsTree, state);
 
     if (lhsType != null && rhsType != null) {
-      boolean isAssignmentValid = compareNullabilityAnnotations(lhsType, rhsType, state);
+      boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
       if (!isAssignmentValid) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
       }
@@ -342,7 +362,7 @@ public final class GenericsChecks {
     Type returnExpressionType = getTreeType(retExpr, state);
     if (formalReturnType != null && returnExpressionType != null) {
       boolean isReturnTypeValid =
-          compareNullabilityAnnotations(formalReturnType, returnExpressionType, state);
+          subtypeParameterNullability(formalReturnType, returnExpressionType, state);
       if (!isReturnTypeValid) {
         reportInvalidReturnTypeError(
             retExpr, formalReturnType, returnExpressionType, state, analysis);
@@ -351,9 +371,8 @@ public final class GenericsChecks {
   }
 
   /**
-   * Compare two types from an assignment for identical type parameter nullability, recursively
-   * checking nested generic types. See <a
-   * href="https://jspecify.dev/docs/spec/#nullness-delegating-subtyping">the JSpecify
+   * Compare two types for identical type parameter nullability, recursively checking nested generic
+   * types. See <a href="https://jspecify.dev/docs/spec/#nullness-delegating-subtyping">the JSpecify
    * specification</a> and <a
    * href="https://docs.oracle.com/javase/specs/jls/se14/html/jls-4.html#jls-4.10.2">the JLS
    * subtyping rules for class and interface types</a>.
@@ -362,11 +381,39 @@ public final class GenericsChecks {
    * @param rhsType type for the rhs of the assignment
    * @param state the visitor state
    */
-  private static boolean compareNullabilityAnnotations(
+  private static boolean identicalTypeParameterNullability(
       Type lhsType, Type rhsType, VisitorState state) {
-    // it is fair to assume rhyType should be the same as lhsType as the Java compiler has passed
-    // before NullAway.
-    return lhsType.accept(new CompareNullabilityVisitor(state), rhsType);
+    return lhsType.accept(new CheckIdenticalNullabilityVisitor(state), rhsType);
+  }
+
+  /**
+   * Like {@link #identicalTypeParameterNullability(Type, Type, VisitorState)}, but allows for
+   * covariant array subtyping at the top level.
+   *
+   * @param lhsType type for the lhs of the assignment
+   * @param rhsType type for the rhs of the assignment
+   * @param state the visitor state
+   */
+  private static boolean subtypeParameterNullability(
+      Type lhsType, Type rhsType, VisitorState state) {
+    if (lhsType.getKind().equals(TypeKind.ARRAY) && rhsType.getKind().equals(TypeKind.ARRAY)) {
+      // for array types we must allow covariance, i.e., an array of @NonNull references is a
+      // subtype of an array of @Nullable references; see
+      // https://github.com/jspecify/jspecify/issues/65
+      Type.ArrayType lhsArrayType = (Type.ArrayType) lhsType;
+      Type.ArrayType rhsArrayType = (Type.ArrayType) rhsType;
+      Type lhsComponentType = lhsArrayType.getComponentType();
+      Type rhsComponentType = rhsArrayType.getComponentType();
+      boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType, state);
+      boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType, state);
+      // an array of @Nullable references is _not_ a subtype of an array of @NonNull references
+      if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
+        return false;
+      }
+      return identicalTypeParameterNullability(lhsComponentType, rhsComponentType, state);
+    } else {
+      return identicalTypeParameterNullability(lhsType, rhsType, state);
+    }
   }
 
   /**
@@ -378,9 +425,8 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @return A Type with preserved annotations.
    */
-  private static Type.ClassType typeWithPreservedAnnotations(
-      ParameterizedTypeTree tree, VisitorState state) {
-    return (Type.ClassType) tree.accept(new PreservedAnnotationTreeVisitor(state), null);
+  private static Type typeWithPreservedAnnotations(Tree tree, VisitorState state) {
+    return tree.accept(new PreservedAnnotationTreeVisitor(state), null);
   }
 
   /**
@@ -407,7 +453,7 @@ public final class GenericsChecks {
     Tree truePartTree = tree.getTrueExpression();
     Tree falsePartTree = tree.getFalseExpression();
 
-    Type condExprType = getTreeType(tree, state);
+    Type condExprType = getConditionalExpressionType(tree, state);
     Type truePartType = getTreeType(truePartTree, state);
     Type falsePartType = getTreeType(falsePartTree, state);
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
@@ -415,18 +461,30 @@ public final class GenericsChecks {
     // type of the whole expression
     if (condExprType != null) {
       if (truePartType != null) {
-        if (!compareNullabilityAnnotations(condExprType, truePartType, state)) {
+        if (!subtypeParameterNullability(condExprType, truePartType, state)) {
           reportMismatchedTypeForTernaryOperator(
               truePartTree, condExprType, truePartType, state, analysis);
         }
       }
       if (falsePartType != null) {
-        if (!compareNullabilityAnnotations(condExprType, falsePartType, state)) {
+        if (!subtypeParameterNullability(condExprType, falsePartType, state)) {
           reportMismatchedTypeForTernaryOperator(
               falsePartTree, condExprType, falsePartType, state, analysis);
         }
       }
     }
+  }
+
+  @Nullable
+  private static Type getConditionalExpressionType(
+      ConditionalExpressionTree tree, VisitorState state) {
+    // hack: sometimes array nullability doesn't get computed correctly for a conditional expression
+    // on the RHS of an assignment.  So, look at the type of the assignment tree.
+    Tree parent = state.getPath().getParentPath().getLeaf();
+    if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
+      return getTreeType(parent, state);
+    }
+    return getTreeType(tree, state);
   }
 
   /**
@@ -459,7 +517,7 @@ public final class GenericsChecks {
       if (!formalParameter.getTypeArguments().isEmpty()) {
         Type actualParameter = getTreeType(actualParams.get(i), state);
         if (actualParameter != null) {
-          if (!compareNullabilityAnnotations(formalParameter, actualParameter, state)) {
+          if (!subtypeParameterNullability(formalParameter, actualParameter, state)) {
             reportInvalidParametersNullabilityError(
                 formalParameter, actualParameter, actualParams.get(i), state, analysis);
           }
@@ -474,7 +532,7 @@ public final class GenericsChecks {
         for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
           Type actualParameter = getTreeType(actualParams.get(i), state);
           if (actualParameter != null) {
-            if (!compareNullabilityAnnotations(varargsElementType, actualParameter, state)) {
+            if (!subtypeParameterNullability(varargsElementType, actualParameter, state)) {
               reportInvalidParametersNullabilityError(
                   varargsElementType, actualParameter, actualParams.get(i), state, analysis);
             }
@@ -781,8 +839,9 @@ public final class GenericsChecks {
       Type overridingMethodParameterType = getTreeType(methodParameters.get(i), state);
       Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
       if (overriddenMethodParameterType != null && overridingMethodParameterType != null) {
-        if (!compareNullabilityAnnotations(
-            overriddenMethodParameterType, overridingMethodParameterType, state)) {
+        // allow contravariant subtyping
+        if (!subtypeParameterNullability(
+            overridingMethodParameterType, overriddenMethodParameterType, state)) {
           reportInvalidOverridingMethodParamTypeError(
               methodParameters.get(i),
               overriddenMethodParameterType,
@@ -807,11 +866,14 @@ public final class GenericsChecks {
   private static void checkTypeParameterNullnessForOverridingMethodReturnType(
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
     Type overriddenMethodReturnType = overriddenMethodType.getReturnType();
-    Type overridingMethodReturnType = getTreeType(tree.getReturnType(), state);
-    if (overriddenMethodReturnType == null || overridingMethodReturnType == null) {
+    // We get the return type from the Symbol; the type attached to tree may not have correct
+    // annotations for array types
+    Type overridingMethodReturnType = ASTHelpers.getSymbol(tree).getReturnType();
+    if (overriddenMethodReturnType.isRaw() || overridingMethodReturnType.isRaw()) {
       return;
     }
-    if (!compareNullabilityAnnotations(
+    // allow covariant subtyping
+    if (!subtypeParameterNullability(
         overriddenMethodReturnType, overridingMethodReturnType, state)) {
       reportInvalidOverridingMethodReturnTypeError(
           tree, overriddenMethodReturnType, overridingMethodReturnType, analysis, state);
@@ -881,5 +943,20 @@ public final class GenericsChecks {
           codeAnnotationInfo.isSymbolUnannotated(parentMethodSymbol, config, handler);
     }
     return callingUnannotated;
+  }
+
+  public static boolean isNullableAnnotated(Type type, VisitorState state) {
+    boolean result = false;
+    // To ensure that we are checking only jspecify nullable annotations
+    Type jspecifyNullableType = JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
+    List<Attribute.TypeCompound> lhsAnnotations = type.getAnnotationMirrors();
+    for (Attribute.TypeCompound annotation : lhsAnnotations) {
+      if (ASTHelpers.isSameType(
+          (Type) annotation.getAnnotationType(), jspecifyNullableType, state)) {
+        result = true;
+        break;
+      }
+    }
+    return result;
   }
 }

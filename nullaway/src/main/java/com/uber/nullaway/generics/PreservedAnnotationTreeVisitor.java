@@ -2,16 +2,17 @@ package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
-import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ArrayTypeTree;
+import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.SimpleTreeVisitor;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.util.ListBuffer;
@@ -37,6 +38,12 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   }
 
   @Override
+  public Type visitNewArray(NewArrayTree tree, Void p) {
+    Type elemType = tree.getType().accept(this, null);
+    return new Type.ArrayType(elemType, castToNonNull(ASTHelpers.getType(tree)).tsym);
+  }
+
+  @Override
   public Type visitArrayType(ArrayTypeTree tree, Void p) {
     Type elemType = tree.getType().accept(this, null);
     return new Type.ArrayType(elemType, castToNonNull(ASTHelpers.getType(tree)).tsym);
@@ -44,50 +51,40 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
 
   @Override
   public Type visitParameterizedType(ParameterizedTypeTree tree, Void p) {
-    Type.ClassType type = (Type.ClassType) ASTHelpers.getType(tree);
-    Preconditions.checkNotNull(type);
-    Type nullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
+    Type.ClassType baseType = (Type.ClassType) tree.getType().accept(this, null);
     List<? extends Tree> typeArguments = tree.getTypeArguments();
     List<Type> newTypeArgs = new ArrayList<>();
     for (int i = 0; i < typeArguments.size(); i++) {
-      AnnotatedTypeTree annotatedType = null;
-      Tree curTypeArg = typeArguments.get(i);
-      // If the type argument has an annotation, it will either be an AnnotatedTypeTree, or a
-      // ParameterizedTypeTree in the case of a nested generic type
-      if (curTypeArg instanceof AnnotatedTypeTree) {
-        annotatedType = (AnnotatedTypeTree) curTypeArg;
-      } else if (curTypeArg instanceof ParameterizedTypeTree
-          && ((ParameterizedTypeTree) curTypeArg).getType() instanceof AnnotatedTypeTree) {
-        annotatedType = (AnnotatedTypeTree) ((ParameterizedTypeTree) curTypeArg).getType();
-      }
-      List<? extends AnnotationTree> annotations =
-          annotatedType != null ? annotatedType.getAnnotations() : Collections.emptyList();
-      boolean hasNullableAnnotation = false;
-      for (AnnotationTree annotation : annotations) {
-        if (ASTHelpers.isSameType(
-            nullableType, ASTHelpers.getType(annotation.getAnnotationType()), state)) {
-          hasNullableAnnotation = true;
-          break;
-        }
-      }
-      // construct a TypeMetadata object containing a nullability annotation if needed
-      com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotationCompound =
-          hasNullableAnnotation
-              ? com.sun.tools.javac.util.List.from(
-                  Collections.singletonList(
-                      new Attribute.TypeCompound(
-                          nullableType, com.sun.tools.javac.util.List.nil(), null)))
-              : com.sun.tools.javac.util.List.nil();
-      TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(nullableAnnotationCompound);
-      Type currentTypeArgType = curTypeArg.accept(this, null);
-      Type newTypeArgType =
-          TYPE_METADATA_BUILDER.cloneTypeWithMetadata(currentTypeArgType, typeMetadata);
-      newTypeArgs.add(newTypeArgType);
+      newTypeArgs.add(typeArguments.get(i).accept(this, null));
     }
-    Type.ClassType finalType =
-        new Type.ClassType(
-            type.getEnclosingType(), com.sun.tools.javac.util.List.from(newTypeArgs), type.tsym);
+    Type finalType = TYPE_METADATA_BUILDER.createWithBaseTypeAndTypeArgs(baseType, newTypeArgs);
     return finalType;
+  }
+
+  @Override
+  public Type visitAnnotatedType(AnnotatedTypeTree annotatedType, Void unused) {
+    List<? extends AnnotationTree> annotations = annotatedType.getAnnotations();
+    boolean hasNullableAnnotation = false;
+    Type nullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
+    for (AnnotationTree annotation : annotations) {
+      if (ASTHelpers.isSameType(
+          nullableType, ASTHelpers.getType(annotation.getAnnotationType()), state)) {
+        hasNullableAnnotation = true;
+        break;
+      }
+    }
+    // construct a TypeMetadata object containing a nullability annotation if needed
+    com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotationCompound =
+        hasNullableAnnotation
+            ? com.sun.tools.javac.util.List.from(
+                Collections.singletonList(
+                    new Attribute.TypeCompound(
+                        nullableType, com.sun.tools.javac.util.List.nil(), null)))
+            : com.sun.tools.javac.util.List.nil();
+    TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(nullableAnnotationCompound);
+    Type underlyingType = annotatedType.getUnderlyingType().accept(this, null);
+    Type newType = TYPE_METADATA_BUILDER.cloneTypeWithMetadata(underlyingType, typeMetadata);
+    return newType;
   }
 
   /** By default, just use the type computed by javac */
@@ -104,6 +101,8 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs);
 
     Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metaData);
+
+    Type createWithBaseTypeAndTypeArgs(Type baseType, List<Type> typeArgs);
   }
 
   /**
@@ -129,6 +128,15 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     public Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metadata) {
       return typeToBeCloned.cloneWithMetadata(metadata);
     }
+
+    @Override
+    public Type createWithBaseTypeAndTypeArgs(Type baseType, List<Type> typeArgs) {
+      return new Type.ClassType(
+          baseType.getEnclosingType(),
+          com.sun.tools.javac.util.List.from(typeArgs),
+          baseType.tsym,
+          baseType.getMetadata());
+    }
   }
 
   /**
@@ -138,11 +146,14 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
    */
   private static class JDK21TypeMetadataBuilder implements TypeMetadataBuilder {
 
-    private static final MethodHandle typeMetadataHandle = createHandle();
+    private static final MethodHandle typeMetadataConstructorHandle = createHandle();
     private static final MethodHandle addMetadataHandle =
         createVirtualMethodHandle(Type.class, TypeMetadata.class, Type.class, "addMetadata");
     private static final MethodHandle dropMetadataHandle =
         createVirtualMethodHandle(Type.class, Class.class, Type.class, "dropMetadata");
+    private static final MethodHandle getMetadataHandler = createGetMetadataHandle();
+    private static final MethodHandle classTypeConstructorHandle =
+        createClassTypeConstructorHandle();
 
     private static MethodHandle createHandle() {
       MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -152,6 +163,32 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
       } catch (NoSuchMethodException e) {
         throw new RuntimeException(e);
       } catch (IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    private static MethodHandle createGetMetadataHandle() {
+      MethodHandles.Lookup lookup = MethodHandles.lookup();
+      MethodType mt = MethodType.methodType(com.sun.tools.javac.util.List.class);
+      try {
+        return lookup.findVirtual(Type.class, "getMetadata", mt);
+      } catch (NoSuchMethodException | IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    private static MethodHandle createClassTypeConstructorHandle() {
+      try {
+        MethodHandles.Lookup lookup = MethodHandles.lookup();
+        MethodType methodType =
+            MethodType.methodType(
+                void.class, // return type for a constructor is void
+                Type.class,
+                com.sun.tools.javac.util.List.class,
+                Symbol.TypeSymbol.class,
+                com.sun.tools.javac.util.List.class);
+        return lookup.findConstructor(Type.ClassType.class, methodType);
+      } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new RuntimeException(e);
       }
     }
@@ -183,7 +220,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
       ListBuffer<Attribute.TypeCompound> b = new ListBuffer<>();
       b.appendList(attrs);
       try {
-        return (TypeMetadata) typeMetadataHandle.invoke(b);
+        return (TypeMetadata) typeMetadataConstructorHandle.invoke(b);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
@@ -205,6 +242,22 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
         Type clonedTypeWithoutMetadata =
             (Type) dropMetadataHandle.invoke(typeToBeCloned, metadata.getClass());
         return (Type) addMetadataHandle.invoke(clonedTypeWithoutMetadata, metadata);
+      } catch (Throwable e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public Type createWithBaseTypeAndTypeArgs(Type baseType, List<Type> typeArgs) {
+      try {
+        com.sun.tools.javac.util.List<TypeMetadata> metadata =
+            (com.sun.tools.javac.util.List<TypeMetadata>) getMetadataHandler.invoke(baseType);
+        return (Type)
+            classTypeConstructorHandle.invoke(
+                baseType.getEnclosingType(),
+                com.sun.tools.javac.util.List.from(typeArgs),
+                baseType.tsym,
+                metadata);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
