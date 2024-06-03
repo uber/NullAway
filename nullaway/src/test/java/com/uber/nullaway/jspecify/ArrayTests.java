@@ -357,7 +357,7 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void variableIndexArray() {
+  public void fieldAccessIndexArray() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -365,10 +365,10 @@ public class ArrayTests extends NullAwayTestsBase {
             "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "  static @Nullable String [] fizz = {\"1\"};",
-            "  static final Integer i = 0;",
+            "  static final Integer index = 0;",
             "  static void foo() {",
-            "  if (fizz[i]!=null) { ",
-            "   fizz[i].toString();",
+            "  if (fizz[index]!=null) { ",
+            "   fizz[index].toString();",
             "}",
             "    // BUG: Diagnostic contains: dereferenced expression fizz[i] is @Nullable",
             "   fizz[i].toString();",
@@ -392,6 +392,50 @@ public class ArrayTests extends NullAwayTestsBase {
             "}",
             "    // BUG: Diagnostic contains: dereferenced expression fizz[0] is @Nullable",
             "   fizz[0].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void localVariableIndexArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String[] fizz = {\"1\"};",
+            "  static void foo() {",
+            "    int index = 1;",
+            "    if (fizz[index] != null) {",
+            "      fizz[index].toString();",
+            "    }",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz[index] is @Nullable",
+            "    fizz[index].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void methodInvocationIndexArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String[] fizz = {\"1\"};",
+            "  static int getIndex() {",
+            "    return 0;",
+            "  }",
+            "  static void foo() {",
+            "    if (fizz[getIndex()] != null) {",
+            "      fizz[getIndex()].toString();",
+            "    }",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz[getIndex()] is @Nullable",
+            "    fizz[getIndex()].toString();",
             "  }",
             "}")
         .doTest();
