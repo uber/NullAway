@@ -378,7 +378,7 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void ConstantIndexArray() {
+  public void constantIndexArray() {
     makeHelper()
         .addSourceLines(
             "Test.java",
