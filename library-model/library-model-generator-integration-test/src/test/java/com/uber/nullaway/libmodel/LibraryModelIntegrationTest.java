@@ -8,6 +8,11 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
+/**
+ * Integration test for library model support. The library models are contained in the jar for the
+ * test-library-model-generator project, as a stubx file. These tests ensure that NullAway correctly
+ * loads the stubx file and reports the right errors based on those models.
+ */
 public class LibraryModelIntegrationTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
