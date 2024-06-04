@@ -47,6 +47,8 @@ public class LibraryModelIntegrationTest {
             "    test(annotationExample.makeUpperCase(\"nullaway\"));",
             "  }",
             "  static void testNegative() {",
+            "    // no error since nullReturn is annotated with javax.annotation.Nullable,",
+            "    // which is not considered when generating stubx files",
             "    test(annotationExample.nullReturn());",
             "  }",
             "}")
