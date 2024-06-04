@@ -26,16 +26,6 @@ public class ArrayIndexElement implements AccessPathElement {
     return this.javaElement;
   }
 
-  @Nullable
-  public Integer getConstantIndex() {
-    return this.constantIndex;
-  }
-
-  @Nullable
-  public Element getVariableElement() {
-    return this.variableElement;
-  }
-
   @Override
   public String toString() {
     return "ArrayIndexElement{"
