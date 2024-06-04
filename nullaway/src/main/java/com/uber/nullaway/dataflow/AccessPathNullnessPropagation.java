@@ -791,8 +791,26 @@ public class AccessPathNullnessPropagation
     Nullness resultNullness = defaultAssumption;
     // Unsoundly assume @NonNull, except in JSpecify mode where we check the type
     if (config.isJSpecifyMode()) {
-      AccessPath arrayAccessPath = AccessPath.getAccessPathForNode(node, state, apContext);
-      resultNullness = input.getRegularStore().getNullnessOfAccessPath(arrayAccessPath);
+      Symbol arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());
+      boolean isElementNullable = false;
+      if (arraySymbol != null) {
+        isElementNullable = NullabilityUtil.isArrayElementNullable(arraySymbol, config);
+      }
+
+      if (isElementNullable) {
+        AccessPath arrayAccessPath = AccessPath.getAccessPathForNode(node, state, apContext);
+        if (arrayAccessPath != null) {
+          @Nullable
+          Nullness accessPathNullness =
+              input.getRegularStore().getNullnessOfAccessPath(arrayAccessPath);
+          if (accessPathNullness == Nullness.NULLABLE) {
+            resultNullness = Nullness.NULLABLE;
+          }
+        }
+
+      } else {
+        resultNullness = Nullness.NONNULL;
+      }
     }
     return updateRegularStore(resultNullness, input, updates);
   }

@@ -418,14 +418,17 @@ public final class AccessPath implements MapKey {
       if (arrayElement == null) {
         return null;
       }
-      String indexValue = null;
       if (indexNode instanceof IntegerLiteralNode) {
         IntegerLiteralNode intIndexNode = (IntegerLiteralNode) indexNode;
-        indexValue = String.valueOf(intIndexNode.getValue());
-      } else if (indexNode instanceof LocalVariableNode) {
-        indexValue = indexNode.toString();
+        elements.push(new ArrayIndexElement(arrayElement, intIndexNode.getValue()));
+      } else {
+        Element indexElement = getElementFromArrayNode(indexNode);
+        if (indexElement != null) {
+          elements.push(new ArrayIndexElement(arrayElement, indexElement));
+        } else {
+          return null;
+        }
       }
-      elements.push(new ArrayIndexElement(arrayElement, indexValue));
       result = buildAccessPathRecursive(stripCasts(arrayNode), elements, apContext, mapKey);
     } else if (node instanceof MethodInvocationNode) {
       MethodInvocationNode invocation = (MethodInvocationNode) node;

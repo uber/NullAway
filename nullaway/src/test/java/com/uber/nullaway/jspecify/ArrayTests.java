@@ -365,10 +365,10 @@ public class ArrayTests extends NullAwayTestsBase {
             "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "  static @Nullable String [] fizz = {\"1\"};",
-            "  static final Integer index = 0;",
+            "  static final Integer i = 0;",
             "  static void foo() {",
-            "  if (fizz[index]!=null) { ",
-            "   fizz[index].toString();",
+            "  if (fizz[i]!=null) { ",
+            "   fizz[i].toString();",
             "}",
             "    // BUG: Diagnostic contains: dereferenced expression fizz[i] is @Nullable",
             "   fizz[i].toString();",
@@ -436,6 +436,25 @@ public class ArrayTests extends NullAwayTestsBase {
             "    }",
             "    // BUG: Diagnostic contains: dereferenced expression fizz[getIndex()] is @Nullable",
             "    fizz[getIndex()].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void forEachLoopOverArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "class Test {",
+            "  static String[] arr = {\"1\"};",
+            "  static void foo() {",
+            "    for (String s : arr) {",
+            "      s.toString();",
+            "    }",
             "  }",
             "}")
         .doTest();
