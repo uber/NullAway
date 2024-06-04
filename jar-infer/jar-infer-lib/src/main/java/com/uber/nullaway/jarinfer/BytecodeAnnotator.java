@@ -249,6 +249,10 @@ public final class BytecodeAnnotator {
       String manifestText = stringBuilder.toString();
       // Check for evidence of jar signing, note that lines can be split if too long so regex
       // matching line by line will have false negatives.
+      // NOTE: this code only handles the case where the message digest algorithm used when signing
+      // was SHA-256.  Eventually we may need a more robust solution for other digest algorithms.
+      // E.g., on JDK 21, the default message digest algorithm is SHA-384, and this code does not
+      // work for that algorithm (the DIGEST_ENTRY_PATTERN regex is hardcoded for SHA-256)
       String manifestMinusDigests = manifestText.replaceAll(DIGEST_ENTRY_PATTERN, "");
       if (!manifestText.equals(manifestMinusDigests) && !stripJarSignatures) {
         throw new SignedJarException(SIGNED_JAR_ERROR_MESSAGE);
