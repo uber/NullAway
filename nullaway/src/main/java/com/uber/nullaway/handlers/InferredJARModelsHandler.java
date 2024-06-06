@@ -68,7 +68,8 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   public InferredJARModelsHandler(Config config) {
     super();
     this.config = config;
-    this.cacheUtil = new StubxCacheUtil("JI");
+    String jarInferLogName = "JI";
+    this.cacheUtil = new StubxCacheUtil(jarInferLogName);
     argAnnotCache = cacheUtil.getArgAnnotCache();
     // Load Android SDK JarInfer models
     try {

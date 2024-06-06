@@ -1292,7 +1292,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private static final Map<String, Integer> upperBoundsCache;
 
     static {
-      StubxCacheUtil cacheUtil = new StubxCacheUtil("LM");
+      String libraryModelLogName = "LM";
+      StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
       argAnnotCache = cacheUtil.getArgAnnotCache();
       upperBoundsCache = cacheUtil.getUpperBoundCache();
     }

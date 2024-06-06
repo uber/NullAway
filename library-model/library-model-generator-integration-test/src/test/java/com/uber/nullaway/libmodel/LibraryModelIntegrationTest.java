@@ -145,9 +145,29 @@ public class LibraryModelIntegrationTest {
             "  static void test(Object value){",
             "  }",
             "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'upperBoundExample.getNull()'",
-            "    test(upperBoundExample.getNull());",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'upperBoundExample.getNullable()'",
+            "    test(upperBoundExample.getNullable());",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void libraryModelNullableUpperBoundsWithoutJarInferTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.libmodel.AnnotationExample;",
+            "class Test {",
+            "  //TODO: We should get an error here since jar infer is not enabled",
+            "  static AnnotationExample.UpperBoundExample<@Nullable Object> upperBoundExample = new AnnotationExample.UpperBoundExample<@Nullable Object>();",
             "}")
         .doTest();
   }

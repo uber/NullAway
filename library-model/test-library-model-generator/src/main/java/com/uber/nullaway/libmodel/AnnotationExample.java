@@ -42,8 +42,10 @@ public class AnnotationExample {
 
   public static class UpperBoundExample<T> {
 
-    public T getNull() {
-      return null;
+    T nullableObject;
+
+    public T getNullable() {
+      return nullableObject;
     }
   }
 }
