@@ -292,7 +292,8 @@ public class LibraryModelGenerator {
       for (int i = 0; i < typeParamList.size(); i++) {
         TypeParameter param = typeParamList.get(i);
         for (ClassOrInterfaceType type : param.getTypeBound()) {
-          if (type.isAnnotationPresent(NULLABLE)) {
+          Optional<AnnotationExpr> nullableAnnotation = type.getAnnotationByName(NULLABLE);
+          if (nullableAnnotation.isPresent() && isAnnotationNullable(nullableAnnotation.get())) {
             setBuilder.add(i);
           }
         }
