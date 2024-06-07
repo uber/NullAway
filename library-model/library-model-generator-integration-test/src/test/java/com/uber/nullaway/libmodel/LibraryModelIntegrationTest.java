@@ -166,14 +166,15 @@ public class LibraryModelIntegrationTest {
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
             "import com.uber.nullaway.libmodel.AnnotationExample;",
             "class Test {",
-            "  //TODO: We should get an error here since jar infer is not enabled",
+            "  // BUG: Diagnostic contains: Generic type parameter cannot be @Nullable",
             "  static AnnotationExample.UpperBoundExample<@Nullable Object> upperBoundExample = new AnnotationExample.UpperBoundExample<@Nullable Object>();",
             "}")
         .doTest();
