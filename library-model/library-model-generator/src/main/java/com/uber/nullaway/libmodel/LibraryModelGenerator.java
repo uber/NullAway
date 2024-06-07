@@ -32,6 +32,7 @@ import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.type.ArrayType;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
+import com.github.javaparser.ast.type.TypeParameter;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import com.github.javaparser.utils.CollectionStrategy;
 import com.github.javaparser.utils.ParserCollectionStrategy;
@@ -47,8 +48,10 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Utilized for generating an astubx file from a directory containing annotated Java source code.
@@ -59,21 +62,18 @@ import java.util.Optional;
  */
 public class LibraryModelGenerator {
 
-  public void generateAstubxForLibraryModels(String inputSourceDirectory, String outputDirectory) {
-    Map<String, MethodAnnotationsRecord> methodRecords = processDirectory(inputSourceDirectory);
-    writeToAstubx(outputDirectory, methodRecords);
-  }
-
   /**
    * Parses all the source files within the directory using javaparser.
    *
-   * @param sourceDirectoryRoot Directory containing annotated java source files.
-   * @return a Map containing the Nullability annotation information from the source files.
+   * @param inputSourceDirectory Directory containing annotated java source files.
+   * @param outputDirectory Directory to write the astubx file into.
    */
-  private Map<String, MethodAnnotationsRecord> processDirectory(String sourceDirectoryRoot) {
+  public void generateAstubxForLibraryModels(String inputSourceDirectory, String outputDirectory) {
     Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
-    Path root = dirnameToPath(sourceDirectoryRoot);
-    AnnotationCollectorCallback ac = new AnnotationCollectorCallback(methodRecords);
+    Map<String, Set<Integer>> nullableUpperBounds = new LinkedHashMap<>();
+    Path root = dirnameToPath(inputSourceDirectory);
+    AnnotationCollectorCallback ac =
+        new AnnotationCollectorCallback(methodRecords, nullableUpperBounds);
     CollectionStrategy strategy = new ParserCollectionStrategy();
     // Required to include directories that contain a module-info.java, which don't parse by
     // default.
@@ -90,7 +90,7 @@ public class LibraryModelGenerator {
                 throw new RuntimeException(e);
               }
             });
-    return methodRecords;
+    writeToAstubx(outputDirectory, methodRecords, nullableUpperBounds);
   }
 
   /**
@@ -100,8 +100,10 @@ public class LibraryModelGenerator {
    * @param methodRecords Map containing the collected Nullability annotation information.
    */
   private void writeToAstubx(
-      String outputPath, Map<String, MethodAnnotationsRecord> methodRecords) {
-    if (methodRecords.isEmpty()) {
+      String outputPath,
+      Map<String, MethodAnnotationsRecord> methodRecords,
+      Map<String, Set<Integer>> nullableUpperBounds) {
+    if (methodRecords.isEmpty() && nullableUpperBounds.isEmpty()) {
       return;
     }
     Map<String, String> importedAnnotations =
@@ -117,7 +119,8 @@ public class LibraryModelGenerator {
             importedAnnotations,
             Collections.emptyMap(),
             Collections.emptyMap(),
-            methodRecords);
+            methodRecords,
+            nullableUpperBounds);
       }
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -137,8 +140,11 @@ public class LibraryModelGenerator {
 
     private final AnnotationCollectionVisitor annotationCollectionVisitor;
 
-    public AnnotationCollectorCallback(Map<String, MethodAnnotationsRecord> methodRecords) {
-      this.annotationCollectionVisitor = new AnnotationCollectionVisitor(methodRecords);
+    public AnnotationCollectorCallback(
+        Map<String, MethodAnnotationsRecord> methodRecords,
+        Map<String, Set<Integer>> nullableUpperBounds) {
+      this.annotationCollectionVisitor =
+          new AnnotationCollectionVisitor(methodRecords, nullableUpperBounds);
     }
 
     @Override
@@ -158,14 +164,18 @@ public class LibraryModelGenerator {
     private String parentName = "";
     private boolean isJspecifyNullableImportPresent = false;
     private boolean isNullMarked = false;
-    private Map<String, MethodAnnotationsRecord> methodRecords;
+    private final Map<String, MethodAnnotationsRecord> methodRecords;
+    private final Map<String, Set<Integer>> nullableUpperBounds;
     private static final String ARRAY_RETURN_TYPE_STRING = "Array";
     private static final String NULL_MARKED = "NullMarked";
     private static final String NULLABLE = "Nullable";
     private static final String JSPECIFY_NULLABLE_IMPORT = "org.jspecify.annotations.Nullable";
 
-    public AnnotationCollectionVisitor(Map<String, MethodAnnotationsRecord> methodRecords) {
+    public AnnotationCollectionVisitor(
+        Map<String, MethodAnnotationsRecord> methodRecords,
+        Map<String, Set<Integer>> nullableUpperBounds) {
       this.methodRecords = methodRecords;
+      this.nullableUpperBounds = nullableUpperBounds;
     }
 
     @Override
@@ -197,6 +207,12 @@ public class LibraryModelGenerator {
                   this.isNullMarked = true;
                 }
               });
+      if (this.isNullMarked) {
+        Set<Integer> nullableUpperBoundParams = getGenericTypeParameterNullableUpperBounds(cid);
+        if (!nullableUpperBoundParams.isEmpty()) {
+          nullableUpperBounds.put(parentName, nullableUpperBoundParams);
+        }
+      }
       super.visit(cid, null);
       // We reset the variable that constructs the parent name after visiting all the children.
       parentName = parentName.substring(0, parentName.lastIndexOf("." + cid.getNameAsString()));
@@ -260,6 +276,29 @@ public class LibraryModelGenerator {
       return (annotation.getNameAsString().equalsIgnoreCase(NULLABLE)
               && this.isJspecifyNullableImportPresent)
           || annotation.getNameAsString().equalsIgnoreCase(JSPECIFY_NULLABLE_IMPORT);
+    }
+
+    /**
+     * Takes a ClassOrInterfaceDeclaration instance and returns a Map of the indexes and a set of
+     * annotations for generic type parameters with Nullable upper bounds.
+     *
+     * @param cid ClassOrInterfaceDeclaration instance.
+     * @return Set of indices for generic type parameters with Nullable upper bounds.
+     */
+    private ImmutableSet<Integer> getGenericTypeParameterNullableUpperBounds(
+        ClassOrInterfaceDeclaration cid) {
+      ImmutableSet.Builder<Integer> setBuilder = ImmutableSet.builder();
+      List<TypeParameter> typeParamList = cid.getTypeParameters();
+      for (int i = 0; i < typeParamList.size(); i++) {
+        TypeParameter param = typeParamList.get(i);
+        for (ClassOrInterfaceType type : param.getTypeBound()) {
+          Optional<AnnotationExpr> nullableAnnotation = type.getAnnotationByName(NULLABLE);
+          if (nullableAnnotation.isPresent() && isAnnotationNullable(nullableAnnotation.get())) {
+            setBuilder.add(i);
+          }
+        }
+      }
+      return setBuilder.build();
     }
   }
 }
