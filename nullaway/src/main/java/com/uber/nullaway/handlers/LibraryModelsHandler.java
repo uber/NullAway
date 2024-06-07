@@ -1288,10 +1288,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   /** Constructs Library Models from stubx files */
   private static class ExternalStubxLibraryModels implements LibraryModels {
 
-    private static final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
-    private static final Map<String, Integer> upperBoundsCache;
+    private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
+    private final Map<String, Integer> upperBoundsCache;
 
-    static {
+    ExternalStubxLibraryModels() {
       String libraryModelLogName = "LM";
       StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
       argAnnotCache = cacheUtil.getArgAnnotCache();
