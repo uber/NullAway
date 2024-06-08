@@ -54,8 +54,6 @@ Finally, in the `tasks.withType(JavaCompile)` section, we pass some configuratio
 
 We recommend addressing all the issues that Error Prone reports, particularly those reported as errors (rather than warnings).  But, if you'd like to try out NullAway without running other Error Prone checks, you can use `options.errorprone.disableAllChecks` (equivalent to passing `"-XepDisableAllChecks"` to the compiler, before the NullAway-specific arguments).
 
-Snapshots of the development version are available in [Sonatype's snapshots repository][snapshots].
-
 #### Android
 
 Versions 3.0.0 and later of the Gradle Error Prone Plugin [no longer support Android](https://github.com/tbroyer/gradle-errorprone-plugin/releases/tag/v3.0.0).  So if you're using a recent version of this plugin, you'll need to add some further configuration to run Error Prone and NullAway.  Our [sample app `build.gradle` file](https://github.com/uber/NullAway/blob/master/sample-app/build.gradle) shows one way to do this, but your Android project may require tweaks.  Alternately, 2.x versions of the Gradle Error Prone Plugin still support Android and may still work with your project.
@@ -141,5 +139,3 @@ you create a pull request, you will be asked to sign our [Uber Contributor Licen
 ## License
 
 NullAway is licensed under the MIT license.  See the LICENSE.txt file for more information.
-
- [snapshots]: https://oss.sonatype.org/content/repositories/snapshots/com/uber/nullaway/

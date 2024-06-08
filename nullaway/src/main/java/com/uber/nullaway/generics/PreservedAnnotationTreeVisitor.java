@@ -266,27 +266,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
 
   /** The TypeMetadataBuilder to be used for the current JDK version. */
   private static final TypeMetadataBuilder TYPE_METADATA_BUILDER =
-      getVersion() >= 21
+      Runtime.version().feature() >= 21
           ? new JDK21TypeMetadataBuilder()
           : new JDK17AndEarlierTypeMetadataBuilder();
-
-  /**
-   * Utility method to get the current JDK version, that works on Java 8 and above.
-   *
-   * <p>TODO remove this method once we drop support for Java 8
-   *
-   * @return the current JDK version
-   */
-  private static int getVersion() {
-    String version = System.getProperty("java.version");
-    if (version.startsWith("1.")) {
-      version = version.substring(2, 3);
-    } else {
-      int dot = version.indexOf(".");
-      if (dot != -1) {
-        version = version.substring(0, dot);
-      }
-    }
-    return Integer.parseInt(version);
-  }
 }
