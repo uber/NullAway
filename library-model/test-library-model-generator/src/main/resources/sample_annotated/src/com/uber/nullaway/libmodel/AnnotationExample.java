@@ -45,4 +45,13 @@ public class AnnotationExample {
             return null;
         }
     }
+
+    public static class UpperBoundExample<T extends @Nullable Object> {
+
+        T nullableObject;
+
+        public T getNullable() {
+            return nullableObject;
+        }
+    }
 }

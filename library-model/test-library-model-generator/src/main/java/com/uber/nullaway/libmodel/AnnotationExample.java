@@ -39,4 +39,14 @@ public class AnnotationExample {
       return null;
     }
   }
+
+  /** In the library model we add a {@code @Nullable} upper bound for T */
+  public static class UpperBoundExample<T> {
+
+    T nullableObject;
+
+    public T getNullable() {
+      return nullableObject;
+    }
+  }
 }

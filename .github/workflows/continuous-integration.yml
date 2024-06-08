@@ -44,24 +44,22 @@ jobs:
             17
             ${{ matrix.java }}
           distribution: 'temurin'
+      - name: Validate Gradle wrappers
+        uses: gradle/actions/wrapper-validation@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
       - name: Build and test using Java ${{ matrix.java }} and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
-        uses: gradle/gradle-build-action@v3
-        with:
-          arguments: build
+        run: ./gradlew build
       - name: Run shellcheck
-        uses: gradle/gradle-build-action@v3
-        with:
-          arguments: shellcheck
+        run: ./gradlew shellcheck
         if: runner.os == 'Linux'
       - name: Aggregate jacoco coverage
         id: jacoco_report
-        uses: gradle/gradle-build-action@v3
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
-        with:
-          arguments: codeCoverageReport
+        run: ./gradlew codeCoverageReport
         continue-on-error: true
         if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.27.1' && github.repository == 'uber/NullAway'
       - name: Upload coverage reports to Codecov
@@ -75,9 +73,7 @@ jobs:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
           ORG_GRADLE_PROJECT_VERSION_NAME: '0.0.0.1-LOCAL'
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'false'
-        uses: gradle/gradle-build-action@v3
-        with:
-          arguments: publishToMavenLocal
+        run: ./gradlew publishToMavenLocal
         if: matrix.java == '11'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh

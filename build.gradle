@@ -49,6 +49,14 @@ subprojects { project ->
     }
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)
+        // Always compile using JDK 17, independent of the JDK version used to run Gradle.
+        // We can't compile on JDK 21 since some internal javac APIs changed between 17
+        // and 21, and for now NullAway compiles against the JDK 17 APIs and uses reflection
+        // on JDK 21+.  This configuration means compilation will succeed even if Gradle
+        // is running on JDK 21+.
+        javaCompiler = javaToolchains.compilerFor {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
         options.compilerArgs += [
             "-Xlint:deprecation",
             "-Xlint:rawtypes",
