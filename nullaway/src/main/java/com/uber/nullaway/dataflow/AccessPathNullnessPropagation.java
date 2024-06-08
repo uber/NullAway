@@ -788,7 +788,7 @@ public class AccessPathNullnessPropagation
       ArrayAccessNode node, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates updates = new ReadableUpdates();
     setNonnullIfAnalyzeable(updates, node.getArray());
-    Nullness resultNullness = defaultAssumption;
+    Nullness resultNullness;
     // Unsoundly assume @NonNull, except in JSpecify mode where we check the type
     if (config.isJSpecifyMode()) {
       Symbol arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());
@@ -799,11 +799,12 @@ public class AccessPathNullnessPropagation
       if (isElementNullable) {
         AccessPath arrayAccessPath = AccessPath.getAccessPathForNode(node, state, apContext);
         if (arrayAccessPath != null) {
-          @Nullable
           Nullness accessPathNullness =
               input.getRegularStore().getNullnessOfAccessPath(arrayAccessPath);
           if (accessPathNullness == Nullness.NULLABLE) {
             resultNullness = Nullness.NULLABLE;
+          } else {
+            resultNullness = Nullness.NONNULL;
           }
         } else {
           resultNullness = Nullness.NULLABLE;

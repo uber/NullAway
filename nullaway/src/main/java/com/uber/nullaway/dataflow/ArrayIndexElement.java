@@ -15,16 +15,31 @@ public class ArrayIndexElement implements AccessPathElement {
   private final Element javaElement;
   private final Object index;
 
-  /**
-   * Constructs an ArrayIndexElement.
-   *
-   * @param javaElement The element of the array.
-   * @param index The index used to access the array. Must be either an Integer (for constant
-   *     indices) or an Element (for variable indices).
-   */
-  public ArrayIndexElement(Element javaElement, Object index) {
+  private ArrayIndexElement(Element javaElement, Object index) {
     this.javaElement = javaElement;
     this.index = index;
+  }
+
+  /**
+   * Creates an ArrayIndexElement with an integer index.
+   *
+   * @param javaElement the element of the array
+   * @param index the integer index to access the array
+   * @return an instance of ArrayIndexElement
+   */
+  public static ArrayIndexElement withIntegerIndex(Element javaElement, Integer index) {
+    return new ArrayIndexElement(javaElement, index);
+  }
+
+  /**
+   * Creates an ArrayIndexElement with a local variable or field index.
+   *
+   * @param javaElement the element of the array
+   * @param indexElement the local variable or field element representing the index
+   * @return an instance of ArrayIndexElement
+   */
+  public static ArrayIndexElement withVariableIndex(Element javaElement, Element indexElement) {
+    return new ArrayIndexElement(javaElement, indexElement);
   }
 
   @Override

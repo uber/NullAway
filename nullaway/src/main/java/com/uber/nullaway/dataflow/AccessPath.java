@@ -419,10 +419,10 @@ public final class AccessPath implements MapKey {
       }
       if (indexNode instanceof IntegerLiteralNode) {
         IntegerLiteralNode intIndexNode = (IntegerLiteralNode) indexNode;
-        elements.push(new ArrayIndexElement(arrayElement, intIndexNode.getValue()));
+        elements.push(ArrayIndexElement.withIntegerIndex(arrayElement, intIndexNode.getValue()));
       } else {
         if (indexElement != null) {
-          elements.push(new ArrayIndexElement(arrayElement, indexElement));
+          elements.push(ArrayIndexElement.withVariableIndex(arrayElement, indexElement));
         } else {
           return null;
         }
