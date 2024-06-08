@@ -7,6 +7,13 @@ import java.util.Objects;
 import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 
+/**
+ * Represents a (non-root) field or method call element of an AccessPath.
+ *
+ * <p>This is just a java Element (field or method call) in the access-path chain (e.g. f or g() in
+ * x.f.g()). Plus, optionally, a list of constant arguments, allowing access path elements for
+ * method calls with constant values (e.g. h(3) or k("STR_KEY") in x.h(3).g().k("STR_KEY")).
+ */
 public class FieldOrMethodCallElement implements AccessPathElement {
   private final Element javaElement;
   @Nullable private final ImmutableList<String> constantArguments;

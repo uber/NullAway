@@ -1,24 +1,30 @@
 package com.uber.nullaway.dataflow;
 
 import java.util.Objects;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 
+/**
+ * Represents an array index element of an AccessPath, encapsulating access to array elements either
+ * via constant or variable indices.
+ *
+ * <p>This class holds an element that represents the array itself and an index that specifies the
+ * position within the array. The index can be a constant (Integer) if it's statically known, or an
+ * Element representing a variable index.
+ */
 public class ArrayIndexElement implements AccessPathElement {
   private final Element javaElement;
-  @Nullable private final Integer constantIndex;
-  @Nullable private final Element variableElement;
+  private final Object index;
 
-  public ArrayIndexElement(Element javaElement, Integer constantIndex) {
+  /**
+   * Constructs an ArrayIndexElement.
+   *
+   * @param javaElement The element of the array.
+   * @param index The index used to access the array. Must be either an Integer (for constant
+   *     indices) or an Element (for variable indices).
+   */
+  public ArrayIndexElement(Element javaElement, Object index) {
     this.javaElement = javaElement;
-    this.constantIndex = constantIndex;
-    this.variableElement = null;
-  }
-
-  public ArrayIndexElement(Element javaElement, Element variableElement) {
-    this.javaElement = javaElement;
-    this.variableElement = variableElement;
-    this.constantIndex = null;
+    this.index = index;
   }
 
   @Override
@@ -31,10 +37,8 @@ public class ArrayIndexElement implements AccessPathElement {
     return "ArrayIndexElement{"
         + "javaElement="
         + javaElement
-        + ", constantIndex="
-        + constantIndex
-        + ", variableElement="
-        + (variableElement != null ? variableElement.getSimpleName() : null)
+        + ", index="
+        + (index instanceof Element ? ((Element) index).getSimpleName() : index)
         + '}';
   }
 
@@ -42,9 +46,7 @@ public class ArrayIndexElement implements AccessPathElement {
   public boolean equals(Object obj) {
     if (obj instanceof ArrayIndexElement) {
       ArrayIndexElement other = (ArrayIndexElement) obj;
-      return Objects.equals(javaElement, other.javaElement)
-          && Objects.equals(constantIndex, other.constantIndex)
-          && Objects.equals(variableElement, other.variableElement);
+      return Objects.equals(javaElement, other.javaElement) && Objects.equals(index, other.index);
     }
     return false;
   }
@@ -52,10 +54,7 @@ public class ArrayIndexElement implements AccessPathElement {
   @Override
   public int hashCode() {
     int result = javaElement.hashCode();
-    result =
-        31 * result
-            + (constantIndex != null ? constantIndex.hashCode() : 0)
-            + (variableElement != null ? variableElement.hashCode() : 0);
+    result = 31 * result + (index != null ? index.hashCode() : 0);
     return result;
   }
 }

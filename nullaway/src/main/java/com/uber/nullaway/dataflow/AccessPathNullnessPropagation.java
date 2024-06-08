@@ -796,7 +796,6 @@ public class AccessPathNullnessPropagation
       if (arraySymbol != null) {
         isElementNullable = NullabilityUtil.isArrayElementNullable(arraySymbol, config);
       }
-
       if (isElementNullable) {
         AccessPath arrayAccessPath = AccessPath.getAccessPathForNode(node, state, apContext);
         if (arrayAccessPath != null) {
@@ -806,11 +805,15 @@ public class AccessPathNullnessPropagation
           if (accessPathNullness == Nullness.NULLABLE) {
             resultNullness = Nullness.NULLABLE;
           }
+        } else {
+          resultNullness = Nullness.NULLABLE;
         }
 
       } else {
         resultNullness = Nullness.NONNULL;
       }
+    } else {
+      resultNullness = Nullness.NONNULL;
     }
     return updateRegularStore(resultNullness, input, updates);
   }

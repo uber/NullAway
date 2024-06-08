@@ -353,8 +353,6 @@ public final class AccessPath implements MapKey {
       return ((LocalVariableNode) arrayNode).getElement();
     } else if (arrayNode instanceof FieldAccessNode) {
       return ((FieldAccessNode) arrayNode).getElement();
-    } else if (arrayNode instanceof MethodInvocationNode) {
-      return ASTHelpers.getSymbol(((MethodInvocationNode) arrayNode).getTree());
     } else {
       return null;
     }
@@ -412,9 +410,10 @@ public final class AccessPath implements MapKey {
       }
     } else if (node instanceof ArrayAccessNode) {
       ArrayAccessNode arrayAccess = (ArrayAccessNode) node;
-      Node arrayNode = arrayAccess.getArray();
+      Node arrayNode = stripCasts(arrayAccess.getArray());
       Node indexNode = arrayAccess.getIndex();
       Element arrayElement = getElementFromArrayNode(arrayNode);
+      Element indexElement = getElementFromArrayNode(indexNode);
       if (arrayElement == null) {
         return null;
       }
@@ -422,14 +421,13 @@ public final class AccessPath implements MapKey {
         IntegerLiteralNode intIndexNode = (IntegerLiteralNode) indexNode;
         elements.push(new ArrayIndexElement(arrayElement, intIndexNode.getValue()));
       } else {
-        Element indexElement = getElementFromArrayNode(indexNode);
         if (indexElement != null) {
           elements.push(new ArrayIndexElement(arrayElement, indexElement));
         } else {
           return null;
         }
       }
-      result = buildAccessPathRecursive(stripCasts(arrayNode), elements, apContext, mapKey);
+      result = buildAccessPathRecursive(arrayNode, elements, apContext, mapKey);
     } else if (node instanceof MethodInvocationNode) {
       MethodInvocationNode invocation = (MethodInvocationNode) node;
       AccessPathElement accessPathElement;
