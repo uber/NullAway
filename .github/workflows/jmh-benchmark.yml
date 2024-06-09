@@ -25,7 +25,7 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
       run: |
         chmod +x ./.github/workflows/get_repo_details.sh 
-        ./.github/workflows/get_repo_details.sh "${{ secrets.GITHUB_TOKEN }}" "${{ github.event.issue.number }}" "${{ github.repository }}"
+        ./.github/workflows/get_repo_details.sh "${{ secrets.GITHUB_TOKEN }}" "${{ github.event.number }}" "${{ github.event.repository }}"
 
     - id: 'auth'
       name: Authenticating 
