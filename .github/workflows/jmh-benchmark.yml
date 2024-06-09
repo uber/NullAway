@@ -20,12 +20,15 @@ jobs:
     - name: Checkout repository 
       uses: actions/checkout@v4
 
+    - name: Print repo name
+    - run: echo ${{ github.repository }}
+      
     - name: Set branch name 
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
       run: |
         chmod +x ./.github/workflows/get_repo_details.sh 
-        ./.github/workflows/get_repo_details.sh "${{ secrets.GITHUB_TOKEN }}" "${{ github.event.number }}" "${{ github.event.repository }}"
+        ./.github/workflows/get_repo_details.sh "${{ secrets.GITHUB_TOKEN }}" "${{ github.event.number }}" "${{ github.repository }}"
 
     - id: 'auth'
       name: Authenticating 
