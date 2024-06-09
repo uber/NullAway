@@ -21,7 +21,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: Print repo name
-    - run: echo ${{ github.repository }}
+      run: echo ${{ github.repository }}
       
     - name: Set branch name 
       env:
