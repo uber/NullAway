@@ -1,8 +1,8 @@
-# This GitHub Actions workflow runs JMH benchmarks when a new comment is created on a pull request
+# This GitHub Actions workflow runs JMH benchmarks when requested
 name: Run JMH Benchmarks for Pull Request
 
 on:
-  pull_request: # This workflow triggers when a comment is created
+  pull_request: # Trigger when a label is added.  Only contributors have permissions to add labels
     types: [labeled]
 
 # Only allow one instance of JMH benchmarking to be running at any given time
@@ -10,7 +10,7 @@ concurrency: all
 
 jobs:
   benchmarking:
-    # Only run this job if a comment on a pull request contains '/benchmark' and is a PR on the uber/NullAway repository
+    # Only run this job if the label is 'run-benchmarks' and the PR in on the uber/NullAway repository
     if: github.event.label.name == 'run-benchmarks'
     runs-on: ubuntu-latest 
     permissions: write-all 
