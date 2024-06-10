@@ -11,7 +11,7 @@ concurrency: all
 jobs:
   benchmarking:
     # Only run this job if the label is 'run-benchmarks' and the PR in on the uber/NullAway repository
-    if: github.event.label.name == 'run-benchmarks'
+    if: github.event.label.name == 'run-benchmarks' && github.repository == 'uber/NullAway'
     runs-on: ubuntu-latest 
     permissions: write-all 
 
@@ -20,10 +20,7 @@ jobs:
     - name: Checkout repository 
       uses: actions/checkout@v4
 
-    - name: Print repo name
-      run: echo ${{ github.repository }}
-      
-    - name: Set branch name 
+    - name: Set branch name
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
       run: |
