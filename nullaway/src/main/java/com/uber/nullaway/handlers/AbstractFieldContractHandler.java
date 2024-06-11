@@ -65,9 +65,11 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    */
   @Override
   public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
+
+    Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
+    VisitorState visitorState = methodAnalysisContext.state();
     Set<String> annotationContent =
-        NullabilityUtil.getAnnotationValueArray(
-            methodAnalysisContext.getMethodSymbol(), annotName, false);
+        NullabilityUtil.getAnnotationValueArray(methodSymbol, annotName, false);
     boolean isAnnotated = annotationContent != null;
     boolean isValid =
         isAnnotated
@@ -78,8 +80,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
       return;
     }
     Symbol.MethodSymbol closestOverriddenMethod =
-        NullabilityUtil.getClosestOverriddenMethod(
-            methodAnalysisContext.getMethodSymbol(), methodAnalysisContext.getState().getTypes());
+        NullabilityUtil.getClosestOverriddenMethod(methodSymbol, visitorState.getTypes());
     if (closestOverriddenMethod == null) {
       return;
     }
@@ -90,11 +91,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
       fieldNames = Collections.emptySet();
     }
     validateOverridingRules(
-        fieldNames,
-        methodAnalysisContext.getAnalysis(),
-        methodAnalysisContext.getState(),
-        tree,
-        closestOverriddenMethod);
+        fieldNames, methodAnalysisContext.analysis(), visitorState, tree, closestOverriddenMethod);
     super.onMatchMethod(tree, methodAnalysisContext);
   }
 
@@ -147,24 +144,23 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   protected boolean validateAnnotationSyntax(
       Set<String> content, MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     String message;
+    VisitorState visitorState = methodAnalysisContext.state();
+    NullAway analysis = methodAnalysisContext.analysis();
     if (content.isEmpty()) {
       // we should not allow useless annotations.
       message =
           "empty @"
               + annotName
               + " is the default precondition for every method, please remove it.";
-      methodAnalysisContext
-          .getState()
-          .reportMatch(
-              methodAnalysisContext
-                  .getAnalysis()
-                  .getErrorBuilder()
-                  .createErrorDescription(
-                      new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                      tree,
-                      methodAnalysisContext.getAnalysis().buildDescription(tree),
-                      methodAnalysisContext.getState(),
-                      null));
+      visitorState.reportMatch(
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                  tree,
+                  analysis.buildDescription(tree),
+                  visitorState,
+                  null));
       return false;
     } else {
       for (String fieldName : content) {
@@ -177,26 +173,23 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                     + fieldName
                     + " is not supported";
 
-            methodAnalysisContext
-                .getState()
-                .reportMatch(
-                    methodAnalysisContext
-                        .getAnalysis()
-                        .getErrorBuilder()
-                        .createErrorDescription(
-                            new ErrorMessage(
-                                ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                            tree,
-                            methodAnalysisContext.getAnalysis().buildDescription(tree),
-                            methodAnalysisContext.getState(),
-                            null));
+            visitorState.reportMatch(
+                analysis
+                    .getErrorBuilder()
+                    .createErrorDescription(
+                        new ErrorMessage(
+                            ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                        tree,
+                        analysis.buildDescription(tree),
+                        visitorState,
+                        null));
             return false;
           } else {
             fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
           }
         }
         Symbol.ClassSymbol classSymbol =
-            castToNonNull(ASTHelpers.enclosingClass(methodAnalysisContext.getMethodSymbol()));
+            castToNonNull(ASTHelpers.enclosingClass(methodAnalysisContext.methodSymbol()));
         VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
         if (field == null) {
           message =
@@ -206,19 +199,16 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                   + fieldName
                   + " in class "
                   + classSymbol.getSimpleName();
-          methodAnalysisContext
-              .getState()
-              .reportMatch(
-                  methodAnalysisContext
-                      .getAnalysis()
-                      .getErrorBuilder()
-                      .createErrorDescription(
-                          new ErrorMessage(
-                              ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                          tree,
-                          methodAnalysisContext.getAnalysis().buildDescription(tree),
-                          methodAnalysisContext.getState(),
-                          null));
+
+          visitorState.reportMatch(
+              analysis
+                  .getErrorBuilder()
+                  .createErrorDescription(
+                      new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                      tree,
+                      analysis.buildDescription(tree),
+                      visitorState,
+                      null));
           return false;
         }
       }

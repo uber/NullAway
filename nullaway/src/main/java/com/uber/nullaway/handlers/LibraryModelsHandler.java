@@ -189,16 +189,14 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       List<? extends ExpressionTree> actualParams,
       @Nullable Integer previousArgumentPosition,
       MethodAnalysisContext methodAnalysisContext) {
+    Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
     OptimizedLibraryModels optLibraryModels =
-        getOptLibraryModels(methodAnalysisContext.getState().context);
-    ImmutableSet<Integer> newPositions =
-        optLibraryModels.castToNonNullMethod(methodAnalysisContext.getMethodSymbol());
+        getOptLibraryModels(methodAnalysisContext.state().context);
+    ImmutableSet<Integer> newPositions = optLibraryModels.castToNonNullMethod(methodSymbol);
     if (newPositions.size() > 1) {
       // Library models sanity check
       String qualifiedName =
-          ASTHelpers.enclosingClass(methodAnalysisContext.getMethodSymbol())
-              + "."
-              + methodAnalysisContext.getMethodSymbol().getSimpleName().toString();
+          ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
       throw new IllegalStateException(
           "Found multiple applicable castToNonNull library models for the same method signature: "
               + qualifiedName);

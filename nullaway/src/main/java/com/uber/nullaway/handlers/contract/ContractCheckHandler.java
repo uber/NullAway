@@ -35,6 +35,7 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
@@ -71,21 +72,11 @@ public class ContractCheckHandler extends BaseNoOpHandler {
       }
 
       String clause = clauses[0];
+      NullAway analysis = methodAnalysisContext.analysis();
+      VisitorState visitorState = methodAnalysisContext.state();
       String[] antecedent =
-          getAntecedent(
-              clause,
-              tree,
-              methodAnalysisContext.getAnalysis(),
-              methodAnalysisContext.getState(),
-              callee,
-              tree.getParameters().size());
-      String consequent =
-          getConsequent(
-              clause,
-              tree,
-              methodAnalysisContext.getAnalysis(),
-              methodAnalysisContext.getState(),
-              callee);
+          getAntecedent(clause, tree, analysis, visitorState, callee, tree.getParameters().size());
+      String consequent = getConsequent(clause, tree, analysis, visitorState, callee);
 
       boolean supported = true;
 
@@ -111,11 +102,9 @@ public class ContractCheckHandler extends BaseNoOpHandler {
         @Override
         public Void visitReturn(ReturnTree returnTree, Void unused) {
 
-          final VisitorState returnState =
-              methodAnalysisContext.getState().withPath(getCurrentPath());
+          final VisitorState returnState = visitorState.withPath(getCurrentPath());
           final Nullness nullness =
-              methodAnalysisContext
-                  .getAnalysis()
+              analysis
                   .getNullnessAnalysis(returnState)
                   .getNullnessForContractDataflow(
                       new TreePath(returnState.getPath(), returnTree.getExpression()),
@@ -159,20 +148,19 @@ public class ContractCheckHandler extends BaseNoOpHandler {
             }
 
             returnState.reportMatch(
-                methodAnalysisContext
-                    .getAnalysis()
+                analysis
                     .getErrorBuilder()
                     .createErrorDescription(
                         new ErrorMessage(
                             ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
                         returnTree,
-                        methodAnalysisContext.getAnalysis().buildDescription(returnTree),
+                        analysis.buildDescription(returnTree),
                         returnState,
                         null));
           }
           return super.visitReturn(returnTree, null);
         }
-      }.scan(methodAnalysisContext.getState().getPath(), null);
+      }.scan(visitorState.getPath(), null);
     }
   }
 }

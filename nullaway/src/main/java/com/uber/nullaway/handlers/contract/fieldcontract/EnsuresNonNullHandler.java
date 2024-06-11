@@ -72,22 +72,22 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
   @Override
   protected boolean validateAnnotationSemantics(
       MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
+    NullAway analysis = methodAnalysisContext.analysis();
+    VisitorState visitorState = methodAnalysisContext.state();
+    Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
     String message;
     if (tree.getBody() == null) {
       return true;
     }
     Set<String> nonnullFieldsOfReceiverAtExit =
-        methodAnalysisContext
-            .getAnalysis()
-            .getNullnessAnalysis(methodAnalysisContext.getState())
+        analysis
+            .getNullnessAnalysis(visitorState)
             .getNonnullFieldsOfReceiverAtExit(
-                new TreePath(methodAnalysisContext.getState().getPath(), tree),
-                methodAnalysisContext.getState().context)
+                new TreePath(visitorState.getPath(), tree), visitorState.context)
             .stream()
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
-    Set<String> fieldNames =
-        getAnnotationValueArray(methodAnalysisContext.getMethodSymbol(), annotName, false);
+    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames == null) {
       fieldNames = Collections.emptySet();
     }
@@ -97,24 +97,20 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       fieldNames.removeAll(nonnullFieldsOfReceiverAtExit);
       message =
           "method: "
-              + methodAnalysisContext.getMethodSymbol()
+              + methodSymbol
               + " is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter"
               + " must be guaranteed to be nonnull at exit point. However, the method's body fails to ensure this for the following fields: "
               + fieldNames;
 
-      methodAnalysisContext
-          .getState()
-          .reportMatch(
-              methodAnalysisContext
-                  .getAnalysis()
-                  .getErrorBuilder()
-                  .createErrorDescription(
-                      new ErrorMessage(
-                          ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED, message),
-                      tree,
-                      methodAnalysisContext.getAnalysis().buildDescription(tree),
-                      methodAnalysisContext.getState(),
-                      null));
+      visitorState.reportMatch(
+          analysis
+              .getErrorBuilder()
+              .createErrorDescription(
+                  new ErrorMessage(ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED, message),
+                  tree,
+                  analysis.buildDescription(tree),
+                  visitorState,
+                  null));
       return false;
     }
     return true;

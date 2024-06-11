@@ -131,20 +131,20 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
   @Override
   public void onMatchMethodInvocation(
       MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
-    Set<String> fieldNames =
-        getAnnotationValueArray(methodAnalysisContext.getMethodSymbol(), annotName, false);
+
+    VisitorState visitorState = methodAnalysisContext.state();
+    Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
+    NullAway analysis = methodAnalysisContext.analysis();
+    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames == null) {
       super.onMatchMethodInvocation(tree, methodAnalysisContext);
       return;
     }
     fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
-      Symbol.ClassSymbol classSymbol =
-          ASTHelpers.enclosingClass(methodAnalysisContext.getMethodSymbol());
+      Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
       Preconditions.checkNotNull(
-          classSymbol,
-          "Could not find the enclosing class for method symbol: "
-              + methodAnalysisContext.getMethodSymbol());
+          classSymbol, "Could not find the enclosing class for method symbol: " + methodSymbol);
       VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
       if (field == null) {
         // we will report an error on the method declaration
@@ -152,31 +152,22 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       }
       ExpressionTree methodSelectTree = tree.getMethodSelect();
       Nullness nullness =
-          methodAnalysisContext
-              .getAnalysis()
-              .getNullnessAnalysis(methodAnalysisContext.getState())
+          analysis
+              .getNullnessAnalysis(visitorState)
               .getNullnessOfFieldForReceiverTree(
-                  methodAnalysisContext.getState().getPath(),
-                  methodAnalysisContext.getState().context,
-                  methodSelectTree,
-                  field,
-                  true);
+                  visitorState.getPath(), visitorState.context, methodSelectTree, field, true);
       if (NullabilityUtil.nullnessToBool(nullness)) {
         String message = "Expected field " + fieldName + " to be non-null at call site";
 
-        methodAnalysisContext
-            .getState()
-            .reportMatch(
-                methodAnalysisContext
-                    .getAnalysis()
-                    .getErrorBuilder()
-                    .createErrorDescription(
-                        new ErrorMessage(
-                            ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED, message),
-                        tree,
-                        methodAnalysisContext.getAnalysis().buildDescription(tree),
-                        methodAnalysisContext.getState(),
-                        null));
+        visitorState.reportMatch(
+            analysis
+                .getErrorBuilder()
+                .createErrorDescription(
+                    new ErrorMessage(ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED, message),
+                    tree,
+                    analysis.buildDescription(tree),
+                    visitorState,
+                    null));
       }
     }
   }
