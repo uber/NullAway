@@ -58,6 +58,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -449,7 +450,13 @@ public class DefinitelyDerefedParamsDriver {
           nullableReturnMethodSign,
           MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
     }
-    StubxWriter.write(out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
+    StubxWriter.write(
+        out,
+        importedAnnotations,
+        packageAnnotations,
+        typeAnnotations,
+        methodRecords,
+        Collections.emptyMap());
   }
 
   private void writeAnnotations(String inPath, String outFile) throws IOException {

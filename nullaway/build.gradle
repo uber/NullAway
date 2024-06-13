@@ -82,35 +82,31 @@ javadoc {
 apply plugin: 'com.vanniktech.maven.publish'
 
 // These --add-exports arguments are required when targeting JDK 11+ since Error Prone and NullAway access a bunch of
-// JDK-internal APIs that are not exposed otherwise.  Since we currently target JDK 8, we do not need to pass the
-// arguments, as encapsulation of JDK internals is not enforced on JDK 8.  In fact, the arguments cause a compiler error
-// when targeting JDK 8.  Leaving commented so we can easily add them back once we target JDK 11.
-//    tasks.withType(JavaCompile).configureEach {
-//        options.compilerArgs += [
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-//                "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
-//        ]
-//    }
+// JDK-internal APIs that are not exposed otherwise.
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
+    ]
+}
 
-// Create a task to test on JDK 8
-// NOTE: even when we drop JDK 8 support, we will still need a test task similar to this one for testing building
-// against a recent JDK and Error Prone version but then running on the oldest supported JDK and Error Prone version,
-// to check for binary compatibility issues.
-def jdk8Test = tasks.register("testJdk8", Test) {
+// Create a task to test with the oldest supported version of Error Prone
+// (while still building against the latest supported version)
+def epOldestTest = tasks.register("testErrorProneOldest", Test) {
     javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(8)
+        languageVersion = JavaLanguageVersion.of(11)
     }
 
-    description = "Runs the test suite on JDK 8"
+    description = "Runs the test suite using the oldest supported version of Error Prone"
     group = LifecycleBasePlugin.VERIFICATION_GROUP
 
     // Copy inputs from normal Test task.
@@ -121,18 +117,25 @@ def jdk8Test = tasks.register("testJdk8", Test) {
     classpath = configurations.errorProneOldest + testTask.classpath
 
     testClassesDirs = testTask.testClassesDirs
-    jvmArgs "-Xbootclasspath/p:${configurations.errorproneJavac.asPath}"
-    filter {
-        // JDK 8 does not support diamonds on anonymous classes
-        excludeTestsMatching "com.uber.nullaway.jspecify.GenericsTests.overrideDiamondAnonymousClass"
-        // tests cannot run on JDK 8 since Mockito version no longer supports it
-        excludeTestsMatching "com.uber.nullaway.SerializationTest.initializationError"
-        excludeTestsMatching "com.uber.nullaway.handlers.contract.ContractUtilsTest.getEmptyAntecedent"
-    }
+
+    jvmArgs += [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        // Accessed by Lombok tests
+        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+    ]
 }
 
 tasks.named('check').configure {
-    dependsOn(jdk8Test)
+    dependsOn(epOldestTest)
 }
 
 // Create a task to build NullAway with NullAway checking enabled

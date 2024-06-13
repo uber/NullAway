@@ -17,7 +17,7 @@ import org.gradle.util.VersionNumber
  */
 
 // The oldest version of Error Prone that we support running on
-def oldestErrorProneVersion = "2.10.0"
+def oldestErrorProneVersion = "2.14.0"
 // Latest released Error Prone version that we've tested with
 def latestErrorProneVersion = "2.27.1"
 // Default to using latest tested Error Prone version
@@ -75,7 +75,7 @@ def build = [
     errorProneTestHelpersOld: "com.google.errorprone:error_prone_test_helpers:${oldestErrorProneVersion}",
     checkerDataflow         : "org.checkerframework:dataflow-nullaway:${versions.checkerFramework}",
     guava                   : "com.google.guava:guava:30.1-jre",
-    javaparser              : "com.github.javaparser:javaparser-core:3.25.8",
+    javaparser              : "com.github.javaparser:javaparser-core:3.26.0",
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
     jspecify                : "org.jspecify:jspecify:0.3.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",

@@ -4,12 +4,6 @@ plugins {
     id "com.github.johnrengelman.shadow"
 }
 
-// JarInfer requires JDK 11+, due to its dependence on WALA
-tasks.withType(JavaCompile) {
-    java.sourceCompatibility = JavaVersion.VERSION_11
-    java.targetCompatibility = JavaVersion.VERSION_11
-}
-
 repositories {
     mavenCentral()
 }
