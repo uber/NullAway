@@ -55,11 +55,20 @@ jobs:
         (echo 'Main Branch:'; echo '```' ; cat main_text.txt; echo '```'; echo 'With This PR:'; echo '```' ; cat pr_text.txt; echo '```') > benchmark.txt
    
     - name: Comment Benchmark
-      uses: mshick/add-pr-comment@v2
-      if: always() # This step is for adding the comment
-      with:         
-        message-path: benchmark.txt  # The path to the message file to leave as a comment
-        message-id: benchmark
+      uses: actions/github-script@v7
+      if: always()
+      with:
+        script: |
+          const fs = require('fs');
+          const path = 'benchmark.txt';
+          const output = fs.readFileSync(path, 'utf8');
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+            });
+
     - name: Stop VM
       if: always()
       run: gcloud compute instances stop nullway-jmh --zone=us-central1-a
