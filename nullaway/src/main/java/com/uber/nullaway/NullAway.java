@@ -738,16 +738,14 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
-
     if (config.isJSpecifyMode()) {
-      Symbol calledClass = ASTHelpers.getSymbol(tree);
-      boolean isNullUnmarked = codeAnnotationInfo.isSymbolUnannotated(calledClass, config, handler);
+      Symbol baseClass = ASTHelpers.getSymbol(tree);
+      boolean isNullUnmarked = codeAnnotationInfo.isSymbolUnannotated(baseClass, config, handler);
       if (!isNullUnmarked) {
         GenericsChecks.checkInstantiationForParameterizedTypedTree(
             tree, state, this, config, handler);
       }
     }
-
     return Description.NO_MATCH;
   }
 
