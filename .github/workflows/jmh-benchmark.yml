@@ -1,0 +1,77 @@
+# This GitHub Actions workflow runs JMH benchmarks when requested
+name: Run JMH Benchmarks for Pull Request
+
+on:
+  pull_request: # Trigger when a label is added.  Only contributors have permissions to add labels
+    types: [labeled]
+
+# Only allow one instance of JMH benchmarking to be running at any given time
+concurrency: all
+
+jobs:
+  benchmarking:
+    # Only run this job if the label is 'run-benchmarks' and the PR in on the uber/NullAway repository
+    if: github.event.label.name == 'run-benchmarks' && github.repository == 'uber/NullAway'
+    runs-on: ubuntu-latest 
+    permissions: write-all 
+
+    steps:
+
+    - name: Checkout repository 
+      uses: actions/checkout@v4
+
+    - name: Set branch name
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+      run: |
+        chmod +x ./.github/workflows/get_repo_details.sh 
+        ./.github/workflows/get_repo_details.sh "${{ secrets.GITHUB_TOKEN }}" "${{ github.event.number }}" "${{ github.repository }}"
+
+    - id: 'auth'
+      name: Authenticating 
+      uses: google-github-actions/auth@v2
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY_1 }}' 
+
+    - name: Set up Google Cloud SDK 
+      uses: google-github-actions/setup-gcloud@v2
+      
+    - name: Start VM
+      run: gcloud compute instances start nullway-jmh --zone=us-central1-a
+      
+    - name: Run benchmarks 
+      run: |
+        chmod +x ./.github/workflows/run_gcp_benchmarks.sh
+        ./.github/workflows/run_gcp_benchmarks.sh 
+        
+    - name: Cleanup
+      # Delete the branch directory on the Google Cloud instance
+      if: always()
+      run: |
+        ./.github/workflows/gcloud_ssh.sh " export BRANCH_NAME=${BRANCH_NAME} && rm -r -f $BRANCH_NAME"
+
+    - name: Formatting Benchmark # Create a text file containing the benchmark results
+      run:  |
+        (echo 'Main Branch:'; echo '```' ; cat main_text.txt; echo '```'; echo 'With This PR:'; echo '```' ; cat pr_text.txt; echo '```') > benchmark.txt
+   
+    - name: Comment Benchmark
+      uses: actions/github-script@v7
+      if: always()
+      with:
+        script: |
+          const fs = require('fs');
+          const path = 'benchmark.txt';
+          const output = fs.readFileSync(path, 'utf8');
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+            });
+
+    - name: Stop VM
+      if: always()
+      run: gcloud compute instances stop nullway-jmh --zone=us-central1-a
+
+      
+
