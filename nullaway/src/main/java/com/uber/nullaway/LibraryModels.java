@@ -186,8 +186,8 @@ public interface LibraryModels {
    * principles:
    *
    * <ul>
-   *   <li>signature is a method name plus argument types, e.g., <code>foo(java.lang.Object,
-   *  java.lang.String)</code>
+   *   <li>signature is a method name plus argument types, with no spaces between the argument
+   *       types, e.g., <code>foo(java.lang.Object,java.lang.String)</code>
    *   <li>constructor for class Foo looks like <code>Foo(java.lang.String)</code>
    *   <li>If the method has its own type parameters, they need to be declared, like <code>
    *       &lt;T&gt;checkNotNull(T)</code>

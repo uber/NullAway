@@ -8,7 +8,7 @@ NullAway is *fast*.  It is built as a plugin to [Error Prone](http://errorprone.
 
 ### Overview
 
-NullAway requires that you build your code with [Error Prone](http://errorprone.info), version 2.10.0 or higher.  See the [Error Prone documentation](http://errorprone.info/docs/installation) for instructions on getting started with Error Prone and integration with your build system.  The instructions below assume you are using Gradle; see [the docs](https://github.com/uber/NullAway/wiki/Configuration#other-build-systems) for discussion of other build systems.
+NullAway requires that you build your code with [Error Prone](http://errorprone.info), version 2.14.0 or higher.  See the [Error Prone documentation](http://errorprone.info/docs/installation) for instructions on getting started with Error Prone and integration with your build system.  The instructions below assume you are using Gradle; see [the docs](https://github.com/uber/NullAway/wiki/Configuration#other-build-systems) for discussion of other build systems.
 
 ### Gradle
 
@@ -53,8 +53,6 @@ In `dependencies`, the first `errorprone` line loads NullAway, and the `compileO
 Finally, in the `tasks.withType(JavaCompile)` section, we pass some configuration options to NullAway.  First `check("NullAway", CheckSeverity.ERROR)` sets NullAway issues to the error level (it's equivalent to the `-Xep:NullAway:ERROR` standard Error Prone argument); by default NullAway emits warnings.  Then, `option("NullAway:AnnotatedPackages", "com.uber")` (equivalent to the `-XepOpt:NullAway:AnnotatedPackages=com.uber` standard Error Prone argument) tells NullAway that source code in packages under the `com.uber` namespace should be checked for null dereferences and proper usage of `@Nullable` annotations, and that class files in these packages should be assumed to have correct usage of `@Nullable` (see [the docs](https://github.com/uber/NullAway/wiki/Configuration) for more detail).  NullAway requires at least the `AnnotatedPackages` configuration argument to run, in order to distinguish between annotated and unannotated code.  See [the configuration docs](https://github.com/uber/NullAway/wiki/Configuration) for other useful configuration options.  For even simpler configuration of NullAway options, use the [Gradle NullAway plugin](https://github.com/tbroyer/gradle-nullaway-plugin).
 
 We recommend addressing all the issues that Error Prone reports, particularly those reported as errors (rather than warnings).  But, if you'd like to try out NullAway without running other Error Prone checks, you can use `options.errorprone.disableAllChecks` (equivalent to passing `"-XepDisableAllChecks"` to the compiler, before the NullAway-specific arguments).
-
-Snapshots of the development version are available in [Sonatype's snapshots repository][snapshots].
 
 #### Android
 
@@ -141,5 +139,3 @@ you create a pull request, you will be asked to sign our [Uber Contributor Licen
 ## License
 
 NullAway is licensed under the MIT license.  See the LICENSE.txt file for more information.
-
- [snapshots]: https://oss.sonatype.org/content/repositories/snapshots/com/uber/nullaway/
