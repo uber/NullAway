@@ -279,6 +279,26 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void arrayOfGenerics() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "  class Test {",
+            "    static class Foo<T> {}",
+            "    static class Bar<T> {",
+            "      Foo<T>[] getFoos() {",
+            "        @Nullable Foo<T>[] result = new Foo[0];",
+            "        // BUG: Diagnostic contains: Cannot return expression of type @Nullable Foo<T>[] from method",
+            "        return result;",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void overridesReturnType() {
     makeHelper()
         .addSourceLines(

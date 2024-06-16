@@ -11,6 +11,7 @@ import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
@@ -270,11 +271,10 @@ public final class GenericsChecks {
       return typeWithPreservedAnnotations(tree, state);
     } else {
       Type result;
-      if (tree instanceof VariableTree) {
+      if (tree instanceof VariableTree || tree instanceof IdentifierTree) {
         // type on the tree itself can be missing nested annotations for arrays; get the type from
-        // the symbol for the declared variable instead
-        VariableTree varTree = (VariableTree) tree;
-        result = ASTHelpers.getSymbol(varTree).type;
+        // the symbol for the variable instead
+        result = ASTHelpers.getSymbol(tree).type;
       } else if (tree instanceof AssignmentTree) {
         // type on the tree itself can be missing nested annotations for arrays; get the type from
         // the symbol for the assigned location instead, if available
@@ -355,10 +355,6 @@ public final class GenericsChecks {
     }
 
     Type formalReturnType = methodSymbol.getReturnType();
-    // check nullability of parameters only for generics
-    if (formalReturnType.getTypeArguments().isEmpty()) {
-      return;
-    }
     Type returnExpressionType = getTreeType(retExpr, state);
     if (formalReturnType != null && returnExpressionType != null) {
       boolean isReturnTypeValid =
@@ -514,6 +510,7 @@ public final class GenericsChecks {
     }
     for (int i = 0; i < n; i++) {
       Type formalParameter = formalParams.get(i).type;
+      // TODO FIX!! won't work for arrays
       if (!formalParameter.getTypeArguments().isEmpty()) {
         Type actualParameter = getTreeType(actualParams.get(i), state);
         if (actualParameter != null) {
@@ -528,6 +525,7 @@ public final class GenericsChecks {
       Type.ArrayType varargsArrayType =
           (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
       Type varargsElementType = varargsArrayType.elemtype;
+      // TODO FIX!! won't work for arrays
       if (!varargsElementType.getTypeArguments().isEmpty()) {
         for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
           Type actualParameter = getTreeType(actualParams.get(i), state);
