@@ -1,6 +1,7 @@
 package com.uber.nullaway.generics;
 
 import static com.google.common.base.Verify.verify;
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
@@ -274,7 +275,7 @@ public final class GenericsChecks {
       if (tree instanceof VariableTree || tree instanceof IdentifierTree) {
         // type on the tree itself can be missing nested annotations for arrays; get the type from
         // the symbol for the variable instead
-        result = ASTHelpers.getSymbol(tree).type;
+        result = castToNonNull(ASTHelpers.getSymbol(tree)).type;
       } else if (tree instanceof AssignmentTree) {
         // type on the tree itself can be missing nested annotations for arrays; get the type from
         // the symbol for the assigned location instead, if available
