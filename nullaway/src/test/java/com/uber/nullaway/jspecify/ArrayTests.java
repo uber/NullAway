@@ -279,19 +279,39 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void arrayOfGenerics() {
+  public void genericArraysReturnedAndPassed() {
     makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
-            "  class Test {",
-            "    static class Foo<T> {}",
-            "    static class Bar<T> {",
-            "      Foo<T>[] getFoos() {",
-            "        @Nullable Foo<T>[] result = new Foo[0];",
-            "        // BUG: Diagnostic contains: Cannot return expression of type @Nullable Foo<T>[] from method",
-            "        return result;",
+            "class Test {",
+            "  static class Foo<T> {}",
+            "  static class Bar<T> {",
+            "    Foo<T>[] getFoosPositive() {",
+            "      @Nullable Foo<T>[] result = new Foo[0];",
+            "      // BUG: Diagnostic contains: Cannot return expression of type @Nullable Foo<T>[] from method",
+            "      return result;",
+            "    }",
+            "    Foo<T>[] getFoosNegative() {",
+            "      Foo<T>[] result = new Foo[0];",
+            "      return result;",
+            "    }",
+            "    void takeFoos(Foo<T>[] foos) {}",
+            "    void callTakeFoosPositive(@Nullable Foo<T>[] p) {",
+            "      // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable Foo<T>[]",
+            "      takeFoos(p);",
+            "    }",
+            "    void callTakeFoosNegative(Foo<T>[] p) {",
+            "      takeFoos(p);",
+            "    }",
+            "    void takeFoosVarargs(Foo<T>[]... foos) {}",
+            "    void callTakeFoosVarargsPositive(@Nullable Foo<T>[] p) {",
+            "      // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable Foo<T>[]",
+            "      takeFoosVarargs(p);",
+            "    }",
+            "    void callTakeFoosVarargsNegative(Foo<T>[] p) {",
+            "      takeFoosVarargs(p);",
             "    }",
             "  }",
             "}")

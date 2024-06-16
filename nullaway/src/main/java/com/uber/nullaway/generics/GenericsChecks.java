@@ -510,14 +510,11 @@ public final class GenericsChecks {
     }
     for (int i = 0; i < n; i++) {
       Type formalParameter = formalParams.get(i).type;
-      // TODO FIX!! won't work for arrays
-      if (!formalParameter.getTypeArguments().isEmpty()) {
-        Type actualParameter = getTreeType(actualParams.get(i), state);
-        if (actualParameter != null) {
-          if (!subtypeParameterNullability(formalParameter, actualParameter, state)) {
-            reportInvalidParametersNullabilityError(
-                formalParameter, actualParameter, actualParams.get(i), state, analysis);
-          }
+      Type actualParameter = getTreeType(actualParams.get(i), state);
+      if (actualParameter != null) {
+        if (!subtypeParameterNullability(formalParameter, actualParameter, state)) {
+          reportInvalidParametersNullabilityError(
+              formalParameter, actualParameter, actualParams.get(i), state, analysis);
         }
       }
     }
@@ -526,14 +523,12 @@ public final class GenericsChecks {
           (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
       Type varargsElementType = varargsArrayType.elemtype;
       // TODO FIX!! won't work for arrays
-      if (!varargsElementType.getTypeArguments().isEmpty()) {
-        for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
-          Type actualParameter = getTreeType(actualParams.get(i), state);
-          if (actualParameter != null) {
-            if (!subtypeParameterNullability(varargsElementType, actualParameter, state)) {
-              reportInvalidParametersNullabilityError(
-                  varargsElementType, actualParameter, actualParams.get(i), state, analysis);
-            }
+      for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
+        Type actualParameter = getTreeType(actualParams.get(i), state);
+        if (actualParameter != null) {
+          if (!subtypeParameterNullability(varargsElementType, actualParameter, state)) {
+            reportInvalidParametersNullabilityError(
+                varargsElementType, actualParameter, actualParams.get(i), state, analysis);
           }
         }
       }
