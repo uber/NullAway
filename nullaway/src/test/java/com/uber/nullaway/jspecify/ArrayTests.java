@@ -313,6 +313,11 @@ public class ArrayTests extends NullAwayTestsBase {
             "    void callTakeFoosVarargsNegative(Foo<T>[] p) {",
             "      takeFoosVarargs(p);",
             "    }",
+            "    void takeNullableFoosVarargs(@Nullable Foo<T>[]... foos) {}",
+            "    void callTakeNullableFoosVarargsNegative(@Nullable Foo<T>[] p1, Foo<T>[] p2) {",
+            "      takeNullableFoosVarargs(p1);",
+            "      takeNullableFoosVarargs(p2);",
+            "    }",
             "  }",
             "}")
         .doTest();
