@@ -522,7 +522,6 @@ public final class GenericsChecks {
       Type.ArrayType varargsArrayType =
           (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
       Type varargsElementType = varargsArrayType.elemtype;
-      // TODO FIX!! won't work for arrays
       for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
         Type actualParameter = getTreeType(actualParams.get(i), state);
         if (actualParameter != null) {
