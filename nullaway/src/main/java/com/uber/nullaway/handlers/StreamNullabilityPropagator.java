@@ -211,10 +211,10 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
 
     Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
-    VisitorState visitorState = methodAnalysisContext.state();
+    VisitorState state = methodAnalysisContext.state();
     Type receiverType = ASTHelpers.getReceiverType(tree);
     for (StreamTypeRecord streamType : models) {
-      if (streamType.matchesType(receiverType, visitorState)) {
+      if (streamType.matchesType(receiverType, state)) {
         // Build observable call chain
         buildObservableCallChain(tree);
 
@@ -228,11 +228,11 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
             // for
             // filters.
             if (annonClassBody != null) {
-              handleFilterAnonClass(streamType, tree, annonClassBody, visitorState);
+              handleFilterAnonClass(streamType, tree, annonClassBody, state);
             }
           } else if (argTree instanceof LambdaExpressionTree) {
             LambdaExpressionTree lambdaTree = (LambdaExpressionTree) argTree;
-            handleFilterLambda(streamType, tree, lambdaTree, visitorState);
+            handleFilterLambda(streamType, tree, lambdaTree, state);
           }
         } else if (streamType.isMapMethod(methodSymbol)
             && methodSymbol.getParameters().length() == 1) {
@@ -424,15 +424,15 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   @Override
   public void onMatchLambdaExpression(
       LambdaExpressionTree tree, MethodAnalysisContext methodAnalysisContext) {
-    VisitorState visitorState = methodAnalysisContext.state();
+    VisitorState state = methodAnalysisContext.state();
     if (filterMethodOrLambdaSet.contains(tree)
         && tree.getBodyKind().equals(LambdaExpressionTree.BodyKind.EXPRESSION)) {
       expressionBodyToFilterLambda.put((ExpressionTree) tree.getBody(), tree);
       // Single expression lambda, onMatchReturn will not be triggered, force the dataflow analysis
       // here
       AccessPathNullnessAnalysis nullnessAnalysis =
-          methodAnalysisContext.analysis().getNullnessAnalysis(visitorState);
-      nullnessAnalysis.forceRunOnMethod(visitorState.getPath(), visitorState.context);
+          methodAnalysisContext.analysis().getNullnessAnalysis(state);
+      nullnessAnalysis.forceRunOnMethod(state.getPath(), state.context);
     }
     if (mapOrCollectRecordToFilterMap.containsKey(tree)) {
       bodyToMethodOrLambda.put(tree.getBody(), tree);
@@ -442,7 +442,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   @Override
   public void onMatchMethodReference(
       MemberReferenceTree tree, MethodAnalysisContext methodAnalysisContext) {
-    VisitorState visitorState = methodAnalysisContext.state();
+    VisitorState state = methodAnalysisContext.state();
     MapOrCollectMethodToFilterInstanceRecord callInstanceRecord =
         mapOrCollectRecordToFilterMap.get(tree);
     if (callInstanceRecord != null && ((JCTree.JCMemberReference) tree).kind.isUnbound()) {
@@ -454,12 +454,12 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
             "unexpected filterTree type "
                 + filterTree.getClass()
                 + " "
-                + visitorState.getSourceForNode(filterTree));
+                + state.getSourceForNode(filterTree));
       }
       NullnessStore filterNullnessStore = filterToNSMap.get(filterTree);
       if (filterNullnessStore == null) {
         throw new IllegalStateException(
-            "null filterNullStore for tree " + visitorState.getSourceForNode(filterTree));
+            "null filterNullStore for tree " + state.getSourceForNode(filterTree));
       }
       for (AccessPath ap : filterNullnessStore.getAccessPathsWithValue(Nullness.NONNULL)) {
         // Find the access path corresponding to the current unbound method reference after binding

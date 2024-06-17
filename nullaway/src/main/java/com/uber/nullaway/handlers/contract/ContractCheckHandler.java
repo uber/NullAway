@@ -73,10 +73,10 @@ public class ContractCheckHandler extends BaseNoOpHandler {
 
       String clause = clauses[0];
       NullAway analysis = methodAnalysisContext.analysis();
-      VisitorState visitorState = methodAnalysisContext.state();
+      VisitorState state = methodAnalysisContext.state();
       String[] antecedent =
-          getAntecedent(clause, tree, analysis, visitorState, callee, tree.getParameters().size());
-      String consequent = getConsequent(clause, tree, analysis, visitorState, callee);
+          getAntecedent(clause, tree, analysis, state, callee, tree.getParameters().size());
+      String consequent = getConsequent(clause, tree, analysis, state, callee);
 
       boolean supported = true;
 
@@ -102,7 +102,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
         @Override
         public Void visitReturn(ReturnTree returnTree, Void unused) {
 
-          final VisitorState returnState = visitorState.withPath(getCurrentPath());
+          final VisitorState returnState = state.withPath(getCurrentPath());
           final Nullness nullness =
               analysis
                   .getNullnessAnalysis(returnState)
@@ -160,7 +160,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
           }
           return super.visitReturn(returnTree, null);
         }
-      }.scan(visitorState.getPath(), null);
+      }.scan(state.getPath(), null);
     }
   }
 }

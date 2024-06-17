@@ -73,7 +73,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
   protected boolean validateAnnotationSemantics(
       MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     NullAway analysis = methodAnalysisContext.analysis();
-    VisitorState visitorState = methodAnalysisContext.state();
+    VisitorState state = methodAnalysisContext.state();
     Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
     String message;
     if (tree.getBody() == null) {
@@ -81,9 +81,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     }
     Set<String> nonnullFieldsOfReceiverAtExit =
         analysis
-            .getNullnessAnalysis(visitorState)
-            .getNonnullFieldsOfReceiverAtExit(
-                new TreePath(visitorState.getPath(), tree), visitorState.context)
+            .getNullnessAnalysis(state)
+            .getNonnullFieldsOfReceiverAtExit(new TreePath(state.getPath(), tree), state.context)
             .stream()
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
@@ -102,14 +101,14 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
               + " must be guaranteed to be nonnull at exit point. However, the method's body fails to ensure this for the following fields: "
               + fieldNames;
 
-      visitorState.reportMatch(
+      state.reportMatch(
           analysis
               .getErrorBuilder()
               .createErrorDescription(
                   new ErrorMessage(ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED, message),
                   tree,
                   analysis.buildDescription(tree),
-                  visitorState,
+                  state,
                   null));
       return false;
     }

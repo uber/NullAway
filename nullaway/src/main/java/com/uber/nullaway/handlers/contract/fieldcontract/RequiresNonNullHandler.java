@@ -132,7 +132,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
   public void onMatchMethodInvocation(
       MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
 
-    VisitorState visitorState = methodAnalysisContext.state();
+    VisitorState state = methodAnalysisContext.state();
     Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
     NullAway analysis = methodAnalysisContext.analysis();
     Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
@@ -153,20 +153,20 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       ExpressionTree methodSelectTree = tree.getMethodSelect();
       Nullness nullness =
           analysis
-              .getNullnessAnalysis(visitorState)
+              .getNullnessAnalysis(state)
               .getNullnessOfFieldForReceiverTree(
-                  visitorState.getPath(), visitorState.context, methodSelectTree, field, true);
+                  state.getPath(), state.context, methodSelectTree, field, true);
       if (NullabilityUtil.nullnessToBool(nullness)) {
         String message = "Expected field " + fieldName + " to be non-null at call site";
 
-        visitorState.reportMatch(
+        state.reportMatch(
             analysis
                 .getErrorBuilder()
                 .createErrorDescription(
                     new ErrorMessage(ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED, message),
                     tree,
                     analysis.buildDescription(tree),
-                    visitorState,
+                    state,
                     null));
       }
     }

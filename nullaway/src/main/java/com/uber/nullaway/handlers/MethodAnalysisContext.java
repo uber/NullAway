@@ -53,7 +53,7 @@ public class MethodAnalysisContext {
       return false;
     }
     MethodAnalysisContext that = (MethodAnalysisContext) o;
-    return Objects.equals(analysis, that.analysis)
+    return analysis.equals(that.analysis)
         && Objects.equals(state, that.state)
         && Objects.equals(methodSymbol, that.methodSymbol);
   }

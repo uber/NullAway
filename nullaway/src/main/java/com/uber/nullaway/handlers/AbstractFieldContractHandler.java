@@ -67,7 +67,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
 
     Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
-    VisitorState visitorState = methodAnalysisContext.state();
+    VisitorState state = methodAnalysisContext.state();
     Set<String> annotationContent =
         NullabilityUtil.getAnnotationValueArray(methodSymbol, annotName, false);
     boolean isAnnotated = annotationContent != null;
@@ -80,7 +80,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
       return;
     }
     Symbol.MethodSymbol closestOverriddenMethod =
-        NullabilityUtil.getClosestOverriddenMethod(methodSymbol, visitorState.getTypes());
+        NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
     if (closestOverriddenMethod == null) {
       return;
     }
@@ -91,7 +91,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
       fieldNames = Collections.emptySet();
     }
     validateOverridingRules(
-        fieldNames, methodAnalysisContext.analysis(), visitorState, tree, closestOverriddenMethod);
+        fieldNames, methodAnalysisContext.analysis(), state, tree, closestOverriddenMethod);
     super.onMatchMethod(tree, methodAnalysisContext);
   }
 
@@ -144,7 +144,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   protected boolean validateAnnotationSyntax(
       Set<String> content, MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     String message;
-    VisitorState visitorState = methodAnalysisContext.state();
+    VisitorState state = methodAnalysisContext.state();
     NullAway analysis = methodAnalysisContext.analysis();
     if (content.isEmpty()) {
       // we should not allow useless annotations.
@@ -152,14 +152,14 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
           "empty @"
               + annotName
               + " is the default precondition for every method, please remove it.";
-      visitorState.reportMatch(
+      state.reportMatch(
           analysis
               .getErrorBuilder()
               .createErrorDescription(
                   new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                   tree,
                   analysis.buildDescription(tree),
-                  visitorState,
+                  state,
                   null));
       return false;
     } else {
@@ -173,7 +173,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                     + fieldName
                     + " is not supported";
 
-            visitorState.reportMatch(
+            state.reportMatch(
                 analysis
                     .getErrorBuilder()
                     .createErrorDescription(
@@ -181,7 +181,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                             ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                         tree,
                         analysis.buildDescription(tree),
-                        visitorState,
+                        state,
                         null));
             return false;
           } else {
@@ -200,14 +200,14 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                   + " in class "
                   + classSymbol.getSimpleName();
 
-          visitorState.reportMatch(
+          state.reportMatch(
               analysis
                   .getErrorBuilder()
                   .createErrorDescription(
                       new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
                       tree,
                       analysis.buildDescription(tree),
-                      visitorState,
+                      state,
                       null));
           return false;
         }
