@@ -27,6 +27,10 @@ import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.uber.nullaway.NullAway;
 import java.util.Objects;
 
+/**
+ * Context object for checks on methods. Contains the {@link NullAway} instance, the {@link
+ * MethodSymbol} for the method being analyzed, and the {@link VisitorState} for the analysis.
+ */
 public class MethodAnalysisContext {
   private final NullAway analysis;
   private final MethodSymbol methodSymbol;
