@@ -54,8 +54,8 @@ public class MethodAnalysisContext {
     }
     MethodAnalysisContext that = (MethodAnalysisContext) o;
     return analysis.equals(that.analysis)
-        && Objects.equals(state, that.state)
-        && Objects.equals(methodSymbol, that.methodSymbol);
+        && state.equals(that.state)
+        && methodSymbol.equals(that.methodSymbol);
   }
 
   @Override
