@@ -78,55 +78,37 @@ public interface Handler {
   /**
    * Called when NullAway first matches a particular method node.
    *
-   * @param analysis A reference to the running NullAway analysis.
    * @param tree The AST node for the method being matched.
-   * @param state The current visitor state.
-   * @param methodSymbol The method symbol for the method being matched.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
-  void onMatchMethod(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol);
+  void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext);
 
   /**
    * Called when NullAway first matches a particular method call-site.
    *
-   * @param analysis A reference to the running NullAway analysis.
    * @param tree The AST node for the method invocation (call-site) being matched.
-   * @param state The current visitor state.
-   * @param methodSymbol The method symbol for the method being called.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   void onMatchMethodInvocation(
-      NullAway analysis,
-      MethodInvocationTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol);
+      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext);
 
   /**
    * Called when NullAway first matches a particular lambda expression.
    *
-   * @param analysis A reference to the running NullAway analysis.
    * @param tree The AST node for the lambda expression being matched.
-   * @param state The current visitor state.
-   * @param methodSymbol The method symbol for the functional interface of the lambda being matched.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   void onMatchLambdaExpression(
-      NullAway analysis,
-      LambdaExpressionTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol);
+      LambdaExpressionTree tree, MethodAnalysisContext methodAnalysisContext);
 
   /**
    * Called when NullAway first matches a particular method reference expression
    *
-   * @param analysis A reference to the running NullAway analysis.
    * @param tree The AST node for the method reference expression being matched.
-   * @param state The current visitor state.
-   * @param methodSymbol The method symbol for the reference being matched.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   void onMatchMethodReference(
-      NullAway analysis,
-      MemberReferenceTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol);
+      MemberReferenceTree tree, MethodAnalysisContext methodAnalysisContext);
 
   /**
    * Called when NullAway first matches a return statement.
@@ -386,9 +368,6 @@ public interface Handler {
    * <p>See {@link LibraryModels#castToNonNullMethods()} for more information about general
    * configuration of <code>castToNonNull</code> methods.
    *
-   * @param analysis A reference to the running NullAway analysis.
-   * @param state The current visitor state.
-   * @param methodSymbol The method symbol for the potential castToNonNull method.
    * @param actualParams The actual parameters from the invocation node
    * @param previousArgumentPosition The result computed by the previous handler in the chain, if
    *     any.
@@ -396,14 +375,13 @@ public interface Handler {
    *     value can be set only once through the full chain of handlers, with each handler deciding
    *     whether to propagate or override the value previousArgumentPosition passed by the previous
    *     handler in the chain.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   @Nullable
   Integer castToNonNullArgumentPositionsForMethod(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
-      @Nullable Integer previousArgumentPosition);
+      @Nullable Integer previousArgumentPosition,
+      MethodAnalysisContext methodAnalysisContext);
 
   /**
    * Method to override the nullability of the upper bound for a generic type variable on a class.

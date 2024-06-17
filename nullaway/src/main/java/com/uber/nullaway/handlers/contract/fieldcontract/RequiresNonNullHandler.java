@@ -40,6 +40,7 @@ import com.uber.nullaway.annotations.RequiresNonNull;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
+import com.uber.nullaway.handlers.MethodAnalysisContext;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
 import java.util.Iterator;
@@ -71,7 +72,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
   /** All methods can add the precondition of {@code RequiresNonNull}. */
   @Override
   protected boolean validateAnnotationSemantics(
-      NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol) {
+      MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     return true;
   }
 
@@ -129,13 +130,14 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
    */
   @Override
   public void onMatchMethodInvocation(
-      NullAway analysis,
-      MethodInvocationTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
+
+    VisitorState state = methodAnalysisContext.state();
+    Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
+    NullAway analysis = methodAnalysisContext.analysis();
     Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames == null) {
-      super.onMatchMethodInvocation(analysis, tree, state, methodSymbol);
+      super.onMatchMethodInvocation(tree, methodAnalysisContext);
       return;
     }
     fieldNames = ContractUtils.trimReceivers(fieldNames);

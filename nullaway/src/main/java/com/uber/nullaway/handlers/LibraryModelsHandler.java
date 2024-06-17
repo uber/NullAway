@@ -186,12 +186,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   @Override
   @Nullable
   public Integer castToNonNullArgumentPositionsForMethod(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
-      @Nullable Integer previousArgumentPosition) {
-    OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
+      @Nullable Integer previousArgumentPosition,
+      MethodAnalysisContext methodAnalysisContext) {
+    Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
+    OptimizedLibraryModels optLibraryModels =
+        getOptLibraryModels(methodAnalysisContext.state().context);
     ImmutableSet<Integer> newPositions = optLibraryModels.castToNonNullMethod(methodSymbol);
     if (newPositions.size() > 1) {
       // Library models sanity check

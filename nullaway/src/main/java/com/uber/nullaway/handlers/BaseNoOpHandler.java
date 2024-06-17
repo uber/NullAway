@@ -73,35 +73,25 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public void onMatchMethod(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+  public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     // NoOp
   }
 
   @Override
   public void onMatchMethodInvocation(
-      NullAway analysis,
-      MethodInvocationTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
     // NoOp
   }
 
   @Override
   public void onMatchLambdaExpression(
-      NullAway analysis,
-      LambdaExpressionTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      LambdaExpressionTree tree, MethodAnalysisContext methodAnalysisContext) {
     // NoOp
   }
 
   @Override
   public void onMatchMethodReference(
-      NullAway analysis,
-      MemberReferenceTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      MemberReferenceTree tree, MethodAnalysisContext methodAnalysisContext) {
     // NoOp
   }
 
@@ -238,11 +228,9 @@ public abstract class BaseNoOpHandler implements Handler {
   @Override
   @Nullable
   public Integer castToNonNullArgumentPositionsForMethod(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
-      @Nullable Integer previousArgumentPosition) {
+      @Nullable Integer previousArgumentPosition,
+      MethodAnalysisContext methodAnalysisContext) {
     // NoOp
     return previousArgumentPosition;
   }

@@ -80,43 +80,33 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public void onMatchMethod(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+  public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     for (Handler h : handlers) {
-      h.onMatchMethod(analysis, tree, state, methodSymbol);
+      h.onMatchMethod(tree, methodAnalysisContext);
     }
   }
 
   @Override
   public void onMatchLambdaExpression(
-      NullAway analysis,
-      LambdaExpressionTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      LambdaExpressionTree tree, MethodAnalysisContext methodAnalysisContext) {
     for (Handler h : handlers) {
-      h.onMatchLambdaExpression(analysis, tree, state, methodSymbol);
+      h.onMatchLambdaExpression(tree, methodAnalysisContext);
     }
   }
 
   @Override
   public void onMatchMethodReference(
-      NullAway analysis,
-      MemberReferenceTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      MemberReferenceTree tree, MethodAnalysisContext methodAnalysisContext) {
     for (Handler h : handlers) {
-      h.onMatchMethodReference(analysis, tree, state, methodSymbol);
+      h.onMatchMethodReference(tree, methodAnalysisContext);
     }
   }
 
   @Override
   public void onMatchMethodInvocation(
-      NullAway analysis,
-      MethodInvocationTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
     for (Handler h : handlers) {
-      h.onMatchMethodInvocation(analysis, tree, state, methodSymbol);
+      h.onMatchMethodInvocation(tree, methodAnalysisContext);
     }
   }
 
@@ -310,15 +300,13 @@ class CompositeHandler implements Handler {
   @Override
   @Nullable
   public Integer castToNonNullArgumentPositionsForMethod(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
-      @Nullable Integer previousArgumentPosition) {
+      @Nullable Integer previousArgumentPosition,
+      MethodAnalysisContext methodAnalysisContext) {
     for (Handler h : handlers) {
       previousArgumentPosition =
           h.castToNonNullArgumentPositionsForMethod(
-              analysis, state, methodSymbol, actualParams, previousArgumentPosition);
+              actualParams, previousArgumentPosition, methodAnalysisContext);
     }
     return previousArgumentPosition;
   }
