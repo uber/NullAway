@@ -38,6 +38,7 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
+import com.uber.nullaway.handlers.MethodAnalysisContext;
 
 /**
  * This Handler parses the jetbrains @Contract annotation and tries to check if the contract is
@@ -58,8 +59,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public void onMatchMethod(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+  public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
@@ -72,6 +72,8 @@ public class ContractCheckHandler extends BaseNoOpHandler {
       }
 
       String clause = clauses[0];
+      NullAway analysis = methodAnalysisContext.analysis();
+      VisitorState state = methodAnalysisContext.state();
       String[] antecedent =
           getAntecedent(clause, tree, analysis, state, callee, tree.getParameters().size());
       String consequent = getConsequent(clause, tree, analysis, state, callee);

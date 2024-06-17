@@ -208,10 +208,10 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
 
   @Override
   public void onMatchMethodInvocation(
-      NullAway analysis,
-      MethodInvocationTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
+
+    Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
+    VisitorState state = methodAnalysisContext.state();
     Type receiverType = ASTHelpers.getReceiverType(tree);
     for (StreamTypeRecord streamType : models) {
       if (streamType.matchesType(receiverType, state)) {
@@ -415,8 +415,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   }
 
   @Override
-  public void onMatchMethod(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+  public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     if (mapOrCollectRecordToFilterMap.containsKey(tree)) {
       bodyToMethodOrLambda.put(tree.getBody(), tree);
     }
@@ -424,16 +423,15 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
 
   @Override
   public void onMatchLambdaExpression(
-      NullAway analysis,
-      LambdaExpressionTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      LambdaExpressionTree tree, MethodAnalysisContext methodAnalysisContext) {
+    VisitorState state = methodAnalysisContext.state();
     if (filterMethodOrLambdaSet.contains(tree)
         && tree.getBodyKind().equals(LambdaExpressionTree.BodyKind.EXPRESSION)) {
       expressionBodyToFilterLambda.put((ExpressionTree) tree.getBody(), tree);
       // Single expression lambda, onMatchReturn will not be triggered, force the dataflow analysis
       // here
-      AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
+      AccessPathNullnessAnalysis nullnessAnalysis =
+          methodAnalysisContext.analysis().getNullnessAnalysis(state);
       nullnessAnalysis.forceRunOnMethod(state.getPath(), state.context);
     }
     if (mapOrCollectRecordToFilterMap.containsKey(tree)) {
@@ -443,10 +441,8 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
 
   @Override
   public void onMatchMethodReference(
-      NullAway analysis,
-      MemberReferenceTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      MemberReferenceTree tree, MethodAnalysisContext methodAnalysisContext) {
+    VisitorState state = methodAnalysisContext.state();
     MapOrCollectMethodToFilterInstanceRecord callInstanceRecord =
         mapOrCollectRecordToFilterMap.get(tree);
     if (callInstanceRecord != null && ((JCTree.JCMemberReference) tree).kind.isUnbound()) {
@@ -475,7 +471,9 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
             // We are only looking for method APs
             continue;
           }
-          if (!element.getSimpleName().equals(methodSymbol.getSimpleName())) {
+          if (!element
+              .getSimpleName()
+              .equals(methodAnalysisContext.methodSymbol().getSimpleName())) {
             // Check for the name match
             continue;
           }
@@ -487,7 +485,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
           // We found our method, and it was non-null when called inside the filter, so we mark the
           // return of the
           // method reference as non-null here
-          analysis.setComputedNullness(tree, Nullness.NONNULL);
+          methodAnalysisContext.analysis().setComputedNullness(tree, Nullness.NONNULL);
         }
       }
     }

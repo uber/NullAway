@@ -37,6 +37,7 @@ import com.uber.nullaway.annotations.EnsuresNonNull;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
+import com.uber.nullaway.handlers.MethodAnalysisContext;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
 import java.util.Iterator;
@@ -70,7 +71,10 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
    */
   @Override
   protected boolean validateAnnotationSemantics(
-      NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol) {
+      MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
+    NullAway analysis = methodAnalysisContext.analysis();
+    VisitorState state = methodAnalysisContext.state();
+    Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
     String message;
     if (tree.getBody() == null) {
       return true;
