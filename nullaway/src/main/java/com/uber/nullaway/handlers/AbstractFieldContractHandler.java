@@ -60,22 +60,22 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   /**
    * Verifies that the method being processed adheres to the annotation specifications.
    *
-   * @param analysis NullAway instance.
    * @param tree Method tree under processing.
-   * @param state Error Prone {@link VisitorState}.
-   * @param methodSymbol Processing method symbol.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   @Override
-  public void onMatchMethod(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+  public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
+
+    Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
+    VisitorState state = methodAnalysisContext.state();
     Set<String> annotationContent =
         NullabilityUtil.getAnnotationValueArray(methodSymbol, annotName, false);
     boolean isAnnotated = annotationContent != null;
     boolean isValid =
         isAnnotated
             && validateAnnotationSyntax(
-                castToNonNull(annotationContent), analysis, tree, state, methodSymbol)
-            && validateAnnotationSemantics(analysis, state, tree, methodSymbol);
+                castToNonNull(annotationContent), tree, methodAnalysisContext)
+            && validateAnnotationSemantics(tree, methodAnalysisContext);
     if (isAnnotated && !isValid) {
       return;
     }
@@ -90,8 +90,9 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     } else {
       fieldNames = Collections.emptySet();
     }
-    validateOverridingRules(fieldNames, analysis, state, tree, closestOverriddenMethod);
-    super.onMatchMethod(analysis, tree, state, methodSymbol);
+    validateOverridingRules(
+        fieldNames, methodAnalysisContext.analysis(), state, tree, closestOverriddenMethod);
+    super.onMatchMethod(tree, methodAnalysisContext);
   }
 
   /**
@@ -117,9 +118,10 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    * Validates that a method implementation matches the semantics of the annotation.
    *
    * @return Returns true, if the annotation conforms to the semantic rules.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   protected abstract boolean validateAnnotationSemantics(
-      NullAway analysis, VisitorState state, MethodTree tree, Symbol.MethodSymbol methodSymbol);
+      MethodTree tree, MethodAnalysisContext methodAnalysisContext);
 
   /**
    * Validates whether the parameter inside annotation conforms to the syntax rules. Parameters must
@@ -137,14 +139,13 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    * <p>
    *
    * @return Returns true, if the annotation conforms to the syntax rules.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   protected boolean validateAnnotationSyntax(
-      Set<String> content,
-      NullAway analysis,
-      MethodTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      Set<String> content, MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     String message;
+    VisitorState state = methodAnalysisContext.state();
+    NullAway analysis = methodAnalysisContext.analysis();
     if (content.isEmpty()) {
       // we should not allow useless annotations.
       message =
@@ -187,7 +188,8 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
             fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
           }
         }
-        Symbol.ClassSymbol classSymbol = castToNonNull(ASTHelpers.enclosingClass(methodSymbol));
+        Symbol.ClassSymbol classSymbol =
+            castToNonNull(ASTHelpers.enclosingClass(methodAnalysisContext.methodSymbol()));
         VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
         if (field == null) {
           message =
@@ -197,6 +199,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                   + fieldName
                   + " in class "
                   + classSymbol.getSimpleName();
+
           state.reportMatch(
               analysis
                   .getErrorBuilder()
