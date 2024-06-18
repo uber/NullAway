@@ -356,6 +356,166 @@ public class ArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void fieldAccessIndexArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String [] fizz = {\"1\"};",
+            "  static final int i = 0;",
+            "  static void foo() {",
+            "  if (fizz[i]!=null) { ",
+            "   fizz[i].toString();",
+            "}",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz[i] is @Nullable",
+            "   fizz[i].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void constantIndexArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String [] fizz = {\"1\"};",
+            "  static void foo() {",
+            "  if (fizz[0]!=null) { ",
+            "    // OK: constant integer indexes are handled by dataflow",
+            "   fizz[0].toString();",
+            "}",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz[0] is @Nullable",
+            "   fizz[0].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void localVariableIndexArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String[] fizz = {\"1\"};",
+            "  static void foo() {",
+            "    int index = 1;",
+            "    if (fizz[index] != null) {",
+            "    // OK: local variable indexes are handled by dataflow",
+            "      fizz[index].toString();",
+            "    }",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz[index] is @Nullable",
+            "    fizz[index].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void methodInvocationIndexArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String[] fizz = {\"1\"};",
+            "  static int getIndex() {",
+            "    return 0;",
+            "  }",
+            "  static final Integer i = 0;",
+            "  static void foo() {",
+            "    if (fizz[getIndex()] != null) {",
+            "    // index methods aren't handled by dataflow",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz[getIndex()] is @Nullable",
+            "      fizz[getIndex()].toString();",
+            "    }",
+            "    if (fizz[i] != null) {",
+            "    // wrapper class indexes aren't handled by dataflow",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz[i] is @Nullable",
+            "      fizz[i].toString();",
+            "    }",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz[getIndex()] is @Nullable",
+            "    fizz[getIndex()].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void arithmeticIndexArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String[] fizz = {\"1\", null};",
+            "  static void foo() {",
+            "    int i = 0;",
+            "    if (fizz[i+1] != null) {",
+            "    // index expressions aren't handled by dataflow",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz[i+1] is @Nullable",
+            "      fizz[i+1].toString();",
+            "    }",
+            "    // BUG: Diagnostic contains: dereferenced expression fizz[i+1] is @Nullable",
+            "    fizz[i+1].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void arrayMethodInvocationIndex() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String[] getArray() { return new String[] {\"1\", null}; }",
+            "  static void foo() {",
+            "    if (getArray()[0] != null) {",
+            "    // array resulting from method invocation isn't handled by dataflow",
+            "    // BUG: Diagnostic contains: dereferenced expression getArray()[0] is @Nullable",
+            "      getArray()[0].toString();",
+            "    }",
+            "    // BUG: Diagnostic contains: dereferenced expression getArray()[0] is @Nullable",
+            "    getArray()[0].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void mismatchedIndexUse() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String[] fizz = {\"1\", null};",
+            "  static void foo() {",
+            "    int i = 0;",
+            "    if (fizz[i] != null) {",
+            "      // BUG: Diagnostic contains: dereferenced expression fizz[i+1] is @Nullable",
+            "      fizz[i+1].toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

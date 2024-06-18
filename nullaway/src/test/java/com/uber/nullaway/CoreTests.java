@@ -168,6 +168,29 @@ public class CoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void arrayAccessDataflowTest() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  static class Foo {",
+            "    @Nullable String f;",
+            "  }",
+            "  static Foo[] arr = new Foo[10];",
+            "  static void fizz() {",
+            "    int i = 0;",
+            "    if (arr[i].f != null) {",
+            "      //TODO: This should raise an error in non-JSpecify mode",
+            "      arr[i].f.toString();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void cfNullableArrayField() {
     defaultCompilationHelper
         .addSourceLines(
