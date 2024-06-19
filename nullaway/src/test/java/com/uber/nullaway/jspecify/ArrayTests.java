@@ -3,6 +3,7 @@ package com.uber.nullaway.jspecify;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class ArrayTests extends NullAwayTestsBase {
@@ -415,6 +416,51 @@ public class ArrayTests extends NullAwayTestsBase {
             "    }",
             "    // BUG: Diagnostic contains: dereferenced expression fizz[index] is @Nullable",
             "    fizz[index].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void loopVariableIndex() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String[] fizz = {\"1\"};",
+            "  static void foo() {",
+            "    for (int i = 0; i < fizz.length; i++) {",
+            "      if (fizz[i] != null) {",
+            "        fizz[i].toString();",
+            "      }",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  @Ignore("for-each handling needs to be fixed")
+  public void forEachLoop() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String[] fizz = {\"1\"};",
+            "  static void foo() {",
+            "    for (String s : fizz) {",
+            "      if (s != null) {",
+            "        s.toString();",
+            "      }",
+            "    }",
+            "    for (String s : fizz) {",
+            "      // BUG: Diagnostic contains: dereferenced expression s is @Nullable",
+            "      s.toString();",
+            "    }",
             "  }",
             "}")
         .doTest();
