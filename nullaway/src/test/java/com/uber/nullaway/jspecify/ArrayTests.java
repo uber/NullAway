@@ -279,6 +279,56 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericArraysReturnedAndPassed() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class Foo<T> {}",
+            "  static class Bar<T> {",
+            "    Foo<T>[] getFoosPositive() {",
+            "      @Nullable Foo<T>[] result = new Foo[0];",
+            "      // BUG: Diagnostic contains: Cannot return expression of type @Nullable Foo<T>[] from method",
+            "      return result;",
+            "    }",
+            "    Foo<T>[] getFoosNegative() {",
+            "      Foo<T>[] result = new Foo[0];",
+            "      return result;",
+            "    }",
+            "    void takeFoos(Foo<T>[] foos) {}",
+            "    void callTakeFoosPositive(@Nullable Foo<T>[] p) {",
+            "      // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable Foo<T>[]",
+            "      takeFoos(p);",
+            "    }",
+            "    void callTakeFoosNegative(Foo<T>[] p) {",
+            "      takeFoos(p);",
+            "    }",
+            "    void takeFoosVarargs(Foo<T>[]... foos) {}",
+            "    void callTakeFoosVarargsPositive(@Nullable Foo<T>[] p, Foo<T>[] p2) {",
+            "      // Under the hood, a @Nullable Foo<T>[][] is passed, which is not a subtype",
+            "      // of the formal parameter type Foo<T>[][]",
+            "      // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable Foo<T>[]",
+            "      takeFoosVarargs(p);",
+            "      // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable Foo<T>[]",
+            "      takeFoosVarargs(p2, p);",
+            "    }",
+            "    void callTakeFoosVarargsNegative(Foo<T>[] p) {",
+            "      takeFoosVarargs(p);",
+            "    }",
+            "    void takeNullableFoosVarargs(@Nullable Foo<T>[]... foos) {}",
+            "    void callTakeNullableFoosVarargsNegative(@Nullable Foo<T>[] p1, Foo<T>[] p2) {",
+            "      takeNullableFoosVarargs(p1);",
+            "      takeNullableFoosVarargs(p2);",
+            "      takeNullableFoosVarargs(p1, p2);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void overridesReturnType() {
     makeHelper()
         .addSourceLines(
