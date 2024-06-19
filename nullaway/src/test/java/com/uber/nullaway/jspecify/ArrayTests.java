@@ -307,6 +307,8 @@ public class ArrayTests extends NullAwayTestsBase {
             "    }",
             "    void takeFoosVarargs(Foo<T>[]... foos) {}",
             "    void callTakeFoosVarargsPositive(@Nullable Foo<T>[] p) {",
+            "      // Under the hood, a @Nullable Foo<T>[][] is passed, which is not a subtype",
+            "      // of the formal parameter type Foo<T>[][]",
             "      // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable Foo<T>[]",
             "      takeFoosVarargs(p);",
             "    }",
