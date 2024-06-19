@@ -492,7 +492,7 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore("for-each handling needs to be fixed")
+  @Ignore("for-each handling needs to be fixed; see https://github.com/uber/NullAway/issues/983")
   public void forEachLoop() {
     makeHelper()
         .addSourceLines(
