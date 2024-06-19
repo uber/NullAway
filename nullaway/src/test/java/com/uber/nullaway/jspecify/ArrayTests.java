@@ -3,6 +3,7 @@ package com.uber.nullaway.jspecify;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class ArrayTests extends NullAwayTestsBase {
@@ -279,6 +280,56 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericArraysReturnedAndPassed() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class Foo<T> {}",
+            "  static class Bar<T> {",
+            "    Foo<T>[] getFoosPositive() {",
+            "      @Nullable Foo<T>[] result = new Foo[0];",
+            "      // BUG: Diagnostic contains: Cannot return expression of type @Nullable Foo<T>[] from method",
+            "      return result;",
+            "    }",
+            "    Foo<T>[] getFoosNegative() {",
+            "      Foo<T>[] result = new Foo[0];",
+            "      return result;",
+            "    }",
+            "    void takeFoos(Foo<T>[] foos) {}",
+            "    void callTakeFoosPositive(@Nullable Foo<T>[] p) {",
+            "      // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable Foo<T>[]",
+            "      takeFoos(p);",
+            "    }",
+            "    void callTakeFoosNegative(Foo<T>[] p) {",
+            "      takeFoos(p);",
+            "    }",
+            "    void takeFoosVarargs(Foo<T>[]... foos) {}",
+            "    void callTakeFoosVarargsPositive(@Nullable Foo<T>[] p, Foo<T>[] p2) {",
+            "      // Under the hood, a @Nullable Foo<T>[][] is passed, which is not a subtype",
+            "      // of the formal parameter type Foo<T>[][]",
+            "      // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable Foo<T>[]",
+            "      takeFoosVarargs(p);",
+            "      // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable Foo<T>[]",
+            "      takeFoosVarargs(p2, p);",
+            "    }",
+            "    void callTakeFoosVarargsNegative(Foo<T>[] p) {",
+            "      takeFoosVarargs(p);",
+            "    }",
+            "    void takeNullableFoosVarargs(@Nullable Foo<T>[]... foos) {}",
+            "    void callTakeNullableFoosVarargsNegative(@Nullable Foo<T>[] p1, Foo<T>[] p2) {",
+            "      takeNullableFoosVarargs(p1);",
+            "      takeNullableFoosVarargs(p2);",
+            "      takeNullableFoosVarargs(p1, p2);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void overridesReturnType() {
     makeHelper()
         .addSourceLines(
@@ -415,6 +466,51 @@ public class ArrayTests extends NullAwayTestsBase {
             "    }",
             "    // BUG: Diagnostic contains: dereferenced expression fizz[index] is @Nullable",
             "    fizz[index].toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void loopVariableIndex() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String[] fizz = {\"1\"};",
+            "  static void foo() {",
+            "    for (int i = 0; i < fizz.length; i++) {",
+            "      if (fizz[i] != null) {",
+            "        fizz[i].toString();",
+            "      }",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  @Ignore("for-each handling needs to be fixed; see https://github.com/uber/NullAway/issues/983")
+  public void forEachLoop() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static @Nullable String[] fizz = {\"1\"};",
+            "  static void foo() {",
+            "    for (String s : fizz) {",
+            "      if (s != null) {",
+            "        s.toString();",
+            "      }",
+            "    }",
+            "    for (String s : fizz) {",
+            "      // BUG: Diagnostic contains: dereferenced expression s is @Nullable",
+            "      s.toString();",
+            "    }",
             "  }",
             "}")
         .doTest();
