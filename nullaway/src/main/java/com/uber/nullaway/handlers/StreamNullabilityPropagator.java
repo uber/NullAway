@@ -214,21 +214,22 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
     VisitorState state = methodAnalysisContext.state();
     Type receiverType = ASTHelpers.getReceiverType(tree);
     for (StreamTypeRecord streamType : models) {
-      if (streamType.matchesType(receiverType, state)) {
-        // Build observable call chain
-        buildObservableCallChain(tree);
+      if (!streamType.matchesType(receiverType, state)) {
+        continue;
+      }
+      // Build observable call chain
+      buildObservableCallChain(tree);
+      if (methodSymbol.getParameters().length() != 1) {
+        continue;
+      }
 
-        // Dispatch to code handling specific observer methods
-        if (streamType.isFilterMethod(methodSymbol) && methodSymbol.getParameters().length() == 1) {
-          handleFilterMethod(tree, streamType, state);
-        } else if (streamType.isMapMethod(methodSymbol)
-            && methodSymbol.getParameters().length() == 1) {
-          handleMapMethod(tree, streamType, methodSymbol);
-        } else {
-          if (methodSymbol.getParameters().length() == 1) {
-            handleCollectMethod(tree, streamType, methodSymbol);
-          }
-        }
+      // Dispatch to code handling specific observer methods
+      if (streamType.isFilterMethod(methodSymbol)) {
+        handleFilterMethod(tree, streamType, state);
+      } else if (streamType.isMapMethod(methodSymbol)) {
+        handleMapMethod(tree, streamType, methodSymbol);
+      } else {
+        handleCollectMethod(tree, streamType, methodSymbol);
       }
     }
   }
