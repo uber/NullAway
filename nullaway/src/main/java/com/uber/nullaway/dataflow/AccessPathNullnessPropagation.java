@@ -30,6 +30,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -507,7 +508,6 @@ public class AccessPathNullnessPropagation
     Node rhs = node.getExpression();
     Nullness value = values(input).valueOfSubNode(rhs);
     Node target = node.getTarget();
-
     if (target instanceof LocalVariableNode
         && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
       LocalVariableNode localVariableNode = (LocalVariableNode) target;
@@ -791,8 +791,14 @@ public class AccessPathNullnessPropagation
     Nullness resultNullness;
     // Unsoundly assume @NonNull, except in JSpecify mode where we check the type
     if (config.isJSpecifyMode()) {
-      Symbol arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());
+      Symbol arraySymbol;
       boolean isElementNullable = false;
+      ExpressionTree arrayExpr = node.getArrayExpression();
+      if (arrayExpr != null) {
+        arraySymbol = ASTHelpers.getSymbol(arrayExpr);
+      } else {
+        arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());
+      }
       if (arraySymbol != null) {
         isElementNullable = NullabilityUtil.isArrayElementNullable(arraySymbol, config);
       }
