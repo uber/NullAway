@@ -508,6 +508,7 @@ public class AccessPathNullnessPropagation
     Node rhs = node.getExpression();
     Nullness value = values(input).valueOfSubNode(rhs);
     Node target = node.getTarget();
+
     if (target instanceof LocalVariableNode
         && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
       LocalVariableNode localVariableNode = (LocalVariableNode) target;
@@ -793,6 +794,7 @@ public class AccessPathNullnessPropagation
     if (config.isJSpecifyMode()) {
       Symbol arraySymbol;
       boolean isElementNullable = false;
+      // For enhanced-for-loops we get the symbol from the array expression as the node is desugared
       ExpressionTree arrayExpr = node.getArrayExpression();
       if (arrayExpr != null) {
         arraySymbol = ASTHelpers.getSymbol(arrayExpr);
