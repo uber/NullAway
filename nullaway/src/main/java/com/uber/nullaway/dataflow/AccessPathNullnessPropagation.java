@@ -30,6 +30,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -791,8 +792,15 @@ public class AccessPathNullnessPropagation
     Nullness resultNullness;
     // Unsoundly assume @NonNull, except in JSpecify mode where we check the type
     if (config.isJSpecifyMode()) {
-      Symbol arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());
+      Symbol arraySymbol;
       boolean isElementNullable = false;
+      // For enhanced-for-loops we get the symbol from the array expression as the node is desugared
+      ExpressionTree arrayExpr = node.getArrayExpression();
+      if (arrayExpr != null) {
+        arraySymbol = ASTHelpers.getSymbol(arrayExpr);
+      } else {
+        arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());
+      }
       if (arraySymbol != null) {
         isElementNullable = NullabilityUtil.isArrayElementNullable(arraySymbol, config);
       }

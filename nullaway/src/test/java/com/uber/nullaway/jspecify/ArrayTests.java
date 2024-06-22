@@ -3,7 +3,6 @@ package com.uber.nullaway.jspecify;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class ArrayTests extends NullAwayTestsBase {
@@ -492,7 +491,6 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore("for-each handling needs to be fixed; see https://github.com/uber/NullAway/issues/983")
   public void forEachLoop() {
     makeHelper()
         .addSourceLines(
@@ -506,8 +504,6 @@ public class ArrayTests extends NullAwayTestsBase {
             "      if (s != null) {",
             "        s.toString();",
             "      }",
-            "    }",
-            "    for (String s : fizz) {",
             "      // BUG: Diagnostic contains: dereferenced expression s is @Nullable",
             "      s.toString();",
             "    }",
