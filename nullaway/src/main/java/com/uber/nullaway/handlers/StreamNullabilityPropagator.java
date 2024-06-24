@@ -254,13 +254,13 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       MethodInvocationTree tree, StreamTypeRecord streamType, VisitorState state) {
     ExpressionTree argTree = tree.getArguments().get(0);
     if (argTree instanceof NewClassTree) {
-      ClassTree annonClassBody = ((NewClassTree) argTree).getClassBody();
+      ClassTree anonClassBody = ((NewClassTree) argTree).getClassBody();
       // Ensure that this `new A() ...` has a custom class body, otherwise, we skip for now.
       // In the future, we could look at the declared type and its inheritance chain, at least
       // for
       // filters.
-      if (annonClassBody != null) {
-        handleFilterAnonClass(streamType, tree, annonClassBody, state);
+      if (anonClassBody != null) {
+        handleFilterAnonClass(streamType, tree, anonClassBody, state);
       }
     } else if (argTree instanceof LambdaExpressionTree) {
       LambdaExpressionTree lambdaTree = (LambdaExpressionTree) argTree;
