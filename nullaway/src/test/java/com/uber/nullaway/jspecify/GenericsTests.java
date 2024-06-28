@@ -1738,6 +1738,26 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testRawFormalParameterType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  static class A<T> {",
+            "    void foo(T n) {}",
+            "  }",
+            "  static class B {",
+            "    static void bar(A a) {}",
+            "    static void baz(A<?> a) {",
+            "      bar(a);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testUseOfUnannotatedCode() {
     makeHelper()
         .addSourceLines(
