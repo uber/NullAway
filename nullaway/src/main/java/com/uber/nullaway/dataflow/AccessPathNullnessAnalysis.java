@@ -211,18 +211,23 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
-   * Get nullness info for local variables (and final fields) before some node
+   * Get nullness info for local variables (and final fields) before some node represented a nested
+   * method (lambda or anonymous class)
    *
-   * @param path tree path to some AST node within a method / lambda / initializer
+   * @param pathToNestedMethodNode tree path to some AST node representing a nested method
    * @param state visitor state
-   * @return nullness info for local variables just before the node
+   * @param handler handler instance
+   * @return nullness info for local variables just before the leaf of the tree path
    */
-  public NullnessStore getNullnessInfoBeforeNewContext(
-      TreePath path, VisitorState state, Handler handler) {
-    NullnessStore store = dataFlow.resultBefore(path, state.context, nullnessPropagation);
+  public NullnessStore getNullnessInfoBeforeNestedMethodNode(
+      TreePath pathToNestedMethodNode, VisitorState state, Handler handler) {
+    NullnessStore store =
+        dataFlow.resultBefore(pathToNestedMethodNode, state.context, nullnessPropagation);
     if (store == null) {
       return NullnessStore.empty();
     }
+    Predicate<AccessPath> handlerPredicate =
+        handler.getAccessPathPredicateForNestedMethod(pathToNestedMethodNode, state);
     return store.filterAccessPaths(
         (ap) -> {
           boolean allAPNonRootElementsAreFinalFields = true;
@@ -243,7 +248,7 @@ public final class AccessPathNullnessAnalysis {
                     && e.getModifiers().contains(Modifier.FINAL));
           }
 
-          return handler.includeApInfoInSavedContext(ap, state);
+          return handlerPredicate.test(ap);
         });
   }
 

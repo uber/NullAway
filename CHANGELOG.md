@@ -1,5 +1,98 @@
 Changelog
 =========
+Version 0.11.0
+---------------
+IMPORTANT: Support for JDK 8 is dropped and NullAway now requires 2.14.0 or higher.
+
+* Delete OptionalEmptinessHandler method that is no longer needed (#954)
+* Refactor PreservedAnnotationTreeVisitor (#955)
+* Update to Error Prone 2.27.1 (#957)
+* JSpecify subtyping checks for arrays (#956)
+* Bump to Checker Framework 3.43.0 (#959)
+* Drop Java 8 support (#961)
+
+Version 0.10.26
+---------------
+* External Library Models Integration (#922)
+* Rename test classes (#951)
+* Propagate more nullability info to lambdas known to be invoked synchronously (#952)
+
+Version 0.10.25
+---------------
+* JSpecify: Handle @nullable assignments to @nonnull arrays (#929)
+* Handle JDK 21 case operands in type refinement (#928)
+* Track access paths of the form Foo.this.bar (#937)
+* Add test for boolean contract with extra message argument (#945)
+* Collectors.toMap handling for streams (#938)
+* Handle methods that fail unconditionally in ContractHandler (#946)
+* Build / CI tooling upgrades:
+  - Update various dependencies (#939)
+
+Version 0.10.24
+---------------
+* Add library model for Files.isDirectory (#913)
+* JSpecify test case for generic methods (#918)
+* Check dereference of qualifier expression in method reference (#920)
+* JSpecify: skip checking when type is primitive (#924)
+* Fix another JSpecify raw type issue (#925)
+* Fix handling of references to methods of array types and type variables (#926)
+* Build / CI / Documentation upgrades/fixes:
+  - Fix lombok config example more correctly on README (#911)
+  - Update to Gradle 8.6 (#914)
+  - Update to Error Prone 2.25.0 (#916)
+  - Add codecov token (#921)
+
+Version 0.10.23
+---------------
+* Update for missing a couple possibly unsafe xml parser (#902)
+* Add foojay-resolver-convention plugin (#905)
+* JSpecify: Reason about nullability of reads from arrays (#875)
+* Fix handling of static imports from subclasses (#904)
+* Adding support for nullable type upper bounds considering Library models (#903)
+* Support for extra Futures classes (#909)
+* Build / CI tooling upgrades:
+  - Bump various CI workflow versions (#906)
+
+Version 0.10.22
+---------------
+IMPORTANT: The support for JDK 8 is deprecated in this release and will be removed in
+    an upcoming release.
+
+* Fix bug with implicit equals() methods in interfaces (#898)
+* Fix crash with raw types in overrides in JSpecify mode (#899)
+* Docs fix: Update instructions for Android and our sample app (#900)
+
+Version 0.10.21
+---------------
+IMPORTANT: This release fixes a crash when running against <2.24.0 release of
+    Error Prone (see #894) introduced in NullAway v0.10.20 and another crash related to
+    Checker Framework (see #895) introduced in NullAway v0.10.19.
+
+* Fix backwards-incompatible calls to ASTHelpers.hasDirectAnnotationWithSimpleName (#894)
+* Downgrade to Checker Framework 3.40.0 (#895)
+
+Version 0.10.20
+---------------
+* Fix JSpecify support on JDK 21 (#869)
+* Build / CI tooling upgrades for NullAway itself:
+  - Update to WALA 1.6.3 (#887)
+  - Update to Error Prone 2.24.1 (#888)
+
+Version 0.10.19
+---------------
+* Update to Checker Framework 3.41.0 (#873)
+* Extend library models to mark fields as nullable (#878)
+  - Main use case is NullAwayAnnotator
+* Fix jarinfer cli output determinism (#884)
+* Add support for AssertJ as() and describedAs() in AssertionHandler (#885)
+* Support for JSpecify's 0.3.0 annotation [experimental]
+  - JSpecify: In generics code, get rid of checks for ClassType (#863)
+* Update some dependencies (#883)
+
+Version 0.10.18
+---------------
+* Fix assertion check for structure of enhanced-for loop over a Map keySet (#868)
+
 Version 0.10.17
 ---------------
 * Fix bug with computing direct type use annotations on parameters (#864)
@@ -95,7 +188,7 @@ Note: This is the first release built with Java 11. In particular, running
   - Update to Error Prone 2.20.0 (#772)
   - Add tasks to run JDK 8 tests on JDK 11+ (#778)
   - Switch to Spotless for formatting Java code (#780)
-  - Added GCP JMH Benchmark Workflow (#770) 
+  - Added GCP JMH Benchmark Workflow (#770)
   - Set concurrency for JMH benchmarking workflow (#784)
   - Disable daemon when running benchmarks (#786)
   - Update to Gradle 8.2.1 (#781)
@@ -179,7 +272,7 @@ Version 0.10.6
 * Fix logic for @Nullable annotation on type parameter (#702)
 * Preserve nullness checks in final fields when propagating nullness into inner contexts (#703)
 * NullAwayInfer/Annotator data serialization support [experimental]
-  - Add source offset and path to reported errors in error serialization. (#704) 
+  - Add source offset and path to reported errors in error serialization. (#704)
 * Build / CI tooling for NullAway itself:
   - [Jspecify] Update test dep to final JSpecify 0.3.0 release (#700)
      = Intermediate PRs: 0.3.0-alpha-3 (#692), 0.3-alpha2 (#691)
@@ -211,10 +304,10 @@ Version 0.10.3
 --------------
 * Report an error when casting @Nullable expression to primitive type (#663)
 * Fix an NPE in the optional emptiness handler (#678)
-* Add support for boolean constraints (about nullness) in Contract annotations (#669) 
+* Add support for boolean constraints (about nullness) in Contract annotations (#669)
 * Support for specific libraries/APIs:
   - PreconditionsHandler reflects Guava Preconditions exception types (#668)
-  - Handle Guava Verify functions (#682) 
+  - Handle Guava Verify functions (#682)
 * Dependency Updates:
   - checkerframework 3.26.0 (#671)
 * Build / CI tooling for NullAway itself:
@@ -223,7 +316,7 @@ Version 0.10.3
 
 Version 0.10.2
 --------------
-* Make AbstractConfig collection fields explicity Immutable (#601) 
+* Make AbstractConfig collection fields explicity Immutable (#601)
 * NullAwayInfer/Annotator data serialization support [experimental]
   - Fix crash in fixserialization when ClassSymbol.sourcefile is null (#656)
 
@@ -287,7 +380,7 @@ Version 0.9.8
   - Model for com.google.api.client.util.Strings.isNullOrEmpty (#605)
 * Refactoring:
   - Cleanups to AccessPath representation and implementation (#603)
-  - Clean-up: Remove unused fix suggestion code. (#615)  
+  - Clean-up: Remove unused fix suggestion code. (#615)
 * Dependency Updates:
   - Update to Checker Framework 3.22.2 (#610)
 * Build / CI tooling for NullAway itself:
@@ -339,7 +432,7 @@ Version 0.9.6
 * Build / CI tooling for NullAway itself:
   - Enable parallel builds (#549) (#555)
   - Add dependence from coveralls task to codeCoverageReport (#552)
-  - Switch to temurin on CI (#553) 
+  - Switch to temurin on CI (#553)
   - Separating NullAwayTests into smaller files (#550)
   - Require braces for all conditionals and loops (#556)
   - Enable build cache (#562)
@@ -349,7 +442,7 @@ Version 0.9.6
   - Update CI jobs (#565)
   - Set epApiVersion for jacoco coverage reporting (#566)
   - Compile and test against Error Prone 2.11.0 (#567)
-  - Fix EP version for jacoco coverage step (#571) 
+  - Fix EP version for jacoco coverage step (#571)
   - Update to latest Google Java Format (#572)
 
 Version 0.9.5
@@ -371,7 +464,7 @@ Version 0.9.3
 -------------
 IMPORTANT: This version introduces EXPERIMENTAL JDK17 support.
   There is a known crash on lambdas with switch expressions as body
-  (see #524). Best current workaround is to 
+  (see #524). Best current workaround is to
   `@SuppressWarnings("NullAway")` on the enclosing method
 * Improve reporting of multiple parameter errors on a single method call (#503)
 * Support compile-time constant field args in method Access Paths (#504)
@@ -463,13 +556,13 @@ Version 0.8.0
 
 Version 0.7.10
 --------------
-* Add Java 8 streams nullness-propagation support (#371) 
+* Add Java 8 streams nullness-propagation support (#371)
 * Give line numbers for uninitialized fields when reporting error on an initializer (#380)
-* Include outer$inner class name when reporting field init errors (#375) 
+* Include outer$inner class name when reporting field init errors (#375)
 * Update to Gradle 6.1.1 (#381)
 * Add @MonotonicNonNull as lazy initialization annotation. (#383)
 * Add default library model for CompilationUnitTree.getPackageName() (#384)
-* Improve matching of native Map methods (#390) 
+* Improve matching of native Map methods (#390)
   - Fixes an IndexOutOfBoundsException checker crash
 
 Version 0.7.9
@@ -479,14 +572,14 @@ Version 0.7.9
   - WALA to 1.5.4 (#337)
   - Checker Dataflow to 3.0.0 (#369)
 * Added OPTIONAL_CONTENT synthetic field to track Optional  emptiness (#364)
-  - With this, `-XepOpt:NullAway:CheckOptionalEmptiness` should be 
+  - With this, `-XepOpt:NullAway:CheckOptionalEmptiness` should be
     ready for use.
 * Handle Nullchk operator (#368)
 
 Version 0.7.8
 -------------
-* Added NullAway.Optional suppression (#359) 
-* [JarInfer] Ignore non-public classes when inferring annotations. (#360) 
+* Added NullAway.Optional suppression (#359)
+* [JarInfer] Ignore non-public classes when inferring annotations. (#360)
 
 Version 0.7.7
 -------------
@@ -522,7 +615,7 @@ Version 0.7.4
 * Refactor the driver and annotation summary type in JarInfer (#317)
 * Minor refactor and cleanup in JarInfer-lib (#319)
 * Different approach for param analysis (#320)
-* Fix @NullableDecl support (#324) 
+* Fix @NullableDecl support (#324)
 * Treat methods of final classes as final for initialization. (#325)
 
 Version 0.7.3
@@ -536,7 +629,7 @@ Version 0.7.3
 
 Version 0.7.2
 -------------
-* Install GJF hook using a gradle task, rather than a gradlew hack (#298). 
+* Install GJF hook using a gradle task, rather than a gradlew hack (#298).
 * Nullable switch expression support (#300).
 * Upgrade to Error Prone 2.3.3 (#295).
 Update Gradle, Error Prone plugin, and Android Gradle Plugin (#294).
@@ -557,7 +650,7 @@ Version 0.7.0
 
 Version 0.6.6
 ---------------
-This only adds a minor library fix supporting Guava's Preconditions.checkNotNull with an error message 
+This only adds a minor library fix supporting Guava's Preconditions.checkNotNull with an error message
 argument (#283)
 
 Version 0.6.5
@@ -587,16 +680,16 @@ Version 0.6.2
 Version 0.6.1
 -------------
 * Enable excluded class annotations to (mostly) work on inner classes (#239)
-* Assertion of not equal to null updates the access path (#240) 
+* Assertion of not equal to null updates the access path (#240)
 * Update Gradle examples in README (#244)
 * Change how jarinfer finds astubx model jars. (#243)
 * Update to Error Prone 2.3.2 (#242)
 * Update net.ltgt.errorprone to 0.6, and build updates ((#248)
-* Restrictive annotated method overriding (#249) 
-   Note: This can require significant annotation changes if 
+* Restrictive annotated method overriding (#249)
+   Note: This can require significant annotation changes if
    `-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true` is set.
    Not a new minor version, since that option is false by default.
-* Fix error on checking the initTree2PrevFieldInit cache. (#252) 
+* Fix error on checking the initTree2PrevFieldInit cache. (#252)
 * Add support for renamed android.support packages in models. (#253)
 
 Version 0.6.0
@@ -604,12 +697,12 @@ Version 0.6.0
 * Add support for marking library parameters as explicitly @Nullable (#228)
 * De-genericize NullnessStore (#231)
 * Bump Checker Framework to 2.5.5 (#233)
-* Pass nullability info on enclosing locals into dataflow analysis for 
+* Pass nullability info on enclosing locals into dataflow analysis for
   lambdas and anonymous / local classes (#235)
 
 Version 0.5.6
 -------------
-* Add coverage measurement through coveralls. (#224) 
+* Add coverage measurement through coveralls. (#224)
 * Fix empty comment added when AutoFixSuppressionComment is not set. (#225)
 * Make JarInfer generated jars fully deterministic by removing timestamps. (#227)
 
@@ -642,7 +735,7 @@ android-jarinfer-models-sdk28 artifacts
 Version 0.5.2
 -------------
 * Fix NPE in Thrift handler on complex receiver expressions (#195)
-* Add ExcludedFieldAnnotations unit tests. (#192) 
+* Add ExcludedFieldAnnotations unit tests. (#192)
 * Various crash fixes (#196)
 * Fix @NonNull argument detection in RestrictiveAnnotationHandler. (#198)
 
@@ -668,7 +761,7 @@ Version 0.4.7
 Version 0.4.6
 -------------
 * Fix a couple of Thrift issues (#164)
-* Don't report initialization warnings on fields for @ExternalInit classes with 
+* Don't report initialization warnings on fields for @ExternalInit classes with
   no initializer methods (#166)
 
 Version 0.4.5
@@ -717,7 +810,7 @@ Version 0.3.6
 
 Version 0.3.5
 -------------
-* Support for treating `@Generated`-annotated classes as unannotated (#127) 
+* Support for treating `@Generated`-annotated classes as unannotated (#127)
 
 Version 0.3.4
 -------------
@@ -789,8 +882,8 @@ Version 0.1.5
 -------------
 * Add finer grained suppressions and auto-fixes (#31).  You can
   suppress initialization errors specifically now with
-  `@SuppressWarnings("NullAway.Init")` 
-* Fix performance issue with lambdas (#29) 
+  `@SuppressWarnings("NullAway.Init")`
+* Fix performance issue with lambdas (#29)
 * Add lambda support to the RxNullabilityPropagator handler. (#12)
 
 Version 0.1.4

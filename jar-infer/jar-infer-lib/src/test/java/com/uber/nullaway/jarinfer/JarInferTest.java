@@ -27,17 +27,21 @@ import com.google.errorprone.bugpatterns.BugChecker;
 import com.sun.tools.javac.main.Main;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.FileSystems;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
 import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableEntryException;
+import java.security.cert.CertificateException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.ZipFile;
+import jdk.security.jarsigner.JarSigner;
 import org.apache.commons.io.FilenameUtils;
 import org.junit.Assert;
 import org.junit.Before;
@@ -61,11 +65,7 @@ public class JarInferTest {
    * A dummy checker to allow us to use {@link CompilationTestHelper} to compile Java code for
    * testing, as it requires a {@link BugChecker} to run.
    */
-  @BugPattern(
-      name = "DummyChecker",
-      summary = "Dummy checker to use CompilationTestHelper",
-      severity = WARNING)
-  @SuppressWarnings("BugPatternNaming") // remove once we require EP 2.11+
+  @BugPattern(summary = "Dummy checker to use CompilationTestHelper", severity = WARNING)
   public static class DummyChecker extends BugChecker {
     public DummyChecker() {}
   }
@@ -514,32 +514,23 @@ public class JarInferTest {
 
   /** copy the jar at {@code baseJarPath} to a signed jar at {@code signedJarPath} */
   private void copyAndSignJar(String baseJarPath, String signedJarPath)
-      throws IOException, InterruptedException {
-    Files.copy(
-        Paths.get(baseJarPath), Paths.get(signedJarPath), StandardCopyOption.REPLACE_EXISTING);
+      throws CertificateException,
+          KeyStoreException,
+          IOException,
+          NoSuchAlgorithmException,
+          UnrecoverableEntryException {
     String ksPath =
         Thread.currentThread().getContextClassLoader().getResource("testKeyStore.jks").getPath();
-    // A public API for signing jars was added for Java 9+, but there is only an internal API on
-    // Java 8.  And we need the test code to compile on Java 8.  For simplicity and uniformity, we
-    // just run jarsigner as an executable (which slightly slows down test execution)
-    String jarsignerExecutable =
-        String.join(
-            FileSystems.getDefault().getSeparator(),
-            new String[] {System.getenv("JAVA_HOME"), "bin", "jarsigner"});
-    Process process =
-        Runtime.getRuntime()
-            .exec(
-                new String[] {
-                  jarsignerExecutable,
-                  "-keystore",
-                  ksPath,
-                  "-storepass",
-                  "testPassword",
-                  signedJarPath,
-                  "testKeystore"
-                });
-    int exitCode = process.waitFor();
-    Assert.assertEquals("jarsigner process failed", 0, exitCode);
+    var ksPassword = "testPassword".toCharArray();
+    var keystore = KeyStore.getInstance(new File(ksPath), ksPassword);
+    var protParam = new KeyStore.PasswordProtection(ksPassword);
+    var pkEntry = (KeyStore.PrivateKeyEntry) keystore.getEntry("testKeystore", protParam);
+
+    JarSigner signer = new JarSigner.Builder(pkEntry).digestAlgorithm("SHA-256").build();
+    try (ZipFile in = new ZipFile(baseJarPath);
+        FileOutputStream out = new FileOutputStream(signedJarPath)) {
+      signer.sign(in, out);
+    }
   }
 
   private byte[] sha1sum(String path) throws Exception {

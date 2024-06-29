@@ -163,20 +163,6 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
         == Nullness.NULLABLE;
   }
 
-  @Override
-  public boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state) {
-
-    if (accessPath.getElements().size() == 1) {
-      final Element e = accessPath.getRoot();
-      if (e != null) {
-        return e.getKind().equals(ElementKind.LOCAL_VARIABLE)
-            && accessPath.getElements().get(0).getJavaElement()
-                instanceof OptionalContentVariableElement;
-      }
-    }
-    return false;
-  }
-
   private void handleTestAssertions(
       VisitorState state,
       AccessPath.AccessPathContext apContext,

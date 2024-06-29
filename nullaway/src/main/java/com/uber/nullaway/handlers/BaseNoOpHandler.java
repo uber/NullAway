@@ -31,6 +31,7 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -44,6 +45,7 @@ import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
@@ -71,35 +73,25 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public void onMatchMethod(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+  public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     // NoOp
   }
 
   @Override
   public void onMatchMethodInvocation(
-      NullAway analysis,
-      MethodInvocationTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
     // NoOp
   }
 
   @Override
   public void onMatchLambdaExpression(
-      NullAway analysis,
-      LambdaExpressionTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      LambdaExpressionTree tree, MethodAnalysisContext methodAnalysisContext) {
     // NoOp
   }
 
   @Override
   public void onMatchMethodReference(
-      NullAway analysis,
-      MemberReferenceTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      MemberReferenceTree tree, MethodAnalysisContext methodAnalysisContext) {
     // NoOp
   }
 
@@ -116,6 +108,12 @@ public abstract class BaseNoOpHandler implements Handler {
       Nullness returnNullness) {
     // NoOp
     return returnNullness;
+  }
+
+  @Override
+  public boolean onOverrideFieldNullability(Symbol field) {
+    // NoOp
+    return false;
   }
 
   @Override
@@ -193,8 +191,9 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state) {
-    return false;
+  public Predicate<AccessPath> getAccessPathPredicateForNestedMethod(
+      TreePath path, VisitorState state) {
+    return AccessPathPredicates.FALSE_AP_PREDICATE;
   }
 
   @Override
@@ -209,6 +208,16 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
+  public boolean onOverrideTypeParameterUpperBound(String className, int index) {
+    return false;
+  }
+
+  @Override
+  public boolean onOverrideNullMarkedClasses(String className) {
+    return false;
+  }
+
+  @Override
   public MethodInvocationNode onCFGBuildPhase1AfterVisitMethodInvocation(
       NullAwayCFGBuilder.NullAwayCFGTranslationPhaseOne phase,
       MethodInvocationTree tree,
@@ -219,11 +228,9 @@ public abstract class BaseNoOpHandler implements Handler {
   @Override
   @Nullable
   public Integer castToNonNullArgumentPositionsForMethod(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
-      @Nullable Integer previousArgumentPosition) {
+      @Nullable Integer previousArgumentPosition,
+      MethodAnalysisContext methodAnalysisContext) {
     // NoOp
     return previousArgumentPosition;
   }

@@ -15,90 +15,65 @@ jobs:
         include:
           - os: ubuntu-latest
             java: 11
-            epVersion: 2.10.0
+            epVersion: 2.14.0
           - os: ubuntu-latest
             java: 17
-            epVersion: 2.10.0
+            epVersion: 2.14.0
           - os: macos-latest
             java: 11
-            epVersion: 2.23.0
+            epVersion: 2.28.0
           - os: ubuntu-latest
             java: 11
-            epVersion: 2.23.0
+            epVersion: 2.28.0
           - os: windows-latest
             java: 11
-            epVersion: 2.23.0
+            epVersion: 2.28.0
           - os: ubuntu-latest
             java: 17
-            epVersion: 2.23.0
+            epVersion: 2.28.0
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out NullAway sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: 'Set up JDKs'
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@v4
         with:
           java-version: |
             21
             17
             ${{ matrix.java }}
           distribution: 'temurin'
+      - name: Validate Gradle wrappers
+        uses: gradle/actions/wrapper-validation@v3
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
       - name: Build and test using Java ${{ matrix.java }} and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: build
+        run: ./gradlew build
       - name: Run shellcheck
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: shellcheck
+        run: ./gradlew shellcheck
         if: runner.os == 'Linux'
       - name: Aggregate jacoco coverage
         id: jacoco_report
-        uses: gradle/gradle-build-action@v2
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
-        with:
-          arguments: codeCoverageReport
+        run: ./gradlew codeCoverageReport
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.23.0' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.28.0' && github.repository == 'uber/NullAway'
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
         with:
           files: ./code-coverage-report/build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
         if: steps.jacoco_report.outcome == 'success'
       - name: Test publishToMavenLocal flow
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
           ORG_GRADLE_PROJECT_VERSION_NAME: '0.0.0.1-LOCAL'
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'false'
-        uses: gradle/gradle-build-action@v2
-        with:
-          arguments: publishToMavenLocal
+        run: ./gradlew publishToMavenLocal
         if: matrix.java == '11'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
-  publish_snapshot:
-    name: 'Publish snapshot'
-    needs: [build]
-    if: github.event_name == 'push' && github.repository == 'uber/NullAway' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    steps:
-      - name: 'Check out repository'
-        uses: actions/checkout@v3
-      - name: 'Set up JDK 11'
-        uses: actions/setup-java@v3
-        with:
-          java-version: |
-            21
-            11
-          distribution: 'temurin'
-      - name: 'Publish'
-        uses: gradle/gradle-build-action@v2
-        env:
-          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.SONATYPE_NEXUS_USERNAME }}
-          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.SONATYPE_NEXUS_PASSWORD }}
-        with:
-          arguments: clean publish --no-daemon --no-parallel

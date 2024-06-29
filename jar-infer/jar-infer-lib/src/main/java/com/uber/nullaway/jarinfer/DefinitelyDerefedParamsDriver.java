@@ -43,6 +43,8 @@ import com.ibm.wala.types.ClassLoaderReference;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.util.collections.Iterator2Iterable;
 import com.ibm.wala.util.config.FileOfClasses;
+import com.uber.nullaway.libmodel.MethodAnnotationsRecord;
+import com.uber.nullaway.libmodel.StubxWriter;
 import java.io.ByteArrayInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -56,6 +58,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -437,7 +440,7 @@ public class DefinitelyDerefedParamsDriver {
       }
       methodRecords.put(
           sign,
-          new MethodAnnotationsRecord(
+          MethodAnnotationsRecord.create(
               nullableReturns.contains(sign) ? ImmutableSet.of("Nullable") : ImmutableSet.of(),
               ImmutableMap.copyOf(argAnnotation)));
       nullableReturns.remove(sign);
@@ -445,9 +448,15 @@ public class DefinitelyDerefedParamsDriver {
     for (String nullableReturnMethodSign : Iterator2Iterable.make(nullableReturns.iterator())) {
       methodRecords.put(
           nullableReturnMethodSign,
-          new MethodAnnotationsRecord(ImmutableSet.of("Nullable"), ImmutableMap.of()));
+          MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
     }
-    StubxWriter.write(out, importedAnnotations, packageAnnotations, typeAnnotations, methodRecords);
+    StubxWriter.write(
+        out,
+        importedAnnotations,
+        packageAnnotations,
+        typeAnnotations,
+        methodRecords,
+        Collections.emptyMap());
   }
 
   private void writeAnnotations(String inPath, String outFile) throws IOException {

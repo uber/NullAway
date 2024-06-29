@@ -31,6 +31,7 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -45,6 +46,7 @@ import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
@@ -76,55 +78,37 @@ public interface Handler {
   /**
    * Called when NullAway first matches a particular method node.
    *
-   * @param analysis A reference to the running NullAway analysis.
    * @param tree The AST node for the method being matched.
-   * @param state The current visitor state.
-   * @param methodSymbol The method symbol for the method being matched.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
-  void onMatchMethod(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol);
+  void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext);
 
   /**
    * Called when NullAway first matches a particular method call-site.
    *
-   * @param analysis A reference to the running NullAway analysis.
    * @param tree The AST node for the method invocation (call-site) being matched.
-   * @param state The current visitor state.
-   * @param methodSymbol The method symbol for the method being called.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   void onMatchMethodInvocation(
-      NullAway analysis,
-      MethodInvocationTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol);
+      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext);
 
   /**
    * Called when NullAway first matches a particular lambda expression.
    *
-   * @param analysis A reference to the running NullAway analysis.
    * @param tree The AST node for the lambda expression being matched.
-   * @param state The current visitor state.
-   * @param methodSymbol The method symbol for the functional interface of the lambda being matched.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   void onMatchLambdaExpression(
-      NullAway analysis,
-      LambdaExpressionTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol);
+      LambdaExpressionTree tree, MethodAnalysisContext methodAnalysisContext);
 
   /**
    * Called when NullAway first matches a particular method reference expression
    *
-   * @param analysis A reference to the running NullAway analysis.
    * @param tree The AST node for the method reference expression being matched.
-   * @param state The current visitor state.
-   * @param methodSymbol The method symbol for the reference being matched.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   void onMatchMethodReference(
-      NullAway analysis,
-      MemberReferenceTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol);
+      MemberReferenceTree tree, MethodAnalysisContext methodAnalysisContext);
 
   /**
    * Called when NullAway first matches a return statement.
@@ -172,6 +156,16 @@ public interface Handler {
       VisitorState state,
       boolean isAnnotated,
       Nullness returnNullness);
+
+  /**
+   * Called to potentially override the nullability of a field which is not annotated as @Nullable.
+   * If the field is decided to be @Nullable by this handler, the field should be treated
+   * as @Nullable anyway.
+   *
+   * @param field The symbol for the field in question.
+   * @return true if the field should be treated as @Nullable, false otherwise.
+   */
+  boolean onOverrideFieldNullability(Symbol field);
 
   /**
    * Called after the analysis determines the nullability of a method's arguments, allowing handlers
@@ -317,15 +311,16 @@ public interface Handler {
       ExpressionTree expr, ExpressionTree baseExpr, VisitorState state);
 
   /**
-   * Called when the store access paths are filtered for local variable information before an
-   * expression.
+   * Called when determining which access path nullability information should be preserved when
+   * analyzing a nested method, i.e., a lambda expression or a method in an anonymous or local
+   * class.
    *
-   * @param accessPath The access path that needs to be checked if filtered.
+   * @param path The tree path to the node for the nested method.
    * @param state The current visitor state.
-   * @return true if the nullability information for this accesspath should be treated as part of
-   *     the surrounding context when processing a lambda expression or anonymous class declaration.
+   * @return A predicate that determines which access paths should be preserved when analyzing the
+   *     nested method.
    */
-  boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state);
+  Predicate<AccessPath> getAccessPathPredicateForNestedMethod(TreePath path, VisitorState state);
 
   /**
    * Called during dataflow analysis initialization to register structurally immutable types.
@@ -373,9 +368,6 @@ public interface Handler {
    * <p>See {@link LibraryModels#castToNonNullMethods()} for more information about general
    * configuration of <code>castToNonNull</code> methods.
    *
-   * @param analysis A reference to the running NullAway analysis.
-   * @param state The current visitor state.
-   * @param methodSymbol The method symbol for the potential castToNonNull method.
    * @param actualParams The actual parameters from the invocation node
    * @param previousArgumentPosition The result computed by the previous handler in the chain, if
    *     any.
@@ -383,14 +375,31 @@ public interface Handler {
    *     value can be set only once through the full chain of handlers, with each handler deciding
    *     whether to propagate or override the value previousArgumentPosition passed by the previous
    *     handler in the chain.
+   * @param methodAnalysisContext The MethodAnalysisContext object
    */
   @Nullable
   Integer castToNonNullArgumentPositionsForMethod(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
-      @Nullable Integer previousArgumentPosition);
+      @Nullable Integer previousArgumentPosition,
+      MethodAnalysisContext methodAnalysisContext);
+
+  /**
+   * Method to override the nullability of the upper bound for a generic type variable on a class.
+   *
+   * @param className name of the class
+   * @param index index of the generic type variable (starting at 0)
+   * @return boolean true if the variable should be treated as having a {@code @Nullable} upper
+   *     bound
+   */
+  boolean onOverrideTypeParameterUpperBound(String className, int index);
+
+  /**
+   * Method to override the null-markedness of a class.
+   *
+   * @param className name of the class
+   * @return boolean true if the class should be treated as {@code @NullMarked}
+   */
+  boolean onOverrideNullMarkedClasses(String className);
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate

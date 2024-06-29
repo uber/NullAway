@@ -46,6 +46,8 @@ import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
+import org.checkerframework.nullaway.dataflow.cfg.node.ArrayAccessNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.ClassNameNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.IntegerLiteralNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
@@ -205,7 +207,7 @@ public final class AccessPath implements MapKey {
   @Nullable
   public static AccessPath fromBaseAndElement(
       Node base, Element element, AccessPathContext apContext) {
-    return fromNodeElementAndContext(base, new AccessPathElement(element), apContext);
+    return fromNodeElementAndContext(base, new FieldOrMethodCallElement(element), apContext);
   }
 
   @Nullable
@@ -238,7 +240,7 @@ public final class AccessPath implements MapKey {
   public static AccessPath fromBaseMethodAndConstantArgs(
       Node base, Element method, List<String> constantArguments, AccessPathContext apContext) {
     return fromNodeElementAndContext(
-        base, new AccessPathElement(method, constantArguments), apContext);
+        base, new FieldOrMethodCallElement(method, constantArguments), apContext);
   }
 
   /**
@@ -333,6 +335,24 @@ public final class AccessPath implements MapKey {
       return fromFieldAccess((FieldAccessNode) node, apContext);
     } else if (node instanceof MethodInvocationNode) {
       return fromMethodCall((MethodInvocationNode) node, state, apContext);
+    } else if (node instanceof ArrayAccessNode) {
+      return fromArrayAccess((ArrayAccessNode) node, apContext);
+    } else {
+      return null;
+    }
+  }
+
+  @Nullable
+  private static AccessPath fromArrayAccess(ArrayAccessNode node, AccessPathContext apContext) {
+    return fromNodeAndContext(node, apContext);
+  }
+
+  @Nullable
+  private static Element getElementFromArrayNode(Node arrayNode) {
+    if (arrayNode instanceof LocalVariableNode) {
+      return ((LocalVariableNode) arrayNode).getElement();
+    } else if (arrayNode instanceof FieldAccessNode) {
+      return ((FieldAccessNode) arrayNode).getElement();
     } else {
       return null;
     }
@@ -349,7 +369,7 @@ public final class AccessPath implements MapKey {
     Preconditions.checkArgument(
         element.getKind().isField(),
         "element must be of type: FIELD but received: " + element.getKind());
-    return new AccessPath(null, ImmutableList.of(new AccessPathElement(element)));
+    return new AccessPath(null, ImmutableList.of(new FieldOrMethodCallElement(element)));
   }
 
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
@@ -383,11 +403,31 @@ public final class AccessPath implements MapKey {
         result = new AccessPath(fieldAccess.getElement(), ImmutableList.copyOf(elements), mapKey);
       } else {
         // instance field access
-        elements.push(new AccessPathElement(fieldAccess.getElement()));
+        elements.push(new FieldOrMethodCallElement(fieldAccess.getElement()));
         result =
             buildAccessPathRecursive(
                 stripCasts(fieldAccess.getReceiver()), elements, apContext, mapKey);
       }
+    } else if (node instanceof ArrayAccessNode) {
+      ArrayAccessNode arrayAccess = (ArrayAccessNode) node;
+      Node arrayNode = stripCasts(arrayAccess.getArray());
+      Node indexNode = arrayAccess.getIndex();
+      Element arrayElement = getElementFromArrayNode(arrayNode);
+      Element indexElement = getElementFromArrayNode(indexNode);
+      if (arrayElement == null) {
+        return null;
+      }
+      if (indexNode instanceof IntegerLiteralNode) {
+        IntegerLiteralNode intIndexNode = (IntegerLiteralNode) indexNode;
+        elements.push(ArrayIndexElement.withIntegerIndex(arrayElement, intIndexNode.getValue()));
+      } else {
+        if (indexElement != null) {
+          elements.push(ArrayIndexElement.withVariableIndex(arrayElement, indexElement));
+        } else {
+          return null;
+        }
+      }
+      result = buildAccessPathRecursive(arrayNode, elements, apContext, mapKey);
     } else if (node instanceof MethodInvocationNode) {
       MethodInvocationNode invocation = (MethodInvocationNode) node;
       AccessPathElement accessPathElement;
@@ -398,7 +438,7 @@ public final class AccessPath implements MapKey {
           // a zero-argument static method call can be the root of an access path
           return new AccessPath(symbol, ImmutableList.copyOf(elements), mapKey);
         } else {
-          accessPathElement = new AccessPathElement(accessNode.getMethod());
+          accessPathElement = new FieldOrMethodCallElement(accessNode.getMethod());
         }
       } else {
         List<String> constantArgumentValues = new ArrayList<>();
@@ -467,7 +507,8 @@ public final class AccessPath implements MapKey {
               return null; // Not an AP
           }
         }
-        accessPathElement = new AccessPathElement(accessNode.getMethod(), constantArgumentValues);
+        accessPathElement =
+            new FieldOrMethodCallElement(accessNode.getMethod(), constantArgumentValues);
       }
       elements.push(accessPathElement);
       result =
@@ -477,6 +518,19 @@ public final class AccessPath implements MapKey {
       result =
           new AccessPath(
               ((LocalVariableNode) node).getElement(), ImmutableList.copyOf(elements), mapKey);
+    } else if (node instanceof ClassNameNode) {
+      // It is useful to make an access path if elements.size() > 1 and elements.getFirst() is
+      // "this".  In this case, we may have an access of a field of an enclosing class from a nested
+      // class.  Tracking an access path for "Foo.this" alone is not useful, since that can never be
+      // null.  Also, we do not attempt to canonicalize cases where "Foo.this" is used to refer to
+      // the receiver of the current method instead of "this".
+      if (elements.size() > 1
+          && elements.getFirst().getJavaElement().getSimpleName().contentEquals("this")) {
+        Element rootElement = elements.pop().getJavaElement();
+        result = new AccessPath(rootElement, ImmutableList.copyOf(elements), mapKey);
+      } else {
+        result = null;
+      }
     } else if (node instanceof ThisNode || node instanceof SuperNode) {
       result = new AccessPath(null, ImmutableList.copyOf(elements), mapKey);
     } else {

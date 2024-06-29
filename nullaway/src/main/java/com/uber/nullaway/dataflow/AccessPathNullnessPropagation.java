@@ -25,10 +25,12 @@ import static javax.lang.model.element.ElementKind.EXCEPTION_PARAMETER;
 import static org.checkerframework.nullaway.javacutil.TreeUtils.elementFromDeclaration;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.VerifyException;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -404,54 +406,43 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitEqualTo(
       EqualToNode equalToNode, TransferInput<Nullness, NullnessStore> input) {
-    ReadableUpdates thenUpdates = new ReadableUpdates();
-    ReadableUpdates elseUpdates = new ReadableUpdates();
-    handleEqualityComparison(
-        true,
-        equalToNode.getLeftOperand(),
-        equalToNode.getRightOperand(),
-        values(input),
-        thenUpdates,
-        elseUpdates);
-    ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
-    ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
-    return conditionalResult(
-        thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
+    return handleEqualityComparison(
+        input, equalToNode.getLeftOperand(), equalToNode.getRightOperand(), true);
   }
 
   @Override
   public TransferResult<Nullness, NullnessStore> visitNotEqual(
       NotEqualNode notEqualNode, TransferInput<Nullness, NullnessStore> input) {
-    ReadableUpdates thenUpdates = new ReadableUpdates();
-    ReadableUpdates elseUpdates = new ReadableUpdates();
-    handleEqualityComparison(
-        false,
-        notEqualNode.getLeftOperand(),
-        notEqualNode.getRightOperand(),
-        values(input),
-        thenUpdates,
-        elseUpdates);
-    ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
-    ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
-    return conditionalResult(
-        thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
+    return handleEqualityComparison(
+        input, notEqualNode.getLeftOperand(), notEqualNode.getRightOperand(), false);
   }
 
-  private void handleEqualityComparison(
-      boolean equalTo,
-      Node leftNode,
-      Node rightNode,
-      SubNodeValues inputs,
-      Updates thenUpdates,
-      Updates elseUpdates) {
-    Nullness leftVal = inputs.valueOfSubNode(leftNode);
-    Nullness rightVal = inputs.valueOfSubNode(rightNode);
+  /**
+   * Handle nullability refinements from an equality comparison.
+   *
+   * @param input transfer input for the operation
+   * @param leftOperand left operand of the comparison
+   * @param rightOperand right operand of the comparison
+   * @param equalTo if {@code true}, the comparison is an equality comparison, otherwise it is a
+   *     dis-equality ({@code !=}) comparison
+   * @return a TransferResult reflecting any updates from the comparison
+   */
+  private TransferResult<Nullness, NullnessStore> handleEqualityComparison(
+      TransferInput<Nullness, NullnessStore> input,
+      Node leftOperand,
+      Node rightOperand,
+      boolean equalTo) {
+    ReadableUpdates thenUpdates = new ReadableUpdates();
+    ReadableUpdates elseUpdates = new ReadableUpdates();
+    SubNodeValues inputs = values(input);
+    Nullness leftVal = inputs.valueOfSubNode(leftOperand);
+    Nullness rightVal = inputs.valueOfSubNode(rightOperand);
     Nullness equalBranchValue = leftVal.greatestLowerBound(rightVal);
     Updates equalBranchUpdates = equalTo ? thenUpdates : elseUpdates;
     Updates notEqualBranchUpdates = equalTo ? elseUpdates : thenUpdates;
 
-    Node realLeftNode = unwrapAssignExpr(leftNode);
-    Node realRightNode = unwrapAssignExpr(rightNode);
+    Node realLeftNode = unwrapAssignExpr(leftOperand);
+    Node realRightNode = unwrapAssignExpr(rightOperand);
 
     AccessPath leftAP = AccessPath.getAccessPathForNode(realLeftNode, state, apContext);
     if (leftAP != null) {
@@ -466,6 +457,10 @@ public class AccessPathNullnessPropagation
       notEqualBranchUpdates.set(
           rightAP, rightVal.greatestLowerBound(leftVal.deducedValueWhenNotEqual()));
     }
+    ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
+    ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
+    return conditionalResult(
+        thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
   }
 
   @Override
@@ -578,7 +573,7 @@ public class AccessPathNullnessPropagation
         if (mapWithIteratorContentsKey != null) {
           // put sanity check here to minimize perf impact
           if (!isCallToMethod(rhsInv, SET_TYPE_SUPPLIER, "iterator")) {
-            throw new RuntimeException(
+            throw new VerifyException(
                 "expected call to iterator(), instead saw "
                     + state.getSourceForNode(rhsInv.getTree()));
           }
@@ -603,7 +598,7 @@ public class AccessPathNullnessPropagation
         if (mapGetPath != null) {
           // put sanity check here to minimize perf impact
           if (!isCallToMethod(methodInv, ITERATOR_TYPE_SUPPLIER, "next")) {
-            throw new RuntimeException(
+            throw new VerifyException(
                 "expected call to next(), instead saw "
                     + state.getSourceForNode(methodInv.getTree()));
           }
@@ -633,14 +628,32 @@ public class AccessPathNullnessPropagation
     return null;
   }
 
+  /**
+   * Checks if an invocation node represents a call to a method on a given type
+   *
+   * @param invocationNode the invocation node
+   * @param containingTypeSupplier supplier for the type containing the method
+   * @param methodName name of the method
+   * @return true if the invocation node represents a call to the method on the type
+   */
   private boolean isCallToMethod(
       MethodInvocationNode invocationNode,
       Supplier<Type> containingTypeSupplier,
       String methodName) {
-    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocationNode.getTree());
-    return symbol != null
-        && symbol.getSimpleName().contentEquals(methodName)
-        && ASTHelpers.isSubtype(symbol.owner.type, containingTypeSupplier.get(state), state);
+    MethodInvocationTree invocationTree = invocationNode.getTree();
+    Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invocationTree);
+    if (symbol != null && symbol.getSimpleName().contentEquals(methodName)) {
+      // NOTE: previously we checked if symbol.owner.type was a subtype of the containing type.
+      // However, symbol.owner.type refers to the static type at the call site, in which the target
+      // class/interface might be a supertype of the containing type with some Java compilers.
+      // Instead, we now check if the static type of the receiver at the invocation is a subtype of
+      // the containing type (as this guarantees a method in the containing type or one of its
+      // subtypes will be invoked, assuming such a method exists).  See
+      // https://github.com/uber/NullAway/issues/866.
+      return ASTHelpers.isSubtype(
+          ASTHelpers.getReceiverType(invocationTree), containingTypeSupplier.get(state), state);
+    }
+    return false;
   }
 
   /**
@@ -776,8 +789,42 @@ public class AccessPathNullnessPropagation
       ArrayAccessNode node, TransferInput<Nullness, NullnessStore> input) {
     ReadableUpdates updates = new ReadableUpdates();
     setNonnullIfAnalyzeable(updates, node.getArray());
-    // this is unsound
-    return updateRegularStore(defaultAssumption, input, updates);
+    Nullness resultNullness;
+    // Unsoundly assume @NonNull, except in JSpecify mode where we check the type
+    if (config.isJSpecifyMode()) {
+      Symbol arraySymbol;
+      boolean isElementNullable = false;
+      // For enhanced-for-loops we get the symbol from the array expression as the node is desugared
+      ExpressionTree arrayExpr = node.getArrayExpression();
+      if (arrayExpr != null) {
+        arraySymbol = ASTHelpers.getSymbol(arrayExpr);
+      } else {
+        arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());
+      }
+      if (arraySymbol != null) {
+        isElementNullable = NullabilityUtil.isArrayElementNullable(arraySymbol, config);
+      }
+      if (isElementNullable) {
+        AccessPath arrayAccessPath = AccessPath.getAccessPathForNode(node, state, apContext);
+        if (arrayAccessPath != null) {
+          Nullness accessPathNullness =
+              input.getRegularStore().getNullnessOfAccessPath(arrayAccessPath);
+          if (accessPathNullness == Nullness.NULLABLE) {
+            resultNullness = Nullness.NULLABLE;
+          } else {
+            resultNullness = Nullness.NONNULL;
+          }
+        } else {
+          resultNullness = Nullness.NULLABLE;
+        }
+
+      } else {
+        resultNullness = Nullness.NONNULL;
+      }
+    } else {
+      resultNullness = Nullness.NONNULL;
+    }
+    return updateRegularStore(resultNullness, input, updates);
   }
 
   @Override
@@ -903,7 +950,18 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitCase(
       CaseNode caseNode, TransferInput<Nullness, NullnessStore> input) {
-    return noStoreChanges(NULLABLE, input);
+    List<Node> caseOperands = caseNode.getCaseOperands();
+    if (caseOperands.isEmpty()) {
+      return noStoreChanges(NULLABLE, input);
+    } else {
+      // `null` can only appear on its own as a case operand, or together with the default case
+      // (i.e., `case null, default:`).  So, it is safe to only look at the first case operand, and
+      // update the stores based on that.  We treat the case operation as an equality comparison
+      // between the switch expression and the case operand.
+      Node switchOperand = caseNode.getSwitchOperand().getExpression();
+      Node caseOperand = caseOperands.get(0);
+      return handleEqualityComparison(input, switchOperand, caseOperand, true);
+    }
   }
 
   @Override

@@ -22,8 +22,10 @@
 
 package com.uber.nullaway.testdata.unannotated;
 
+import com.uber.nullaway.SerializationTest;
+
 /**
- * A minimal class, used from {@link com.uber.nullaway.NullAwaySerializationTest} to avoid extra
+ * A minimal class, used from {@link SerializationTest} to avoid extra
  * fixes.
  */
 public class MinimalUnannotatedClass {

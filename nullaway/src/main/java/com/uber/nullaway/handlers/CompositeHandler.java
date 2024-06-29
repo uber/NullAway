@@ -22,6 +22,9 @@
 
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.handlers.AccessPathPredicates.FALSE_AP_PREDICATE;
+import static com.uber.nullaway.handlers.AccessPathPredicates.TRUE_AP_PREDICATE;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
@@ -32,6 +35,7 @@ import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -45,6 +49,7 @@ import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
 import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
@@ -75,43 +80,33 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public void onMatchMethod(
-      NullAway analysis, MethodTree tree, VisitorState state, Symbol.MethodSymbol methodSymbol) {
+  public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     for (Handler h : handlers) {
-      h.onMatchMethod(analysis, tree, state, methodSymbol);
+      h.onMatchMethod(tree, methodAnalysisContext);
     }
   }
 
   @Override
   public void onMatchLambdaExpression(
-      NullAway analysis,
-      LambdaExpressionTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      LambdaExpressionTree tree, MethodAnalysisContext methodAnalysisContext) {
     for (Handler h : handlers) {
-      h.onMatchLambdaExpression(analysis, tree, state, methodSymbol);
+      h.onMatchLambdaExpression(tree, methodAnalysisContext);
     }
   }
 
   @Override
   public void onMatchMethodReference(
-      NullAway analysis,
-      MemberReferenceTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      MemberReferenceTree tree, MethodAnalysisContext methodAnalysisContext) {
     for (Handler h : handlers) {
-      h.onMatchMethodReference(analysis, tree, state, methodSymbol);
+      h.onMatchMethodReference(tree, methodAnalysisContext);
     }
   }
 
   @Override
   public void onMatchMethodInvocation(
-      NullAway analysis,
-      MethodInvocationTree tree,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol) {
+      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
     for (Handler h : handlers) {
-      h.onMatchMethodInvocation(analysis, tree, state, methodSymbol);
+      h.onMatchMethodInvocation(tree, methodAnalysisContext);
     }
   }
 
@@ -133,6 +128,18 @@ class CompositeHandler implements Handler {
           h.onOverrideMethodReturnNullability(methodSymbol, state, isAnnotated, returnNullness);
     }
     return returnNullness;
+  }
+
+  @Override
+  public boolean onOverrideFieldNullability(Symbol field) {
+    for (Handler h : handlers) {
+      if (h.onOverrideFieldNullability(field)) {
+        // If any handler determines that the field is @Nullable, we should acknowledge that and
+        // treat it as such.
+        return true;
+      }
+    }
+    return false;
   }
 
   @Override
@@ -241,12 +248,24 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public boolean includeApInfoInSavedContext(AccessPath accessPath, VisitorState state) {
-    boolean shouldFilter = false;
+  public Predicate<AccessPath> getAccessPathPredicateForNestedMethod(
+      TreePath path, VisitorState state) {
+    Predicate<AccessPath> filter = FALSE_AP_PREDICATE;
     for (Handler h : handlers) {
-      shouldFilter |= h.includeApInfoInSavedContext(accessPath, state);
+      Predicate<AccessPath> curFilter = h.getAccessPathPredicateForNestedMethod(path, state);
+      // here we do some optimization, to try to avoid unnecessarily returning a deeply nested
+      // Predicate object (which would be more costly to test)
+      if (curFilter != FALSE_AP_PREDICATE) {
+        if (curFilter == TRUE_AP_PREDICATE) {
+          return curFilter;
+        } else if (filter == FALSE_AP_PREDICATE) {
+          filter = curFilter;
+        } else {
+          filter = filter.or(curFilter);
+        }
+      }
     }
-    return shouldFilter;
+    return filter;
   }
 
   @Override
@@ -281,16 +300,40 @@ class CompositeHandler implements Handler {
   @Override
   @Nullable
   public Integer castToNonNullArgumentPositionsForMethod(
-      NullAway analysis,
-      VisitorState state,
-      Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams,
-      @Nullable Integer previousArgumentPosition) {
+      @Nullable Integer previousArgumentPosition,
+      MethodAnalysisContext methodAnalysisContext) {
     for (Handler h : handlers) {
       previousArgumentPosition =
           h.castToNonNullArgumentPositionsForMethod(
-              analysis, state, methodSymbol, actualParams, previousArgumentPosition);
+              actualParams, previousArgumentPosition, methodAnalysisContext);
     }
     return previousArgumentPosition;
+  }
+
+  /** Returns true if any handler returns true. */
+  @Override
+  public boolean onOverrideTypeParameterUpperBound(String className, int index) {
+    boolean result = false;
+    for (Handler h : handlers) {
+      result = h.onOverrideTypeParameterUpperBound(className, index);
+      if (result) {
+        break;
+      }
+    }
+    return result;
+  }
+
+  /** Returns true if any handler returns true. */
+  @Override
+  public boolean onOverrideNullMarkedClasses(String className) {
+    boolean result = false;
+    for (Handler h : handlers) {
+      result = h.onOverrideNullMarkedClasses(className);
+      if (result) {
+        break;
+      }
+    }
+    return result;
   }
 }

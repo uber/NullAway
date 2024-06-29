@@ -18,12 +18,6 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
-// JarInfer requires JDK 11+, due to its dependence on WALA
-tasks.withType(JavaCompile) {
-    java.sourceCompatibility = JavaVersion.VERSION_11
-    java.targetCompatibility = JavaVersion.VERSION_11
-}
-
 repositories {
     mavenCentral()
     // uncomment if you want to use wala.dalvik or wala.scandroid
@@ -37,6 +31,7 @@ dependencies {
     api deps.build.guava
     api deps.build.commonsIO
     compileOnly deps.build.errorProneCheckApi
+    implementation project(":library-model:library-model-generator")
 
     testImplementation deps.test.junit4
     testImplementation(deps.build.errorProneTestHelpers) {
@@ -49,12 +44,6 @@ dependencies {
 
 test {
     dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
-}
-
-tasks.named('testJdk21', Test).configure {
-    // Tests fail since WALA does not yet support JDK 21; see https://github.com/uber/NullAway/issues/829
-    // So, disable them
-    onlyIf { false }
 }
 
 tasks.withType(JavaCompile).configureEach {

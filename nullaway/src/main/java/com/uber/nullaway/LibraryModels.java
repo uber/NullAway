@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -112,6 +113,26 @@ public interface LibraryModels {
   ImmutableSet<MethodRef> nonNullReturns();
 
   /**
+   * Get the (className, type argument index) pairs for library classes where the generic type
+   * argument has a {@code @Nullable} upper bound. Only used in JSpecify mode.
+   *
+   * @return map from the className to the positions of the generic type arguments that have a
+   *     {@code Nullable} upper bound.
+   */
+  default ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
+    return ImmutableSetMultimap.of();
+  }
+
+  /**
+   * Get the set of library classes that are NullMarked. Only used in JSpecify mode.
+   *
+   * @return set of library classes that are NullMarked.
+   */
+  default ImmutableSet<String> nullMarkedClasses() {
+    return ImmutableSet.of();
+  }
+
+  /**
    * Get (method, parameter) pairs that act as castToNonNull(...) methods.
    *
    * <p>Here, the parameter index determines the argument position of the reference being cast to
@@ -130,6 +151,15 @@ public interface LibraryModels {
    * because there might be no general, automated way of synthesizing the required arguments.
    */
   ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods();
+
+  /**
+   * Get the set of library fields that may be {@code null}.
+   *
+   * @return set of library fields that may be {@code null}.
+   */
+  default ImmutableSet<FieldRef> nullableFields() {
+    return ImmutableSet.of();
+  }
 
   /**
    * Get a list of custom stream library specifications.
@@ -156,8 +186,8 @@ public interface LibraryModels {
    * principles:
    *
    * <ul>
-   *   <li>signature is a method name plus argument types, e.g., <code>foo(java.lang.Object,
-   *  java.lang.String)</code>
+   *   <li>signature is a method name plus argument types, with no spaces between the argument
+   *       types, e.g., <code>foo(java.lang.Object,java.lang.String)</code>
    *   <li>constructor for class Foo looks like <code>Foo(java.lang.String)</code>
    *   <li>If the method has its own type parameters, they need to be declared, like <code>
    *       &lt;T&gt;checkNotNull(T)</code>
@@ -166,7 +196,7 @@ public interface LibraryModels {
    *  </code>
    * </ul>
    */
-  final class MethodRef {
+  public final class MethodRef {
 
     public final String enclosingClass;
 
@@ -242,6 +272,19 @@ public interface LibraryModels {
           + fullMethodSig
           + '\''
           + '}';
+    }
+  }
+
+  /** Representation of a field as a qualified class name + a field name */
+  @AutoValue
+  abstract class FieldRef {
+
+    public abstract String getEnclosingClassName();
+
+    public abstract String getFieldName();
+
+    public static FieldRef fieldRef(String enclosingClass, String fieldName) {
+      return new AutoValue_LibraryModels_FieldRef(enclosingClass, fieldName);
     }
   }
 }

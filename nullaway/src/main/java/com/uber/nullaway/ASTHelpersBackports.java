@@ -1,12 +1,15 @@
 package com.uber.nullaway;
 
+import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import java.util.List;
 
 /**
  * Methods backported from {@link com.google.errorprone.util.ASTHelpers} since we do not yet require
  * a recent-enough Error Prone version. The methods should be removed once we bump our minimum Error
- * Prone version accordingly.
+ * Prone version accordingly. We also include methods where new overloads have been added in recent
+ * Error Prone versions, to ensure binary compatibility when compiling against a new version but
+ * running on an old version.
  */
 public class ASTHelpersBackports {
 
@@ -35,5 +38,20 @@ public class ASTHelpersBackports {
   @SuppressWarnings("ASTHelpersSuggestions")
   public static List<Symbol> getEnclosedElements(Symbol symbol) {
     return symbol.getEnclosedElements();
+  }
+
+  /**
+   * A wrapper for {@link ASTHelpers#hasDirectAnnotationWithSimpleName(Symbol, String)} to avoid
+   * binary compatibility issues with new overloads in recent Error Prone versions. NullAway code
+   * should only use this method and not call the corresponding ASTHelpers methods directly.
+   *
+   * <p>TODO: delete this method and switch to ASTHelpers once we can require Error Prone 2.24.0
+   *
+   * @param sym the symbol
+   * @param simpleName the simple name
+   * @return {@code true} iff the symbol has a direct annotation with the given simple name
+   */
+  public static boolean hasDirectAnnotationWithSimpleName(Symbol sym, String simpleName) {
+    return ASTHelpers.hasDirectAnnotationWithSimpleName(sym, simpleName);
   }
 }

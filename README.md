@@ -8,7 +8,7 @@ NullAway is *fast*.  It is built as a plugin to [Error Prone](http://errorprone.
 
 ### Overview
 
-NullAway requires that you build your code with [Error Prone](http://errorprone.info), version 2.10.0 or higher.  See the [Error Prone documentation](http://errorprone.info/docs/installation) for instructions on getting started with Error Prone and integration with your build system.  The instructions below assume you are using Gradle; see [the docs](https://github.com/uber/NullAway/wiki/Configuration#other-build-systems) for discussion of other build systems.
+NullAway requires that you build your code with [Error Prone](http://errorprone.info), version 2.14.0 or higher.  See the [Error Prone documentation](http://errorprone.info/docs/installation) for instructions on getting started with Error Prone and integration with your build system.  The instructions below assume you are using Gradle; see [the docs](https://github.com/uber/NullAway/wiki/Configuration#other-build-systems) for discussion of other build systems.
 
 ### Gradle
 
@@ -54,19 +54,11 @@ Finally, in the `tasks.withType(JavaCompile)` section, we pass some configuratio
 
 We recommend addressing all the issues that Error Prone reports, particularly those reported as errors (rather than warnings).  But, if you'd like to try out NullAway without running other Error Prone checks, you can use `options.errorprone.disableAllChecks` (equivalent to passing `"-XepDisableAllChecks"` to the compiler, before the NullAway-specific arguments).
 
-Snapshots of the development version are available in [Sonatype's snapshots repository][snapshots].
-
 #### Android
 
-The configuration for an Android project is very similar to the Java case, with one key difference: The `com.google.code.findbugs:jsr305:3.0.2` dependency can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library.
+Versions 3.0.0 and later of the Gradle Error Prone Plugin [no longer support Android](https://github.com/tbroyer/gradle-errorprone-plugin/releases/tag/v3.0.0).  So if you're using a recent version of this plugin, you'll need to add some further configuration to run Error Prone and NullAway.  Our [sample app `build.gradle` file](https://github.com/uber/NullAway/blob/master/sample-app/build.gradle) shows one way to do this, but your Android project may require tweaks.  Alternately, 2.x versions of the Gradle Error Prone Plugin still support Android and may still work with your project.
 
-```gradle
-dependencies {
-  errorprone "com.uber.nullaway:nullaway:<NullAway version>"
-  errorprone "com.google.errorprone:error_prone_core:<Error Prone version>"
-}
-```
-For a more complete example see our [sample app](https://github.com/uber/NullAway/blob/master/sample-app/).  (The sample app's [`build.gradle`](https://github.com/uber/NullAway/blob/master/sample-app/) is not suitable for direct copy-pasting, as some configuration is inherited from the top-level `build.gradle`.)
+Beyond that, compared to the Java configuration, the `com.google.code.findbugs:jsr305:3.0.2` dependency can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library instead.
 
 #### Annotation Processors / Generated Code
 
@@ -83,7 +75,7 @@ We do not particularly recommend using NullAway with Lombok. However, NullAway e
 In order for NullAway to successfully detect Lombok generated code within the in-memory Java AST, the following configuration option must be passed to Lombok as part of an applicable `lombok.config` file:
 
 ```
-addLombokGeneratedAnnotation
+lombok.addLombokGeneratedAnnotation = true
 ```
 
 This causes Lombok to add `@lombok.Generated` to the methods/classes it generates. NullAway will ignore (i.e. not check) the implementation of this generated code, treating it as unannotated. 
@@ -147,5 +139,3 @@ you create a pull request, you will be asked to sign our [Uber Contributor Licen
 ## License
 
 NullAway is licensed under the MIT license.  See the LICENSE.txt file for more information.
-
- [snapshots]: https://oss.sonatype.org/content/repositories/snapshots/com/uber/nullaway/

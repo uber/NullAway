@@ -1,62 +1,30 @@
 package com.uber.nullaway.dataflow;
 
-import com.google.common.collect.ImmutableList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Objects;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 
 /**
- * Represents a (non-root) element of an AccessPath.
+ * Represents a generic element in an access path used for nullability analysis.
  *
- * <p>This is just a java Element (field, method, etc) in the access-path chain (e.g. f or g() in
- * x.f.g()). Plus, optionally, a list of constant arguments, allowing access path elements for
- * method calls with constant values (e.g. h(3) or k("STR_KEY") in x.h(3).g().k("STR_KEY")).
+ * <p>This interface abstracts over different kinds of path elements that can be part of an access
+ * path, including fields and methods, or array indices. Implementations of this interface should
+ * specify the type of the access path element:
+ *
+ * <ul>
+ *   <li>{@code FieldOrMethodCallElement} - Represents access to a field or the invocation of a
+ *       method, potentially with constant arguments.
+ *   <li>{@code ArrayIndexElement} - Represents access to an array element either by a constant
+ *       index or via an index that is calculated dynamically.
+ * </ul>
+ *
+ * <p>The {@code getJavaElement()} method returns the corresponding Java {@link Element} that the
+ * access path element refers to.
  */
-public final class AccessPathElement {
-  private final Element javaElement;
-  @Nullable private final ImmutableList<String> constantArguments;
-
-  public AccessPathElement(Element javaElement, List<String> constantArguments) {
-    this.javaElement = javaElement;
-    this.constantArguments = ImmutableList.copyOf(constantArguments);
-  }
-
-  public AccessPathElement(Element javaElement) {
-    this.javaElement = javaElement;
-    this.constantArguments = null;
-  }
-
-  public Element getJavaElement() {
-    return this.javaElement;
-  }
-
-  @Override
-  public boolean equals(Object obj) {
-    if (obj instanceof AccessPathElement) {
-      AccessPathElement otherNode = (AccessPathElement) obj;
-      return this.javaElement.equals(otherNode.javaElement)
-          && Objects.equals(constantArguments, otherNode.constantArguments);
-    } else {
-      return false;
-    }
-  }
-
-  @Override
-  public int hashCode() {
-    int result = javaElement.hashCode();
-    result = 31 * result + (constantArguments != null ? constantArguments.hashCode() : 0);
-    return result;
-  }
-
-  @Override
-  public String toString() {
-    return "APElement{"
-        + "javaElement="
-        + javaElement.toString()
-        + ", constantArguments="
-        + Arrays.deepToString(constantArguments != null ? constantArguments.toArray() : null)
-        + '}';
-  }
+public interface AccessPathElement {
+  /**
+   * Returns the Java element associated with this access path element.
+   *
+   * @return the Java {@link Element} related to this path element, such as a field, method, or the
+   *     array itself.
+   */
+  Element getJavaElement();
 }

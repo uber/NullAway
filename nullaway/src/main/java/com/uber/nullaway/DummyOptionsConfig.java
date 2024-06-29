@@ -191,6 +191,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public Set<String> getExtraFuturesClasses() {
+    throw new IllegalStateException(ERROR_MESSAGE);
+  }
+
+  @Override
   public boolean isJarInferEnabled() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
