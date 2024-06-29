@@ -356,6 +356,10 @@ public final class GenericsChecks {
     }
 
     Type formalReturnType = methodSymbol.getReturnType();
+    if (formalReturnType.isRaw()) {
+      // bail out of any checking involving raw types for now
+      return;
+    }
     Type returnExpressionType = getTreeType(retExpr, state);
     if (formalReturnType != null && returnExpressionType != null) {
       boolean isReturnTypeValid =

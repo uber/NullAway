@@ -1738,19 +1738,27 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testRawFormalParameterType() {
+  public void pseudoAssignmentWithRawDeclaredTypes() {
     makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "  static class A<T> {",
             "    void foo(T n) {}",
             "  }",
             "  static class B {",
             "    static void bar(A a) {}",
-            "    static void baz(A<?> a) {",
+            "    static void m1(A<?> a) {",
             "      bar(a);",
+            "    }",
+            "    static A m2(A<?> a) {",
+            "      return a;",
+            "    }",
+            "    @Nullable A<?> field;",
+            "    void m3(A<?> a) {",
+            "      field = a;",
             "    }",
             "  }",
             "}")
