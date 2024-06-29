@@ -1201,12 +1201,12 @@ public class NullAway extends BugChecker
       }
 
       if (ASTHelpers.getSymbol(methodTree).isStatic()) {
-        Set<MethodTree> staticInitializerMethods =
+        ImmutableSet<MethodTree> staticInitializerMethods =
             castToNonNull(class2Entities.get(enclClassSymbol)).staticInitializerMethods();
         return staticInitializerMethods.size() == 1
             && staticInitializerMethods.contains(methodTree);
       } else {
-        Set<MethodTree> instanceInitializerMethods =
+        ImmutableSet<MethodTree> instanceInitializerMethods =
             castToNonNull(class2Entities.get(enclClassSymbol)).instanceInitializerMethods();
         return instanceInitializerMethods.size() == 1
             && instanceInitializerMethods.contains(methodTree);
@@ -1352,7 +1352,7 @@ public class NullAway extends BugChecker
    * @return a map from each initializer <em>i</em> to the fields known to be initialized before
    *     <em>i</em> executes
    */
-  private Multimap<Tree, Element> computeTree2Init(
+  private ImmutableMultimap<Tree, Element> computeTree2Init(
       TreePath enclosingClassPath, VisitorState state) {
     ClassTree enclosingClass = (ClassTree) enclosingClassPath.getLeaf();
     ImmutableMultimap.Builder<Tree, Element> builder = ImmutableMultimap.builder();
@@ -1872,7 +1872,7 @@ public class NullAway extends BugChecker
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(tree);
     class2Entities.put(classSymbol, entities);
     // set of all non-null instance fields f such that *some* constructor does not initialize f
-    Set<Symbol> notInitializedInConstructors;
+    ImmutableSet<Symbol> notInitializedInConstructors;
     SetMultimap<MethodTree, Symbol> constructorInitInfo;
     if (entities.constructors().isEmpty()) {
       constructorInitInfo = null;
@@ -2014,7 +2014,7 @@ public class NullAway extends BugChecker
   private SetMultimap<MethodTree, Symbol> checkConstructorInitialization(
       FieldInitEntities entities, VisitorState state) {
     SetMultimap<MethodTree, Symbol> result = LinkedHashMultimap.create();
-    Set<Symbol> nonnullInstanceFields = entities.nonnullInstanceFields();
+    ImmutableSet<Symbol> nonnullInstanceFields = entities.nonnullInstanceFields();
     Trees trees = getTreesInstance(state);
     boolean isExternalInitClass = symbolHasExternalInitAnnotation(entities.classSymbol());
     for (MethodTree constructor : entities.constructors()) {
@@ -2027,7 +2027,7 @@ public class NullAway extends BugChecker
         // external framework initializes fields in this case
         continue;
       }
-      Set<Element> guaranteedNonNull =
+      ImmutableSet<Element> guaranteedNonNull =
           guaranteedNonNullForConstructor(entities, state, trees, constructor);
       for (Symbol fieldSymbol : nonnullInstanceFields) {
         if (!guaranteedNonNull.contains(fieldSymbol)) {
@@ -2073,7 +2073,7 @@ public class NullAway extends BugChecker
   }
 
   private Set<Symbol> notInitializedStatic(FieldInitEntities entities, VisitorState state) {
-    Set<Symbol> nonNullStaticFields = entities.nonnullStaticFields();
+    ImmutableSet<Symbol> nonNullStaticFields = entities.nonnullStaticFields();
     Set<Element> initializedInStaticInitializers = new LinkedHashSet<Element>();
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
     for (BlockTree initializer : entities.staticInitializerBlocks()) {

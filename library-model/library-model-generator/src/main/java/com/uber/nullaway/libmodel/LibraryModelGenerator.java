@@ -106,7 +106,7 @@ public class LibraryModelGenerator {
     if (methodRecords.isEmpty() && nullableUpperBounds.isEmpty()) {
       return;
     }
-    Map<String, String> importedAnnotations =
+    ImmutableMap<String, String> importedAnnotations =
         ImmutableMap.of(
             "NonNull", "org.jspecify.annotations.NonNull",
             "Nullable", "org.jspecify.annotations.Nullable");
@@ -208,7 +208,8 @@ public class LibraryModelGenerator {
                 }
               });
       if (this.isNullMarked) {
-        Set<Integer> nullableUpperBoundParams = getGenericTypeParameterNullableUpperBounds(cid);
+        ImmutableSet<Integer> nullableUpperBoundParams =
+            getGenericTypeParameterNullableUpperBounds(cid);
         if (!nullableUpperBoundParams.isEmpty()) {
           nullableUpperBounds.put(parentName, nullableUpperBoundParams);
         }
