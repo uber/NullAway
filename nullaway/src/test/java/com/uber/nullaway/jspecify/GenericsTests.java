@@ -1760,6 +1760,8 @@ public class GenericsTests extends NullAwayTestsBase {
             "    @Nullable A<?> field;",
             "    void m3(A<?> a) {",
             "      field = a;",
+            "      A local = a;",
+            "      local = a;",
             "    }",
             "  }",
             "}")
