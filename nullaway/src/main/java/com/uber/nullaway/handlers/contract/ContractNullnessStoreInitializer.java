@@ -36,10 +36,10 @@ public class ContractNullnessStoreInitializer extends NullnessStoreInitializer {
       Config config) {
     assert underlyingAST.getKind() == UnderlyingAST.Kind.METHOD;
 
-    final MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
-    final ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
-    final Symbol.MethodSymbol callee = ASTHelpers.getSymbol(methodTree);
-    final String contractString = ContractUtils.getContractString(callee, config);
+    MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
+    ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
+    Symbol.MethodSymbol callee = ASTHelpers.getSymbol(methodTree);
+    String contractString = ContractUtils.getContractString(callee, config);
 
     if (contractString == null) {
       throw new IllegalStateException("expected non-null contractString");
@@ -55,8 +55,8 @@ public class ContractNullnessStoreInitializer extends NullnessStoreInitializer {
     for (int i = 0; i < antecedent.length; ++i) {
       String valueConstraint = antecedent[i].trim();
 
-      final LocalVariableNode param = parameters.get(i);
-      final Element element = param.getElement();
+      LocalVariableNode param = parameters.get(i);
+      Element element = param.getElement();
 
       Nullness assumed = NULLABLE;
 

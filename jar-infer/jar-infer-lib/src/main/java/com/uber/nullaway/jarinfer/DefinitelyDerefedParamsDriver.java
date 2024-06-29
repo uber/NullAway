@@ -527,7 +527,7 @@ public class DefinitelyDerefedParamsDriver {
    * @return String Unqualified type name.
    */
   private static String getSimpleTypeName(TypeReference typ) {
-    final Map<String, String> mapFullTypeName =
+    Map<String, String> mapFullTypeName =
         ImmutableMap.<String, String>builder()
             .put("B", "byte")
             .put("C", "char")

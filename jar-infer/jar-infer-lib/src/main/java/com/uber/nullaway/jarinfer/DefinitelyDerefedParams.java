@@ -144,7 +144,7 @@ public class DefinitelyDerefedParams {
     // only basic blocks which do not require p being non-null (e.g. by dereferencing it), then
     // mark p as @NonNull
     for (int i = firstParamIndex; i <= numParam; i++) {
-      final Integer param = i - 1;
+      Integer param = i - 1;
       if (!DFS.getReachableNodes(
               prunedCFG,
               ImmutableList.of(prunedCFG.entry()),

@@ -80,6 +80,7 @@ subprojects { project ->
             check("PackageLocation", CheckSeverity.ERROR)
             check("UnnecessaryAnonymousClass", CheckSeverity.ERROR)
             check("UnusedException", CheckSeverity.ERROR)
+            check("UnnecessaryFinal", CheckSeverity.ERROR)
             // To enable auto-patching, uncomment the line below, replace [CheckerName] with
             // the checker(s) you want to apply patches for (comma-separated), and above, disable
             // "-Werror"

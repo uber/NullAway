@@ -491,7 +491,7 @@ public class NullAway extends BugChecker
       if (arraySymbol != null) {
         boolean isElementNullable = isArrayElementNullable(arraySymbol, config);
         if (!isElementNullable && mayBeNullExpr(state, expression)) {
-          final String message = "Writing @Nullable expression into array with @NonNull contents.";
+          String message = "Writing @Nullable expression into array with @NonNull contents.";
           ErrorMessage errorMessage =
               new ErrorMessage(MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY, message);
           // Future enhancements which auto-fix such warnings will require modification to this
@@ -678,7 +678,7 @@ public class NullAway extends BugChecker
     }
 
     if (mayBeNullExpr(state, switchSelectorExpression)) {
-      final String message =
+      String message =
           "switch expression " + state.getSourceForNode(switchSelectorExpression) + " is @Nullable";
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.SWITCH_EXPRESSION_NULLABLE, message);
@@ -743,10 +743,10 @@ public class NullAway extends BugChecker
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
     com.sun.tools.javac.util.List<VarSymbol> superParamSymbols = overriddenMethod.getParameters();
-    final boolean unboundMemberRef =
+    boolean unboundMemberRef =
         (memberReferenceTree != null)
             && ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
-    final boolean isOverriddenMethodAnnotated =
+    boolean isOverriddenMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(overriddenMethod, config, handler);
 
     // Get argument nullability for the overridden method.  If overriddenMethodArgNullnessMap[i] is
@@ -812,7 +812,7 @@ public class NullAway extends BugChecker
 
     // for unbound member references, we need to adjust parameter indices by 1 when matching with
     // overridden method
-    final int startParam = unboundMemberRef ? 1 : 0;
+    int startParam = unboundMemberRef ? 1 : 0;
 
     for (int i = 0; i < superParamSymbols.size(); i++) {
       if (!Objects.equals(overriddenMethodArgNullnessMap[i], Nullness.NULLABLE)) {
@@ -832,7 +832,7 @@ public class NullAway extends BugChecker
               && NullabilityUtil.lambdaParamIsImplicitlyTyped(
                   lambdaExpressionTree.getParameters().get(methodParamInd));
       if (!Nullness.hasNullableAnnotation(paramSymbol, config) && !implicitlyTypedLambdaParam) {
-        final String message =
+        String message =
             "parameter "
                 + paramSymbol.name.toString()
                 + (memberReferenceTree != null ? " of referenced method" : "")
@@ -867,7 +867,7 @@ public class NullAway extends BugChecker
 
   private Nullness getMethodReturnNullness(
       Symbol.MethodSymbol methodSymbol, VisitorState state, Nullness defaultForUnannotated) {
-    final boolean isMethodAnnotated =
+    boolean isMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler);
     Nullness methodReturnNullness =
         defaultForUnannotated; // Permissive default for unannotated code.
@@ -1189,7 +1189,7 @@ public class NullAway extends BugChecker
         return true;
       }
 
-      final Symbol.ClassSymbol enclClassSymbol = enclosingClassSymbol(enclosingBlockPath);
+      Symbol.ClassSymbol enclClassSymbol = enclosingClassSymbol(enclosingBlockPath);
 
       // Checking for initialization is only meaningful if the full class is null-annotated, which
       // might not be the case with @NullMarked methods inside @NullUnmarked classes (note that,
@@ -1477,7 +1477,7 @@ public class NullAway extends BugChecker
     if (initializer != null) {
       if (!symbol.type.isPrimitive() && !skipDueToFieldAnnotation(symbol)) {
         if (mayBeNullExpr(state, initializer)) {
-          final ErrorMessage errorMessage =
+          ErrorMessage errorMessage =
               new ErrorMessage(
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
                   "assigning @Nullable expression to @NonNull field");
@@ -1654,7 +1654,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     ExpressionTree expr = tree.getExpression();
-    final ErrorMessage errorMessage =
+    ErrorMessage errorMessage =
         new ErrorMessage(
             MessageTypes.DEREFERENCE_NULLABLE,
             "enhanced-for expression " + state.getSourceForNode(expr) + " is @Nullable");
@@ -1680,7 +1680,7 @@ public class NullAway extends BugChecker
       }
       if (!type.isPrimitive()) {
         if (mayBeNullExpr(state, tree)) {
-          final ErrorMessage errorMessage =
+          ErrorMessage errorMessage =
               new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
           state.reportMatch(
               errorBuilder.createErrorDescription(
@@ -1717,7 +1717,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    final boolean isMethodAnnotated =
+    boolean isMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler);
     // If argumentPositionNullness[i] == null, parameter i is unannotated
     Nullness[] argumentPositionNullness = new Nullness[formalParams.size()];
@@ -2156,7 +2156,7 @@ public class NullAway extends BugChecker
    */
   @Nullable
   private Element getInvokeOfSafeInitMethod(
-      StatementTree stmt, final Symbol.ClassSymbol enclosingClassSymbol, VisitorState state) {
+      StatementTree stmt, Symbol.ClassSymbol enclosingClassSymbol, VisitorState state) {
     Matcher<ExpressionTree> invokeMatcher =
         (expressionTree, s) -> {
           if (!(expressionTree instanceof MethodInvocationTree)) {
@@ -2498,7 +2498,7 @@ public class NullAway extends BugChecker
       }
     }
     if (mayBeNullExpr(state, baseExpression)) {
-      final String message =
+      String message =
           "dereferenced expression " + state.getSourceForNode(baseExpression) + " is @Nullable";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
 

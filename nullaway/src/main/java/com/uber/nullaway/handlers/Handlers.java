@@ -43,7 +43,7 @@ public class Handlers {
    */
   public static Handler buildDefault(Config config) {
     ImmutableList.Builder<Handler> handlerListBuilder = ImmutableList.builder();
-    final MethodNameUtil methodNameUtil = new MethodNameUtil();
+    MethodNameUtil methodNameUtil = new MethodNameUtil();
 
     if (config.acknowledgeRestrictiveAnnotations()) {
       // This runs before LibraryModelsHandler, so that library models can override third-party
