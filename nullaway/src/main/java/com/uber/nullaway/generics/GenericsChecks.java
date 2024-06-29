@@ -515,7 +515,6 @@ public final class GenericsChecks {
     }
     for (int i = 0; i < n; i++) {
       Type formalParameter = formalParams.get(i).type;
-      // TODO also check on return types, assignments to locals, assignments to fields, etc.
       if (formalParameter.isRaw()) {
         // bail out of any checking involving raw types for now
         return;
