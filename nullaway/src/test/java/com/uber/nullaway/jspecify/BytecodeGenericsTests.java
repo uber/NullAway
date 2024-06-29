@@ -1,10 +1,11 @@
-package com.uber.nullaway;
+package com.uber.nullaway.jspecify;
 
 import com.google.errorprone.CompilationTestHelper;
+import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class NullAwayJSpecifyBytecodeGenericsTests extends NullAwayTestsBase {
+public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void basicTypeParamInstantiation() {
