@@ -356,6 +356,10 @@ public final class GenericsChecks {
     }
 
     Type formalReturnType = methodSymbol.getReturnType();
+    if (formalReturnType.isRaw()) {
+      // bail out of any checking involving raw types for now
+      return;
+    }
     Type returnExpressionType = getTreeType(retExpr, state);
     if (formalReturnType != null && returnExpressionType != null) {
       boolean isReturnTypeValid =
@@ -511,6 +515,10 @@ public final class GenericsChecks {
     }
     for (int i = 0; i < n; i++) {
       Type formalParameter = formalParams.get(i).type;
+      if (formalParameter.isRaw()) {
+        // bail out of any checking involving raw types for now
+        return;
+      }
       Type actualParameter = getTreeType(actualParams.get(i), state);
       if (actualParameter != null) {
         if (!subtypeParameterNullability(formalParameter, actualParameter, state)) {
