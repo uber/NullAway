@@ -85,11 +85,11 @@ public final class DataFlow {
               new CacheLoader<AnalysisParams, Analysis<?, ?, ?>>() {
                 @Override
                 public Analysis<?, ?, ?> load(AnalysisParams key) {
-                  final ControlFlowGraph cfg = key.cfg();
-                  final ForwardTransferFunction<?, ?> transfer = key.transferFunction();
+                  ControlFlowGraph cfg = key.cfg();
+                  ForwardTransferFunction<?, ?> transfer = key.transferFunction();
 
                   @SuppressWarnings({"unchecked", "rawtypes"})
-                  final Analysis<?, ?, ?> analysis = new ForwardAnalysisImpl<>(transfer);
+                  Analysis<?, ?, ?> analysis = new ForwardAnalysisImpl<>(transfer);
                   analysis.performAnalysis(cfg);
                   return analysis;
                 }
@@ -102,10 +102,10 @@ public final class DataFlow {
               new CacheLoader<CfgParams, ControlFlowGraph>() {
                 @Override
                 public ControlFlowGraph load(CfgParams key) {
-                  final TreePath codePath = key.codePath();
-                  final TreePath bodyPath;
-                  final UnderlyingAST ast;
-                  final ProcessingEnvironment env = key.environment();
+                  TreePath codePath = key.codePath();
+                  TreePath bodyPath;
+                  UnderlyingAST ast;
+                  ProcessingEnvironment env = key.environment();
                   if (codePath.getLeaf() instanceof LambdaExpressionTree) {
                     LambdaExpressionTree lambdaExpressionTree =
                         (LambdaExpressionTree) codePath.getLeaf();
@@ -150,11 +150,11 @@ public final class DataFlow {
    */
   private <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       Result<A, S, T> dataflow(TreePath path, Context context, T transfer) {
-    final ProcessingEnvironment env = JavacProcessingEnvironment.instance(context);
-    final ControlFlowGraph cfg = cfgCache.getUnchecked(CfgParams.create(path, env));
-    final AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
+    ProcessingEnvironment env = JavacProcessingEnvironment.instance(context);
+    ControlFlowGraph cfg = cfgCache.getUnchecked(CfgParams.create(path, env));
+    AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
     @SuppressWarnings("unchecked")
-    final Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
+    Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
 
     return new Result<A, S, T>() {
       @Override
@@ -223,7 +223,7 @@ public final class DataFlow {
   @Nullable
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       S finalResult(TreePath path, Context context, T transfer) {
-    final Tree leaf = path.getLeaf();
+    Tree leaf = path.getLeaf();
     Preconditions.checkArgument(
         leaf instanceof MethodTree
             || leaf instanceof LambdaExpressionTree
@@ -257,7 +257,7 @@ public final class DataFlow {
   @Nullable
   <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       AnalysisResult<A, S> resultForExpr(TreePath exprPath, Context context, T transfer) {
-    final Tree leaf = exprPath.getLeaf();
+    Tree leaf = exprPath.getLeaf();
     Preconditions.checkArgument(
         leaf instanceof ExpressionTree,
         "Leaf of exprPath must be of type ExpressionTree, but was %s",
@@ -269,13 +269,12 @@ public final class DataFlow {
   private @Nullable <
           A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       AnalysisResult<A, S> resultFor(TreePath exprPath, Context context, T transfer) {
-    final TreePath enclosingPath =
-        NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(exprPath);
+    TreePath enclosingPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(exprPath);
     if (enclosingPath == null) {
       throw new RuntimeException("expression is not inside a method, lambda or initializer block!");
     }
 
-    final Tree method = enclosingPath.getLeaf();
+    Tree method = enclosingPath.getLeaf();
     if (method instanceof MethodTree && ((MethodTree) method).getBody() == null) {
       // expressions can occur in abstract methods, for example {@code Map.Entry} in:
       //

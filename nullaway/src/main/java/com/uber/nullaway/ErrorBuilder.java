@@ -285,14 +285,14 @@ public class ErrorBuilder {
                   + config.getAutofixSuppressionComment());
     } else {
       // need to update the existing list of warnings
-      final List<String> suppressions = Lists.newArrayList(extantSuppressWarnings.value());
+      List<String> suppressions = Lists.newArrayList(extantSuppressWarnings.value());
       suppressions.add(suppressionName);
       // find the existing annotation, so we can replace it
-      final ModifiersTree modifiers =
+      ModifiersTree modifiers =
           (suggestTree instanceof MethodTree)
               ? ((MethodTree) suggestTree).getModifiers()
               : ((VariableTree) suggestTree).getModifiers();
-      final List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
+      List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
       // noinspection ConstantConditions
       com.google.common.base.Optional<? extends AnnotationTree> suppressWarningsAnnot =
           Iterables.tryFind(
@@ -301,7 +301,7 @@ public class ErrorBuilder {
       if (!suppressWarningsAnnot.isPresent()) {
         throw new AssertionError("something went horribly wrong");
       }
-      final String replacement =
+      String replacement =
           "@SuppressWarnings({"
               + Joiner.on(',').join(Iterables.transform(suppressions, s -> '"' + s + '"'))
               + "}) "
@@ -358,15 +358,15 @@ public class ErrorBuilder {
 
   private Description.Builder addCastToNonNullFix(
       Tree suggestTree, Description.Builder builder, VisitorState state) {
-    final String fullMethodName = config.getCastToNonNullMethod();
+    String fullMethodName = config.getCastToNonNullMethod();
     if (fullMethodName == null) {
       throw new IllegalStateException("cast-to-non-null method not set");
     }
     // Add a call to castToNonNull around suggestTree:
-    final String[] parts = fullMethodName.split("\\.");
-    final String shortMethodName = parts[parts.length - 1];
-    final String replacement = shortMethodName + "(" + state.getSourceForNode(suggestTree) + ")";
-    final SuggestedFix fix =
+    String[] parts = fullMethodName.split("\\.");
+    String shortMethodName = parts[parts.length - 1];
+    String replacement = shortMethodName + "(" + state.getSourceForNode(suggestTree) + ")";
+    SuggestedFix fix =
         SuggestedFix.builder()
             .replace(suggestTree, replacement)
             .addStaticImport(fullMethodName) // ensure castToNonNull static import
@@ -383,14 +383,14 @@ public class ErrorBuilder {
     Preconditions.checkArgument(
         currTree.getKind() == Tree.Kind.METHOD_INVOCATION,
         String.format("Expected castToNonNull invocation expression, found:\n%s", currTree));
-    final MethodInvocationTree invTree = (MethodInvocationTree) currTree;
+    MethodInvocationTree invTree = (MethodInvocationTree) currTree;
     Preconditions.checkArgument(
         invTree.getArguments().contains(suggestTree),
         String.format(
             "Method invocation tree %s does not contain the expression %s as an argument being cast",
             invTree, suggestTree));
     // Remove the call to castToNonNull:
-    final SuggestedFix fix =
+    SuggestedFix fix =
         SuggestedFix.builder().replace(invTree, state.getSourceForNode(suggestTree)).build();
     return builder.addFix(fix);
   }

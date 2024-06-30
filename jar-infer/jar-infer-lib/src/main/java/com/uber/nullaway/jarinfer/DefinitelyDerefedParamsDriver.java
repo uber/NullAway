@@ -419,7 +419,7 @@ public class DefinitelyDerefedParamsDriver {
   //  Note: Need version compatibility check between generated stub files and when reading models
   //    StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
   private void writeModel(DataOutputStream out) throws IOException {
-    Map<String, String> importedAnnotations =
+    ImmutableMap<String, String> importedAnnotations =
         ImmutableMap.<String, String>builder()
             .put("Nonnull", "javax.annotation.Nonnull")
             .put("Nullable", "javax.annotation.Nullable")
@@ -527,7 +527,7 @@ public class DefinitelyDerefedParamsDriver {
    * @return String Unqualified type name.
    */
   private static String getSimpleTypeName(TypeReference typ) {
-    final Map<String, String> mapFullTypeName =
+    ImmutableMap<String, String> mapFullTypeName =
         ImmutableMap.<String, String>builder()
             .put("B", "byte")
             .put("C", "char")

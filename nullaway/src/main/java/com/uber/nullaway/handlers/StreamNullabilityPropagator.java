@@ -26,7 +26,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -144,7 +144,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   // or lambda) pairs.
   // We need a Multimap here since there may be multiple relevant methods / lambdas.
   // E.g.: stream.filter(...).collect(Collectors.toMap(l1, l2)) => (record for toMap, {l1,l2})
-  private final Multimap<MethodInvocationTree, CollectRecordAndInnerMethod>
+  private final SetMultimap<MethodInvocationTree, CollectRecordAndInnerMethod>
       collectCallToRecordsAndInnerMethodsOrLambdas = LinkedHashMultimap.create();
 
   // Map from map or collect method (or lambda) to corresponding previous filter method (e.g.
