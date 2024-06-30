@@ -80,7 +80,7 @@ public final class CodeAnnotationInfo {
    */
   private static boolean fromAnnotatedPackage(
       Symbol.ClassSymbol outermostClassSymbol, Config config) {
-    final String className = outermostClassSymbol.getQualifiedName().toString();
+    String className = outermostClassSymbol.getQualifiedName().toString();
     Symbol.PackageSymbol enclosingPackage = ASTHelpers.enclosingPackage(outermostClassSymbol);
     if (!config.fromExplicitlyAnnotatedPackage(className)
         && !(enclosingPackage != null
@@ -165,7 +165,7 @@ public final class CodeAnnotationInfo {
     } else {
       classSymbol = castToNonNull(ASTHelpers.enclosingClass(symbol));
     }
-    final ClassCacheRecord classCacheRecord = get(classSymbol, config, handler);
+    ClassCacheRecord classCacheRecord = get(classSymbol, config, handler);
     boolean inAnnotatedClass = classCacheRecord.isNullnessAnnotated;
     if (symbol.getKind().equals(ElementKind.METHOD)
         || symbol.getKind().equals(ElementKind.CONSTRUCTOR)) {

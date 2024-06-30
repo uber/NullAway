@@ -291,19 +291,21 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       VisitorState state,
       AccessPath.AccessPathContext apContext) {
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
-    Set<Integer> nullImpliesTrueParameters = optLibraryModels.nullImpliesTrueParameters(callee);
+    ImmutableSet<Integer> nullImpliesTrueParameters =
+        optLibraryModels.nullImpliesTrueParameters(callee);
     for (AccessPath accessPath :
         accessPathsAtIndexes(nullImpliesTrueParameters, arguments, state, apContext)) {
       elseUpdates.set(accessPath, NONNULL);
     }
-    Set<Integer> nullImpliesFalseParameters = optLibraryModels.nullImpliesFalseParameters(callee);
+    ImmutableSet<Integer> nullImpliesFalseParameters =
+        optLibraryModels.nullImpliesFalseParameters(callee);
     for (AccessPath accessPath :
         accessPathsAtIndexes(nullImpliesFalseParameters, arguments, state, apContext)) {
       thenUpdates.set(accessPath, NONNULL);
     }
   }
 
-  private static Iterable<AccessPath> accessPathsAtIndexes(
+  private static List<AccessPath> accessPathsAtIndexes(
       Set<Integer> indexes,
       List<Node> arguments,
       VisitorState state,
@@ -335,7 +337,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       Symbol.MethodSymbol callee,
       VisitorState state,
       AccessPath.AccessPathContext apContext) {
-    Set<Integer> requiredNonNullParameters =
+    ImmutableSet<Integer> requiredNonNullParameters =
         getOptLibraryModels(state.context).failIfNullParameters(callee);
     for (AccessPath accessPath :
         accessPathsAtIndexes(requiredNonNullParameters, arguments, state, apContext)) {
