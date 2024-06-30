@@ -1305,6 +1305,24 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableVoidGenericsLambda() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  interface TestInterface<T extends @Nullable Object> {",
+            "    T test();",
+            "  }",
+            "  public TestInterface<@Nullable Void> getTest() {",
+            "    return () -> { return null; };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void explicitlyTypedAnonymousClassAsReceiver() {
     makeHelper()
         .addSourceLines(
