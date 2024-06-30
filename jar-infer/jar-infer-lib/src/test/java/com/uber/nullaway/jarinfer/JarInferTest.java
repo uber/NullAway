@@ -468,12 +468,12 @@ public class JarInferTest {
   @Test
   public void testSignedJars() throws Exception {
     // Set test configuration paths / options
-    final String baseJarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
-    final String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
-    final String baseJarName = FilenameUtils.getBaseName(baseJarPath);
-    final String workingFolderPath = outputFolder.newFolder("signed_" + pkg).getAbsolutePath();
-    final String inputJarPath = workingFolderPath + "/" + baseJarName + ".jar";
-    final String outputJarPath = workingFolderPath + "/" + baseJarName + "-annotated.jar";
+    String baseJarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
+    String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
+    String baseJarName = FilenameUtils.getBaseName(baseJarPath);
+    String workingFolderPath = outputFolder.newFolder("signed_" + pkg).getAbsolutePath();
+    String inputJarPath = workingFolderPath + "/" + baseJarName + ".jar";
+    String outputJarPath = workingFolderPath + "/" + baseJarName + "-annotated.jar";
 
     copyAndSignJar(baseJarPath, inputJarPath);
 

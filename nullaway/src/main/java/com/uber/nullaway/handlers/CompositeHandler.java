@@ -64,7 +64,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
  */
 class CompositeHandler implements Handler {
 
-  private final List<Handler> handlers;
+  private final ImmutableList<Handler> handlers;
 
   CompositeHandler(ImmutableList<Handler> handlers) {
     // Attach default handlers

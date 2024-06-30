@@ -179,7 +179,7 @@ public class AccessPathNullnessPropagation
     this.nullnessStoreInitializer = nullnessStoreInitializer;
   }
 
-  private static SubNodeValues values(final TransferInput<Nullness, NullnessStore> input) {
+  private static SubNodeValues values(TransferInput<Nullness, NullnessStore> input) {
     return new SubNodeValues() {
       @Override
       public Nullness valueOfSubNode(Node node) {

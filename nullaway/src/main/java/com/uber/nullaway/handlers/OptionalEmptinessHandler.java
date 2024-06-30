@@ -48,7 +48,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.function.Consumer;
 import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
@@ -145,7 +144,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     if (symbol instanceof Symbol.MethodSymbol
         && optionalIsGetCall((Symbol.MethodSymbol) symbol, state.getTypes())
         && isOptionalContentNullable(state, baseExpr, analysis.getNullnessAnalysis(state))) {
-      final String message = "Invoking get() on possibly empty Optional " + baseExpr;
+      String message = "Invoking get() on possibly empty Optional " + baseExpr;
       return Optional.of(
           new ErrorMessage(ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL, message));
     }
@@ -312,7 +311,8 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     public static final Context.Key<OptionalContentVariableElement> contextKey =
         new Context.Key<>();
 
-    private static final Set<Modifier> MODIFIERS = ImmutableSet.of(Modifier.PUBLIC, Modifier.FINAL);
+    private static final ImmutableSet<Modifier> MODIFIERS =
+        ImmutableSet.of(Modifier.PUBLIC, Modifier.FINAL);
     private final Name name;
     private final TypeMirror asType;
 
@@ -391,7 +391,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     }
 
     @Override
-    public Set<Modifier> getModifiers() {
+    public ImmutableSet<Modifier> getModifiers() {
       return MODIFIERS;
     }
 

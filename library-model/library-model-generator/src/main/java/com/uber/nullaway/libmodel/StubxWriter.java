@@ -45,7 +45,7 @@ public final class StubxWriter {
     int numStringEntries = 0;
     Map<String, Integer> encodingDictionary = new LinkedHashMap<>();
     List<String> strings = new ArrayList<String>();
-    List<Collection<String>> keysets =
+    ImmutableList<Collection<String>> keysets =
         ImmutableList.of(
             importedAnnotations.values(),
             packageAnnotations.keySet(),
