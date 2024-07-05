@@ -133,6 +133,8 @@ tasks.named('test') {
     jvmArgs += extraJVMArgs
 }
 
-tasks.getByName('testJdk21').configure {
-    jvmArgs += extraJVMArgs
+[21, 22].each { majorVersion ->
+    tasks.getByName("testJdk$majorVersion").configure {
+        jvmArgs += extraJVMArgs
+    }
 }
