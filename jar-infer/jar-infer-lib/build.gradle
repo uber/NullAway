@@ -47,7 +47,7 @@ test {
 }
 
 tasks.getByName('testJdk22').configure {
-    // Won't work until WALA supports JDK 22
+    // Won't work until WALA supports JDK 22; see https://github.com/wala/WALA/issues/1414
     onlyIf { false }
 }
 
