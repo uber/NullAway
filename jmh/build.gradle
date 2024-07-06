@@ -128,13 +128,7 @@ jmh {
     // includes = ['DFlowMicro']
 }
 
-tasks.named('test') {
+tasks.withType(Test).configureEach { test ->
     // pass the extra JVM args so we can compile benchmarks in unit tests
-    jvmArgs += extraJVMArgs
-}
-
-[21, 22].each { majorVersion ->
-    tasks.getByName("testJdk$majorVersion").configure {
-        jvmArgs += extraJVMArgs
-    }
+    test.jvmArgs += extraJVMArgs
 }

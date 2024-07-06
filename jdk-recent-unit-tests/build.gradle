@@ -43,16 +43,8 @@ dependencies {
     testModulePath deps.test.cfQual
 }
 
-test {
-    jvmArgs += [
-        // Expose a module path for tests as a JVM property.
-        // Used by com.uber.nullaway.jdk17.NullAwayModuleInfoTests
-        "-Dtest.module.path=${configurations.testModulePath.asPath}"
-    ]
-}
-
-tasks.getByName('testJdk22').configure {
-    jvmArgs += [
+tasks.withType(Test).configureEach { test ->
+    test.jvmArgs += [
         // Expose a module path for tests as a JVM property.
         // Used by com.uber.nullaway.jdk17.NullAwayModuleInfoTests
         "-Dtest.module.path=${configurations.testModulePath.asPath}"
