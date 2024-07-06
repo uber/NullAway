@@ -53,9 +53,9 @@ test {
 
 tasks.getByName('testJdk22').configure {
     jvmArgs += [
-            // Expose a module path for tests as a JVM property.
-            // Used by com.uber.nullaway.jdk17.NullAwayModuleInfoTests
-            "-Dtest.module.path=${configurations.testModulePath.asPath}"
+        // Expose a module path for tests as a JVM property.
+        // Used by com.uber.nullaway.jdk17.NullAwayModuleInfoTests
+        "-Dtest.module.path=${configurations.testModulePath.asPath}"
     ]
 }
 

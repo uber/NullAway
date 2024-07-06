@@ -46,6 +46,11 @@ test {
     dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
 }
 
+tasks.getByName('testJdk22').configure {
+    // Won't work until WALA supports JDK 22
+    onlyIf { false }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED"
 }
