@@ -400,13 +400,6 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                     "com.google.common.base.Preconditions",
                     "<T>checkNotNull(T,java.lang.String,java.lang.Object...)"),
                 0)
-            // For JDK 22
-            // TODO check if this is still needed in JDK 23 / subsequent releases
-            .put(
-                methodRef(
-                    "com.google.common.base.Preconditions",
-                    "<T>checkNotNull(T,java.lang.String,java.lang.@org.checkerframework.checker.nullness.qual.Nullable Object...)"),
-                0)
             .put(
                 methodRef(
                     "com.google.common.base.Preconditions",
@@ -522,13 +515,6 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 methodRef(
                     "com.google.common.base.Verify",
                     "<T>verifyNotNull(T,java.lang.String,java.lang.Object...)"),
-                0)
-            // For JDK 22
-            // TODO check if this is still needed in JDK 23 / subsequent releases
-            .put(
-                methodRef(
-                    "com.google.common.base.Verify",
-                    "<T>verifyNotNull(T,java.lang.String,java.lang.@org.checkerframework.checker.nullness.qual.Nullable Object...)"),
                 0)
             .put(methodRef("java.util.Objects", "<T>requireNonNull(T)"), 0)
             .put(methodRef("java.util.Objects", "<T>requireNonNull(T,java.lang.String)"), 0)
