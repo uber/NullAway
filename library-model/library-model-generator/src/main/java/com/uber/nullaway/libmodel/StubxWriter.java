@@ -37,6 +37,7 @@ public final class StubxWriter {
       Map<String, Set<String>> packageAnnotations,
       Map<String, Set<String>> typeAnnotations,
       Map<String, MethodAnnotationsRecord> methodRecords,
+      Set<String> nullMarkedClasses,
       Map<String, Set<Integer>> nullableUpperBounds)
       throws IOException {
     // File format version/magic number
@@ -51,6 +52,7 @@ public final class StubxWriter {
             packageAnnotations.keySet(),
             typeAnnotations.keySet(),
             methodRecords.keySet(),
+            nullMarkedClasses,
             nullableUpperBounds.keySet());
     for (Collection<String> keyset : keysets) {
       for (String key : keyset) {
@@ -120,6 +122,12 @@ public final class StubxWriter {
         }
       }
     }
+    // Followed by the number of NullMarked Classes
+    out.writeInt(nullMarkedClasses.size());
+    // Followed by the null marked class records from the dictionary
+    for (String entry : nullMarkedClasses) {
+      out.writeInt(encodingDictionary.get(entry));
+    }
     // Followed by the number of nullable upper bounds records
     out.writeInt(nullableUpperBounds.size());
     for (Map.Entry<String, Set<Integer>> entry : nullableUpperBounds.entrySet()) {
@@ -127,7 +135,7 @@ public final class StubxWriter {
       Set<Integer> parameters = entry.getValue();
       out.writeInt(parameters.size());
       for (Integer parameter : parameters) {
-        // Followed by the nullable upper bound record as a par of integers
+        // Followed by the nullable upper bound record as a pair of integers
         out.writeInt(encodingDictionary.get(entry.getKey()));
         out.writeInt(parameter);
       }

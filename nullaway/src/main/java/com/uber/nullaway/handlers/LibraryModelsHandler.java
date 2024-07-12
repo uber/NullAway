@@ -1290,20 +1290,23 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   /** Constructs Library Models from stubx files */
   private static class ExternalStubxLibraryModels implements LibraryModels {
 
+    @SuppressWarnings("unused")
     private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
+
+    private final Set<String> nullMarkedClassesCache;
     private final Map<String, Integer> upperBoundsCache;
 
     ExternalStubxLibraryModels() {
       String libraryModelLogName = "LM";
       StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
       argAnnotCache = cacheUtil.getArgAnnotCache();
+      nullMarkedClassesCache = cacheUtil.getNullMarkedClassesCache();
       upperBoundsCache = cacheUtil.getUpperBoundCache();
     }
 
     @Override
     public ImmutableSet<String> nullMarkedClasses() {
-      Set<String> cachedNullMarkedClasses = argAnnotCache.keySet();
-      return new ImmutableSet.Builder<String>().addAll(cachedNullMarkedClasses).build();
+      return new ImmutableSet.Builder<String>().addAll(nullMarkedClassesCache).build();
     }
 
     @Override
@@ -1323,7 +1326,23 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
-      return ImmutableSetMultimap.of();
+      ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      for (Map.Entry<String, Map<String, Map<Integer, Set<String>>>> outerEntry :
+          argAnnotCache.entrySet()) {
+        String className = outerEntry.getKey();
+        for (Map.Entry<String, Map<Integer, Set<String>>> innerEntry :
+            outerEntry.getValue().entrySet()) {
+          String methodName = innerEntry.getKey().split(" ")[1];
+          for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
+            Integer index = entry.getKey();
+            if (index >= 0) {
+              mapBuilder.put(methodRef(className, methodName), index);
+            }
+          }
+        }
+      }
+      return mapBuilder.build();
     }
 
     @Override
