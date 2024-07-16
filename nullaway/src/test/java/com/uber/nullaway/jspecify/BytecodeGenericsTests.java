@@ -107,7 +107,7 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
             "import com.uber.lib.generics.GenericTypeArgMethods;",
             "class Test {",
             "  static void testPositive(NullableTypeParam<String> t1) {",
-            "    // BUG: Diagnostic contains: Cannot assign from type NullableTypeParam<@Nullable String>",
+            "    // BUG: Diagnostic contains: Cannot pass parameter of type NullableTypeParam<String>",
             "    GenericTypeArgMethods.nullableTypeParamArg(t1);",
             "    // BUG: Diagnostic contains: Cannot assign from type NullableTypeParam<@Nullable String>",
             "    NullableTypeParam<String> t2 = GenericTypeArgMethods.nullableTypeParamReturn();",
