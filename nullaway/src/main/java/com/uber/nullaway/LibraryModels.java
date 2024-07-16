@@ -238,10 +238,18 @@ public interface LibraryModels {
     }
 
     public static MethodRef fromSymbol(Symbol.MethodSymbol symbol) {
-      String methodStr = symbol.toString();
+      String methodStr = stripAnnotationsFromMethodSymbolString(symbol.toString());
 
       return new MethodRef(
           symbol.owner.getQualifiedName().toString(), symbol.name.toString(), methodStr);
+    }
+
+    /**
+     * Strip annotations from a method symbol string. The logic is specialized to work for strings
+     * produced by {@link Symbol.MethodSymbol#toString()} and will not work for arbitrary strings.
+     */
+    private static String stripAnnotationsFromMethodSymbolString(String str) {
+      return str.replaceAll("@[^ ]+ ", "");
     }
 
     @Override
