@@ -1156,4 +1156,21 @@ public class NullMarkednessTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void nullUnmarkedOnConstructorSuppressesInitializerWarnings() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullUnmarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class Foo {",
+            "  public Object f;",
+            "  @NullUnmarked",
+            "  // No error, because Foo is unmarked",
+            "  public Foo() { }",
+            "}")
+        .doTest();
+  }
 }
