@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
 import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL;
@@ -415,7 +416,9 @@ public class ErrorBuilder {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
     // method itself).
-    if (symbolHasSuppressWarningsAnnotation(methodSymbol, INITIALIZATION_CHECK_NAME)) {
+    if (symbolHasSuppressWarningsAnnotation(methodSymbol, INITIALIZATION_CHECK_NAME)
+        || hasDirectAnnotationWithSimpleName(
+            methodSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
       return;
     }
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
