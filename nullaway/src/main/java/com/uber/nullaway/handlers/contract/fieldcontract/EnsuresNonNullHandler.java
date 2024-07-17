@@ -95,12 +95,9 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     if (!isValidLocalPostCondition) {
       fieldNames.removeAll(nonnullFieldsOfReceiverAtExit);
       message =
-          "method: "
-              + methodSymbol
-              + " is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter"
-              + " must be guaranteed to be nonnull at exit point. However, the method's body fails to ensure this for the following fields: "
-              + fieldNames;
-
+          String.format(
+              "Method is annotated with @EnsuresNonNull but fails to ensure the following fields are non-null at exit: %s",
+              fieldNames);
       state.reportMatch(
           analysis
               .getErrorBuilder()

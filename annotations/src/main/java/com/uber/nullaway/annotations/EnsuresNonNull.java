@@ -14,8 +14,8 @@ import java.lang.annotation.Target;
  *
  * <pre>
  * class Foo {
- *     @Nullable Object theField;
- *     @EnsuresNonNull("theField") // @EnsuresNonNull("this.theField") is also valid
+ *     {@literal @}Nullable Object theField;
+ *     {@literal @}EnsuresNonNull("theField") // @EnsuresNonNull("this.theField") is also valid
  *     void foo() {
  *         theField = new Object();
  *     }

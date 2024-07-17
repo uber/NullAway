@@ -14,8 +14,8 @@ import java.lang.annotation.Target;
  *
  * <pre>
  * class Foo {
- *     @Nullable Object theField;
- *     @RequiresNonNull("theField") // @RequiresNonNull("this.theField") is also valid
+ *     {@literal @}Nullable Object theField;
+ *     {@literal @}RequiresNonNull("theField") // @RequiresNonNull("this.theField") is also valid
  *     void foo() {
  *         // No error, NullAway knows theField is non-null after foo()
  *         theField.toString();
