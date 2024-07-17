@@ -6,11 +6,29 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * Can annotate a methods with @RequiresNonnull(param) annotation where param is one of the classes
- * fields. It indicates a pre-condition for the method, that at every call site to this method, the
- * class field in the argument must be @Nonnull. If a method is annotated
- * with @RequiresNonnull(param), NullAway dataflow analysis is going to assume that the filed with
- * name param, is @Nonnull at the start point.
+ * An annotation describing a nullability pre-condition for an instance method. Each parameter to
+ * the annotation should be a field of the enclosing class. Each call site of the method must ensure
+ * that the fields listed in the annotation are non-null before the call. NullAway verifies that
+ * this property holds, and uses the property when checking the body of the method. Here is an
+ * example:
+ *
+ * <pre>
+ * class Foo {
+ *     @Nullable Object theField;
+ *     @RequiresNonNull("theField") // @RequiresNonNull("this.theField") is also valid
+ *     void foo() {
+ *         // No error, NullAway knows theField is non-null after foo()
+ *         theField.toString();
+ *     }
+ *     void bar() {
+ *         // Error, theField may be null before the call to foo()
+ *         foo();
+ *         this.theField = new Object();
+ *         // No error
+ *         foo();
+ *     }
+ * }
+ * </pre>
  */
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
