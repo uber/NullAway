@@ -37,7 +37,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Serializer class where all generated files in Fix Serialization package is created through APIs
@@ -181,8 +181,7 @@ public class Serializer {
    * @param uri Given uri.
    * @return Real path for the give uri.
    */
-  @Nullable
-  public static Path pathToSourceFileFromURI(@Nullable URI uri) {
+  public static @Nullable Path pathToSourceFileFromURI(@Nullable URI uri) {
     if (uri == null) {
       return null;
     }

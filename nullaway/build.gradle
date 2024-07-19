@@ -31,7 +31,7 @@ dependencies {
     annotationProcessor deps.apt.autoValue
     compileOnly deps.apt.autoServiceAnnot
     annotationProcessor deps.apt.autoService
-    compileOnly deps.build.jsr305Annotations
+    implementation deps.build.jspecify
     compileOnly deps.test.jetbrainsAnnotations
     compileOnly deps.apt.javaxInject
 

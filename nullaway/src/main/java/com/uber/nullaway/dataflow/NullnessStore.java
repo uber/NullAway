@@ -29,7 +29,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
@@ -37,6 +36,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.visualize.CFGVisualizer;
 import org.checkerframework.nullaway.dataflow.expression.JavaExpression;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Highly based on {@link com.google.errorprone.dataflow.LocalStore}, but for {@link AccessPath}s.
@@ -127,8 +127,7 @@ public class NullnessStore implements Store<NullnessStore> {
    * IteratorContentsKey} whose variable is {@code iteratorVar}, returns {@code p}. Otherwise,
    * returns {@code null}.
    */
-  @Nullable
-  public AccessPath getMapGetIteratorContentsAccessPath(LocalVariableNode iteratorVar) {
+  public @Nullable AccessPath getMapGetIteratorContentsAccessPath(LocalVariableNode iteratorVar) {
     for (AccessPath accessPath : contents.keySet()) {
       MapKey mapGetArg = accessPath.getMapGetArg();
       if (mapGetArg instanceof IteratorContentsKey) {
