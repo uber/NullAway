@@ -157,7 +157,10 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
               .getNullnessOfFieldForReceiverTree(
                   state.getPath(), state.context, methodSelectTree, field, true);
       if (NullabilityUtil.nullnessToBool(nullness)) {
-        String message = "Expected field " + fieldName + " to be non-null at call site";
+        String message =
+            "Expected field "
+                + fieldName
+                + " to be non-null at call site due to @RequiresNonNull annotation on invoked method";
 
         state.reportMatch(
             analysis
