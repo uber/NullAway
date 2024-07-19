@@ -5,7 +5,8 @@ import androidx.annotation.RecentlyNullable;
 
 public class AndroidRecentlyAnnotatedClass {
 
-  public static @RecentlyNullable Object returnsNull() {
+  @RecentlyNullable
+  public static Object returnsNull() {
     return null;
   }
 
