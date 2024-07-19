@@ -61,10 +61,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.StreamSupport;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.tools.JavaFileObject;
+import org.jspecify.annotations.Nullable;
 
 /** A class to construct error message to be displayed after the analysis finds error. */
 public class ErrorBuilder {
@@ -318,8 +318,7 @@ public class ErrorBuilder {
    * <p>TODO: actually use {@link
    * com.google.errorprone.fixes.SuggestedFixes#addSuppressWarnings(VisitorState, String)} instead
    */
-  @Nullable
-  private Tree suppressibleNode(@Nullable TreePath path) {
+  private @Nullable Tree suppressibleNode(@Nullable TreePath path) {
     if (path == null) {
       return null;
     }

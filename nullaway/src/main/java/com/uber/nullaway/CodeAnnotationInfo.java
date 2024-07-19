@@ -35,8 +35,8 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.handlers.Handler;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides APIs for querying whether code is annotated for nullness checking, and for related
