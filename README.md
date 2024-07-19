@@ -25,9 +25,8 @@ plugins {
 dependencies {
   errorprone "com.uber.nullaway:nullaway:<NullAway version>"
 
-  // Optional, some source of nullability annotations.
-  // Not required on Android if you use the support 
-  // library nullability annotations.
+  // Some source of nullability annotations; JSpecify recommended,
+  // but others supported as well.
   api "org.jspecify:jspecify:1.0.0"
 
   errorprone "com.google.errorprone:error_prone_core:<Error Prone version>"
@@ -48,7 +47,7 @@ tasks.withType(JavaCompile) {
 
 Let's walk through this script step by step.  The `plugins` section pulls in the [Gradle Error Prone plugin](https://github.com/tbroyer/gradle-errorprone-plugin) for Error Prone integration.
 
-In `dependencies`, the first `errorprone` line loads NullAway, and the `api` line loads the [JSpecify](https://jspecify.dev) library which provides suitable nullability annotations, e.g., `org.jspecify.annotations.Nullable`.  NullAway allows for any `@Nullable` annotation to be used, so, e.g., `@Nullable` from the Android Support Library or JetBrains annotations is also fine. The second `errorprone` line sets the version of Error Prone is used.
+In `dependencies`, the first `errorprone` line loads NullAway, and the `api` line loads the [JSpecify](https://jspecify.dev) library which provides suitable nullability annotations, e.g., `org.jspecify.annotations.Nullable`.  NullAway allows for any `@Nullable` annotation to be used, so, e.g., `@Nullable` from the AndroidX annotations Library or JetBrains annotations is also fine. The second `errorprone` line sets the version of Error Prone is used.
 
 Finally, in the `tasks.withType(JavaCompile)` section, we pass some configuration options to NullAway.  First `check("NullAway", CheckSeverity.ERROR)` sets NullAway issues to the error level (it's equivalent to the `-Xep:NullAway:ERROR` standard Error Prone argument); by default NullAway emits warnings.  Then, `option("NullAway:AnnotatedPackages", "com.uber")` (equivalent to the `-XepOpt:NullAway:AnnotatedPackages=com.uber` standard Error Prone argument) tells NullAway that source code in packages under the `com.uber` namespace should be checked for null dereferences and proper usage of `@Nullable` annotations, and that class files in these packages should be assumed to have correct usage of `@Nullable` (see [the docs](https://github.com/uber/NullAway/wiki/Configuration) for more detail).  NullAway requires at least the `AnnotatedPackages` configuration argument to run, in order to distinguish between annotated and unannotated code.  See [the configuration docs](https://github.com/uber/NullAway/wiki/Configuration) for other useful configuration options.  For even simpler configuration of NullAway options, use the [Gradle NullAway plugin](https://github.com/tbroyer/gradle-nullaway-plugin).
 
@@ -58,7 +57,7 @@ We recommend addressing all the issues that Error Prone reports, particularly th
 
 Versions 3.0.0 and later of the Gradle Error Prone Plugin [no longer support Android](https://github.com/tbroyer/gradle-errorprone-plugin/releases/tag/v3.0.0).  So if you're using a recent version of this plugin, you'll need to add some further configuration to run Error Prone and NullAway.  Our [sample app `build.gradle` file](https://github.com/uber/NullAway/blob/master/sample-app/build.gradle) shows one way to do this, but your Android project may require tweaks.  Alternately, 2.x versions of the Gradle Error Prone Plugin still support Android and may still work with your project.
 
-Beyond that, compared to the Java configuration, the JSpecify dependency can be removed; you can use the `android.support.annotation.Nullable` annotation from the Android Support library instead.
+Beyond that, compared to the Java configuration, the JSpecify dependency can be removed; you can use the `androidx.annotation.Nullable` annotation from the AndroidX annotation library instead.
 
 #### Annotation Processors / Generated Code
 
