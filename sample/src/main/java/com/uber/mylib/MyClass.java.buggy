@@ -1,6 +1,6 @@
 package com.uber.mylib;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A sample class.
