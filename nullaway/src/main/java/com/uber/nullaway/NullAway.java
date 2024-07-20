@@ -498,7 +498,6 @@ public class NullAway extends BugChecker
           // logic
           return errorBuilder.createErrorDescription(
               errorMessage,
-              expression,
               buildDescription(tree),
               state,
               ASTHelpers.getSymbol(tree.getVariable()));
