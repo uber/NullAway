@@ -49,7 +49,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
-import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -61,6 +60,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Handler to better handle {@code isPresent()} methods in code generated for Optionals. With this
@@ -68,7 +68,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.Node;
  */
 public class OptionalEmptinessHandler extends BaseNoOpHandler {
 
-  @Nullable private ImmutableSet<Type> optionalTypes;
+  private @Nullable ImmutableSet<Type> optionalTypes;
   private @Nullable NullAway analysis;
 
   private final Config config;
@@ -333,8 +333,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     }
 
     @Override
-    @Nullable
-    public Object getConstantValue() {
+    public @Nullable Object getConstantValue() {
       return null;
     }
 
@@ -344,8 +343,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     }
 
     @Override
-    @Nullable
-    public Element getEnclosingElement() {
+    public @Nullable Element getEnclosingElement() {
       // A field would have an enclosing element, however this method isn't guaranteed to
       // return non-null in all cases. It may be beneficial to implement this in a future
       // improvement, but that will require tracking an instance per supported optional
@@ -364,8 +362,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     }
 
     @Override
-    @Nullable
-    public <A extends Annotation> A getAnnotation(Class<A> aClass) {
+    public <A extends Annotation> @Nullable A getAnnotation(Class<A> aClass) {
       return null;
     }
 

@@ -31,7 +31,8 @@ dependencies {
     annotationProcessor deps.apt.autoValue
     compileOnly deps.apt.autoServiceAnnot
     annotationProcessor deps.apt.autoService
-    compileOnly deps.build.jsr305Annotations
+    // Using api following the guidance at https://jspecify.dev/docs/using#gradle
+    api deps.build.jspecify
     compileOnly deps.test.jetbrainsAnnotations
     compileOnly deps.apt.javaxInject
 

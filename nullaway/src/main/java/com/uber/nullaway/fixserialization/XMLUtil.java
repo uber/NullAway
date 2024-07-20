@@ -23,7 +23,6 @@
 package com.uber.nullaway.fixserialization;
 
 import java.io.File;
-import javax.annotation.Nullable;
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -38,6 +37,7 @@ import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import org.jetbrains.annotations.Contract;
+import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -170,7 +170,7 @@ public class XMLUtil {
 
   /** Helper class for setting default values when the key is not found. */
   static class DefaultXMLValueProvider<T> {
-    @Nullable final Object value;
+    final @Nullable Object value;
     final Class<T> klass;
 
     DefaultXMLValueProvider(@Nullable Object value, Class<T> klass) {
@@ -199,8 +199,7 @@ public class XMLUtil {
     }
 
     @Contract("!null -> !null")
-    @Nullable
-    T orElse(@Nullable T other) {
+    @Nullable T orElse(@Nullable T other) {
       return value == null ? other : klass.cast(this.value);
     }
   }

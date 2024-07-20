@@ -26,7 +26,7 @@ import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /** Provides configuration parameters for the nullability checker. */
 public interface Config {
@@ -238,8 +238,7 @@ public interface Config {
    *     return an @NonNull copy (likely through an unsafe downcast, but performing runtime checking
    *     and logging)
    */
-  @Nullable
-  String getCastToNonNullMethod();
+  @Nullable String getCastToNonNullMethod();
 
   /**
    * Gets an optional comment to add to auto-fix suppressions.

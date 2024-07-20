@@ -30,19 +30,19 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
-import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
+import org.jspecify.annotations.Nullable;
 
 /** Class and member corresponding to a program point at which an error / fix was reported. */
 public class ClassAndMemberInfo {
   /** Path to the program point of the reported error / fix */
-  @Nullable public TreePath path;
+  public @Nullable TreePath path;
 
   // Finding values for these properties is costly and are not needed by default, hence, they are
   // not final and are only initialized at request.
-  @Nullable private Symbol member;
+  private @Nullable Symbol member;
 
-  @Nullable private Symbol.ClassSymbol clazz;
+  private Symbol.@Nullable ClassSymbol clazz;
 
   public ClassAndMemberInfo(TreePath path) {
     Preconditions.checkNotNull(path);
@@ -125,13 +125,11 @@ public class ClassAndMemberInfo {
     }
   }
 
-  @Nullable
-  public Symbol getMember() {
+  public @Nullable Symbol getMember() {
     return member;
   }
 
-  @Nullable
-  public Symbol.ClassSymbol getClazz() {
+  public Symbol.@Nullable ClassSymbol getClazz() {
     return clazz;
   }
 }

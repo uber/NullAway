@@ -36,10 +36,10 @@ import com.uber.nullaway.handlers.Handler;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import javax.annotation.Nullable;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
+import org.jspecify.annotations.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
@@ -279,8 +279,7 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @return Type of the tree with preserved annotations.
    */
-  @Nullable
-  private static Type getTreeType(Tree tree, VisitorState state) {
+  private static @Nullable Type getTreeType(Tree tree, VisitorState state) {
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
       ParameterizedTypeTree paramTypedTree =
@@ -500,8 +499,7 @@ public final class GenericsChecks {
     }
   }
 
-  @Nullable
-  private static Type getConditionalExpressionType(
+  private static @Nullable Type getConditionalExpressionType(
       ConditionalExpressionTree tree, VisitorState state) {
     // hack: sometimes array nullability doesn't get computed correctly for a conditional expression
     // on the RHS of an assignment.  So, look at the type of the assignment tree.
@@ -640,8 +638,7 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @return the type for {@code symbol}
    */
-  @Nullable
-  private static Type getTypeForSymbol(Symbol symbol, VisitorState state) {
+  private static @Nullable Type getTypeForSymbol(Symbol symbol, VisitorState state) {
     if (symbol.isAnonymous()) {
       // For anonymous classes, symbol.type does not contain annotations on generic type parameters.
       // So, we get a correct type from the enclosing NewClassTree.

@@ -41,6 +41,7 @@ dependencies {
     // use the same version of Error Prone Core that we are compiling NullAway against, so we can
     // benchmark against different versions of Error Prone
     implementation deps.build.errorProneCoreForApi
+    api deps.build.jspecify
 
 
     // Source jars for our desired benchmarks

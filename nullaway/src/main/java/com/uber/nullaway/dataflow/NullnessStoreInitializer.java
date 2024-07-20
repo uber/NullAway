@@ -11,10 +11,10 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
 import java.util.Objects;
-import javax.annotation.Nullable;
 import javax.lang.model.element.NestingKind;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An abstract class that allows overriding initialization of nullness store in dataflow. Currently,
@@ -60,8 +60,7 @@ public abstract class NullnessStoreInitializer {
     return envStore;
   }
 
-  @Nullable
-  private static ClassTree findEnclosingLocalOrAnonymousClass(
+  private static @Nullable ClassTree findEnclosingLocalOrAnonymousClass(
       ClassTree classTree, Context context) {
     Symbol.ClassSymbol symbol = ASTHelpers.getSymbol(classTree);
     // we need this while loop since we can have a NestingKind.NESTED class (i.e., a nested

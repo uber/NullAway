@@ -49,7 +49,7 @@ dependencies {
     compileOnly deps.apt.autoService
     annotationProcessor deps.apt.autoService
     compileOnly project(":nullaway")
-    implementation deps.build.jsr305Annotations
+    api deps.build.jspecify
 }
 
 jar.dependsOn ":library-model:library-model-generator-cli:assemble"

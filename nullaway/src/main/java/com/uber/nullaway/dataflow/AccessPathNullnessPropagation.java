@@ -47,7 +47,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import javax.annotation.CheckReturnValue;
-import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
@@ -130,6 +129,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.UnsignedRightShiftNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * transfer functions for our access path nullness dataflow analysis
@@ -613,8 +613,7 @@ public class AccessPathNullnessPropagation
    * of the form {@code e'.keySet()}, returns the {@code Node} for {@code e'}. Otherwise, returns
    * {@code null}.
    */
-  @Nullable
-  private Node getMapNodeForKeySetIteratorCall(MethodInvocationNode invocationNode) {
+  private @Nullable Node getMapNodeForKeySetIteratorCall(MethodInvocationNode invocationNode) {
     Node receiver = invocationNode.getTarget().getReceiver();
     if (receiver instanceof MethodInvocationNode) {
       MethodInvocationNode baseInvocation = (MethodInvocationNode) receiver;
@@ -762,7 +761,7 @@ public class AccessPathNullnessPropagation
     return updateRegularStore(nullness, input, updates);
   }
 
-  @Nullable private CodeAnnotationInfo codeAnnotationInfo;
+  private @Nullable CodeAnnotationInfo codeAnnotationInfo;
 
   private CodeAnnotationInfo getCodeAnnotationInfo(VisitorState state) {
     if (codeAnnotationInfo == null) {

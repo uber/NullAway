@@ -22,7 +22,7 @@
 
 package com.uber.lombok;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 class UsesDTO {
 

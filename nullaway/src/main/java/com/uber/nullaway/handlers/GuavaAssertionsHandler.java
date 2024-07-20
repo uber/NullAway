@@ -5,10 +5,10 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Name;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Handler to expose semantics of Guava routines like {@code checkState}, {@code checkArgument}, and
@@ -22,11 +22,11 @@ public class GuavaAssertionsHandler extends BaseNoOpHandler {
   private static final String VERIFY_CLASS_NAME = "com.google.common.base.Verify";
   private static final String VERIFY_METHOD_NAME = "verify";
 
-  @Nullable private Name preconditionsClass;
-  @Nullable private Name verifyClass;
-  @Nullable private Name checkArgumentMethod;
-  @Nullable private Name checkStateMethod;
-  @Nullable private Name verifyMethod;
+  private @Nullable Name preconditionsClass;
+  private @Nullable Name verifyClass;
+  private @Nullable Name checkArgumentMethod;
+  private @Nullable Name checkStateMethod;
+  private @Nullable Name verifyMethod;
   @Nullable TypeMirror preconditionCheckArgumentErrorType;
   @Nullable TypeMirror preconditionCheckStateErrorType;
   @Nullable TypeMirror verifyErrorType;

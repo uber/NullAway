@@ -22,9 +22,9 @@
 
 package com.uber.lombok;
 
-import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Data;
+import org.jspecify.annotations.Nullable;
 
 @Builder
 @Data
@@ -35,6 +35,6 @@ public class LombokDTO {
   // issue an uninitialized field warning.
   private String field;
   @Builder.Default private String fieldWithDefault = "Default";
-  @Nullable private String nullableField;
-  @Nullable @Builder.Default private String fieldWithNullDefault = null;
+  private @Nullable String nullableField;
+  @Builder.Default private @Nullable String fieldWithNullDefault = null;
 }

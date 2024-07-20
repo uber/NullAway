@@ -10,9 +10,9 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import org.checkerframework.nullaway.javacutil.AnnotationUtils;
+import org.jspecify.annotations.Nullable;
 
 /** An utility class for {@link ContractHandler} and {@link ContractCheckHandler}. */
 public class ContractUtils {
@@ -120,8 +120,7 @@ public class ContractUtils {
    * @param config the NullAway config
    * @return the value of a Contract annotation if present, or {@code null} if not present.
    */
-  @Nullable
-  static String getContractString(Symbol.MethodSymbol methodSymbol, Config config) {
+  static @Nullable String getContractString(Symbol.MethodSymbol methodSymbol, Config config) {
     for (AnnotationMirror annotation : methodSymbol.getAnnotationMirrors()) {
       String name = AnnotationUtils.annotationName(annotation);
       if (config.isContractAnnotation(name)) {

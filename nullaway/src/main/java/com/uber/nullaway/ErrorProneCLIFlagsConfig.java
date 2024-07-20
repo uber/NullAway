@@ -37,7 +37,7 @@ import java.util.LinkedHashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * provides nullability configuration based on additional flags passed to ErrorProne via
@@ -189,12 +189,12 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final Pattern unannotatedSubPackages;
 
   /** Source code in these classes will not be analyzed for nullability issues */
-  @Nullable private final ImmutableSet<String> sourceClassesToExclude;
+  private final @Nullable ImmutableSet<String> sourceClassesToExclude;
 
   /**
    * these classes will be treated as unannotated (don't analyze *and* treat methods as unannotated)
    */
-  @Nullable private final ImmutableSet<String> unannotatedClasses;
+  private final @Nullable ImmutableSet<String> unannotatedClasses;
 
   private final Pattern fieldAnnotPattern;
   private final boolean isExhaustiveOverride;
@@ -214,7 +214,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final ImmutableSet<String> initializerAnnotations;
   private final ImmutableSet<String> externalInitAnnotations;
   private final ImmutableSet<String> contractAnnotations;
-  @Nullable private final String castToNonNullMethod;
+  private final @Nullable String castToNonNullMethod;
   private final String autofixSuppressionComment;
   private final ImmutableSet<String> skippedLibraryModels;
   private final ImmutableSet<String> extraFuturesClasses;
@@ -515,8 +515,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   }
 
   @Override
-  @Nullable
-  public String getCastToNonNullMethod() {
+  public @Nullable String getCastToNonNullMethod() {
     return castToNonNullMethod;
   }
 
