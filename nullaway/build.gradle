@@ -178,3 +178,13 @@ tasks.register('buildWithNullAway', JavaCompile) {
 project.tasks.named('check').configure {
     dependsOn 'buildWithNullAway'
 }
+
+tasks.withType(Test).configureEach { test ->
+    // TODO we actually want to test the version of the JDK being used to run tests
+    if (!test.name.equals("testJdk22")) {
+        test.filter {
+            excludeTestsMatching "com.uber.nullaway.jspecify.BytecodeGenericsTests.genericsChecksForParamPassingAndReturns"
+            excludeTestsMatching "com.uber.nullaway.jspecify.BytecodeGenericsTests.genericsChecksForFieldAssignments"
+        }
+    }
+}
