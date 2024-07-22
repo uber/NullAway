@@ -32,7 +32,7 @@ import com.sun.tools.javac.util.JCDiagnostic;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.Serializer;
 import java.nio.file.Path;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /** Stores information regarding an error which will be reported by NullAway. */
 public class ErrorInfo {
@@ -44,7 +44,7 @@ public class ErrorInfo {
    * if non-null, this error involved a pseudo-assignment of a @Nullable expression into a @NonNull
    * target, and this field is the Symbol for that target.
    */
-  @Nullable private final Symbol nonnullTarget;
+  private final @Nullable Symbol nonnullTarget;
 
   /**
    * In cases where {@link ErrorInfo#nonnullTarget} is {@code null}, we serialize this value at its
@@ -57,7 +57,7 @@ public class ErrorInfo {
   private final int offset;
 
   /** Path to the containing source file where this error is reported. */
-  @Nullable private final Path path;
+  private final @Nullable Path path;
 
   public ErrorInfo(
       TreePath path, Tree errorTree, ErrorMessage errorMessage, @Nullable Symbol nonnullTarget) {
@@ -88,8 +88,7 @@ public class ErrorInfo {
    *
    * @return Enclosing region member. Returns {@code null} if the values are not computed yet.
    */
-  @Nullable
-  public Symbol getRegionMember() {
+  public @Nullable Symbol getRegionMember() {
     return classAndMemberInfo.getMember();
   }
 
@@ -98,8 +97,7 @@ public class ErrorInfo {
    *
    * @return Enclosing region class. Returns {@code null} if the values are not computed yet.
    */
-  @Nullable
-  public Symbol getRegionClass() {
+  public @Nullable Symbol getRegionClass() {
     return classAndMemberInfo.getClazz();
   }
 
@@ -110,8 +108,7 @@ public class ErrorInfo {
    *
    * @return The symbol of the {@code @Nonnull} element if exists, and {@code null} otherwise.
    */
-  @Nullable
-  public Symbol getNonnullTarget() {
+  public @Nullable Symbol getNonnullTarget() {
     return nonnullTarget;
   }
 
@@ -129,8 +126,7 @@ public class ErrorInfo {
    *
    * @return Path to the containing source file where this error is reported.
    */
-  @Nullable
-  public Path getPath() {
+  public @Nullable Path getPath() {
     return path;
   }
 

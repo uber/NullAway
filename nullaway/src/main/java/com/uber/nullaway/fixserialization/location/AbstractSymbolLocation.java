@@ -30,8 +30,8 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.Serializer;
 import java.net.URI;
 import java.nio.file.Path;
-import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
+import org.jspecify.annotations.Nullable;
 
 /** abstract base class for {@link SymbolLocation}. */
 public abstract class AbstractSymbolLocation implements SymbolLocation {
@@ -40,7 +40,7 @@ public abstract class AbstractSymbolLocation implements SymbolLocation {
   protected final ElementKind type;
 
   /** Path of the file containing the symbol, if available. */
-  @Nullable protected final Path path;
+  protected final @Nullable Path path;
 
   /** Enclosing class of the symbol. */
   protected final Symbol.ClassSymbol enclosingClass;

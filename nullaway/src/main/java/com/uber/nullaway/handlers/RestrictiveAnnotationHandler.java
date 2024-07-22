@@ -34,9 +34,9 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
-import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.jspecify.annotations.Nullable;
 
 public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
 
@@ -88,7 +88,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
     return false;
   }
 
-  @Nullable private CodeAnnotationInfo codeAnnotationInfo;
+  private @Nullable CodeAnnotationInfo codeAnnotationInfo;
 
   private CodeAnnotationInfo getCodeAnnotationInfo(Context context) {
     if (codeAnnotationInfo == null) {

@@ -110,7 +110,6 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
@@ -122,6 +121,7 @@ import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.javacutil.ElementUtils;
 import org.checkerframework.nullaway.javacutil.TreeUtils;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Checker for nullability errors. It assumes that any field, method parameter, or return type that
@@ -498,7 +498,6 @@ public class NullAway extends BugChecker
           // logic
           return errorBuilder.createErrorDescription(
               errorMessage,
-              expression,
               buildDescription(tree),
               state,
               ASTHelpers.getSymbol(tree.getVariable()));
@@ -2154,8 +2153,7 @@ public class NullAway extends BugChecker
    * @param state visitor state
    * @return element of safe init function if stmt invokes that function; null otherwise
    */
-  @Nullable
-  private Element getInvokeOfSafeInitMethod(
+  private @Nullable Element getInvokeOfSafeInitMethod(
       StatementTree stmt, Symbol.ClassSymbol enclosingClassSymbol, VisitorState state) {
     Matcher<ExpressionTree> invokeMatcher =
         (expressionTree, s) -> {

@@ -38,10 +38,10 @@ import java.io.InputStream;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.jspecify.annotations.Nullable;
 
 /** This handler loads inferred nullability model from stubs for methods in unannotated packages. */
 public class InferredJARModelsHandler extends BaseNoOpHandler {
@@ -203,8 +203,8 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     return false;
   }
 
-  @Nullable
-  private Map<Integer, Set<String>> lookupMethodInCache(String className, String methodSign) {
+  private @Nullable Map<Integer, Set<String>> lookupMethodInCache(
+      String className, String methodSign) {
     if (!argAnnotCache.containsKey(className)) {
       return null;
     }

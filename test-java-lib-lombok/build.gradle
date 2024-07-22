@@ -24,7 +24,7 @@ dependencies {
     annotationProcessor project(":nullaway")
     annotationProcessor deps.test.lombok
 
-    compileOnly deps.build.jsr305Annotations
+    api deps.build.jspecify
     compileOnly deps.build.javaxValidation
     compileOnly deps.test.cfQual
     compileOnly deps.test.lombok

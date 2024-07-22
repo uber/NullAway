@@ -30,10 +30,10 @@ import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import javax.annotation.Nullable;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Document;
 import org.xml.sax.SAXException;
 
@@ -64,9 +64,9 @@ public class FixSerializationConfig {
   public final boolean fieldInitInfoEnabled;
 
   /** The directory where all files generated/read by Fix Serialization package resides. */
-  @Nullable public final String outputDirectory;
+  public final @Nullable String outputDirectory;
 
-  @Nullable private final Serializer serializer;
+  private final @Nullable Serializer serializer;
 
   /** Default Constructor, all features are disabled with this config. */
   public FixSerializationConfig() {
@@ -152,8 +152,7 @@ public class FixSerializationConfig {
     }
   }
 
-  @Nullable
-  public Serializer getSerializer() {
+  public @Nullable Serializer getSerializer() {
     return serializer;
   }
 
@@ -163,7 +162,7 @@ public class FixSerializationConfig {
     private boolean suggestEnabled;
     private boolean suggestEnclosing;
     private boolean fieldInitInfo;
-    @Nullable private String outputDir;
+    private @Nullable String outputDir;
 
     public Builder() {
       suggestEnabled = false;

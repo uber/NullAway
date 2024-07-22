@@ -51,11 +51,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.ExecutableElement;
 import org.checkerframework.nullaway.javacutil.AnnotationUtils;
+import org.jspecify.annotations.Nullable;
 
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
@@ -102,8 +102,7 @@ public class NullabilityUtil {
    * @return closest overridden ancestor method, or <code>null</code> if method does not override
    *     anything
    */
-  @Nullable
-  public static Symbol.MethodSymbol getClosestOverriddenMethod(
+  public static Symbol.@Nullable MethodSymbol getClosestOverriddenMethod(
       Symbol.MethodSymbol method, Types types) {
     // taken from Error Prone MethodOverrides check
     Symbol.ClassSymbol owner = method.enclClass();
@@ -135,8 +134,7 @@ public class NullabilityUtil {
    * @param others also stop and return in case of any of these tree kinds
    * @return the closest enclosing method / lambda
    */
-  @Nullable
-  public static TreePath findEnclosingMethodOrLambdaOrInitializer(
+  public static @Nullable TreePath findEnclosingMethodOrLambdaOrInitializer(
       TreePath path, ImmutableSet<Tree.Kind> others) {
     TreePath curPath = path.getParentPath();
     while (curPath != null) {
@@ -169,8 +167,7 @@ public class NullabilityUtil {
    * @param path the tree path
    * @return the closest enclosing method / lambda
    */
-  @Nullable
-  public static TreePath findEnclosingMethodOrLambdaOrInitializer(TreePath path) {
+  public static @Nullable TreePath findEnclosingMethodOrLambdaOrInitializer(TreePath path) {
     return findEnclosingMethodOrLambdaOrInitializer(path, ImmutableSet.of());
   }
 
