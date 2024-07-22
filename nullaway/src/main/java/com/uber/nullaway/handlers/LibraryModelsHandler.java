@@ -1333,7 +1333,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         String className = outerEntry.getKey();
         for (Map.Entry<String, Map<Integer, Set<String>>> innerEntry :
             outerEntry.getValue().entrySet()) {
-          String methodName = innerEntry.getKey().split(" ")[1];
+          String methodName = innerEntry.getKey().substring(innerEntry.getKey().indexOf(" ") + 1);
           for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
             Integer index = entry.getKey();
             if (index >= 0) {

@@ -247,7 +247,6 @@ public class LibraryModelGenerator {
           isReturnNullable ? ImmutableSet.of(NULLABLE) : ImmutableSet.of();
       // We write the method record into the astubx if it contains a Nullable return or any Nullable
       // parameter.
-      @SuppressWarnings("unused")
       String methodSignatureWithQualifiedParameters =
           md.resolve()
               .getQualifiedSignature()
