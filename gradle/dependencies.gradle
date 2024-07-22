@@ -76,6 +76,7 @@ def build = [
     checkerDataflow         : "org.checkerframework:dataflow-nullaway:${versions.checkerFramework}",
     guava                   : "com.google.guava:guava:30.1-jre",
     javaparser              : "com.github.javaparser:javaparser-core:3.26.0",
+    javaparserSymbolSolver  : "com.github.javaparser:javaparser-symbol-solver-core:3.26.1",
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
     jspecify                : "org.jspecify:jspecify:0.3.0",
     jsr305Annotations       : "com.google.code.findbugs:jsr305:3.0.2",

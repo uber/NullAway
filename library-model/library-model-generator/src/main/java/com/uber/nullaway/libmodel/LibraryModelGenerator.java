@@ -35,6 +35,11 @@ import com.github.javaparser.ast.type.ArrayType;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.TypeParameter;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
+import com.github.javaparser.resolution.TypeSolver;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import com.github.javaparser.utils.CollectionStrategy;
 import com.github.javaparser.utils.ParserCollectionStrategy;
 import com.github.javaparser.utils.ProjectRoot;
@@ -80,7 +85,12 @@ public class LibraryModelGenerator {
     CollectionStrategy strategy = new ParserCollectionStrategy();
     // Required to include directories that contain a module-info.java, which don't parse by
     // default.
+    TypeSolver typeSolver =
+        new CombinedTypeSolver(
+            new ReflectionTypeSolver(), new JavaParserTypeSolver(Paths.get(inputSourceDirectory)));
+    JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
     strategy.getParserConfiguration().setLanguageLevel(LanguageLevel.JAVA_17);
+    strategy.getParserConfiguration().setSymbolResolver(symbolSolver);
     ProjectRoot projectRoot = strategy.collect(root);
 
     projectRoot
@@ -237,9 +247,18 @@ public class LibraryModelGenerator {
           isReturnNullable ? ImmutableSet.of(NULLABLE) : ImmutableSet.of();
       // We write the method record into the astubx if it contains a Nullable return or any Nullable
       // parameter.
+      @SuppressWarnings("unused")
+      String methodSignatureWithQualifiedParameters =
+          md.resolve()
+              .getQualifiedSignature()
+              .substring(md.resolve().getQualifiedSignature().lastIndexOf(md.getNameAsString()));
       if (this.isNullMarked && (isReturnNullable || !nullableParameterMap.isEmpty())) {
         methodRecords.put(
-            parentName + ":" + getMethodReturnTypeString(md) + " " + md.getSignature().toString(),
+            parentName
+                + ":"
+                + getMethodReturnTypeString(md)
+                + " "
+                + methodSignatureWithQualifiedParameters,
             MethodAnnotationsRecord.create(nullableReturn, nullableParameterMap));
       }
       super.visit(md, null);
