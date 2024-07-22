@@ -180,8 +180,10 @@ project.tasks.named('check').configure {
 }
 
 tasks.withType(Test).configureEach { test ->
-    // TODO we actually want to test the version of the JDK being used to run tests
-    if (!test.name.equals("testJdk22")) {
+    if (test.javaVersion < JavaVersion.VERSION_22) {
+        // Certain tests involving reading annotations from bytecode will not pass on pre-JDK-22 javac
+        // until the fix for https://bugs.openjdk.org/browse/JDK-8225377 is backported or until we add
+        // workarounds.
         test.filter {
             excludeTestsMatching "com.uber.nullaway.jspecify.BytecodeGenericsTests.genericsChecksForParamPassingAndReturns"
             excludeTestsMatching "com.uber.nullaway.jspecify.BytecodeGenericsTests.genericsChecksForFieldAssignments"
