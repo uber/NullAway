@@ -41,7 +41,6 @@ import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
 import java.util.Optional;
-import javax.annotation.Nullable;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.AbstractNodeVisitor;
 import org.checkerframework.nullaway.dataflow.cfg.node.BinaryOperationNode;
@@ -49,6 +48,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.EqualToNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 import org.checkerframework.nullaway.dataflow.cfg.node.NotEqualNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * This Handler parses the jetbrains @Contract annotation and honors the nullness spec defined there

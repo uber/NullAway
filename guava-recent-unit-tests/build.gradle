@@ -32,7 +32,7 @@ dependencies {
     testImplementation(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
-    testImplementation deps.build.jsr305Annotations
+    testImplementation deps.test.jsr305Annotations
     testImplementation "com.google.guava:guava:31.1-jre"
 
     errorProneOldest deps.build.errorProneCheckApiOld

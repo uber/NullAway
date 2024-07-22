@@ -41,6 +41,7 @@ dependencies {
     // use the same version of Error Prone Core that we are compiling NullAway against, so we can
     // benchmark against different versions of Error Prone
     implementation deps.build.errorProneCoreForApi
+    api deps.build.jspecify
 
 
     // Source jars for our desired benchmarks
@@ -128,11 +129,7 @@ jmh {
     // includes = ['DFlowMicro']
 }
 
-tasks.named('test') {
+tasks.withType(Test).configureEach { test ->
     // pass the extra JVM args so we can compile benchmarks in unit tests
-    jvmArgs += extraJVMArgs
-}
-
-tasks.getByName('testJdk21').configure {
-    jvmArgs += extraJVMArgs
+    test.jvmArgs += extraJVMArgs
 }

@@ -40,7 +40,6 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import com.uber.nullaway.handlers.Handler;
-import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
 import org.checkerframework.nullaway.dataflow.analysis.Analysis;
@@ -51,6 +50,7 @@ import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.analysis.TransferFunction;
 import org.checkerframework.nullaway.dataflow.cfg.ControlFlowGraph;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides a wrapper around {@link org.checkerframework.nullaway.dataflow.analysis.Analysis}.
@@ -202,9 +202,8 @@ public final class DataFlow {
    * @param <T> transfer function type
    * @return dataflow value for expression
    */
-  @Nullable
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      A expressionDataflow(TreePath exprPath, Context context, T transfer) {
+      @Nullable A expressionDataflow(TreePath exprPath, Context context, T transfer) {
     AnalysisResult<A, S> analysisResult = resultForExpr(exprPath, context, transfer);
     return analysisResult == null ? null : analysisResult.getValue(exprPath.getLeaf());
   }
@@ -220,9 +219,8 @@ public final class DataFlow {
    * @param <T> transfer function type
    * @return dataflow result at exit of method
    */
-  @Nullable
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      S finalResult(TreePath path, Context context, T transfer) {
+      @Nullable S finalResult(TreePath path, Context context, T transfer) {
     Tree leaf = path.getLeaf();
     Preconditions.checkArgument(
         leaf instanceof MethodTree
@@ -235,9 +233,8 @@ public final class DataFlow {
     return dataflow(path, context, transfer).getAnalysis().getRegularExitStore();
   }
 
-  @Nullable
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      S resultBeforeExpr(TreePath exprPath, Context context, T transfer) {
+      @Nullable S resultBeforeExpr(TreePath exprPath, Context context, T transfer) {
     AnalysisResult<A, S> analysisResult = resultForExpr(exprPath, context, transfer);
     return analysisResult == null ? null : analysisResult.getStoreBefore(exprPath.getLeaf());
   }
@@ -247,16 +244,14 @@ public final class DataFlow {
    * Tree in a method. A bit riskier to use since we don't check that there is a corresponding CFG
    * node to the Tree; use with care.
    */
-  @Nullable
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      S resultBefore(TreePath exprPath, Context context, T transfer) {
+      @Nullable S resultBefore(TreePath exprPath, Context context, T transfer) {
     AnalysisResult<A, S> analysisResult = resultFor(exprPath, context, transfer);
     return analysisResult == null ? null : analysisResult.getStoreBefore(exprPath.getLeaf());
   }
 
-  @Nullable
   <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      AnalysisResult<A, S> resultForExpr(TreePath exprPath, Context context, T transfer) {
+      @Nullable AnalysisResult<A, S> resultForExpr(TreePath exprPath, Context context, T transfer) {
     Tree leaf = exprPath.getLeaf();
     Preconditions.checkArgument(
         leaf instanceof ExpressionTree,
@@ -266,9 +261,8 @@ public final class DataFlow {
     return resultFor(exprPath, context, transfer);
   }
 
-  private @Nullable <
-          A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      AnalysisResult<A, S> resultFor(TreePath exprPath, Context context, T transfer) {
+  private <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
+      @Nullable AnalysisResult<A, S> resultFor(TreePath exprPath, Context context, T transfer) {
     TreePath enclosingPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(exprPath);
     if (enclosingPath == null) {
       throw new RuntimeException("expression is not inside a method, lambda or initializer block!");

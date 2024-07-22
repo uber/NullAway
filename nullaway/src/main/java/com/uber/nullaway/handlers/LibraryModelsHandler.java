@@ -57,10 +57,10 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Function;
-import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
+import org.jspecify.annotations.Nullable;
 
 /**
  * This Handler deals with any methods from unannotated packages for which we need a nullability
@@ -74,7 +74,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   private final Config config;
   private final LibraryModels libraryModels;
 
-  @Nullable private OptimizedLibraryModels optLibraryModels;
+  private @Nullable OptimizedLibraryModels optLibraryModels;
 
   public LibraryModelsHandler(Config config) {
     super();
@@ -184,8 +184,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  @Nullable
-  public Integer castToNonNullArgumentPositionsForMethod(
+  public @Nullable Integer castToNonNullArgumentPositionsForMethod(
       List<? extends ExpressionTree> actualParams,
       @Nullable Integer previousArgumentPosition,
       MethodAnalysisContext methodAnalysisContext) {
@@ -206,7 +205,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     return newPositions.stream().findAny().orElse(previousArgumentPosition);
   }
 
-  @Nullable private CodeAnnotationInfo codeAnnotationInfo;
+  private @Nullable CodeAnnotationInfo codeAnnotationInfo;
 
   private CodeAnnotationInfo getCodeAnnotationInfo(Context context) {
     if (codeAnnotationInfo == null) {
@@ -1151,8 +1150,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         this.state = state;
       }
 
-      @Nullable
-      public T get(Symbol.MethodSymbol symbol) {
+      public @Nullable T get(Symbol.MethodSymbol symbol) {
         Map<MethodRef, T> methodRefTMap = state.get(symbol.name);
         if (methodRefTMap == null) {
           return null;
@@ -1259,8 +1257,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
      * checks if symbol is present in the NameIndexedMap or if it overrides some method in the
      * NameIndexedMap
      */
-    @Nullable
-    private static Symbol.MethodSymbol lookupHandlingOverrides(
+    private static Symbol.@Nullable MethodSymbol lookupHandlingOverrides(
         Symbol.MethodSymbol symbol,
         Types types,
         NameIndexedMap<Boolean> optLookup,

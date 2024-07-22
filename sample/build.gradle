@@ -24,7 +24,7 @@ dependencies {
     annotationProcessor project(":nullaway")
     annotationProcessor project(path: ":sample-library-model")
 
-    compileOnly deps.build.jsr305Annotations
+    api deps.build.jspecify
     testImplementation deps.test.junit4
 }
 

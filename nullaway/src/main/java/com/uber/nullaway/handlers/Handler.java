@@ -47,11 +47,11 @@ import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
-import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The general interface representing a handler.
@@ -377,8 +377,7 @@ public interface Handler {
    *     handler in the chain.
    * @param methodAnalysisContext The MethodAnalysisContext object
    */
-  @Nullable
-  Integer castToNonNullArgumentPositionsForMethod(
+  @Nullable Integer castToNonNullArgumentPositionsForMethod(
       List<? extends ExpressionTree> actualParams,
       @Nullable Integer previousArgumentPosition,
       MethodAnalysisContext methodAnalysisContext);

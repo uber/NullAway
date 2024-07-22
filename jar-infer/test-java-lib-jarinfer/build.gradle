@@ -53,7 +53,7 @@ dependencies {
     compileOnly deps.apt.autoService
     annotationProcessor deps.apt.autoService
     compileOnly project(":nullaway")
-    implementation deps.build.jsr305Annotations
+    api deps.build.jspecify
 }
 
 jar.dependsOn ":jar-infer:jar-infer-cli:assemble"
