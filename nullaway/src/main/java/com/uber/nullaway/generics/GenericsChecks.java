@@ -126,7 +126,10 @@ public final class GenericsChecks {
         result[i] = true;
       }
     }
-    // for handling bytecodes
+    // For handling types declared in bytecode rather than source code.
+    // Due to a bug in javac versions before JDK 22 (https://bugs.openjdk.org/browse/JDK-8225377),
+    // the above code does not work for types declared in bytecode.  We need to read the raw type
+    // attributes instead.
     com.sun.tools.javac.util.List<Attribute.TypeCompound> rawTypeAttributes =
         tsym.getRawTypeAttributes();
     if (rawTypeAttributes != null) {
