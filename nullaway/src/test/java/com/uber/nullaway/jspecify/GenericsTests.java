@@ -1841,38 +1841,16 @@ public class GenericsTests extends NullAwayTestsBase {
 
   @Test
   public void issue1008() {
+    // testing for no crash
     makeHelper()
         .addSourceLines(
             "EnumCombinations.java",
             "package com.uber;",
-            "import java.util.ArrayList;",
-            "import java.util.List;",
-            "import java.util.Objects;",
-            "import java.util.stream.Stream;",
             "public class EnumCombinations {",
-            "    public static List<List<Enum<?>>> combinations(Class<? extends Enum<?>> first, Class<? extends Enum<?>>... others) {",
-            "        List<Class<? extends Enum<?>>> enumClasses = new ArrayList<>();",
-            "        enumClasses.add(first);",
-            "        for (var o : others) {",
-            "            Objects.requireNonNull(o);",
-            "            enumClasses.add(o);",
-            "        }",
-            "        return combinations(enumClasses);",
+            "    public static void combinations(Class<? extends Enum<?>> first, Class<? extends Enum<?>>... others) {",
             "    }",
-            "    public static Stream<Object> args(Class<? extends Enum<?>> first, Class<? extends Enum<?>>... others) {",
-            "        List<List<Enum<?>>> result = combinations(first, others);",
-            "        Stream<Object> args = toArguments(result);",
-            "        return args;",
-            "    }",
-            "    private static List<List<Enum<?>>> combinations(List<Class<? extends Enum<?>>> enumClasses) {",
-            "        // Implementation of combinations logic here",
-            "        // Placeholder return statement",
-            "        return new ArrayList<>();",
-            "    }",
-            "    private static Stream<Object> toArguments(List<List<Enum<?>>> combinations) {",
-            "        // Implementation of toArguments logic here",
-            "        // Placeholder return statement",
-            "        return Stream.empty();",
+            "    public static void args(Class<? extends Enum<?>> first, Class<? extends Enum<?>>... others) {",
+            "        combinations(first, others);",
             "    }",
             "}")
         .doTest();
