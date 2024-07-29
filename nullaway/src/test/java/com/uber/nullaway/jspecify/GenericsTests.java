@@ -1839,6 +1839,23 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1008() {
+    // testing for no crash
+    makeHelper()
+        .addSourceLines(
+            "EnumCombinations.java",
+            "package com.uber;",
+            "public class EnumCombinations {",
+            "    public static void combinations(Class<? extends Enum<?>> first, Class<? extends Enum<?>>... others) {",
+            "    }",
+            "    public static void args(Class<? extends Enum<?>> first, Class<? extends Enum<?>>... others) {",
+            "        combinations(first, others);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

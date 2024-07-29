@@ -557,11 +557,14 @@ public final class GenericsChecks {
           (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
       Type varargsElementType = varargsArrayType.elemtype;
       for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
-        Type actualParameter = getTreeType(actualParams.get(i), state);
-        if (actualParameter != null) {
-          if (!subtypeParameterNullability(varargsElementType, actualParameter, state)) {
+        Type actualParameterType = getTreeType(actualParams.get(i), state);
+        // If the actual parameter type is assignable to the varargs array type, then the call site
+        // is passing the varargs directly in an array, and we should skip our check.
+        if (actualParameterType != null
+            && !state.getTypes().isAssignable(actualParameterType, varargsArrayType)) {
+          if (!subtypeParameterNullability(varargsElementType, actualParameterType, state)) {
             reportInvalidParametersNullabilityError(
-                varargsElementType, actualParameter, actualParams.get(i), state, analysis);
+                varargsElementType, actualParameterType, actualParams.get(i), state, analysis);
           }
         }
       }
