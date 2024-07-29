@@ -292,6 +292,9 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
   }
 
   private CompilationTestHelper makeHelper() {
-    return makeTestHelperWithArgs(Arrays.asList("-XepOpt:NullAway:LegacyAnnotationLocations=true"));
+    return makeTestHelperWithArgs(
+        Arrays.asList(
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+            "-XepOpt:NullAway:LegacyAnnotationLocations=true"));
   }
 }
