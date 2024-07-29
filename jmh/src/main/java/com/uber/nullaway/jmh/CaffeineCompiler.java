@@ -109,4 +109,9 @@ public class CaffeineCompiler extends AbstractBenchmarkCompiler {
   protected String getClasspath() {
     return System.getProperty("nullaway.caffeine.classpath");
   }
+
+  @Override
+  protected List<String> getExtraErrorProneArgs() {
+    return List.of("-XepOpt:NullAway:LegacyAnnotationLocations=true");
+  }
 }
