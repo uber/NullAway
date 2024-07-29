@@ -103,6 +103,9 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_FIX_SERIALIZATION_CONFIG_PATH =
       EP_FL_NAMESPACE + ":FixSerializationConfigPath";
 
+  static final String FL_LEGACY_ANNOTATION_LOCATION =
+      EP_FL_NAMESPACE + ":LegacyAnnotationLocations";
+
   private static final String DELIMITER = ",";
 
   static final ImmutableSet<String> DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE =
@@ -208,6 +211,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final boolean treatGeneratedAsUnannotated;
   private final boolean acknowledgeAndroidRecent;
   private final boolean jspecifyMode;
+  private final boolean legacyAnnotationLocation;
   private final ImmutableSet<MethodClassAndName> knownInitializers;
   private final ImmutableSet<String> excludedClassAnnotations;
   private final ImmutableSet<String> generatedCodeAnnotations;
@@ -288,6 +292,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
         getPackagePattern(
             getFlagStringSet(flags, FL_EXCLUDED_FIELD_ANNOT, DEFAULT_EXCLUDED_FIELD_ANNOT));
     castToNonNullMethod = flags.get(FL_CTNN_METHOD).orElse(null);
+    legacyAnnotationLocation = flags.getBoolean(FL_LEGACY_ANNOTATION_LOCATION).orElse(false);
     autofixSuppressionComment = flags.get(FL_SUPPRESS_COMMENT).orElse("");
     optionalClassPaths =
         new ImmutableSet.Builder<String>()
@@ -582,6 +587,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public boolean isJSpecifyMode() {
     return jspecifyMode;
+  }
+
+  @Override
+  public boolean isLegacyAnnotationLocation() {
+    return legacyAnnotationLocation;
   }
 
   @AutoValue

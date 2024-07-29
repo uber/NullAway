@@ -312,10 +312,12 @@ public class NullabilityUtil {
     // We care about both annotations directly on the outer type and also those directly
     // on an inner type or array dimension, but wish to discard annotations on wildcards,
     // or type arguments.
-    // For arrays, outside JSpecify mode, we treat annotations on the outer type and on any
-    // dimension of the array as applying to the nullability of the array itself, not the elements.
-    // In JSpecify mode, annotations on array dimensions are *not* treated as applying to the
-    // top-level type, consistent with the JSpecify spec.
+    // For arrays, when the LegacyAnnotationLocations flag is passed, we treat annotations on the
+    // outer type and on any dimension of the array as applying to the nullability of the array
+    // itself, not the elements.
+    // In JSpecify mode and without the LegacyAnnotationLocations flag, annotations on array
+    // dimensions are *not* treated as applying to the top-level type, consistent with the JSpecify
+    // spec.
     // We don't allow mixing of inner types and array dimensions in the same location
     // (i.e. `Foo.@Nullable Bar []` is meaningless).
     // These aren't correct semantics for type use annotations, but a series of hacky
@@ -331,9 +333,9 @@ public class NullabilityUtil {
           locationHasInnerTypes = true;
           break;
         case ARRAY:
-          if (config.isJSpecifyMode()) {
-            // In JSpecify mode, annotations on array element types do not apply to the top-level
-            // type
+          if (config.isJSpecifyMode() || !config.isLegacyAnnotationLocation()) {
+            // Annotations on array element types do not apply to the top-level
+            // type outside of legacy mode
             return false;
           }
           locationHasArray = true;
