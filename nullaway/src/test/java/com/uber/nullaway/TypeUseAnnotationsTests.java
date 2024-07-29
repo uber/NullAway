@@ -208,6 +208,26 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void arrayDeclarationAnnotation() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  static @Nullable String [] fizz = {\"1\"};",
+            "  static Object o1 = new Object();",
+            "  static void foo() {",
+            "      // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "      o1 = fizz;",
+            "      // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable",
+            "      o1 = fizz.length;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void typeUseAnnotationOnArray() {
     defaultCompilationHelper
         .addSourceLines(
