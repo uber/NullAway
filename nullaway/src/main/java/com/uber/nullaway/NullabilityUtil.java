@@ -331,7 +331,7 @@ public class NullabilityUtil {
           locationHasInnerTypes = true;
           break;
         case ARRAY:
-          if (config.isJSpecifyMode()) {
+          if (config.isJSpecifyMode() || !config.isLegacyAnnotationLocation()) {
             // In JSpecify mode, annotations on array element types do not apply to the top-level
             // type
             return false;

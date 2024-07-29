@@ -22,6 +22,8 @@
 
 package com.uber.nullaway;
 
+import com.google.errorprone.CompilationTestHelper;
+import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -184,8 +186,8 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void typeUseAnnotationOnArray() {
-    defaultCompilationHelper
+  public void typeUseLegacyAnnotationOnArray() {
+    makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -200,7 +202,32 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
             "  // ok according to spec",
             "  Object @Nullable [][] foo4 = null;",
             "  // NOT ok; @Nullable applies to first array dimension not the elements or the array ref",
-            "  // TODO: Fix this as part of https://github.com/uber/NullAway/issues/708",
+            "  Object [] @Nullable [] foo5 = null;",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void typeUseAnnotationOnArray() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "class Test {",
+            "  // @Nullable is not applied on top-level of array",
+            "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "  @Nullable Object[] foo1 = null;",
+            "  // ok according to spec",
+            "  Object @Nullable[] foo2 = null;",
+            "  // ok only for backwards compat",
+            "  // @Nullable is not applied on top-level of array",
+            "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "  @Nullable Object [][] foo3 = null;",
+            "  // ok according to spec",
+            "  Object @Nullable [][] foo4 = null;",
+            "  // @Nullable is not applied on top-level of array",
+            "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
             "  Object [] @Nullable [] foo5 = null;",
             "}")
         .doTest();
@@ -262,5 +289,9 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
             "  }",
             "}")
         .doTest();
+  }
+
+  private CompilationTestHelper makeHelper() {
+    return makeTestHelperWithArgs(Arrays.asList("-XepOpt:NullAway:LegacyAnnotationLocations=true"));
   }
 }
