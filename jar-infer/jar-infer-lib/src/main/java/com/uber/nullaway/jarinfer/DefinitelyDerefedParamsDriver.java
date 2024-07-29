@@ -456,6 +456,7 @@ public class DefinitelyDerefedParamsDriver {
         packageAnnotations,
         typeAnnotations,
         methodRecords,
+        Collections.emptySet(),
         Collections.emptyMap());
   }
 
