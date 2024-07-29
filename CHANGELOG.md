@@ -1,5 +1,44 @@
 Changelog
 =========
+Version 0.11.1
+---------------
+* Fix issue 1008 (#1009)
+* JSpecify: read upper bound annotations from bytecode and add tests (#1004)
+* Fix crash with suggested suppressions in JSpecify mode (#1001)
+* Update to JSpecify 1.0 and use JSpecify annotations in NullAway code (#1000)
+* Expose @EnsuresNonNull and @RequiresNonNull in annotations package (#999)
+* Don't report initializer warnings on @NullUnmarked constructors / methods (#997)
+* Strip annotations from MethodSymbol strings (#993)
+* JSpecify: fix crashes where declared parameter / return types were raw (#989)
+* JSpecify: Handle @nullable elements for enhanced-for-loops on arrays (#986)
+* Features/944 tidy stream nullability propagator (#985)
+* Tests for loops over arrays (#982)
+* Bug fixes for array subtyping at returns / parameter passing (#980)
+* JSpecify: Handle @nonnull elements in @nullable content arrays (#963)
+* Don't report @nullable type argument errors for unmarked classes (#958)
+* External Library Models: Adding support for Nullable upper bounds of Generic Type parameters (#949)
+* Refactoring / code cleanups:
+  - Test on JDK 22 (#992)
+  - Add test case for @nullable Void with override in JSpecify mode (#990)
+  - Enable UnnecessaryFinal and PreferredInterfaceType EP checks (#991)
+  - Add missing @test annotation (#988)
+  - Fix typo in variable name (#987)
+  - Remove AbstractConfig class (#974)
+  - Fix Javadoc for MethodRef (#973)
+  - Refactored data clumps with the help of LLMs (research project) (#960)
+* Build / CI tooling maintenance:
+  - Various cleanups enabled by bumping minimum Java and Error Prone versions (#962)
+  - Disable publishing of snapshot builds from CI (#967)
+  - Update Gradle action usage in CI workflow (#969)
+  - Update Gradle config to always compile Java code using JDK 17 (#971)
+  - Update JavaParser to 3.26.0 (#970)
+  - Reenable JMH benchmarking in a safer manner (#975)
+  - Updated JMH Benchmark Comment Action (#976)
+  - Update to Gradle 8.8 (#981)
+  - Update to Error Prone 2.28.0 (#984)
+  - Update to Gradle 8.9 (#998)
+  - Update to WALA 1.6.6 (#1003)
+
 Version 0.11.0
 ---------------
 IMPORTANT: Support for JDK 8 is dropped and NullAway now requires 2.14.0 or higher.
