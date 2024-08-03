@@ -258,6 +258,6 @@ public enum Nullness implements AbstractValue<Nullness> {
    * written as {@code foo(Object @Nullable... args}}
    */
   public static boolean varargsParamIsNullable(Symbol paramSymbol, Config config) {
-    return false;
+    return hasNullableAnnotation(paramSymbol, config);
   }
 }
