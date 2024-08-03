@@ -222,6 +222,22 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void callMethodTakingJavaUtilFunction() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.lib.generics.JavaUtilFunctionMethods;",
+            "class Test {",
+            "  static void testNegative() {",
+            "    JavaUtilFunctionMethods.withFunction(s -> { return null; });",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
