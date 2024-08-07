@@ -1857,7 +1857,7 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void issue1013() {
+  public void intersectionTypeFromConditionalExprInStringConcat() {
     makeHelper()
         .addSourceLines(
             "ServiceExtraInfo.java",
