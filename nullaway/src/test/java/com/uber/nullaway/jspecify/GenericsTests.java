@@ -1856,6 +1856,22 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1013() {
+    makeHelper()
+        .addSourceLines(
+            "ServiceExtraInfo.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class ServiceExtraInfo {",
+            "    private java.util.@Nullable List<Object> relativeServices;",
+            "    private String getStr() {",
+            "        return (relativeServices == null ? \"relativeServices == null\" : relativeServices.size()) + \"\";",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

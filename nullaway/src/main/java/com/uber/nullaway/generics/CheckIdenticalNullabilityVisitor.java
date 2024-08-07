@@ -5,6 +5,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import java.util.List;
 import javax.lang.model.type.NullType;
+import javax.lang.model.type.TypeMirror;
 
 /**
  * Visitor that checks for identical nullability annotations at all nesting levels within two types.
@@ -22,6 +23,9 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   public Boolean visitClassType(Type.ClassType lhsType, Type rhsType) {
     if (rhsType instanceof NullType || rhsType.isPrimitive()) {
       return true;
+    }
+    if (lhsType.isIntersection()) {
+      return handleIntersectionType((Type.IntersectionClassType) lhsType, rhsType);
     }
     Types types = state.getTypes();
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
@@ -57,6 +61,19 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // should also match.  When there is no enclosing type, getEnclosingType() returns a NoType
     // object, which gets handled by the fallback visitType() method
     return lhsType.getEnclosingType().accept(this, rhsType.getEnclosingType());
+  }
+
+  /** Check identical nullability for every type in the intersection */
+  private Boolean handleIntersectionType(
+      Type.IntersectionClassType intersectionType, Type rhsType) {
+    List<? extends TypeMirror> bounds = intersectionType.getBounds();
+    for (int i = 0; i < bounds.size(); i++) {
+      Type bound = (Type) bounds.get(i);
+      if (!bound.accept(this, rhsType)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   @Override
