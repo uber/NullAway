@@ -1875,6 +1875,8 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  // TODO write an intersection test where nullability of type parameters does not match
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
