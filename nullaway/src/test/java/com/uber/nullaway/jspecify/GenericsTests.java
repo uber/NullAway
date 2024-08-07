@@ -1868,6 +1868,9 @@ public class GenericsTests extends NullAwayTestsBase {
             "    private String getStr() {",
             "        return (relativeServices == null ? \"relativeServices == null\" : relativeServices.size()) + \"\";",
             "    }",
+            "    private String getStr2(boolean b, java.util.List<Object> l) {",
+            "        return (b ? (b ? l.size() : \"hello\") : 3) + \"\";",
+            "    }",
             "}")
         .doTest();
   }
