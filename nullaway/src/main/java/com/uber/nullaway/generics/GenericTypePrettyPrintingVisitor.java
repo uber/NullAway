@@ -37,6 +37,9 @@ final class GenericTypePrettyPrintingVisitor extends Types.DefaultTypeVisitor<St
 
   @Override
   public String visitClassType(Type.ClassType t, Void s) {
+    if (t.isIntersection()) {
+      return prettyIntersectionType((Type.IntersectionClassType) t);
+    }
     StringBuilder sb = new StringBuilder();
     Type enclosingType = t.getEnclosingType();
     if (!ASTHelpers.isSameType(enclosingType, Type.noType, state)) {
@@ -55,6 +58,12 @@ final class GenericTypePrettyPrintingVisitor extends Types.DefaultTypeVisitor<St
       sb.append(">");
     }
     return sb.toString();
+  }
+
+  private String prettyIntersectionType(Type.IntersectionClassType t) {
+    return t.getBounds().stream()
+        .map(type -> ((Type) type).accept(this, null))
+        .collect(joining(" & "));
   }
 
   @Override
