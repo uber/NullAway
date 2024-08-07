@@ -1053,4 +1053,18 @@ public class CoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void ternaryBothCasesNull() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestCase.java",
+            "package com.uber;",
+            "public class TestCase {",
+            "    public static String foo(String x) {",
+            "        return x.isEmpty() ? null : null;",
+            "    }",
+            "}")
+        .doTest();
+  }
 }
