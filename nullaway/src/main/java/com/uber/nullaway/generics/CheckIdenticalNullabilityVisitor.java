@@ -5,7 +5,6 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import java.util.List;
 import javax.lang.model.type.NullType;
-import javax.lang.model.type.TypeMirror;
 
 /**
  * Visitor that checks for identical nullability annotations at all nesting levels within two types.
@@ -66,14 +65,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   /** Check identical nullability for every type in the intersection */
   private Boolean handleIntersectionType(
       Type.IntersectionClassType intersectionType, Type rhsType) {
-    List<? extends TypeMirror> bounds = intersectionType.getBounds();
-    for (int i = 0; i < bounds.size(); i++) {
-      Type bound = (Type) bounds.get(i);
-      if (!bound.accept(this, rhsType)) {
-        return false;
-      }
-    }
-    return true;
+    return intersectionType.getBounds().stream()
+        .allMatch(type -> ((Type) type).accept(this, rhsType));
   }
 
   @Override

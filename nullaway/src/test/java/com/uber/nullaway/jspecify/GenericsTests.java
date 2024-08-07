@@ -1875,7 +1875,32 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  // TODO write an intersection test where nullability of type parameters does not match
+  @Test
+  public void intersectionTypeInvalidAssign() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.io.Serializable;",
+            "public class Test {",
+            "  interface A<T extends @Nullable Object> {}",
+            "  static class B implements A<@Nullable String>, Serializable {}",
+            "  static void test1(Object o) {",
+            "    var x = (A<String> & Serializable) o;",
+            "    // BUG: Diagnostic contains: Cannot assign from type B to type A<String> & Serializable",
+            "    x = new B();",
+            "  }",
+            "  static class C implements A<String>, Serializable {}",
+            "  static void test2(Object o) {",
+            "    var x = (A<@Nullable String> & Serializable) o;",
+            // TODO: this assignment should be an error but we do not compute annotations in the
+            //  type of x correctly
+            "    x = new C();",
+            "  }",
+            "}")
+        .doTest();
+  }
 
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
