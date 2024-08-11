@@ -226,6 +226,7 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
   @Test
   @Ignore("Failing due to https://bugs.openjdk.org/browse/JDK-8337795")
   // TODO Re-enable this test once the JDK bug is fixed, on appropriate JDK versions
+  //  See https://github.com/uber/NullAway/issues/1011
   public void callMethodTakingJavaUtilFunction() {
     makeHelper()
         .addSourceLines(
