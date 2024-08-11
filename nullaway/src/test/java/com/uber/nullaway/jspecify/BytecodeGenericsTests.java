@@ -3,6 +3,7 @@ package com.uber.nullaway.jspecify;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class BytecodeGenericsTests extends NullAwayTestsBase {
@@ -223,6 +224,8 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  @Ignore("Failing due to https://bugs.openjdk.org/browse/JDK-8337795")
+  // TODO Re-enable this test once the JDK bug is fixed, on appropriate JDK versions
   public void callMethodTakingJavaUtilFunction() {
     makeHelper()
         .addSourceLines(
