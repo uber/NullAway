@@ -608,6 +608,25 @@ public class ArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void typeUseAndDeclarationLegacyAnnotationOnArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jetbrains.annotations.Nullable;",
+            "class Test {",
+            "  @Nullable Object[] foo1 = null;",
+            "  Object @Nullable[] foo2 = null;",
+            "  @Nullable Object @Nullable [] foo3 = null;",
+            "  @Nullable Object [][] foo4 = null;",
+            "  Object @Nullable [][] foo5 = null;",
+            "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "  Object [] @Nullable [] foo6 = null;",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

@@ -22,8 +22,6 @@
 
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
-import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -186,74 +184,6 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void typeUseLegacyAnnotationOnArray() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import org.checkerframework.checker.nullness.qual.Nullable;",
-            "class Test {",
-            "  // ok only for backwards compat",
-            "  @Nullable Object[] foo1 = null;",
-            "  // ok according to spec",
-            "  Object @Nullable[] foo2 = null;",
-            "  // ok only for backwards compat",
-            "  @Nullable Object [][] foo3 = null;",
-            "  // ok according to spec",
-            "  Object @Nullable [][] foo4 = null;",
-            "  // NOT ok; @Nullable applies to first array dimension not the elements or the array ref",
-            "  Object [] @Nullable [] foo5 = null;",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void arrayDeclarationAnnotation() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  static @Nullable String [] fizz = {\"1\"};",
-            "  static Object o1 = new Object();",
-            "  static void foo() {",
-            "      // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "      o1 = fizz;",
-            "      // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable",
-            "      o1 = fizz.length;",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void typeUseAnnotationOnArray() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import org.checkerframework.checker.nullness.qual.Nullable;",
-            "class Test {",
-            "  // @Nullable is not applied on top-level of array",
-            "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "  @Nullable Object[] foo1 = null;",
-            "  // ok according to spec",
-            "  Object @Nullable[] foo2 = null;",
-            "  // ok only for backwards compat",
-            "  // @Nullable is not applied on top-level of array",
-            "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "  @Nullable Object [][] foo3 = null;",
-            "  // ok according to spec",
-            "  Object @Nullable [][] foo4 = null;",
-            "  // @Nullable is not applied on top-level of array",
-            "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "  Object [] @Nullable [] foo5 = null;",
-            "}")
-        .doTest();
-  }
-
-  @Test
   public void typeUseAnnotationOnInnerMultiLevel() {
     defaultCompilationHelper
         .addSourceLines(
@@ -309,12 +239,5 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
             "  }",
             "}")
         .doTest();
-  }
-
-  private CompilationTestHelper makeHelper() {
-    return makeTestHelperWithArgs(
-        Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-            "-XepOpt:NullAway:LegacyAnnotationLocations=true"));
   }
 }
