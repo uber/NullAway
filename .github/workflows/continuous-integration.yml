@@ -21,16 +21,16 @@ jobs:
             epVersion: 2.14.0
           - os: macos-latest
             java: 11
-            epVersion: 2.29.0
+            epVersion: 2.30.0
           - os: ubuntu-latest
             java: 11
-            epVersion: 2.29.0
+            epVersion: 2.30.0
           - os: windows-latest
             java: 11
-            epVersion: 2.29.0
+            epVersion: 2.30.0
           - os: ubuntu-latest
             java: 17
-            epVersion: 2.29.0
+            epVersion: 2.30.0
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -61,7 +61,7 @@ jobs:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         run: ./gradlew codeCoverageReport
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.29.0' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.30.0' && github.repository == 'uber/NullAway'
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         with:
