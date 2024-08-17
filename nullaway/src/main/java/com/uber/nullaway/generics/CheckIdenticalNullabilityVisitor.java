@@ -32,6 +32,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     if (rhsTypeAsSuper == null) {
       throw new RuntimeException("Did not find supertype of " + rhsType + " matching " + lhsType);
     }
+    // bail out of checking raw types for now
+    if (rhsTypeAsSuper.isRaw()) {
+      return true;
+    }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
     List<Type> rhsTypeArguments = rhsTypeAsSuper.getTypeArguments();
     // This is impossible, considering the fact that standard Java subtyping succeeds before

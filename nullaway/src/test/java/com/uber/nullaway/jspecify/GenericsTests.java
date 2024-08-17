@@ -1856,6 +1856,27 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1019() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "",
+            "import java.util.ArrayList;",
+            "import java.util.List;",
+            "",
+            "public class Test {",
+            "    public static class StringList extends ArrayList {",
+            "    }",
+            "    @SuppressWarnings(\"unchecked\")",
+            "    public static List<String> convert(final StringList stringList) {",
+            "        return stringList;",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
