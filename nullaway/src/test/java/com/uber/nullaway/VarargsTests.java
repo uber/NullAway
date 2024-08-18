@@ -44,16 +44,8 @@ public class VarargsTests extends NullAwayTestsBase {
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "public class Utilities {",
-            // TODO a declaration annotation at the top level should apply to the individual
-            //  arguments, not the variable itself
             " public static String takesNullableVarargs(Object o, @Nullable Object... others) {",
-            "  String s = o.toString() + \" \";",
-            "  for (Object other : others) {",
-            "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
-            "  }",
-            "  for (Object other : others) {",
-            "    s += other.toString();", // SHOULD be an error!
-            "  }",
+            "  String s = o.toString() + \" \" + others.toString();",
             "  return s;",
             " }",
             "}")
