@@ -60,7 +60,7 @@ public class VarargsTests extends NullAwayTestsBase {
             "    Utilities.takesNullableVarargs(o1, o4);",
             "    Utilities.takesNullableVarargs(o1, (java.lang.Object) null);",
             "    Object[] x = null;",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
             "    Utilities.takesNullableVarargs(o1, x);",
             "  }",
             "}")
