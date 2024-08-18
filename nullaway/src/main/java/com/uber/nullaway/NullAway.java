@@ -1764,12 +1764,12 @@ public class NullAway extends BugChecker
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
     for (int argPos = 0; argPos < argumentPositionNullness.length; argPos++) {
-      boolean varargPosition = argPos == formalParams.size() - 1 && methodSymbol.isVarArgs();
-      if (!varargPosition && !Objects.equals(Nullness.NONNULL, argumentPositionNullness[argPos])) {
+      if (!Objects.equals(Nullness.NONNULL, argumentPositionNullness[argPos])) {
         continue;
       }
       ExpressionTree actual = null;
       boolean mayActualBeNull = false;
+      boolean varargPosition = methodSymbol.isVarArgs() && argPos == formalParams.size() - 1;
       if (varargPosition) {
         // Check all vararg actual arguments for nullability
         if (actualParams.size() <= argPos) {

@@ -278,7 +278,7 @@ public class NullabilityUtil {
    * Gets the type use annotations on a symbol, ignoring annotations on components of the type (type
    * arguments, wildcards, etc.)
    */
-  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(
+  public static Stream<? extends AnnotationMirror> getTypeUseAnnotations(
       Symbol symbol, Config config) {
     Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
     if (symbol instanceof Symbol.MethodSymbol) {

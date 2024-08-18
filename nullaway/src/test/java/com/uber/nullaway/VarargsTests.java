@@ -59,8 +59,9 @@ public class VarargsTests extends NullAwayTestsBase {
             "    Utilities.takesNullableVarargs(o1);", // Empty var args passed
             "    Utilities.takesNullableVarargs(o1, o4);",
             "    Utilities.takesNullableVarargs(o1, (java.lang.Object) null);",
-            // TODO SHOULD be an error!
-            "    Utilities.takesNullableVarargs(o1, (java.lang.Object[]) null);",
+            "    Object[] x = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    Utilities.takesNullableVarargs(o1, x);",
             "  }",
             "}")
         .doTest();

@@ -206,6 +206,10 @@ public enum Nullness implements AbstractValue<Nullness> {
     return hasNullableAnnotation(NullabilityUtil.getAllAnnotations(symbol, config), config);
   }
 
+  public static boolean hasNullableTypeUseAnnotation(Symbol symbol, Config config) {
+    return hasNullableAnnotation(NullabilityUtil.getTypeUseAnnotations(symbol, config), config);
+  }
+
   /**
    * Does the parameter of {@code symbol} at {@code paramInd} have a {@code @Nullable} declaration
    * or type-use annotation? This method works for methods defined in either source or class files.
@@ -258,6 +262,6 @@ public enum Nullness implements AbstractValue<Nullness> {
    * written as {@code foo(Object @Nullable... args}}
    */
   public static boolean varargsParamIsNullable(Symbol paramSymbol, Config config) {
-    return hasNullableAnnotation(paramSymbol, config);
+    return hasNullableTypeUseAnnotation(paramSymbol, config);
   }
 }
