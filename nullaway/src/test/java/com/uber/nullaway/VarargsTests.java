@@ -212,4 +212,43 @@ public class VarargsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void typeUseBeforeDots() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Nullable.java",
+            "package com.uber;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})",
+            "public @interface Nullable {}")
+        .addSourceLines(
+            "Utilities.java",
+            "package com.uber;",
+            "public class Utilities {",
+            " public static String takesNullableVarargs(@Nullable Object @Nullable... others) {",
+            "  String s = \"\";",
+            "  for (Object other : others) {",
+            "    s += other.toString() + \" \";",
+            "  }",
+            "  return s;",
+            " }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  public void testNullableVarargs(Object o1, Object o2, Object o3, @Nullable Object o4) {",
+            "    Utilities.takesNullableVarargs(o1, o2, o3, o4);",
+            "    Utilities.takesNullableVarargs(o1);", // Empty var args passed
+            "    Utilities.takesNullableVarargs(o1, o4);",
+            "    Utilities.takesNullableVarargs(o1, (java.lang.Object) null);",
+            // SHOULD be an error!
+            "    Utilities.takesNullableVarargs(o1, (java.lang.Object[]) null);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
