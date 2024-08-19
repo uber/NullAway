@@ -1,5 +1,14 @@
 Changelog
 =========
+Version 0.11.2
+---------------
+* JSpecify: add another bailout check for raw types (#1021)
+* JSpecify: handle intersection type in one place (#1015)
+* JSpecify: fix for crash with wildcard types (#1020)
+* Maintenance:
+  - Update to Error Prone 2.30.0 (#1017)
+  - Add test for #1011 (#1018)
+
 Version 0.11.1
 ---------------
 * Fix issue 1008 (#1009)
