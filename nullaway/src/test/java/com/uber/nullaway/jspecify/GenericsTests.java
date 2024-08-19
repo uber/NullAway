@@ -1902,6 +1902,7 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
   public void issue1014() {
     makeHelper()
         .addSourceLines(
