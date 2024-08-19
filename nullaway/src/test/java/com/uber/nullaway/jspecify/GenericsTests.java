@@ -1886,16 +1886,20 @@ public class GenericsTests extends NullAwayTestsBase {
             "public class Test {",
             "  interface A<T extends @Nullable Object> {}",
             "  static class B implements A<@Nullable String>, Serializable {}",
+            "  static class C implements A<String>, Serializable {}",
             "  static void test1(Object o) {",
             "    var x = (A<String> & Serializable) o;",
             "    // BUG: Diagnostic contains: Cannot assign from type B to type A<String> & Serializable",
             "    x = new B();",
+            "    // ok",
+            "    x = new C();",
             "  }",
-            "  static class C implements A<String>, Serializable {}",
             "  static void test2(Object o) {",
             "    var x = (A<@Nullable String> & Serializable) o;",
-            // TODO: this assignment should be an error but we do not compute annotations in the
-            //  type of x correctly
+            // TODO: should _not_ be an error, see https://github.com/uber/NullAway/issues/1022
+            "    // BUG: Diagnostic contains: Cannot assign from type B to type A<String> & Serializable",
+            "    x = new B();",
+            // TODO: _should_ be an error, see https://github.com/uber/NullAway/issues/1022
             "    x = new C();",
             "  }",
             "}")
