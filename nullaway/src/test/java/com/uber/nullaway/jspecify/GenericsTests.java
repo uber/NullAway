@@ -1902,6 +1902,27 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  public void issue1014() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "class Test<R> {",
+            "    public interface PropertyFunction<",
+            "            T extends @Nullable Object, R extends @Nullable Object, E extends Exception>",
+            "            extends Function<T, R> {",
+            "        R _apply(T t) throws E;",
+            "    }",
+            "    @Nullable PropertyFunction<? super R, ? extends String, ? super Exception> stringFunc;",
+            "    public void propertyString() {",
+            "        var f = stringFunc;",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

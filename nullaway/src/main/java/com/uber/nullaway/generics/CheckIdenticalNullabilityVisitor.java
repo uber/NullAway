@@ -5,6 +5,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import java.util.List;
 import javax.lang.model.type.NullType;
+import javax.lang.model.type.TypeKind;
 
 /**
  * Visitor that checks for identical nullability annotations at all nesting levels within two types.
@@ -21,6 +22,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   @Override
   public Boolean visitClassType(Type.ClassType lhsType, Type rhsType) {
     if (rhsType instanceof NullType || rhsType.isPrimitive()) {
+      return true;
+    }
+    if (rhsType.getKind().equals(TypeKind.WILDCARD)) {
+      // TODO Handle wildcard types
       return true;
     }
     if (lhsType.isIntersection()) {
