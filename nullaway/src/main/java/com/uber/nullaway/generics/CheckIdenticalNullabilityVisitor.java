@@ -28,6 +28,9 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       // TODO Handle wildcard types
       return true;
     }
+    if (lhsType.isIntersection()) {
+      return handleIntersectionType((Type.IntersectionClassType) lhsType, rhsType);
+    }
     Types types = state.getTypes();
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
@@ -62,6 +65,13 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // should also match.  When there is no enclosing type, getEnclosingType() returns a NoType
     // object, which gets handled by the fallback visitType() method
     return lhsType.getEnclosingType().accept(this, rhsType.getEnclosingType());
+  }
+
+  /** Check identical nullability for every type in the intersection */
+  private Boolean handleIntersectionType(
+      Type.IntersectionClassType intersectionType, Type rhsType) {
+    return intersectionType.getBounds().stream()
+        .allMatch(type -> ((Type) type).accept(this, rhsType));
   }
 
   @Override
