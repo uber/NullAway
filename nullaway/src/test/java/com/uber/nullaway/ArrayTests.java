@@ -82,7 +82,7 @@ public class ArrayTests extends NullAwayTestsBase {
             "  @Nullable Object[] foo1 = null;",
             "  // ok according to spec",
             "  Object @Nullable[] foo2 = null;",
-            "  // ok, but @Nullable is not applied on top-level of array ",
+            "  // ok, but elements are not treated as @Nullable outside of JSpecify mode",
             "  @Nullable Object @Nullable[] foo3 = null;",
             "  // ok only for backwards compat",
             "  @Nullable Object [][] foo4 = null;",
