@@ -52,7 +52,7 @@ public class ArrayTests extends NullAwayTestsBase {
 
   @Test
   public void arrayLegacyDeclarationAnnotation() {
-    makeHelper()
+    makeLegacyModeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -72,11 +72,11 @@ public class ArrayTests extends NullAwayTestsBase {
 
   @Test
   public void typeUseLegacyAnnotationOnArray() {
-    makeHelper()
+    makeLegacyModeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "  // ok only for backwards compat",
             "  @Nullable Object[] foo1 = null;",
@@ -88,7 +88,7 @@ public class ArrayTests extends NullAwayTestsBase {
             "  @Nullable Object [][] foo4 = null;",
             "  // ok according to spec",
             "  Object @Nullable [][] foo5 = null;",
-            "  // NOT ok; @Nullable applies to first array dimension not the elements or the array ref",
+            "  // ok, but @Nullable applies to first array dimension not the elements or the array ref",
             "  Object [] @Nullable [] foo6 = null;",
             "}")
         .doTest();
@@ -100,16 +100,15 @@ public class ArrayTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "  // @Nullable is not applied on top-level of array",
             "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
             "  @Nullable Object[] foo1 = null;",
             "  // ok according to spec",
             "  Object @Nullable[] foo2 = null;",
-            "  // ok, but @Nullable is not applied on top-level of array ",
+            "  // ok according to spec",
             "  @Nullable Object @Nullable [] foo3 = null;",
-            "  // ok only for backwards compat",
             "  // @Nullable is not applied on top-level of array",
             "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
             "  @Nullable Object [][] foo4 = null;",
@@ -126,9 +125,12 @@ public class ArrayTests extends NullAwayTestsBase {
   public void typeUseAndDeclarationAnnotationOnArray() {
     defaultCompilationHelper
         .addSourceLines(
-            "Test.java",
+            "Nullable.java",
             "package com.uber;",
-            "import org.jetbrains.annotations.Nullable;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})",
+            "public @interface Nullable {}",
             "class Test {",
             "  @Nullable Object[] foo1 = null;",
             "  Object @Nullable[] foo2 = null;",
@@ -143,11 +145,14 @@ public class ArrayTests extends NullAwayTestsBase {
 
   @Test
   public void typeUseAndDeclarationLegacyAnnotationOnArray() {
-    makeHelper()
+    makeLegacyModeHelper()
         .addSourceLines(
-            "Test.java",
+            "Nullable.java",
             "package com.uber;",
-            "import org.jetbrains.annotations.Nullable;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})",
+            "public @interface Nullable {}",
             "class Test {",
             "  @Nullable Object[] foo1 = null;",
             "  Object @Nullable[] foo2 = null;",
@@ -159,7 +164,7 @@ public class ArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  private CompilationTestHelper makeHelper() {
+  private CompilationTestHelper makeLegacyModeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
             "-XepOpt:NullAway:AnnotatedPackages=com.uber",

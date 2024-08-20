@@ -609,15 +609,26 @@ public class ArrayTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void typeUseAndDeclarationLegacyAnnotationOnArray() {
+  public void typeUseAndDeclarationAnnotationOnArray() {
     makeHelper()
         .addSourceLines(
-            "Test.java",
+            "Nullable.java",
             "package com.uber;",
-            "import org.jetbrains.annotations.Nullable;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})",
+            "public @interface Nullable {}",
             "class Test {",
             "  @Nullable Object[] foo1 = null;",
-            "  Object @Nullable[] foo2 = null;",
+            "  static String @Nullable[] foo2 = null;",
+            "  static void bar() {",
+            "      if (foo2 !=null){",
+            "           // annotation is treated as declaration",
+            "           String bar = foo2[0].toString(); ",
+            "      }",
+            "      // BUG: Diagnostic contains: dereferenced expression foo2 is @Nullable",
+            "      String bar = foo2[0].toString(); ",
+            "  }",
             "  @Nullable Object @Nullable [] foo3 = null;",
             "  @Nullable Object [][] foo4 = null;",
             "  Object @Nullable [][] foo5 = null;",
