@@ -3,6 +3,7 @@ package com.uber.nullaway.jspecify;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class BytecodeGenericsTests extends NullAwayTestsBase {
@@ -218,6 +219,25 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: dereferenced expression",
             "    f3.apply(s).hashCode();",
             " }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  @Ignore("Failing due to https://bugs.openjdk.org/browse/JDK-8337795")
+  // TODO Re-enable this test once the JDK bug is fixed, on appropriate JDK versions
+  //  See https://github.com/uber/NullAway/issues/1011
+  public void callMethodTakingJavaUtilFunction() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.lib.generics.JavaUtilFunctionMethods;",
+            "class Test {",
+            "  static void testNegative() {",
+            "    JavaUtilFunctionMethods.withFunction(s -> { return null; });",
+            "  }",
             "}")
         .doTest();
   }

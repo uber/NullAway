@@ -1856,6 +1856,98 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void intersectionTypeFromConditionalExprInStringConcat() {
+    makeHelper()
+        .addSourceLines(
+            "ServiceExtraInfo.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class ServiceExtraInfo {",
+            "    private java.util.@Nullable List<Object> relativeServices;",
+            "    private String getStr() {",
+            "        return (relativeServices == null ? \"relativeServices == null\" : relativeServices.size()) + \"\";",
+            "    }",
+            "    private String getStr2(boolean b, java.util.List<Object> l) {",
+            "        return (b ? (b ? l.size() : \"hello\") : 3) + \"\";",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void intersectionTypeInvalidAssign() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.io.Serializable;",
+            "public class Test {",
+            "  interface A<T extends @Nullable Object> {}",
+            "  static class B implements A<@Nullable String>, Serializable {}",
+            "  static class C implements A<String>, Serializable {}",
+            "  static void test1(Object o) {",
+            "    var x = (A<String> & Serializable) o;",
+            "    // BUG: Diagnostic contains: Cannot assign from type B to type A<String> & Serializable",
+            "    x = new B();",
+            "    // ok",
+            "    x = new C();",
+            "  }",
+            "  static void test2(Object o) {",
+            "    var x = (A<@Nullable String> & Serializable) o;",
+            // TODO: should _not_ be an error, see https://github.com/uber/NullAway/issues/1022
+            "    // BUG: Diagnostic contains: Cannot assign from type B to type A<String> & Serializable",
+            "    x = new B();",
+            // TODO: _should_ be an error, see https://github.com/uber/NullAway/issues/1022
+            "    x = new C();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1014() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "class Test<R> {",
+            "    public interface PropertyFunction<",
+            "            T extends @Nullable Object, R extends @Nullable Object, E extends Exception>",
+            "            extends Function<T, R> {",
+            "        R _apply(T t) throws E;",
+            "    }",
+            "    @Nullable PropertyFunction<? super R, ? extends String, ? super Exception> stringFunc;",
+            "    public void propertyString() {",
+            "        var f = stringFunc;",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1019() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.ArrayList;",
+            "import java.util.List;",
+            "",
+            "public class Test {",
+            "    public static class StringList extends ArrayList {",
+            "    }",
+            "    @SuppressWarnings(\"unchecked\")",
+            "    public static List<String> convert(final StringList stringList) {",
+            "        return stringList;",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
