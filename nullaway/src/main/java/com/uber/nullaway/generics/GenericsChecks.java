@@ -24,6 +24,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
@@ -97,25 +98,51 @@ public final class GenericsChecks {
     if (baseType == null) {
       return;
     }
+    boolean[] typeParamsWithNullableUpperBound =
+        getTypeParamsWithNullableUpperBound(baseType, config, state, handler);
     com.sun.tools.javac.util.List<Type> baseTypeArgs = baseType.tsym.type.getTypeArguments();
     for (int i = 0; i < baseTypeArgs.size(); i++) {
-      if (nullableTypeArguments.containsKey(i)) {
-
-        Type typeVariable = baseTypeArgs.get(i);
-        Type upperBound = typeVariable.getUpperBound();
-        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-            upperBound.getAnnotationMirrors();
-        boolean hasNullableAnnotation =
-            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
-                || handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
-        // if base type argument does not have @Nullable annotation then the instantiation is
+      if (nullableTypeArguments.containsKey(i) && !typeParamsWithNullableUpperBound[i]) {
+        // if base type variable does not have @Nullable upper bound then the instantiation is
         // invalid
-        if (!hasNullableAnnotation) {
-          reportInvalidInstantiationError(
-              nullableTypeArguments.get(i), baseType, typeVariable, state, analysis);
+        reportInvalidInstantiationError(
+            nullableTypeArguments.get(i), baseType, baseTypeArgs.get(i), state, analysis);
+      }
+    }
+  }
+
+  private static boolean[] getTypeParamsWithNullableUpperBound(
+      Type type, Config config, VisitorState state, Handler handler) {
+    Symbol.TypeSymbol tsym = type.tsym;
+    com.sun.tools.javac.util.List<Type> baseTypeArgs = tsym.type.getTypeArguments();
+    boolean[] result = new boolean[baseTypeArgs.size()];
+    for (int i = 0; i < baseTypeArgs.size(); i++) {
+      Type typeVariable = baseTypeArgs.get(i);
+      Type upperBound = typeVariable.getUpperBound();
+      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+          upperBound.getAnnotationMirrors();
+      if (Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+          || handler.onOverrideTypeParameterUpperBound(type.tsym.toString(), i)) {
+        result[i] = true;
+      }
+    }
+    // For handling types declared in bytecode rather than source code.
+    // Due to a bug in javac versions before JDK 22 (https://bugs.openjdk.org/browse/JDK-8225377),
+    // the above code does not work for types declared in bytecode.  We need to read the raw type
+    // attributes instead.
+    com.sun.tools.javac.util.List<Attribute.TypeCompound> rawTypeAttributes =
+        tsym.getRawTypeAttributes();
+    if (rawTypeAttributes != null) {
+      for (Attribute.TypeCompound typeCompound : rawTypeAttributes) {
+        if (typeCompound.position.type.equals(TargetType.CLASS_TYPE_PARAMETER_BOUND)
+            && ASTHelpers.isSameType(
+                typeCompound.type, JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state), state)) {
+          int index = typeCompound.position.parameter_index;
+          result[index] = true;
         }
       }
     }
+    return result;
   }
 
   private static void reportInvalidInstantiationError(
@@ -530,11 +557,14 @@ public final class GenericsChecks {
           (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
       Type varargsElementType = varargsArrayType.elemtype;
       for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
-        Type actualParameter = getTreeType(actualParams.get(i), state);
-        if (actualParameter != null) {
-          if (!subtypeParameterNullability(varargsElementType, actualParameter, state)) {
+        Type actualParameterType = getTreeType(actualParams.get(i), state);
+        // If the actual parameter type is assignable to the varargs array type, then the call site
+        // is passing the varargs directly in an array, and we should skip our check.
+        if (actualParameterType != null
+            && !state.getTypes().isAssignable(actualParameterType, varargsArrayType)) {
+          if (!subtypeParameterNullability(varargsElementType, actualParameterType, state)) {
             reportInvalidParametersNullabilityError(
-                varargsElementType, actualParameter, actualParams.get(i), state, analysis);
+                varargsElementType, actualParameterType, actualParams.get(i), state, analysis);
           }
         }
       }
