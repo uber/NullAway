@@ -617,7 +617,10 @@ public class ArrayTests extends NullAwayTestsBase {
             "import java.lang.annotation.ElementType;",
             "import java.lang.annotation.Target;",
             "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})",
-            "public @interface Nullable {}",
+            "public @interface Nullable {}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
             "class Test {",
             "  @Nullable Object[] foo1 = null;",
             "  static String @Nullable[] foo2 = null;",

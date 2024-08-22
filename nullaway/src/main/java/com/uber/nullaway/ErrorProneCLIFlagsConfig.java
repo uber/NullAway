@@ -293,6 +293,14 @@ final class ErrorProneCLIFlagsConfig implements Config {
             getFlagStringSet(flags, FL_EXCLUDED_FIELD_ANNOT, DEFAULT_EXCLUDED_FIELD_ANNOT));
     castToNonNullMethod = flags.get(FL_CTNN_METHOD).orElse(null);
     legacyAnnotationLocation = flags.getBoolean(FL_LEGACY_ANNOTATION_LOCATION).orElse(false);
+    if (legacyAnnotationLocation && jspecifyMode) {
+      throw new IllegalStateException(
+          "-XepOpt:"
+              + FL_LEGACY_ANNOTATION_LOCATION
+              + " cannot be used when "
+              + FL_JSPECIFY_MODE
+              + " is set ");
+    }
     autofixSuppressionComment = flags.get(FL_SUPPRESS_COMMENT).orElse("");
     optionalClassPaths =
         new ImmutableSet.Builder<String>()
