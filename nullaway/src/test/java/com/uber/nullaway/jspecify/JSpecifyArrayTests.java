@@ -27,7 +27,7 @@ import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class ArrayTests extends NullAwayTestsBase {
+public class JSpecifyArrayTests extends NullAwayTestsBase {
 
   @Test
   public void arrayTopLevelAnnotationDereference() {

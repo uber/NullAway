@@ -1,13 +1,15 @@
-package com.uber.nullaway;
+package com.uber.nullaway.jspecify;
 
+import com.google.errorprone.CompilationTestHelper;
+import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class VarargsTests extends NullAwayTestsBase {
+public class JSpecifyVarargsTests extends NullAwayTestsBase {
 
   @Test
   public void testNonNullVarargs() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
@@ -38,7 +40,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void testNullableVarargs() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
@@ -69,7 +71,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void nullableTypeUseVarargs() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
@@ -78,7 +80,7 @@ public class VarargsTests extends NullAwayTestsBase {
             " public static String takesNullableVarargs(Object o, @Nullable Object... others) {",
             "  String s = o.toString() + \" \" + others.toString();",
             "  for (Object other : others) {",
-            "    // no error since we do not reason about array element nullability",
+            "    // BUG: Diagnostic contains: dereferenced expression other is @Nullable",
             "    s += other.toString();",
             "  }",
             "  return s;",
@@ -209,7 +211,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void nullableVarargsArray() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
@@ -244,7 +246,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void nullableVarargsArrayAndElements() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
@@ -254,7 +256,8 @@ public class VarargsTests extends NullAwayTestsBase {
             "  String s = o.toString() + \" \";",
             "  // BUG: Diagnostic contains: enhanced-for expression others is @Nullable",
             "  for (Object other : others) {",
-            "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
+            "    // BUG: Diagnostic contains: dereferenced expression other is @Nullable",
+            "    s += other.toString();",
             "  }",
             "  return s;",
             " }",
@@ -277,7 +280,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void typeUseAndDeclarationBeforeDots() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Nullable.java",
             "package com.uber;",
@@ -317,7 +320,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void typeUseAndDeclarationOnElements() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Nullable.java",
             "package com.uber;",
@@ -332,7 +335,8 @@ public class VarargsTests extends NullAwayTestsBase {
             " public static String takesNullableVarargsArray(Object o, @Nullable Object... others) {",
             "  String s = o.toString() + \" \";",
             "  for (Object other : others) {",
-            "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
+            "    // BUG: Diagnostic contains: dereferenced expression other is @Nullable",
+            "    s += other.toString();",
             "  }",
             "  return s;",
             " }",
@@ -354,7 +358,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void typeUseAndDeclarationOnBoth() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Nullable.java",
             "package com.uber;",
@@ -370,7 +374,8 @@ public class VarargsTests extends NullAwayTestsBase {
             "  String s = o.toString() + \" \";",
             "  // BUG: Diagnostic contains: enhanced-for expression others is @Nullable",
             "  for (Object other : others) {",
-            "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
+            "    // BUG: Diagnostic contains: dereferenced expression other is @Nullable",
+            "    s += other.toString();",
             "  }",
             "  return s;",
             " }",
@@ -391,7 +396,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void varargsPassArrayAndOtherArgs() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -412,5 +417,11 @@ public class VarargsTests extends NullAwayTestsBase {
             "  }",
             "}")
         .doTest();
+  }
+
+  private CompilationTestHelper makeHelper() {
+    return makeTestHelperWithArgs(
+        Arrays.asList(
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
   }
 }
