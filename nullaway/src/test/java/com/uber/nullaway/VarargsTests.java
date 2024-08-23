@@ -384,4 +384,30 @@ public class VarargsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  /** testing for no crash */
+  @Test
+  public void varargsPassArrayAndOtherArgs() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "public class Test {",
+            "  static void takesVarargs(Object... args) {}",
+            "  static void test(Object o) {",
+            "    Object[] x = new Object[10];",
+            "    takesVarargs(x, o);",
+            "  }",
+            "  static void takesNullableVarargsArray(Object @Nullable... args) {}",
+            "  static void test2(Object o) {",
+            "    Object[] x = null;",
+            "    // can pass x as the varargs array itself, but not along with other args",
+            "    takesNullableVarargsArray(x);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
+            "    takesNullableVarargsArray(x, o);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

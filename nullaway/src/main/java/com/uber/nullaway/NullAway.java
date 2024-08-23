@@ -1781,8 +1781,8 @@ public class NullAway extends BugChecker
             (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
         Type actualParameterType = ASTHelpers.getType(actual);
         if (actualParameterType != null
-            && state.getTypes().isAssignable(actualParameterType, varargsArrayType)) {
-          Verify.verify(actualParams.size() == argPos + 1);
+            && state.getTypes().isAssignable(actualParameterType, varargsArrayType)
+            && actualParams.size() == argPos + 1) {
           // If varargs array itself is not @Nullable, cannot pass @Nullable array
           if (!Nullness.varargsParamIsNullable(formalParams.get(argPos), config)) {
             mayActualBeNull = mayBeNullExpr(state, actual);
