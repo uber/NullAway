@@ -65,7 +65,7 @@ test {
 }
 
 // Tasks for testing on other JDK versions; see https://jakewharton.com/build-on-latest-java-test-through-lowest-java/
-[21, 22].each { majorVersion ->
+[21, 22, 24].each { majorVersion ->
     def jdkTest = tasks.register("testJdk$majorVersion", Test) {
         onlyIf {
             // Only run when using the latest Error Prone version
