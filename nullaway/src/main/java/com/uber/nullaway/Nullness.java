@@ -213,6 +213,9 @@ public enum Nullness implements AbstractValue<Nullness> {
   /**
    * Does the parameter of {@code symbol} at {@code paramInd} have a {@code @Nullable} declaration
    * or type-use annotation? This method works for methods defined in either source or class files.
+   *
+   * <p>For a varargs parameter, this method returns true if <em>individual</em> arguments passed in
+   * the varargs positions can be null.
    */
   public static boolean paramHasNullableAnnotation(
       Symbol.MethodSymbol symbol, int paramInd, Config config) {
@@ -221,8 +224,12 @@ public enum Nullness implements AbstractValue<Nullness> {
     if (isRecordEqualsParam(symbol, paramInd)) {
       return true;
     }
-    return hasNullableAnnotation(
-        NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd, config), config);
+    if (symbol.isVarArgs() && paramInd == symbol.getParameters().size() - 1) {
+      return individualVarargsParamsAreNullable(symbol.getParameters().get(paramInd), config);
+    } else {
+      return hasNullableAnnotation(
+          NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd, config), config);
+    }
   }
 
   private static boolean isRecordEqualsParam(Symbol.MethodSymbol symbol, int paramInd) {
@@ -263,5 +270,16 @@ public enum Nullness implements AbstractValue<Nullness> {
    */
   public static boolean varargsParamIsNullable(Symbol paramSymbol, Config config) {
     return hasNullableTypeUseAnnotation(paramSymbol, config);
+  }
+
+  private static boolean individualVarargsParamsAreNullable(Symbol paramSymbol, Config config) {
+    // declaration annotation,  or type-use annotation on the elements
+    // TODO update and test for legacy mode
+    return hasNullableDeclarationAnnotation(paramSymbol, config)
+        || NullabilityUtil.isArrayElementNullable(paramSymbol, config);
+  }
+
+  private static boolean hasNullableDeclarationAnnotation(Symbol symbol, Config config) {
+    return hasNullableAnnotation(symbol.getRawAttributes().stream(), config);
   }
 }

@@ -157,7 +157,8 @@ public class VarargsTests extends NullAwayTestsBase {
             "    ThirdParty.takesNullableVarargs(o1);", // Empty var args passed
             "    ThirdParty.takesNullableVarargs(o1, o4);",
             "    ThirdParty.takesNullableVarargs(o1, (Object) null);",
-            "    ThirdParty.takesNullableVarargs(o1, (Object[]) null);", // SHOULD be an error!
+            "    // BUG: Diagnostic contains: passing @Nullable parameter '(Object[]) null' where @NonNull",
+            "    ThirdParty.takesNullableVarargs(o1, (Object[]) null);",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
             "    ThirdParty.takesNullableVarargs(o4);", // First arg is not varargs.
             "  }",

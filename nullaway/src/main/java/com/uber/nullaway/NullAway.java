@@ -1788,6 +1788,7 @@ public class NullAway extends BugChecker
             mayActualBeNull = mayBeNullExpr(state, actual);
           }
         } else {
+          // TODO need to update this check to see if the vararg array contents is @Nullable
           if (!argIsNonNull) {
             continue;
           }
