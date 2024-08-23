@@ -67,6 +67,36 @@ public class VarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  public void nullableTypeUseVarargs() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Utilities.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Utilities {",
+            " public static String takesNullableVarargs(Object o, @Nullable Object... others) {",
+            "  String s = o.toString() + \" \" + others.toString();",
+            "  return s;",
+            " }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  public void testNonNullVarargs(Object o1, Object o2, Object o3, @Nullable Object o4) {",
+            "    Utilities.takesNullableVarargs(o1, o2, o3, o4);",
+            "    Utilities.takesNullableVarargs(o1);", // Empty var args passed
+            "    Utilities.takesNullableVarargs(o1, o4);",
+            "    Utilities.takesNullableVarargs(o1, (java.lang.Object) null);",
+            "    Object[] x = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
+            "    Utilities.takesNullableVarargs(o1, x);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void testNonNullVarargsFromHandler() {
     String generatedAnnot =
