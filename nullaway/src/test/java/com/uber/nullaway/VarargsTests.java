@@ -67,12 +67,13 @@ public class VarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
   public void nullableTypeUseVarargs() {
     defaultCompilationHelper
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
-            "import javax.annotation.Nullable;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
             "public class Utilities {",
             " public static String takesNullableVarargs(Object o, @Nullable Object... others) {",
             "  String s = o.toString() + \" \" + others.toString();",
@@ -238,7 +239,40 @@ public class VarargsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void typeUseBeforeDots() {
+  public void nullableVarargsArrayAndElements() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Utilities.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "public class Utilities {",
+            " public static String takesNullableVarargsArray(Object o, @Nullable Object @Nullable... others) {",
+            "  String s = o.toString() + \" \";",
+            "  // BUG: Diagnostic contains: enhanced-for expression others is @Nullable",
+            "  for (Object other : others) {",
+            "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
+            "  }",
+            "  return s;",
+            " }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "public class Test {",
+            "  public void testNullableVarargsArray(Object o1, Object o2, Object o3, @Nullable Object o4) {",
+            "    Utilities.takesNullableVarargsArray(o1, o2, o3, o4);",
+            "    Utilities.takesNullableVarargsArray(o1);", // Empty var args passed
+            "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object) null);",
+            "    // this is fine!",
+            "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object[]) null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void typeUseAndDeclarationBeforeDots() {
     defaultCompilationHelper
         .addSourceLines(
             "Nullable.java",
@@ -251,10 +285,11 @@ public class VarargsTests extends NullAwayTestsBase {
             "Utilities.java",
             "package com.uber;",
             "public class Utilities {",
-            " public static String takesNullableVarargs(@Nullable Object @Nullable... others) {",
-            "  String s = \"\";",
+            " public static String takesNullableVarargsArray(Object o, Object @Nullable... others) {",
+            "  String s = o.toString() + \" \";",
+            "  // BUG: Diagnostic contains: enhanced-for expression others is @Nullable",
             "  for (Object other : others) {",
-            "    s += other.toString() + \" \";",
+            "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
             "  }",
             "  return s;",
             " }",
@@ -262,15 +297,89 @@ public class VarargsTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "package com.uber;",
-            "import javax.annotation.Nullable;",
             "public class Test {",
-            "  public void testNullableVarargs(Object o1, Object o2, Object o3, @Nullable Object o4) {",
-            "    Utilities.takesNullableVarargs(o1, o2, o3, o4);",
-            "    Utilities.takesNullableVarargs(o1);", // Empty var args passed
-            "    Utilities.takesNullableVarargs(o1, o4);",
-            "    Utilities.takesNullableVarargs(o1, (java.lang.Object) null);",
-            // SHOULD be an error!
-            "    Utilities.takesNullableVarargs(o1, (java.lang.Object[]) null);",
+            "  public void testNullableVarargsArray(Object o1, Object o2, Object o3, @Nullable Object o4) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
+            "    Utilities.takesNullableVarargsArray(o1, o2, o3, o4);",
+            "    Utilities.takesNullableVarargsArray(o1);", // Empty var args passed
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object) null);",
+            "    // this is fine!",
+            "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object[]) null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void typeUseAndDeclarationOnElements() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Nullable.java",
+            "package com.uber;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})",
+            "public @interface Nullable {}")
+        .addSourceLines(
+            "Utilities.java",
+            "package com.uber;",
+            "public class Utilities {",
+            " public static String takesNullableVarargsArray(Object o, @Nullable Object... others) {",
+            "  String s = o.toString() + \" \";",
+            "  for (Object other : others) {",
+            "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
+            "  }",
+            "  return s;",
+            " }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "public class Test {",
+            "  public void testNullableVarargsArray(Object o1, Object o2, Object o3, @Nullable Object o4) {",
+            "    Utilities.takesNullableVarargsArray(o1, o2, o3, o4);",
+            "    Utilities.takesNullableVarargsArray(o1);", // Empty var args passed
+            "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object) null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter '(java.lang.Object[]) null' where @NonNull",
+            "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object[]) null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void typeUseAndDeclarationOnBoth() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Nullable.java",
+            "package com.uber;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})",
+            "public @interface Nullable {}")
+        .addSourceLines(
+            "Utilities.java",
+            "package com.uber;",
+            "public class Utilities {",
+            " public static String takesNullableVarargsArray(Object o, @Nullable Object @Nullable... others) {",
+            "  String s = o.toString() + \" \";",
+            "  // BUG: Diagnostic contains: enhanced-for expression others is @Nullable",
+            "  for (Object other : others) {",
+            "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
+            "  }",
+            "  return s;",
+            " }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "public class Test {",
+            "  public void testNullableVarargsArray(Object o1, Object o2, Object o3, @Nullable Object o4) {",
+            "    Utilities.takesNullableVarargsArray(o1, o2, o3, o4);",
+            "    Utilities.takesNullableVarargsArray(o1);", // Empty var args passed
+            "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object) null);",
+            "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object[]) null);",
             "  }",
             "}")
         .doTest();
