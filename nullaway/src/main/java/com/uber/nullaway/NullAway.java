@@ -1777,6 +1777,7 @@ public class NullAway extends BugChecker
           continue;
         }
         actual = actualParams.get(argPos);
+        // check if the varargs arguments are being passed as an array
         Type.ArrayType varargsArrayType =
             (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
         Type actualParameterType = ASTHelpers.getType(actual);
@@ -1787,11 +1788,11 @@ public class NullAway extends BugChecker
           if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
             mayActualBeNull = mayBeNullExpr(state, actual);
           }
-        } else {
+        } else { // varargs are being passed individually
           if (!argIsNonNull) {
             continue;
           }
-          // TODO report multiple errors for each violating vararg
+          // TODO report an error for each violating vararg
           for (ExpressionTree arg : actualParams.subList(argPos, actualParams.size())) {
             actual = arg;
             mayActualBeNull = mayBeNullExpr(state, actual);
@@ -1801,11 +1802,10 @@ public class NullAway extends BugChecker
           }
         }
 
-      } else {
+      } else { // not the vararg position
         actual = actualParams.get(argPos);
         mayActualBeNull = mayBeNullExpr(state, actual);
       }
-      // make sure we are passing a non-null value
       if (mayActualBeNull) {
         String message =
             "passing @Nullable parameter '"
