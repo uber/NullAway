@@ -1801,7 +1801,6 @@ public class NullAway extends BugChecker
             }
           }
         }
-
       } else { // not the vararg position
         actual = actualParams.get(argPos);
         mayActualBeNull = mayBeNullExpr(state, actual);
@@ -2513,7 +2512,6 @@ public class NullAway extends BugChecker
         return Description.NO_MATCH;
       }
     }
-    // (baseExpressionSymbol.flags() & Flags.VARARGS) != 0
     if (mayBeNullExpr(state, baseExpression)) {
       String message =
           "dereferenced expression " + state.getSourceForNode(baseExpression) + " is @Nullable";

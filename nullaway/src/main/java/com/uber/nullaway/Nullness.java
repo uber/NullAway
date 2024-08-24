@@ -206,7 +206,7 @@ public enum Nullness implements AbstractValue<Nullness> {
     return hasNullableAnnotation(NullabilityUtil.getAllAnnotations(symbol, config), config);
   }
 
-  public static boolean hasNullableTypeUseAnnotation(Symbol symbol, Config config) {
+  private static boolean hasNullableTypeUseAnnotation(Symbol symbol, Config config) {
     return hasNullableAnnotation(NullabilityUtil.getTypeUseAnnotations(symbol, config), config);
   }
 
@@ -278,7 +278,6 @@ public enum Nullness implements AbstractValue<Nullness> {
 
   private static boolean individualVarargsParamsAreNullable(Symbol paramSymbol, Config config) {
     // declaration annotation,  or type-use annotation on the elements
-    // TODO update and test for legacy mode
     return hasNullableDeclarationAnnotation(paramSymbol, config)
         || NullabilityUtil.isArrayElementNullable(paramSymbol, config);
   }
