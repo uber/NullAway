@@ -1792,7 +1792,8 @@ public class NullAway extends BugChecker
           if (!argIsNonNull) {
             continue;
           }
-          // TODO report an error for each violating vararg
+          // TODO report all varargs errors in a single build; this code only reports the first
+          //  error
           for (ExpressionTree arg : actualParams.subList(argPos, actualParams.size())) {
             actual = arg;
             mayActualBeNull = mayBeNullExpr(state, actual);
