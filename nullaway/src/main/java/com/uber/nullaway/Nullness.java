@@ -224,7 +224,9 @@ public enum Nullness implements AbstractValue<Nullness> {
     if (isRecordEqualsParam(symbol, paramInd)) {
       return true;
     }
-    if (symbol.isVarArgs() && paramInd == symbol.getParameters().size() - 1) {
+    if (symbol.isVarArgs()
+        && paramInd == symbol.getParameters().size() - 1
+        && !config.isLegacyAnnotationLocation()) {
       return individualVarargsParamsAreNullable(symbol.getParameters().get(paramInd), config);
     } else {
       return hasNullableAnnotation(

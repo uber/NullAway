@@ -62,7 +62,6 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "    Utilities.takesNullableVarargs(o1, o4);",
             "    Utilities.takesNullableVarargs(o1, (java.lang.Object) null);",
             "    Object[] x = null;",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
             "    Utilities.takesNullableVarargs(o1, x);",
             "  }",
             "}")
@@ -78,6 +77,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "import org.checkerframework.checker.nullness.qual.Nullable;",
             "public class Utilities {",
             " public static String takesNullableVarargs(Object o, @Nullable Object... others) {",
+            "  // BUG: Diagnostic contains: [NullAway] dereferenced expression others is @Nullable",
             "  String s = o.toString() + \" \" + others.toString();",
             "  for (Object other : others) {",
             "    // no error since we do not reason about array element nullability",
@@ -97,7 +97,6 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "    Utilities.takesNullableVarargs(o1, o4);",
             "    Utilities.takesNullableVarargs(o1, (java.lang.Object) null);",
             "    Object[] x = null;",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
             "    Utilities.takesNullableVarargs(o1, x);",
             "  }",
             "}")
@@ -232,10 +231,8 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "import org.checkerframework.checker.nullness.qual.Nullable;",
             "public class Test {",
             "  public void testNullableVarargsArray(Object o1, Object o2, Object o3, @Nullable Object o4) {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
             "    Utilities.takesNullableVarargsArray(o1, o2, o3, o4);",
             "    Utilities.takesNullableVarargsArray(o1);", // Empty var args passed
-            "    // BUG: Diagnostic contains: passing @Nullable parameter",
             "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object) null);",
             "    // this is fine!",
             "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object[]) null);",
@@ -305,12 +302,9 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "package com.uber;",
             "public class Test {",
             "  public void testNullableVarargsArray(Object o1, Object o2, Object o3, @Nullable Object o4) {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
             "    Utilities.takesNullableVarargsArray(o1, o2, o3, o4);",
             "    Utilities.takesNullableVarargsArray(o1);", // Empty var args passed
-            "    // BUG: Diagnostic contains: passing @Nullable parameter",
             "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object) null);",
-            "    // this is fine!",
             "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object[]) null);",
             "  }",
             "}")
@@ -333,6 +327,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "public class Utilities {",
             " public static String takesNullableVarargsArray(Object o, @Nullable Object... others) {",
             "  String s = o.toString() + \" \";",
+            "  // BUG: Diagnostic contains: enhanced-for expression others is @Nullable",
             "  for (Object other : others) {",
             "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
             "  }",
@@ -347,7 +342,6 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "    Utilities.takesNullableVarargsArray(o1, o2, o3, o4);",
             "    Utilities.takesNullableVarargsArray(o1);", // Empty var args passed
             "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object) null);",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter '(java.lang.Object[]) null' where @NonNull",
             "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object[]) null);",
             "  }",
             "}")
@@ -407,9 +401,8 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "  static void takesNullableVarargsArray(Object @Nullable... args) {}",
             "  static void test2(Object o) {",
             "    Object[] x = null;",
-            "    // can pass x as the varargs array itself, but not along with other args",
             "    takesNullableVarargsArray(x);",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
+            "    // in legacy mode the annotation allows for individual arguments to be nullable",
             "    takesNullableVarargsArray(x, o);",
             "  }",
             "}")
