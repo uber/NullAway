@@ -1784,7 +1784,7 @@ public class NullAway extends BugChecker
             && state.getTypes().isAssignable(actualParameterType, varargsArrayType)
             && actualParams.size() == argPos + 1) {
           // If varargs array itself is not @Nullable, cannot pass @Nullable array
-          if (!Nullness.varargsParamIsNullable(formalParams.get(argPos), config)) {
+          if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
             mayActualBeNull = mayBeNullExpr(state, actual);
           }
         } else {

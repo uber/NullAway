@@ -46,6 +46,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "import javax.annotation.Nullable;",
             "public class Utilities {",
             " public static String takesNullableVarargs(Object o, @Nullable Object... others) {",
+            "  // BUG: Diagnostic contains: [NullAway] dereferenced expression others is @Nullable",
             "  String s = o.toString() + \" \" + others.toString();",
             "  return s;",
             " }",

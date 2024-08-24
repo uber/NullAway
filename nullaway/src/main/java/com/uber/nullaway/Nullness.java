@@ -268,8 +268,10 @@ public enum Nullness implements AbstractValue<Nullness> {
    * that the argument array passed at a call site can be {@code null}? Syntactically, this would be
    * written as {@code foo(Object @Nullable... args}}
    */
-  public static boolean varargsParamIsNullable(Symbol paramSymbol, Config config) {
-    return hasNullableTypeUseAnnotation(paramSymbol, config);
+  public static boolean varargsArrayIsNullable(Symbol paramSymbol, Config config) {
+    return hasNullableTypeUseAnnotation(paramSymbol, config)
+        || (config.isLegacyAnnotationLocation()
+            && hasNullableDeclarationAnnotation(paramSymbol, config));
   }
 
   private static boolean individualVarargsParamsAreNullable(Symbol paramSymbol, Config config) {

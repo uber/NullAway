@@ -68,7 +68,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       Symbol paramSymbol = (Symbol) param.getElement();
       Nullness assumed;
       if ((paramSymbol.flags() & Flags.VARARGS) != 0) {
-        assumed = Nullness.varargsParamIsNullable(paramSymbol, config) ? NULLABLE : NONNULL;
+        assumed = Nullness.varargsArrayIsNullable(paramSymbol, config) ? NULLABLE : NONNULL;
       } else {
         assumed = Nullness.hasNullableAnnotation(paramSymbol, config) ? NULLABLE : NONNULL;
       }
