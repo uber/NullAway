@@ -2,9 +2,14 @@ package com.uber.nullaway.jspecify;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
+import com.uber.nullaway.VarargsTests;
 import java.util.Arrays;
 import org.junit.Test;
 
+/**
+ * Tests for handling of varargs annotations in JSpecify mode. Based on {@link VarargsTests}, with
+ * tests and assertions modified appropriately.
+ */
 public class JSpecifyVarargsTests extends NullAwayTestsBase {
 
   @Test

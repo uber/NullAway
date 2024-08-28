@@ -4,6 +4,10 @@ import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
 import org.junit.Test;
 
+/**
+ * Tests for handling of varargs annotations with legacy annotation locations enabled. Based on
+ * {@link VarargsTests}, with tests and assertions modified appropriately.
+ */
 public class LegacyVarargsTests extends NullAwayTestsBase {
 
   @Test

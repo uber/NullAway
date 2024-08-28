@@ -3,6 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
+/** Tests for handling of varargs annotations in NullAway's default mode */
 public class VarargsTests extends NullAwayTestsBase {
 
   @Test
