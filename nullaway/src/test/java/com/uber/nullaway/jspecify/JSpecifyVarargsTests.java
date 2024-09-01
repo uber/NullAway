@@ -38,6 +38,9 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
             "    Utilities.takesNonNullVarargs(o1);", // Empty var args passed
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
             "    Utilities.takesNonNullVarargs(o1, o4);",
+            "    Object[] x = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
+            "    Utilities.takesNonNullVarargs(o1, x);",
             "  }",
             "}")
         .doTest();
@@ -215,7 +218,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void typeUseNullableVarargsArrayAndElements() {
+  public void typeUseNullableVarargsArray() {
     makeHelper()
         .addSourceLines(
             "Utilities.java",
