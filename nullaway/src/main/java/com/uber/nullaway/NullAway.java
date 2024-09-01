@@ -1773,8 +1773,8 @@ public class NullAway extends BugChecker
       boolean mayActualBeNull = false;
       if (varargPosition) {
         // Check all vararg actual arguments for nullability
-         // This is the case where no actual parameter is passed for the var args parameter
-         // (i.e. it defaults to an empty array)
+        // This is the case where no actual parameter is passed for the var args parameter
+        // (i.e. it defaults to an empty array)
         if (actualParams.size() <= argPos) {
           continue;
         }
@@ -1786,12 +1786,13 @@ public class NullAway extends BugChecker
         if (actualParameterType != null
             && state.getTypes().isAssignable(actualParameterType, varargsArrayType)
             && actualParams.size() == argPos + 1) {
-          // This is the case where an array is explicitly passed in the position of the var args parameter
+          // This is the case where an array is explicitly passed in the position of the var args
+          // parameter
           // If varargs array itself is not @Nullable, cannot pass @Nullable array
           if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
             mayActualBeNull = mayBeNullExpr(state, actual);
           }
-        } else { 
+        } else {
           // This is the case were varargs are being passed individually, as 1 or more actual
           // arguments starting at the position of the var args formal.
           // If the formal var args accepts `@Nullable`, then there is nothing for us to check.
