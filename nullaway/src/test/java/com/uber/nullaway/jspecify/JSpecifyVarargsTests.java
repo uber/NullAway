@@ -215,7 +215,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void nullableVarargsArray() {
+  public void typeUseNullableVarargsArrayAndElements() {
     makeHelper()
         .addSourceLines(
             "Utilities.java",
@@ -250,7 +250,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void nullableVarargsArrayAndElements() {
+  public void typeUseNullableVarargsArrayAndElements() {
     makeHelper()
         .addSourceLines(
             "Utilities.java",
