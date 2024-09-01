@@ -282,7 +282,8 @@ public enum Nullness implements AbstractValue<Nullness> {
         || NullabilityUtil.isArrayElementNullable(paramSymbol, config);
   }
 
-  private static boolean hasNullableDeclarationAnnotation(Symbol symbol, Config config) {
+  /** Checks if the symbol has a {@code @Nullable} declaration annotation */
+  public static boolean hasNullableDeclarationAnnotation(Symbol symbol, Config config) {
     return hasNullableAnnotation(symbol.getRawAttributes().stream(), config);
   }
 }

@@ -57,7 +57,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
             " public static String takesNullableVarargs(Object o, @Nullable Object... others) {",
             "  String s = o.toString() + \" \" + others.toString();",
             "  for (Object other : others) {",
-            "    // no error here; requires a type-use annotation on the elements",
+            "    // BUG: Diagnostic contains: dereferenced expression other is @Nullable",
             "    s += other.toString();",
             "  }",
             "  return s;",

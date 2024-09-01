@@ -38,6 +38,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
@@ -431,6 +432,11 @@ public class NullabilityUtil {
           }
         }
       }
+    }
+    // In JSpecify mode, for varargs symbols we also consider the elements to be @Nullable if there
+    // is a @Nullable declaration annotation on the parameter
+    if (config.isJSpecifyMode() && (arraySymbol.flags() & Flags.VARARGS) != 0) {
+      return Nullness.hasNullableDeclarationAnnotation(arraySymbol, config);
     }
     return false;
   }
