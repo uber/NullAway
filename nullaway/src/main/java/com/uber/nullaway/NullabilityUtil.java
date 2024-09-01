@@ -38,6 +38,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
@@ -278,7 +279,7 @@ public class NullabilityUtil {
    * Gets the type use annotations on a symbol, ignoring annotations on components of the type (type
    * arguments, wildcards, etc.)
    */
-  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(
+  public static Stream<? extends AnnotationMirror> getTypeUseAnnotations(
       Symbol symbol, Config config) {
     Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
     if (symbol instanceof Symbol.MethodSymbol) {
@@ -431,6 +432,11 @@ public class NullabilityUtil {
           }
         }
       }
+    }
+    // For varargs symbols we also consider the elements to be @Nullable if there is a @Nullable
+    // declaration annotation on the parameter
+    if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
+      return Nullness.hasNullableDeclarationAnnotation(arraySymbol, config);
     }
     return false;
   }
