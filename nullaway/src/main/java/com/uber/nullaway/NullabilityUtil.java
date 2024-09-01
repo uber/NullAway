@@ -433,9 +433,9 @@ public class NullabilityUtil {
         }
       }
     }
-    // In JSpecify mode, for varargs symbols we also consider the elements to be @Nullable if there
-    // is a @Nullable declaration annotation on the parameter
-    if (config.isJSpecifyMode() && (arraySymbol.flags() & Flags.VARARGS) != 0) {
+    // For varargs symbols we also consider the elements to be @Nullable if there is a @Nullable
+    // declaration annotation on the parameter
+    if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
       return Nullness.hasNullableDeclarationAnnotation(arraySymbol, config);
     }
     return false;

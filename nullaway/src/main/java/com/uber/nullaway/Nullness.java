@@ -227,7 +227,9 @@ public enum Nullness implements AbstractValue<Nullness> {
     if (symbol.isVarArgs()
         && paramInd == symbol.getParameters().size() - 1
         && !config.isLegacyAnnotationLocation()) {
-      return individualVarargsParamsAreNullable(symbol.getParameters().get(paramInd), config);
+      // individual arguments passed in the varargs positions can be @Nullable if the array element
+      // type of the parameter is @Nullable
+      return NullabilityUtil.isArrayElementNullable(symbol.getParameters().get(paramInd), config);
     } else {
       return hasNullableAnnotation(
           NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd, config), config);
@@ -274,12 +276,6 @@ public enum Nullness implements AbstractValue<Nullness> {
     return hasNullableTypeUseAnnotation(paramSymbol, config)
         || (config.isLegacyAnnotationLocation()
             && hasNullableDeclarationAnnotation(paramSymbol, config));
-  }
-
-  private static boolean individualVarargsParamsAreNullable(Symbol paramSymbol, Config config) {
-    // declaration annotation,  or type-use annotation on the elements
-    return hasNullableDeclarationAnnotation(paramSymbol, config)
-        || NullabilityUtil.isArrayElementNullable(paramSymbol, config);
   }
 
   /** Checks if the symbol has a {@code @Nullable} declaration annotation */
