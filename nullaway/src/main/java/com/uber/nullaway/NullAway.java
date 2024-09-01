@@ -1791,7 +1791,10 @@ public class NullAway extends BugChecker
           if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
             mayActualBeNull = mayBeNullExpr(state, actual);
           }
-        } else { // varargs are being passed individually
+        } else { 
+          // This is the case were varargs are being passed individually, as 1 or more actual
+          // arguments starting at the position of the var args formal.
+          // If the formal var args accepts `@Nullable`, then there is nothing for us to check.
           if (!argIsNonNull) {
             continue;
           }

@@ -209,7 +209,7 @@ public class VarargsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void nullableVarargsArray() {
+  public void typeUseNullableVarargsArray() {
     defaultCompilationHelper
         .addSourceLines(
             "Utilities.java",
@@ -244,7 +244,7 @@ public class VarargsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void nullableVarargsArrayAndElements() {
+  public void typeUseNullableVarargsArrayAndElements() {
     defaultCompilationHelper
         .addSourceLines(
             "Utilities.java",
