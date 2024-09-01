@@ -1773,6 +1773,8 @@ public class NullAway extends BugChecker
       boolean mayActualBeNull = false;
       if (varargPosition) {
         // Check all vararg actual arguments for nullability
+         // This is the case where no actual parameter is passed for the var args parameter
+         // (i.e. it defaults to an empty array)
         if (actualParams.size() <= argPos) {
           continue;
         }
