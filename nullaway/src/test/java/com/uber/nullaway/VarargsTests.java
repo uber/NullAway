@@ -442,6 +442,10 @@ public class VarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * This test is a WIP for restrictive annotations on varargs. More assertions still need to be
+   * written, and more support needs to be implemented.
+   */
   @Test
   public void testVarargsRestrictive() {
     makeTestHelperWithArgs(

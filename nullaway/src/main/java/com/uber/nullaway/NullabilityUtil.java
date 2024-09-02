@@ -459,7 +459,7 @@ public class NullabilityUtil {
         }
       }
     }
-    // For varargs symbols we also consider the elements to be @Nullable if there is a @Nullable
+    // For varargs symbols we also consider the elements to be @NonNull if there is a @NonNull
     // declaration annotation on the parameter
     if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
       return Nullness.hasNonNullDeclarationAnnotation(arraySymbol, config);
