@@ -442,11 +442,11 @@ public class NullabilityUtil {
   }
 
   /**
-   * Checks if the given array symbol has a {@code @Nullable} annotation for its elements.
+   * Checks if the given array symbol has a {@code @NonNull} annotation for its elements.
    *
    * @param arraySymbol The symbol of the array to check.
    * @param config NullAway configuration.
-   * @return true if the array symbol has a {@code @Nullable} annotation for its elements, false
+   * @return true if the array symbol has a {@code @NonNull} annotation for its elements, false
    *     otherwise
    */
   public static boolean isArrayElementNonNull(Symbol arraySymbol, Config config) {
