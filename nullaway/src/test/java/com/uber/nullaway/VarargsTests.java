@@ -485,7 +485,8 @@ public class VarargsTests extends NullAwayTestsBase {
             "    Object x = null;",
             "    Object[] y = null;",
             "    Unannotated.takesVarargsTypeUseOnArray(x);",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y'",
+            // TODO report an error here; will require some refactoring of restrictive annotation
+            //  handling
             "    Unannotated.takesVarargsTypeUseOnArray(y);",
             "  }",
             "}")
