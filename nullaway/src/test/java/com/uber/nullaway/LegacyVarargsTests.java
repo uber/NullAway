@@ -200,7 +200,8 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "    ThirdParty.takesNullableVarargs(o1);", // Empty var args passed
             "    ThirdParty.takesNullableVarargs(o1, o4);",
             "    ThirdParty.takesNullableVarargs(o1, (Object) null);",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter '(Object[]) null' where @NonNull",
+            "    // No error: we require a type-use annotation for nullability of the varargs array itself",
+            // TODO should we preserve the old behavior in legacy mode?
             "    ThirdParty.takesNullableVarargs(o1, (Object[]) null);",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
             "    ThirdParty.takesNullableVarargs(o4);", // First arg is not varargs.
@@ -411,6 +412,28 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "    takesNullableVarargsArray(x);",
             "    // in legacy mode the annotation allows for individual arguments to be nullable",
             "    takesNullableVarargsArray(x, o);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testVarargsNullArrayUnannotated() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Unannotated.java",
+            "package foo.unannotated;",
+            "public class Unannotated {",
+            "  public static void takesVarargs(Object... args) {}",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import foo.unannotated.Unannotated;",
+            "public class Test {",
+            "  public void test() {",
+            "    Object[] x = null;",
+            "    Unannotated.takesVarargs(x);",
             "  }",
             "}")
         .doTest();

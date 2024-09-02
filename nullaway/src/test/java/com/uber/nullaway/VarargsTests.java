@@ -196,7 +196,7 @@ public class VarargsTests extends NullAwayTestsBase {
             "    ThirdParty.takesNullableVarargs(o1);", // Empty var args passed
             "    ThirdParty.takesNullableVarargs(o1, o4);",
             "    ThirdParty.takesNullableVarargs(o1, (Object) null);",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter '(Object[]) null' where @NonNull",
+            "    // No error: we require a type-use annotation for nullability of the varargs array itself",
             "    ThirdParty.takesNullableVarargs(o1, (Object[]) null);",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
             "    ThirdParty.takesNullableVarargs(o4);", // First arg is not varargs.
@@ -413,6 +413,28 @@ public class VarargsTests extends NullAwayTestsBase {
             "    takesNullableVarargsArray(x);",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
             "    takesNullableVarargsArray(x, o);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testVarargsNullArrayUnannotated() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Unannotated.java",
+            "package foo.unannotated;",
+            "public class Unannotated {",
+            "  public static void takesVarargs(Object... args) {}",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import foo.unannotated.Unannotated;",
+            "public class Test {",
+            "  public void test() {",
+            "    Object[] x = null;",
+            "    Unannotated.takesVarargs(x);",
             "  }",
             "}")
         .doTest();
