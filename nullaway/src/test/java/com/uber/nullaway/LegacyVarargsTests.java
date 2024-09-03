@@ -481,6 +481,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "    Object[] y = null;",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
             "    Unannotated.takesVarargsDeclaration(x);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y'",
             "    Unannotated.takesVarargsDeclaration(y);",
             "  }",
             "  public void testTypeUseOnArray() {",
@@ -488,8 +489,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "    Object[] y = null;",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
             "    Unannotated.takesVarargsTypeUseOnArray(x);",
-            // TODO report an error here; will require some refactoring of restrictive annotation
-            //  handling
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y'",
             "    Unannotated.takesVarargsTypeUseOnArray(y);",
             "  }",
             "}")
