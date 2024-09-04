@@ -1,14 +1,18 @@
 package com.uber.nullaway;
 
+import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
 import org.junit.Test;
 
-/** Tests for handling of varargs annotations in NullAway's default mode */
-public class VarargsTests extends NullAwayTestsBase {
+/**
+ * Tests for handling of varargs annotations with legacy annotation locations enabled. Based on
+ * {@link VarargsTests}, with tests and assertions modified appropriately.
+ */
+public class LegacyVarargsTests extends NullAwayTestsBase {
 
   @Test
   public void testNonNullVarargs() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
@@ -42,13 +46,14 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void testNullableVarargs() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
             "public class Utilities {",
             " public static String takesNullableVarargs(Object o, @Nullable Object... others) {",
+            "  // BUG: Diagnostic contains: [NullAway] dereferenced expression others is @Nullable",
             "  String s = o.toString() + \" \" + others.toString();",
             "  return s;",
             " }",
@@ -64,7 +69,6 @@ public class VarargsTests extends NullAwayTestsBase {
             "    Utilities.takesNullableVarargs(o1, o4);",
             "    Utilities.takesNullableVarargs(o1, (java.lang.Object) null);",
             "    Object[] x = null;",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
             "    Utilities.takesNullableVarargs(o1, x);",
             "  }",
             "}")
@@ -73,13 +77,14 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void nullableTypeUseVarargs() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
             "import org.checkerframework.checker.nullness.qual.Nullable;",
             "public class Utilities {",
             " public static String takesNullableVarargs(Object o, @Nullable Object... others) {",
+            "  // BUG: Diagnostic contains: [NullAway] dereferenced expression others is @Nullable",
             "  String s = o.toString() + \" \" + others.toString();",
             "  for (Object other : others) {",
             "    // no error since we do not reason about array element nullability",
@@ -99,7 +104,6 @@ public class VarargsTests extends NullAwayTestsBase {
             "    Utilities.takesNullableVarargs(o1, o4);",
             "    Utilities.takesNullableVarargs(o1, (java.lang.Object) null);",
             "    Object[] x = null;",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
             "    Utilities.takesNullableVarargs(o1, x);",
             "  }",
             "}")
@@ -213,7 +217,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void typeUseNullableVarargsArray() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
@@ -234,10 +238,8 @@ public class VarargsTests extends NullAwayTestsBase {
             "import org.checkerframework.checker.nullness.qual.Nullable;",
             "public class Test {",
             "  public void testNullableVarargsArray(Object o1, Object o2, Object o3, @Nullable Object o4) {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
             "    Utilities.takesNullableVarargsArray(o1, o2, o3, o4);",
             "    Utilities.takesNullableVarargsArray(o1);", // Empty var args passed
-            "    // BUG: Diagnostic contains: passing @Nullable parameter",
             "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object) null);",
             "    // this is fine!",
             "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object[]) null);",
@@ -248,7 +250,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void typeUseNullableVarargsArrayAndElements() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Utilities.java",
             "package com.uber;",
@@ -281,7 +283,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void typeUseAndDeclarationBeforeDots() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Nullable.java",
             "package com.uber;",
@@ -307,12 +309,9 @@ public class VarargsTests extends NullAwayTestsBase {
             "package com.uber;",
             "public class Test {",
             "  public void testNullableVarargsArray(Object o1, Object o2, Object o3, @Nullable Object o4) {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'o4' where @NonNull",
             "    Utilities.takesNullableVarargsArray(o1, o2, o3, o4);",
             "    Utilities.takesNullableVarargsArray(o1);", // Empty var args passed
-            "    // BUG: Diagnostic contains: passing @Nullable parameter",
             "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object) null);",
-            "    // this is fine!",
             "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object[]) null);",
             "  }",
             "}")
@@ -321,7 +320,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void typeUseAndDeclarationOnElements() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Nullable.java",
             "package com.uber;",
@@ -335,6 +334,7 @@ public class VarargsTests extends NullAwayTestsBase {
             "public class Utilities {",
             " public static String takesNullableVarargsArray(Object o, @Nullable Object... others) {",
             "  String s = o.toString() + \" \";",
+            "  // BUG: Diagnostic contains: enhanced-for expression others is @Nullable",
             "  for (Object other : others) {",
             "    s += (other == null) ? \"(null) \" : other.toString() + \" \";",
             "  }",
@@ -349,7 +349,6 @@ public class VarargsTests extends NullAwayTestsBase {
             "    Utilities.takesNullableVarargsArray(o1, o2, o3, o4);",
             "    Utilities.takesNullableVarargsArray(o1);", // Empty var args passed
             "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object) null);",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter '(java.lang.Object[]) null' where @NonNull",
             "    Utilities.takesNullableVarargsArray(o1, (java.lang.Object[]) null);",
             "  }",
             "}")
@@ -358,7 +357,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void typeUseAndDeclarationOnBoth() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Nullable.java",
             "package com.uber;",
@@ -395,7 +394,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void varargsPassArrayAndOtherArgs() {
-    defaultCompilationHelper
+    makeHelper()
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -409,12 +408,18 @@ public class VarargsTests extends NullAwayTestsBase {
             "  static void takesNullableVarargsArray(Object @Nullable... args) {}",
             "  static void test2(Object o) {",
             "    Object[] x = null;",
-            "    // can pass x as the varargs array itself, but not along with other args",
             "    takesNullableVarargsArray(x);",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
+            "    // in legacy mode the annotation allows for individual arguments to be nullable",
             "    takesNullableVarargsArray(x, o);",
             "  }",
             "}")
         .doTest();
+  }
+
+  private CompilationTestHelper makeHelper() {
+    return makeTestHelperWithArgs(
+        Arrays.asList(
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+            "-XepOpt:NullAway:LegacyAnnotationLocations=true"));
   }
 }

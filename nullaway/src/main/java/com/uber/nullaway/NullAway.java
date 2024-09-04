@@ -36,7 +36,6 @@ import static com.uber.nullaway.NullabilityUtil.isArrayElementNullable;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -1705,8 +1704,9 @@ public class NullAway extends BugChecker
       List<? extends ExpressionTree> actualParams) {
     List<VarSymbol> formalParams = methodSymbol.getParameters();
 
+    boolean varArgsMethod = methodSymbol.isVarArgs();
     if (formalParams.size() != actualParams.size()
-        && !methodSymbol.isVarArgs()
+        && !varArgsMethod
         && !methodSymbol.isStatic()
         && methodSymbol.isConstructor()
         && methodSymbol.enclClass().isInner()) {
@@ -1751,7 +1751,7 @@ public class NullAway extends BugChecker
       }
       if (config.isJSpecifyMode()) {
         GenericsChecks.compareGenericTypeParameterNullabilityForCall(
-            formalParams, actualParams, methodSymbol.isVarArgs(), this, state);
+            formalParams, actualParams, varArgsMethod, this, state);
       }
     }
 
@@ -1764,30 +1764,55 @@ public class NullAway extends BugChecker
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
     for (int argPos = 0; argPos < argumentPositionNullness.length; argPos++) {
-      if (!Objects.equals(Nullness.NONNULL, argumentPositionNullness[argPos])) {
+      boolean varargPosition = varArgsMethod && argPos == formalParams.size() - 1;
+      boolean argIsNonNull = Objects.equals(Nullness.NONNULL, argumentPositionNullness[argPos]);
+      if (!varargPosition && !argIsNonNull) {
         continue;
       }
-      ExpressionTree actual = null;
+      ExpressionTree actual;
       boolean mayActualBeNull = false;
-      if (argPos == formalParams.size() - 1 && methodSymbol.isVarArgs()) {
+      if (varargPosition) {
         // Check all vararg actual arguments for nullability
+        // This is the case where no actual parameter is passed for the var args parameter
+        // (i.e. it defaults to an empty array)
         if (actualParams.size() <= argPos) {
           continue;
         }
-        for (ExpressionTree arg : actualParams.subList(argPos, actualParams.size())) {
-          actual = arg;
-          mayActualBeNull = mayBeNullExpr(state, actual);
-          if (mayActualBeNull) {
-            break;
+        actual = actualParams.get(argPos);
+        // check if the varargs arguments are being passed as an array
+        Type.ArrayType varargsArrayType =
+            (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
+        Type actualParameterType = ASTHelpers.getType(actual);
+        if (actualParameterType != null
+            && state.getTypes().isAssignable(actualParameterType, varargsArrayType)
+            && actualParams.size() == argPos + 1) {
+          // This is the case where an array is explicitly passed in the position of the var args
+          // parameter
+          // If varargs array itself is not @Nullable, cannot pass @Nullable array
+          if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
+            mayActualBeNull = mayBeNullExpr(state, actual);
+          }
+        } else {
+          // This is the case were varargs are being passed individually, as 1 or more actual
+          // arguments starting at the position of the var args formal.
+          // If the formal var args accepts `@Nullable`, then there is nothing for us to check.
+          if (!argIsNonNull) {
+            continue;
+          }
+          // TODO report all varargs errors in a single build; this code only reports the first
+          //  error
+          for (ExpressionTree arg : actualParams.subList(argPos, actualParams.size())) {
+            actual = arg;
+            mayActualBeNull = mayBeNullExpr(state, actual);
+            if (mayActualBeNull) {
+              break;
+            }
           }
         }
-      } else {
+      } else { // not the vararg position
         actual = actualParams.get(argPos);
         mayActualBeNull = mayBeNullExpr(state, actual);
       }
-      // This statement should be unreachable without assigning actual beforehand:
-      Preconditions.checkNotNull(actual);
-      // make sure we are passing a non-null value
       if (mayActualBeNull) {
         String message =
             "passing @Nullable parameter '"

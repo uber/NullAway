@@ -7,6 +7,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.VariableTree;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
@@ -64,9 +65,13 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     NullnessStore envStore = getEnvNullnessStoreForClass(classTree, context);
     NullnessStore.Builder result = envStore.toBuilder();
     for (LocalVariableNode param : parameters) {
-      Element element = param.getElement();
-      Nullness assumed =
-          Nullness.hasNullableAnnotation((Symbol) element, config) ? NULLABLE : NONNULL;
+      Symbol paramSymbol = (Symbol) param.getElement();
+      Nullness assumed;
+      if ((paramSymbol.flags() & Flags.VARARGS) != 0) {
+        assumed = Nullness.varargsArrayIsNullable(paramSymbol, config) ? NULLABLE : NONNULL;
+      } else {
+        assumed = Nullness.hasNullableAnnotation(paramSymbol, config) ? NULLABLE : NONNULL;
+      }
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);

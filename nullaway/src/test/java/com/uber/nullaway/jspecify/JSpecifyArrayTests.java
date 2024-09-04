@@ -1,3 +1,25 @@
+/*
+ * Copyright (c) 2024 Uber Technologies, Inc.
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
 package com.uber.nullaway.jspecify;
 
 import com.google.errorprone.CompilationTestHelper;
@@ -5,7 +27,7 @@ import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class ArrayTests extends NullAwayTestsBase {
+public class JSpecifyArrayTests extends NullAwayTestsBase {
 
   @Test
   public void arrayTopLevelAnnotationDereference() {
@@ -604,6 +626,48 @@ public class ArrayTests extends NullAwayTestsBase {
             "      fizz[i+1].toString();",
             "    }",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void typeUseAndDeclarationAnnotationOnArray() {
+    makeHelper()
+        .addSourceLines(
+            "Nullable.java",
+            "package com.uber;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})",
+            "public @interface Nullable {}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  @Nullable Object[] foo1 = null;",
+            "  static String @Nullable[] foo2 = null;",
+            "  static void bar() {",
+            "      if (foo2 !=null){",
+            "           // annotation is treated as declaration",
+            "           String bar = foo2[0].toString(); ",
+            "      }",
+            "      // BUG: Diagnostic contains: dereferenced expression foo2 is @Nullable",
+            "      String bar = foo2[0].toString(); ",
+            "  }",
+            "  static @Nullable String @Nullable [] foo3 = null;",
+            "  static void fizz() {",
+            "      if (foo3 !=null){",
+            "           // annotation is also applied to the elements",
+            "      // BUG: Diagnostic contains: dereferenced expression foo3[0] is @Nullable",
+            "           String bar = foo3[0].toString(); ",
+            "      }",
+            "      // BUG: Diagnostic contains: dereferenced expression foo3 is @Nullable",
+            "      String bar = foo3[0].toString(); ",
+            "  }",
+            "  @Nullable Object [][] foo4 = null;",
+            "  Object @Nullable [][] foo5 = null;",
+            "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "  Object [] @Nullable [] foo6 = null;",
             "}")
         .doTest();
   }

@@ -318,4 +318,11 @@ public interface Config {
 
   /** Should new checks based on JSpecify (like checks for generic types) be enabled? */
   boolean isJSpecifyMode();
+
+  /**
+   * Checks if legacy annotation locations are enabled.
+   *
+   * @return true if both type use and declaration annotation locations should be honored
+   */
+  boolean isLegacyAnnotationLocation();
 }
