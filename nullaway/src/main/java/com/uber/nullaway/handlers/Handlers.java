@@ -51,9 +51,9 @@ public class Handlers {
       // bytecode annotations
       handlerListBuilder.add(new RestrictiveAnnotationHandler(config));
     }
-    if (config.isJarInferEnabled()) {
-      handlerListBuilder.add(new InferredJARModelsHandler());
-    }
+    //    if (config.isJarInferEnabled()) {
+    //      handlerListBuilder.add(new InferredJARModelsHandler(config));
+    //    }
     if (config.handleTestAssertionLibraries()) {
       handlerListBuilder.add(new AssertionHandler(methodNameUtil));
     }

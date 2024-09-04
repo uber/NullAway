@@ -50,7 +50,7 @@ public class StubxCacheUtil {
    */
   private static final int VERSION_1_FILE_MAGIC_NUMBER = 481874642;
 
-  private boolean DEBUG = false;
+  private boolean DEBUG = true;
   private String logCaller = "";
 
   private void LOG(boolean cond, String tag, String msg) {
