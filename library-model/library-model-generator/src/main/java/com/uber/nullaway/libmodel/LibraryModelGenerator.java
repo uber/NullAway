@@ -72,16 +72,26 @@ public class LibraryModelGenerator {
       this.methodRecords = methodRecords;
       this.nullableUpperBounds = nullableUpperBounds;
     }
+
+    @Override
+    public String toString() {
+      return "ModelData{"
+          + "methodRecords="
+          + methodRecords
+          + ", nullableUpperBounds="
+          + nullableUpperBounds
+          + '}';
+    }
   }
 
   /**
    * Parses all the source files within the directory using javaparser.
    *
    * @param inputSourceDirectory Directory containing annotated java source files.
-   * @param outputDirectory Directory to write the astubx file into.
+   * @param outputFile absolute path to the output file.
    */
-  public ModelData generateAstubxForLibraryModels(
-      String inputSourceDirectory, String outputDirectory) {
+  public static ModelData generateAstubxForLibraryModels(
+      String inputSourceDirectory, String outputFile) {
     Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
     Map<String, Set<Integer>> nullableUpperBounds = new LinkedHashMap<>();
     Path root = dirnameToPath(inputSourceDirectory);
@@ -103,17 +113,17 @@ public class LibraryModelGenerator {
                 throw new RuntimeException(e);
               }
             });
-    writeToAstubx(outputDirectory, modelData);
+    writeToAstubx(outputFile, modelData);
     return modelData;
   }
 
   /**
    * Writes the Nullability annotation information into the output directory as an astubx file.
    *
-   * @param outputPath Output Directory.
+   * @param outputPath path to output astubx file.
    * @param modelData ModelData instance containing the collected annotation information.
    */
-  private void writeToAstubx(String outputPath, ModelData modelData) {
+  private static void writeToAstubx(String outputPath, ModelData modelData) {
     Map<String, MethodAnnotationsRecord> methodRecords = modelData.methodRecords;
     Map<String, Set<Integer>> nullableUpperBounds = modelData.nullableUpperBounds;
     if (methodRecords.isEmpty() && nullableUpperBounds.isEmpty()) {
@@ -140,7 +150,7 @@ public class LibraryModelGenerator {
     }
   }
 
-  public Path dirnameToPath(String dir) {
+  public static Path dirnameToPath(String dir) {
     File f = new File(dir);
     String absoluteDir = f.getAbsolutePath();
     if (absoluteDir.endsWith("/.")) {
