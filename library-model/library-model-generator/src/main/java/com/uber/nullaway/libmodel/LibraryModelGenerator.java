@@ -36,6 +36,8 @@ import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.TypeParameter;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import com.github.javaparser.resolution.TypeSolver;
+import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
+import com.github.javaparser.resolution.types.ResolvedType;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
@@ -183,6 +185,7 @@ public class LibraryModelGenerator {
     private final Map<String, MethodAnnotationsRecord> methodRecords;
     private final Set<String> nullMarkedClasses;
     private final Map<String, Set<Integer>> nullableUpperBounds;
+    // TODO this is sketchy!
     private static final String ARRAY_RETURN_TYPE_STRING = "Array";
     private static final String NULL_MARKED = "NullMarked";
     private static final String NULLABLE = "Nullable";
@@ -247,15 +250,15 @@ public class LibraryModelGenerator {
           isReturnNullable ? ImmutableSet.of(NULLABLE) : ImmutableSet.of();
       // We write the method record into the astubx if it contains a Nullable return or any Nullable
       // parameter.
+      ResolvedMethodDeclaration resolved = md.resolve();
+      String qualifiedSignature = resolved.getQualifiedSignature();
       String methodSignatureWithQualifiedParameters =
-          md.resolve()
-              .getQualifiedSignature()
-              .substring(md.resolve().getQualifiedSignature().lastIndexOf(md.getNameAsString()));
+          qualifiedSignature.substring(qualifiedSignature.lastIndexOf(md.getNameAsString()));
       if (this.isNullMarked && (isReturnNullable || !nullableParameterMap.isEmpty())) {
         methodRecords.put(
             parentName
                 + ":"
-                + getMethodReturnTypeString(md)
+                + getMethodReturnTypeString(resolved)
                 + " "
                 + methodSignatureWithQualifiedParameters,
             MethodAnnotationsRecord.create(nullableReturn, nullableParameterMap));
@@ -296,13 +299,15 @@ public class LibraryModelGenerator {
      * @param md The MethodDeclaration instance.
      * @return The return type string value to be written into the astubx file.
      */
-    private String getMethodReturnTypeString(MethodDeclaration md) {
-      if (md.getType() instanceof ClassOrInterfaceType) {
-        return md.getType().getChildNodes().get(0).toString();
-      } else if (md.getType() instanceof ArrayType) {
+    private String getMethodReturnTypeString(ResolvedMethodDeclaration md) {
+      ResolvedType returnType = md.getReturnType();
+      if (returnType.isReferenceType()) {
+        return returnType.asReferenceType().getQualifiedName().toString();
+      } else if (returnType.isArray()) {
         return ARRAY_RETURN_TYPE_STRING;
       } else {
-        return md.getType().toString();
+        throw new RuntimeException("Unexpected return type: " + returnType);
+        // return returnType.asPrimitive().toString();
       }
     }
 
