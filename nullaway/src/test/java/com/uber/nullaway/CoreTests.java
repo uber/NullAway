@@ -1060,8 +1060,9 @@ public class CoreTests extends NullAwayTestsBase {
         .addSourceLines(
             "TestCase.java",
             "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
             "public class TestCase {",
-            "    public static String foo(String x) {",
+            "    public static @Nullable String foo(String x) {",
             "        return x.isEmpty() ? null : null;",
             "    }",
             "}")
