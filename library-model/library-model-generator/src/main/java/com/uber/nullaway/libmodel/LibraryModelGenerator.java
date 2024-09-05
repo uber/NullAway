@@ -62,18 +62,31 @@ import java.util.Set;
  */
 public class LibraryModelGenerator {
 
+  public static class ModelData {
+    public final Map<String, MethodAnnotationsRecord> methodRecords;
+    public final Map<String, Set<Integer>> nullableUpperBounds;
+
+    public ModelData(
+        Map<String, MethodAnnotationsRecord> methodRecords,
+        Map<String, Set<Integer>> nullableUpperBounds) {
+      this.methodRecords = methodRecords;
+      this.nullableUpperBounds = nullableUpperBounds;
+    }
+  }
+
   /**
    * Parses all the source files within the directory using javaparser.
    *
    * @param inputSourceDirectory Directory containing annotated java source files.
    * @param outputDirectory Directory to write the astubx file into.
    */
-  public void generateAstubxForLibraryModels(String inputSourceDirectory, String outputDirectory) {
+  public ModelData generateAstubxForLibraryModels(
+      String inputSourceDirectory, String outputDirectory) {
     Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
     Map<String, Set<Integer>> nullableUpperBounds = new LinkedHashMap<>();
     Path root = dirnameToPath(inputSourceDirectory);
-    AnnotationCollectorCallback ac =
-        new AnnotationCollectorCallback(methodRecords, nullableUpperBounds);
+    ModelData modelData = new ModelData(methodRecords, nullableUpperBounds);
+    AnnotationCollectorCallback ac = new AnnotationCollectorCallback(modelData);
     CollectionStrategy strategy = new ParserCollectionStrategy();
     // Required to include directories that contain a module-info.java, which don't parse by
     // default.
@@ -90,19 +103,19 @@ public class LibraryModelGenerator {
                 throw new RuntimeException(e);
               }
             });
-    writeToAstubx(outputDirectory, methodRecords, nullableUpperBounds);
+    writeToAstubx(outputDirectory, modelData);
+    return modelData;
   }
 
   /**
    * Writes the Nullability annotation information into the output directory as an astubx file.
    *
    * @param outputPath Output Directory.
-   * @param methodRecords Map containing the collected Nullability annotation information.
+   * @param modelData ModelData instance containing the collected annotation information.
    */
-  private void writeToAstubx(
-      String outputPath,
-      Map<String, MethodAnnotationsRecord> methodRecords,
-      Map<String, Set<Integer>> nullableUpperBounds) {
+  private void writeToAstubx(String outputPath, ModelData modelData) {
+    Map<String, MethodAnnotationsRecord> methodRecords = modelData.methodRecords;
+    Map<String, Set<Integer>> nullableUpperBounds = modelData.nullableUpperBounds;
     if (methodRecords.isEmpty() && nullableUpperBounds.isEmpty()) {
       return;
     }
@@ -140,11 +153,8 @@ public class LibraryModelGenerator {
 
     private final AnnotationCollectionVisitor annotationCollectionVisitor;
 
-    public AnnotationCollectorCallback(
-        Map<String, MethodAnnotationsRecord> methodRecords,
-        Map<String, Set<Integer>> nullableUpperBounds) {
-      this.annotationCollectionVisitor =
-          new AnnotationCollectionVisitor(methodRecords, nullableUpperBounds);
+    public AnnotationCollectorCallback(ModelData modelData) {
+      this.annotationCollectionVisitor = new AnnotationCollectionVisitor(modelData);
     }
 
     @Override
@@ -171,11 +181,9 @@ public class LibraryModelGenerator {
     private static final String NULLABLE = "Nullable";
     private static final String JSPECIFY_NULLABLE_IMPORT = "org.jspecify.annotations.Nullable";
 
-    public AnnotationCollectionVisitor(
-        Map<String, MethodAnnotationsRecord> methodRecords,
-        Map<String, Set<Integer>> nullableUpperBounds) {
-      this.methodRecords = methodRecords;
-      this.nullableUpperBounds = nullableUpperBounds;
+    public AnnotationCollectionVisitor(ModelData modelData) {
+      this.methodRecords = modelData.methodRecords;
+      this.nullableUpperBounds = modelData.nullableUpperBounds;
     }
 
     @Override
