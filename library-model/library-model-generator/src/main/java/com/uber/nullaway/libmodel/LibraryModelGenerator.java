@@ -217,7 +217,11 @@ public class LibraryModelGenerator {
       logic does not currently handle cases where @NullMarked annotations appear on some nested
       classes but not others. It also does not consider annotations within package-info.java or
       module-info.java files.*/
-      parentName += "." + cid.getNameAsString();
+      String oldParentName = parentName;
+      if (!parentName.isEmpty()) {
+        parentName += ".";
+      }
+      parentName += cid.getNameAsString();
       cid.getAnnotations()
           .forEach(
               a -> {
@@ -234,7 +238,7 @@ public class LibraryModelGenerator {
       }
       super.visit(cid, null);
       // We reset the variable that constructs the parent name after visiting all the children.
-      parentName = parentName.substring(0, parentName.lastIndexOf("." + cid.getNameAsString()));
+      parentName = oldParentName;
     }
 
     @Override

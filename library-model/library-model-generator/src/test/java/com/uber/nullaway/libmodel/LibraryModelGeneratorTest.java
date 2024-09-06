@@ -1,5 +1,10 @@
 package com.uber.nullaway.libmodel;
 
+import static org.hamcrest.CoreMatchers.equalTo;
+import static org.hamcrest.MatcherAssert.assertThat;
+
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -47,6 +52,10 @@ public class LibraryModelGeneratorTest {
             inputSourcesFolder.getRoot().getAbsolutePath(), astubxOutputPath);
     // check that the output file was created
     Assert.assertTrue("astubx file was not created", Files.exists(Paths.get(astubxOutputPath)));
-    System.err.println(modelData);
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "AnnotationExample:String makeUpperCase(String)",
+            MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
+    assertThat(modelData.methodRecords, equalTo(expectedMethodRecords));
   }
 }
