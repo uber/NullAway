@@ -39,6 +39,7 @@ public class LibraryModelGeneratorTest {
     LibraryModelGenerator.LibraryModelData modelData =
         LibraryModelGenerator.generateAstubxForLibraryModels(
             inputSourcesFolder.getRoot().getAbsolutePath(), astubxOutputPath);
+    System.err.println("modelData: " + modelData);
     Assert.assertTrue("astubx file was not created", Files.exists(Paths.get(astubxOutputPath)));
     assertThat(modelData.methodRecords, equalTo(expectedMethodRecords));
     assertThat(modelData.nullableUpperBounds, equalTo(expectedNullableUpperBounds));
