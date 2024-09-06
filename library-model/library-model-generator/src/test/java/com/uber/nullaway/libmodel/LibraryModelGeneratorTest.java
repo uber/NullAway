@@ -36,7 +36,7 @@ public class LibraryModelGeneratorTest {
     // run the generator
     String astubxOutputPath =
         Paths.get(outputFolder.getRoot().getAbsolutePath(), "output.astubx").toString();
-    LibraryModelGenerator.ModelData modelData =
+    LibraryModelGenerator.LibraryModelData modelData =
         LibraryModelGenerator.generateAstubxForLibraryModels(
             inputSourcesFolder.getRoot().getAbsolutePath(), astubxOutputPath);
     Assert.assertTrue("astubx file was not created", Files.exists(Paths.get(astubxOutputPath)));
