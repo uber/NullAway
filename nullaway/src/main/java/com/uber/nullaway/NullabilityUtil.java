@@ -64,6 +64,7 @@ public class NullabilityUtil {
   public static final String NULLUNMARKED_SIMPLE_NAME = "NullUnmarked";
 
   private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
+  private static final String JETBRAINS_NOT_NULL = "org.jetbrains.annotations.NotNull";
 
   private NullabilityUtil() {}
 
@@ -465,5 +466,18 @@ public class NullabilityUtil {
       return Nullness.hasNonNullDeclarationAnnotation(arraySymbol, config);
     }
     return false;
+  }
+
+  /**
+   * Does the given symbol have a JetBrains @NotNull declaration annotation? Useful for workarounds
+   * in light of https://github.com/uber/NullAway/issues/720
+   */
+  public static boolean hasJetBrainsNotNullDeclarationAnnotation(Symbol.VarSymbol varSymbol) {
+    // We explicitly ignore type-use annotations here, looking for @NotNull used as a
+    // declaration annotation, which is why this logic is simpler than e.g.
+    // NullabilityUtil.getAllAnnotationsForParameter.
+    return varSymbol.getAnnotationMirrors().stream()
+        .map(a -> a.getAnnotationType().toString())
+        .anyMatch(annotName -> annotName.equals(JETBRAINS_NOT_NULL));
   }
 }
