@@ -56,7 +56,9 @@ public final class StubxWriter {
             nullableUpperBounds.keySet());
     for (Collection<String> keyset : keysets) {
       for (String key : keyset) {
-        assert !encodingDictionary.containsKey(key);
+        if (encodingDictionary.containsKey(key)) {
+          continue;
+        }
         strings.add(key);
         encodingDictionary.put(key, numStringEntries);
         ++numStringEntries;
