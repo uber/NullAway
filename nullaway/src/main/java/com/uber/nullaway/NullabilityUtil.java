@@ -64,6 +64,7 @@ public class NullabilityUtil {
   public static final String NULLUNMARKED_SIMPLE_NAME = "NullUnmarked";
 
   private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
+  private static final String JETBRAINS_NOT_NULL = "org.jetbrains.annotations.NotNull";
 
   private NullabilityUtil() {}
 
@@ -439,5 +440,44 @@ public class NullabilityUtil {
       return Nullness.hasNullableDeclarationAnnotation(arraySymbol, config);
     }
     return false;
+  }
+
+  /**
+   * Checks if the given array symbol has a {@code @NonNull} annotation for its elements.
+   *
+   * @param arraySymbol The symbol of the array to check.
+   * @param config NullAway configuration.
+   * @return true if the array symbol has a {@code @NonNull} annotation for its elements, false
+   *     otherwise
+   */
+  public static boolean isArrayElementNonNull(Symbol arraySymbol, Config config) {
+    for (Attribute.TypeCompound t : arraySymbol.getRawTypeAttributes()) {
+      for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
+        if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+          if (Nullness.isNonNullAnnotation(t.type.toString(), config)) {
+            return true;
+          }
+        }
+      }
+    }
+    // For varargs symbols we also consider the elements to be @NonNull if there is a @NonNull
+    // declaration annotation on the parameter
+    if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
+      return Nullness.hasNonNullDeclarationAnnotation(arraySymbol, config);
+    }
+    return false;
+  }
+
+  /**
+   * Does the given symbol have a JetBrains @NotNull declaration annotation? Useful for workarounds
+   * in light of https://github.com/uber/NullAway/issues/720
+   */
+  public static boolean hasJetBrainsNotNullDeclarationAnnotation(Symbol.VarSymbol varSymbol) {
+    // We explicitly ignore type-use annotations here, looking for @NotNull used as a
+    // declaration annotation, which is why this logic is simpler than e.g.
+    // NullabilityUtil.getAllAnnotationsForParameter.
+    return varSymbol.getAnnotationMirrors().stream()
+        .map(a -> a.getAnnotationType().toString())
+        .anyMatch(annotName -> annotName.equals(JETBRAINS_NOT_NULL));
   }
 }
