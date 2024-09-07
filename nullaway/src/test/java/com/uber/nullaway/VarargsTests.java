@@ -420,25 +420,37 @@ public class VarargsTests extends NullAwayTestsBase {
 
   @Test
   public void testVarargsNullArrayUnannotated() {
+    String[] unannotatedSource = {
+      "package foo.unannotated;",
+      "public class Unannotated {",
+      "  public static void takesVarargs(Object... args) {}",
+      "}"
+    };
+    String[] testSource = {
+      "package com.uber;",
+      "import foo.unannotated.Unannotated;",
+      "public class Test {",
+      "  public void test() {",
+      "    Object x = null;",
+      "    Object[] y = null;",
+      "    Unannotated.takesVarargs(x);",
+      "    Unannotated.takesVarargs(y);",
+      "  }",
+      "}"
+    };
+    // test with both restrictive annotations enabled and disabled
     defaultCompilationHelper
-        .addSourceLines(
-            "Unannotated.java",
-            "package foo.unannotated;",
-            "public class Unannotated {",
-            "  public static void takesVarargs(Object... args) {}",
-            "}")
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import foo.unannotated.Unannotated;",
-            "public class Test {",
-            "  public void test() {",
-            "    Object x = null;",
-            "    Object[] y = null;",
-            "    Unannotated.takesVarargs(x);",
-            "    Unannotated.takesVarargs(y);",
-            "  }",
-            "}")
+        .addSourceLines("Unannotated.java", unannotatedSource)
+        .addSourceLines("Test.java", testSource)
+        .doTest();
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines("Unannotated.java", unannotatedSource)
+        .addSourceLines("Test.java", testSource)
         .doTest();
   }
 
