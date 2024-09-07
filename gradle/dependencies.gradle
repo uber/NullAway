@@ -52,7 +52,7 @@ def versions = [
     commonscli             : "1.4",
     autoValue              : "1.10.2",
     autoService            : "1.1.1",
-    javaparser             : "3.26.1",
+    javaparser             : "3.26.2",
 ]
 
 def apt = [
