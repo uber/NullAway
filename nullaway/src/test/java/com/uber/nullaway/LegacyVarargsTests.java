@@ -491,6 +491,14 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'y'",
             "    Unannotated.takesVarargsTypeUseOnArray(y);",
             "  }",
+            "  public void testTypeUseOnElements() {",
+            "    Object x = null;",
+            "    Object[] y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
+            "    Unannotated.takesVarargsTypeUseOnElements(x);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y'",
+            "    Unannotated.takesVarargsTypeUseOnElements(y);",
+            "  }",
             "}")
         .doTest();
   }

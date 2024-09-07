@@ -505,6 +505,13 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
             //  handling
             "    Unannotated.takesVarargsTypeUseOnArray(y);",
             "  }",
+            "  public void testTypeUseOnElements() {",
+            "    Object x = null;",
+            "    Object[] y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
+            "    Unannotated.takesVarargsTypeUseOnElements(x);",
+            "    Unannotated.takesVarargsTypeUseOnElements(y);",
+            "  }",
             "}")
         .doTest();
   }
