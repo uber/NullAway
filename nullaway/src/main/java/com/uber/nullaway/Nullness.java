@@ -175,7 +175,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    * @param annotName annotation name
    * @return true if we treat annotName as a <code>@NonNull</code> annotation, false otherwise
    */
-  private static boolean isNonNullAnnotation(String annotName, Config config) {
+  public static boolean isNonNullAnnotation(String annotName, Config config) {
     return annotName.endsWith(".NonNull")
         || annotName.endsWith(".NotNull")
         || annotName.endsWith(".Nonnull")
@@ -260,11 +260,22 @@ public enum Nullness implements AbstractValue<Nullness> {
   /**
    * Does the parameter of {@code symbol} at {@code paramInd} have a {@code @NonNull} declaration or
    * type-use annotation? This method works for methods defined in either source or class files.
+   *
+   * <p>For a varargs parameter, this method returns true if <em>individual</em> arguments passed in
+   * the varargs positions must be {@code @NonNull}.
    */
   public static boolean paramHasNonNullAnnotation(
       Symbol.MethodSymbol symbol, int paramInd, Config config) {
-    return hasNonNullAnnotation(
-        NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd, config), config);
+    if (symbol.isVarArgs()
+        && paramInd == symbol.getParameters().size() - 1
+        && !config.isLegacyAnnotationLocation()) {
+      // individual arguments passed in the varargs positions must be @NonNull if the array element
+      // type of the parameter is @NonNull
+      return NullabilityUtil.isArrayElementNonNull(symbol.getParameters().get(paramInd), config);
+    } else {
+      return hasNonNullAnnotation(
+          NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd, config), config);
+    }
   }
 
   /**
@@ -281,5 +292,10 @@ public enum Nullness implements AbstractValue<Nullness> {
   /** Checks if the symbol has a {@code @Nullable} declaration annotation */
   public static boolean hasNullableDeclarationAnnotation(Symbol symbol, Config config) {
     return hasNullableAnnotation(symbol.getRawAttributes().stream(), config);
+  }
+
+  /** Checks if the symbol has a {@code @NonNull} declaration annotation */
+  public static boolean hasNonNullDeclarationAnnotation(Symbol symbol, Config config) {
+    return hasNonNullAnnotation(symbol.getRawAttributes().stream(), config);
   }
 }

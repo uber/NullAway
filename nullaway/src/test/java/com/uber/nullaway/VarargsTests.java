@@ -417,4 +417,102 @@ public class VarargsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testVarargsNullArrayUnannotated() {
+    String[] unannotatedSource = {
+      "package foo.unannotated;",
+      "public class Unannotated {",
+      "  public static void takesVarargs(Object... args) {}",
+      "}"
+    };
+    String[] testSource = {
+      "package com.uber;",
+      "import foo.unannotated.Unannotated;",
+      "public class Test {",
+      "  public void test() {",
+      "    Object x = null;",
+      "    Object[] y = null;",
+      "    Unannotated.takesVarargs(x);",
+      "    Unannotated.takesVarargs(y);",
+      "  }",
+      "}"
+    };
+    // test with both restrictive annotations enabled and disabled
+    defaultCompilationHelper
+        .addSourceLines("Unannotated.java", unannotatedSource)
+        .addSourceLines("Test.java", testSource)
+        .doTest();
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines("Unannotated.java", unannotatedSource)
+        .addSourceLines("Test.java", testSource)
+        .doTest();
+  }
+
+  /**
+   * This test is a WIP for restrictive annotations on varargs. More assertions still need to be
+   * written, and more support needs to be implemented.
+   */
+  @Test
+  public void testVarargsRestrictive() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "NonNull.java",
+            "package com.uber.both;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})",
+            "public @interface NonNull {}")
+        .addSourceLines(
+            "Unannotated.java",
+            "package foo.unannotated;",
+            "public class Unannotated {",
+            "  public static void takesVarargsDeclaration(@javax.annotation.Nonnull Object... args) {}",
+            "  public static void takesVarargsTypeUseOnArray(Object @org.jspecify.annotations.NonNull... args) {}",
+            "  public static void takesVarargsTypeUseOnElements(@org.jspecify.annotations.NonNull Object... args) {}",
+            "  public static void takesVarargsTypeUseOnBoth(@org.jspecify.annotations.NonNull Object @org.jspecify.annotations.NonNull... args) {}",
+            "  public static void takesVarargsBothOnArray(Object @com.uber.both.NonNull... args) {}",
+            "  public static void takesVarargsBothOnElements(@com.uber.both.NonNull Object... args) {}",
+            "  public static void takesVarargsBothOnBoth(@com.uber.both.NonNull Object @com.uber.both.NonNull... args) {}",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import foo.unannotated.Unannotated;",
+            "public class Test {",
+            "  public void testDeclaration() {",
+            "    Object x = null;",
+            "    Object[] y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
+            "    Unannotated.takesVarargsDeclaration(x);",
+            "    Unannotated.takesVarargsDeclaration(y);",
+            "  }",
+            "  public void testTypeUseOnArray() {",
+            "    Object x = null;",
+            "    Object[] y = null;",
+            "    Unannotated.takesVarargsTypeUseOnArray(x);",
+            // TODO report an error here; will require some refactoring of restrictive annotation
+            //  handling
+            "    Unannotated.takesVarargsTypeUseOnArray(y);",
+            "  }",
+            "  public void testTypeUseOnElements() {",
+            "    Object x = null;",
+            "    Object[] y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
+            "    Unannotated.takesVarargsTypeUseOnElements(x);",
+            "    Unannotated.takesVarargsTypeUseOnElements(y);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
