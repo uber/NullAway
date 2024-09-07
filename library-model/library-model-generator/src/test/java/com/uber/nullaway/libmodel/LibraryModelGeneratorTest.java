@@ -65,7 +65,7 @@ public class LibraryModelGeneratorTest {
         };
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
-            "AnnotationExample:String makeUpperCase(String)",
+            "AnnotationExample:java.lang.String makeUpperCase(java.lang.String)",
             MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
     runTest("AnnotationExample.java", lines, expectedMethodRecords, ImmutableMap.of());
   }
