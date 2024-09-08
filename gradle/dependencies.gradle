@@ -116,7 +116,7 @@ def test = [
     springBeans             : "org.springframework:spring-beans:5.3.7",
     springContext           : "org.springframework:spring-context:5.3.7",
     grpcCore                : "io.grpc:grpc-core:1.15.1", // Should upgrade, but this matches our guava version
-    mockito                 : "org.mockito:mockito-core:5.12.0",
+    mockito                 : "org.mockito:mockito-core:5.13.0",
     javaxAnnotationApi      : "javax.annotation:javax.annotation-api:1.3.2",
     assertJ                 : "org.assertj:assertj-core:3.23.1",
 ]
