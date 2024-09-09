@@ -152,7 +152,7 @@ public class LibraryModelGenerator {
     Map<String, MethodAnnotationsRecord> methodRecords = modelData.methodRecords;
     Map<String, Set<Integer>> nullableUpperBounds = modelData.nullableUpperBounds;
     Set<String> nullMarkedClasses = modelData.nullMarkedClasses;
-    if (methodRecords.isEmpty() && nullableUpperBounds.isEmpty()) {
+    if (methodRecords.isEmpty() && nullableUpperBounds.isEmpty() && nullMarkedClasses.isEmpty()) {
       return;
     }
     ImmutableMap<String, String> importedAnnotations =

@@ -27,7 +27,8 @@ public class LibraryModelGeneratorTest {
       String sourceFileName,
       String[] lines,
       ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords,
-      ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds)
+      ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds,
+      ImmutableSet<String> expectedNullMarkedClasses)
       throws IOException {
     // write it to a source file in inputSourcesFolder with the right file name
     Files.write(
@@ -43,6 +44,7 @@ public class LibraryModelGeneratorTest {
     Assert.assertTrue("astubx file was not created", Files.exists(Paths.get(astubxOutputPath)));
     assertThat(modelData.methodRecords, equalTo(expectedMethodRecords));
     assertThat(modelData.nullableUpperBounds, equalTo(expectedNullableUpperBounds));
+    assertThat(modelData.nullMarkedClasses, equalTo(expectedNullMarkedClasses));
   }
 
   @Test
@@ -67,7 +69,12 @@ public class LibraryModelGeneratorTest {
         ImmutableMap.of(
             "AnnotationExample:java.lang.String makeUpperCase(java.lang.String)",
             MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
-    runTest("AnnotationExample.java", lines, expectedMethodRecords, ImmutableMap.of());
+    runTest(
+        "AnnotationExample.java",
+        lines,
+        expectedMethodRecords,
+        ImmutableMap.of(),
+        ImmutableSet.of());
   }
 
   @Test
@@ -86,6 +93,32 @@ public class LibraryModelGeneratorTest {
         };
     ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds =
         ImmutableMap.of("NullableUpperBound", ImmutableSet.of(0));
-    runTest("NullableUpperBound.java", lines, ImmutableMap.of(), expectedNullableUpperBounds);
+    runTest(
+        "NullableUpperBound.java",
+        lines,
+        ImmutableMap.of(),
+        expectedNullableUpperBounds,
+        ImmutableSet.of());
+  }
+
+  @Test
+  public void nullMarkedClasses() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "@NullMarked",
+          "public class NullMarked{",
+          "//Only this class should appear under null marked classes",
+          "}",
+          "class NotNullMarked{",
+          "}"
+        };
+    ImmutableSet<String> expectedNullMarkedClasses = ImmutableSet.of("NullMarked");
+    runTest(
+        "NullableUpperBound.java",
+        lines,
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        expectedNullMarkedClasses);
   }
 }
