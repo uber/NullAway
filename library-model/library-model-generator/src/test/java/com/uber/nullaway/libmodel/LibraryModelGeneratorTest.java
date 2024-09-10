@@ -74,7 +74,7 @@ public class LibraryModelGeneratorTest {
         lines,
         expectedMethodRecords,
         ImmutableMap.of(),
-        ImmutableSet.of());
+        ImmutableSet.of("AnnotationExample"));
   }
 
   @Test
@@ -98,7 +98,7 @@ public class LibraryModelGeneratorTest {
         lines,
         ImmutableMap.of(),
         expectedNullableUpperBounds,
-        ImmutableSet.of());
+        ImmutableSet.of("NullableUpperBound"));
   }
 
   @Test
