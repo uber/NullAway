@@ -108,18 +108,14 @@ public class LibraryModelGeneratorTest {
           "import org.jspecify.annotations.NullMarked;",
           "@NullMarked",
           "public class NullMarked{",
-          "//Only this class should appear under null marked classes",
+          "   //Only this class should appear under null marked classes",
           "}",
           "class NotNullMarked{",
           "}"
         };
     ImmutableSet<String> expectedNullMarkedClasses = ImmutableSet.of("NullMarked");
     runTest(
-        "NullableUpperBound.java",
-        lines,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
-        expectedNullMarkedClasses);
+        "NullMarked.java", lines, ImmutableMap.of(), ImmutableMap.of(), expectedNullMarkedClasses);
   }
 
   @Test
