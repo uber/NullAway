@@ -121,4 +121,34 @@ public class LibraryModelGeneratorTest {
         ImmutableMap.of(),
         expectedNullMarkedClasses);
   }
+
+  @Test
+  public void nullableParameters() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "import org.jspecify.annotations.Nullable;",
+          "@NullMarked",
+          "public class NullableParameters{",
+          " public static Object getNewObjectIfNull(@Nullable Object object) {",
+          "   if (object == null) {",
+          "     return new Object();",
+          "   } else {",
+          "     return object;",
+          "   }",
+          " }",
+          "}"
+        };
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "NullableParameters:java.lang.Object getNewObjectIfNull(java.lang.Object)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(), ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+    runTest(
+        "NullableParameters.java",
+        lines,
+        expectedMethodRecords,
+        ImmutableMap.of(),
+        ImmutableSet.of("NullableParameters"));
+  }
 }
