@@ -1287,9 +1287,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   /** Constructs Library Models from stubx files */
   private static class ExternalStubxLibraryModels implements LibraryModels {
 
-    @SuppressWarnings("unused")
     private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
-
     private final Set<String> nullMarkedClassesCache;
     private final Map<String, Integer> upperBoundsCache;
 
