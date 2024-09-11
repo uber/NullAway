@@ -1331,7 +1331,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           String methodName = innerEntry.getKey().substring(innerEntry.getKey().indexOf(" ") + 1);
           for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
             Integer index = entry.getKey();
-            if (index >= 0) {
+            if (index >= 0 && entry.getValue().stream().anyMatch(a -> a.contains("Nullable"))) {
               mapBuilder.put(methodRef(className, methodName), index);
             }
           }
