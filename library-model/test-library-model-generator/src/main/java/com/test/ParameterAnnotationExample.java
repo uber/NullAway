@@ -19,4 +19,8 @@ public class ParameterAnnotationExample {
       return object;
     }
   }
+
+  public static void printObjectString(Object object) {
+    System.out.println(object.toString());
+  }
 }
