@@ -35,11 +35,14 @@ dependencies {
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 tasks.withType(JavaCompile) {
-  // remove the if condition if you want to run NullAway on test code
-  if (!name.toLowerCase().contains("test")) {
+  options.errorprone {
+    check("NullAway", CheckSeverity.ERROR)
+    option("NullAway:AnnotatedPackages", "com.uber")
+  }
+  // Include to disable NullAway on test code
+  if (name.toLowerCase().contains("test")) {
     options.errorprone {
-      check("NullAway", CheckSeverity.ERROR)
-      option("NullAway:AnnotatedPackages", "com.uber")
+      disable("NullAway")
     }
   }
 }
@@ -49,7 +52,7 @@ Let's walk through this script step by step.  The `plugins` section pulls in the
 
 In `dependencies`, the first `errorprone` line loads NullAway, and the `api` line loads the [JSpecify](https://jspecify.dev) library which provides suitable nullability annotations, e.g., `org.jspecify.annotations.Nullable`.  NullAway allows for any `@Nullable` annotation to be used, so, e.g., `@Nullable` from the AndroidX annotations Library or JetBrains annotations is also fine. The second `errorprone` line sets the version of Error Prone is used.
 
-Finally, in the `tasks.withType(JavaCompile)` section, we pass some configuration options to NullAway.  First `check("NullAway", CheckSeverity.ERROR)` sets NullAway issues to the error level (it's equivalent to the `-Xep:NullAway:ERROR` standard Error Prone argument); by default NullAway emits warnings.  Then, `option("NullAway:AnnotatedPackages", "com.uber")` (equivalent to the `-XepOpt:NullAway:AnnotatedPackages=com.uber` standard Error Prone argument) tells NullAway that source code in packages under the `com.uber` namespace should be checked for null dereferences and proper usage of `@Nullable` annotations, and that class files in these packages should be assumed to have correct usage of `@Nullable` (see [the docs](https://github.com/uber/NullAway/wiki/Configuration) for more detail).  NullAway requires at least the `AnnotatedPackages` configuration argument to run, in order to distinguish between annotated and unannotated code.  See [the configuration docs](https://github.com/uber/NullAway/wiki/Configuration) for other useful configuration options.  For even simpler configuration of NullAway options, use the [Gradle NullAway plugin](https://github.com/tbroyer/gradle-nullaway-plugin).
+Finally, in the `tasks.withType(JavaCompile)` section, we pass some configuration options to NullAway.  First `check("NullAway", CheckSeverity.ERROR)` sets NullAway issues to the error level (it's equivalent to the `-Xep:NullAway:ERROR` standard Error Prone argument); by default NullAway emits warnings.  Then, `option("NullAway:AnnotatedPackages", "com.uber")` (equivalent to the `-XepOpt:NullAway:AnnotatedPackages=com.uber` standard Error Prone argument) tells NullAway that source code in packages under the `com.uber` namespace should be checked for null dereferences and proper usage of `@Nullable` annotations, and that class files in these packages should be assumed to have correct usage of `@Nullable` (see [the docs](https://github.com/uber/NullAway/wiki/Configuration) for more detail).  NullAway requires at least the `AnnotatedPackages` configuration argument to run, in order to distinguish between annotated and unannotated code.  See [the configuration docs](https://github.com/uber/NullAway/wiki/Configuration) for other useful configuration options.  For even simpler configuration of NullAway options, use the [Gradle NullAway plugin](https://github.com/tbroyer/gradle-nullaway-plugin).  Finally, we give show how to disable NullAway on test code, if desired.
 
 We recommend addressing all the issues that Error Prone reports, particularly those reported as errors (rather than warnings).  But, if you'd like to try out NullAway without running other Error Prone checks, you can use `options.errorprone.disableAllChecks` (equivalent to passing `"-XepDisableAllChecks"` to the compiler, before the NullAway-specific arguments).
 
