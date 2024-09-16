@@ -1,5 +1,12 @@
 Changelog
 =========
+Version 0.11.3
+---------------
+IMPORTANT: We have cherry-picked one PR in master since 0.11.2 for this release, it
+does not contain all changes in master!
+
+* Add missing source files in android-jarinfer-models-sdk modules (#1033)
+
 Version 0.11.2
 ---------------
 * JSpecify: add another bailout check for raw types (#1021)
