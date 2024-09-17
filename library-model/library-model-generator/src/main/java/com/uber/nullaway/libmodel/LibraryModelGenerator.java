@@ -383,7 +383,14 @@ public class LibraryModelGenerator {
       List<Parameter> parameterList = md.getParameters();
       for (int i = 0; i < parameterList.size(); i++) {
         Parameter parameter = parameterList.get(i);
-        Optional<AnnotationExpr> nullableAnnotation = parameter.getAnnotationByName(NULLABLE);
+        Optional<AnnotationExpr> nullableAnnotation;
+        // For ArrayTypes the annotation is on the type instead of the node when the elements inside
+        // the Array can be @Nullable for e.g. Object @Nullable []
+        if (parameter.getType() instanceof ArrayType) {
+          nullableAnnotation = ((ArrayType) parameter.getType()).getAnnotationByName(NULLABLE);
+        } else {
+          nullableAnnotation = parameter.getAnnotationByName(NULLABLE);
+        }
         if (nullableAnnotation.isPresent() && isAnnotationNullable(nullableAnnotation.get())) {
           mapBuilder.put(i, ImmutableSet.of("Nullable"));
         }

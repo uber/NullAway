@@ -186,7 +186,7 @@ public class LibraryModelGeneratorTest {
           "import org.jspecify.annotations.Nullable;",
           "@NullMarked",
           "public class NullableParameters{",
-          " public static Object[] getNewObjectArrayIfNull(@Nullable Object[] objectArray) {",
+          " public static Object[] getNewObjectArrayIfNull(Object @Nullable [] objectArray) {",
           "   if (objectArray == null) {",
           "     return new Object[10];",
           "   } else {",
