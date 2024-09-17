@@ -256,7 +256,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     if (typ.getKind() == TypeKind.TYPEVAR) {
       return typ.getUpperBound().tsym.getQualifiedName().toString();
     } else {
-      return typ.tsym.getQualifiedName().toString();
+      return typ.toString();
     }
   }
 }

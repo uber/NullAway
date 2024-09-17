@@ -214,8 +214,6 @@ public class LibraryModelGenerator {
     private final Map<String, MethodAnnotationsRecord> methodRecords;
     private final Set<String> nullMarkedClasses;
     private final Map<String, Set<Integer>> nullableUpperBounds;
-    // TODO this is sketchy!
-    private static final String ARRAY_RETURN_TYPE_STRING = "Array";
     private static final String NULL_MARKED = "NullMarked";
     private static final String NULLABLE = "Nullable";
     private static final String JSPECIFY_NULLABLE_IMPORT = "org.jspecify.annotations.Nullable";
@@ -334,7 +332,8 @@ public class LibraryModelGenerator {
       if (returnType.isReferenceType()) {
         return returnType.asReferenceType().getQualifiedName().toString();
       } else if (returnType.isArray()) {
-        return ARRAY_RETURN_TYPE_STRING;
+        return returnType.asArrayType().getComponentType().asReferenceType().getQualifiedName()
+            + "[]";
       } else {
         throw new RuntimeException("Unexpected return type: " + returnType);
         // return returnType.asPrimitive().toString();
