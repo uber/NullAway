@@ -207,4 +207,33 @@ public class LibraryModelGeneratorTest {
         ImmutableMap.of(),
         ImmutableSet.of("NullableParameters"));
   }
+
+  @Test
+  public void primitiveTypeReturn() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "import org.jspecify.annotations.Nullable;",
+          "@NullMarked",
+          "public class PrimitiveType {",
+          "    public int multiply(@Nullable Integer num1, @Nullable Integer num2) {",
+          "       if(num1!=null && num2!=null){",
+          "           return num1*num2;",
+          "       }",
+          "    }",
+          "}"
+        };
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "PrimitiveType:int multiply(java.lang.Integer, java.lang.Integer)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable"), 1, ImmutableSet.of("Nullable"))));
+    runTest(
+        "PrimitiveType.java",
+        lines,
+        expectedMethodRecords,
+        ImmutableMap.of(),
+        ImmutableSet.of("PrimitiveType"));
+  }
 }

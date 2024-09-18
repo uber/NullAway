@@ -37,6 +37,7 @@ import com.github.javaparser.ast.type.TypeParameter;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import com.github.javaparser.resolution.TypeSolver;
 import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
+import com.github.javaparser.resolution.types.ResolvedPrimitiveType;
 import com.github.javaparser.resolution.types.ResolvedType;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
@@ -58,6 +59,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -330,13 +332,14 @@ public class LibraryModelGenerator {
     private String getMethodReturnTypeString(ResolvedMethodDeclaration md) {
       ResolvedType returnType = md.getReturnType();
       if (returnType.isReferenceType()) {
-        return returnType.asReferenceType().getQualifiedName().toString();
+        return returnType.asReferenceType().getQualifiedName();
       } else if (returnType.isArray()) {
         return returnType.asArrayType().getComponentType().asReferenceType().getQualifiedName()
             + "[]";
+      } else if (returnType.isPrimitive()) {
+        return ((ResolvedPrimitiveType) returnType).name().toLowerCase(Locale.ROOT);
       } else {
         throw new RuntimeException("Unexpected return type: " + returnType);
-        // return returnType.asPrimitive().toString();
       }
     }
 
