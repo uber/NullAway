@@ -428,6 +428,40 @@ public class JarInferTest {
   }
 
   @Test
+  public void testObjectArray() throws Exception {
+    testTemplate(
+        "testObjectArray",
+        "arrays",
+        "TestArray",
+        ImmutableMap.of(
+            "arrays.TestArray:java.lang.String foo(java.lang.Object[])", Sets.newHashSet(0)),
+        "class TestArray {",
+        "  public static String foo(Object[] o) {",
+        "    return o.toString();",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void testGenericMethod() throws Exception {
+    testTemplate(
+        "testGenericMethod",
+        "generic",
+        "TestGeneric",
+        ImmutableMap.of(
+            "generic.TestGeneric:java.lang.String foo(java.lang.Object)", Sets.newHashSet(1)),
+        "public class TestGeneric<T> {",
+        "  public String foo(T t) {",
+        "    return t.toString();",
+        "  }",
+        "  public static void main(String arg[]) {",
+        "    TestGeneric<String> tg = new TestGeneric<String>();",
+        "    System.out.println(tg.foo(\"generic test\"));",
+        "  }",
+        "}");
+  }
+
+  @Test
   public void toyJARAnnotatingClasses() throws Exception {
     testAnnotationInJarTemplate(
         "toyJARAnnotatingClasses",
