@@ -41,7 +41,6 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: |
-            23-ea
             21
             17
             ${{ matrix.java }}
