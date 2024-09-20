@@ -243,7 +243,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
             + "(";
     if (!method.getParameters().isEmpty()) {
       for (Symbol.VarSymbol var : method.getParameters()) {
-        methodSign += var.type.toString() + ", ";
+        methodSign += getSimpleTypeName(var.type) + ", ";
       }
       methodSign = methodSign.substring(0, methodSign.lastIndexOf(','));
     }

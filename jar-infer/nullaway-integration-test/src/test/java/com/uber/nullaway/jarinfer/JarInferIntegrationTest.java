@@ -4,7 +4,6 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.util.Arrays;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -68,7 +67,6 @@ public class JarInferIntegrationTest {
         .doTest();
   }
 
-  @Ignore("TODO: support JarInfer and generics")
   @Test
   public void genericsTest() {
     compilationHelper
@@ -87,7 +85,7 @@ public class JarInferIntegrationTest {
             "class Test {",
             "  void test1() {",
             "    Toys.Generic<String> g = new Toys.Generic<>();",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'g.getString(null)'",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
             "    g.getString(null);",
             "  }",
             "}")
