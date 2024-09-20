@@ -60,7 +60,7 @@ public class JarInferIntegrationTest {
             "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
             "class Test {",
             "  void test1(Object @Nullable [] o) {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 's'",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'o'",
             "    Toys.testArray(o);",
             "  }",
             "}")

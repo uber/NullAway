@@ -32,8 +32,9 @@ public class Toys {
     }
   }
 
+  @SuppressWarnings("ArrayHashCode")
   public static int testArray(Object[] o) {
-    return o.length;
+    return o.hashCode();
   }
 
   public static void main(String arg[]) throws java.io.IOException {
