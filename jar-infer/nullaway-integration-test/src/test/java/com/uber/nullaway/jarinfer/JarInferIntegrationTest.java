@@ -4,6 +4,7 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.util.Arrays;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -62,6 +63,32 @@ public class JarInferIntegrationTest {
             "  void test1(Object @Nullable [] o) {",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'o'",
             "    Toys.testArray(o);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Ignore("TODO: support JarInfer and generics")
+  @Test
+  public void genericsTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
+            "class Test {",
+            "  void test1() {",
+            "    Toys.Generic<String> g = new Toys.Generic<>();",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'g.getString(null)'",
+            "    g.getString(null);",
             "  }",
             "}")
         .doTest();
