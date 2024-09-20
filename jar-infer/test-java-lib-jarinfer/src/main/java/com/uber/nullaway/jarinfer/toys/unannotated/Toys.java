@@ -32,6 +32,10 @@ public class Toys {
     }
   }
 
+  public static int testArray(Object[] o) {
+    return o.length;
+  }
+
   public static void main(String arg[]) throws java.io.IOException {
     String s = "test string...";
     Foo f = new Foo("let's");
