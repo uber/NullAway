@@ -343,6 +343,8 @@ public class LibraryModelGenerator {
             + "[]";
       } else if (returnType.isPrimitive()) {
         return ((ResolvedPrimitiveType) returnType).name().toLowerCase(Locale.ROOT);
+      } else if (returnType.isVoid()) {
+        return "void";
       } else {
         throw new RuntimeException("Unexpected return type: " + returnType);
       }

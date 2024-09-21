@@ -23,6 +23,14 @@ public class ParameterAnnotationExample {
         System.out.println(object.toString());
     }
 
+    public static void takesNullArray(Object @Nullable [] objects) {
+        System.out.println(objects);
+    }
+
+    public static void takesNonNullArray(Object[] objects) {
+        String unused = objects.toString();
+    }
+
     public static class Generic<T> {
 
         public String getString(@Nullable T t) {

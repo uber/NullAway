@@ -24,6 +24,16 @@ public class ParameterAnnotationExample {
     System.out.println(object.toString());
   }
 
+  @SuppressWarnings("ArrayToString")
+  public static void takesNullArray(Object[] objects) {
+    System.out.println(objects);
+  }
+
+  @SuppressWarnings("ArrayToString")
+  public static void takesNonNullArray(Object[] objects) {
+    String unused = objects.toString();
+  }
+
   public static class Generic<T> {
     public String getString(T t) {
       return t != null ? t.toString() : "";
