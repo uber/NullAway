@@ -232,4 +232,32 @@ public class LibraryModelIntegrationTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void genericParameterTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.test.ParameterAnnotationExample;",
+            "class Test {",
+            "  static ParameterAnnotationExample.Generic<String> ex = new ParameterAnnotationExample.Generic<>();",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    ex.printObjectString(null);",
+            "  }",
+            "  static void testNegative() {",
+            "    ex.getString(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

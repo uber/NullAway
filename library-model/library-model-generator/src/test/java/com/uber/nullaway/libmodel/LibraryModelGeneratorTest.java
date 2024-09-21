@@ -209,6 +209,32 @@ public class LibraryModelGeneratorTest {
   }
 
   @Test
+  public void genericParameter() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "import org.jspecify.annotations.Nullable;",
+          "@NullMarked",
+          "public class Generic<T> {",
+          " public String getString(@Nullable T t) {",
+          "   return t.toString();",
+          " }",
+          "}"
+        };
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "Generic:java.lang.String getString(T)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(), ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+    runTest(
+        "Generic.java",
+        lines,
+        expectedMethodRecords,
+        ImmutableMap.of(),
+        ImmutableSet.of("Generic"));
+  }
+
+  @Test
   public void primitiveTypeReturn() throws IOException {
     String[] lines =
         new String[] {

@@ -23,4 +23,14 @@ public class ParameterAnnotationExample {
   public static void printObjectString(Object object) {
     System.out.println(object.toString());
   }
+
+  public static class Generic<T> {
+    public String getString(T t) {
+      return t != null ? t.toString() : "";
+    }
+
+    public void printObjectString(T t) {
+      System.out.println(t.toString());
+    }
+  }
 }

@@ -252,14 +252,19 @@ public class LibraryModelGenerator {
         parentName += ".";
       }
       parentName += cid.getNameAsString();
-      cid.getAnnotations()
-          .forEach(
-              a -> {
-                if (a.getNameAsString().equalsIgnoreCase(NULL_MARKED)) {
-                  this.isNullMarked = true;
-                  this.nullMarkedClasses.add(parentName);
-                }
-              });
+      if (this.isNullMarked) {
+        // nested class, and enclosing class is null marked
+        this.nullMarkedClasses.add(parentName);
+      } else {
+        cid.getAnnotations()
+            .forEach(
+                a -> {
+                  if (a.getNameAsString().equalsIgnoreCase(NULL_MARKED)) {
+                    this.isNullMarked = true;
+                    this.nullMarkedClasses.add(parentName);
+                  }
+                });
+      }
       if (this.isNullMarked) {
         ImmutableSet<Integer> nullableUpperBoundParams =
             getGenericTypeParameterNullableUpperBounds(cid);
