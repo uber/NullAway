@@ -44,7 +44,12 @@ import java.util.Set;
  */
 public class StubxCacheUtil {
 
-  private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
+  /**
+   * The file magic number for version 1 .astubx files. It should be the first four bytes of any
+   * compatible .astubx file.
+   */
+  private static final int VERSION_1_FILE_MAGIC_NUMBER = 481874642;
+
   private boolean DEBUG = false;
   private String logCaller = "";
 
@@ -117,7 +122,7 @@ public class StubxCacheUtil {
     String[] strings;
     DataInputStream in = new DataInputStream(stubxInputStream);
     // Read and check the magic version number
-    if (in.readInt() != VERSION_0_FILE_MAGIC_NUMBER) {
+    if (in.readInt() != VERSION_1_FILE_MAGIC_NUMBER) {
       throw new Error("Invalid file version/magic number for stubx file!" + stubxLocation);
     }
     // Read the number of strings in the string dictionary

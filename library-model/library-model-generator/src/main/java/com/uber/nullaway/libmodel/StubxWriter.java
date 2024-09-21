@@ -20,6 +20,12 @@ public final class StubxWriter {
   private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
 
   /**
+   * The file magic number for version 1 .astubx files. It should be the first four bytes of any
+   * compatible .astubx file.
+   */
+  private static final int VERSION_1_FILE_MAGIC_NUMBER = 481874642;
+
+  /**
    * This method writes the provided list of annotations to a DataOutputStream in the astubx format.
    *
    * @param out Output stream.
@@ -41,7 +47,7 @@ public final class StubxWriter {
       Map<String, Set<Integer>> nullableUpperBounds)
       throws IOException {
     // File format version/magic number
-    out.writeInt(VERSION_0_FILE_MAGIC_NUMBER);
+    out.writeInt(VERSION_1_FILE_MAGIC_NUMBER);
     // Followed by the number of string dictionary entries
     int numStringEntries = 0;
     Map<String, Integer> encodingDictionary = new LinkedHashMap<>();
