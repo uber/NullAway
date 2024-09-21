@@ -41,10 +41,15 @@ public class LibraryModelGeneratorTest {
         LibraryModelGenerator.generateAstubxForLibraryModels(
             inputSourcesFolder.getRoot().getAbsolutePath(), astubxOutputPath);
     System.err.println("modelData: " + modelData);
-    Assert.assertTrue("astubx file was not created", Files.exists(Paths.get(astubxOutputPath)));
     assertThat(modelData.methodRecords, equalTo(expectedMethodRecords));
     assertThat(modelData.nullableUpperBounds, equalTo(expectedNullableUpperBounds));
     assertThat(modelData.nullMarkedClasses, equalTo(expectedNullMarkedClasses));
+    Assert.assertTrue(
+        "astubx file was not created",
+        Files.exists(Paths.get(astubxOutputPath))
+            || (expectedMethodRecords.isEmpty()
+                && expectedNullableUpperBounds.isEmpty()
+                && expectedNullMarkedClasses.isEmpty()));
   }
 
   @Test
@@ -107,15 +112,32 @@ public class LibraryModelGeneratorTest {
         new String[] {
           "import org.jspecify.annotations.NullMarked;",
           "@NullMarked",
-          "public class NullMarked{",
-          "   //Only this class should appear under null marked classes",
+          "public class NullMarked {",
+          "  public static class Nested {}",
           "}",
-          "class NotNullMarked{",
-          "}"
         };
-    ImmutableSet<String> expectedNullMarkedClasses = ImmutableSet.of("NullMarked");
+    ImmutableSet<String> expectedNullMarkedClasses =
+        ImmutableSet.of("NullMarked", "NullMarked.Nested");
     runTest(
         "NullMarked.java", lines, ImmutableMap.of(), ImmutableMap.of(), expectedNullMarkedClasses);
+  }
+
+  @Test
+  public void noNullMarkedClasses() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "public class NotNullMarked {",
+          "  public static class Nested {}",
+          "}",
+        };
+    ImmutableSet<String> expectedNullMarkedClasses = ImmutableSet.of();
+    runTest(
+        "NotNullMarked.java",
+        lines,
+        ImmutableMap.of(),
+        ImmutableMap.of(),
+        expectedNullMarkedClasses);
   }
 
   @Test
