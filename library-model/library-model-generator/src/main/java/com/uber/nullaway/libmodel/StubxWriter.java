@@ -15,8 +15,9 @@ import java.util.Set;
 public final class StubxWriter {
   /**
    * The file magic number for version 0 .astubx files. It should be the first four bytes of any
-   * compatible .astubx file.
+   * compatible .astubx file. Unused field, keeping for reference.
    */
+  @SuppressWarnings("UnusedVariable")
   private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
 
   /**
