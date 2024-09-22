@@ -45,10 +45,8 @@ jobs:
             17
             ${{ matrix.java }}
           distribution: 'temurin'
-      - name: Validate Gradle wrappers
-        uses: gradle/actions/wrapper-validation@v3
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v4
       - name: Build and test using Java ${{ matrix.java }} and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
