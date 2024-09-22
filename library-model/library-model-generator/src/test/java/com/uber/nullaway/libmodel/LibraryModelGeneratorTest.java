@@ -131,13 +131,7 @@ public class LibraryModelGeneratorTest {
           "  public static class Nested {}",
           "}",
         };
-    ImmutableSet<String> expectedNullMarkedClasses = ImmutableSet.of();
-    runTest(
-        "NotNullMarked.java",
-        lines,
-        ImmutableMap.of(),
-        ImmutableMap.of(),
-        expectedNullMarkedClasses);
+    runTest("NotNullMarked.java", lines, ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
   }
 
   @Test
@@ -186,9 +180,7 @@ public class LibraryModelGeneratorTest {
           " }",
           "}"
         };
-    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords = ImmutableMap.of();
-    runTest(
-        "NullUnmarked.java", lines, expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of());
+    runTest("NullUnmarked.java", lines, ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
   }
 
   @Test
