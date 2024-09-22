@@ -176,8 +176,7 @@ public class LibraryModelGeneratorTest {
         new String[] {
           "import org.jspecify.annotations.NullMarked;",
           "import org.jspecify.annotations.Nullable;",
-          "@NullMarked",
-          "public class NullableParameters{",
+          "public class NullUnmarked{",
           " public static Object getNewObjectIfNull(@Nullable Object object) {",
           "   if (object == null) {",
           "     return new Object();",
@@ -187,17 +186,9 @@ public class LibraryModelGeneratorTest {
           " }",
           "}"
         };
-    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
-        ImmutableMap.of(
-            "NullableParameters:java.lang.Object getNewObjectIfNull(java.lang.Object)",
-            MethodAnnotationsRecord.create(
-                ImmutableSet.of(), ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords = ImmutableMap.of();
     runTest(
-        "NullableParameters.java",
-        lines,
-        expectedMethodRecords,
-        ImmutableMap.of(),
-        ImmutableSet.of("NullableParameters"));
+        "NullUnmarked.java", lines, expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of());
   }
 
   @Test
@@ -283,5 +274,34 @@ public class LibraryModelGeneratorTest {
         expectedMethodRecords,
         ImmutableMap.of(),
         ImmutableSet.of("PrimitiveType"));
+  }
+
+  @Test
+  public void voidReturn() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "import org.jspecify.annotations.Nullable;",
+          "@NullMarked",
+          "public class VoidReturn {",
+          "    public void printMultiply(@Nullable Integer num1, @Nullable Integer num2) {",
+          "       if(num1!=null && num2!=null){",
+          "           System.out.println(num1*num2);",
+          "       }",
+          "    }",
+          "}"
+        };
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "VoidReturn:void printMultiply(java.lang.Integer, java.lang.Integer)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable"), 1, ImmutableSet.of("Nullable"))));
+    runTest(
+        "VoidReturn.java",
+        lines,
+        expectedMethodRecords,
+        ImmutableMap.of(),
+        ImmutableSet.of("VoidReturn"));
   }
 }
