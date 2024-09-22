@@ -50,9 +50,4 @@ tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED"
 }
 
-tasks.getByName('testJdk23').configure {
-    // Doesn't work yet
-    onlyIf { false }
-}
-
 apply plugin: 'com.vanniktech.maven.publish'
