@@ -1878,6 +1878,8 @@ public class GenericsTests extends NullAwayTestsBase {
   @Test
   public void intersectionTypeInvalidAssign() {
     String[] source;
+    // javac behavior differs between versions before and after 23, so we have two versions of the
+    // test source code
     if (Runtime.version().feature() >= 23) {
       source =
           new String[] {
@@ -1904,6 +1906,8 @@ public class GenericsTests extends NullAwayTestsBase {
             "}"
           };
     } else {
+      // Before JDK 23, javac does not compute types with annotations for cast expressions, so the
+      // test assertions do not work as expected.
       source =
           new String[] {
             "package com.uber;",
