@@ -32,6 +32,17 @@ public class Toys {
     }
   }
 
+  @SuppressWarnings("ArrayHashCode")
+  public static int testArray(Object[] o) {
+    return o.hashCode();
+  }
+
+  public static class Generic<T> {
+    public String getString(T t) {
+      return t.toString();
+    }
+  }
+
   public static void main(String arg[]) throws java.io.IOException {
     String s = "test string...";
     Foo f = new Foo("let's");

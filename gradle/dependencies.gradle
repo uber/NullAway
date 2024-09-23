@@ -52,6 +52,7 @@ def versions = [
     commonscli             : "1.4",
     autoValue              : "1.10.2",
     autoService            : "1.1.1",
+    javaparser             : "3.26.2",
 ]
 
 def apt = [
@@ -75,7 +76,8 @@ def build = [
     errorProneTestHelpersOld: "com.google.errorprone:error_prone_test_helpers:${oldestErrorProneVersion}",
     checkerDataflow         : "org.checkerframework:dataflow-nullaway:${versions.checkerFramework}",
     guava                   : "com.google.guava:guava:30.1-jre",
-    javaparser              : "com.github.javaparser:javaparser-core:3.26.0",
+    javaparser              : "com.github.javaparser:javaparser-core:${versions.javaparser}",
+    javaparserSymbolSolver  : "com.github.javaparser:javaparser-symbol-solver-core:${versions.javaparser}",
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
     jspecify                : "org.jspecify:jspecify:1.0.0",
     commonsIO               : "commons-io:commons-io:2.11.0",
