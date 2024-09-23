@@ -179,4 +179,112 @@ public class LibraryModelIntegrationTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void libraryModelDefaultParameterNullabilityTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.test.ParameterAnnotationExample;",
+            "class Test {",
+            "  static ParameterAnnotationExample annotationExample = new ParameterAnnotationExample();",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    annotationExample.add(5,null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void libraryModelParameterNullabilityTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.test.ParameterAnnotationExample;",
+            "class Test {",
+            "  static ParameterAnnotationExample annotationExample = new ParameterAnnotationExample();",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    annotationExample.printObjectString(null);",
+            "  }",
+            "  static void testNegative() {",
+            "    annotationExample.getNewObjectIfNull(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableArrayTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.test.ParameterAnnotationExample;",
+            "class Test {",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    ParameterAnnotationExample.takesNonNullArray(null);",
+            "  }",
+            "  static void testNegative() {",
+            "    ParameterAnnotationExample.takesNullArray(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void genericParameterTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.test.ParameterAnnotationExample;",
+            "class Test {",
+            "  static ParameterAnnotationExample.Generic<String> ex = new ParameterAnnotationExample.Generic<>();",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    ex.printObjectString(null);",
+            "  }",
+            "  static void testNegative() {",
+            "    ex.getString(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

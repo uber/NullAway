@@ -29,11 +29,20 @@ import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.PackageDeclaration;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.expr.AnnotationExpr;
 import com.github.javaparser.ast.type.ArrayType;
 import com.github.javaparser.ast.type.ClassOrInterfaceType;
 import com.github.javaparser.ast.type.TypeParameter;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
+import com.github.javaparser.resolution.TypeSolver;
+import com.github.javaparser.resolution.declarations.ResolvedMethodDeclaration;
+import com.github.javaparser.resolution.types.ResolvedPrimitiveType;
+import com.github.javaparser.resolution.types.ResolvedType;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import com.github.javaparser.utils.CollectionStrategy;
 import com.github.javaparser.utils.ParserCollectionStrategy;
 import com.github.javaparser.utils.ProjectRoot;
@@ -47,8 +56,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -69,12 +80,15 @@ public class LibraryModelGenerator {
   public static class LibraryModelData {
     public final Map<String, MethodAnnotationsRecord> methodRecords;
     public final Map<String, Set<Integer>> nullableUpperBounds;
+    public final Set<String> nullMarkedClasses;
 
     public LibraryModelData(
         Map<String, MethodAnnotationsRecord> methodRecords,
-        Map<String, Set<Integer>> nullableUpperBounds) {
+        Map<String, Set<Integer>> nullableUpperBounds,
+        Set<String> nullMarkedClasses) {
       this.methodRecords = methodRecords;
       this.nullableUpperBounds = nullableUpperBounds;
+      this.nullMarkedClasses = nullMarkedClasses;
     }
 
     @Override
@@ -84,6 +98,8 @@ public class LibraryModelGenerator {
           + methodRecords
           + ", nullableUpperBounds="
           + nullableUpperBounds
+          + ", nullMarkedClasses="
+          + nullMarkedClasses
           + '}';
     }
   }
@@ -97,14 +113,21 @@ public class LibraryModelGenerator {
   public static LibraryModelData generateAstubxForLibraryModels(
       String inputSourceDirectory, String outputFile) {
     Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
+    Set<String> nullMarkedClasses = new HashSet<>();
     Map<String, Set<Integer>> nullableUpperBounds = new LinkedHashMap<>();
     Path root = dirnameToPath(inputSourceDirectory);
-    LibraryModelData modelData = new LibraryModelData(methodRecords, nullableUpperBounds);
+    LibraryModelData modelData =
+        new LibraryModelData(methodRecords, nullableUpperBounds, nullMarkedClasses);
     AnnotationCollectorCallback ac = new AnnotationCollectorCallback(modelData);
     CollectionStrategy strategy = new ParserCollectionStrategy();
     // Required to include directories that contain a module-info.java, which don't parse by
     // default.
+    TypeSolver typeSolver =
+        new CombinedTypeSolver(
+            new ReflectionTypeSolver(), new JavaParserTypeSolver(Paths.get(inputSourceDirectory)));
+    JavaSymbolSolver symbolSolver = new JavaSymbolSolver(typeSolver);
     strategy.getParserConfiguration().setLanguageLevel(LanguageLevel.JAVA_17);
+    strategy.getParserConfiguration().setSymbolResolver(symbolSolver);
     ProjectRoot projectRoot = strategy.collect(root);
 
     projectRoot
@@ -130,7 +153,8 @@ public class LibraryModelGenerator {
   private static void writeToAstubx(String outputPath, LibraryModelData modelData) {
     Map<String, MethodAnnotationsRecord> methodRecords = modelData.methodRecords;
     Map<String, Set<Integer>> nullableUpperBounds = modelData.nullableUpperBounds;
-    if (methodRecords.isEmpty() && nullableUpperBounds.isEmpty()) {
+    Set<String> nullMarkedClasses = modelData.nullMarkedClasses;
+    if (methodRecords.isEmpty() && nullableUpperBounds.isEmpty() && nullMarkedClasses.isEmpty()) {
       return;
     }
     ImmutableMap<String, String> importedAnnotations =
@@ -147,6 +171,7 @@ public class LibraryModelGenerator {
             Collections.emptyMap(),
             Collections.emptyMap(),
             methodRecords,
+            nullMarkedClasses,
             nullableUpperBounds);
       }
     } catch (IOException e) {
@@ -189,8 +214,8 @@ public class LibraryModelGenerator {
     private boolean isJspecifyNullableImportPresent = false;
     private boolean isNullMarked = false;
     private final Map<String, MethodAnnotationsRecord> methodRecords;
+    private final Set<String> nullMarkedClasses;
     private final Map<String, Set<Integer>> nullableUpperBounds;
-    private static final String ARRAY_RETURN_TYPE_STRING = "Array";
     private static final String NULL_MARKED = "NullMarked";
     private static final String NULLABLE = "Nullable";
     private static final String JSPECIFY_NULLABLE_IMPORT = "org.jspecify.annotations.Nullable";
@@ -198,6 +223,7 @@ public class LibraryModelGenerator {
     public AnnotationCollectionVisitor(LibraryModelData modelData) {
       this.methodRecords = modelData.methodRecords;
       this.nullableUpperBounds = modelData.nullableUpperBounds;
+      this.nullMarkedClasses = modelData.nullMarkedClasses;
     }
 
     @Override
@@ -226,13 +252,19 @@ public class LibraryModelGenerator {
         parentName += ".";
       }
       parentName += cid.getNameAsString();
-      cid.getAnnotations()
-          .forEach(
-              a -> {
-                if (a.getNameAsString().equalsIgnoreCase(NULL_MARKED)) {
-                  this.isNullMarked = true;
-                }
-              });
+      if (this.isNullMarked) {
+        // nested class, and enclosing class is null marked
+        this.nullMarkedClasses.add(parentName);
+      } else {
+        cid.getAnnotations()
+            .forEach(
+                a -> {
+                  if (a.getNameAsString().equalsIgnoreCase(NULL_MARKED)) {
+                    this.isNullMarked = true;
+                    this.nullMarkedClasses.add(parentName);
+                  }
+                });
+      }
       if (this.isNullMarked) {
         ImmutableSet<Integer> nullableUpperBoundParams =
             getGenericTypeParameterNullableUpperBounds(cid);
@@ -247,10 +279,24 @@ public class LibraryModelGenerator {
 
     @Override
     public void visit(MethodDeclaration md, Void arg) {
-      if (this.isNullMarked && hasNullableReturn(md)) {
+      ImmutableMap<Integer, ImmutableSet<String>> nullableParameterMap = getNullableParameters(md);
+      boolean isReturnNullable = hasNullableReturn(md);
+      ImmutableSet<String> nullableReturn =
+          isReturnNullable ? ImmutableSet.of(NULLABLE) : ImmutableSet.of();
+      // We write the method record into the astubx if it contains a Nullable return or any Nullable
+      // parameter.
+      ResolvedMethodDeclaration resolved = md.resolve();
+      String qualifiedSignature = resolved.getQualifiedSignature();
+      String methodSignatureWithQualifiedParameters =
+          qualifiedSignature.substring(qualifiedSignature.lastIndexOf(md.getNameAsString()));
+      if (this.isNullMarked && (isReturnNullable || !nullableParameterMap.isEmpty())) {
         methodRecords.put(
-            parentName + ":" + getMethodReturnTypeString(md) + " " + md.getSignature().toString(),
-            MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
+            parentName
+                + ":"
+                + getMethodReturnTypeString(resolved)
+                + " "
+                + methodSignatureWithQualifiedParameters,
+            MethodAnnotationsRecord.create(nullableReturn, nullableParameterMap));
       }
       super.visit(md, null);
     }
@@ -288,13 +334,19 @@ public class LibraryModelGenerator {
      * @param md The MethodDeclaration instance.
      * @return The return type string value to be written into the astubx file.
      */
-    private String getMethodReturnTypeString(MethodDeclaration md) {
-      if (md.getType() instanceof ClassOrInterfaceType) {
-        return md.getType().getChildNodes().get(0).toString();
-      } else if (md.getType() instanceof ArrayType) {
-        return ARRAY_RETURN_TYPE_STRING;
+    private String getMethodReturnTypeString(ResolvedMethodDeclaration md) {
+      ResolvedType returnType = md.getReturnType();
+      if (returnType.isReferenceType()) {
+        return returnType.asReferenceType().getQualifiedName();
+      } else if (returnType.isArray()) {
+        return returnType.asArrayType().getComponentType().asReferenceType().getQualifiedName()
+            + "[]";
+      } else if (returnType.isPrimitive()) {
+        return ((ResolvedPrimitiveType) returnType).name().toLowerCase(Locale.ROOT);
+      } else if (returnType.isVoid()) {
+        return "void";
       } else {
-        return md.getType().toString();
+        throw new RuntimeException("Unexpected return type: " + returnType);
       }
     }
 
@@ -326,6 +378,34 @@ public class LibraryModelGenerator {
         }
       }
       return setBuilder.build();
+    }
+
+    /**
+     * Takes a MethodDeclaration instance and provides a map containing the Integer indices for the
+     * parameters with their Nullable annotation to be written in the astubx format.
+     *
+     * @param md MethodDeclaration instance.
+     * @return Map of Nullable parameters for the method.
+     */
+    private ImmutableMap<Integer, ImmutableSet<String>> getNullableParameters(
+        MethodDeclaration md) {
+      ImmutableMap.Builder<Integer, ImmutableSet<String>> mapBuilder = ImmutableMap.builder();
+      List<Parameter> parameterList = md.getParameters();
+      for (int i = 0; i < parameterList.size(); i++) {
+        Parameter parameter = parameterList.get(i);
+        Optional<AnnotationExpr> nullableAnnotation;
+        // For ArrayTypes the annotation is on the type instead of the node when the elements inside
+        // the Array can be @Nullable for e.g. Object @Nullable []
+        if (parameter.getType() instanceof ArrayType) {
+          nullableAnnotation = ((ArrayType) parameter.getType()).getAnnotationByName(NULLABLE);
+        } else {
+          nullableAnnotation = parameter.getAnnotationByName(NULLABLE);
+        }
+        if (nullableAnnotation.isPresent() && isAnnotationNullable(nullableAnnotation.get())) {
+          mapBuilder.put(i, ImmutableSet.of("Nullable"));
+        }
+      }
+      return mapBuilder.build();
     }
   }
 }

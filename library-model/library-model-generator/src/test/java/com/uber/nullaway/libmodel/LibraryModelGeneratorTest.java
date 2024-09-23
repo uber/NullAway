@@ -27,7 +27,8 @@ public class LibraryModelGeneratorTest {
       String sourceFileName,
       String[] lines,
       ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords,
-      ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds)
+      ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds,
+      ImmutableSet<String> expectedNullMarkedClasses)
       throws IOException {
     // write it to a source file in inputSourcesFolder with the right file name
     Files.write(
@@ -40,9 +41,15 @@ public class LibraryModelGeneratorTest {
         LibraryModelGenerator.generateAstubxForLibraryModels(
             inputSourcesFolder.getRoot().getAbsolutePath(), astubxOutputPath);
     System.err.println("modelData: " + modelData);
-    Assert.assertTrue("astubx file was not created", Files.exists(Paths.get(astubxOutputPath)));
     assertThat(modelData.methodRecords, equalTo(expectedMethodRecords));
     assertThat(modelData.nullableUpperBounds, equalTo(expectedNullableUpperBounds));
+    assertThat(modelData.nullMarkedClasses, equalTo(expectedNullMarkedClasses));
+    Assert.assertTrue(
+        "astubx file was not created",
+        Files.exists(Paths.get(astubxOutputPath))
+            || (expectedMethodRecords.isEmpty()
+                && expectedNullableUpperBounds.isEmpty()
+                && expectedNullMarkedClasses.isEmpty()));
   }
 
   @Test
@@ -65,9 +72,14 @@ public class LibraryModelGeneratorTest {
         };
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
-            "AnnotationExample:String makeUpperCase(String)",
+            "AnnotationExample:java.lang.String makeUpperCase(java.lang.String)",
             MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
-    runTest("AnnotationExample.java", lines, expectedMethodRecords, ImmutableMap.of());
+    runTest(
+        "AnnotationExample.java",
+        lines,
+        expectedMethodRecords,
+        ImmutableMap.of(),
+        ImmutableSet.of("AnnotationExample"));
   }
 
   @Test
@@ -86,6 +98,202 @@ public class LibraryModelGeneratorTest {
         };
     ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds =
         ImmutableMap.of("NullableUpperBound", ImmutableSet.of(0));
-    runTest("NullableUpperBound.java", lines, ImmutableMap.of(), expectedNullableUpperBounds);
+    runTest(
+        "NullableUpperBound.java",
+        lines,
+        ImmutableMap.of(),
+        expectedNullableUpperBounds,
+        ImmutableSet.of("NullableUpperBound"));
+  }
+
+  @Test
+  public void nullMarkedClasses() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "@NullMarked",
+          "public class NullMarked {",
+          "  public static class Nested {}",
+          "}",
+        };
+    ImmutableSet<String> expectedNullMarkedClasses =
+        ImmutableSet.of("NullMarked", "NullMarked.Nested");
+    runTest(
+        "NullMarked.java", lines, ImmutableMap.of(), ImmutableMap.of(), expectedNullMarkedClasses);
+  }
+
+  @Test
+  public void noNullMarkedClasses() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "public class NotNullMarked {",
+          "  public static class Nested {}",
+          "}",
+        };
+    runTest("NotNullMarked.java", lines, ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
+  }
+
+  @Test
+  public void nullableParameters() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "import org.jspecify.annotations.Nullable;",
+          "@NullMarked",
+          "public class NullableParameters{",
+          " public static Object getNewObjectIfNull(@Nullable Object object) {",
+          "   if (object == null) {",
+          "     return new Object();",
+          "   } else {",
+          "     return object;",
+          "   }",
+          " }",
+          "}"
+        };
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "NullableParameters:java.lang.Object getNewObjectIfNull(java.lang.Object)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(), ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+    runTest(
+        "NullableParameters.java",
+        lines,
+        expectedMethodRecords,
+        ImmutableMap.of(),
+        ImmutableSet.of("NullableParameters"));
+  }
+
+  @Test
+  public void nullableParametersInNullUnmarkedClass() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "import org.jspecify.annotations.Nullable;",
+          "public class NullUnmarked{",
+          " public static Object getNewObjectIfNull(@Nullable Object object) {",
+          "   if (object == null) {",
+          "     return new Object();",
+          "   } else {",
+          "     return object;",
+          "   }",
+          " }",
+          "}"
+        };
+    runTest("NullUnmarked.java", lines, ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
+  }
+
+  @Test
+  public void nullableArrayTypeParameter() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "import org.jspecify.annotations.Nullable;",
+          "@NullMarked",
+          "public class NullableParameters{",
+          " public static Object[] getNewObjectArrayIfNull(Object @Nullable [] objectArray) {",
+          "   if (Arrays.stream(objectArray).allMatch(e -> e == null)) {",
+          "     return new Object[]{new Object(),new Object()};",
+          "   } else {",
+          "     return objectArray;",
+          "   }",
+          " }",
+          "}"
+        };
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "NullableParameters:java.lang.Object[] getNewObjectArrayIfNull(java.lang.Object[])",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(), ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+    runTest(
+        "NullableParameters.java",
+        lines,
+        expectedMethodRecords,
+        ImmutableMap.of(),
+        ImmutableSet.of("NullableParameters"));
+  }
+
+  @Test
+  public void genericParameter() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "import org.jspecify.annotations.Nullable;",
+          "@NullMarked",
+          "public class Generic<T> {",
+          " public String getString(@Nullable T t) {",
+          "   return t.toString();",
+          " }",
+          "}"
+        };
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "Generic:java.lang.String getString(T)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(), ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+    runTest(
+        "Generic.java",
+        lines,
+        expectedMethodRecords,
+        ImmutableMap.of(),
+        ImmutableSet.of("Generic"));
+  }
+
+  @Test
+  public void primitiveTypeReturn() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "import org.jspecify.annotations.Nullable;",
+          "@NullMarked",
+          "public class PrimitiveType {",
+          "    public int multiply(@Nullable Integer num1, @Nullable Integer num2) {",
+          "       if(num1!=null && num2!=null){",
+          "           return num1*num2;",
+          "       }",
+          "    }",
+          "}"
+        };
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "PrimitiveType:int multiply(java.lang.Integer, java.lang.Integer)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable"), 1, ImmutableSet.of("Nullable"))));
+    runTest(
+        "PrimitiveType.java",
+        lines,
+        expectedMethodRecords,
+        ImmutableMap.of(),
+        ImmutableSet.of("PrimitiveType"));
+  }
+
+  @Test
+  public void voidReturn() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "import org.jspecify.annotations.Nullable;",
+          "@NullMarked",
+          "public class VoidReturn {",
+          "    public void printMultiply(@Nullable Integer num1, @Nullable Integer num2) {",
+          "       if(num1!=null && num2!=null){",
+          "           System.out.println(num1*num2);",
+          "       }",
+          "    }",
+          "}"
+        };
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "VoidReturn:void printMultiply(java.lang.Integer, java.lang.Integer)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable"), 1, ImmutableSet.of("Nullable"))));
+    runTest(
+        "VoidReturn.java",
+        lines,
+        expectedMethodRecords,
+        ImmutableMap.of(),
+        ImmutableSet.of("VoidReturn"));
   }
 }
