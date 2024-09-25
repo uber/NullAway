@@ -230,14 +230,7 @@ public class NullabilityUtil {
    */
   public static @Nullable Set<String> getAnnotationValueArray(
       Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
-    AnnotationMirror annot = null;
-    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
-      String name = AnnotationUtils.annotationName(annotationMirror);
-      if ((exactMatch && name.equals(annotName)) || (!exactMatch && name.endsWith(annotName))) {
-        annot = annotationMirror;
-        break;
-      }
-    }
+    AnnotationMirror annot = findAnnotation(methodSymbol, annotName, exactMatch);
     if (annot == null) {
       return null;
     }
@@ -253,6 +246,22 @@ public class NullabilityUtil {
       }
     }
     return null;
+  }
+
+  public static @Nullable AnnotationMirror findAnnotation(
+      Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
+    AnnotationMirror annot = null;
+    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
+      String name = AnnotationUtils.annotationName(annotationMirror);
+      if ((exactMatch && name.equals(annotName)) || (!exactMatch && name.endsWith(annotName))) {
+        annot = annotationMirror;
+        break;
+      }
+    }
+    if (annot == null) {
+      return null;
+    }
+    return annot;
   }
 
   /**

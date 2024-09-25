@@ -8,7 +8,9 @@ import java.lang.annotation.Target;
 /**
  * An annotation describing a nullability post-condition for an instance method. Each parameter to
  * the annotation should be a field of the enclosing class. The method must ensure that the method
- * returns true in case the fields are non-null. NullAway verifies that this property holds.
+ * returns true in case the fields are non-null. The method can also return true in case the fields
+ * are null (inverse logic), and in such case, you must set trueIfNonNull to false. NullAway
+ * verifies that the property holds.
  *
  * <p>Here is an example:
  *
@@ -33,4 +35,6 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD})
 public @interface EnsuresNonNullIf {
   String[] value();
+
+  boolean trueIfNonNull() default true;
 }

@@ -34,6 +34,7 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
@@ -42,8 +43,12 @@ import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
@@ -139,19 +144,23 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
       }
 
       Set<String> fieldNames = getAnnotationValueArray(visitingMethodSymbol, annotName, false);
+      boolean trueIfNonNull = getTrueIfNonNullValue(visitingMethodSymbol);
 
       // We extract all the data-flow of the fields found by the engine in the "then" case (i.e.,
       // true case)
       // and check whether all fields in the annotation parameter are non-null
       Set<String> nonNullFieldsInPath =
-          thenStore.getAccessPathsWithValue(Nullness.NONNULL).stream()
+          thenStore
+              .getAccessPathsWithValue(trueIfNonNull ? Nullness.NONNULL : Nullness.NULL)
+              .stream()
               .flatMap(ap -> ap.getElements().stream())
               .map(e -> e.getJavaElement().getSimpleName().toString())
               .collect(Collectors.toSet());
       boolean allFieldsInPathAreVerified = nonNullFieldsInPath.containsAll(fieldNames);
 
       if (allFieldsInPathAreVerified) {
-        // If it's a literal, then, it needs to return true
+        // If it's a literal, then, it needs to return true/false, depending on the trueIfNonNull
+        // flag
         if (tree.getExpression() instanceof LiteralTree) {
           LiteralTree expressionAsLiteral = (LiteralTree) tree.getExpression();
           if (expressionAsLiteral.getValue() instanceof Boolean) {
@@ -169,6 +178,26 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
         this.missingFieldNames = new HashSet<>(fieldNames);
       }
     }
+  }
+
+  private boolean getTrueIfNonNullValue(Symbol.MethodSymbol methodSymbol) {
+    AnnotationMirror annot = NullabilityUtil.findAnnotation(methodSymbol, annotName, false);
+    if (annot == null) {
+      return true;
+    }
+
+    Map<? extends ExecutableElement, ? extends AnnotationValue> elementValues =
+        annot.getElementValues();
+    for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
+        elementValues.entrySet()) {
+      ExecutableElement elem = entry.getKey();
+      if (elem.getSimpleName().contentEquals("trueIfNonNull")) {
+        return (boolean) entry.getValue().getValue();
+      }
+    }
+
+    // Not explicitly declared in the annotation, so we default to true
+    return true;
   }
 
   /**
@@ -193,6 +222,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
     Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames != null) {
+      boolean trueIfNonNull = getTrueIfNonNullValue(methodSymbol);
       fieldNames = ContractUtils.trimReceivers(fieldNames);
       for (String fieldName : fieldNames) {
         VariableElement field =
@@ -209,10 +239,11 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
           continue;
         }
 
-        // The call to the EnsuresNonNullIf method ensures that the field is then not null at this
-        // point. In here, we assume that the annotated method is already validated, and therefore,
-        // does ensure the non-null.
-        bothUpdates.set(accessPath, Nullness.NONNULL);
+        // The call to the EnsuresNonNullIf method ensures that the field is then not null
+        // (or null, depending on the trueIfNotNUll flag) at this point.
+        // In here, we assume that the annotated method is already validated.
+        thenUpdates.set(accessPath, trueIfNonNull ? Nullness.NONNULL : Nullness.NULL);
+        elseUpdates.set(accessPath, trueIfNonNull ? Nullness.NULL : Nullness.NONNULL);
       }
     }
 
