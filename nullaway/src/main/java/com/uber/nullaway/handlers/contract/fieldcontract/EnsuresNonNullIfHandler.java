@@ -46,6 +46,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.ExecutableElement;
@@ -62,7 +63,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
   private boolean semanticsHold;
   // List of fields missing in the current EnsuresNonNullIf method so we can build proper error
   // message
-  private Set<String> missingFieldNames;
+  @Nullable private Set<String> missingFieldNames;
 
   public EnsuresNonNullIfHandler() {
     super("EnsuresNonNullIf");
@@ -136,13 +137,17 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
   public void onDataflowVisitReturn(
       ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore) {
     if (visitingAnnotatedMethod) {
-      // We might have already found a flow that ensures the non-nullness, so we don't keep going
-      // deep.
+      // We might have already found another return tree that results in what we need,
+      // so we don't keep going deep.
       if (semanticsHold) {
         return;
       }
 
       Set<String> fieldNames = getAnnotationValueArray(visitingMethodSymbol, annotName, false);
+      if (fieldNames == null) {
+        throw new RuntimeException("List of field names shouldn't be null");
+      }
+
       boolean trueIfNonNull = getTrueIfNonNullValue(visitingMethodSymbol);
 
       // We extract all the data-flow of the fields found by the engine in the "then" case (i.e.,
