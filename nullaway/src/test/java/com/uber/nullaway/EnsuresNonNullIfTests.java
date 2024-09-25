@@ -6,7 +6,7 @@ import org.junit.Test;
 public class EnsuresNonNullIfTests extends NullAwayTestsBase {
 
   @Test
-  public void ensuresNonNullMethodCalled() {
+  public void ensuresNonNullMethod() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -93,7 +93,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void understandsWrongReturnFlowsInEnsuresNonNullMethods() {
+  public void catchesWrongReturnFlows() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -254,7 +254,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void missingSomeChecks() {
+  public void missingChecksAreDetected() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -288,7 +288,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void ensuresNonNullMethodCalledUsingThis() {
+  public void ensuresNonNullMethodUsingThis() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -350,12 +350,14 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "class Foo {",
             "  @Nullable Item nullableItem;",
             "  @EnsuresNonNullIf(\"nullableItem\")",
-            "  public boolean hasNullableItem() {"
-                + "    return nullableItem != null;"
-                + "  }"
-                + "  public void runOk() {",
+            "  public boolean hasNullableItem() {",
+            "    return nullableItem != null;",
+            "  }",
+            "  public void runOk() {",
             "    boolean check = !hasNullableItem();",
-            "    if(check) {" + "      return;" + "    }",
+            "    if(check) {",
+            "      return;",
+            "    }",
             "    nullableItem.call();",
             "  }",
             "}")
@@ -375,10 +377,10 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "class Foo {",
             "  @Nullable Item nullableItem;",
             "  @EnsuresNonNullIf(\"nullableItem\")",
-            "  public boolean hasNullableItem() {"
-                + "    return nullableItem != null;"
-                + "  }"
-                + "  public void runNOk() {",
+            "  public boolean hasNullableItem() {",
+            "    return nullableItem != null;",
+            "  }",
+            "  public void runNOk() {",
             "    // BUG: Diagnostic contains: dereferenced expression nullableItem",
             "    nullableItem.call();",
             "  }",
@@ -389,7 +391,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void warnsIfEnsuresNonNullIfIsWrong() {
+  public void warnsIfEnsuresNonNullCheckIfIsWronglyImplemented() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -440,7 +442,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void supportEnsuresNonNullOverridingTest() {
+  public void checksForPostconditionsInInheritance() {
     defaultCompilationHelper
         .addSourceLines(
             "SuperClass.java",
