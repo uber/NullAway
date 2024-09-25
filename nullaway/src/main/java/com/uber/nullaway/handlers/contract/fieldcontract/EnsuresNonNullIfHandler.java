@@ -27,42 +27,38 @@ import static com.uber.nullaway.NullabilityUtil.getAnnotationValueArray;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.BinaryTree;
-import com.sun.source.tree.BlockTree;
-import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LiteralTree;
-import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodTree;
-import com.sun.source.tree.PrimitiveTypeTree;
 import com.sun.source.tree.ReturnTree;
-import com.sun.source.tree.Tree;
-import com.sun.source.util.TreeScanner;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
+import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
 import com.uber.nullaway.handlers.contract.ContractUtils;
+import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 
 /**
  * This Handler parses {@code @EnsuresNonNullIf} annotation and when the annotated method is
- * invoked, it annotates the fields as not null. The following tasks are performed when the
- * {@code @EnsuresNonNullIf} annotation is observed:
- *
- * <ul>
- *   <li>It validates the syntax of the annotation.
- *   <li>It validates whether all fields specified in the annotation are part in a return expression
- *       comparing its value to null
- * </ul>
+ * invoked, it marks the annotated fields as not-null in the following flows.
  */
 public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
+
+  // Field is set to true when the EnsuresNonNullIf method ensures that all listed fields are
+  // checked for non-nullness
+  private boolean currentEnsuresNonNullIfMethodChecksNullnessOfAllFields;
+  // List of fields missing in the current EnsuresNonNullIf method so we can build proper error
+  // message
+  private Set<String> missingFieldNames;
 
   public EnsuresNonNullIfHandler() {
     super("EnsuresNonNullIf");
@@ -75,30 +71,34 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
   @Override
   protected boolean validateAnnotationSemantics(
       MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
-    Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
-    VisitorState state = methodAnalysisContext.state();
+    // If no body in the method, return false right away
+    // TODO: Do we need proper error message here?
+    if (tree.getBody() == null) {
+      return false;
+    }
+
+    // clean up state variables, as we are visiting a new annotated method
+    currentEnsuresNonNullIfMethodChecksNullnessOfAllFields = false;
+    missingFieldNames = null;
+
+    // We force the nullness analysis of the method
     NullAway analysis = methodAnalysisContext.analysis();
+    VisitorState state = methodAnalysisContext.state();
+    analysis
+        .getNullnessAnalysis(state)
+        .forceRunOnMethod(new TreePath(state.getPath(), tree), state.context);
 
-    Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
-    if (fieldNames == null) {
-      return false;
-    }
-
-    // Validate that the method returns boolean
-    if (validateBooleanReturnType(tree, state, analysis)) {
-      return false;
-    }
-    // TODO: check if the fields actually exist
-
-    // Check whether the method follows the expected pattern
-    BlockTree body = tree.getBody();
-    boolean result = body != null && body.accept(new ReturnExpressionVisitor(), fieldNames);
-
-    if (!result) {
-      String message =
-          String.format(
-              "Method is annotated with @EnsuresNonNullIf but does not implement 'return %s != null'",
-              fieldNames);
+    // If listed fields aren't checked for their nullness, return error
+    if (!currentEnsuresNonNullIfMethodChecksNullnessOfAllFields) {
+      String message;
+      if (missingFieldNames == null) {
+        message = "Method is annotated with @EnsuresNonNullIf but does not return boolean";
+      } else {
+        message =
+            String.format(
+                "Method is annotated with @EnsuresNonNullIf but does not ensure fields %s",
+                missingFieldNames);
+      }
       state.reportMatch(
           analysis
               .getErrorBuilder()
@@ -113,77 +113,6 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     return true;
   }
 
-  private static boolean validateBooleanReturnType(
-      MethodTree tree, VisitorState state, NullAway analysis) {
-    Tree returnType = tree.getReturnType();
-    if (!(returnType instanceof PrimitiveTypeTree)
-        || ((PrimitiveTypeTree) returnType).getPrimitiveTypeKind() != TypeKind.BOOLEAN) {
-      state.reportMatch(
-          analysis
-              .getErrorBuilder()
-              .createErrorDescription(
-                  new ErrorMessage(
-                      ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED,
-                      "@EnsuresNonNullIf methods should return true"),
-                  tree,
-                  analysis.buildDescription(tree),
-                  state,
-                  null));
-      return true;
-    }
-    return false;
-  }
-
-  // TODO: support multiple fields instead of just one
-  private static final class ReturnExpressionVisitor extends TreeScanner<Boolean, Set<String>> {
-
-    @Override
-    public Boolean visitReturn(ReturnTree node, Set<String> fieldNames) {
-      var expression = node.getExpression();
-
-      // Has to be a binary expression, e.g., a != b;
-      if (!(expression instanceof BinaryTree)) {
-        return false;
-      }
-
-      var binaryTree = (BinaryTree) expression;
-
-      // Left op could be an identifier (e.g., "fieldName") or a field access (this.fieldName)
-      // The identifier has to be on the list of fields
-      boolean isAnIdentifier = binaryTree.getLeftOperand() instanceof IdentifierTree;
-      boolean isAFieldAccess = binaryTree.getLeftOperand() instanceof MemberSelectTree;
-      if (isAnIdentifier) {
-        var leftOp = (IdentifierTree) binaryTree.getLeftOperand();
-        String identifier = leftOp.getName().toString();
-        if (!fieldNames.contains(identifier)) {
-          return false;
-        }
-      } else if (isAFieldAccess) {
-        var leftOp = (MemberSelectTree) binaryTree.getLeftOperand();
-        String identifier = leftOp.getIdentifier().toString();
-        if (!fieldNames.contains(identifier)) {
-          return false;
-        }
-      } else {
-        // If not any, then, it's incorrect!
-        return false;
-      }
-
-      // right op has to be "null"!
-      var rightOp = (LiteralTree) binaryTree.getRightOperand();
-      if (!rightOp.toString().equals("null")) {
-        return false;
-      }
-
-      // comparison has to be !=
-      if (binaryTree.getKind() != Tree.Kind.NOT_EQUAL_TO) {
-        return false;
-      }
-
-      return true;
-    }
-  }
-
   /** TODO */
   @Override
   protected void validateOverridingRules(
@@ -192,6 +121,49 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
       VisitorState state,
       MethodTree tree,
       Symbol.MethodSymbol overriddenMethod) {}
+
+  @Override
+  public void onDataflowVisitReturn(
+      ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore) {
+    if (visitingAnnotatedMethod) {
+      // We might have already found a flow that ensures the non-nullness, so we don't keep going
+      // deep.
+      if (currentEnsuresNonNullIfMethodChecksNullnessOfAllFields) {
+        return;
+      }
+
+      Set<String> fieldNames = getAnnotationValueArray(visitingMethodSymbol, annotName, false);
+
+      // We extract all the data-flow of the fields found by the engine in the "then" case (i.e.,
+      // true case)
+      // and check whether all fields in the annotation parameter are non-null
+      Set<String> nonNullFieldsInPath =
+          thenStore.getAccessPathsWithValue(Nullness.NONNULL).stream()
+              .flatMap(ap -> ap.getElements().stream())
+              .map(e -> e.getJavaElement().getSimpleName().toString())
+              .collect(Collectors.toSet());
+      boolean allFieldsInPathAreVerified = nonNullFieldsInPath.containsAll(fieldNames);
+
+      if (allFieldsInPathAreVerified) {
+        // If it's a literal, then, it needs to return true
+        if (tree.getExpression() instanceof LiteralTree) {
+          LiteralTree expressionAsLiteral = (LiteralTree) tree.getExpression();
+          if (expressionAsLiteral.getValue() instanceof Boolean) {
+            boolean literalValueOfExpression = (boolean) expressionAsLiteral.getValue();
+            this.currentEnsuresNonNullIfMethodChecksNullnessOfAllFields = literalValueOfExpression;
+          }
+        } else {
+          // We then trust on the analysis of the engine that, at this point, the field is checked
+          // for null
+          this.currentEnsuresNonNullIfMethodChecksNullnessOfAllFields = true;
+        }
+      } else {
+        // Build list of missing fields for the elegant validation error message
+        fieldNames.removeAll(nonNullFieldsInPath);
+        this.missingFieldNames = new HashSet<>(fieldNames);
+      }
+    }
+  }
 
   /**
    * On every method annotated with {@link EnsuresNonNullIf}, this method injects the {@code
@@ -232,7 +204,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
         }
 
         // The call to the EnsuresNonNullIf method ensures that the field is then not null at this
-        // point
+        // point. In here, we assume that the annotated method is already validated, and therefore,
+        // does ensure the non-null.
         bothUpdates.set(accessPath, Nullness.NONNULL);
       }
     }
