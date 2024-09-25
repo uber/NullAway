@@ -113,14 +113,20 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     return true;
   }
 
-  /** TODO */
+  /*
+   * Sub-classes can only strengthen the post-condition. We check if the list in the child classes
+   * is at least the same as in the parent class.
+   */
   @Override
   protected void validateOverridingRules(
       Set<String> overridingFieldNames,
       NullAway analysis,
       VisitorState state,
       MethodTree tree,
-      Symbol.MethodSymbol overriddenMethod) {}
+      Symbol.MethodSymbol overriddenMethod) {
+    FieldContractUtils.validateOverridingRules(
+        annotName, overridingFieldNames, analysis, state, tree, overriddenMethod);
+  }
 
   @Override
   public void onDataflowVisitReturn(

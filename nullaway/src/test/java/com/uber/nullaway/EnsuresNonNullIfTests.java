@@ -371,4 +371,56 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
         .doTest();
   }
+
+  @Test
+  public void supportEnsuresNonNullOverridingTest() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SuperClass.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class SuperClass {",
+            "  @Nullable Item a;",
+            "  @Nullable Item b;",
+            "  @EnsuresNonNullIf(\"a\")",
+            "  public boolean hasA() {",
+            "    return a != null;",
+            "  }",
+            "  @EnsuresNonNullIf(\"b\")",
+            "  public boolean hasB() {",
+            "    return b != null;",
+            "  }",
+            "  public void doSomething() {",
+            "    if(hasA()) {",
+            "      a.call();",
+            "    }",
+            "  }",
+            "}")
+        .addSourceLines(
+            "ChildLevelOne.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class ChildLevelOne extends SuperClass {",
+            "  @Nullable Item c;",
+            "  @EnsuresNonNullIf(\"c\")",
+            "  // BUG: Diagnostic contains: postcondition inheritance is violated, this method must guarantee that all fields written in the @EnsuresNonNullIf annotation of overridden method SuperClass.hasA are @NonNull at exit point as well. Fields [a] must explicitly appear as parameters at this method @EnsuresNonNull annotation",
+            "  public boolean hasA() {",
+            "    return c != null;",
+            "  }",
+            "  @EnsuresNonNullIf({\"b\", \"c\"})",
+            "  public boolean hasB() {",
+            "    return b != null && c != null;",
+            "  }",
+            "  public void doSomething() {",
+            "    if(hasB()) {",
+            "      b.call();",
+            "    }",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
 }
