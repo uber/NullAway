@@ -92,35 +92,6 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore // fails as both stores in the Return data flow mark the field as nullable
-  public void ensuresNonNullMethodWithMoreDataComplexFlow_2() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
-            "class Foo {",
-            "  @Nullable Item nullableItem;",
-            "  @EnsuresNonNullIf(\"nullableItem\")",
-            "  public boolean hasNullableItem() {",
-            "    var x = (nullableItem != null);",
-            "    return x;",
-            "  }",
-            "  public int runOk() {",
-            "    if(!hasNullableItem()) {",
-            "      return 1;",
-            "    }",
-            "    nullableItem.call();",
-            "    return 0;",
-            "  }",
-            "}")
-        .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
-        .doTest();
-  }
-
-  @Test
   public void catchesWrongReturnFlows() {
     defaultCompilationHelper
         .addSourceLines(
@@ -342,62 +313,6 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore
-  public void ensuresNonNullMethodResultStoredInVariable() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
-            "class Foo {",
-            "  @Nullable Item nullableItem;",
-            "  @EnsuresNonNullIf(\"nullableItem\")",
-            "  public boolean hasNullableItem() {",
-            "    return nullableItem != null;",
-            "  }",
-            "  public void runOk() {",
-            "    boolean check = hasNullableItem();",
-            "    if(!check) {",
-            "      return;",
-            "    }",
-            "    nullableItem.call();",
-            "  }",
-            "}")
-        .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
-        .doTest();
-  }
-
-  @Test
-  @Ignore
-  public void ensuresNonNullMethodResultStoredInVariableInverse() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
-            "class Foo {",
-            "  @Nullable Item nullableItem;",
-            "  @EnsuresNonNullIf(\"nullableItem\")",
-            "  public boolean hasNullableItem() {",
-            "    return nullableItem != null;",
-            "  }",
-            "  public void runOk() {",
-            "    boolean check = !hasNullableItem();",
-            "    if(check) {",
-            "      return;",
-            "    }",
-            "    nullableItem.call();",
-            "  }",
-            "}")
-        .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
-        .doTest();
-  }
-
-  @Test
   public void ensuresNonNullMethodNotCalled() {
     defaultCompilationHelper
         .addSourceLines(
@@ -604,6 +519,93 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "    nullableItem.call();",
             "    nullableItem2.call();",
             "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  // These tests are ignored because currently NullAway doesn't support data-flow of local variables
+
+  @Test
+  @Ignore // fails as both stores in the Return data flow mark the field as nullable
+  public void ensuresNonNullMethodWithMoreDataComplexFlow_2() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
+            "  public boolean hasNullableItem() {",
+            "    var x = (nullableItem != null);",
+            "    return x;",
+            "  }",
+            "  public int runOk() {",
+            "    if(!hasNullableItem()) {",
+            "      return 1;",
+            "    }",
+            "    nullableItem.call();",
+            "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  @Ignore
+  public void ensuresNonNullMethodResultStoredInVariable() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
+            "  public boolean hasNullableItem() {",
+            "    return nullableItem != null;",
+            "  }",
+            "  public void runOk() {",
+            "    boolean check = hasNullableItem();",
+            "    if(!check) {",
+            "      return;",
+            "    }",
+            "    nullableItem.call();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  @Ignore
+  public void ensuresNonNullMethodResultStoredInVariableInverse() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
+            "  public boolean hasNullableItem() {",
+            "    return nullableItem != null;",
+            "  }",
+            "  public void runOk() {",
+            "    boolean check = !hasNullableItem();",
+            "    if(check) {",
+            "      return;",
+            "    }",
+            "    nullableItem.call();",
             "  }",
             "}")
         .addSourceLines(
