@@ -58,9 +58,8 @@ import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
  */
 public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
-  // Field is set to true when the EnsuresNonNullIf method ensures that all listed fields are
-  // checked for non-nullness
-  private boolean currentEnsuresNonNullIfMethodChecksNullnessOfAllFields;
+  // Set to true when the current visited EnsuresNonNullIf method has correct semantics
+  private boolean semanticsHold;
   // List of fields missing in the current EnsuresNonNullIf method so we can build proper error
   // message
   private Set<String> missingFieldNames;
@@ -83,7 +82,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     }
 
     // clean up state variables, as we are visiting a new annotated method
-    currentEnsuresNonNullIfMethodChecksNullnessOfAllFields = false;
+    semanticsHold = false;
     missingFieldNames = null;
 
     // We force the nullness analysis of the method
@@ -94,7 +93,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
         .forceRunOnMethod(new TreePath(state.getPath(), tree), state.context);
 
     // If listed fields aren't checked for their nullness, return error
-    if (!currentEnsuresNonNullIfMethodChecksNullnessOfAllFields) {
+    if (!semanticsHold) {
       String message;
       if (missingFieldNames == null) {
         message = "Method is annotated with @EnsuresNonNullIf but does not return boolean";
@@ -139,7 +138,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     if (visitingAnnotatedMethod) {
       // We might have already found a flow that ensures the non-nullness, so we don't keep going
       // deep.
-      if (currentEnsuresNonNullIfMethodChecksNullnessOfAllFields) {
+      if (semanticsHold) {
         return;
       }
 
@@ -165,12 +164,12 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
           LiteralTree expressionAsLiteral = (LiteralTree) tree.getExpression();
           if (expressionAsLiteral.getValue() instanceof Boolean) {
             boolean literalValueOfExpression = (boolean) expressionAsLiteral.getValue();
-            this.currentEnsuresNonNullIfMethodChecksNullnessOfAllFields = literalValueOfExpression;
+            this.semanticsHold = literalValueOfExpression;
           }
         } else {
           // We then trust on the analysis of the engine that, at this point, the field is checked
           // for null
-          this.currentEnsuresNonNullIfMethodChecksNullnessOfAllFields = true;
+          this.semanticsHold = true;
         }
       } else {
         // Build list of missing fields for the elegant validation error message
