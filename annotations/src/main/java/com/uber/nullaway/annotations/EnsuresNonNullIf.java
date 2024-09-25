@@ -8,8 +8,7 @@ import java.lang.annotation.Target;
 /**
  * An annotation describing a nullability post-condition for an instance method. Each parameter to
  * the annotation should be a field of the enclosing class. The method must ensure that the method
- * returns true in case the fields are non-null. NullAway verifies that this property holds,
- * however, in a straightforward way. The method must have the "return field != null" construct.
+ * returns true in case the fields are non-null. NullAway verifies that this property holds.
  *
  * <p>Here is an example:
  *
