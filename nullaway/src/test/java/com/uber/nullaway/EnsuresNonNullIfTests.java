@@ -158,6 +158,73 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void multipleEnsuresNonNullIfMethods_2() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @Nullable Item nullableItem2;",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
+            "  public boolean hasNullableItem() {",
+            "    return nullableItem != null;",
+            "  }",
+            "  @EnsuresNonNullIf(\"nullableItem2\")",
+            "  public boolean hasNullableItem2() {",
+            "    return nullableItem2 != null;",
+            "  }",
+            "  public int runOk() {",
+            "    if(hasNullableItem() && hasNullableItem2()) {",
+            "      nullableItem.call();",
+            "      nullableItem2.call();",
+            "      return 1;",
+            "    }",
+            "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void multipleEnsuresNonNullIfMethods_3() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @Nullable Item nullableItem2;",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
+            "  public boolean hasNullableItem() {",
+            "    return nullableItem != null;",
+            "  }",
+            "  @EnsuresNonNullIf(\"nullableItem2\")",
+            "  public boolean hasNullableItem2() {",
+            "    return nullableItem2 != null;",
+            "  }",
+            "  public int runOk() {",
+            "    if(hasNullableItem() || hasNullableItem2()) {",
+            "      nullableItem.call();",
+            "      // BUG: Diagnostic contains: dereferenced expression nullableItem2 is @Nullable",
+            "      nullableItem2.call();",
+            "      return 1;",
+            "    }",
+            "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
   public void multipleFieldsInSingleAnnotation() {
     defaultCompilationHelper
         .addSourceLines(
