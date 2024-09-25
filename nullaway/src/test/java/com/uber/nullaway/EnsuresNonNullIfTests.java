@@ -474,7 +474,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "class ChildLevelOne extends SuperClass {",
             "  @Nullable Item c;",
             "  @EnsuresNonNullIf(\"c\")",
-            "  // BUG: Diagnostic contains: postcondition inheritance is violated, this method must guarantee that all fields written in the @EnsuresNonNullIf annotation of overridden method SuperClass.hasA are @NonNull at exit point as well. Fields [a] must explicitly appear as parameters at this method @EnsuresNonNull annotation",
+            "  // BUG: Diagnostic contains: postcondition inheritance is violated, this method must guarantee that all fields written in the @EnsuresNonNullIf annotation of overridden method SuperClass.hasA are @NonNull at exit point as well. Fields [a] must explicitly appear as parameters at this method @EnsuresNonNullIf annotation",
             "  public boolean hasA() {",
             "    return c != null;",
             "  }",

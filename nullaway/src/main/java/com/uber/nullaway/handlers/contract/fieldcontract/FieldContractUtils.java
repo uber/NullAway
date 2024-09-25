@@ -54,7 +54,7 @@ public class FieldContractUtils {
     errorMessage
         .append("] must explicitly appear as parameters at this method @")
         .append(annotName)
-        .append("annotation");
+        .append(" annotation");
     state.reportMatch(
         analysis
             .getErrorBuilder()
