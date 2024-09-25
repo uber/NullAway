@@ -33,6 +33,34 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void ensuresNonNullMethod_2() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
+            "  public boolean hasNullableItem() {",
+            "    return nullableItem != null;",
+            "  }",
+            "  public int runOk() {",
+            "    if(hasNullableItem()) {",
+            "      nullableItem.call();",
+            "    }",
+            "    // BUG: Diagnostic contains: dereferenced expression nullableItem is @Nullable",
+            "    nullableItem.call();",
+            "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
   public void ensuresNonNullMethodWithMoreDataComplexFlow() {
     defaultCompilationHelper
         .addSourceLines(
