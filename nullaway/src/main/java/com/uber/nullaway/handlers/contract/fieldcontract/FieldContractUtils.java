@@ -51,8 +51,10 @@ public class FieldContractUtils {
         errorMessage.append(", ");
       }
     }
-    errorMessage.append(
-        "] must explicitly appear as parameters at this method @EnsuresNonNull annotation");
+    errorMessage
+        .append("] must explicitly appear as parameters at this method @")
+        .append(annotName)
+        .append("annotation");
     state.reportMatch(
         analysis
             .getErrorBuilder()
