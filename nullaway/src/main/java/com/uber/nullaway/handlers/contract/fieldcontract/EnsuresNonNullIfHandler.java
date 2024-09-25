@@ -183,7 +183,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
   private boolean getTrueIfNonNullValue(Symbol.MethodSymbol methodSymbol) {
     AnnotationMirror annot = NullabilityUtil.findAnnotation(methodSymbol, annotName, false);
     if (annot == null) {
-      return true;
+      throw new RuntimeException("Annotation should not be null at this point");
     }
 
     Map<? extends ExecutableElement, ? extends AnnotationValue> elementValues =
