@@ -160,6 +160,7 @@ public final class AccessPathNullnessAnalysis {
     return getNonnullReceiverFields(nullnessResult);
   }
 
+  // TODO re-use this code
   private Set<Element> getNonnullReceiverFields(NullnessStore nullnessResult) {
     Set<AccessPath> nonnullAccessPaths = nullnessResult.getAccessPathsWithValue(Nullness.NONNULL);
     Set<Element> result = new LinkedHashSet<>();
