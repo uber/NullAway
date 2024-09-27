@@ -79,7 +79,9 @@ public abstract class BaseNoOpHandler implements Handler {
 
   @Override
   public void onMatchMethodInvocation(
-      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
+      MethodInvocationTree tree,
+      Symbol.MethodSymbol methodSymbol,
+      MethodAnalysisContext methodAnalysisContext) {
     // NoOp
   }
 

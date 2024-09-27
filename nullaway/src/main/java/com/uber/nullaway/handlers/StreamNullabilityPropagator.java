@@ -208,9 +208,10 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
 
   @Override
   public void onMatchMethodInvocation(
-      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
+      MethodInvocationTree tree,
+      Symbol.MethodSymbol methodSymbol,
+      MethodAnalysisContext methodAnalysisContext) {
 
-    Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
     VisitorState state = methodAnalysisContext.state();
     Type receiverType = ASTHelpers.getReceiverType(tree);
     for (StreamTypeRecord streamType : models) {

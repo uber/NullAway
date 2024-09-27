@@ -53,11 +53,6 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
   /** Simple name of the annotation in {@code String} */
   protected final String annotName;
 
-  // Set to true in case we are visiting a method with the annotation under analysis
-  protected boolean visitingAnnotatedMethod;
-  // Points to the method symbol that's currently being visited
-  protected Symbol.MethodSymbol visitingMethodSymbol;
-
   protected AbstractFieldContractHandler(String annotName) {
     this.annotName = annotName;
   }
@@ -75,8 +70,6 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     Set<String> annotationContent =
         NullabilityUtil.getAnnotationValueArray(methodSymbol, annotName, false);
     boolean isAnnotated = annotationContent != null;
-    this.visitingAnnotatedMethod = isAnnotated;
-    this.visitingMethodSymbol = methodSymbol;
     boolean isValid =
         isAnnotated
             && validateAnnotationSyntax(

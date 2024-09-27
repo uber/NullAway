@@ -104,9 +104,11 @@ class CompositeHandler implements Handler {
 
   @Override
   public void onMatchMethodInvocation(
-      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
+      MethodInvocationTree tree,
+      Symbol.MethodSymbol methodSymbol,
+      MethodAnalysisContext methodAnalysisContext) {
     for (Handler h : handlers) {
-      h.onMatchMethodInvocation(tree, methodAnalysisContext);
+      h.onMatchMethodInvocation(tree, methodSymbol, methodAnalysisContext);
     }
   }
 

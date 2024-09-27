@@ -87,10 +87,13 @@ public interface Handler {
    * Called when NullAway first matches a particular method call-site.
    *
    * @param tree The AST node for the method invocation (call-site) being matched.
+   * @param methodSymbol The method symbol of the enclosing method
    * @param methodAnalysisContext The MethodAnalysisContext object
    */
   void onMatchMethodInvocation(
-      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext);
+      MethodInvocationTree tree,
+      Symbol.MethodSymbol methodSymbol,
+      MethodAnalysisContext methodAnalysisContext);
 
   /**
    * Called when NullAway first matches a particular lambda expression.

@@ -130,14 +130,15 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
    */
   @Override
   public void onMatchMethodInvocation(
-      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
+      MethodInvocationTree tree,
+      Symbol.MethodSymbol methodSymbol,
+      MethodAnalysisContext methodAnalysisContext) {
 
     VisitorState state = methodAnalysisContext.state();
-    Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
     NullAway analysis = methodAnalysisContext.analysis();
     Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames == null) {
-      super.onMatchMethodInvocation(tree, methodAnalysisContext);
+      super.onMatchMethodInvocation(tree, methodSymbol, methodAnalysisContext);
       return;
     }
     fieldNames = ContractUtils.trimReceivers(fieldNames);
