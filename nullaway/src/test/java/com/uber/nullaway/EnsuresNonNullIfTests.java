@@ -353,7 +353,8 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "  }",
             "  public void runOk() {",
             "    if(!hasNullableItem()) {",
-            "      return;" + "    }",
+            "      return;",
+            "    }",
             "    nullableItem.call();",
             "  }",
             "}")
