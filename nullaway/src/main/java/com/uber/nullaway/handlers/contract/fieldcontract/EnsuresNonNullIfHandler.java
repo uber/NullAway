@@ -204,9 +204,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     // true case)
     // and check whether all fields in the annotation parameter are non-null
     Set<String> nonNullFieldsInPath =
-        thenStore.getAccessPathsWithValue(trueIfNonNull ? Nullness.NONNULL : Nullness.NULL).stream()
-            .flatMap(ap -> ap.getElements().stream())
-            .map(e -> e.getJavaElement().getSimpleName().toString())
+        thenStore.getReceiverFields(trueIfNonNull ? Nullness.NONNULL : Nullness.NULL).stream()
+            .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
     boolean allFieldsInPathAreVerified = nonNullFieldsInPath.containsAll(fieldNames);
 

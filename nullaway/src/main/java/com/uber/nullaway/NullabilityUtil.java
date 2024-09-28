@@ -248,6 +248,17 @@ public class NullabilityUtil {
     return null;
   }
 
+  /**
+   * Retrieve the specific annotation of a method.
+   *
+   * @param methodSymbol A method to check for the annotation.
+   * @param annotName The qualified name or simple name of the annotation depending on the value of
+   *     {@code exactMatch}.
+   * @param exactMatch If true, the annotation name must match the full qualified name given in
+   *     {@code annotName}, otherwise, simple names will be checked.
+   * @return an {@code AnnotationMirror} representing that annotation, or null in case the
+   *     annotation with a given name {@code annotName} doesn't exist in {@code methodSymbol}.
+   */
   public static @Nullable AnnotationMirror findAnnotation(
       Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
     AnnotationMirror annot = null;

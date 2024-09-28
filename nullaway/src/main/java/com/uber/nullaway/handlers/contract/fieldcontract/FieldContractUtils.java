@@ -10,7 +10,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.Set;
 
 public class FieldContractUtils {
@@ -43,18 +42,12 @@ public class FieldContractUtils {
         .append(castToNonNull(ASTHelpers.enclosingClass(overriddenMethod)).getSimpleName())
         .append(".")
         .append(overriddenMethod.getSimpleName())
-        .append(" are @NonNull at exit point as well. Fields [");
-    Iterator<String> iterator = overriddenFieldNames.iterator();
-    while (iterator.hasNext()) {
-      errorMessage.append(iterator.next());
-      if (iterator.hasNext()) {
-        errorMessage.append(", ");
-      }
-    }
-    errorMessage
+        .append(" are @NonNull at exit point as well. Fields [")
+        .append(String.join(", ", overriddenFieldNames))
         .append("] must explicitly appear as parameters at this method @")
         .append(annotName)
         .append(" annotation");
+
     state.reportMatch(
         analysis
             .getErrorBuilder()
