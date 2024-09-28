@@ -68,6 +68,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
   // List of fields missing in the current EnsuresNonNullIf method
   // so we can build proper error message
   @Nullable private Set<String> missingFieldNames;
+
   // The MethodTree and Symbol of the EnsureNonNullIf method under semantic validation
   @Nullable private MethodTree methodTreeUnderAnalysis;
   @Nullable private Symbol.MethodSymbol methodSymbolUnderAnalysis;
@@ -128,7 +129,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
                   null));
     }
 
-    // Clean up state
+    // Clean up state again
     semanticsHold = false;
     missingFieldNames = null;
     methodTreeUnderAnalysis = null;
@@ -164,8 +165,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
   }
 
   /*
-   * Sub-classes can only strengthen the post-condition. We check if the list in the child classes
-   * is at least the same as in the parent class.
+   * Sub-classes can only strengthen the post-condition.
+   * We check if the list in the child classes is at least the same as in the parent class.
    */
   @Override
   protected void validateOverridingRules(
@@ -187,8 +188,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
       return;
     }
 
-    // We might have already found another return tree that results in what we need,
-    // so we don't keep going deep.
+    // We might have already found another return tree that results in
+    // what we need, so we don't keep going deep.
     if (semanticsHold) {
       return;
     }
@@ -200,8 +201,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
     boolean trueIfNonNull = getTrueIfNonNullValue(methodSymbolUnderAnalysis);
 
-    // We extract all the data-flow of the fields found by the engine in the "then" case (i.e.,
-    // true case)
+    // We extract all the data-flow of the fields found by the
+    // engine in the "then" case (i.e., true case)
     // and check whether all fields in the annotation parameter are non-null
     Set<String> nonNullFieldsInPath =
         thenStore.getReceiverFields(trueIfNonNull ? Nullness.NONNULL : Nullness.NULL).stream()
@@ -210,16 +211,16 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     boolean allFieldsInPathAreVerified = nonNullFieldsInPath.containsAll(fieldNames);
 
     if (allFieldsInPathAreVerified) {
-      // If it's a literal, then, it needs to return true/false, depending on the trueIfNonNull
-      // flag
+      // If it's a literal, then, it needs to return true/false,
+      // depending on the trueIfNonNull flag
       if (returnTree.getExpression() instanceof LiteralTree) {
         LiteralTree expressionAsLiteral = (LiteralTree) returnTree.getExpression();
         if (expressionAsLiteral.getValue() instanceof Boolean) {
           this.semanticsHold = (boolean) expressionAsLiteral.getValue();
         }
       } else {
-        // We then trust on the analysis of the engine that, at this point, the field is checked
-        // for null
+        // We then trust on the analysis of the engine that, at this point,
+        // the field is checked for null
         this.semanticsHold = true;
       }
     } else {
