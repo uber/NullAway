@@ -65,6 +65,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    */
   @Override
   public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
+
     Symbol.MethodSymbol methodSymbol = methodAnalysisContext.methodSymbol();
     VisitorState state = methodAnalysisContext.state();
     Set<String> annotationContent =
