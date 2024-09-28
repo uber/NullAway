@@ -6,7 +6,7 @@ import org.junit.Test;
 public class EnsuresNonNullIfTests extends NullAwayTestsBase {
 
   @Test
-  public void ensuresNonNullMethod() {
+  public void correctUse() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -33,7 +33,34 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void ensuresNonNullMethod_2() {
+  public void correctUse_declarationReversed() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  public int runOk() {",
+            "    if(!hasNullableItem()) {",
+            "      return 1;",
+            "    }",
+            "    nullableItem.call();",
+            "    return 0;",
+            "  }",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
+            "  public boolean hasNullableItem() {",
+            "    return nullableItem != null;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void correctUse_2() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -61,7 +88,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void ensuresNonNullMethodWithMoreDataComplexFlow() {
+  public void correctUse_moreComplexFlow() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -76,38 +103,6 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "      return true;",
             "    } else {",
             "      return false;",
-            "    }",
-            "  }",
-            "  public int runOk() {",
-            "    if(!hasNullableItem()) {",
-            "      return 1;",
-            "    }",
-            "    nullableItem.call();",
-            "    return 0;",
-            "  }",
-            "}")
-        .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
-        .doTest();
-  }
-
-  @Test
-  public void catchesWrongReturnFlows() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
-            "class Foo {",
-            "  @Nullable Item nullableItem;",
-            "  @EnsuresNonNullIf(\"nullableItem\")",
-            "  // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not ensure fields [nullableItem]",
-            "  public boolean hasNullableItem() {",
-            "    if(nullableItem != null) {",
-            "      return false;",
-            "    } else {",
-            "      return true;",
             "    }",
             "  }",
             "  public int runOk() {",
@@ -254,7 +249,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void missingChecksAreDetected() {
+  public void possibleDeferencedExpression() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -313,7 +308,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void ensuresNonNullMethodNotCalled() {
+  public void possibleDeferencedExpression_nonNullMethodNotCalled() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -337,60 +332,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void warnsIfEnsuresNonNullCheckIfIsWronglyImplemented() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
-            "class Foo {",
-            "  @Nullable Item nullableItem;",
-            "  @EnsuresNonNullIf(\"nullableItem\")",
-            "  // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not ensure fields [nullableItem]",
-            "  public boolean hasNullableItem() {",
-            "    return true;",
-            "  }",
-            "  public void runOk() {",
-            "    if(!hasNullableItem()) {",
-            "      return;",
-            "    }",
-            "    nullableItem.call();",
-            "  }",
-            "}")
-        .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
-        .doTest();
-  }
-
-  @Test
-  public void warnsIfEnsuresNonNullDoesntReturnBoolean() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
-            "class Foo {",
-            "  @Nullable Item nullableItem;",
-            "  @EnsuresNonNullIf(\"nullableItem\")",
-            "  // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not return boolean",
-            "  public void hasNullableItem() {",
-            "    var x = nullableItem != null;",
-            "  }",
-            "  public void runOk() {",
-            "    hasNullableItem();",
-            "    // BUG: Diagnostic contains: dereferenced expression nullableItem is @Nullable",
-            "    nullableItem.call();",
-            "  }",
-            "}")
-        .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
-        .doTest();
-  }
-
-  @Test
-  public void checksForPostconditionsInInheritance() {
+  public void postConditions_Inheritance() {
     defaultCompilationHelper
         .addSourceLines(
             "SuperClass.java",
@@ -527,8 +469,159 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  // These tests are ignored because currently NullAway doesn't support data-flow of local variables
+  /********************************************************
+   * Tests related to semantic issues
+   ********************************************************
+   */
+  @Test
+  public void semanticIssues_doesntEnsureNonNullabilityOfFields() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
+            "  // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not ensure fields [nullableItem]",
+            "  public boolean hasNullableItem() {",
+            "    if(nullableItem != null) {",
+            "      return false;",
+            "    } else {",
+            "      return true;",
+            "    }",
+            "  }",
+            "  public int runOk() {",
+            "    if(!hasNullableItem()) {",
+            "      return 1;",
+            "    }",
+            "    nullableItem.call();",
+            "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
 
+  @Test
+  public void semanticIssues_methodDeclarationReversed() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  public int runOk() {",
+            "    if(!hasNullableItem()) {",
+            "      return 1;",
+            "    }",
+            "    nullableItem.call();",
+            "    return 0;",
+            "  }",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
+            "  // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not ensure fields [nullableItem]",
+            "  public boolean hasNullableItem() {",
+            "    if(nullableItem != null) {",
+            "      return false;",
+            "    } else {",
+            "      return true;",
+            "    }",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void semanticIssues_ignoreLambdaReturns() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import java.util.function.BooleanSupplier;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
+            "  public boolean hasNullableItem() {",
+            "    BooleanSupplier test = () -> {",
+            "      return nullableItem == null;",
+            "    };",
+            "    return nullableItem != null;",
+            "  }",
+            "  public int runOk() {",
+            "    if(!hasNullableItem()) {",
+            "      return 1;",
+            "    }",
+            "    nullableItem.call();",
+            "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void semanticIssues_2() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
+            "  // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not ensure fields [nullableItem]",
+            "  public boolean hasNullableItem() {",
+            "    return true;",
+            "  }",
+            "  public void runOk() {",
+            "    if(!hasNullableItem()) {",
+            "      return;",
+            "    }",
+            "    nullableItem.call();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void semanticIssues_warnsIfEnsuresNonNullDoesntReturnBoolean() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
+            "  // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not return boolean",
+            "  public void hasNullableItem() {",
+            "    var x = nullableItem != null;",
+            "  }",
+            "  public void runOk() {",
+            "    hasNullableItem();",
+            "    // BUG: Diagnostic contains: dereferenced expression nullableItem is @Nullable",
+            "    nullableItem.call();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  // These tests are ignored because currently NullAway doesn't support data-flow of local variables
   @Test
   @Ignore // fails as both stores in the Return data flow mark the field as nullable
   public void ensuresNonNullMethodWithMoreDataComplexFlow_2() {

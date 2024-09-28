@@ -384,8 +384,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Symbol.MethodSymbol methodSymbol = getSymbolForMethodInvocation(tree);
-    handler.onMatchMethodInvocation(
-        tree, methodSymbol, new MethodAnalysisContext(this, state, methodSymbol));
+    handler.onMatchMethodInvocation(tree, new MethodAnalysisContext(this, state, methodSymbol));
     // assuming this list does not include the receiver
     List<? extends ExpressionTree> actualParams = tree.getArguments();
     return handleInvocation(tree, state, methodSymbol, actualParams);
