@@ -514,7 +514,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void noSemanticIssue_combinationOfExpressionAndLiteralBoolean() {
+  public void semanticIssue_combinationOfExpressionAndLiteralBoolean() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
