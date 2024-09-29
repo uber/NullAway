@@ -220,7 +220,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
      * - If the expression isn't a literal boolean, then semantics are wrong, as we
      * assume the data-flow engine is correct.
      *
-     * The implementation below doesn't need to go through all the combinations.
+     * The implementation below is an optimized version of the decision table above.
      */
     if (allFieldsInPathAreVerified) {
       if (evaluatesToLiteral && evaluatesToFalse) {
