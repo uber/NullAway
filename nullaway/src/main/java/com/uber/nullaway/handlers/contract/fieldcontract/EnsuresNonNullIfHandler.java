@@ -107,6 +107,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
         .forceRunOnMethod(new TreePath(state.getPath(), tree), state.context);
 
     // Clean up state
+    methodTreeUnderAnalysis = null;
     methodAnalysisContextUnderAnalysis = null;
     returnTreesInMethodUnderAnalysis.clear();
 
