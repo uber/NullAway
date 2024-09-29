@@ -62,9 +62,14 @@ import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
  */
 public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
+  // List of return trees in the method under analysis
+  // This list is built in a way that return trees inside lambdas
+  // or anonymous classes aren't included.
   private final Set<ReturnTree> returnTreesInMethodUnderAnalysis = new HashSet<>();
 
-  // The MethodTree and Symbol of the EnsureNonNullIf method under semantic validation
+  // The MethodTree and MethodAnalysisContext of the EnsureNonNullIf method
+  // under current semantic validation
+  // They are set to null when no methods are being validated.
   @Nullable private MethodTree methodTreeUnderAnalysis;
   @Nullable private MethodAnalysisContext methodAnalysisContextUnderAnalysis;
 
@@ -103,6 +108,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     }
 
     // We force the nullness analysis of the method under validation
+    // The semantic validation will happen at each ReturnTree visit of the data-flow engine
     analysis
         .getNullnessAnalysis(state)
         .forceRunOnMethod(new TreePath(state.getPath(), tree), state.context);
@@ -120,10 +126,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     new TreePathScanner<Void, Void>() {
       @Override
       public Void visitReturn(ReturnTree node, Void unused) {
-        VisitorState returnState = methodState.withPath(getCurrentPath());
-
         TreePath enclosingMethod =
-            NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(returnState.getPath());
+            NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(getCurrentPath());
         if (enclosingMethod == null) {
           throw new RuntimeException("no enclosing method, lambda or initializer!");
         }
@@ -151,7 +155,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
       VisitorState state,
       MethodTree tree,
       Symbol.MethodSymbol overriddenMethod) {
-    FieldContractUtils.validateOverridingRules(
+    FieldContractUtils.ensureStrictPostConditionInheritance(
         annotName, overridingFieldNames, analysis, state, tree, overriddenMethod);
   }
 
@@ -164,6 +168,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
       return;
     }
 
+    // Get the declared configuration of the EnsureNonNullIf method under analysis
     Symbol.MethodSymbol methodSymbolUnderAnalysis =
         methodAnalysisContextUnderAnalysis.methodSymbol();
     Set<String> fieldNames = getAnnotationValueArray(methodSymbolUnderAnalysis, annotName, false);
@@ -182,7 +187,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
             .collect(Collectors.toSet());
     boolean allFieldsInPathAreVerified = nonNullFieldsInPath.containsAll(fieldNames);
 
-    // We store whether the return true expression evaluates to a boolean literal or not.
+    // Whether the return true expression evaluates to a boolean literal or not.
     Optional<Boolean> expressionAsBoolean = Optional.empty();
     if (returnTree.getExpression() instanceof LiteralTree) {
       LiteralTree expressionAsLiteral = (LiteralTree) returnTree.getExpression();
@@ -192,8 +197,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     }
 
     boolean evaluatesToLiteral = expressionAsBoolean.isPresent();
-    boolean evaluatesToTrue = evaluatesToLiteral && expressionAsBoolean.get();
     boolean evaluatesToFalse = evaluatesToLiteral && !expressionAsBoolean.get();
+    boolean evaluatesToTrue = evaluatesToLiteral && expressionAsBoolean.get();
 
     /*
      * Decide whether the semantics of this ReturnTree are correct.
@@ -212,18 +217,11 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
      * correctly returns false in case the semantics don't hold.
      * - If the literal boolean evaluates to true, it's wrong, as the method
      * incorrectly returns true when it should have returned false.
+     *
+     * The implementation below doesn't need to go through all the combinations.
      */
     if (allFieldsInPathAreVerified) {
-      if (!evaluatesToLiteral) {
-        // correct semantic
-        // we trust on the engine here, as we can't evaluate the concrete boolean
-        // return of the return expression
-      } else if (evaluatesToTrue) {
-        // correct semantic
-        // fields are verified and expression returns true
-      } else {
-        // wrong semantic
-        // fields are verified but method is returning false, raise warn
+      if (evaluatesToLiteral && evaluatesToFalse) {
         String message =
             String.format(
                 "The method ensures the %s of the fields, but doesn't return true",
@@ -231,12 +229,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
         raiseError(returnTree, state, message);
       }
     } else {
-      if (evaluatesToFalse) {
-        // correct semantic
-        // fields aren't all verified and expression return false
-      } else {
-        // wrong semantic
-        // fields are not verified, but method returns true
+      if (evaluatesToTrue) {
         fieldNames.removeAll(nonNullFieldsInPath);
         String message =
             String.format(
@@ -277,6 +270,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     }
 
     // Not explicitly declared in the annotation, so we default to true
+    // (This should never happen as the compiler would have caught it before)
     throw new RuntimeException(
         "EnsureNonNullIf requires explicit 'return' value of the method under which the postcondition holds.");
   }

@@ -123,7 +123,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       VisitorState state,
       MethodTree tree,
       Symbol.MethodSymbol overriddenMethod) {
-    FieldContractUtils.validateOverridingRules(
+    FieldContractUtils.ensureStrictPostConditionInheritance(
         annotName, overridingFieldNames, analysis, state, tree, overriddenMethod);
   }
 

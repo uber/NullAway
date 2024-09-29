@@ -14,7 +14,7 @@ import java.util.Set;
 
 public class FieldContractUtils {
 
-  public static void validateOverridingRules(
+  public static void ensureStrictPostConditionInheritance(
       String annotName,
       Set<String> overridingFieldNames,
       NullAway analysis,
