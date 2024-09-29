@@ -514,6 +514,34 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void semanticIssue_combinationOfExpressionAndLiteralBoolean() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @EnsuresNonNullIf(value=\"nullableItem\", result=true)",
+            "  public boolean hasNullableItem() {",
+            "    // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not ensure fields [nullableItem]",
+            "    return true || nullableItem != null;",
+            "  }",
+            "  public int runOk() {",
+            "    if(!hasNullableItem()) {",
+            "      return 1;",
+            "    }",
+            "    nullableItem.call();",
+            "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
   public void semanticIssues_methodDeclarationReversed() {
     defaultCompilationHelper
         .addSourceLines(
