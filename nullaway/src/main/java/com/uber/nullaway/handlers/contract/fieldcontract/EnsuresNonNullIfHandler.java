@@ -46,6 +46,7 @@ import com.uber.nullaway.handlers.MethodAnalysisContext;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -179,41 +180,61 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
             .collect(Collectors.toSet());
     boolean allFieldsInPathAreVerified = nonNullFieldsInPath.containsAll(fieldNames);
 
+    // We store whether the return true expression evaluates to a boolean literal or not.
+    Optional<Boolean> expressionAsBoolean = Optional.empty();
     if (returnTree.getExpression() instanceof LiteralTree) {
       LiteralTree expressionAsLiteral = (LiteralTree) returnTree.getExpression();
       if (expressionAsLiteral.getValue() instanceof Boolean) {
-        boolean expressionAsBoolean = (boolean) expressionAsLiteral.getValue();
-
-        if (allFieldsInPathAreVerified && expressionAsBoolean) {
-          // correct semantic
-          // fields are verified and expression returns true
-        } else if (!allFieldsInPathAreVerified && !expressionAsBoolean) {
-          // correct semantic
-          // fields aren't all verified and expression return false
-        } else if (allFieldsInPathAreVerified && !expressionAsBoolean) {
-          // wrong semantic
-          // fields are verified but method is returning false, raise warn
-          String message =
-              String.format(
-                  "The method ensures the %s of the fields, but doesn't return true",
-                  (trueIfNonNull ? "non-nullability" : "nullability"));
-          raiseError(returnTree, state, message);
-        } else if (!allFieldsInPathAreVerified && expressionAsBoolean) {
-          // wrong semantic
-          // fields are not verified, but method returns true
-          fieldNames.removeAll(nonNullFieldsInPath);
-          String message =
-              String.format(
-                  "Method is annotated with @EnsuresNonNullIf but does not ensure fields %s",
-                  fieldNames);
-          raiseError(returnTree, state, message);
-        }
+        expressionAsBoolean = Optional.of((boolean) expressionAsLiteral.getValue());
       }
-    } else {
-      if (allFieldsInPathAreVerified) {
+    }
+
+    boolean evaluatesToLiteral = expressionAsBoolean.isPresent();
+    boolean evaluatesToTrue = evaluatesToLiteral && expressionAsBoolean.get();
+    boolean evaluatesToFalse = evaluatesToLiteral && !expressionAsBoolean.get();
+
+    /*
+     * Decide whether the semantics of this ReturnTree are correct.
+     * The decision is as follows:
+     *
+     * If all fields in the path are verified:
+     * - If the literal boolean evaluates to true, it's correct, as the method
+     * does return true in case the semantics hold.
+     * - If the literal boolean evaluates to false, it's wrong, as the method
+     * incorrect return false when it should have returned true.
+     * - If the expression isn't a literal boolean, but something more complex,
+     * we assume it's correct as we trust the data-flow engine.
+     *
+     * If fields in path aren't verified:
+     * - If the literal boolean evaluates to false, it's correct, as the method
+     * correctly returns false in case the semantics don't hold.
+     * - If the literal boolean evaluates to true, it's wrong, as the method
+     * incorrectly returns true when it should have returned false.
+     */
+    if (allFieldsInPathAreVerified) {
+      if (!evaluatesToLiteral) {
+        // correct semantic
         // we trust on the engine here, as we can't evaluate the concrete boolean
         // return of the return expression
+      } else if (evaluatesToTrue) {
+        // correct semantic
+        // fields are verified and expression returns true
       } else {
+        // wrong semantic
+        // fields are verified but method is returning false, raise warn
+        String message =
+            String.format(
+                "The method ensures the %s of the fields, but doesn't return true",
+                (trueIfNonNull ? "non-nullability" : "nullability"));
+        raiseError(returnTree, state, message);
+      }
+    } else {
+      if (evaluatesToFalse) {
+        // correct semantic
+        // fields aren't all verified and expression return false
+      } else {
+        // wrong semantic
+        // fields are not verified, but method returns true
         fieldNames.removeAll(nonNullFieldsInPath);
         String message =
             String.format(
