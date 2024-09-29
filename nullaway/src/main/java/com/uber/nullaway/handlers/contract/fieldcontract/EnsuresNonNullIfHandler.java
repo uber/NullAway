@@ -170,7 +170,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
     // Get the declared configuration of the EnsureNonNullIf method under analysis
     Symbol.MethodSymbol methodSymbolUnderAnalysis =
-        methodAnalysisContextUnderAnalysis.methodSymbol();
+        NullabilityUtil.castToNonNull(methodAnalysisContextUnderAnalysis).methodSymbol();
+
     Set<String> fieldNames = getAnnotationValueArray(methodSymbolUnderAnalysis, annotName, false);
     if (fieldNames == null) {
       throw new RuntimeException("List of field names shouldn't be null");
@@ -197,8 +198,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     }
 
     boolean evaluatesToLiteral = expressionAsBoolean.isPresent();
-    boolean evaluatesToFalse = evaluatesToLiteral && !expressionAsBoolean.get();
-    boolean evaluatesToTrue = evaluatesToLiteral && expressionAsBoolean.get();
+    boolean evaluatesToFalse = expressionAsBoolean.isPresent() && !expressionAsBoolean.get();
+    boolean evaluatesToTrue = expressionAsBoolean.isPresent() && expressionAsBoolean.get();
 
     /*
      * Decide whether the semantics of this ReturnTree are correct.
@@ -243,7 +244,9 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
   }
 
   private void raiseError(Tree returnTree, VisitorState state, String message) {
-    NullAway analysis = methodAnalysisContextUnderAnalysis.analysis();
+    NullAway analysis =
+        NullabilityUtil.castToNonNull(methodAnalysisContextUnderAnalysis).analysis();
+
     state.reportMatch(
         analysis
             .getErrorBuilder()
