@@ -266,7 +266,7 @@ public class NullnessStore implements Store<NullnessStore> {
   /**
    * Return all the fields in the store that are Non-Null.
    *
-   * @return Set of fields (represented as @{code Element}s) that are non-null
+   * @return Set of fields (represented as {@code Element}s) that are non-null
    */
   public Set<Element> getNonNullReceiverFields() {
     return getReceiverFields(Nullness.NONNULL);
@@ -276,7 +276,7 @@ public class NullnessStore implements Store<NullnessStore> {
    * Return all the fields in the store that hold the {@code nullness} state.
    *
    * @param nullness The {@code Nullness} state
-   * @return Set of fields (represented as @{code Element}s) with the given {@code nullness}.
+   * @return Set of fields (represented as {@code Element}s) with the given {@code nullness}.
    */
   public Set<Element> getReceiverFields(Nullness nullness) {
     Set<AccessPath> nonnullAccessPaths = this.getAccessPathsWithValue(nullness);

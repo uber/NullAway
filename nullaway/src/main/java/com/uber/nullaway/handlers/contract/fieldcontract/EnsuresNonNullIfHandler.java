@@ -30,6 +30,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Symbol;
@@ -60,18 +61,11 @@ import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
  */
 public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
-  // Set to true when the current visited EnsuresNonNullIf method has correct semantics
-  private boolean semanticsHold;
-
   private final Set<ReturnTree> returnTreesInMethodUnderAnalysis = new HashSet<>();
-
-  // List of fields missing in the current EnsuresNonNullIf method
-  // so we can build proper error message
-  @Nullable private Set<String> missingFieldNames;
 
   // The MethodTree and Symbol of the EnsureNonNullIf method under semantic validation
   @Nullable private MethodTree methodTreeUnderAnalysis;
-  @Nullable private Symbol.MethodSymbol methodSymbolUnderAnalysis;
+  @Nullable private MethodAnalysisContext methodAnalysisContextUnderAnalysis;
 
   public EnsuresNonNullIfHandler() {
     super("EnsuresNonNullIf");
@@ -89,10 +83,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     }
 
     // clean up state variables, as we are visiting a new annotated method
-    semanticsHold = false;
-    missingFieldNames = null;
     methodTreeUnderAnalysis = tree;
-    methodSymbolUnderAnalysis = methodAnalysisContext.methodSymbol();
+    methodAnalysisContextUnderAnalysis = methodAnalysisContext;
     returnTreesInMethodUnderAnalysis.clear();
 
     VisitorState state = methodAnalysisContext.state();
@@ -102,38 +94,19 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     // return statements and their enclosing methods
     buildUpReturnToEnclosingMethodMap(state);
 
+    // if no returns, then, this method doesn't return boolean, and it's wrong
+    if (returnTreesInMethodUnderAnalysis.isEmpty()) {
+      raiseError(
+          tree, state, "Method is annotated with @EnsuresNonNullIf but does not return boolean");
+    }
+
     // We force the nullness analysis of the method under validation
     analysis
         .getNullnessAnalysis(state)
         .forceRunOnMethod(new TreePath(state.getPath(), tree), state.context);
 
-    // If listed fields aren't checked for their nullness, return error
-    if (!semanticsHold) {
-      String message;
-      if (missingFieldNames == null) {
-        message = "Method is annotated with @EnsuresNonNullIf but does not return boolean";
-      } else {
-        message =
-            String.format(
-                "Method is annotated with @EnsuresNonNullIf but does not ensure fields %s",
-                missingFieldNames);
-      }
-      state.reportMatch(
-          analysis
-              .getErrorBuilder()
-              .createErrorDescription(
-                  new ErrorMessage(ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED, message),
-                  tree,
-                  analysis.buildDescription(tree),
-                  state,
-                  null));
-    }
-
-    // Clean up state again
-    semanticsHold = false;
-    missingFieldNames = null;
-    methodTreeUnderAnalysis = null;
-    methodSymbolUnderAnalysis = null;
+    // Clean up state
+    methodAnalysisContextUnderAnalysis = null;
     returnTreesInMethodUnderAnalysis.clear();
 
     return true;
@@ -181,19 +154,15 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
   @Override
   public void onDataflowVisitReturn(
-      ReturnTree returnTree, NullnessStore thenStore, NullnessStore elseStore) {
+      ReturnTree returnTree, VisitorState state, NullnessStore thenStore, NullnessStore elseStore) {
     // We only explore return statements that is inside
     // the method under validation
     if (!returnTreesInMethodUnderAnalysis.contains(returnTree)) {
       return;
     }
 
-    // We might have already found another return tree that results in
-    // what we need, so we don't keep going deep.
-    if (semanticsHold) {
-      return;
-    }
-
+    Symbol.MethodSymbol methodSymbolUnderAnalysis =
+        methodAnalysisContextUnderAnalysis.methodSymbol();
     Set<String> fieldNames = getAnnotationValueArray(methodSymbolUnderAnalysis, annotName, false);
     if (fieldNames == null) {
       throw new RuntimeException("List of field names shouldn't be null");
@@ -210,24 +179,62 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
             .collect(Collectors.toSet());
     boolean allFieldsInPathAreVerified = nonNullFieldsInPath.containsAll(fieldNames);
 
-    if (allFieldsInPathAreVerified) {
-      // If it's a literal, then, it needs to return true/false,
-      // depending on the trueIfNonNull flag
-      if (returnTree.getExpression() instanceof LiteralTree) {
-        LiteralTree expressionAsLiteral = (LiteralTree) returnTree.getExpression();
-        if (expressionAsLiteral.getValue() instanceof Boolean) {
-          this.semanticsHold = (boolean) expressionAsLiteral.getValue();
+    if (returnTree.getExpression() instanceof LiteralTree) {
+      LiteralTree expressionAsLiteral = (LiteralTree) returnTree.getExpression();
+      if (expressionAsLiteral.getValue() instanceof Boolean) {
+        boolean expressionAsBoolean = (boolean) expressionAsLiteral.getValue();
+
+        if (allFieldsInPathAreVerified && expressionAsBoolean) {
+          // correct semantic
+          // fields are verified and expression returns true
+        } else if (!allFieldsInPathAreVerified && !expressionAsBoolean) {
+          // correct semantic
+          // fields aren't all verified and expression return false
+        } else if (allFieldsInPathAreVerified && !expressionAsBoolean) {
+          // wrong semantic
+          // fields are verified but method is returning false, raise warn
+          String message =
+              String.format(
+                  "The method ensures the %s of the fields, but doesn't return true",
+                  (trueIfNonNull ? "non-nullability" : "nullability"));
+          raiseError(returnTree, state, message);
+        } else if (!allFieldsInPathAreVerified && expressionAsBoolean) {
+          // wrong semantic
+          // fields are not verified, but method returns true
+          fieldNames.removeAll(nonNullFieldsInPath);
+          String message =
+              String.format(
+                  "Method is annotated with @EnsuresNonNullIf but does not ensure fields %s",
+                  fieldNames);
+          raiseError(returnTree, state, message);
         }
-      } else {
-        // We then trust on the analysis of the engine that, at this point,
-        // the field is checked for null
-        this.semanticsHold = true;
       }
     } else {
-      // Build list of missing fields for the elegant validation error message
-      fieldNames.removeAll(nonNullFieldsInPath);
-      this.missingFieldNames = new HashSet<>(fieldNames);
+      if (allFieldsInPathAreVerified) {
+        // we trust on the engine here, as we can't evaluate the concrete boolean
+        // return of the return expression
+      } else {
+        fieldNames.removeAll(nonNullFieldsInPath);
+        String message =
+            String.format(
+                "Method is annotated with @EnsuresNonNullIf but does not ensure fields %s",
+                fieldNames);
+        raiseError(returnTree, state, message);
+      }
     }
+  }
+
+  private void raiseError(Tree returnTree, VisitorState state, String message) {
+    NullAway analysis = methodAnalysisContextUnderAnalysis.analysis();
+    state.reportMatch(
+        analysis
+            .getErrorBuilder()
+            .createErrorDescription(
+                new ErrorMessage(ErrorMessage.MessageTypes.POSTCONDITION_NOT_SATISFIED, message),
+                returnTree,
+                analysis.buildDescription(returnTree),
+                state,
+                null));
   }
 
   private boolean getTrueIfNonNullValue(Symbol.MethodSymbol methodSymbol) {
