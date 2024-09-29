@@ -99,6 +99,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     if (returnTreesInMethodUnderAnalysis.isEmpty()) {
       raiseError(
           tree, state, "Method is annotated with @EnsuresNonNullIf but does not return boolean");
+      return false;
     }
 
     // We force the nullness analysis of the method under validation
