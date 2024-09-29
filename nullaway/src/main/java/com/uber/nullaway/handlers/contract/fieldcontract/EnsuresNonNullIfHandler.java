@@ -171,7 +171,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
       throw new RuntimeException("List of field names shouldn't be null");
     }
 
-    boolean trueIfNonNull = getTrueIfNonNullValue(methodSymbolUnderAnalysis);
+    boolean trueIfNonNull = getResultValueFromAnnotation(methodSymbolUnderAnalysis);
 
     // We extract all the data-flow of the fields found by the
     // engine in the "then" case (i.e., true case)
@@ -260,7 +260,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
                 null));
   }
 
-  private boolean getTrueIfNonNullValue(Symbol.MethodSymbol methodSymbol) {
+  private boolean getResultValueFromAnnotation(Symbol.MethodSymbol methodSymbol) {
     AnnotationMirror annot = NullabilityUtil.findAnnotation(methodSymbol, annotName, false);
     if (annot == null) {
       throw new RuntimeException("Annotation should not be null at this point");
@@ -271,13 +271,14 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
         elementValues.entrySet()) {
       ExecutableElement elem = entry.getKey();
-      if (elem.getSimpleName().contentEquals("trueIfNonNull")) {
+      if (elem.getSimpleName().contentEquals("result")) {
         return (boolean) entry.getValue().getValue();
       }
     }
 
     // Not explicitly declared in the annotation, so we default to true
-    return true;
+    throw new RuntimeException(
+        "EnsureNonNullIf requires explicit 'return' value of the method under which the postcondition holds.");
   }
 
   /**
@@ -302,7 +303,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
     Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames != null) {
-      boolean trueIfNonNull = getTrueIfNonNullValue(methodSymbol);
+      boolean trueIfNonNull = getResultValueFromAnnotation(methodSymbol);
       fieldNames = ContractUtils.trimReceivers(fieldNames);
       for (String fieldName : fieldNames) {
         VariableElement field =
@@ -320,7 +321,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
         }
 
         // The call to the EnsuresNonNullIf method ensures that the field is then not null
-        // (or null, depending on the trueIfNotNUll flag) at this point.
+        // (or null, depending on the result flag) at this point.
         // In here, we assume that the annotated method is already validated.
         thenUpdates.set(accessPath, trueIfNonNull ? Nullness.NONNULL : Nullness.NULL);
         elseUpdates.set(accessPath, trueIfNonNull ? Nullness.NULL : Nullness.NONNULL);
