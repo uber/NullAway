@@ -60,7 +60,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void correctUse_2() {
+  public void correctAndIncorrectUse() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -249,6 +249,36 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void multipleFieldsInSingleAnnotation_oneNotValidated() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @Nullable Item nullableItem2;",
+            "  @EnsuresNonNullIf(value={\"nullableItem\", \"nullableItem2\"}, result=true)",
+            "  public boolean hasNullableItems() {",
+            "    // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not ensure fields [nullableItem2]",
+            "    return nullableItem != null;",
+            "  }",
+            "  public int runOk() {",
+            "    if(!hasNullableItems()) {",
+            "      return 1;",
+            "    }",
+            "    nullableItem.call();",
+            "    nullableItem2.call();",
+            "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
   public void possibleDeferencedExpression() {
     defaultCompilationHelper
         .addSourceLines(
@@ -298,31 +328,8 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "  }",
             "  public void runOk() {",
             "    if(!hasNullableItem()) {",
-            "      return;" + "    }",
-            "    nullableItem.call();",
-            "  }",
-            "}")
-        .addSourceLines(
-            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
-        .doTest();
-  }
-
-  @Test
-  public void possibleDeferencedExpression_nonNullMethodNotCalled() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
-            "class Foo {",
-            "  @Nullable Item nullableItem;",
-            "  @EnsuresNonNullIf(value=\"nullableItem\", result=true)",
-            "  public boolean hasNullableItem() {",
-            "    return nullableItem != null;",
-            "  }",
-            "  public void runNOk() {",
-            "    // BUG: Diagnostic contains: dereferenced expression nullableItem",
+            "      return;",
+            "    }",
             "    nullableItem.call();",
             "  }",
             "}")

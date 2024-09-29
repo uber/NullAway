@@ -205,18 +205,20 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
      * The decision is as follows:
      *
      * If all fields in the path are verified:
-     * - If the literal boolean evaluates to true, it's correct, as the method
+     * - If the literal boolean evaluates to true, semantics are correct, as the method
      * does return true in case the semantics hold.
-     * - If the literal boolean evaluates to false, it's wrong, as the method
+     * - If the literal boolean evaluates to false, semantics are wrong, as the method
      * incorrect return false when it should have returned true.
      * - If the expression isn't a literal boolean, but something more complex,
-     * we assume it's correct as we trust the data-flow engine.
+     * we assume semantics are correct as we trust the data-flow engine.
      *
      * If fields in path aren't verified:
-     * - If the literal boolean evaluates to false, it's correct, as the method
+     * - If the literal boolean evaluates to false, semantics are correct, as the method
      * correctly returns false in case the semantics don't hold.
-     * - If the literal boolean evaluates to true, it's wrong, as the method
+     * - If the literal boolean evaluates to true, semantics are wrong, as the method
      * incorrectly returns true when it should have returned false.
+     * - If the expression isn't a literal boolean, then semantics are wrong, as we
+     * assume the data-flow engine is correct.
      *
      * The implementation below doesn't need to go through all the combinations.
      */
@@ -229,7 +231,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
         raiseError(returnTree, state, message);
       }
     } else {
-      if (evaluatesToTrue) {
+      if (evaluatesToTrue || !evaluatesToLiteral) {
         fieldNames.removeAll(nonNullFieldsInPath);
         String message =
             String.format(
