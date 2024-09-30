@@ -480,6 +480,40 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void setResultToFalse_multipleElements_correctSemantics_2() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @Nullable Item nullableItem2;",
+            "  @EnsuresNonNullIf(value={\"nullableItem\",\"nullableItem2\"}, result=false)",
+            "  public boolean nullableItemsAreNull() {",
+            "    // If the function returns false, we know that neither of the fields can be null, i.e., both are non-null.",
+            "    if(nullableItem == null || nullableItem2 == null) {",
+            "        return true;",
+            "    } else {",
+            "        return false;",
+            "    }",
+            "  }",
+            "  public int runOk() {",
+            "    if(nullableItemsAreNull()) {",
+            "      return 1;",
+            "    }",
+            "    nullableItem.call();",
+            "    nullableItem2.call();",
+            "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
   public void setResultToFalse_multipleElements_correctSemantics_dereferenceFound() {
     defaultCompilationHelper
         .addSourceLines(
