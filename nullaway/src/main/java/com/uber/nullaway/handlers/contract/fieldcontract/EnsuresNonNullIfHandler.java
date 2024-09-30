@@ -49,12 +49,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * This Handler parses {@code @EnsuresNonNullIf} annotation and when the annotated method is
