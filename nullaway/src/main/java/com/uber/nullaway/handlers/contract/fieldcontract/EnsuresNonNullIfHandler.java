@@ -196,41 +196,46 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
       }
     }
 
-    boolean evaluatesToLiteral = expressionAsBoolean.isPresent();
-    boolean evaluatesToFalse = expressionAsBoolean.isPresent() && !expressionAsBoolean.get();
-    boolean evaluatesToTrue = expressionAsBoolean.isPresent() && expressionAsBoolean.get();
+    /*
+     * Identify whether the expression is a boolean literal and whether
+     * it evaluates to the correct literal.
+     * - If result param in annotation is set to true, then expression should return true.
+     * - If result param in annotation is set to false, then expression should return false.
+     */
+    boolean isBooleanLiteral = expressionAsBoolean.isPresent();
+    boolean evaluatesToNonNullLiteral =
+        expressionAsBoolean.isPresent() && (trueIfNonNull == expressionAsBoolean.get());
 
     /*
      * Decide whether the semantics of this ReturnTree are correct.
      * The decision is as follows:
      *
      * If all fields in the path are verified:
-     * - If the literal boolean evaluates to true, semantics are correct, as the method
-     * does return true in case the semantics hold.
-     * - If the literal boolean evaluates to false, semantics are wrong, as the method
-     * incorrect return false when it should have returned true.
+     * - If the literal boolean is equals to the configured non-null boolean, semantics are correct,
+     * as the method does return correctly in case the semantics hold.
+     * - If the literal boolean isn't equals to the configured non-null boolean, semantics are wrong,
+     * as the method incorrectly returns when it should have returned true.
      * - If the expression isn't a literal boolean, but something more complex,
      * we assume semantics are correct as we trust the data-flow engine.
      *
      * If fields in path aren't verified:
-     * - If the literal boolean evaluates to false, semantics are correct, as the method
-     * correctly returns false in case the semantics don't hold.
-     * - If the literal boolean evaluates to true, semantics are wrong, as the method
-     * incorrectly returns true when it should have returned false.
+     * - If the literal boolean is the opposite of the configured non-null boolean, semantics
+     * are then correct, as the method correctly returns in case the semantics don't hold.
+     * - Otherwise, semantics are wrong, as the method incorrectly returns.
      * - If the expression isn't a literal boolean, then semantics are wrong, as we
      * assume the data-flow engine is correct.
      *
      * The implementation below is an optimized version of the decision table above.
      */
     if (allFieldsAreNonNull) {
-      if (evaluatesToLiteral && evaluatesToFalse) {
+      if (isBooleanLiteral && !evaluatesToNonNullLiteral) {
         raiseError(
             returnTree,
             state,
             "The method ensures the non-nullability of the fields, but returns incorrectly");
       }
     } else {
-      if (evaluatesToTrue || !evaluatesToLiteral) {
+      if (evaluatesToNonNullLiteral || !isBooleanLiteral) {
         fieldNames.removeAll(nonNullFieldsInPath);
         String message =
             String.format(

@@ -580,7 +580,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void semanticIssues_doesntEnsureNonNullabilityOfFields_resultFalse() {
+  public void noSemanticIssues_resultFalse() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -592,10 +592,8 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "  @EnsuresNonNullIf(value=\"nullableItem\", result=false)",
             "  public boolean doesNotHaveNullableItem() {",
             "    if(nullableItem != null) {",
-            "      // BUG: Diagnostic contains: The method ensures the non-nullability of the fields, but returns incorrectly",
             "      return false;",
             "    } else {",
-            "      // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not ensure fields [nullableItem]",
             "      return true;",
             "    }",
             "  }",
