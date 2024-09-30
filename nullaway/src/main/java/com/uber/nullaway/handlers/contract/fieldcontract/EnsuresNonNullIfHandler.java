@@ -218,7 +218,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
      * are then correct, as the method correctly returns in case the semantics don't hold.
      * - Otherwise, semantics are wrong, as the method incorrectly returns.
      * - If the expression isn't a literal boolean, then semantics are wrong, as we
-     * assume the data-flow engine is correct.
+     * assume it is possible that the configured non-null boolean can be returned.
      */
     if (!allFieldsAreNonNull) {
       if (evaluatesToNonNullLiteral || !isBooleanLiteral) {
