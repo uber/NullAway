@@ -273,10 +273,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
       }
     }
 
-    // Not explicitly declared in the annotation, so we default to true
-    // (This should never happen as the compiler would have caught it before)
-    throw new RuntimeException(
-        "EnsureNonNullIf requires explicit 'return' value of the method under which the postcondition holds.");
+    // Default value of the 'result' field is true
+    return true;
   }
 
   /**

@@ -15,7 +15,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
             "class Foo {",
             "  @Nullable Item nullableItem;",
-            "  @EnsuresNonNullIf(value=\"nullableItem\", result=true)",
+            "  @EnsuresNonNullIf(\"nullableItem\")",
             "  public boolean hasNullableItem() {",
             "    return nullableItem != null;",
             "  }",
