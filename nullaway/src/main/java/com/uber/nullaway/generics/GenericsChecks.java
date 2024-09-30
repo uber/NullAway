@@ -118,6 +118,74 @@ public final class GenericsChecks {
     }
   }
 
+  public static void checkInstantiationForGenericMethodCalls(
+          Tree tree,
+          VisitorState state,
+          NullAway analysis,
+          Config config,
+          Handler handler
+  ) {
+    if (!config.isJSpecifyMode()) {
+      return;
+    }
+    List<? extends Tree> typeArguments = ((MethodInvocationTree) tree).getTypeArguments();
+    if (typeArguments.isEmpty()) {
+      return;
+    }
+    MethodInvocationTree methodTree = (MethodInvocationTree) tree;
+    Map<Integer, Tree> nullableTypeArguments = new HashMap<>();
+    for (int i = 0; i < typeArguments.size(); i++) {
+      Tree curTypeArg = typeArguments.get(i);
+      if (curTypeArg instanceof AnnotatedTypeTree) {
+        AnnotatedTypeTree annotatedType = (AnnotatedTypeTree) curTypeArg;
+        for (AnnotationTree annotation : annotatedType.getAnnotations()) {
+          Type annotationType = ASTHelpers.getType(annotation);
+          if (annotationType != null
+                  && Nullness.isNullableAnnotation(annotationType.toString(), config)) {
+            nullableTypeArguments.put(i, curTypeArg);
+            break;
+          }
+        }
+      }
+    }
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
+
+    // base type that is being instantiated
+    Type baseType = methodSymbol.asType();
+    List<Type> baseTypeArgs = baseType.getTypeArguments();
+    for (int i = 0; i < baseTypeArgs.size(); i++) {
+      if (nullableTypeArguments.containsKey(i)) {
+        Type typeVariable = baseTypeArgs.get(i);
+        Type upperBound = typeVariable.getUpperBound();
+        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+                upperBound.getAnnotationMirrors();
+        boolean hasNullableAnnotation =
+                Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+                        || handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
+        // if base type argument does not have @Nullable annotation then the instantiation is
+        // invalid
+        if (!hasNullableAnnotation) {
+          reportInvalidTypeArgumentError(
+                  nullableTypeArguments.get(i), methodSymbol, typeVariable, state, analysis);
+        }
+      }
+    }
+  }
+
+  private static void reportInvalidTypeArgumentError(
+          Tree tree, Symbol.MethodSymbol methodSymbol, Type typeVariable, VisitorState state, NullAway analysis) {
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    ErrorMessage errorMessage =
+            new ErrorMessage(
+                    ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
+                    String.format(
+                            "Type argument cannot be @Nullable, as method %s's type variable %s is not @Nullable",
+                            methodSymbol.toString(), typeVariable.tsym.toString()));
+    state.reportMatch(
+            errorBuilder.createErrorDescription(
+                    errorMessage, analysis.buildDescription(tree), state, null));
+  }
+
   private static void reportInvalidInstantiationError(
       Tree tree, Type baseType, Type baseTypeVariable, VisitorState state, NullAway analysis) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
@@ -680,6 +748,18 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
+//    if(config.isJSpecifyMode()) {
+//      Type upperBound = invokedMethodSymbol.getReturnType().getUpperBound();
+//      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors = upperBound.getAnnotationMirrors();
+//      boolean hasNullableAnnotation = Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+//      List<Type> baseTypeArgs = invokedMethodSymbol.asType().getTypeArguments();
+//      if (baseTypeArgs == null) {
+//        System.out.println("hi");
+//      }
+//      if (hasNullableAnnotation) {
+//        return Nullness.NULLABLE;
+//      }
+//    }
     if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }

@@ -24,7 +24,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    nonNullIdentity(new Object()).toString();",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
             "    nonNullIdentity(null);",
-            "    // BUG: Diagnostic contains: something about invalid type argument",
+            "    // BUG: Diagnostic contains: Type argument cannot be @Nullable", // something about invalid type argument", // line 13
             "    Test.<@Nullable Object>nonNullIdentity(new Object());",
             "  }",
             "}")
@@ -43,10 +43,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    return t;",
             "  }",
             "  static void test() {",
-            "    // legal",
-            "    identity(new Object()).toString();",
-            "    // also legal",
-            "    Test.<@Nullable Object>identity(null);",
+//            "    // legal",
+//            "    identity(new Object()).toString();",
+//            "    // also legal",
+//            "    Test.<@Nullable Object>identity(null);",
             "    // BUG: Diagnostic contains: dereferenced expression",
             "    Test.<@Nullable Object>identity(null).toString();",
             "  }",

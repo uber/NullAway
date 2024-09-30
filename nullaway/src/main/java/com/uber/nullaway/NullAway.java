@@ -1753,6 +1753,9 @@ public class NullAway extends BugChecker
       if (config.isJSpecifyMode()) {
         GenericsChecks.compareGenericTypeParameterNullabilityForCall(
             formalParams, actualParams, methodSymbol.isVarArgs(), this, state);
+        if(!methodSymbol.getTypeParameters().isEmpty()) {
+          GenericsChecks.checkInstantiationForGenericMethodCalls(tree, state, this, config, handler);
+        }
       }
     }
 
@@ -2447,7 +2450,11 @@ public class NullAway extends BugChecker
         }
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, exprMayBeNull);
-    return exprMayBeNull && nullnessFromDataflow(state, expr);
+    boolean x = exprMayBeNull && nullnessFromDataflow(state, expr);
+    if(x) {
+      return true ;
+    }
+    return false;
   }
 
   private boolean mayBeNullMethodCall(
