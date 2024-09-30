@@ -224,11 +224,10 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
      */
     if (allFieldsAreNonNull) {
       if (evaluatesToLiteral && evaluatesToFalse) {
-        String message =
-            String.format(
-                "The method ensures the %s of the fields, but doesn't return true",
-                (trueIfNonNull ? "non-nullability" : "nullability"));
-        raiseError(returnTree, state, message);
+        raiseError(
+            returnTree,
+            state,
+            "The method ensures the non-nullability of the fields, but returns incorrectly");
       }
     } else {
       if (evaluatesToTrue || !evaluatesToLiteral) {
