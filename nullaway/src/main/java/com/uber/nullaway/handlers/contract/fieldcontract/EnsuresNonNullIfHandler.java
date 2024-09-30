@@ -46,7 +46,6 @@ import com.uber.nullaway.handlers.MethodAnalysisContext;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.AnnotationMirror;
@@ -187,12 +186,13 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
             .collect(Collectors.toSet());
     boolean allFieldsAreNonNull = nonNullFieldsInPath.containsAll(fieldNames);
 
-    // Whether the return true expression evaluates to a boolean literal or not.
-    Optional<Boolean> expressionAsBoolean = Optional.empty();
+    // Whether the return true expression evaluates to a boolean literal or not.  If null, then not
+    // a boolean literal.
+    Boolean expressionAsBoolean = null;
     if (returnTree.getExpression() instanceof LiteralTree) {
       LiteralTree expressionAsLiteral = (LiteralTree) returnTree.getExpression();
       if (expressionAsLiteral.getValue() instanceof Boolean) {
-        expressionAsBoolean = Optional.of((boolean) expressionAsLiteral.getValue());
+        expressionAsBoolean = (Boolean) expressionAsLiteral.getValue();
       }
     }
 
@@ -202,9 +202,9 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
      * - If result param in annotation is set to true, then expression should return true.
      * - If result param in annotation is set to false, then expression should return false.
      */
-    boolean isBooleanLiteral = expressionAsBoolean.isPresent();
+    boolean isBooleanLiteral = expressionAsBoolean != null;
     boolean evaluatesToNonNullLiteral =
-        expressionAsBoolean.isPresent() && (trueIfNonNull == expressionAsBoolean.get());
+        expressionAsBoolean != null && (trueIfNonNull == expressionAsBoolean);
 
     /*
      * Decide whether the semantics of this ReturnTree are correct.
