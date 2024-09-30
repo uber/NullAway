@@ -85,7 +85,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
   protected boolean validateAnnotationSemantics(
       MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     if (tree.getBody() == null) {
-      return false;
+      return true;
     }
 
     // clean up state variables, as we are visiting a new annotated method
