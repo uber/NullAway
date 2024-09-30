@@ -419,7 +419,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void setResultToFalse_MultipleElements_wrongSemantics_1() {
+  public void setResultToFalse_multipleElements_wrongSemantics_1() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -450,7 +450,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void setTrueIfNonNullToFalseMultipleElements_correctSemantics_deferenceFound() {
+  public void setResultToFalse_multipleElements_correctSemantics() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -470,6 +470,35 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "      return 1;",
             "    }",
             "    nullableItem.call();",
+            "    nullableItem2.call();",
+            "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void setResultToFalse_multipleElements_correctSemantics_dereferenceFound() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable Item nullableItem;",
+            "  @Nullable Item nullableItem2;",
+            "  @EnsuresNonNullIf(value={\"nullableItem\",\"nullableItem2\"}, result=false)",
+            "  public boolean nullableItemsAreNull() {",
+            "    // If the function returns false, we know that neither of the fields can be null, i.e., both are non-null.",
+            "    return nullableItem == null || nullableItem2 == null;",
+            "  }",
+            "  public int runOk() {",
+            "    // BUG: Diagnostic contains: dereferenced expression nullableItem is @Nullable",
+            "    nullableItem.call();",
+            "    // BUG: Diagnostic contains: dereferenced expression nullableItem2 is @Nullable",
             "    nullableItem2.call();",
             "    return 0;",
             "  }",
@@ -664,7 +693,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void semanticIssues_2() {
+  public void semanticIssues_hardCodedReturnTrue() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
