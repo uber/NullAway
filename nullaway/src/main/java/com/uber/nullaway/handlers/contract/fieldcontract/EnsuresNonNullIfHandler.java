@@ -70,8 +70,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
   // The MethodTree and MethodAnalysisContext of the EnsureNonNullIf method
   // under current semantic validation
   // They are set to null when no methods are being validated.
-  @Nullable private MethodTree methodTreeUnderAnalysis;
-  @Nullable private MethodAnalysisContext methodAnalysisContextUnderAnalysis;
+  private @Nullable MethodTree methodTreeUnderAnalysis;
+  private @Nullable MethodAnalysisContext methodAnalysisContextUnderAnalysis;
 
   public EnsuresNonNullIfHandler() {
     super("EnsuresNonNullIf");
@@ -133,12 +133,9 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
         }
 
         // We only add returns that are directly in the method under analysis
-        if (!enclosingMethod.getLeaf().equals(methodTreeUnderAnalysis)) {
-          return super.visitReturn(node, null);
+        if (enclosingMethod.getLeaf().equals(methodTreeUnderAnalysis)) {
+          returnTreesInMethodUnderAnalysis.add(node);
         }
-
-        // We add the current return tree to the set as it's in the method
-        returnTreesInMethodUnderAnalysis.add(node);
         return super.visitReturn(node, null);
       }
     }.scan(methodState.getPath(), null);
