@@ -390,8 +390,9 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** Tests related to setting return=false */
   @Test
-  public void setTrueIfNonNullToFalse() {
+  public void setResultToFalse() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -418,7 +419,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void setTrueIfNonNullToFalseMultipleElements() {
+  public void setResultToFalse_MultipleElements_wrongSemantics_1() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -430,6 +431,8 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "  @Nullable Item nullableItem2;",
             "  @EnsuresNonNullIf(value={\"nullableItem\",\"nullableItem2\"}, result=false)",
             "  public boolean doesNotHaveNullableItem() {",
+            "    // If nullableItem != null but nullableItem2 == null, then this function returns false. So returning false does not guarantee that both the fields are non-null.",
+            "    // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not ensure fields [nullableItem, nullableItem2]",
             "    return nullableItem == null && nullableItem2 == null;",
             "  }",
             "  public int runOk() {",
@@ -447,7 +450,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void setTrueIfNonNullToFalseMultipleElements_deferenceFound() {
+  public void setTrueIfNonNullToFalseMultipleElements_correctSemantics_deferenceFound() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -458,12 +461,12 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "  @Nullable Item nullableItem;",
             "  @Nullable Item nullableItem2;",
             "  @EnsuresNonNullIf(value={\"nullableItem\",\"nullableItem2\"}, result=false)",
-            "  public boolean doesNotHaveNullableItem() {",
-            "    // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not ensure fields [nullableItem, nullableItem2]",
+            "  public boolean nullableItemsAreNull() {",
+            "    // If the function returns false, we know that neither of the fields can be null, i.e., both are non-null.",
             "    return nullableItem == null || nullableItem2 == null;",
             "  }",
             "  public int runOk() {",
-            "    if(doesNotHaveNullableItem()) {",
+            "    if(nullableItemsAreNull()) {",
             "      return 1;",
             "    }",
             "    nullableItem.call();",

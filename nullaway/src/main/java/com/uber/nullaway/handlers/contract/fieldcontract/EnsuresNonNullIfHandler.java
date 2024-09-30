@@ -176,14 +176,16 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
     boolean trueIfNonNull = getResultValueFromAnnotation(methodSymbolUnderAnalysis);
 
-    // We extract all the data-flow of the fields found by the
-    // engine in the "then" case (i.e., true case)
-    // and check whether all fields in the annotation parameter are non-null
+    // We extract all the fields that are considered non-null by the data-flow engine
+    // We pick the "thenStore" case in case result is set to true
+    // or "elseStore" in case result is set to false
+    // and check whether the non-full fields match the ones in the annotation parameter
+    NullnessStore chosenStore = trueIfNonNull ? thenStore : elseStore;
     Set<String> nonNullFieldsInPath =
-        thenStore.getReceiverFields(trueIfNonNull ? Nullness.NONNULL : Nullness.NULL).stream()
+        chosenStore.getNonNullReceiverFields().stream()
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
-    boolean allFieldsInPathAreVerified = nonNullFieldsInPath.containsAll(fieldNames);
+    boolean allFieldsAreNonNull = nonNullFieldsInPath.containsAll(fieldNames);
 
     // Whether the return true expression evaluates to a boolean literal or not.
     Optional<Boolean> expressionAsBoolean = Optional.empty();
@@ -220,7 +222,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
      *
      * The implementation below is an optimized version of the decision table above.
      */
-    if (allFieldsInPathAreVerified) {
+    if (allFieldsAreNonNull) {
       if (evaluatesToLiteral && evaluatesToFalse) {
         String message =
             String.format(
