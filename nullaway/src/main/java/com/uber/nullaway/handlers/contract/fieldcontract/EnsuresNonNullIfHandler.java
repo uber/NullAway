@@ -211,12 +211,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
      * The decision is as follows:
      *
      * If all fields in the path are verified:
-     * - If the literal boolean is equals to the configured non-null boolean, semantics are correct,
-     * as the method does return correctly in case the semantics hold.
-     * - If the literal boolean isn't equals to the configured non-null boolean, semantics are wrong,
-     * as the method incorrectly returns when it should have returned true.
-     * - If the expression isn't a literal boolean, but something more complex,
-     * we assume semantics are correct as we trust the data-flow engine.
+     * - Semantics are valid
      *
      * If fields in path aren't verified:
      * - If the literal boolean is the opposite of the configured non-null boolean, semantics
@@ -224,17 +219,8 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
      * - Otherwise, semantics are wrong, as the method incorrectly returns.
      * - If the expression isn't a literal boolean, then semantics are wrong, as we
      * assume the data-flow engine is correct.
-     *
-     * The implementation below is an optimized version of the decision table above.
      */
-    if (allFieldsAreNonNull) {
-      if (isBooleanLiteral && !evaluatesToNonNullLiteral) {
-        raiseError(
-            returnTree,
-            state,
-            "The method ensures the non-nullability of the fields, but returns incorrectly");
-      }
-    } else {
+    if (!allFieldsAreNonNull) {
       if (evaluatesToNonNullLiteral || !isBooleanLiteral) {
         fieldNames.removeAll(nonNullFieldsInPath);
         String message =
