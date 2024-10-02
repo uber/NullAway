@@ -1053,4 +1053,20 @@ public class CoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  /** testing for no Checker Framework crash */
+  @Test
+  public void ternaryBothCasesNull() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestCase.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class TestCase {",
+            "    public static @Nullable String foo(String x) {",
+            "        return x.isEmpty() ? null : null;",
+            "    }",
+            "}")
+        .doTest();
+  }
 }
