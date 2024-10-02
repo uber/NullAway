@@ -21,8 +21,8 @@ package com.uber.nullaway.dataflow;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.dataflow.nullnesspropagation.NullnessAnalysis;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.Context;
@@ -157,7 +157,25 @@ public final class AccessPathNullnessAnalysis {
       // be conservative and say nothing is initialized
       return Collections.emptySet();
     }
-    return nullnessResult.getNonNullReceiverFields();
+    return getNonnullReceiverFields(nullnessResult);
+  }
+
+  private Set<Element> getNonnullReceiverFields(NullnessStore nullnessResult) {
+    Set<AccessPath> nonnullAccessPaths = nullnessResult.getAccessPathsWithValue(Nullness.NONNULL);
+    Set<Element> result = new LinkedHashSet<>();
+    for (AccessPath ap : nonnullAccessPaths) {
+      // A null root represents the receiver
+      if (ap.getRoot() == null) {
+        ImmutableList<AccessPathElement> elements = ap.getElements();
+        if (elements.size() == 1) {
+          Element elem = elements.get(0).getJavaElement();
+          if (elem.getKind().equals(ElementKind.FIELD)) {
+            result.add(elem);
+          }
+        }
+      }
+    }
+    return result;
   }
 
   /**
@@ -172,7 +190,7 @@ public final class AccessPathNullnessAnalysis {
     if (store == null) {
       return Collections.emptySet();
     }
-    return store.getNonNullReceiverFields();
+    return getNonnullReceiverFields(store);
   }
 
   /**

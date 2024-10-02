@@ -852,8 +852,7 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitReturn(
       ReturnNode returnNode, TransferInput<Nullness, NullnessStore> input) {
-    handler.onDataflowVisitReturn(
-        returnNode.getTree(), state, input.getThenStore(), input.getElseStore());
+    handler.onDataflowVisitReturn(returnNode.getTree(), input.getThenStore(), input.getElseStore());
     return noStoreChanges(NULLABLE, input);
   }
 
