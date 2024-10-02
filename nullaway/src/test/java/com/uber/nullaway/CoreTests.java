@@ -1054,6 +1054,7 @@ public class CoreTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** testing for no Checker Framework crash */
   @Test
   public void ternaryBothCasesNull() {
     defaultCompilationHelper
