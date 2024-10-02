@@ -49,4 +49,16 @@ public class AnnotationExample {
       return nullableObject;
     }
   }
+
+  public static Integer add(Integer a, Integer b) {
+    return a + b;
+  }
+
+  public static Object getNewObjectIfNull(Object object) {
+    if (object == null) {
+      return new Object();
+    } else {
+      return object;
+    }
+  }
 }

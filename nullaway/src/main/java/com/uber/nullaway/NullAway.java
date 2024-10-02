@@ -1780,17 +1780,27 @@ public class NullAway extends BugChecker
         }
         actual = actualParams.get(argPos);
         // check if the varargs arguments are being passed as an array
-        Type.ArrayType varargsArrayType =
-            (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
+        VarSymbol formalParamSymbol = formalParams.get(formalParams.size() - 1);
+        Type.ArrayType varargsArrayType = (Type.ArrayType) formalParamSymbol.type;
         Type actualParameterType = ASTHelpers.getType(actual);
         if (actualParameterType != null
             && state.getTypes().isAssignable(actualParameterType, varargsArrayType)
             && actualParams.size() == argPos + 1) {
           // This is the case where an array is explicitly passed in the position of the var args
           // parameter
-          // If varargs array itself is not @Nullable, cannot pass @Nullable array
-          if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
-            mayActualBeNull = mayBeNullExpr(state, actual);
+          // Only check for a nullable varargs array if the method is annotated, or a @NonNull
+          // restrictive annotation is present in legacy mode (as previously the annotation was
+          // applied to both the array itself and the elements), or a JetBrains @NotNull declaration
+          // annotation is present (due to https://github.com/uber/NullAway/issues/720)
+          boolean checkForNullableVarargsArray =
+              isMethodAnnotated
+                  || (config.isLegacyAnnotationLocation() && argIsNonNull)
+                  || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(formalParamSymbol);
+          if (checkForNullableVarargsArray) {
+            // If varargs array itself is not @Nullable, cannot pass @Nullable array
+            if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
+              mayActualBeNull = mayBeNullExpr(state, actual);
+            }
           }
         } else {
           // This is the case were varargs are being passed individually, as 1 or more actual

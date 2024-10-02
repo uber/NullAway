@@ -31,6 +31,7 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
@@ -39,8 +40,6 @@ import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.jspecify.annotations.Nullable;
 
 public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
-
-  private static final String JETBRAINS_NOT_NULL = "org.jetbrains.annotations.NotNull";
 
   private final Config config;
 
@@ -113,13 +112,9 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
         if (methodSymbol.isVarArgs() && i == methodSymbol.getParameters().size() - 1) {
           // Special handling: ignore org.jetbrains.annotations.NotNull on varargs parameters
           // to handle kotlinc generated jars (see #720)
-          // We explicitly ignore type-use annotations here, looking for @NotNull used as a
-          // declaration annotation, which is why this logic is simpler than e.g.
-          // NullabilityUtil.getAllAnnotationsForParameter.
+          Symbol.VarSymbol varargsParamSymbol = methodSymbol.getParameters().get(i);
           boolean jetBrainsNotNullAnnotated =
-              methodSymbol.getParameters().get(i).getAnnotationMirrors().stream()
-                  .map(a -> a.getAnnotationType().toString())
-                  .anyMatch(annotName -> annotName.equals(JETBRAINS_NOT_NULL));
+              NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(varargsParamSymbol);
           if (jetBrainsNotNullAnnotated) {
             continue;
           }

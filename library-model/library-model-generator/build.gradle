@@ -21,6 +21,9 @@ plugins {
 dependencies {
     implementation deps.build.guava
     implementation deps.build.javaparser
+    implementation deps.build.javaparserSymbolSolver
     compileOnly deps.apt.autoValueAnnot
     annotationProcessor deps.apt.autoValue
+
+    testImplementation deps.test.junit4
 }

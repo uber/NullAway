@@ -220,9 +220,9 @@ class CompositeHandler implements Handler {
 
   @Override
   public void onDataflowVisitReturn(
-      ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore) {
+      ReturnTree tree, VisitorState state, NullnessStore thenStore, NullnessStore elseStore) {
     for (Handler h : handlers) {
-      h.onDataflowVisitReturn(tree, thenStore, elseStore);
+      h.onDataflowVisitReturn(tree, state, thenStore, elseStore);
     }
   }
 
