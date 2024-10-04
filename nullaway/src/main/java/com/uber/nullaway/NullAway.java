@@ -2450,11 +2450,7 @@ public class NullAway extends BugChecker
         }
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, exprMayBeNull);
-    boolean x = exprMayBeNull && nullnessFromDataflow(state, expr);
-    if(x) {
-      return true ;
-    }
-    return false;
+    return exprMayBeNull && nullnessFromDataflow(state, expr);
   }
 
   private boolean mayBeNullMethodCall(

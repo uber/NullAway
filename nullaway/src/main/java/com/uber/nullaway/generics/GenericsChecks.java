@@ -7,6 +7,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
@@ -35,6 +36,8 @@ import com.uber.nullaway.handlers.Handler;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.ArrayList;
 import javax.annotation.Nullable;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
@@ -755,12 +758,31 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
-    Type upperBound = invokedMethodSymbol.getReturnType().getUpperBound();
-    com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors = upperBound.getAnnotationMirrors();
-    boolean hasNullableAnnotation = Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-    if (hasNullableAnnotation) {
+
+
+    List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
+    com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
+
+    Type methodType = invokedMethodSymbol.type;
+    Type substitutedReturnType = null;
+    if(methodType instanceof Type.ForAll) {
+      Type.ForAll forAllType = (Type.ForAll) methodType;
+
+      // Extract the underlying MethodType (the actual signature)
+      Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.qtype;
+
+      // Substitute the argument and return types within the MethodType
+      substitutedReturnType = state.getTypes().subst(methodTypeInsideForAll.restype, forAllType.tvars, explicitTypeArgs);
+    } else {
+      // If it's not a ForAll type, handle it as a normal MethodType
+      Type.MethodType methodTypeElse = (Type.MethodType) invokedMethodSymbol.type;
+      substitutedReturnType = state.getTypes().subst(methodTypeElse.restype, invokedMethodSymbol.type.getTypeArguments(), explicitTypeArgs);
+    }
+
+    if(Objects.equals(getTypeNullness(substitutedReturnType, config), Nullness.NULLABLE)) {
       return Nullness.NULLABLE;
     }
+
     if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }
@@ -772,6 +794,17 @@ public final class GenericsChecks {
       return getGenericMethodReturnTypeNullness(
           invokedMethodSymbol, methodReceiverType, state, config);
     }
+  }
+
+  private static com.sun.tools.javac.util.List<Type> convertTreesToTypes(List<? extends Tree> typeArgumentTrees) {
+    List<Type> types = new ArrayList<>();
+    for (Tree tree : typeArgumentTrees) {
+      if (tree instanceof JCTree.JCExpression) {
+        JCTree.JCExpression expression = (JCTree.JCExpression) tree;
+        types.add(expression.type);  // Retrieve the Type
+      }
+    }
+    return com.sun.tools.javac.util.List.from(types);
   }
 
   /**
