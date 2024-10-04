@@ -702,13 +702,6 @@ public final class GenericsChecks {
 
   public static Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, @Nullable Type enclosingType, VisitorState state, Config config) {
-//    Type returnType = method.asType().getReturnType();
-//    Type upperBound = returnType.getUpperBound();
-//    com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors = upperBound.getAnnotationMirrors();
-//    boolean hasNullableAnnotation = Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-//    if(hasNullableAnnotation) {
-//      return Nullness.NULLABLE;
-//    }
     if (enclosingType == null) {
       // we have no additional information from generics, so return NONNULL (presence of a @Nullable
       // annotation should have been handled by the caller)
