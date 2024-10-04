@@ -52,7 +52,7 @@ public class Handlers {
       handlerListBuilder.add(new RestrictiveAnnotationHandler(config));
     }
     if (config.isJarInferEnabled()) {
-      handlerListBuilder.add(new InferredJARModelsHandler(config));
+      handlerListBuilder.add(new InferredJARModelsHandler());
     }
     if (config.handleTestAssertionLibraries()) {
       handlerListBuilder.add(new AssertionHandler(methodNameUtil));
