@@ -2366,10 +2366,11 @@ public class NullAway extends BugChecker
       case NEW_CLASS:
       case NEW_ARRAY:
       case ARRAY_TYPE:
+      // Lambdas may return null, but the lambda literal itself should not be null
       case LAMBDA_EXPRESSION:
-        // Lambdas may return null, but the lambda literal itself should not be null
+      // These cannot be null; the compiler would catch it
       case MEMBER_REFERENCE:
-        // These cannot be null; the compiler would catch it
+      // result of compound assignment cannot be null
       case MULTIPLY_ASSIGNMENT:
       case DIVIDE_ASSIGNMENT:
       case REMAINDER_ASSIGNMENT:
@@ -2381,9 +2382,8 @@ public class NullAway extends BugChecker
       case AND_ASSIGNMENT:
       case XOR_ASSIGNMENT:
       case OR_ASSIGNMENT:
-        // result of compound assignment cannot be null
+      // rest are for auto-boxing
       case PLUS:
-        // rest are for auto-boxing
       case MINUS:
       case MULTIPLY:
       case DIVIDE:

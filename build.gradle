@@ -112,7 +112,7 @@ subprojects { project ->
         project.apply plugin: "com.diffplug.spotless"
         spotless {
             java {
-                googleJavaFormat()
+                googleJavaFormat(deps.versions.googlejavaformat)
             }
         }
     }
@@ -129,7 +129,7 @@ spotless {
     }
 }
 spotlessPredeclare {
-    java { googleJavaFormat('1.19.2') }
+    java { googleJavaFormat(deps.versions.googlejavaformat) }
     groovyGradle {
         greclipse()
     }

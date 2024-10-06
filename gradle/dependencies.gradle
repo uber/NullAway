@@ -53,6 +53,7 @@ def versions = [
     autoValue              : "1.10.2",
     autoService            : "1.1.1",
     javaparser             : "3.26.2",
+    googlejavaformat       : "1.24.0",
 ]
 
 def apt = [
