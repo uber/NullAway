@@ -115,4 +115,37 @@ public class JarInferIntegrationTest {
             "}")
         .doTest();
   }
+
+  /**
+   * Tests our pre-generated models for Android SDK classes. See also the build.gradle file for this
+   * project which determines which SDK version's models are being tested.
+   */
+  @Test
+  public void jarInferAndroidSDKModels() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true"))
+        // stub implementation of SpannableStringBuilder.append(CharSequence) which we know is
+        // modelled as having a @Nullable parameter
+        .addSourceLines(
+            "SpannableStringBuilder.java",
+            "package android.text;",
+            "public class SpannableStringBuilder {",
+            "  public SpannableStringBuilder append(CharSequence text) { return this; }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  void test1(android.text.SpannableStringBuilder builder) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    builder.append(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
