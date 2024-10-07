@@ -33,6 +33,9 @@ import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.isArrayElementNullable;
+import static com.uber.nullaway.Nullness.isNullableAnnotation;
+import static java.lang.annotation.ElementType.TYPE_PARAMETER;
+import static java.lang.annotation.ElementType.TYPE_USE;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
@@ -53,6 +56,8 @@ import com.google.errorprone.matchers.Matcher;
 import com.google.errorprone.matchers.Matchers;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.AnnotatedTypeTree;
+import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
@@ -98,6 +103,8 @@ import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -187,6 +194,8 @@ public class NullAway extends BugChecker
   static final String CORE_CHECK_NAME = "NullAway.<core>";
 
   private static final Matcher<ExpressionTree> THIS_MATCHER = NullAway::isThisIdentifierMatcher;
+  private static final ImmutableSet<ElementType> TYPE_USE_OR_TYPE_PARAMETER =
+      ImmutableSet.of(TYPE_USE, TYPE_PARAMETER);
 
   private final Predicate<MethodInvocationNode> nonAnnotatedMethod;
 
@@ -570,6 +579,11 @@ public class NullAway extends BugChecker
         || symbol instanceof ModuleElement) {
       return Description.NO_MATCH;
     }
+    if ((tree.getExpression() instanceof AnnotatedTypeTree)
+        && !config.isLegacyAnnotationLocation()) {
+      handleNullabilityOnNestedClass(
+          ((AnnotatedTypeTree) tree.getExpression()).getAnnotations(), tree, tree, state);
+    }
 
     Description badDeref = matchDereference(tree.getExpression(), tree, state);
     if (!badDeref.equals(Description.NO_MATCH)) {
@@ -637,6 +651,10 @@ public class NullAway extends BugChecker
     checkForMethodNullMarkedness(tree, state);
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
+    }
+    if (!config.isLegacyAnnotationLocation()) {
+      handleNullabilityOnNestedClass(
+          tree.getModifiers().getAnnotations(), tree.getReturnType(), tree, state);
     }
     // if the method is overriding some other method,
     // check that nullability annotations are consistent with
@@ -1464,6 +1482,10 @@ public class NullAway extends BugChecker
     if (tree.getInitializer() != null && config.isJSpecifyMode()) {
       GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
     }
+    if (!config.isLegacyAnnotationLocation()) {
+      handleNullabilityOnNestedClass(
+          tree.getModifiers().getAnnotations(), tree.getType(), tree, state);
+    }
 
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
       doUnboxingCheck(state, tree.getInitializer());
@@ -1485,6 +1507,71 @@ public class NullAway extends BugChecker
       }
     }
     return Description.NO_MATCH;
+  }
+
+  private static boolean isOnlyTypeAnnotation(Symbol anno) {
+    Target target = anno.getAnnotation(Target.class);
+    ImmutableSet<ElementType> elementTypes =
+        target == null ? ImmutableSet.of() : ImmutableSet.copyOf(target.value());
+    return elementTypes.contains(TYPE_USE);
+  }
+
+  private static boolean isDeclarationAnnotation(Symbol anno) {
+    Target target = anno.getAnnotation(Target.class);
+    if (target == null) {
+      return true;
+    }
+    ;
+    ImmutableSet<ElementType> elementTypes = ImmutableSet.copyOf(target.value());
+    // Return true only if annotation is not type-use only
+    return !(elementTypes.equals(ImmutableSet.of(ElementType.TYPE_USE))
+        || TYPE_USE_OR_TYPE_PARAMETER.containsAll(elementTypes));
+  }
+
+  private void handleNullabilityOnNestedClass(
+      List<? extends AnnotationTree> annotations, Tree type, Tree tree, VisitorState state) {
+    if (!(type instanceof JCTree.JCFieldAccess)) {
+      return;
+    }
+    JCTree.JCFieldAccess fieldAccess = (JCTree.JCFieldAccess) type;
+
+    int endOfOuterType = state.getEndPosition(fieldAccess.getExpression());
+    int startOfType = ((JCTree) type).getStartPosition();
+
+    for (AnnotationTree annotation : annotations) {
+      Symbol sym = ASTHelpers.getSymbol(annotation);
+      if (sym == null) {
+        continue;
+      }
+      if (!isOnlyTypeAnnotation(sym)) {
+        continue;
+      }
+
+      if (isDeclarationAnnotation(sym) && state.getEndPosition(annotation) <= startOfType) {
+        continue;
+      }
+
+      Symbol annotationSymbol = ASTHelpers.getSymbol(annotation);
+      if (annotationSymbol == null) {
+        continue;
+      }
+
+      String qualifiedName = annotationSymbol.getQualifiedName().toString();
+      if (!isNullableAnnotation(qualifiedName, config)) {
+        continue;
+      }
+
+      if (state.getEndPosition(annotation) < endOfOuterType) {
+
+        ErrorMessage errorMessage =
+            new ErrorMessage(
+                MessageTypes.NULLABLE_ON_WRONG_NESTED_CLASS_LEVEL,
+                "Type-use nullability annotations should be applied on inner class");
+
+        state.reportMatch(
+            errorBuilder.createErrorDescription(errorMessage, buildDescription(tree), state, null));
+      }
+    }
   }
 
   /**
