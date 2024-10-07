@@ -344,9 +344,8 @@ public class NullabilityUtil {
     // dimensions are *not* treated as applying to the top-level type, consistent with the JSpecify
     // spec.
     // Outside of JSpecify mode, annotations which are *not* on the inner type are not treated as
-    // being
-    // applied to the inner type. This can be bypassed the LegacyAnnotationLocations flag, in which
-    // annotations on all locations are treated as applying to the inner type.
+    // being applied to the inner type. This can be bypassed the LegacyAnnotationLocations flag, in
+    // which annotations on all locations are treated as applying to the inner type.
     // We don't allow mixing of inner types and array dimensions in the same location
     // (i.e. `Foo.@Nullable Bar []` is meaningless).
     // These aren't correct semantics for type use annotations, but a series of hacky
