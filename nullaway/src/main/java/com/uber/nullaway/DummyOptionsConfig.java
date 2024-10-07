@@ -199,22 +199,6 @@ public class DummyOptionsConfig implements Config {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 
-  /** --- JarInfer configs --- */
-  @Override
-  public boolean isJarInferUseReturnAnnotations() {
-    throw new IllegalStateException(ERROR_MESSAGE);
-  }
-
-  @Override
-  public String getJarInferRegexStripModelJarName() {
-    throw new IllegalStateException(ERROR_MESSAGE);
-  }
-
-  @Override
-  public String getJarInferRegexStripCodeJarName() {
-    throw new IllegalStateException(ERROR_MESSAGE);
-  }
-
   @Override
   public String getErrorURL() {
     throw new IllegalStateException(ERROR_MESSAGE);

@@ -279,28 +279,6 @@ public interface Config {
   boolean isJarInferEnabled();
 
   /**
-   * Checks if NullAway should use @Nullable return value annotations inferred by JarInfer.
-   *
-   * @return true if NullAway should use the @Nullable return value annotations inferred by
-   *     JarInfer.
-   */
-  boolean isJarInferUseReturnAnnotations();
-
-  /**
-   * Used by JarInfer
-   *
-   * @return the regex to extract jar name from the JarInfer model jar's path.
-   */
-  String getJarInferRegexStripModelJarName();
-
-  /**
-   * Used by JarInfer.
-   *
-   * @return the regex to extract jar name from the classfile jar's path.
-   */
-  String getJarInferRegexStripCodeJarName();
-
-  /**
    * Gets the URL to show with NullAway error messages.
    *
    * @return the URL to show with NullAway error messages

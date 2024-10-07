@@ -29,7 +29,6 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.Context;
-import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -62,12 +61,10 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
 
   private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
 
-  private final Config config;
   private final StubxCacheUtil cacheUtil;
 
-  public InferredJARModelsHandler(Config config) {
+  public InferredJARModelsHandler() {
     super();
-    this.config = config;
     String jarInferLogName = "JI";
     this.cacheUtil = new StubxCacheUtil(jarInferLogName);
     argAnnotCache = cacheUtil.getArgAnnotCache();
@@ -181,21 +178,19 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   }
 
   private boolean isReturnAnnotatedNullable(Symbol.MethodSymbol methodSymbol) {
-    if (config.isJarInferUseReturnAnnotations()) {
-      Preconditions.checkNotNull(methodSymbol);
-      Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
-      String className = classSymbol.getQualifiedName().toString();
-      if (argAnnotCache.containsKey(className)) {
-        String methodSign = getMethodSignature(methodSymbol);
-        Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
-        if (methodArgAnnotations != null) {
-          Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
-          if (methodAnnotations != null) {
-            if (methodAnnotations.contains("javax.annotation.Nullable")
-                || methodAnnotations.contains("org.jspecify.annotations.Nullable")) {
-              LOG(DEBUG, "DEBUG", "Nullable return for method: " + methodSign);
-              return true;
-            }
+    Preconditions.checkNotNull(methodSymbol);
+    Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
+    String className = classSymbol.getQualifiedName().toString();
+    if (argAnnotCache.containsKey(className)) {
+      String methodSign = getMethodSignature(methodSymbol);
+      Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
+      if (methodArgAnnotations != null) {
+        Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
+        if (methodAnnotations != null) {
+          if (methodAnnotations.contains("javax.annotation.Nullable")
+              || methodAnnotations.contains("org.jspecify.annotations.Nullable")) {
+            LOG(DEBUG, "DEBUG", "Nullable return for method: " + methodSign);
+            return true;
           }
         }
       }
