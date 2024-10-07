@@ -1528,14 +1528,17 @@ public class NullAway extends BugChecker
   }
 
   private void handleNullabilityOnNestedClass(
-      List<? extends AnnotationTree> annotations, Tree type, Tree tree, VisitorState state) {
-    if (!(type instanceof JCTree.JCFieldAccess)) {
+      List<? extends AnnotationTree> annotations,
+      Tree typeTree,
+      Tree errorReportingTree,
+      VisitorState state) {
+    if (!(typeTree instanceof JCTree.JCFieldAccess)) {
       return;
     }
-    JCTree.JCFieldAccess fieldAccess = (JCTree.JCFieldAccess) type;
+    JCTree.JCFieldAccess fieldAccess = (JCTree.JCFieldAccess) typeTree;
 
     int endOfOuterType = state.getEndPosition(fieldAccess.getExpression());
-    int startOfType = ((JCTree) type).getStartPosition();
+    int startOfType = ((JCTree) typeTree).getStartPosition();
 
     for (AnnotationTree annotation : annotations) {
       Symbol sym = ASTHelpers.getSymbol(annotation);
@@ -1564,7 +1567,8 @@ public class NullAway extends BugChecker
                 "Type-use nullability annotations should be applied on inner class");
 
         state.reportMatch(
-            errorBuilder.createErrorDescription(errorMessage, buildDescription(tree), state, null));
+            errorBuilder.createErrorDescription(
+                errorMessage, buildDescription(errorReportingTree), state, null));
       }
     }
   }
