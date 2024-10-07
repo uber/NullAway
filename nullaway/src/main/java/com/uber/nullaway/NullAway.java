@@ -1521,7 +1521,6 @@ public class NullAway extends BugChecker
     if (target == null) {
       return true;
     }
-    ;
     ImmutableSet<ElementType> elementTypes = ImmutableSet.copyOf(target.value());
     // Return true only if annotation is not type-use only
     return !(elementTypes.equals(ImmutableSet.of(ElementType.TYPE_USE))
@@ -1552,12 +1551,7 @@ public class NullAway extends BugChecker
         continue;
       }
 
-      Symbol annotationSymbol = ASTHelpers.getSymbol(annotation);
-      if (annotationSymbol == null) {
-        continue;
-      }
-
-      String qualifiedName = annotationSymbol.getQualifiedName().toString();
+      String qualifiedName = sym.getQualifiedName().toString();
       if (!isNullableAnnotation(qualifiedName, config)) {
         continue;
       }
