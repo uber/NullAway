@@ -1546,7 +1546,8 @@ public class NullAway extends BugChecker
       if (!isOnlyTypeAnnotation(sym)) {
         continue;
       }
-
+      // If an annotation is declaration ALSO, we check if it is at the correct location. If it is,
+      // we treat it as declaration and skip the checks.
       if (isDeclarationAnnotation(sym) && state.getEndPosition(annotation) <= startOfType) {
         continue;
       }
