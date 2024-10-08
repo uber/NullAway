@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
 import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL;
@@ -60,10 +61,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.StreamSupport;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.tools.JavaFileObject;
+import org.jspecify.annotations.Nullable;
 
 /** A class to construct error message to be displayed after the analysis finds error. */
 public class ErrorBuilder {
@@ -285,14 +286,14 @@ public class ErrorBuilder {
                   + config.getAutofixSuppressionComment());
     } else {
       // need to update the existing list of warnings
-      final List<String> suppressions = Lists.newArrayList(extantSuppressWarnings.value());
+      List<String> suppressions = Lists.newArrayList(extantSuppressWarnings.value());
       suppressions.add(suppressionName);
       // find the existing annotation, so we can replace it
-      final ModifiersTree modifiers =
+      ModifiersTree modifiers =
           (suggestTree instanceof MethodTree)
               ? ((MethodTree) suggestTree).getModifiers()
               : ((VariableTree) suggestTree).getModifiers();
-      final List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
+      List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
       // noinspection ConstantConditions
       com.google.common.base.Optional<? extends AnnotationTree> suppressWarningsAnnot =
           Iterables.tryFind(
@@ -301,7 +302,7 @@ public class ErrorBuilder {
       if (!suppressWarningsAnnot.isPresent()) {
         throw new AssertionError("something went horribly wrong");
       }
-      final String replacement =
+      String replacement =
           "@SuppressWarnings({"
               + Joiner.on(',').join(Iterables.transform(suppressions, s -> '"' + s + '"'))
               + "}) "
@@ -317,8 +318,7 @@ public class ErrorBuilder {
    * <p>TODO: actually use {@link
    * com.google.errorprone.fixes.SuggestedFixes#addSuppressWarnings(VisitorState, String)} instead
    */
-  @Nullable
-  private Tree suppressibleNode(@Nullable TreePath path) {
+  private @Nullable Tree suppressibleNode(@Nullable TreePath path) {
     if (path == null) {
       return null;
     }
@@ -358,15 +358,15 @@ public class ErrorBuilder {
 
   private Description.Builder addCastToNonNullFix(
       Tree suggestTree, Description.Builder builder, VisitorState state) {
-    final String fullMethodName = config.getCastToNonNullMethod();
+    String fullMethodName = config.getCastToNonNullMethod();
     if (fullMethodName == null) {
       throw new IllegalStateException("cast-to-non-null method not set");
     }
     // Add a call to castToNonNull around suggestTree:
-    final String[] parts = fullMethodName.split("\\.");
-    final String shortMethodName = parts[parts.length - 1];
-    final String replacement = shortMethodName + "(" + state.getSourceForNode(suggestTree) + ")";
-    final SuggestedFix fix =
+    String[] parts = fullMethodName.split("\\.");
+    String shortMethodName = parts[parts.length - 1];
+    String replacement = shortMethodName + "(" + state.getSourceForNode(suggestTree) + ")";
+    SuggestedFix fix =
         SuggestedFix.builder()
             .replace(suggestTree, replacement)
             .addStaticImport(fullMethodName) // ensure castToNonNull static import
@@ -383,14 +383,14 @@ public class ErrorBuilder {
     Preconditions.checkArgument(
         currTree.getKind() == Tree.Kind.METHOD_INVOCATION,
         String.format("Expected castToNonNull invocation expression, found:\n%s", currTree));
-    final MethodInvocationTree invTree = (MethodInvocationTree) currTree;
+    MethodInvocationTree invTree = (MethodInvocationTree) currTree;
     Preconditions.checkArgument(
         invTree.getArguments().contains(suggestTree),
         String.format(
             "Method invocation tree %s does not contain the expression %s as an argument being cast",
             invTree, suggestTree));
     // Remove the call to castToNonNull:
-    final SuggestedFix fix =
+    SuggestedFix fix =
         SuggestedFix.builder().replace(invTree, state.getSourceForNode(suggestTree)).build();
     return builder.addFix(fix);
   }
@@ -415,7 +415,9 @@ public class ErrorBuilder {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
     // method itself).
-    if (symbolHasSuppressWarningsAnnotation(methodSymbol, INITIALIZATION_CHECK_NAME)) {
+    if (symbolHasSuppressWarningsAnnotation(methodSymbol, INITIALIZATION_CHECK_NAME)
+        || hasDirectAnnotationWithSimpleName(
+            methodSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
       return;
     }
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);

@@ -4,8 +4,8 @@ import com.google.common.collect.ImmutableList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents a (non-root) field or method call element of an AccessPath.
@@ -16,7 +16,7 @@ import javax.lang.model.element.Element;
  */
 public class FieldOrMethodCallElement implements AccessPathElement {
   private final Element javaElement;
-  @Nullable private final ImmutableList<String> constantArguments;
+  private final @Nullable ImmutableList<String> constantArguments;
 
   public FieldOrMethodCallElement(Element javaElement, List<String> constantArguments) {
     this.javaElement = javaElement;

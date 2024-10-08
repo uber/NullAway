@@ -36,10 +36,10 @@ import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
 import java.util.Set;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Abstract base class for handlers that process pre- and post-condition annotations for fields.

@@ -5,6 +5,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import java.util.List;
 import javax.lang.model.type.NullType;
+import javax.lang.model.type.TypeKind;
 
 /**
  * Visitor that checks for identical nullability annotations at all nesting levels within two types.
@@ -23,6 +24,13 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     if (rhsType instanceof NullType || rhsType.isPrimitive()) {
       return true;
     }
+    if (rhsType.getKind().equals(TypeKind.WILDCARD)) {
+      // TODO Handle wildcard types
+      return true;
+    }
+    if (lhsType.isIntersection()) {
+      return handleIntersectionType((Type.IntersectionClassType) lhsType, rhsType);
+    }
     Types types = state.getTypes();
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
@@ -31,6 +39,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // running NullAway
     if (rhsTypeAsSuper == null) {
       throw new RuntimeException("Did not find supertype of " + rhsType + " matching " + lhsType);
+    }
+    // bail out of checking raw types for now
+    if (rhsTypeAsSuper.isRaw()) {
+      return true;
     }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
     List<Type> rhsTypeArguments = rhsTypeAsSuper.getTypeArguments();
@@ -57,6 +69,13 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // should also match.  When there is no enclosing type, getEnclosingType() returns a NoType
     // object, which gets handled by the fallback visitType() method
     return lhsType.getEnclosingType().accept(this, rhsType.getEnclosingType());
+  }
+
+  /** Check identical nullability for every type in the intersection */
+  private Boolean handleIntersectionType(
+      Type.IntersectionClassType intersectionType, Type rhsType) {
+    return intersectionType.getBounds().stream()
+        .allMatch(type -> ((Type) type).accept(this, rhsType));
   }
 
   @Override

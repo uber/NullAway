@@ -57,10 +57,10 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Function;
-import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
+import org.jspecify.annotations.Nullable;
 
 /**
  * This Handler deals with any methods from unannotated packages for which we need a nullability
@@ -74,7 +74,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   private final Config config;
   private final LibraryModels libraryModels;
 
-  @Nullable private OptimizedLibraryModels optLibraryModels;
+  private @Nullable OptimizedLibraryModels optLibraryModels;
 
   public LibraryModelsHandler(Config config) {
     super();
@@ -184,8 +184,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  @Nullable
-  public Integer castToNonNullArgumentPositionsForMethod(
+  public @Nullable Integer castToNonNullArgumentPositionsForMethod(
       List<? extends ExpressionTree> actualParams,
       @Nullable Integer previousArgumentPosition,
       MethodAnalysisContext methodAnalysisContext) {
@@ -206,7 +205,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     return newPositions.stream().findAny().orElse(previousArgumentPosition);
   }
 
-  @Nullable private CodeAnnotationInfo codeAnnotationInfo;
+  private @Nullable CodeAnnotationInfo codeAnnotationInfo;
 
   private CodeAnnotationInfo getCodeAnnotationInfo(Context context) {
     if (codeAnnotationInfo == null) {
@@ -291,19 +290,21 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       VisitorState state,
       AccessPath.AccessPathContext apContext) {
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
-    Set<Integer> nullImpliesTrueParameters = optLibraryModels.nullImpliesTrueParameters(callee);
+    ImmutableSet<Integer> nullImpliesTrueParameters =
+        optLibraryModels.nullImpliesTrueParameters(callee);
     for (AccessPath accessPath :
         accessPathsAtIndexes(nullImpliesTrueParameters, arguments, state, apContext)) {
       elseUpdates.set(accessPath, NONNULL);
     }
-    Set<Integer> nullImpliesFalseParameters = optLibraryModels.nullImpliesFalseParameters(callee);
+    ImmutableSet<Integer> nullImpliesFalseParameters =
+        optLibraryModels.nullImpliesFalseParameters(callee);
     for (AccessPath accessPath :
         accessPathsAtIndexes(nullImpliesFalseParameters, arguments, state, apContext)) {
       thenUpdates.set(accessPath, NONNULL);
     }
   }
 
-  private static Iterable<AccessPath> accessPathsAtIndexes(
+  private static List<AccessPath> accessPathsAtIndexes(
       Set<Integer> indexes,
       List<Node> arguments,
       VisitorState state,
@@ -335,7 +336,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       Symbol.MethodSymbol callee,
       VisitorState state,
       AccessPath.AccessPathContext apContext) {
-    Set<Integer> requiredNonNullParameters =
+    ImmutableSet<Integer> requiredNonNullParameters =
         getOptLibraryModels(state.context).failIfNullParameters(callee);
     for (AccessPath accessPath :
         accessPathsAtIndexes(requiredNonNullParameters, arguments, state, apContext)) {
@@ -1149,8 +1150,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         this.state = state;
       }
 
-      @Nullable
-      public T get(Symbol.MethodSymbol symbol) {
+      public @Nullable T get(Symbol.MethodSymbol symbol) {
         Map<MethodRef, T> methodRefTMap = state.get(symbol.name);
         if (methodRefTMap == null) {
           return null;
@@ -1257,8 +1257,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
      * checks if symbol is present in the NameIndexedMap or if it overrides some method in the
      * NameIndexedMap
      */
-    @Nullable
-    private static Symbol.MethodSymbol lookupHandlingOverrides(
+    private static Symbol.@Nullable MethodSymbol lookupHandlingOverrides(
         Symbol.MethodSymbol symbol,
         Types types,
         NameIndexedMap<Boolean> optLookup,
@@ -1289,19 +1288,20 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   private static class ExternalStubxLibraryModels implements LibraryModels {
 
     private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
+    private final Set<String> nullMarkedClassesCache;
     private final Map<String, Integer> upperBoundsCache;
 
     ExternalStubxLibraryModels() {
       String libraryModelLogName = "LM";
       StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
       argAnnotCache = cacheUtil.getArgAnnotCache();
+      nullMarkedClassesCache = cacheUtil.getNullMarkedClassesCache();
       upperBoundsCache = cacheUtil.getUpperBoundCache();
     }
 
     @Override
     public ImmutableSet<String> nullMarkedClasses() {
-      Set<String> cachedNullMarkedClasses = argAnnotCache.keySet();
-      return new ImmutableSet.Builder<String>().addAll(cachedNullMarkedClasses).build();
+      return new ImmutableSet.Builder<String>().addAll(nullMarkedClassesCache).build();
     }
 
     @Override
@@ -1321,7 +1321,23 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
-      return ImmutableSetMultimap.of();
+      ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      for (Map.Entry<String, Map<String, Map<Integer, Set<String>>>> outerEntry :
+          argAnnotCache.entrySet()) {
+        String className = outerEntry.getKey();
+        for (Map.Entry<String, Map<Integer, Set<String>>> innerEntry :
+            outerEntry.getValue().entrySet()) {
+          String methodName = innerEntry.getKey().substring(innerEntry.getKey().indexOf(" ") + 1);
+          for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
+            Integer index = entry.getKey();
+            if (index >= 0 && entry.getValue().stream().anyMatch(a -> a.contains("Nullable"))) {
+              mapBuilder.put(methodRef(className, methodName), index);
+            }
+          }
+        }
+      }
+      return mapBuilder.build();
     }
 
     @Override

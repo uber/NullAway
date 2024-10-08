@@ -38,6 +38,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
@@ -51,11 +52,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.ExecutableElement;
 import org.checkerframework.nullaway.javacutil.AnnotationUtils;
+import org.jspecify.annotations.Nullable;
 
 /** Helpful utility methods for nullability analysis. */
 public class NullabilityUtil {
@@ -63,6 +64,7 @@ public class NullabilityUtil {
   public static final String NULLUNMARKED_SIMPLE_NAME = "NullUnmarked";
 
   private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
+  private static final String JETBRAINS_NOT_NULL = "org.jetbrains.annotations.NotNull";
 
   private NullabilityUtil() {}
 
@@ -102,8 +104,7 @@ public class NullabilityUtil {
    * @return closest overridden ancestor method, or <code>null</code> if method does not override
    *     anything
    */
-  @Nullable
-  public static Symbol.MethodSymbol getClosestOverriddenMethod(
+  public static Symbol.@Nullable MethodSymbol getClosestOverriddenMethod(
       Symbol.MethodSymbol method, Types types) {
     // taken from Error Prone MethodOverrides check
     Symbol.ClassSymbol owner = method.enclClass();
@@ -135,8 +136,7 @@ public class NullabilityUtil {
    * @param others also stop and return in case of any of these tree kinds
    * @return the closest enclosing method / lambda
    */
-  @Nullable
-  public static TreePath findEnclosingMethodOrLambdaOrInitializer(
+  public static @Nullable TreePath findEnclosingMethodOrLambdaOrInitializer(
       TreePath path, ImmutableSet<Tree.Kind> others) {
     TreePath curPath = path.getParentPath();
     while (curPath != null) {
@@ -169,8 +169,7 @@ public class NullabilityUtil {
    * @param path the tree path
    * @return the closest enclosing method / lambda
    */
-  @Nullable
-  public static TreePath findEnclosingMethodOrLambdaOrInitializer(TreePath path) {
+  public static @Nullable TreePath findEnclosingMethodOrLambdaOrInitializer(TreePath path) {
     return findEnclosingMethodOrLambdaOrInitializer(path, ImmutableSet.of());
   }
 
@@ -231,14 +230,7 @@ public class NullabilityUtil {
    */
   public static @Nullable Set<String> getAnnotationValueArray(
       Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
-    AnnotationMirror annot = null;
-    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
-      String name = AnnotationUtils.annotationName(annotationMirror);
-      if ((exactMatch && name.equals(annotName)) || (!exactMatch && name.endsWith(annotName))) {
-        annot = annotationMirror;
-        break;
-      }
-    }
+    AnnotationMirror annot = findAnnotation(methodSymbol, annotName, exactMatch);
     if (annot == null) {
       return null;
     }
@@ -254,6 +246,33 @@ public class NullabilityUtil {
       }
     }
     return null;
+  }
+
+  /**
+   * Retrieve the specific annotation of a method.
+   *
+   * @param methodSymbol A method to check for the annotation.
+   * @param annotName The qualified name or simple name of the annotation depending on the value of
+   *     {@code exactMatch}.
+   * @param exactMatch If true, the annotation name must match the full qualified name given in
+   *     {@code annotName}, otherwise, simple names will be checked.
+   * @return an {@code AnnotationMirror} representing that annotation, or null in case the
+   *     annotation with a given name {@code annotName} doesn't exist in {@code methodSymbol}.
+   */
+  public static @Nullable AnnotationMirror findAnnotation(
+      Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
+    AnnotationMirror annot = null;
+    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
+      String name = AnnotationUtils.annotationName(annotationMirror);
+      if ((exactMatch && name.equals(annotName)) || (!exactMatch && name.endsWith(annotName))) {
+        annot = annotationMirror;
+        break;
+      }
+    }
+    if (annot == null) {
+      return null;
+    }
+    return annot;
   }
 
   /**
@@ -281,7 +300,7 @@ public class NullabilityUtil {
    * Gets the type use annotations on a symbol, ignoring annotations on components of the type (type
    * arguments, wildcards, etc.)
    */
-  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(
+  public static Stream<? extends AnnotationMirror> getTypeUseAnnotations(
       Symbol symbol, Config config) {
     Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
     if (symbol instanceof Symbol.MethodSymbol) {
@@ -315,10 +334,12 @@ public class NullabilityUtil {
     // We care about both annotations directly on the outer type and also those directly
     // on an inner type or array dimension, but wish to discard annotations on wildcards,
     // or type arguments.
-    // For arrays, outside JSpecify mode, we treat annotations on the outer type and on any
-    // dimension of the array as applying to the nullability of the array itself, not the elements.
-    // In JSpecify mode, annotations on array dimensions are *not* treated as applying to the
-    // top-level type, consistent with the JSpecify spec.
+    // For arrays, when the LegacyAnnotationLocations flag is passed, we treat annotations on the
+    // outer type and on any dimension of the array as applying to the nullability of the array
+    // itself, not the elements.
+    // In JSpecify mode and without the LegacyAnnotationLocations flag, annotations on array
+    // dimensions are *not* treated as applying to the top-level type, consistent with the JSpecify
+    // spec.
     // We don't allow mixing of inner types and array dimensions in the same location
     // (i.e. `Foo.@Nullable Bar []` is meaningless).
     // These aren't correct semantics for type use annotations, but a series of hacky
@@ -334,9 +355,9 @@ public class NullabilityUtil {
           locationHasInnerTypes = true;
           break;
         case ARRAY:
-          if (config.isJSpecifyMode()) {
-            // In JSpecify mode, annotations on array element types do not apply to the top-level
-            // type
+          if (config.isJSpecifyMode() || !config.isLegacyAnnotationLocation()) {
+            // Annotations on array element types do not apply to the top-level
+            // type outside of legacy mode
             return false;
           }
           locationHasArray = true;
@@ -433,6 +454,50 @@ public class NullabilityUtil {
         }
       }
     }
+    // For varargs symbols we also consider the elements to be @Nullable if there is a @Nullable
+    // declaration annotation on the parameter
+    if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
+      return Nullness.hasNullableDeclarationAnnotation(arraySymbol, config);
+    }
     return false;
+  }
+
+  /**
+   * Checks if the given array symbol has a {@code @NonNull} annotation for its elements.
+   *
+   * @param arraySymbol The symbol of the array to check.
+   * @param config NullAway configuration.
+   * @return true if the array symbol has a {@code @NonNull} annotation for its elements, false
+   *     otherwise
+   */
+  public static boolean isArrayElementNonNull(Symbol arraySymbol, Config config) {
+    for (Attribute.TypeCompound t : arraySymbol.getRawTypeAttributes()) {
+      for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
+        if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+          if (Nullness.isNonNullAnnotation(t.type.toString(), config)) {
+            return true;
+          }
+        }
+      }
+    }
+    // For varargs symbols we also consider the elements to be @NonNull if there is a @NonNull
+    // declaration annotation on the parameter
+    if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
+      return Nullness.hasNonNullDeclarationAnnotation(arraySymbol, config);
+    }
+    return false;
+  }
+
+  /**
+   * Does the given symbol have a JetBrains @NotNull declaration annotation? Useful for workarounds
+   * in light of https://github.com/uber/NullAway/issues/720
+   */
+  public static boolean hasJetBrainsNotNullDeclarationAnnotation(Symbol.VarSymbol varSymbol) {
+    // We explicitly ignore type-use annotations here, looking for @NotNull used as a
+    // declaration annotation, which is why this logic is simpler than e.g.
+    // NullabilityUtil.getAllAnnotationsForParameter.
+    return varSymbol.getAnnotationMirrors().stream()
+        .map(a -> a.getAnnotationType().toString())
+        .anyMatch(annotName -> annotName.equals(JETBRAINS_NOT_NULL));
   }
 }

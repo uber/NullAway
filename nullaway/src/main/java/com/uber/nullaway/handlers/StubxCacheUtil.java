@@ -27,6 +27,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -43,7 +44,12 @@ import java.util.Set;
  */
 public class StubxCacheUtil {
 
-  private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
+  /**
+   * The file magic number for version 1 .astubx files. It should be the first four bytes of any
+   * compatible .astubx file.
+   */
+  private static final int VERSION_1_FILE_MAGIC_NUMBER = 481874642;
+
   private boolean DEBUG = false;
   private String logCaller = "";
 
@@ -59,6 +65,8 @@ public class StubxCacheUtil {
 
   private final Map<String, Integer> upperBoundCache;
 
+  private final Set<String> nullMarkedClassesCache;
+
   /**
    * Initializes a new {@code StubxCacheUtil} instance.
    *
@@ -70,12 +78,17 @@ public class StubxCacheUtil {
   public StubxCacheUtil(String logCaller) {
     argAnnotCache = new LinkedHashMap<>();
     upperBoundCache = new HashMap<>();
+    nullMarkedClassesCache = new HashSet<>();
     this.logCaller = logCaller;
     loadStubxFiles();
   }
 
   public Map<String, Integer> getUpperBoundCache() {
     return upperBoundCache;
+  }
+
+  public Set<String> getNullMarkedClassesCache() {
+    return nullMarkedClassesCache;
   }
 
   public Map<String, Map<String, Map<Integer, Set<String>>>> getArgAnnotCache() {
@@ -109,7 +122,7 @@ public class StubxCacheUtil {
     String[] strings;
     DataInputStream in = new DataInputStream(stubxInputStream);
     // Read and check the magic version number
-    if (in.readInt() != VERSION_0_FILE_MAGIC_NUMBER) {
+    if (in.readInt() != VERSION_1_FILE_MAGIC_NUMBER) {
       throw new Error("Invalid file version/magic number for stubx file!" + stubxLocation);
     }
     // Read the number of strings in the string dictionary
@@ -161,6 +174,11 @@ public class StubxCacheUtil {
           "DEBUG",
           "method: " + methodSig + ", argNum: " + argNum + ", arg annotation: " + annotation);
       cacheAnnotation(methodSig, argNum, annotation);
+    }
+    // reading the NullMarked classes
+    int numNullMarkedClasses = in.readInt();
+    for (int i = 0; i < numNullMarkedClasses; i++) {
+      this.nullMarkedClassesCache.add(strings[in.readInt()]);
     }
     // read the number of nullable upper bound entries
     int numClassesWithNullableUpperBounds = in.readInt();

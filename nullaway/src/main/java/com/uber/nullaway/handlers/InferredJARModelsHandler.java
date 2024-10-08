@@ -29,7 +29,6 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.Context;
-import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -38,10 +37,10 @@ import java.io.InputStream;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.jspecify.annotations.Nullable;
 
 /** This handler loads inferred nullability model from stubs for methods in unannotated packages. */
 public class InferredJARModelsHandler extends BaseNoOpHandler {
@@ -62,12 +61,10 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
 
   private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
 
-  private final Config config;
   private final StubxCacheUtil cacheUtil;
 
-  public InferredJARModelsHandler(Config config) {
+  public InferredJARModelsHandler() {
     super();
-    this.config = config;
     String jarInferLogName = "JI";
     this.cacheUtil = new StubxCacheUtil(jarInferLogName);
     argAnnotCache = cacheUtil.getArgAnnotCache();
@@ -181,21 +178,19 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   }
 
   private boolean isReturnAnnotatedNullable(Symbol.MethodSymbol methodSymbol) {
-    if (config.isJarInferUseReturnAnnotations()) {
-      Preconditions.checkNotNull(methodSymbol);
-      Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
-      String className = classSymbol.getQualifiedName().toString();
-      if (argAnnotCache.containsKey(className)) {
-        String methodSign = getMethodSignature(methodSymbol);
-        Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
-        if (methodArgAnnotations != null) {
-          Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
-          if (methodAnnotations != null) {
-            if (methodAnnotations.contains("javax.annotation.Nullable")
-                || methodAnnotations.contains("org.jspecify.annotations.Nullable")) {
-              LOG(DEBUG, "DEBUG", "Nullable return for method: " + methodSign);
-              return true;
-            }
+    Preconditions.checkNotNull(methodSymbol);
+    Symbol.ClassSymbol classSymbol = methodSymbol.enclClass();
+    String className = classSymbol.getQualifiedName().toString();
+    if (argAnnotCache.containsKey(className)) {
+      String methodSign = getMethodSignature(methodSymbol);
+      Map<Integer, Set<String>> methodArgAnnotations = lookupMethodInCache(className, methodSign);
+      if (methodArgAnnotations != null) {
+        Set<String> methodAnnotations = methodArgAnnotations.get(RETURN);
+        if (methodAnnotations != null) {
+          if (methodAnnotations.contains("javax.annotation.Nullable")
+              || methodAnnotations.contains("org.jspecify.annotations.Nullable")) {
+            LOG(DEBUG, "DEBUG", "Nullable return for method: " + methodSign);
+            return true;
           }
         }
       }
@@ -203,8 +198,8 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     return false;
   }
 
-  @Nullable
-  private Map<Integer, Set<String>> lookupMethodInCache(String className, String methodSign) {
+  private @Nullable Map<Integer, Set<String>> lookupMethodInCache(
+      String className, String methodSign) {
     if (!argAnnotCache.containsKey(className)) {
       return null;
     }
@@ -254,9 +249,9 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
 
   private String getSimpleTypeName(Type typ) {
     if (typ.getKind() == TypeKind.TYPEVAR) {
-      return typ.getUpperBound().tsym.getSimpleName().toString();
+      return typ.getUpperBound().tsym.getQualifiedName().toString();
     } else {
-      return typ.tsym.getSimpleName().toString();
+      return typ.toString();
     }
   }
 }

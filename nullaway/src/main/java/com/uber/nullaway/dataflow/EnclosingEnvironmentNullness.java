@@ -8,8 +8,8 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.util.Context;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
 import javax.lang.model.element.NestingKind;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Stores info on nullness of local variables in enclosing environments, used when performing
@@ -37,8 +37,7 @@ public class EnclosingEnvironmentNullness {
     environmentNullness.put(t, s);
   }
 
-  @Nullable
-  public NullnessStore getEnvironmentMapping(Tree t) {
+  public @Nullable NullnessStore getEnvironmentMapping(Tree t) {
     Preconditions.checkArgument(isValidTreeType(t));
     return environmentNullness.get(t);
   }

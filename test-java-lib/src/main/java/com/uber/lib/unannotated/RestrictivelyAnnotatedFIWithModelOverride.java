@@ -1,9 +1,8 @@
 package com.uber.lib.unannotated;
 
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 public interface RestrictivelyAnnotatedFIWithModelOverride {
 
-  @Nullable
-  Object apply(@Nullable Object o);
+  @Nullable Object apply(@Nullable Object o);
 }

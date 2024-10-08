@@ -53,7 +53,6 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link com.uber.nullaway.jarinfer}. */
 @RunWith(JUnit4.class)
-@SuppressWarnings("CheckTestExtendsBaseClass")
 public class JarInferTest {
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
@@ -206,8 +205,8 @@ public class JarInferTest {
         "toys",
         "Test",
         ImmutableMap.of(
-            "toys.Test:void test(String, Foo, Bar)", Sets.newHashSet(0, 2),
-            "toys.Foo:boolean run(String)", Sets.newHashSet(1)),
+            "toys.Test:void test(java.lang.String, toys.Foo, toys.Bar)", Sets.newHashSet(0, 2),
+            "toys.Foo:boolean run(java.lang.String)", Sets.newHashSet(1)),
         "class Foo {",
         "  private String foo;",
         "  public Foo(String str) {",
@@ -267,7 +266,8 @@ public class JarInferTest {
         "toyNonStatic",
         "toys",
         "Foo",
-        ImmutableMap.of("toys.Foo:void test(String, String)", Sets.newHashSet(1)),
+        ImmutableMap.of(
+            "toys.Foo:void test(java.lang.String, java.lang.String)", Sets.newHashSet(1)),
         "class Foo {",
         "  private String foo;",
         "  public Foo(String str) {",
@@ -303,7 +303,9 @@ public class JarInferTest {
         "toyNullTestAPI",
         "toys",
         "Foo",
-        ImmutableMap.of("toys.Foo:void test(String, String, String)", Sets.newHashSet(1, 3)),
+        ImmutableMap.of(
+            "toys.Foo:void test(java.lang.String, java.lang.String, java.lang.String)",
+            Sets.newHashSet(1, 3)),
         "import com.google.common.base.Preconditions;",
         "import java.util.Objects;",
         "import org.junit.Assert;",
@@ -332,7 +334,9 @@ public class JarInferTest {
         "toyNullTestAPI",
         "toys",
         "Foo",
-        ImmutableMap.of("toys.Foo:void test(String, String, String)", Sets.newHashSet(1, 2)),
+        ImmutableMap.of(
+            "toys.Foo:void test(java.lang.String, java.lang.String, java.lang.String)",
+            Sets.newHashSet(1, 2)),
         "import com.google.common.base.Preconditions;",
         "import java.util.Objects;",
         "import org.junit.Assert;",
@@ -362,7 +366,8 @@ public class JarInferTest {
         "toys",
         "Foo",
         ImmutableMap.of(
-            "toys.Foo:void test(Object, Object, Object, Object)", Sets.newHashSet(1, 4)),
+            "toys.Foo:void test(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object)",
+            Sets.newHashSet(1, 4)),
         "import com.google.common.base.Preconditions;",
         "import java.util.Objects;",
         "import org.junit.Assert;",
@@ -401,7 +406,8 @@ public class JarInferTest {
         "toyNullTestAPI",
         "toys",
         "Foo",
-        ImmutableMap.of("toys.Foo:void test(String, String)", Sets.newHashSet(1)),
+        ImmutableMap.of(
+            "toys.Foo:void test(java.lang.String, java.lang.String)", Sets.newHashSet(1)),
         "import com.google.common.base.Preconditions;",
         "import java.util.Objects;",
         "import org.junit.Assert;",
@@ -417,6 +423,40 @@ public class JarInferTest {
         "      t = s;",
         "    }",
         "    Objects.requireNonNull(t);",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void testObjectArray() throws Exception {
+    testTemplate(
+        "testObjectArray",
+        "arrays",
+        "TestArray",
+        ImmutableMap.of(
+            "arrays.TestArray:java.lang.String foo(java.lang.Object[])", Sets.newHashSet(0)),
+        "class TestArray {",
+        "  public static String foo(Object[] o) {",
+        "    return o.toString();",
+        "  }",
+        "}");
+  }
+
+  @Test
+  public void testGenericMethod() throws Exception {
+    testTemplate(
+        "testGenericMethod",
+        "generic",
+        "TestGeneric",
+        ImmutableMap.of(
+            "generic.TestGeneric:java.lang.String foo(java.lang.Object)", Sets.newHashSet(1)),
+        "public class TestGeneric<T> {",
+        "  public String foo(T t) {",
+        "    return t.toString();",
+        "  }",
+        "  public static void main(String arg[]) {",
+        "    TestGeneric<String> tg = new TestGeneric<String>();",
+        "    System.out.println(tg.foo(\"generic test\"));",
         "  }",
         "}");
   }
@@ -468,12 +508,12 @@ public class JarInferTest {
   @Test
   public void testSignedJars() throws Exception {
     // Set test configuration paths / options
-    final String baseJarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
-    final String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
-    final String baseJarName = FilenameUtils.getBaseName(baseJarPath);
-    final String workingFolderPath = outputFolder.newFolder("signed_" + pkg).getAbsolutePath();
-    final String inputJarPath = workingFolderPath + "/" + baseJarName + ".jar";
-    final String outputJarPath = workingFolderPath + "/" + baseJarName + "-annotated.jar";
+    String baseJarPath = "../test-java-lib-jarinfer/build/libs/test-java-lib-jarinfer.jar";
+    String pkg = "com.uber.nullaway.jarinfer.toys.unannotated";
+    String baseJarName = FilenameUtils.getBaseName(baseJarPath);
+    String workingFolderPath = outputFolder.newFolder("signed_" + pkg).getAbsolutePath();
+    String inputJarPath = workingFolderPath + "/" + baseJarName + ".jar";
+    String outputJarPath = workingFolderPath + "/" + baseJarName + "-annotated.jar";
 
     copyAndSignJar(baseJarPath, inputJarPath);
 

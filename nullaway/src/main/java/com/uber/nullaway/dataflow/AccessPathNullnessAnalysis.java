@@ -21,8 +21,8 @@ package com.uber.nullaway.dataflow;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.dataflow.nullnesspropagation.NullnessAnalysis;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.Context;
@@ -34,7 +34,6 @@ import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.function.Predicate;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
@@ -43,6 +42,7 @@ import org.checkerframework.nullaway.dataflow.analysis.AnalysisResult;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
+import org.jspecify.annotations.Nullable;
 
 /**
  * API to our nullness dataflow analysis for access paths.
@@ -60,7 +60,7 @@ public final class AccessPathNullnessAnalysis {
 
   private final DataFlow dataFlow;
 
-  @Nullable private AccessPathNullnessPropagation contractNullnessPropagation;
+  private @Nullable AccessPathNullnessPropagation contractNullnessPropagation;
 
   // Use #instance to instantiate
   private AccessPathNullnessAnalysis(
@@ -126,8 +126,7 @@ public final class AccessPathNullnessAnalysis {
    * @param context Javac context
    * @return nullness info for expression, from dataflow
    */
-  @Nullable
-  public Nullness getNullness(TreePath exprPath, Context context) {
+  public @Nullable Nullness getNullness(TreePath exprPath, Context context) {
     return dataFlow.expressionDataflow(exprPath, context, nullnessPropagation);
   }
 
@@ -139,8 +138,7 @@ public final class AccessPathNullnessAnalysis {
    * @param context Javac context
    * @return nullness info for expression, from dataflow in case contract check
    */
-  @Nullable
-  public Nullness getNullnessForContractDataflow(TreePath exprPath, Context context) {
+  public @Nullable Nullness getNullnessForContractDataflow(TreePath exprPath, Context context) {
     return dataFlow.expressionDataflow(
         exprPath, context, castToNonNull(contractNullnessPropagation));
   }
@@ -159,25 +157,7 @@ public final class AccessPathNullnessAnalysis {
       // be conservative and say nothing is initialized
       return Collections.emptySet();
     }
-    return getNonnullReceiverFields(nullnessResult);
-  }
-
-  private Set<Element> getNonnullReceiverFields(NullnessStore nullnessResult) {
-    Set<AccessPath> nonnullAccessPaths = nullnessResult.getAccessPathsWithValue(Nullness.NONNULL);
-    Set<Element> result = new LinkedHashSet<>();
-    for (AccessPath ap : nonnullAccessPaths) {
-      // A null root represents the receiver
-      if (ap.getRoot() == null) {
-        ImmutableList<AccessPathElement> elements = ap.getElements();
-        if (elements.size() == 1) {
-          Element elem = elements.get(0).getJavaElement();
-          if (elem.getKind().equals(ElementKind.FIELD)) {
-            result.add(elem);
-          }
-        }
-      }
-    }
-    return result;
+    return nullnessResult.getNonNullReceiverFields();
   }
 
   /**
@@ -192,7 +172,7 @@ public final class AccessPathNullnessAnalysis {
     if (store == null) {
       return Collections.emptySet();
     }
-    return getNonnullReceiverFields(store);
+    return store.getNonNullReceiverFields();
   }
 
   /**
@@ -343,8 +323,7 @@ public final class AccessPathNullnessAnalysis {
    * @param context Javac context
    * @return the final NullnessStore on exit from the method.
    */
-  @Nullable
-  public NullnessStore forceRunOnMethod(TreePath methodPath, Context context) {
+  public @Nullable NullnessStore forceRunOnMethod(TreePath methodPath, Context context) {
     return dataFlow.finalResult(methodPath, context, nullnessPropagation);
   }
 

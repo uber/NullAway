@@ -30,6 +30,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -46,7 +47,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import javax.annotation.CheckReturnValue;
-import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
@@ -129,6 +129,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.UnsignedRightShiftNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * transfer functions for our access path nullness dataflow analysis
@@ -178,7 +179,7 @@ public class AccessPathNullnessPropagation
     this.nullnessStoreInitializer = nullnessStoreInitializer;
   }
 
-  private static SubNodeValues values(final TransferInput<Nullness, NullnessStore> input) {
+  private static SubNodeValues values(TransferInput<Nullness, NullnessStore> input) {
     return new SubNodeValues() {
       @Override
       public Nullness valueOfSubNode(Node node) {
@@ -612,8 +613,7 @@ public class AccessPathNullnessPropagation
    * of the form {@code e'.keySet()}, returns the {@code Node} for {@code e'}. Otherwise, returns
    * {@code null}.
    */
-  @Nullable
-  private Node getMapNodeForKeySetIteratorCall(MethodInvocationNode invocationNode) {
+  private @Nullable Node getMapNodeForKeySetIteratorCall(MethodInvocationNode invocationNode) {
     Node receiver = invocationNode.getTarget().getReceiver();
     if (receiver instanceof MethodInvocationNode) {
       MethodInvocationNode baseInvocation = (MethodInvocationNode) receiver;
@@ -761,7 +761,7 @@ public class AccessPathNullnessPropagation
     return updateRegularStore(nullness, input, updates);
   }
 
-  @Nullable private CodeAnnotationInfo codeAnnotationInfo;
+  private @Nullable CodeAnnotationInfo codeAnnotationInfo;
 
   private CodeAnnotationInfo getCodeAnnotationInfo(VisitorState state) {
     if (codeAnnotationInfo == null) {
@@ -791,8 +791,15 @@ public class AccessPathNullnessPropagation
     Nullness resultNullness;
     // Unsoundly assume @NonNull, except in JSpecify mode where we check the type
     if (config.isJSpecifyMode()) {
-      Symbol arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());
+      Symbol arraySymbol;
       boolean isElementNullable = false;
+      // For enhanced-for-loops we get the symbol from the array expression as the node is desugared
+      ExpressionTree arrayExpr = node.getArrayExpression();
+      if (arrayExpr != null) {
+        arraySymbol = ASTHelpers.getSymbol(arrayExpr);
+      } else {
+        arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());
+      }
       if (arraySymbol != null) {
         isElementNullable = NullabilityUtil.isArrayElementNullable(arraySymbol, config);
       }
@@ -845,7 +852,8 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitReturn(
       ReturnNode returnNode, TransferInput<Nullness, NullnessStore> input) {
-    handler.onDataflowVisitReturn(returnNode.getTree(), input.getThenStore(), input.getElseStore());
+    handler.onDataflowVisitReturn(
+        returnNode.getTree(), state, input.getThenStore(), input.getElseStore());
     return noStoreChanges(NULLABLE, input);
   }
 

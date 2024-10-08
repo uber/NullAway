@@ -45,9 +45,9 @@ public class EntriesComparator {
     Preconditions.checkArgument(jarFile2.endsWith(".jar"), "invalid jar file: " + jarFile2);
     JarFile jar1 = new JarFile(jarFile1);
     JarFile jar2 = new JarFile(jarFile2);
-    Set<String> jar1Entries =
+    ImmutableSet<String> jar1Entries =
         jar1.stream().map(ZipEntry::getName).collect(ImmutableSet.toImmutableSet());
-    Set<String> jar2Entries =
+    ImmutableSet<String> jar2Entries =
         jar2.stream().map(ZipEntry::getName).collect(ImmutableSet.toImmutableSet());
     return jar1Entries.equals(jar2Entries);
   }
@@ -67,9 +67,9 @@ public class EntriesComparator {
     Preconditions.checkArgument(aarFile2.endsWith(".aar"), "invalid aar file: " + aarFile2);
     ZipFile zip1 = new ZipFile(aarFile1);
     ZipFile zip2 = new ZipFile(aarFile2);
-    Set<String> zip1Entries =
+    ImmutableSet<String> zip1Entries =
         zip1.stream().map(ZipEntry::getName).collect(ImmutableSet.toImmutableSet());
-    Set<String> zip2Entries =
+    ImmutableSet<String> zip2Entries =
         zip2.stream().map(ZipEntry::getName).collect(ImmutableSet.toImmutableSet());
     if (!zip1Entries.equals(zip2Entries)) {
       return false;

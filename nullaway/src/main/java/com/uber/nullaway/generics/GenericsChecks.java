@@ -25,6 +25,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
@@ -42,6 +43,7 @@ import javax.annotation.Nullable;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
+import org.jspecify.annotations.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
@@ -100,25 +102,51 @@ public final class GenericsChecks {
     if (baseType == null) {
       return;
     }
+    boolean[] typeParamsWithNullableUpperBound =
+        getTypeParamsWithNullableUpperBound(baseType, config, state, handler);
     com.sun.tools.javac.util.List<Type> baseTypeArgs = baseType.tsym.type.getTypeArguments();
     for (int i = 0; i < baseTypeArgs.size(); i++) {
-      if (nullableTypeArguments.containsKey(i)) {
-
-        Type typeVariable = baseTypeArgs.get(i);
-        Type upperBound = typeVariable.getUpperBound();
-        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-            upperBound.getAnnotationMirrors();
-        boolean hasNullableAnnotation =
-            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
-                || handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
-        // if base type argument does not have @Nullable annotation then the instantiation is
+      if (nullableTypeArguments.containsKey(i) && !typeParamsWithNullableUpperBound[i]) {
+        // if base type variable does not have @Nullable upper bound then the instantiation is
         // invalid
-        if (!hasNullableAnnotation) {
-          reportInvalidInstantiationError(
-              nullableTypeArguments.get(i), baseType, typeVariable, state, analysis);
+        reportInvalidInstantiationError(
+            nullableTypeArguments.get(i), baseType, baseTypeArgs.get(i), state, analysis);
+      }
+    }
+  }
+
+  private static boolean[] getTypeParamsWithNullableUpperBound(
+      Type type, Config config, VisitorState state, Handler handler) {
+    Symbol.TypeSymbol tsym = type.tsym;
+    com.sun.tools.javac.util.List<Type> baseTypeArgs = tsym.type.getTypeArguments();
+    boolean[] result = new boolean[baseTypeArgs.size()];
+    for (int i = 0; i < baseTypeArgs.size(); i++) {
+      Type typeVariable = baseTypeArgs.get(i);
+      Type upperBound = typeVariable.getUpperBound();
+      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+          upperBound.getAnnotationMirrors();
+      if (Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+          || handler.onOverrideTypeParameterUpperBound(type.tsym.toString(), i)) {
+        result[i] = true;
+      }
+    }
+    // For handling types declared in bytecode rather than source code.
+    // Due to a bug in javac versions before JDK 22 (https://bugs.openjdk.org/browse/JDK-8225377),
+    // the above code does not work for types declared in bytecode.  We need to read the raw type
+    // attributes instead.
+    com.sun.tools.javac.util.List<Attribute.TypeCompound> rawTypeAttributes =
+        tsym.getRawTypeAttributes();
+    if (rawTypeAttributes != null) {
+      for (Attribute.TypeCompound typeCompound : rawTypeAttributes) {
+        if (typeCompound.position.type.equals(TargetType.CLASS_TYPE_PARAMETER_BOUND)
+            && ASTHelpers.isSameType(
+                typeCompound.type, JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state), state)) {
+          int index = typeCompound.position.parameter_index;
+          result[index] = true;
         }
       }
     }
+    return result;
   }
 
   public static void checkInstantiationForGenericMethodCalls(
@@ -326,8 +354,7 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @return Type of the tree with preserved annotations.
    */
-  @Nullable
-  private static Type getTreeType(Tree tree, VisitorState state) {
+  private static @Nullable Type getTreeType(Tree tree, VisitorState state) {
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
       ParameterizedTypeTree paramTypedTree =
@@ -427,6 +454,10 @@ public final class GenericsChecks {
     }
 
     Type formalReturnType = methodSymbol.getReturnType();
+    if (formalReturnType.isRaw()) {
+      // bail out of any checking involving raw types for now
+      return;
+    }
     Type returnExpressionType = getTreeType(retExpr, state);
     if (formalReturnType != null && returnExpressionType != null) {
       boolean isReturnTypeValid =
@@ -543,8 +574,7 @@ public final class GenericsChecks {
     }
   }
 
-  @Nullable
-  private static Type getConditionalExpressionType(
+  private static @Nullable Type getConditionalExpressionType(
       ConditionalExpressionTree tree, VisitorState state) {
     // hack: sometimes array nullability doesn't get computed correctly for a conditional expression
     // on the RHS of an assignment.  So, look at the type of the assignment tree.
@@ -582,6 +612,10 @@ public final class GenericsChecks {
     }
     for (int i = 0; i < n; i++) {
       Type formalParameter = formalParams.get(i).type;
+      if (formalParameter.isRaw()) {
+        // bail out of any checking involving raw types for now
+        return;
+      }
       Type actualParameter = getTreeType(actualParams.get(i), state);
       if (actualParameter != null) {
         if (!subtypeParameterNullability(formalParameter, actualParameter, state)) {
@@ -595,11 +629,14 @@ public final class GenericsChecks {
           (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
       Type varargsElementType = varargsArrayType.elemtype;
       for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
-        Type actualParameter = getTreeType(actualParams.get(i), state);
-        if (actualParameter != null) {
-          if (!subtypeParameterNullability(varargsElementType, actualParameter, state)) {
+        Type actualParameterType = getTreeType(actualParams.get(i), state);
+        // If the actual parameter type is assignable to the varargs array type, then the call site
+        // is passing the varargs directly in an array, and we should skip our check.
+        if (actualParameterType != null
+            && !state.getTypes().isAssignable(actualParameterType, varargsArrayType)) {
+          if (!subtypeParameterNullability(varargsElementType, actualParameterType, state)) {
             reportInvalidParametersNullabilityError(
-                varargsElementType, actualParameter, actualParams.get(i), state, analysis);
+                varargsElementType, actualParameterType, actualParams.get(i), state, analysis);
           }
         }
       }
@@ -679,8 +716,7 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @return the type for {@code symbol}
    */
-  @Nullable
-  private static Type getTypeForSymbol(Symbol symbol, VisitorState state) {
+  private static @Nullable Type getTypeForSymbol(Symbol symbol, VisitorState state) {
     if (symbol.isAnonymous()) {
       // For anonymous classes, symbol.type does not contain annotations on generic type parameters.
       // So, we get a correct type from the enclosing NewClassTree.

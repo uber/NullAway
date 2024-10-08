@@ -30,9 +30,9 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.List;
-import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
+import org.jspecify.annotations.Nullable;
 
 /** This Handler deals with assertions which ensure that their arguments cannot be null. */
 public class AssertionHandler extends BaseNoOpHandler {

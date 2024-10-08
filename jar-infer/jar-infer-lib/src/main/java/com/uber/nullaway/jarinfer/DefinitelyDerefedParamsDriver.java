@@ -26,6 +26,7 @@ import com.ibm.wala.classLoader.IMethod;
 import com.ibm.wala.classLoader.PhantomClass;
 import com.ibm.wala.classLoader.ShrikeCTMethod;
 import com.ibm.wala.core.util.config.AnalysisScopeReader;
+import com.ibm.wala.core.util.strings.StringStuff;
 import com.ibm.wala.core.util.warnings.Warnings;
 import com.ibm.wala.ipa.callgraph.AnalysisCache;
 import com.ibm.wala.ipa.callgraph.AnalysisCacheImpl;
@@ -419,7 +420,7 @@ public class DefinitelyDerefedParamsDriver {
   //  Note: Need version compatibility check between generated stub files and when reading models
   //    StubxWriter.VERSION_0_FILE_MAGIC_NUMBER (?)
   private void writeModel(DataOutputStream out) throws IOException {
-    Map<String, String> importedAnnotations =
+    ImmutableMap<String, String> importedAnnotations =
         ImmutableMap.<String, String>builder()
             .put("Nonnull", "javax.annotation.Nonnull")
             .put("Nullable", "javax.annotation.Nullable")
@@ -456,6 +457,7 @@ public class DefinitelyDerefedParamsDriver {
         packageAnnotations,
         typeAnnotations,
         methodRecords,
+        Collections.emptySet(),
         Collections.emptyMap());
   }
 
@@ -527,28 +529,6 @@ public class DefinitelyDerefedParamsDriver {
    * @return String Unqualified type name.
    */
   private static String getSimpleTypeName(TypeReference typ) {
-    final Map<String, String> mapFullTypeName =
-        ImmutableMap.<String, String>builder()
-            .put("B", "byte")
-            .put("C", "char")
-            .put("D", "double")
-            .put("F", "float")
-            .put("I", "int")
-            .put("J", "long")
-            .put("S", "short")
-            .put("Z", "boolean")
-            .build();
-    if (typ.isArrayType()) {
-      return "Array";
-    }
-    String typName = typ.getName().toString();
-    if (typName.startsWith("L")) {
-      typName = typName.split("<")[0].substring(1); // handle generics
-      typName = typName.substring(typName.lastIndexOf('/') + 1); // get unqualified name
-      typName = typName.substring(typName.lastIndexOf('$') + 1); // handle inner classes
-    } else {
-      typName = mapFullTypeName.get(typName);
-    }
-    return typName;
+    return StringStuff.jvmToBinaryName(typ.getName().toString());
   }
 }

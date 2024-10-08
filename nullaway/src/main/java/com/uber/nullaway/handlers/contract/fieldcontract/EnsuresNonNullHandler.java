@@ -40,7 +40,6 @@ import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.VariableElement;
@@ -95,12 +94,9 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     if (!isValidLocalPostCondition) {
       fieldNames.removeAll(nonnullFieldsOfReceiverAtExit);
       message =
-          "method: "
-              + methodSymbol
-              + " is annotated with @EnsuresNonNull annotation, it indicates that all fields in the annotation parameter"
-              + " must be guaranteed to be nonnull at exit point. However, the method's body fails to ensure this for the following fields: "
-              + fieldNames;
-
+          String.format(
+              "Method is annotated with @EnsuresNonNull but fails to ensure the following fields are non-null at exit: %s",
+              fieldNames);
       state.reportMatch(
           analysis
               .getErrorBuilder()
@@ -127,46 +123,8 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
       VisitorState state,
       MethodTree tree,
       Symbol.MethodSymbol overriddenMethod) {
-    Set<String> overriddenFieldNames = getAnnotationValueArray(overriddenMethod, annotName, false);
-    if (overriddenFieldNames == null) {
-      return;
-    }
-    if (overridingFieldNames == null) {
-      overridingFieldNames = Collections.emptySet();
-    }
-    if (overridingFieldNames.containsAll(overriddenFieldNames)) {
-      return;
-    }
-    overriddenFieldNames.removeAll(overridingFieldNames);
-
-    StringBuilder errorMessage = new StringBuilder();
-    errorMessage
-        .append(
-            "postcondition inheritance is violated, this method must guarantee that all fields written in the @EnsuresNonNull annotation of overridden method ")
-        .append(castToNonNull(ASTHelpers.enclosingClass(overriddenMethod)).getSimpleName())
-        .append(".")
-        .append(overriddenMethod.getSimpleName())
-        .append(" are @NonNull at exit point as well. Fields [");
-    Iterator<String> iterator = overriddenFieldNames.iterator();
-    while (iterator.hasNext()) {
-      errorMessage.append(iterator.next());
-      if (iterator.hasNext()) {
-        errorMessage.append(", ");
-      }
-    }
-    errorMessage.append(
-        "] must explicitly appear as parameters at this method @EnsuresNonNull annotation");
-    state.reportMatch(
-        analysis
-            .getErrorBuilder()
-            .createErrorDescription(
-                new ErrorMessage(
-                    ErrorMessage.MessageTypes.WRONG_OVERRIDE_POSTCONDITION,
-                    errorMessage.toString()),
-                tree,
-                analysis.buildDescription(tree),
-                state,
-                null));
+    FieldContractUtils.ensureStrictPostConditionInheritance(
+        annotName, overridingFieldNames, analysis, state, tree, overriddenMethod);
   }
 
   /**

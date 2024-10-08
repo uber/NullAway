@@ -35,8 +35,8 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.handlers.Handler;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.Nullable;
 import javax.lang.model.element.ElementKind;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides APIs for querying whether code is annotated for nullness checking, and for related
@@ -80,7 +80,7 @@ public final class CodeAnnotationInfo {
    */
   private static boolean fromAnnotatedPackage(
       Symbol.ClassSymbol outermostClassSymbol, Config config) {
-    final String className = outermostClassSymbol.getQualifiedName().toString();
+    String className = outermostClassSymbol.getQualifiedName().toString();
     Symbol.PackageSymbol enclosingPackage = ASTHelpers.enclosingPackage(outermostClassSymbol);
     if (!config.fromExplicitlyAnnotatedPackage(className)
         && !(enclosingPackage != null
@@ -165,7 +165,7 @@ public final class CodeAnnotationInfo {
     } else {
       classSymbol = castToNonNull(ASTHelpers.enclosingClass(symbol));
     }
-    final ClassCacheRecord classCacheRecord = get(classSymbol, config, handler);
+    ClassCacheRecord classCacheRecord = get(classSymbol, config, handler);
     boolean inAnnotatedClass = classCacheRecord.isNullnessAnnotated;
     if (symbol.getKind().equals(ElementKind.METHOD)
         || symbol.getKind().equals(ElementKind.CONSTRUCTOR)) {

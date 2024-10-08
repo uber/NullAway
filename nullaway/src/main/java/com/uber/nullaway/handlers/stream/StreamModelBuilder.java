@@ -30,7 +30,7 @@ import com.google.errorprone.predicates.type.DescendantOf;
 import com.google.errorprone.suppliers.Suppliers;
 import java.util.ArrayList;
 import java.util.List;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Used to produce a new list of StreamTypeRecord models, where each model represents a class from a

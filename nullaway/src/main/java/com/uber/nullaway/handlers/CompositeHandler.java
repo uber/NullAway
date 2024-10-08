@@ -50,11 +50,11 @@ import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
-import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Registry of all handlers registered on our analysis.
@@ -64,7 +64,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
  */
 class CompositeHandler implements Handler {
 
-  private final List<Handler> handlers;
+  private final ImmutableList<Handler> handlers;
 
   CompositeHandler(ImmutableList<Handler> handlers) {
     // Attach default handlers
@@ -220,9 +220,9 @@ class CompositeHandler implements Handler {
 
   @Override
   public void onDataflowVisitReturn(
-      ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore) {
+      ReturnTree tree, VisitorState state, NullnessStore thenStore, NullnessStore elseStore) {
     for (Handler h : handlers) {
-      h.onDataflowVisitReturn(tree, thenStore, elseStore);
+      h.onDataflowVisitReturn(tree, state, thenStore, elseStore);
     }
   }
 
@@ -298,8 +298,7 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  @Nullable
-  public Integer castToNonNullArgumentPositionsForMethod(
+  public @Nullable Integer castToNonNullArgumentPositionsForMethod(
       List<? extends ExpressionTree> actualParams,
       @Nullable Integer previousArgumentPosition,
       MethodAnalysisContext methodAnalysisContext) {

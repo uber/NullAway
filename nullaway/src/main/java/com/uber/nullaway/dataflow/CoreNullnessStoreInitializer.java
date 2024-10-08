@@ -7,6 +7,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.VariableTree;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
@@ -18,10 +19,10 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
 import java.util.Objects;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
+import org.jspecify.annotations.Nullable;
 
 class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
 
@@ -64,9 +65,13 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     NullnessStore envStore = getEnvNullnessStoreForClass(classTree, context);
     NullnessStore.Builder result = envStore.toBuilder();
     for (LocalVariableNode param : parameters) {
-      Element element = param.getElement();
-      Nullness assumed =
-          Nullness.hasNullableAnnotation((Symbol) element, config) ? NULLABLE : NONNULL;
+      Symbol paramSymbol = (Symbol) param.getElement();
+      Nullness assumed;
+      if ((paramSymbol.flags() & Flags.VARARGS) != 0) {
+        assumed = Nullness.varargsArrayIsNullable(paramSymbol, config) ? NULLABLE : NONNULL;
+      } else {
+        assumed = Nullness.hasNullableAnnotation(paramSymbol, config) ? NULLABLE : NONNULL;
+      }
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
@@ -100,7 +105,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         types.memberType(ASTHelpers.getType(code), fiMethodSymbol).getParameterTypes();
     // If fiArgumentPositionNullness[i] == null, parameter position i is unannotated
     Nullness[] fiArgumentPositionNullness = new Nullness[fiMethodParameters.size()];
-    final boolean isFIAnnotated =
+    boolean isFIAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config, handler);
     if (isFIAnnotated) {
       for (int i = 0; i < fiMethodParameters.size(); i++) {
@@ -144,7 +149,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     return result.build();
   }
 
-  @Nullable private CodeAnnotationInfo codeAnnotationInfo;
+  private @Nullable CodeAnnotationInfo codeAnnotationInfo;
 
   private CodeAnnotationInfo getCodeAnnotationInfo(Context context) {
     if (codeAnnotationInfo == null) {

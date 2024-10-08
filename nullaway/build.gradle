@@ -31,7 +31,8 @@ dependencies {
     annotationProcessor deps.apt.autoValue
     compileOnly deps.apt.autoServiceAnnot
     annotationProcessor deps.apt.autoService
-    compileOnly deps.build.jsr305Annotations
+    // Using api following the guidance at https://jspecify.dev/docs/using#gradle
+    api deps.build.jspecify
     compileOnly deps.test.jetbrainsAnnotations
     compileOnly deps.apt.javaxInject
 
@@ -176,4 +177,16 @@ tasks.register('buildWithNullAway', JavaCompile) {
 
 project.tasks.named('check').configure {
     dependsOn 'buildWithNullAway'
+}
+
+tasks.withType(Test).configureEach { test ->
+    if (test.javaVersion < JavaVersion.VERSION_22) {
+        // Certain tests involving reading annotations from bytecode will not pass on pre-JDK-22 javac
+        // until the fix for https://bugs.openjdk.org/browse/JDK-8225377 is backported or until we add
+        // workarounds.  See https://github.com/uber/NullAway/issues/1005.
+        test.filter {
+            excludeTestsMatching "com.uber.nullaway.jspecify.BytecodeGenericsTests.genericsChecksForParamPassingAndReturns"
+            excludeTestsMatching "com.uber.nullaway.jspecify.BytecodeGenericsTests.genericsChecksForFieldAssignments"
+        }
+    }
 }

@@ -42,12 +42,12 @@ import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
+import org.jspecify.annotations.Nullable;
 
 public class GrpcHandler extends BaseNoOpHandler {
   private static final String GRPC_METADATA_TNAME = "io.grpc.Metadata";
@@ -124,8 +124,7 @@ public class GrpcHandler extends BaseNoOpHandler {
     return ImmutableSet.of(GRPC_METADATA_KEY_TNAME);
   }
 
-  @Nullable
-  private Symbol.MethodSymbol getGetterForMetadataSubtype(
+  private Symbol.@Nullable MethodSymbol getGetterForMetadataSubtype(
       Symbol.ClassSymbol classSymbol, Types types) {
     // Is there a better way than iteration?
     for (Symbol elem : getEnclosedElements(classSymbol)) {

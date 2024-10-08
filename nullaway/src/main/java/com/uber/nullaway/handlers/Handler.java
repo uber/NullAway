@@ -47,11 +47,11 @@ import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
-import javax.annotation.Nullable;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * The general interface representing a handler.
@@ -269,12 +269,14 @@ public interface Handler {
    * Called when the Dataflow analysis visits a return statement.
    *
    * @param tree The AST node for the return statement being matched.
+   * @param state The current visitor state
    * @param thenStore The NullnessStore for the true case of the expression inside the return
    *     statement.
    * @param elseStore The NullnessStore for the false case of the expression inside the return
    *     statement.
    */
-  void onDataflowVisitReturn(ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore);
+  void onDataflowVisitReturn(
+      ReturnTree tree, VisitorState state, NullnessStore thenStore, NullnessStore elseStore);
 
   /**
    * Called when the Dataflow analysis visits the result expression inside the body of lambda.
@@ -377,8 +379,7 @@ public interface Handler {
    *     handler in the chain.
    * @param methodAnalysisContext The MethodAnalysisContext object
    */
-  @Nullable
-  Integer castToNonNullArgumentPositionsForMethod(
+  @Nullable Integer castToNonNullArgumentPositionsForMethod(
       List<? extends ExpressionTree> actualParams,
       @Nullable Integer previousArgumentPosition,
       MethodAnalysisContext methodAnalysisContext);

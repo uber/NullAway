@@ -41,6 +41,7 @@ dependencies {
     // use the same version of Error Prone Core that we are compiling NullAway against, so we can
     // benchmark against different versions of Error Prone
     implementation deps.build.errorProneCoreForApi
+    api deps.build.jspecify
 
 
     // Source jars for our desired benchmarks
@@ -103,8 +104,19 @@ def nullawayReleaseClasspath = configurations.nullawayReleaseDeps.filter({f -> !
 
 def nullawayReleaseProcessorpath = configurations.nullawayReleaseProcessors.asPath
 
-// Extra JVM arguments to expose relevant paths for compiling benchmarks
 def extraJVMArgs = [
+    // needed exports for Error Prone to run
+    "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+    "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+    "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+    // expose relevant paths for compiling benchmarks
     "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()}",
     "-Dnullaway.caffeine.classpath=$caffeineClasspath",
     "-Dnullaway.autodispose.sources=${autodisposeSourceDir.get()}",
@@ -128,11 +140,7 @@ jmh {
     // includes = ['DFlowMicro']
 }
 
-tasks.named('test') {
+tasks.withType(Test).configureEach { test ->
     // pass the extra JVM args so we can compile benchmarks in unit tests
-    jvmArgs += extraJVMArgs
-}
-
-tasks.getByName('testJdk21').configure {
-    jvmArgs += extraJVMArgs
+    test.jvmArgs += extraJVMArgs
 }

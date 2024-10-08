@@ -41,7 +41,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import javax.annotation.Nullable;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
@@ -62,6 +61,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode;
 import org.checkerframework.nullaway.javacutil.TreeUtils;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents an extended notion of an access path, which we track for nullness.
@@ -103,14 +103,14 @@ public final class AccessPath implements MapKey {
   }
 
   /** Root of the access path. If {@code null}, the root is the receiver argument */
-  @Nullable private final Element root;
+  private final @Nullable Element root;
 
   private final ImmutableList<AccessPathElement> elements;
 
   /**
    * if present, the argument to the map get() method call that is the final element of this path
    */
-  @Nullable private final MapKey mapGetArg;
+  private final @Nullable MapKey mapGetArg;
 
   private AccessPath(@Nullable Element root, ImmutableList<AccessPathElement> elements) {
     this(root, elements, null);
@@ -154,13 +154,11 @@ public final class AccessPath implements MapKey {
    *     AccessPath.AccessPathContext}).
    * @return access path for the field access, or <code>null</code> if it cannot be represented
    */
-  @Nullable
-  static AccessPath fromFieldAccess(FieldAccessNode node, AccessPathContext apContext) {
+  static @Nullable AccessPath fromFieldAccess(FieldAccessNode node, AccessPathContext apContext) {
     return fromNodeAndContext(node, apContext);
   }
 
-  @Nullable
-  private static AccessPath fromNodeAndContext(Node node, AccessPathContext apContext) {
+  private static @Nullable AccessPath fromNodeAndContext(Node node, AccessPathContext apContext) {
     return buildAccessPathRecursive(node, new ArrayDeque<>(), apContext, null);
   }
 
@@ -172,8 +170,7 @@ public final class AccessPath implements MapKey {
    *     AccessPath.AccessPathContext}).
    * @return access path for the method call, or <code>null</code> if it cannot be represented
    */
-  @Nullable
-  static AccessPath fromMethodCall(
+  static @Nullable AccessPath fromMethodCall(
       MethodInvocationNode node, VisitorState state, AccessPathContext apContext) {
     if (isMapGet(ASTHelpers.getSymbol(node.getTree()), state)) {
       return fromMapGetCall(node, state, apContext);
@@ -181,8 +178,7 @@ public final class AccessPath implements MapKey {
     return fromVanillaMethodCall(node, apContext);
   }
 
-  @Nullable
-  private static AccessPath fromVanillaMethodCall(
+  private static @Nullable AccessPath fromVanillaMethodCall(
       MethodInvocationNode node, AccessPathContext apContext) {
     return fromNodeAndContext(node, apContext);
   }
@@ -204,14 +200,12 @@ public final class AccessPath implements MapKey {
    *     AccessPath.AccessPathContext}).
    * @return the {@link AccessPath} {@code base.element}
    */
-  @Nullable
-  public static AccessPath fromBaseAndElement(
+  public static @Nullable AccessPath fromBaseAndElement(
       Node base, Element element, AccessPathContext apContext) {
     return fromNodeElementAndContext(base, new FieldOrMethodCallElement(element), apContext);
   }
 
-  @Nullable
-  private static AccessPath fromNodeElementAndContext(
+  private static @Nullable AccessPath fromNodeElementAndContext(
       Node base, AccessPathElement apElement, AccessPathContext apContext) {
     ArrayDeque<AccessPathElement> elements = new ArrayDeque<>();
     elements.push(apElement);
@@ -236,8 +230,7 @@ public final class AccessPath implements MapKey {
    *     AccessPath.AccessPathContext}).
    * @return the {@link AccessPath} {@code base.method(CONS)}
    */
-  @Nullable
-  public static AccessPath fromBaseMethodAndConstantArgs(
+  public static @Nullable AccessPath fromBaseMethodAndConstantArgs(
       Node base, Element method, List<String> constantArguments, AccessPathContext apContext) {
     return fromNodeElementAndContext(
         base, new FieldOrMethodCallElement(method, constantArguments), apContext);
@@ -253,8 +246,7 @@ public final class AccessPath implements MapKey {
    * @return an AccessPath representing invoking get() on the same type of map as from node, passing
    *     the same first argument as is passed in node
    */
-  @Nullable
-  public static AccessPath getForMapInvocation(
+  public static @Nullable AccessPath getForMapInvocation(
       MethodInvocationNode node, VisitorState state, AccessPathContext apContext) {
     // For the receiver type for get, use the declared type of the receiver of the containsKey()
     // call. Note that this may differ from the containing class of the resolved containsKey()
@@ -270,8 +262,7 @@ public final class AccessPath implements MapKey {
     return node;
   }
 
-  @Nullable
-  private static MapKey argumentToMapKeySpecifier(
+  private static @Nullable MapKey argumentToMapKeySpecifier(
       Node argument, VisitorState state, AccessPathContext apContext) {
     // Required to have Node type match Tree type in some instances.
     if (argument instanceof WideningConversionNode) {
@@ -296,15 +287,14 @@ public final class AccessPath implements MapKey {
             && (receiver.toString().equals("Integer") || receiver.toString().equals("Long"))) {
           return argumentToMapKeySpecifier(arguments.get(0), state, apContext);
         }
-        // Fine to fallthrough:
+      // Fine to fallthrough:
       default:
         // Every other type of expression, including variables, field accesses, new A(...), etc.
         return getAccessPathForNode(argument, state, apContext); // Every AP is a MapKey too
     }
   }
 
-  @Nullable
-  private static AccessPath fromMapGetCall(
+  private static @Nullable AccessPath fromMapGetCall(
       MethodInvocationNode node, VisitorState state, AccessPathContext apContext) {
     Node argument = node.getArgument(0);
     MapKey mapKey = argumentToMapKeySpecifier(argument, state, apContext);
@@ -326,8 +316,7 @@ public final class AccessPath implements MapKey {
    *     AccessPath.AccessPathContext}).
    * @return corresponding AccessPath if it exists; <code>null</code> otherwise
    */
-  @Nullable
-  public static AccessPath getAccessPathForNode(
+  public static @Nullable AccessPath getAccessPathForNode(
       Node node, VisitorState state, AccessPathContext apContext) {
     if (node instanceof LocalVariableNode) {
       return fromLocal((LocalVariableNode) node);
@@ -342,13 +331,12 @@ public final class AccessPath implements MapKey {
     }
   }
 
-  @Nullable
-  private static AccessPath fromArrayAccess(ArrayAccessNode node, AccessPathContext apContext) {
+  private static @Nullable AccessPath fromArrayAccess(
+      ArrayAccessNode node, AccessPathContext apContext) {
     return fromNodeAndContext(node, apContext);
   }
 
-  @Nullable
-  private static Element getElementFromArrayNode(Node arrayNode) {
+  private static @Nullable Element getElementFromArrayNode(Node arrayNode) {
     if (arrayNode instanceof LocalVariableNode) {
       return ((LocalVariableNode) arrayNode).getElement();
     } else if (arrayNode instanceof FieldAccessNode) {
@@ -389,8 +377,7 @@ public final class AccessPath implements MapKey {
    * @param mapKey map key to be used as the map-get argument, or {@code null} if there is no key
    * @return the final access path
    */
-  @Nullable
-  private static AccessPath buildAccessPathRecursive(
+  private static @Nullable AccessPath buildAccessPathRecursive(
       Node node,
       ArrayDeque<AccessPathElement> elements,
       AccessPathContext apContext,
@@ -501,8 +488,8 @@ public final class AccessPath implements MapKey {
                   break;
                 }
               }
-              // Cascade to default, symbol is not a constant field
-              // fall through
+            // Cascade to default, symbol is not a constant field
+            // fall through
             default:
               return null; // Not an AP
           }
@@ -551,8 +538,7 @@ public final class AccessPath implements MapKey {
    * @return access path representing the get call, or {@code null} if the map node cannot be
    *     represented with an access path
    */
-  @Nullable
-  public static AccessPath mapWithIteratorContentsKey(
+  public static @Nullable AccessPath mapWithIteratorContentsKey(
       Node mapNode, LocalVariableNode iterVar, AccessPathContext apContext) {
     IteratorContentsKey iterContentsKey =
         new IteratorContentsKey((VariableElement) iterVar.getElement());
@@ -594,8 +580,7 @@ public final class AccessPath implements MapKey {
    * Returns the root element of the access path. If the root is the receiver argument, returns
    * {@code null}.
    */
-  @Nullable
-  public Element getRoot() {
+  public @Nullable Element getRoot() {
     return root;
   }
 
@@ -603,8 +588,7 @@ public final class AccessPath implements MapKey {
     return elements;
   }
 
-  @Nullable
-  public MapKey getMapGetArg() {
+  public @Nullable MapKey getMapGetArg() {
     return mapGetArg;
   }
 
@@ -759,7 +743,7 @@ public final class AccessPath implements MapKey {
     /** class for building up instances of the AccessPathContext. */
     public static final class Builder {
 
-      @Nullable private ImmutableSet<String> immutableTypes;
+      private @Nullable ImmutableSet<String> immutableTypes;
 
       Builder() {}
 

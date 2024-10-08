@@ -33,13 +33,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import javax.annotation.Nullable;
 import javax.tools.DiagnosticListener;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.SimpleJavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Code to run Javac with NullAway enabled, designed to aid benchmarking. Construction of {@code
@@ -53,7 +53,7 @@ public class NullawayJavac {
   //////////////////////
   private List<JavaFileObject> compilationUnits;
   private JavaCompiler compiler;
-  @Nullable private DiagnosticListener<JavaFileObject> diagnosticListener;
+  private @Nullable DiagnosticListener<JavaFileObject> diagnosticListener;
   private StandardJavaFileManager fileManager;
   private List<String> options;
 

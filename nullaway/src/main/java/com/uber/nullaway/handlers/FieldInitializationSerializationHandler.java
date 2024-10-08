@@ -82,7 +82,7 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
     if (methodSymbol.getKind() == ElementKind.CONSTRUCTOR) {
       return;
     }
-    final String fieldName = field.getSimpleName().toString();
+    String fieldName = field.getSimpleName().toString();
     boolean leavesNonNullAtExitPoint =
         analysis.getNonnullFieldsOfReceiverAtExit(pathToMethod, state.context).stream()
             .anyMatch(element -> element.getSimpleName().toString().equals(fieldName));

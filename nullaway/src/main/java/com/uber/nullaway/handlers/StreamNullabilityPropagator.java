@@ -26,7 +26,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedHashMultimap;
-import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
@@ -144,7 +144,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
   // or lambda) pairs.
   // We need a Multimap here since there may be multiple relevant methods / lambdas.
   // E.g.: stream.filter(...).collect(Collectors.toMap(l1, l2)) => (record for toMap, {l1,l2})
-  private final Multimap<MethodInvocationTree, CollectRecordAndInnerMethod>
+  private final SetMultimap<MethodInvocationTree, CollectRecordAndInnerMethod>
       collectCallToRecordsAndInnerMethodsOrLambdas = LinkedHashMultimap.create();
 
   // Map from map or collect method (or lambda) to corresponding previous filter method (e.g.
@@ -214,61 +214,75 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
     VisitorState state = methodAnalysisContext.state();
     Type receiverType = ASTHelpers.getReceiverType(tree);
     for (StreamTypeRecord streamType : models) {
-      if (streamType.matchesType(receiverType, state)) {
-        // Build observable call chain
-        buildObservableCallChain(tree);
-
-        // Dispatch to code handling specific observer methods
-        if (streamType.isFilterMethod(methodSymbol) && methodSymbol.getParameters().length() == 1) {
-          ExpressionTree argTree = tree.getArguments().get(0);
-          if (argTree instanceof NewClassTree) {
-            ClassTree annonClassBody = ((NewClassTree) argTree).getClassBody();
-            // Ensure that this `new A() ...` has a custom class body, otherwise, we skip for now.
-            // In the future, we could look at the declared type and its inheritance chain, at least
-            // for
-            // filters.
-            if (annonClassBody != null) {
-              handleFilterAnonClass(streamType, tree, annonClassBody, state);
-            }
-          } else if (argTree instanceof LambdaExpressionTree) {
-            LambdaExpressionTree lambdaTree = (LambdaExpressionTree) argTree;
-            handleFilterLambda(streamType, tree, lambdaTree, state);
-          }
-        } else if (streamType.isMapMethod(methodSymbol)
-            && methodSymbol.getParameters().length() == 1) {
-          ExpressionTree argTree = tree.getArguments().get(0);
-          if (argTree instanceof NewClassTree) {
-            ClassTree annonClassBody = ((NewClassTree) argTree).getClassBody();
-            // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
-            if (annonClassBody != null) {
-              MapLikeMethodRecord methodRecord = streamType.getMaplikeMethodRecord(methodSymbol);
-              handleMapOrCollectAnonClassBody(
-                  methodRecord,
-                  annonClassBody,
-                  t -> observableCallToInnerMethodOrLambda.put(tree, t));
-            }
-          } else if (argTree instanceof LambdaExpressionTree) {
-            observableCallToInnerMethodOrLambda.put(tree, argTree);
-          } else if (argTree instanceof MemberReferenceTree) {
-            observableCallToInnerMethodOrLambda.put(tree, argTree);
-          }
-        } else {
-          if (methodSymbol.getParameters().length() == 1) {
-            // We can have multiple CollectLikeMethodRecords for a single collect method, reflecting
-            // the different possible collector factory methods whose result may be passed to a
-            // collect call.  At a single collect call site, at most one of these records will be
-            // relevant. So, we loop through them all, but break out of the loop as soon as we find
-            // one that matches.
-            for (CollectLikeMethodRecord collectlikeMethodRecord :
-                streamType.getCollectlikeMethodRecords(methodSymbol)) {
-              boolean handled = handleCollectCall(tree, collectlikeMethodRecord);
-              if (handled) {
-                break;
-              }
-            }
-          }
-        }
+      if (!streamType.matchesType(receiverType, state)) {
+        continue;
       }
+      // Build observable call chain
+      buildObservableCallChain(tree);
+      if (methodSymbol.getParameters().length() != 1) {
+        continue;
+      }
+
+      // Dispatch to code handling specific observer methods
+      if (streamType.isFilterMethod(methodSymbol)) {
+        handleFilterMethod(tree, streamType, state);
+      } else if (streamType.isMapMethod(methodSymbol)) {
+        handleMapMethod(tree, streamType, methodSymbol);
+      } else {
+        handleCollectMethod(tree, streamType, methodSymbol);
+      }
+    }
+  }
+
+  private void handleCollectMethod(
+      MethodInvocationTree tree, StreamTypeRecord streamType, Symbol.MethodSymbol methodSymbol) {
+    // We can have multiple CollectLikeMethodRecords for a single collect method, reflecting
+    // the different possible collector factory methods whose result may be passed to a
+    // collect call.  At a single collect call site, at most one of these records will be
+    // relevant. So, we loop through them all, but break out of the loop as soon as we find
+    // one that matches.
+    for (CollectLikeMethodRecord collectlikeMethodRecord :
+        streamType.getCollectlikeMethodRecords(methodSymbol)) {
+      boolean handled = handleCollectCall(tree, collectlikeMethodRecord);
+      if (handled) {
+        break;
+      }
+    }
+  }
+
+  private void handleFilterMethod(
+      MethodInvocationTree tree, StreamTypeRecord streamType, VisitorState state) {
+    ExpressionTree argTree = tree.getArguments().get(0);
+    if (argTree instanceof NewClassTree) {
+      ClassTree anonClassBody = ((NewClassTree) argTree).getClassBody();
+      // Ensure that this `new A() ...` has a custom class body, otherwise, we skip for now.
+      // In the future, we could look at the declared type and its inheritance chain, at least
+      // for
+      // filters.
+      if (anonClassBody != null) {
+        handleFilterAnonClass(streamType, tree, anonClassBody, state);
+      }
+    } else if (argTree instanceof LambdaExpressionTree) {
+      LambdaExpressionTree lambdaTree = (LambdaExpressionTree) argTree;
+      handleFilterLambda(streamType, tree, lambdaTree, state);
+    }
+  }
+
+  private void handleMapMethod(
+      MethodInvocationTree tree, StreamTypeRecord streamType, Symbol.MethodSymbol methodSymbol) {
+    ExpressionTree argTree = tree.getArguments().get(0);
+    if (argTree instanceof NewClassTree) {
+      ClassTree annonClassBody = ((NewClassTree) argTree).getClassBody();
+      // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
+      if (annonClassBody != null) {
+        MapLikeMethodRecord methodRecord = streamType.getMaplikeMethodRecord(methodSymbol);
+        handleMapOrCollectAnonClassBody(
+            methodRecord, annonClassBody, t -> observableCallToInnerMethodOrLambda.put(tree, t));
+      }
+    } else if (argTree instanceof LambdaExpressionTree) {
+      observableCallToInnerMethodOrLambda.put(tree, argTree);
+    } else if (argTree instanceof MemberReferenceTree) {
+      observableCallToInnerMethodOrLambda.put(tree, argTree);
     }
   }
 
@@ -581,7 +595,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
 
   @Override
   public void onDataflowVisitReturn(
-      ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore) {
+      ReturnTree tree, VisitorState state, NullnessStore thenStore, NullnessStore elseStore) {
     Tree filterTree = returnToEnclosingMethodOrLambda.get(tree);
     if (filterTree != null) {
       assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);

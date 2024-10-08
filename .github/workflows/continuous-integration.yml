@@ -19,18 +19,19 @@ jobs:
           - os: ubuntu-latest
             java: 17
             epVersion: 2.14.0
-          - os: macos-latest
-            java: 11
-            epVersion: 2.28.0
+          # last version of Error Prone that supports Java 11
           - os: ubuntu-latest
             java: 11
-            epVersion: 2.28.0
+            epVersion: 2.31.0
+          - os: macos-latest
+            java: 17
+            epVersion: 2.33.0
           - os: windows-latest
-            java: 11
-            epVersion: 2.28.0
+            java: 17
+            epVersion: 2.33.0
           - os: ubuntu-latest
             java: 17
-            epVersion: 2.28.0
+            epVersion: 2.33.0
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -44,10 +45,8 @@ jobs:
             17
             ${{ matrix.java }}
           distribution: 'temurin'
-      - name: Validate Gradle wrappers
-        uses: gradle/actions/wrapper-validation@v3
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v4
       - name: Build and test using Java ${{ matrix.java }} and Error Prone ${{ matrix.epVersion }}
         env:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
@@ -61,7 +60,7 @@ jobs:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         run: ./gradlew codeCoverageReport
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '11' && matrix.epVersion == '2.28.0' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '17' && matrix.epVersion == '2.33.0' && github.repository == 'uber/NullAway'
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -74,6 +73,6 @@ jobs:
           ORG_GRADLE_PROJECT_VERSION_NAME: '0.0.0.1-LOCAL'
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'false'
         run: ./gradlew publishToMavenLocal
-        if: matrix.java == '11'
+        if: matrix.java == '17'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh

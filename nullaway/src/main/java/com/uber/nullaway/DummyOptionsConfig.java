@@ -29,7 +29,7 @@ import com.google.common.collect.ImmutableSet;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import java.util.Set;
-import javax.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Dummy Config class required for the {@link NullAway} empty constructor.
@@ -175,8 +175,7 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  @Nullable
-  public String getCastToNonNullMethod() {
+  public @Nullable String getCastToNonNullMethod() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 
@@ -200,22 +199,6 @@ public class DummyOptionsConfig implements Config {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 
-  /** --- JarInfer configs --- */
-  @Override
-  public boolean isJarInferUseReturnAnnotations() {
-    throw new IllegalStateException(ERROR_MESSAGE);
-  }
-
-  @Override
-  public String getJarInferRegexStripModelJarName() {
-    throw new IllegalStateException(ERROR_MESSAGE);
-  }
-
-  @Override
-  public String getJarInferRegexStripCodeJarName() {
-    throw new IllegalStateException(ERROR_MESSAGE);
-  }
-
   @Override
   public String getErrorURL() {
     throw new IllegalStateException(ERROR_MESSAGE);
@@ -228,6 +211,11 @@ public class DummyOptionsConfig implements Config {
 
   @Override
   public boolean isJSpecifyMode() {
+    throw new IllegalStateException(ERROR_MESSAGE);
+  }
+
+  @Override
+  public boolean isLegacyAnnotationLocation() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 }

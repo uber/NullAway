@@ -40,7 +40,6 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import com.uber.nullaway.handlers.Handler;
-import javax.annotation.Nullable;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
 import org.checkerframework.nullaway.dataflow.analysis.Analysis;
@@ -51,6 +50,7 @@ import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.analysis.TransferFunction;
 import org.checkerframework.nullaway.dataflow.cfg.ControlFlowGraph;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Provides a wrapper around {@link org.checkerframework.nullaway.dataflow.analysis.Analysis}.
@@ -85,11 +85,11 @@ public final class DataFlow {
               new CacheLoader<AnalysisParams, Analysis<?, ?, ?>>() {
                 @Override
                 public Analysis<?, ?, ?> load(AnalysisParams key) {
-                  final ControlFlowGraph cfg = key.cfg();
-                  final ForwardTransferFunction<?, ?> transfer = key.transferFunction();
+                  ControlFlowGraph cfg = key.cfg();
+                  ForwardTransferFunction<?, ?> transfer = key.transferFunction();
 
                   @SuppressWarnings({"unchecked", "rawtypes"})
-                  final Analysis<?, ?, ?> analysis = new ForwardAnalysisImpl<>(transfer);
+                  Analysis<?, ?, ?> analysis = new ForwardAnalysisImpl<>(transfer);
                   analysis.performAnalysis(cfg);
                   return analysis;
                 }
@@ -102,10 +102,10 @@ public final class DataFlow {
               new CacheLoader<CfgParams, ControlFlowGraph>() {
                 @Override
                 public ControlFlowGraph load(CfgParams key) {
-                  final TreePath codePath = key.codePath();
-                  final TreePath bodyPath;
-                  final UnderlyingAST ast;
-                  final ProcessingEnvironment env = key.environment();
+                  TreePath codePath = key.codePath();
+                  TreePath bodyPath;
+                  UnderlyingAST ast;
+                  ProcessingEnvironment env = key.environment();
                   if (codePath.getLeaf() instanceof LambdaExpressionTree) {
                     LambdaExpressionTree lambdaExpressionTree =
                         (LambdaExpressionTree) codePath.getLeaf();
@@ -150,11 +150,11 @@ public final class DataFlow {
    */
   private <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       Result<A, S, T> dataflow(TreePath path, Context context, T transfer) {
-    final ProcessingEnvironment env = JavacProcessingEnvironment.instance(context);
-    final ControlFlowGraph cfg = cfgCache.getUnchecked(CfgParams.create(path, env));
-    final AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
+    ProcessingEnvironment env = JavacProcessingEnvironment.instance(context);
+    ControlFlowGraph cfg = cfgCache.getUnchecked(CfgParams.create(path, env));
+    AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
     @SuppressWarnings("unchecked")
-    final Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
+    Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
 
     return new Result<A, S, T>() {
       @Override
@@ -202,9 +202,8 @@ public final class DataFlow {
    * @param <T> transfer function type
    * @return dataflow value for expression
    */
-  @Nullable
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      A expressionDataflow(TreePath exprPath, Context context, T transfer) {
+      @Nullable A expressionDataflow(TreePath exprPath, Context context, T transfer) {
     AnalysisResult<A, S> analysisResult = resultForExpr(exprPath, context, transfer);
     return analysisResult == null ? null : analysisResult.getValue(exprPath.getLeaf());
   }
@@ -220,10 +219,9 @@ public final class DataFlow {
    * @param <T> transfer function type
    * @return dataflow result at exit of method
    */
-  @Nullable
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      S finalResult(TreePath path, Context context, T transfer) {
-    final Tree leaf = path.getLeaf();
+      @Nullable S finalResult(TreePath path, Context context, T transfer) {
+    Tree leaf = path.getLeaf();
     Preconditions.checkArgument(
         leaf instanceof MethodTree
             || leaf instanceof LambdaExpressionTree
@@ -235,9 +233,8 @@ public final class DataFlow {
     return dataflow(path, context, transfer).getAnalysis().getRegularExitStore();
   }
 
-  @Nullable
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      S resultBeforeExpr(TreePath exprPath, Context context, T transfer) {
+      @Nullable S resultBeforeExpr(TreePath exprPath, Context context, T transfer) {
     AnalysisResult<A, S> analysisResult = resultForExpr(exprPath, context, transfer);
     return analysisResult == null ? null : analysisResult.getStoreBefore(exprPath.getLeaf());
   }
@@ -247,17 +244,15 @@ public final class DataFlow {
    * Tree in a method. A bit riskier to use since we don't check that there is a corresponding CFG
    * node to the Tree; use with care.
    */
-  @Nullable
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      S resultBefore(TreePath exprPath, Context context, T transfer) {
+      @Nullable S resultBefore(TreePath exprPath, Context context, T transfer) {
     AnalysisResult<A, S> analysisResult = resultFor(exprPath, context, transfer);
     return analysisResult == null ? null : analysisResult.getStoreBefore(exprPath.getLeaf());
   }
 
-  @Nullable
   <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      AnalysisResult<A, S> resultForExpr(TreePath exprPath, Context context, T transfer) {
-    final Tree leaf = exprPath.getLeaf();
+      @Nullable AnalysisResult<A, S> resultForExpr(TreePath exprPath, Context context, T transfer) {
+    Tree leaf = exprPath.getLeaf();
     Preconditions.checkArgument(
         leaf instanceof ExpressionTree,
         "Leaf of exprPath must be of type ExpressionTree, but was %s",
@@ -266,16 +261,14 @@ public final class DataFlow {
     return resultFor(exprPath, context, transfer);
   }
 
-  private @Nullable <
-          A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      AnalysisResult<A, S> resultFor(TreePath exprPath, Context context, T transfer) {
-    final TreePath enclosingPath =
-        NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(exprPath);
+  private <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
+      @Nullable AnalysisResult<A, S> resultFor(TreePath exprPath, Context context, T transfer) {
+    TreePath enclosingPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(exprPath);
     if (enclosingPath == null) {
       throw new RuntimeException("expression is not inside a method, lambda or initializer block!");
     }
 
-    final Tree method = enclosingPath.getLeaf();
+    Tree method = enclosingPath.getLeaf();
     if (method instanceof MethodTree && ((MethodTree) method).getBody() == null) {
       // expressions can occur in abstract methods, for example {@code Map.Entry} in:
       //

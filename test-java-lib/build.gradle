@@ -24,7 +24,6 @@ dependencies {
     annotationProcessor project(":nullaway")
     implementation deps.build.jspecify
 
-    compileOnly deps.build.jsr305Annotations
     compileOnly deps.build.javaxValidation
     compileOnly deps.test.cfQual
 }
