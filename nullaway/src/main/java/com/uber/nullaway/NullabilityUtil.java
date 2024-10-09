@@ -381,12 +381,9 @@ public class NullabilityUtil {
       // Make sure it's not a mix of inner types and arrays for this annotation's location
       return !(locationHasInnerTypes && locationHasArray);
     }
-    // For non-nested classes if there are any inner types in the annotation location the annotation
-    // is considered valid to allow annotations on type arguments.
+    // For non-nested classes annotations apply to the innermost type.
     if (!hasNestedClass(symbol.type)) {
-      if (innerTypeCount > 0) {
-        return true;
-      }
+      return true;
     }
     // For nested classes the annotation is only valid if it is on the innermost type.
     return innerTypeCount == nestingDepth - 1;
@@ -403,9 +400,7 @@ public class NullabilityUtil {
   }
 
   private static boolean hasNestedClass(Type type) {
-    return type.tsym != null
-        && type.tsym.owner instanceof Symbol.ClassSymbol
-        && !(type.tsym.owner.owner instanceof Symbol.PackageSymbol);
+    return type.tsym != null && type.tsym.owner instanceof Symbol.ClassSymbol;
   }
 
   /**

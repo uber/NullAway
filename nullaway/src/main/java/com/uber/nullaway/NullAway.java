@@ -582,7 +582,7 @@ public class NullAway extends BugChecker
     if ((tree.getExpression() instanceof AnnotatedTypeTree)
         && !config.isLegacyAnnotationLocation()) {
       checkNullableAnnotationPositionInType(
-          ((AnnotatedTypeTree) tree.getExpression()).getAnnotations(), tree, tree, state);
+          ((AnnotatedTypeTree) tree.getExpression()).getAnnotations(), tree, state);
     }
 
     Description badDeref = matchDereference(tree.getExpression(), tree, state);
@@ -654,7 +654,7 @@ public class NullAway extends BugChecker
     }
     if (!config.isLegacyAnnotationLocation()) {
       checkNullableAnnotationPositionInType(
-          tree.getModifiers().getAnnotations(), tree.getReturnType(), tree, state);
+          tree.getModifiers().getAnnotations(), tree.getReturnType(), state);
     }
     // if the method is overriding some other method,
     // check that nullability annotations are consistent with
@@ -1484,7 +1484,7 @@ public class NullAway extends BugChecker
     }
     if (!config.isLegacyAnnotationLocation()) {
       checkNullableAnnotationPositionInType(
-          tree.getModifiers().getAnnotations(), tree.getType(), tree, state);
+          tree.getModifiers().getAnnotations(), tree.getType(), state);
     }
 
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
@@ -1540,11 +1540,10 @@ public class NullAway extends BugChecker
    *
    * @param annotations The annotations to check
    * @param type The tree representing the type structure
-   * @param tree The tree context (variable, member select or method)
    * @param state The visitor state
    */
   private void checkNullableAnnotationPositionInType(
-      List<? extends AnnotationTree> annotations, Tree type, Tree tree, VisitorState state) {
+      List<? extends AnnotationTree> annotations, Tree type, VisitorState state) {
 
     // Early return if the type is not a nested or inner class reference.
     if (!(type instanceof MemberSelectTree)) {
@@ -1585,7 +1584,7 @@ public class NullAway extends BugChecker
                 "Type-use nullability annotations should be applied on inner class");
 
         state.reportMatch(
-            errorBuilder.createErrorDescription(errorMessage, buildDescription(tree), state, null));
+            errorBuilder.createErrorDescription(errorMessage, buildDescription(type), state, null));
       }
     }
   }
