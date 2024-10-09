@@ -1509,6 +1509,9 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
+  /**
+   * returns true if {@code anno} is a type use annotation; it may also be a declaration annotation
+   */
   private static boolean isTypeUseAnnotation(Symbol anno) {
     Target target = anno.getAnnotation(Target.class);
     ImmutableSet<ElementType> elementTypes =
@@ -1516,6 +1519,9 @@ public class NullAway extends BugChecker
     return elementTypes.contains(TYPE_USE);
   }
 
+  /**
+   * returns true if {@code anno} is a declaration annotation; it may also be a type use annotation
+   */
   private static boolean isDeclarationAnnotation(Symbol anno) {
     Target target = anno.getAnnotation(Target.class);
     if (target == null) {
