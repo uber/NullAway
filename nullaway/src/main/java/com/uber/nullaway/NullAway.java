@@ -1534,9 +1534,9 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Checks whether the annotation is at the right location for nested types. Raises an error iff
-   * the type is a field access expression, the annotation is (or also) type-use and the annotation
-   * is not applied on the innermost type.
+   * Checks whether any {@code @Nullable} annotation is at the right location for nested types.
+   * Raises an error iff the type is a field access expression (for an inner class type), the
+   * annotation is type use, and the annotation is not applied on the innermost type.
    *
    * @param annotations The annotations to check
    * @param type The tree representing the type structure
@@ -1547,7 +1547,6 @@ public class NullAway extends BugChecker
       List<? extends AnnotationTree> annotations, Tree type, Tree tree, VisitorState state) {
 
     // Early return if the type is not a nested or inner class reference.
-
     if (!(type instanceof MemberSelectTree)) {
       return;
     }
@@ -1563,6 +1562,12 @@ public class NullAway extends BugChecker
       if (sym == null) {
         continue;
       }
+
+      String qualifiedName = sym.getQualifiedName().toString();
+      if (!isNullableAnnotation(qualifiedName, config)) {
+        continue;
+      }
+
       if (!isTypeUseAnnotation(sym)) {
         continue;
       }
@@ -1572,13 +1577,8 @@ public class NullAway extends BugChecker
         continue;
       }
 
-      String qualifiedName = sym.getQualifiedName().toString();
-      if (!isNullableAnnotation(qualifiedName, config)) {
-        continue;
-      }
-
       if (state.getEndPosition(annotation) < endOfOuterType) {
-
+        // annotation is not on the inner-most type
         ErrorMessage errorMessage =
             new ErrorMessage(
                 MessageTypes.NULLABLE_ON_WRONG_NESTED_CLASS_LEVEL,
