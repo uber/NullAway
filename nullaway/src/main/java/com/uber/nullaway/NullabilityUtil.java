@@ -382,7 +382,7 @@ public class NullabilityUtil {
       return !(locationHasInnerTypes && locationHasArray);
     }
     // For non-nested classes annotations apply to the innermost type.
-    if (!hasNestedClass(symbol.type)) {
+    if (!isTypeOfNestedClass(symbol.type)) {
       return true;
     }
     // For nested classes the annotation is only valid if it is on the innermost type.
@@ -399,7 +399,7 @@ public class NullabilityUtil {
     return depth;
   }
 
-  private static boolean hasNestedClass(Type type) {
+  private static boolean isTypeOfNestedClass(Type type) {
     return type.tsym != null && type.tsym.owner instanceof Symbol.ClassSymbol;
   }
 
