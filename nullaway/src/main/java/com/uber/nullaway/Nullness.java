@@ -227,8 +227,6 @@ public enum Nullness implements AbstractValue<Nullness> {
     if (symbol.isVarArgs()
         && paramInd == symbol.getParameters().size() - 1
         && !config.isLegacyAnnotationLocation()) {
-      // individual arguments passed in the varargs positions can be @Nullable if the array element
-      // type of the parameter is @Nullable
       return NullabilityUtil.nullableVarargsElementsForSourceOrBytecode(
           symbol.getParameters().get(paramInd), config);
     } else {
@@ -270,8 +268,6 @@ public enum Nullness implements AbstractValue<Nullness> {
     if (symbol.isVarArgs()
         && paramInd == symbol.getParameters().size() - 1
         && !config.isLegacyAnnotationLocation()) {
-      // individual arguments passed in the varargs positions must be @NonNull if the array element
-      // type of the parameter is @NonNull
       return NullabilityUtil.nonnullVarargsElementsForSourceOrBytecode(
           symbol.getParameters().get(paramInd), config);
     } else {

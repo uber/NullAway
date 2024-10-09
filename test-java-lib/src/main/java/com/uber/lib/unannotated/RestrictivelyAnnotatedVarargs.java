@@ -4,9 +4,5 @@ import javax.annotation.Nonnull;
 
 public class RestrictivelyAnnotatedVarargs {
 
-  public static void test(@Nonnull String... args) {
-    for (String arg : args) {
-      System.out.println(arg);
-    }
-  }
+  public static void test(@Nonnull String... args) {}
 }

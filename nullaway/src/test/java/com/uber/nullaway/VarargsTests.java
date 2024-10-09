@@ -71,6 +71,7 @@ public class VarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** Test for a @Nullable declaration annotation on a varargs parameter defined in bytecode */
   @Test
   public void nullableVarArgsFromBytecode() {
     defaultCompilationHelper
@@ -532,6 +533,10 @@ public class VarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Test for a restrictive @NonNull declaration annotation on a varargs parameter defined in
+   * bytecode
+   */
   @Test
   public void testVarargsRestrictiveBytecodes() {
     makeTestHelperWithArgs(
