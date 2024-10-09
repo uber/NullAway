@@ -456,10 +456,17 @@ public class NullabilityUtil {
     }
     // For varargs symbols we also consider the elements to be @Nullable if there is a @Nullable
     // declaration annotation on the parameter
+    // TODO this flag check does not work for bytecodes!!!
     if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
       return Nullness.hasNullableDeclarationAnnotation(arraySymbol, config);
     }
     return false;
+  }
+
+  public static boolean nullableVarargsElementsForSourceOrBytecode(
+      Symbol varargsSymbol, Config config) {
+    return isArrayElementNullable(varargsSymbol, config)
+        || Nullness.hasNullableDeclarationAnnotation(varargsSymbol, config);
   }
 
   /**
@@ -482,10 +489,17 @@ public class NullabilityUtil {
     }
     // For varargs symbols we also consider the elements to be @NonNull if there is a @NonNull
     // declaration annotation on the parameter
+    // TODO this flag check does not work for bytecodes!!!
     if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
       return Nullness.hasNonNullDeclarationAnnotation(arraySymbol, config);
     }
     return false;
+  }
+
+  public static boolean nonnullVarargsElementsForSourceOrBytecode(
+      Symbol varargsSymbol, Config config) {
+    return isArrayElementNonNull(varargsSymbol, config)
+        || Nullness.hasNonNullDeclarationAnnotation(varargsSymbol, config);
   }
 
   /**

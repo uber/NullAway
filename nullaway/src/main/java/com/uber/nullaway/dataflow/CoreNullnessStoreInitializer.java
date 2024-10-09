@@ -67,6 +67,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     for (LocalVariableNode param : parameters) {
       Symbol paramSymbol = (Symbol) param.getElement();
       Nullness assumed;
+      // TODO this flag check does not work for bytecodes!!!  but that's ok here?
       if ((paramSymbol.flags() & Flags.VARARGS) != 0) {
         assumed = Nullness.varargsArrayIsNullable(paramSymbol, config) ? NULLABLE : NONNULL;
       } else {
