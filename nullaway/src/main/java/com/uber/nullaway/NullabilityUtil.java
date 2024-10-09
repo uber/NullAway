@@ -325,6 +325,7 @@ public class NullabilityUtil {
    * but {@code List<@Nullable T> lst} is not.
    *
    * @param t the annotation and its position in the type
+   * @param symbol the method symbol
    * @param config NullAway configuration
    * @return {@code true} if the annotation should be treated as applying directly to the top-level
    *     type, false otherwise
@@ -343,9 +344,9 @@ public class NullabilityUtil {
     // In JSpecify mode and without the LegacyAnnotationLocations flag, annotations on array
     // dimensions are *not* treated as applying to the top-level type, consistent with the JSpecify
     // spec.
-    // Outside of JSpecify mode, annotations which are *not* on the inner type are not treated as
-    // being applied to the inner type. This is bypassed when the LegacyAnnotationLocations flag is
-    // passed, in which case annotations on all locations are treated as applying to the inner type.
+    // Annotations which are *not* on the inner type are not treated as being applied to the inner
+    // type. This can be bypassed the LegacyAnnotationLocations flag, in which
+    // annotations on all locations are treated as applying to the inner type.
     // We don't allow mixing of inner types and array dimensions in the same location
     // (i.e. `Foo.@Nullable Bar []` is meaningless).
     // These aren't correct semantics for type use annotations, but a series of hacky
@@ -380,11 +381,14 @@ public class NullabilityUtil {
       // Make sure it's not a mix of inner types and arrays for this annotation's location
       return !(locationHasInnerTypes && locationHasArray);
     }
+    // For non-nested classes if there are any inner types in the annotation location the annotation
+    // is considered valid to allow annotations on type arguments.
     if (!hasNestedClass(symbol.type)) {
       if (innerTypeCount > 0) {
         return true;
       }
     }
+    // For nested classes the annotation is only valid if it is on the innermost type.
     return innerTypeCount == nestingDepth - 1;
   }
 

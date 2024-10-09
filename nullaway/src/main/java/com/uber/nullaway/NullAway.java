@@ -581,7 +581,7 @@ public class NullAway extends BugChecker
     }
     if ((tree.getExpression() instanceof AnnotatedTypeTree)
         && !config.isLegacyAnnotationLocation()) {
-      handleNullabilityOnNestedClass(
+      checkNullableAnnotationPositionInType(
           ((AnnotatedTypeTree) tree.getExpression()).getAnnotations(), tree, tree, state);
     }
 
@@ -653,7 +653,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     if (!config.isLegacyAnnotationLocation()) {
-      handleNullabilityOnNestedClass(
+      checkNullableAnnotationPositionInType(
           tree.getModifiers().getAnnotations(), tree.getReturnType(), tree, state);
     }
     // if the method is overriding some other method,
@@ -1483,7 +1483,7 @@ public class NullAway extends BugChecker
       GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
     }
     if (!config.isLegacyAnnotationLocation()) {
-      handleNullabilityOnNestedClass(
+      checkNullableAnnotationPositionInType(
           tree.getModifiers().getAnnotations(), tree.getType(), tree, state);
     }
 
@@ -1509,7 +1509,7 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
-  private static boolean isOnlyTypeAnnotation(Symbol anno) {
+  private static boolean isTypeUseAnnotation(Symbol anno) {
     Target target = anno.getAnnotation(Target.class);
     ImmutableSet<ElementType> elementTypes =
         target == null ? ImmutableSet.of() : ImmutableSet.copyOf(target.value());
@@ -1522,30 +1522,42 @@ public class NullAway extends BugChecker
       return true;
     }
     ImmutableSet<ElementType> elementTypes = ImmutableSet.copyOf(target.value());
-    // Return true only if annotation is not type-use only
+    // Return true for any annotation that is not exclusively a type-use annotation
     return !(elementTypes.equals(ImmutableSet.of(ElementType.TYPE_USE))
         || TYPE_USE_OR_TYPE_PARAMETER.containsAll(elementTypes));
   }
 
-  private void handleNullabilityOnNestedClass(
-      List<? extends AnnotationTree> annotations,
-      Tree typeTree,
-      Tree errorReportingTree,
-      VisitorState state) {
-    if (!(typeTree instanceof JCTree.JCFieldAccess)) {
+  /**
+   * Checks whether the annotation is at the right location for nested types. Raises an error iff
+   * the type is a field access expression, the annotation is (or also) type-use and the annotation
+   * is not applied on the innermost type.
+   *
+   * @param annotations The annotations to check
+   * @param type The tree representing the type structure
+   * @param tree The tree context (variable, member select or method)
+   * @param state The visitor state
+   */
+  private void checkNullableAnnotationPositionInType(
+      List<? extends AnnotationTree> annotations, Tree type, Tree tree, VisitorState state) {
+
+    // Early return if the type is not a nested or inner class reference.
+
+    if (!(type instanceof MemberSelectTree)) {
       return;
     }
-    JCTree.JCFieldAccess fieldAccess = (JCTree.JCFieldAccess) typeTree;
+    MemberSelectTree fieldAccess = (MemberSelectTree) type;
 
+    // Get the end position of the outer type expression. Any nullable annotation before this
+    // position is considered to be on the outer type, which is incorrect.
     int endOfOuterType = state.getEndPosition(fieldAccess.getExpression());
-    int startOfType = ((JCTree) typeTree).getStartPosition();
+    int startOfType = ((JCTree) type).getStartPosition();
 
     for (AnnotationTree annotation : annotations) {
       Symbol sym = ASTHelpers.getSymbol(annotation);
       if (sym == null) {
         continue;
       }
-      if (!isOnlyTypeAnnotation(sym)) {
+      if (!isTypeUseAnnotation(sym)) {
         continue;
       }
       // If an annotation is declaration ALSO, we check if it is at the correct location. If it is,
@@ -1567,8 +1579,7 @@ public class NullAway extends BugChecker
                 "Type-use nullability annotations should be applied on inner class");
 
         state.reportMatch(
-            errorBuilder.createErrorDescription(
-                errorMessage, buildDescription(errorReportingTree), state, null));
+            errorBuilder.createErrorDescription(errorMessage, buildDescription(tree), state, null));
       }
     }
   }
