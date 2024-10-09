@@ -126,8 +126,8 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
             "import org.checkerframework.checker.nullness.qual.Nullable;",
             "class Test {",
             "  Test.@Nullable Foo f1;",
-            "    // @Nullable does not apply to the inner type",
-            "    // BUG: Diagnostic contains: @NonNull field f2 not initialized",
+            "  // @Nullable does not apply to the inner type",
+            "  // BUG: Diagnostic contains: @NonNull field f2 not initialized",
             "  @Nullable Test.Foo f2;",
             "  class Foo { }",
             "  public void test() {",
@@ -202,7 +202,7 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
             "     A.@Nullable B.C foo2 = null;",
             "     A.B.@Nullable C foo3 = null;",
             "     // BUG: Diagnostic contains: Type-use nullability annotations should be applied on inner class",
-            "    @Nullable A.B foo4 = null;",
+            "     @Nullable A.B foo4 = null;",
             "     // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
             "     A.B.@Nullable C [][] foo5 = null;",
             "     A.B.C @Nullable [][] foo6 = null;",
@@ -317,7 +317,6 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
             "     // BUG: Diagnostic contains: Type-use nullability annotations should be applied on inner class",
             "     public @Nullable A.B method4() { return null; }",
             "     public @Nullable A method5() { return null; }",
-            "     public @Nullable int method6() { return 0; }",
             "}")
         .doTest();
   }
