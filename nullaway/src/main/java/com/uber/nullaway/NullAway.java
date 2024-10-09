@@ -1549,11 +1549,10 @@ public class NullAway extends BugChecker
     if (!(type instanceof MemberSelectTree)) {
       return;
     }
-    MemberSelectTree fieldAccess = (MemberSelectTree) type;
 
     // Get the end position of the outer type expression. Any nullable annotation before this
     // position is considered to be on the outer type, which is incorrect.
-    int endOfOuterType = state.getEndPosition(fieldAccess.getExpression());
+    int endOfOuterType = state.getEndPosition(((MemberSelectTree) type).getExpression());
     int startOfType = ((JCTree) type).getStartPosition();
 
     for (AnnotationTree annotation : annotations) {
