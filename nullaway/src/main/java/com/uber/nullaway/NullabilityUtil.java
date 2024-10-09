@@ -325,7 +325,7 @@ public class NullabilityUtil {
    * but {@code List<@Nullable T> lst} is not.
    *
    * @param t the annotation and its position in the type
-   * @param symbol the method symbol
+   * @param symbol the symbol for the annotated element
    * @param config NullAway configuration
    * @return {@code true} if the annotation should be treated as applying directly to the top-level
    *     type, false otherwise
