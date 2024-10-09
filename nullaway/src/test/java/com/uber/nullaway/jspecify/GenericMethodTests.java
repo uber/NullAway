@@ -24,7 +24,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    nonNullIdentity(new Object()).toString();",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
             "    nonNullIdentity(null);",
-            "    // BUG: Diagnostic contains: Type argument cannot be @Nullable", // something about invalid type argument", // line 13
+            "    // BUG: Diagnostic contains: Type argument cannot be @Nullable",
             "    Test.<@Nullable Object>nonNullIdentity(new Object());",
             "  }",
             "}")

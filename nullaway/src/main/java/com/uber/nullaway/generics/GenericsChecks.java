@@ -7,7 +7,6 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.tools.javac.tree.JCTree;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
@@ -27,6 +26,7 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorBuilder;
@@ -34,11 +34,11 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.ArrayList;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
@@ -149,12 +149,7 @@ public final class GenericsChecks {
   }
 
   public static void checkInstantiationForGenericMethodCalls(
-          Tree tree,
-          VisitorState state,
-          NullAway analysis,
-          Config config,
-          Handler handler
-  ) {
+      Tree tree, VisitorState state, NullAway analysis, Config config, Handler handler) {
     if (!config.isJSpecifyMode()) {
       return;
     }
@@ -171,7 +166,7 @@ public final class GenericsChecks {
         for (AnnotationTree annotation : annotatedType.getAnnotations()) {
           Type annotationType = ASTHelpers.getType(annotation);
           if (annotationType != null
-                  && Nullness.isNullableAnnotation(annotationType.toString(), config)) {
+              && Nullness.isNullableAnnotation(annotationType.toString(), config)) {
             nullableTypeArguments.put(i, curTypeArg);
             break;
           }
@@ -188,32 +183,36 @@ public final class GenericsChecks {
         Type typeVariable = baseTypeArgs.get(i);
         Type upperBound = typeVariable.getUpperBound();
         com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-                upperBound.getAnnotationMirrors();
+            upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
-                Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
-                        || handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
+            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+                || handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
         // if base type argument does not have @Nullable annotation then the instantiation is
         // invalid
         if (!hasNullableAnnotation) {
           reportInvalidTypeArgumentError(
-                  nullableTypeArguments.get(i), methodSymbol, typeVariable, state, analysis);
+              nullableTypeArguments.get(i), methodSymbol, typeVariable, state, analysis);
         }
       }
     }
   }
 
   private static void reportInvalidTypeArgumentError(
-          Tree tree, Symbol.MethodSymbol methodSymbol, Type typeVariable, VisitorState state, NullAway analysis) {
+      Tree tree,
+      Symbol.MethodSymbol methodSymbol,
+      Type typeVariable,
+      VisitorState state,
+      NullAway analysis) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
-            new ErrorMessage(
-                    ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
-                    String.format(
-                            "Type argument cannot be @Nullable, as method %s's type variable %s is not @Nullable",
-                            methodSymbol.toString(), typeVariable.tsym.toString()));
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
+            String.format(
+                "Type argument cannot be @Nullable, as method %s's type variable %s is not @Nullable",
+                methodSymbol.toString(), typeVariable.tsym.toString()));
     state.reportMatch(
-            errorBuilder.createErrorDescription(
-                    errorMessage, analysis.buildDescription(tree), state, null));
+        errorBuilder.createErrorDescription(
+            errorMessage, analysis.buildDescription(tree), state, null));
   }
 
   private static void reportInvalidInstantiationError(
@@ -787,27 +786,36 @@ public final class GenericsChecks {
       VisitorState state,
       Config config) {
 
-
     List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
-    com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
+    com.sun.tools.javac.util.List<Type> explicitTypeArgs =
+        convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
 
     Type methodType = invokedMethodSymbol.type;
     Type substitutedReturnType = null;
-    if(methodType instanceof Type.ForAll) {
+    if (methodType instanceof Type.ForAll) {
       Type.ForAll forAllType = (Type.ForAll) methodType;
 
       // Extract the underlying MethodType (the actual signature)
       Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.qtype;
 
       // Substitute the argument and return types within the MethodType
-      substitutedReturnType = state.getTypes().subst(methodTypeInsideForAll.restype, forAllType.tvars, explicitTypeArgs);
+      substitutedReturnType =
+          state
+              .getTypes()
+              .subst(methodTypeInsideForAll.restype, forAllType.tvars, explicitTypeArgs);
     } else {
       // If it's not a ForAll type, handle it as a normal MethodType
       Type.MethodType methodTypeElse = (Type.MethodType) invokedMethodSymbol.type;
-      substitutedReturnType = state.getTypes().subst(methodTypeElse.restype, invokedMethodSymbol.type.getTypeArguments(), explicitTypeArgs);
+      substitutedReturnType =
+          state
+              .getTypes()
+              .subst(
+                  methodTypeElse.restype,
+                  invokedMethodSymbol.type.getTypeArguments(),
+                  explicitTypeArgs);
     }
 
-    if(Objects.equals(getTypeNullness(substitutedReturnType, config), Nullness.NULLABLE)) {
+    if (Objects.equals(getTypeNullness(substitutedReturnType, config), Nullness.NULLABLE)) {
       return Nullness.NULLABLE;
     }
 
@@ -824,12 +832,13 @@ public final class GenericsChecks {
     }
   }
 
-  private static com.sun.tools.javac.util.List<Type> convertTreesToTypes(List<? extends Tree> typeArgumentTrees) {
+  private static com.sun.tools.javac.util.List<Type> convertTreesToTypes(
+      List<? extends Tree> typeArgumentTrees) {
     List<Type> types = new ArrayList<>();
     for (Tree tree : typeArgumentTrees) {
       if (tree instanceof JCTree.JCExpression) {
         JCTree.JCExpression expression = (JCTree.JCExpression) tree;
-        types.add(expression.type);  // Retrieve the Type
+        types.add(expression.type); // Retrieve the Type
       }
     }
     return com.sun.tools.javac.util.List.from(types);
@@ -876,31 +885,44 @@ public final class GenericsChecks {
       VisitorState state,
       Config config) {
     List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
-    com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
+    com.sun.tools.javac.util.List<Type> explicitTypeArgs =
+        convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
 
     Type methodType = invokedMethodSymbol.type;
     List<Type> substitutedParamTypes = null;
-    if(methodType instanceof Type.ForAll) {
+    if (methodType instanceof Type.ForAll) {
       Type.ForAll forAllType = (Type.ForAll) methodType;
 
       // Extract the underlying MethodType (the actual signature)
       Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.qtype;
 
       // Substitute the argument and return types within the MethodType
-      substitutedParamTypes = state.getTypes().subst(
-              methodTypeInsideForAll.argtypes,
-              forAllType.tvars,    // The type variables from the ForAll
-              explicitTypeArgs  // The actual type arguments from the method invocation
-      );
-//      substitutedReturnType = state.getTypes().subst(methodTypeInsideForAll.restype, forAllType.tvars, explicitTypeArgs);
+      substitutedParamTypes =
+          state
+              .getTypes()
+              .subst(
+                  methodTypeInsideForAll.argtypes,
+                  forAllType.tvars, // The type variables from the ForAll
+                  explicitTypeArgs // The actual type arguments from the method invocation
+                  );
+      //      substitutedReturnType = state.getTypes().subst(methodTypeInsideForAll.restype,
+      // forAllType.tvars, explicitTypeArgs);
     } else {
       // If it's not a ForAll type, handle it as a normal MethodType
       Type.MethodType methodTypeElse = (Type.MethodType) invokedMethodSymbol.type;
-//      substitutedReturnType = state.getTypes().subst(methodTypeElse.restype, invokedMethodSymbol.type.getTypeArguments(), explicitTypeArgs);
-      substitutedParamTypes = state.getTypes().subst(methodTypeElse.argtypes, invokedMethodSymbol.type.getTypeArguments(), explicitTypeArgs);
+      //      substitutedReturnType = state.getTypes().subst(methodTypeElse.restype,
+      // invokedMethodSymbol.type.getTypeArguments(), explicitTypeArgs);
+      substitutedParamTypes =
+          state
+              .getTypes()
+              .subst(
+                  methodTypeElse.argtypes,
+                  invokedMethodSymbol.type.getTypeArguments(),
+                  explicitTypeArgs);
     }
 
-    if(Objects.equals(getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
+    if (Objects.equals(
+        getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
       return Nullness.NULLABLE;
     }
     if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
