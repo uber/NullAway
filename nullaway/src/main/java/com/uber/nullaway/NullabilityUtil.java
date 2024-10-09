@@ -456,13 +456,22 @@ public class NullabilityUtil {
     }
     // For varargs symbols we also consider the elements to be @Nullable if there is a @Nullable
     // declaration annotation on the parameter
-    // TODO this flag check does not work for bytecodes!!!
+    // NOTE this flag check does not work for the varargs parameter of a method defined in bytecodes
     if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
       return Nullness.hasNullableDeclarationAnnotation(arraySymbol, config);
     }
     return false;
   }
 
+  /**
+   * Checks if the given varargs symbol has a {@code @Nullable} annotation for its elements. Works
+   * for both source and bytecode.
+   *
+   * @param varargsSymbol the symbol of the varargs parameter
+   * @param config NullAway configuration
+   * @return true if the varargs symbol has a {@code @Nullable} annotation for its elements, false
+   *     otherwise
+   */
   public static boolean nullableVarargsElementsForSourceOrBytecode(
       Symbol varargsSymbol, Config config) {
     return isArrayElementNullable(varargsSymbol, config)
@@ -489,13 +498,22 @@ public class NullabilityUtil {
     }
     // For varargs symbols we also consider the elements to be @NonNull if there is a @NonNull
     // declaration annotation on the parameter
-    // TODO this flag check does not work for bytecodes!!!
+    // NOTE this flag check does not work for the varargs parameter of a method defined in bytecodes
     if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
       return Nullness.hasNonNullDeclarationAnnotation(arraySymbol, config);
     }
     return false;
   }
 
+  /**
+   * Checks if the given varargs symbol has a {@code @NonNull} annotation for its elements. Works
+   * for both source and bytecode.
+   *
+   * @param varargsSymbol the symbol of the varargs parameter
+   * @param config NullAway configuration
+   * @return true if the varargs symbol has a {@code @NonNull} annotation for its elements, false
+   *     otherwise
+   */
   public static boolean nonnullVarargsElementsForSourceOrBytecode(
       Symbol varargsSymbol, Config config) {
     return isArrayElementNonNull(varargsSymbol, config)
