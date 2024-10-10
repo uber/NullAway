@@ -6,5 +6,5 @@ public class Varargs {
 
   public Varargs(@Nullable String... args) {}
 
-  public static void fullyQualified(String @org.jspecify.annotations.Nullable ... args) {}
+  public static void typeUse(String @org.jspecify.annotations.Nullable ... args) {}
 }

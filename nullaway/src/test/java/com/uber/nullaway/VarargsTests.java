@@ -96,9 +96,9 @@ public class VarargsTests extends NullAwayTestsBase {
             "package com.uber;",
             "import com.uber.lib.Varargs;",
             "public class Test {",
-            "  public void testFullyQualifiedTypeUse() {",
+            "  public void testTypeUse() {",
             "    String[] x = null;",
-            "    Varargs.fullyQualified(x);",
+            "    Varargs.typeUse(x);",
             "  }",
             "}")
         .doTest();
