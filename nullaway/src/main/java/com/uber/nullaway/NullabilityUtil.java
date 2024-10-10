@@ -303,7 +303,18 @@ public class NullabilityUtil {
    */
   public static Stream<? extends AnnotationMirror> getTypeUseAnnotations(
       Symbol symbol, Config config) {
-    Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
+    // Adapted from Error Prone's MoreAnnotations class:
+    // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L84-L91
+    Symbol typeAnnotationOwner;
+    switch (symbol.getKind()) {
+      case PARAMETER:
+        typeAnnotationOwner = symbol.owner;
+        break;
+      default:
+        typeAnnotationOwner = symbol;
+    }
+    Stream<Attribute.TypeCompound> rawTypeAttributes =
+        typeAnnotationOwner.getRawTypeAttributes().stream();
     if (symbol instanceof Symbol.MethodSymbol) {
       // for methods, we want annotations on the return type
       return rawTypeAttributes.filter(
@@ -313,7 +324,45 @@ public class NullabilityUtil {
     } else {
       // filter for annotations directly on the type
       return rawTypeAttributes.filter(
-          t -> NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config));
+          t ->
+              targetTypeMatches(symbol, t.position)
+                  && NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config));
+    }
+  }
+
+  // Adapted from Error Prone MoreAnnotations:
+  // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L128
+  private static boolean targetTypeMatches(Symbol sym, TypeAnnotationPosition position) {
+    switch (sym.getKind()) {
+      case LOCAL_VARIABLE:
+        return position.type == TargetType.LOCAL_VARIABLE;
+      case FIELD:
+        return position.type == TargetType.FIELD;
+      case CONSTRUCTOR:
+      case METHOD:
+        return position.type == TargetType.METHOD_RETURN;
+      case PARAMETER:
+        switch (position.type) {
+          case METHOD_FORMAL_PARAMETER:
+            int parameterIndex = position.parameter_index;
+            if (position.onLambda != null) {
+              com.sun.tools.javac.util.List<JCTree.JCVariableDecl> lambdaParams =
+                  position.onLambda.params;
+              return parameterIndex < lambdaParams.size()
+                  && lambdaParams.get(parameterIndex).sym.equals(sym);
+            } else {
+              return ((Symbol.MethodSymbol) sym.owner).getParameters().indexOf(sym)
+                  == parameterIndex;
+            }
+          default:
+            return false;
+        }
+      case CLASS:
+        // There are no type annotations on the top-level type of the class being declared, only
+        // on other types in the signature (e.g. `class Foo extends Bar<@A Baz> {}`).
+        return false;
+      default:
+        throw new AssertionError("unsupported element kind: " + sym.getKind());
     }
   }
 
@@ -488,10 +537,26 @@ public class NullabilityUtil {
     }
     // For varargs symbols we also consider the elements to be @Nullable if there is a @Nullable
     // declaration annotation on the parameter
+    // NOTE this flag check does not work for the varargs parameter of a method defined in bytecodes
     if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
       return Nullness.hasNullableDeclarationAnnotation(arraySymbol, config);
     }
     return false;
+  }
+
+  /**
+   * Checks if the given varargs symbol has a {@code @Nullable} annotation for its elements. Works
+   * for both source and bytecode.
+   *
+   * @param varargsSymbol the symbol of the varargs parameter
+   * @param config NullAway configuration
+   * @return true if the varargs symbol has a {@code @Nullable} annotation for its elements, false
+   *     otherwise
+   */
+  public static boolean nullableVarargsElementsForSourceOrBytecode(
+      Symbol varargsSymbol, Config config) {
+    return isArrayElementNullable(varargsSymbol, config)
+        || Nullness.hasNullableDeclarationAnnotation(varargsSymbol, config);
   }
 
   /**
@@ -514,10 +579,26 @@ public class NullabilityUtil {
     }
     // For varargs symbols we also consider the elements to be @NonNull if there is a @NonNull
     // declaration annotation on the parameter
+    // NOTE this flag check does not work for the varargs parameter of a method defined in bytecodes
     if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
       return Nullness.hasNonNullDeclarationAnnotation(arraySymbol, config);
     }
     return false;
+  }
+
+  /**
+   * Checks if the given varargs symbol has a {@code @NonNull} annotation for its elements. Works
+   * for both source and bytecode.
+   *
+   * @param varargsSymbol the symbol of the varargs parameter
+   * @param config NullAway configuration
+   * @return true if the varargs symbol has a {@code @NonNull} annotation for its elements, false
+   *     otherwise
+   */
+  public static boolean nonnullVarargsElementsForSourceOrBytecode(
+      Symbol varargsSymbol, Config config) {
+    return isArrayElementNonNull(varargsSymbol, config)
+        || Nullness.hasNonNullDeclarationAnnotation(varargsSymbol, config);
   }
 
   /**
