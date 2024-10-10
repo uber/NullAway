@@ -73,7 +73,7 @@ public class VarargsTests extends NullAwayTestsBase {
 
   /** Test for a @Nullable declaration annotation on a varargs parameter defined in bytecode */
   @Test
-  public void nullableVarArgsFromBytecode() {
+  public void nullableDeclarationVarArgsFromBytecode() {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
@@ -89,7 +89,7 @@ public class VarargsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void nullableFullyQualifiedTypeUseVarArgsFromBytecode() {
+  public void nullableTypeUseVarArgsFromBytecode() {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
