@@ -308,6 +308,7 @@ public class NullabilityUtil {
     Symbol typeAnnotationOwner;
     switch (symbol.getKind()) {
       case PARAMETER:
+        // use the symbol's owner for parameters, unless it's the parameter of a lambda
         typeAnnotationOwner = symbol.owner;
         break;
       default:
@@ -344,8 +345,16 @@ public class NullabilityUtil {
       case PARAMETER:
         switch (position.type) {
           case METHOD_FORMAL_PARAMETER:
-            return ((Symbol.MethodSymbol) sym.owner).getParameters().indexOf(sym)
-                == position.parameter_index;
+            int parameterIndex = position.parameter_index;
+            if (position.onLambda != null) {
+              com.sun.tools.javac.util.List<JCTree.JCVariableDecl> lambdaParams =
+                  position.onLambda.params;
+              return parameterIndex < lambdaParams.size()
+                  && lambdaParams.get(parameterIndex).sym.equals(sym);
+            } else {
+              return ((Symbol.MethodSymbol) sym.owner).getParameters().indexOf(sym)
+                  == parameterIndex;
+            }
           default:
             return false;
         }

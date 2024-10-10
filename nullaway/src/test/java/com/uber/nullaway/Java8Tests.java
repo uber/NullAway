@@ -47,4 +47,24 @@ public class Java8Tests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testNullableLambdaParamTypeUse() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "    @FunctionalInterface",
+            "    interface NullableParamFunctionTypeUse<T, U> {",
+            "      U takeVal(@org.jspecify.annotations.Nullable T x);",
+            "    }",
+            "    static void testParamTypeUse() {",
+            "      NullableParamFunctionTypeUse n3 = (@org.jspecify.annotations.Nullable Object x) -> (x == null) ? \"null\" : x.toString();",
+            "      NullableParamFunctionTypeUse n4 = (x) -> (x == null) ? \"null\" : x.toString();",
+            "    }",
+            "}")
+        .doTest();
+  }
 }
