@@ -80,9 +80,25 @@ public class VarargsTests extends NullAwayTestsBase {
             "package com.uber;",
             "import com.uber.lib.Varargs;",
             "public class Test {",
-            "  public void testStrings(RuntimeException e) {",
+            "  public void testDeclaration() {",
             "    String x = null;",
             "    Varargs s = new Varargs(x);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableFullyQualifiedTypeUseVarArgsFromBytecode() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.Varargs;",
+            "public class Test {",
+            "  public void testFullyQualifiedTypeUse() {",
+            "    String[] x = null;",
+            "    Varargs.fullyQualified(x);",
             "  }",
             "}")
         .doTest();
