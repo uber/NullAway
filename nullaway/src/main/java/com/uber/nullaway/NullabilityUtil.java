@@ -308,7 +308,6 @@ public class NullabilityUtil {
     Symbol typeAnnotationOwner;
     switch (symbol.getKind()) {
       case PARAMETER:
-        // use the symbol's owner for parameters, unless it's the parameter of a lambda
         typeAnnotationOwner = symbol.owner;
         break;
       default:

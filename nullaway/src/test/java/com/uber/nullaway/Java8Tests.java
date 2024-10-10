@@ -58,10 +58,10 @@ public class Java8Tests extends NullAwayTestsBase {
             "class Test {",
             "    @FunctionalInterface",
             "    interface NullableParamFunctionTypeUse<T, U> {",
-            "      U takeVal(@org.jspecify.annotations.Nullable T x);",
+            "      U takeVal(@Nullable T x);",
             "    }",
             "    static void testParamTypeUse() {",
-            "      NullableParamFunctionTypeUse n3 = (@org.jspecify.annotations.Nullable Object x) -> (x == null) ? \"null\" : x.toString();",
+            "      NullableParamFunctionTypeUse n3 = (@Nullable Object x) -> (x == null) ? \"null\" : x.toString();",
             "      NullableParamFunctionTypeUse n4 = (x) -> (x == null) ? \"null\" : x.toString();",
             "    }",
             "}")
