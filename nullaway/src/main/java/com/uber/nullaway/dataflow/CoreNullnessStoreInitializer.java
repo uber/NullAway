@@ -67,7 +67,8 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     for (LocalVariableNode param : parameters) {
       Symbol paramSymbol = (Symbol) param.getElement();
       Nullness assumed;
-      // This flag check is safe we know paramSymbol represents a parameter defined in source code
+      // Using this flag to check for a varargs parameter works since we know paramSymbol represents
+      // a parameter defined in source code
       if ((paramSymbol.flags() & Flags.VARARGS) != 0) {
         assumed = Nullness.varargsArrayIsNullable(paramSymbol, config) ? NULLABLE : NONNULL;
       } else {
