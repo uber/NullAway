@@ -174,7 +174,7 @@ public abstract class BaseNoOpHandler implements Handler {
 
   @Override
   public void onDataflowVisitReturn(
-      ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore) {
+      ReturnTree tree, VisitorState state, NullnessStore thenStore, NullnessStore elseStore) {
     // NoOp
   }
 

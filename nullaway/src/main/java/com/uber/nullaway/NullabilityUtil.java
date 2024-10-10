@@ -44,6 +44,7 @@ import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeAnnotationPosition;
 import com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntry;
+import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
@@ -230,14 +231,7 @@ public class NullabilityUtil {
    */
   public static @Nullable Set<String> getAnnotationValueArray(
       Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
-    AnnotationMirror annot = null;
-    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
-      String name = AnnotationUtils.annotationName(annotationMirror);
-      if ((exactMatch && name.equals(annotName)) || (!exactMatch && name.endsWith(annotName))) {
-        annot = annotationMirror;
-        break;
-      }
-    }
+    AnnotationMirror annot = findAnnotation(methodSymbol, annotName, exactMatch);
     if (annot == null) {
       return null;
     }
@@ -253,6 +247,33 @@ public class NullabilityUtil {
       }
     }
     return null;
+  }
+
+  /**
+   * Retrieve the specific annotation of a method.
+   *
+   * @param methodSymbol A method to check for the annotation.
+   * @param annotName The qualified name or simple name of the annotation depending on the value of
+   *     {@code exactMatch}.
+   * @param exactMatch If true, the annotation name must match the full qualified name given in
+   *     {@code annotName}, otherwise, simple names will be checked.
+   * @return an {@code AnnotationMirror} representing that annotation, or null in case the
+   *     annotation with a given name {@code annotName} doesn't exist in {@code methodSymbol}.
+   */
+  public static @Nullable AnnotationMirror findAnnotation(
+      Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
+    AnnotationMirror annot = null;
+    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
+      String name = AnnotationUtils.annotationName(annotationMirror);
+      if ((exactMatch && name.equals(annotName)) || (!exactMatch && name.endsWith(annotName))) {
+        annot = annotationMirror;
+        break;
+      }
+    }
+    if (annot == null) {
+      return null;
+    }
+    return annot;
   }
 
   /**
@@ -273,7 +294,7 @@ public class NullabilityUtil {
                 t ->
                     t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
                         && t.position.parameter_index == paramInd
-                        && NullabilityUtil.isDirectTypeUseAnnotation(t, config)));
+                        && NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config)));
   }
 
   /**
@@ -288,10 +309,11 @@ public class NullabilityUtil {
       return rawTypeAttributes.filter(
           (t) ->
               t.position.type.equals(TargetType.METHOD_RETURN)
-                  && isDirectTypeUseAnnotation(t, config));
+                  && isDirectTypeUseAnnotation(t, symbol, config));
     } else {
       // filter for annotations directly on the type
-      return rawTypeAttributes.filter(t -> NullabilityUtil.isDirectTypeUseAnnotation(t, config));
+      return rawTypeAttributes.filter(
+          t -> NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config));
     }
   }
 
@@ -303,11 +325,13 @@ public class NullabilityUtil {
    * but {@code List<@Nullable T> lst} is not.
    *
    * @param t the annotation and its position in the type
+   * @param symbol the symbol for the annotated element
    * @param config NullAway configuration
    * @return {@code true} if the annotation should be treated as applying directly to the top-level
    *     type, false otherwise
    */
-  private static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t, Config config) {
+  private static boolean isDirectTypeUseAnnotation(
+      Attribute.TypeCompound t, Symbol symbol, Config config) {
     // location is a list of TypePathEntry objects, indicating whether the annotation is
     // on an array, inner type, wildcard, or type argument. If it's empty, then the
     // annotation is directly on the type.
@@ -320,6 +344,9 @@ public class NullabilityUtil {
     // In JSpecify mode and without the LegacyAnnotationLocations flag, annotations on array
     // dimensions are *not* treated as applying to the top-level type, consistent with the JSpecify
     // spec.
+    // Annotations which are *not* on the inner type are not treated as being applied to the inner
+    // type. This can be bypassed the LegacyAnnotationLocations flag, in which
+    // annotations on all locations are treated as applying to the inner type.
     // We don't allow mixing of inner types and array dimensions in the same location
     // (i.e. `Foo.@Nullable Bar []` is meaningless).
     // These aren't correct semantics for type use annotations, but a series of hacky
@@ -329,10 +356,13 @@ public class NullabilityUtil {
     // See https://github.com/uber/NullAway/issues/708
     boolean locationHasInnerTypes = false;
     boolean locationHasArray = false;
+    int innerTypeCount = 0;
+    int nestingDepth = getNestingDepth(symbol.type);
     for (TypePathEntry entry : t.position.location) {
       switch (entry.tag) {
         case INNER_TYPE:
           locationHasInnerTypes = true;
+          innerTypeCount++;
           break;
         case ARRAY:
           if (config.isJSpecifyMode() || !config.isLegacyAnnotationLocation()) {
@@ -347,8 +377,30 @@ public class NullabilityUtil {
           return false;
       }
     }
-    // Make sure it's not a mix of inner types and arrays for this annotation's location
-    return !(locationHasInnerTypes && locationHasArray);
+    if (config.isLegacyAnnotationLocation()) {
+      // Make sure it's not a mix of inner types and arrays for this annotation's location
+      return !(locationHasInnerTypes && locationHasArray);
+    }
+    // For non-nested classes annotations apply to the innermost type.
+    if (!isTypeOfNestedClass(symbol.type)) {
+      return true;
+    }
+    // For nested classes the annotation is only valid if it is on the innermost type.
+    return innerTypeCount == nestingDepth - 1;
+  }
+
+  private static int getNestingDepth(Type type) {
+    int depth = 0;
+    for (Type curr = type;
+        curr != null && !curr.hasTag(TypeTag.NONE);
+        curr = curr.getEnclosingType()) {
+      depth++;
+    }
+    return depth;
+  }
+
+  private static boolean isTypeOfNestedClass(Type type) {
+    return type.tsym != null && type.tsym.owner instanceof Symbol.ClassSymbol;
   }
 
   /**
