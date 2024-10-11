@@ -337,6 +337,8 @@ public class NullabilityUtil {
       case LOCAL_VARIABLE:
         return position.type == TargetType.LOCAL_VARIABLE;
       case FIELD:
+      // treated like a field
+      case ENUM_CONSTANT:
         return position.type == TargetType.FIELD;
       case CONSTRUCTOR:
       case METHOD:
