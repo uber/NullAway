@@ -362,7 +362,7 @@ public class NullabilityUtil {
         // on other types in the signature (e.g. `class Foo extends Bar<@A Baz> {}`).
         return false;
       default:
-        throw new AssertionError("unsupported element kind: " + sym.getKind());
+        throw new AssertionError("unsupported element kind " + sym.getKind() + " symbol " + sym);
     }
   }
 
