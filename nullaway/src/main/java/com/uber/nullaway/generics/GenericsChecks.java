@@ -898,33 +898,36 @@ public final class GenericsChecks {
 
       // Substitute the argument and return types within the MethodType
       substitutedParamTypes =
-          state
-              .getTypes()
-              .subst(
-                  methodTypeInsideForAll.argtypes,
-                  forAllType.tvars, // The type variables from the ForAll
-                  explicitTypeArgs // The actual type arguments from the method invocation
-                  );
-      //      substitutedReturnType = state.getTypes().subst(methodTypeInsideForAll.restype,
-      // forAllType.tvars, explicitTypeArgs);
-    } else {
-      // If it's not a ForAll type, handle it as a normal MethodType
-      Type.MethodType methodTypeElse = (Type.MethodType) invokedMethodSymbol.type;
-      //      substitutedReturnType = state.getTypes().subst(methodTypeElse.restype,
-      // invokedMethodSymbol.type.getTypeArguments(), explicitTypeArgs);
-      substitutedParamTypes =
-          state
-              .getTypes()
-              .subst(
-                  methodTypeElse.argtypes,
-                  invokedMethodSymbol.type.getTypeArguments(),
-                  explicitTypeArgs);
+              state
+                      .getTypes()
+                      .subst(
+                              methodTypeInsideForAll.argtypes,
+                              forAllType.tvars, // The type variables from the ForAll
+                              explicitTypeArgs // The actual type arguments from the method invocation
+                      );
+      if (Objects.equals(
+              getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
+        return Nullness.NULLABLE;
+      }
     }
+//    } else {
+//      // If it's not a ForAll type, handle it as a normal MethodType
+//      Type.MethodType methodTypeElse = (Type.MethodType) invokedMethodSymbol.type;
+//      substitutedParamTypes =
+//          state
+//              .getTypes()
+//              .subst(
+//                  methodTypeElse.argtypes,
+//                  invokedMethodSymbol.type.getTypeArguments(),
+//                  explicitTypeArgs);
+//    }
 
-    if (Objects.equals(
-        getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
-      return Nullness.NULLABLE;
-    }
+//    if (Objects.equals(
+//        getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
+//      return Nullness.NULLABLE;
+//    }
+
+    // problem is that it returns nullable from the declaration even though the parameter itself is nonnull
     if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }
