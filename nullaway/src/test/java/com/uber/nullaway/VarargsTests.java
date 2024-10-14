@@ -71,6 +71,41 @@ public class VarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** Test for a @Nullable declaration annotation on a varargs parameter defined in bytecode */
+  @Test
+  public void nullableDeclarationVarArgsFromBytecode() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.Varargs;",
+            "public class Test {",
+            "  public void testDeclaration() {",
+            "    String x = null;",
+            "    Varargs s = new Varargs(x);",
+            "    String y = \"hello\", z = null;",
+            "    Varargs s2 = new Varargs(y, z);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableTypeUseVarArgsFromBytecode() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.Varargs;",
+            "public class Test {",
+            "  public void testTypeUse() {",
+            "    String[] x = null;",
+            "    Varargs.typeUse(x);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void nullableTypeUseVarargs() {
     defaultCompilationHelper
@@ -511,6 +546,39 @@ public class VarargsTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
             "    Unannotated.takesVarargsTypeUseOnElements(x);",
             "    Unannotated.takesVarargsTypeUseOnElements(y);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  /**
+   * Test for a restrictive @NonNull declaration annotation on a varargs parameter defined in
+   * bytecode
+   */
+  @Test
+  public void testVarargsRestrictiveBytecodes() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.unannotated.RestrictivelyAnnotatedVarargs;",
+            "public class Test {",
+            "  public void testDeclaration() {",
+            "    String x = null;",
+            "    String[] y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
+            "    RestrictivelyAnnotatedVarargs.test(x);",
+            "    RestrictivelyAnnotatedVarargs.test(y);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
+            "    RestrictivelyAnnotatedVarargs.testTypeUse(x);",
+            "    // TODO should report an error; requires a fuller fix for #1027",
+            "    RestrictivelyAnnotatedVarargs.testTypeUse(y);",
             "  }",
             "}")
         .doTest();
