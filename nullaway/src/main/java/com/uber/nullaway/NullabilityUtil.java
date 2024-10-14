@@ -55,6 +55,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 import org.jspecify.annotations.Nullable;
@@ -305,14 +306,8 @@ public class NullabilityUtil {
       Symbol symbol, Config config) {
     // Adapted from Error Prone's MoreAnnotations class:
     // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L84-L91
-    Symbol typeAnnotationOwner;
-    switch (symbol.getKind()) {
-      case PARAMETER:
-        typeAnnotationOwner = symbol.owner;
-        break;
-      default:
-        typeAnnotationOwner = symbol;
-    }
+    Symbol typeAnnotationOwner =
+        symbol.getKind().equals(ElementKind.PARAMETER) ? symbol.owner : symbol;
     Stream<Attribute.TypeCompound> rawTypeAttributes =
         typeAnnotationOwner.getRawTypeAttributes().stream();
     if (symbol instanceof Symbol.MethodSymbol) {
@@ -344,20 +339,18 @@ public class NullabilityUtil {
       case METHOD:
         return position.type == TargetType.METHOD_RETURN;
       case PARAMETER:
-        switch (position.type) {
-          case METHOD_FORMAL_PARAMETER:
-            int parameterIndex = position.parameter_index;
-            if (position.onLambda != null) {
-              com.sun.tools.javac.util.List<JCTree.JCVariableDecl> lambdaParams =
-                  position.onLambda.params;
-              return parameterIndex < lambdaParams.size()
-                  && lambdaParams.get(parameterIndex).sym.equals(sym);
-            } else {
-              return ((Symbol.MethodSymbol) sym.owner).getParameters().indexOf(sym)
-                  == parameterIndex;
-            }
-          default:
-            return false;
+        if (position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)) {
+          int parameterIndex = position.parameter_index;
+          if (position.onLambda != null) {
+            com.sun.tools.javac.util.List<JCTree.JCVariableDecl> lambdaParams =
+                position.onLambda.params;
+            return parameterIndex < lambdaParams.size()
+                && lambdaParams.get(parameterIndex).sym.equals(sym);
+          } else {
+            return ((Symbol.MethodSymbol) sym.owner).getParameters().indexOf(sym) == parameterIndex;
+          }
+        } else {
+          return false;
         }
       case CLASS:
         // There are no type annotations on the top-level type of the class being declared, only
