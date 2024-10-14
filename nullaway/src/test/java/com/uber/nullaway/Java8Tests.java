@@ -48,6 +48,7 @@ public class Java8Tests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** test that we can properly read an explicit type-use annotation on a lambda parameter */
   @Test
   public void testNullableLambdaParamTypeUse() {
     defaultCompilationHelper
