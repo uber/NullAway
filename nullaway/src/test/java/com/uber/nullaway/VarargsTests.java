@@ -83,6 +83,8 @@ public class VarargsTests extends NullAwayTestsBase {
             "  public void testDeclaration() {",
             "    String x = null;",
             "    Varargs s = new Varargs(x);",
+            "    String y = \"hello\", z = null;",
+            "    Varargs s2 = new Varargs(y, z);",
             "  }",
             "}")
         .doTest();
