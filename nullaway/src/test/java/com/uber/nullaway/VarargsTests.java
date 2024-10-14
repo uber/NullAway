@@ -575,6 +575,10 @@ public class VarargsTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
             "    RestrictivelyAnnotatedVarargs.test(x);",
             "    RestrictivelyAnnotatedVarargs.test(y);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
+            "    RestrictivelyAnnotatedVarargs.testTypeUse(x);",
+            "    // TODO should report an error; requires a fuller fix for #1027",
+            "    RestrictivelyAnnotatedVarargs.testTypeUse(y);",
             "  }",
             "}")
         .doTest();

@@ -302,8 +302,21 @@ public class NullabilityUtil {
    * Gets the type use annotations on a symbol, ignoring annotations on components of the type (type
    * arguments, wildcards, etc.)
    */
-  public static Stream<? extends AnnotationMirror> getTypeUseAnnotations(
-      Symbol symbol, Config config) {
+  public static Stream<Attribute.TypeCompound> getTypeUseAnnotations(Symbol symbol, Config config) {
+    return getTypeUseAnnotations(symbol, config, /* onlyDirect= */ true);
+  }
+
+  /**
+   * Gets the type use annotations on a symbol
+   *
+   * @param symbol the symbol
+   * @param config NullAway configuration
+   * @param onlyDirect if true, only return annotations that are directly on the type, not on
+   *     components of the type (type arguments, wildcards, array contents, etc.)
+   * @return the type use annotations on the symbol
+   */
+  private static Stream<Attribute.TypeCompound> getTypeUseAnnotations(
+      Symbol symbol, Config config, boolean onlyDirect) {
     // Adapted from Error Prone's MoreAnnotations class:
     // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L84-L91
     Symbol typeAnnotationOwner =
@@ -321,7 +334,7 @@ public class NullabilityUtil {
       return rawTypeAttributes.filter(
           t ->
               targetTypeMatches(symbol, t.position)
-                  && NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config));
+                  && (!onlyDirect || NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config)));
     }
   }
 
@@ -563,14 +576,19 @@ public class NullabilityUtil {
    *     otherwise
    */
   public static boolean isArrayElementNonNull(Symbol arraySymbol, Config config) {
-    for (Attribute.TypeCompound t : arraySymbol.getRawTypeAttributes()) {
-      for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
-        if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
-          if (Nullness.isNonNullAnnotation(t.type.toString(), config)) {
-            return true;
-          }
-        }
-      }
+    if (getTypeUseAnnotations(arraySymbol, config, /* onlyDirect= */ false)
+        .anyMatch(
+            t -> {
+              for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
+                if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+                  if (Nullness.isNonNullAnnotation(t.type.toString(), config)) {
+                    return true;
+                  }
+                }
+              }
+              return false;
+            })) {
+      return true;
     }
     // For varargs symbols we also consider the elements to be @NonNull if there is a @NonNull
     // declaration annotation on the parameter
