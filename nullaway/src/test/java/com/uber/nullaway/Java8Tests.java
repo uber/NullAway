@@ -47,4 +47,25 @@ public class Java8Tests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  /** test that we can properly read an explicit type-use annotation on a lambda parameter */
+  @Test
+  public void testNullableLambdaParamTypeUse() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "    @FunctionalInterface",
+            "    interface NullableParamFunctionTypeUse<T, U> {",
+            "      U takeVal(@Nullable T x);",
+            "    }",
+            "    static void testParamTypeUse() {",
+            "      NullableParamFunctionTypeUse n3 = (@Nullable Object x) -> (x == null) ? \"null\" : x.toString();",
+            "      NullableParamFunctionTypeUse n4 = (x) -> (x == null) ? \"null\" : x.toString();",
+            "    }",
+            "}")
+        .doTest();
+  }
 }
