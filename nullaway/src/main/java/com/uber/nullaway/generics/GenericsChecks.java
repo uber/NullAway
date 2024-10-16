@@ -148,6 +148,16 @@ public final class GenericsChecks {
     return result;
   }
 
+  /**
+   * Checks instantiated generic arguments of generic method calls. {@code @Nullable} types are only
+   * used for type variables that have a {@code @Nullable} upper bound.
+   *
+   * @param tree the tree representing the instantiated type
+   * @param state visitor state
+   * @param analysis the analysis object
+   * @param config the analysis config
+   * @param handler the handler instance
+   */
   public static void checkInstantiationForGenericMethodCalls(
       Tree tree, VisitorState state, NullAway analysis, Config config, Handler handler) {
     if (!config.isJSpecifyMode()) {
@@ -177,10 +187,10 @@ public final class GenericsChecks {
 
     // base type that is being instantiated
     Type baseType = methodSymbol.asType();
-    List<Type> baseTypeArgs = baseType.getTypeArguments();
-    for (int i = 0; i < baseTypeArgs.size(); i++) {
+    List<Type> baseTypeVariables = baseType.getTypeArguments();
+    for (int i = 0; i < baseTypeVariables.size(); i++) {
       if (nullableTypeArguments.containsKey(i)) {
-        Type typeVariable = baseTypeArgs.get(i);
+        Type typeVariable = baseTypeVariables.get(i);
         Type upperBound = typeVariable.getUpperBound();
         com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
             upperBound.getAnnotationMirrors();
@@ -752,7 +762,8 @@ public final class GenericsChecks {
   /**
    * Computes the nullness of the return of a generic method at an invocation, in the context of the
    * declared type of its receiver argument. If the return type is a type variable, its nullness
-   * depends on the nullability of the corresponding type parameter in the receiver's type.
+   * depends on the nullability of the corresponding type parameter in the receiver's type or the
+   * type argument of the method call.
    *
    * <p>Consider the following example:
    *
@@ -786,37 +797,29 @@ public final class GenericsChecks {
       VisitorState state,
       Config config) {
 
-    List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
-    com.sun.tools.javac.util.List<Type> explicitTypeArgs =
-        convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
+    if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
+      List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
+      com.sun.tools.javac.util.List<Type> explicitTypeArgs =
+          convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
 
-    Type methodType = invokedMethodSymbol.type;
-    Type substitutedReturnType = null;
-    if (methodType instanceof Type.ForAll) {
-      Type.ForAll forAllType = (Type.ForAll) methodType;
+      Type methodType = invokedMethodSymbol.type;
+      Type substitutedReturnType = null;
+      if (methodType instanceof Type.ForAll) {
+        Type.ForAll forAllType = (Type.ForAll) methodType;
 
-      // Extract the underlying MethodType (the actual signature)
-      Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.qtype;
+        // Extract the underlying MethodType (the actual signature)
+        Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.qtype;
 
-      // Substitute the argument and return types within the MethodType
-      substitutedReturnType =
-          state
-              .getTypes()
-              .subst(methodTypeInsideForAll.restype, forAllType.tvars, explicitTypeArgs);
-    } else {
-      // If it's not a ForAll type, handle it as a normal MethodType
-      Type.MethodType methodTypeElse = (Type.MethodType) invokedMethodSymbol.type;
-      substitutedReturnType =
-          state
-              .getTypes()
-              .subst(
-                  methodTypeElse.restype,
-                  invokedMethodSymbol.type.getTypeArguments(),
-                  explicitTypeArgs);
-    }
+        // Substitute the argument and return types within the MethodType
+        substitutedReturnType =
+            state
+                .getTypes()
+                .subst(methodTypeInsideForAll.restype, forAllType.tvars, explicitTypeArgs);
+      }
 
-    if (Objects.equals(getTypeNullness(substitutedReturnType, config), Nullness.NULLABLE)) {
-      return Nullness.NULLABLE;
+      if (Objects.equals(getTypeNullness(substitutedReturnType, config), Nullness.NULLABLE)) {
+        return Nullness.NULLABLE;
+      }
     }
 
     if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
@@ -884,48 +887,35 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
-    List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
-    com.sun.tools.javac.util.List<Type> explicitTypeArgs =
-        convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
+    if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
+      List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
+      com.sun.tools.javac.util.List<Type> explicitTypeArgs =
+          convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
 
-    Type methodType = invokedMethodSymbol.type;
-    List<Type> substitutedParamTypes = null;
-    if (methodType instanceof Type.ForAll) {
-      Type.ForAll forAllType = (Type.ForAll) methodType;
+      Type methodType = invokedMethodSymbol.type;
+      List<Type> substitutedParamTypes = null;
+      if (methodType instanceof Type.ForAll) {
+        Type.ForAll forAllType = (Type.ForAll) methodType;
 
-      // Extract the underlying MethodType (the actual signature)
-      Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.qtype;
+        // Extract the underlying MethodType (the actual signature)
+        Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.qtype;
 
-      // Substitute the argument and return types within the MethodType
-      substitutedParamTypes =
-          state
-              .getTypes()
-              .subst(
-                  methodTypeInsideForAll.argtypes,
-                  forAllType.tvars, // The type variables from the ForAll
-                  explicitTypeArgs // The actual type arguments from the method invocation
-                  );
+        // Substitute the argument and return types within the MethodType
+        substitutedParamTypes =
+            state
+                .getTypes()
+                .subst(
+                    methodTypeInsideForAll.argtypes,
+                    forAllType.tvars, // The type variables from the ForAll
+                    explicitTypeArgs // The actual type arguments from the method invocation
+                    );
+      }
+
       if (Objects.equals(
           getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
       }
     }
-    //    } else {
-    //      // If it's not a ForAll type, handle it as a normal MethodType
-    //      Type.MethodType methodTypeElse = (Type.MethodType) invokedMethodSymbol.type;
-    //      substitutedParamTypes =
-    //          state
-    //              .getTypes()
-    //              .subst(
-    //                  methodTypeElse.argtypes,
-    //                  invokedMethodSymbol.type.getTypeArguments(),
-    //                  explicitTypeArgs);
-    //    }
-
-    //    if (Objects.equals(
-    //        getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
-    //      return Nullness.NULLABLE;
-    //    }
 
     // problem is that it returns nullable from the declaration even though the parameter itself is
     // nonnull
