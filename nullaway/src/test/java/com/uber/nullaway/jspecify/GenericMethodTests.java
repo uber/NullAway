@@ -9,6 +9,73 @@ import org.junit.Test;
 public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
+  public void genericNonNullIdentityFunction() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static <T> T nonNullIdentity(T t) {",
+            "    return t;",
+            "  }",
+            "  static void test() {",
+            "    // legal",
+            "    nonNullIdentity(new Object()).toString();",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    nonNullIdentity(null);",
+            "    // BUG: Diagnostic contains: Type argument cannot be @Nullable",
+            "    Test.<@Nullable Object>nonNullIdentity(new Object());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void genericNullAllowingIdentityFunction() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static <T extends @Nullable Object> T identity(T t) {",
+            "    return t;",
+            "  }",
+            "  static void test() {",
+            "    // legal",
+            "    identity(new Object()).toString();",
+            "    // also legal",
+            "    Test.<@Nullable Object>identity(null);",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    Test.<@Nullable Object>identity(null).toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void multipleTypeVariablesMethodCall() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "    public static <T extends @Nullable Object, U> void twoTypeVars(T first, U second) {}",
+            "    static void test() {",
+            "       // legal",
+            "       Test.<Object, Object>twoTypeVars(new Object(), new Object());",
+            "       // legal",
+            "       Test.<@Nullable Object, Object>twoTypeVars(null, new Object());",
+            "       // BUG: Diagnostic contains: Type argument cannot be @Nullable",
+            "       Test.<@Nullable Object, @Nullable Object>twoTypeVars(null, null);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   @Ignore("requires generic method support")
   public void genericMethodAndVoidType() {
     makeHelper()
