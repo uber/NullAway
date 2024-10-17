@@ -817,7 +817,8 @@ public final class GenericsChecks {
                 .subst(methodTypeInsideForAll.restype, forAllType.tvars, explicitTypeArgs);
       }
 
-      if (Objects.equals(getTypeNullness(substitutedReturnType, config), Nullness.NULLABLE)) {
+      if (substitutedReturnType != null
+          && Objects.equals(getTypeNullness(substitutedReturnType, config), Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
       }
     }
@@ -912,8 +913,9 @@ public final class GenericsChecks {
                     );
       }
 
-      if (Objects.equals(
-          getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
+      if (substitutedParamTypes != null
+          && Objects.equals(
+              getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
       }
     }
