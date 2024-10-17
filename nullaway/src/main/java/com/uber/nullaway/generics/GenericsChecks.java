@@ -167,6 +167,7 @@ public final class GenericsChecks {
     if (typeArguments.isEmpty()) {
       return;
     }
+    // get Nullable annotated type arguments
     MethodInvocationTree methodTree = (MethodInvocationTree) tree;
     Map<Integer, Tree> nullableTypeArguments = new HashMap<>();
     for (int i = 0; i < typeArguments.size(); i++) {
@@ -185,7 +186,7 @@ public final class GenericsChecks {
     }
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
 
-    // base type that is being instantiated
+    // check if type variables are allowed to be Nullable
     Type baseType = methodSymbol.asType();
     List<Type> baseTypeVariables = baseType.getTypeArguments();
     for (int i = 0; i < baseTypeVariables.size(); i++) {
@@ -197,8 +198,7 @@ public final class GenericsChecks {
         boolean hasNullableAnnotation =
             Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
                 || handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
-        // if base type argument does not have @Nullable annotation then the instantiation is
-        // invalid
+        // if type argument does not have @Nullable annotation then the instantiation is invalid
         if (!hasNullableAnnotation) {
           reportInvalidTypeArgumentError(
               nullableTypeArguments.get(i), methodSymbol, typeVariable, state, analysis);
@@ -796,7 +796,7 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
-
+    // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
       com.sun.tools.javac.util.List<Type> explicitTypeArgs =
@@ -887,6 +887,7 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
+    // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
       com.sun.tools.javac.util.List<Type> explicitTypeArgs =
