@@ -149,8 +149,8 @@ public final class GenericsChecks {
   }
 
   /**
-   * Checks instantiated generic arguments of generic method calls. {@code @Nullable} types are only
-   * used for type variables that have a {@code @Nullable} upper bound.
+   * Checks instantiated generic arguments of generic method calls. {@code @Nullable} types can only
+   * be used for type variables that have a {@code @Nullable} upper bound.
    *
    * @param tree the tree representing the instantiated type
    * @param state visitor state
@@ -160,9 +160,6 @@ public final class GenericsChecks {
    */
   public static void checkInstantiationForGenericMethodCalls(
       Tree tree, VisitorState state, NullAway analysis, Config config, Handler handler) {
-    if (!config.isJSpecifyMode()) {
-      return;
-    }
     List<? extends Tree> typeArguments = ((MethodInvocationTree) tree).getTypeArguments();
     if (typeArguments.isEmpty()) {
       return;
@@ -198,7 +195,8 @@ public final class GenericsChecks {
         boolean hasNullableAnnotation =
             Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
                 || handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
-        // if type argument does not have @Nullable annotation then the instantiation is invalid
+        // if type variable's upper bound does not have @Nullable annotation then the instantiation
+        // is invalid
         if (!hasNullableAnnotation) {
           reportInvalidTypeArgumentError(
               nullableTypeArguments.get(i), methodSymbol, typeVariable, state, analysis);
@@ -920,8 +918,6 @@ public final class GenericsChecks {
       }
     }
 
-    // problem is that it returns nullable from the declaration even though the parameter itself is
-    // nonnull
     if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }
