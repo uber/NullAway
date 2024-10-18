@@ -1,5 +1,43 @@
 Changelog
 =========
+Version 0.12.0
+---------------
+IMPORTANT:
+* We now by default check/enforce that pure type-use annotations from JSpecify are written in the "right place" on array types, varargs types, and nested types. More
+details can be found in the [wiki](https://github.com/uber/NullAway/wiki/JSpecify-Support).
+We also expose `-XepOpt:NullAway:LegacyAnnotationLocations` flag to disable this new
+behavior for now to ease the migration. We expect to remove this flag in a future version
+of NullAway.
+* We now support writing @EnsuresNonNullIf on methods to capture cases where a method conditionally ensures that a field is @NonNull. Thanks @mauricioaniche for the contributions!
+
+(The changelog below contains all changes from version 0.11.2, since version 0.11.3
+contains only one cherry-picked PR from master).
+
+* Enforce Strict Interpretation Of Type Use Annotation Locations Outside of JSpecify mode (#1010)
+* Update handling of annotations on varargs argument (#1025)
+* Create basic unit tests for library model generation (#1031)
+* Partial handling for restrictive annotations on varargs in unannotated code (#1029)
+* Add missing source files in android-jarinfer-models-sdk modules (#1033)
+* External Library Models: Adding support for @nullable Method parameters (#1006)
+* JDK 23 support (#1034)
+* Support @EnsuresNonNullIf (#1044)
+* Update some Android astubx models (#1052)
+* Remove unused or unneeded JarInfer flags (#1050)
+* Enforce correct type-use annotation locations for nested types (#1045)
+* Update Android SDK 31 astubx models (#1054)
+* Fix bugs in reading varargs annotations from bytecodes (#1055)
+* General maintenance:
+  - Update to Gradle 8.10 (#1023)
+  - Update to Gradle 8.10.1 (#1036)
+  - Update to Error Prone 2.32.0 (#1037)
+  - Typo fix in README.md (#1041)
+  - Fix Gradle config instructions (#1039)
+  - Update to v4 of setup-gradle GitHub action (#1043)
+  - Add extra JVM args needed for JMH on recent JDK versions (#1049)
+  - Use HTTP instead of SSH for cloning repo for JMH Benchmarks (#1056)
+  - Various version updates (#1051)
+  - Update to Checker Framework 3.48.0 (#1030)
+
 Version 0.11.3
 ---------------
 IMPORTANT: We have cherry-picked one PR in master since 0.11.2 for this release, it
