@@ -25,7 +25,7 @@ package com.uber.nullaway.tools;
 import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.io.BufferedReader;
@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
 public class SerializationTestHelper<T extends Display> {
 
   private final Path outputDir;
-  private ImmutableList<T> expectedOutputs;
+  private ImmutableSet<T> expectedOutputs;
   private CompilationTestHelper compilationTestHelper;
   private DisplayFactory<T> factory;
   private String fileName;
@@ -60,12 +60,12 @@ public class SerializationTestHelper<T extends Display> {
 
   @SafeVarargs
   public final SerializationTestHelper<T> setExpectedOutputs(T... outputs) {
-    this.expectedOutputs = ImmutableList.copyOf(outputs);
+    this.expectedOutputs = ImmutableSet.copyOf(outputs);
     return this;
   }
 
   public SerializationTestHelper<T> expectNoOutput() {
-    this.expectedOutputs = ImmutableList.of();
+    this.expectedOutputs = ImmutableSet.of();
     return this;
   }
 

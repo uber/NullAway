@@ -26,7 +26,6 @@ import com.google.common.base.Preconditions;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV3Adapter;
-import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -41,23 +40,6 @@ import org.xml.sax.SAXException;
 public class FixSerializationConfig {
 
   /**
-   * If enabled, the corresponding output file will be cleared and for all reported errors, NullAway
-   * will serialize information and suggest type changes to resolve them, in case these errors could
-   * be fixed by adding a {@code @Nullable} annotation. These type change suggestions are in form of
-   * {@link SuggestedNullableFixInfo} instances and will be serialized at output directory. If
-   * deactivated, no {@code SuggestedFixInfo} will be created and the output file will remain
-   * untouched.
-   */
-  public final boolean suggestEnabled;
-
-  /**
-   * If enabled, serialized information of a fix suggest will also include the enclosing method and
-   * class of the element involved in error. Finding enclosing elements is costly and will only be
-   * computed at request.
-   */
-  public final boolean suggestEnclosing;
-
-  /**
    * If enabled, NullAway will serialize information about methods that initialize a field and leave
    * it {@code @NonNull} at exit point.
    */
@@ -70,20 +52,12 @@ public class FixSerializationConfig {
 
   /** Default Constructor, all features are disabled with this config. */
   public FixSerializationConfig() {
-    suggestEnabled = false;
-    suggestEnclosing = false;
     fieldInitInfoEnabled = false;
     outputDirectory = null;
     serializer = null;
   }
 
-  public FixSerializationConfig(
-      boolean suggestEnabled,
-      boolean suggestEnclosing,
-      boolean fieldInitInfoEnabled,
-      @Nullable String outputDirectory) {
-    this.suggestEnabled = suggestEnabled;
-    this.suggestEnclosing = suggestEnclosing;
+  public FixSerializationConfig(boolean fieldInitInfoEnabled, @Nullable String outputDirectory) {
     this.fieldInitInfoEnabled = fieldInitInfoEnabled;
     this.outputDirectory = outputDirectory;
     serializer = new Serializer(this, initializeAdapter(SerializationAdapter.LATEST_VERSION));
@@ -111,17 +85,6 @@ public class FixSerializationConfig {
         XMLUtil.getValueFromTag(document, "/serialization/path", String.class).orElse(null);
     Preconditions.checkNotNull(
         this.outputDirectory, "Error in FixSerialization Config: Output path cannot be null");
-    suggestEnabled =
-        XMLUtil.getValueFromAttribute(document, "/serialization/suggest", "active", Boolean.class)
-            .orElse(false);
-    suggestEnclosing =
-        XMLUtil.getValueFromAttribute(
-                document, "/serialization/suggest", "enclosing", Boolean.class)
-            .orElse(false);
-    if (suggestEnclosing && !suggestEnabled) {
-      throw new IllegalStateException(
-          "Error in the fix serialization configuration, suggest flag must be enabled to activate enclosing method and class serialization.");
-    }
     fieldInitInfoEnabled =
         XMLUtil.getValueFromAttribute(
                 document, "/serialization/fieldInitInfo", "active", Boolean.class)
@@ -133,7 +96,7 @@ public class FixSerializationConfig {
   /**
    * Initializes NullAway serialization adapter according to the requested serialization version.
    */
-  private SerializationAdapter initializeAdapter(int version) {
+  public static SerializationAdapter initializeAdapter(int version) {
     switch (version) {
       case 1:
         return new SerializationV1Adapter();
@@ -159,21 +122,11 @@ public class FixSerializationConfig {
   /** Builder class for Serialization Config */
   public static class Builder {
 
-    private boolean suggestEnabled;
-    private boolean suggestEnclosing;
     private boolean fieldInitInfo;
     private @Nullable String outputDir;
 
     public Builder() {
-      suggestEnabled = false;
-      suggestEnclosing = false;
       fieldInitInfo = false;
-    }
-
-    public Builder setSuggest(boolean value, boolean withEnclosing) {
-      this.suggestEnabled = value;
-      this.suggestEnclosing = withEnclosing && suggestEnabled;
-      return this;
     }
 
     public Builder setFieldInitInfo(boolean enabled) {
@@ -200,7 +153,7 @@ public class FixSerializationConfig {
       if (outputDir == null) {
         throw new IllegalStateException("did not set mandatory output directory");
       }
-      return new FixSerializationConfig(suggestEnabled, suggestEnclosing, fieldInitInfo, outputDir);
+      return new FixSerializationConfig(fieldInitInfo, outputDir);
     }
   }
 }

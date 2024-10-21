@@ -27,7 +27,6 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
-import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
@@ -48,9 +47,6 @@ public class Serializer {
   private final Path errorOutputPath;
 
   /** Path to write suggested fix metadata. */
-  private final Path suggestedFixesOutputPath;
-
-  /** Path to write suggested fix metadata. */
   private final Path fieldInitializationOutputPath;
 
   /**
@@ -63,27 +59,10 @@ public class Serializer {
   public Serializer(FixSerializationConfig config, SerializationAdapter serializationAdapter) {
     String outputDirectory = config.outputDirectory;
     this.errorOutputPath = Paths.get(outputDirectory, "errors.tsv");
-    this.suggestedFixesOutputPath = Paths.get(outputDirectory, "fixes.tsv");
     this.fieldInitializationOutputPath = Paths.get(outputDirectory, "field_init.tsv");
     this.serializationAdapter = serializationAdapter;
     serializeVersion(outputDirectory);
     initializeOutputFiles(config);
-  }
-
-  /**
-   * Appends the string representation of the {@link SuggestedNullableFixInfo}.
-   *
-   * @param suggestedNullableFixInfo SuggestedFixInfo object.
-   * @param enclosing Flag to control if enclosing method and class should be included.
-   */
-  public void serializeSuggestedFixInfo(
-      SuggestedNullableFixInfo suggestedNullableFixInfo, boolean enclosing) {
-    if (enclosing) {
-      suggestedNullableFixInfo.initEnclosing();
-    }
-    appendToFile(
-        suggestedNullableFixInfo.tabSeparatedToString(serializationAdapter),
-        suggestedFixesOutputPath);
   }
 
   /**
@@ -145,9 +124,6 @@ public class Serializer {
   private void initializeOutputFiles(FixSerializationConfig config) {
     try {
       Files.createDirectories(Paths.get(config.outputDirectory));
-      if (config.suggestEnabled) {
-        initializeFile(suggestedFixesOutputPath, SuggestedNullableFixInfo.header());
-      }
       if (config.fieldInitInfoEnabled) {
         initializeFile(fieldInitializationOutputPath, FieldInitializationInfo.header());
       }
