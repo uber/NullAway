@@ -26,6 +26,7 @@ import com.google.common.base.Preconditions;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV3Adapter;
+import com.uber.nullaway.fixserialization.adapters.SerializationV4Adapter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -105,6 +106,8 @@ public class FixSerializationConfig {
             "Serialization version v2 is skipped and was used for an alpha version of the auto-annotator tool. Please use version 3 instead.");
       case 3:
         return new SerializationV3Adapter();
+      case 4:
+        return new SerializationV4Adapter();
       default:
         throw new RuntimeException(
             "Unrecognized NullAway serialization version: "
