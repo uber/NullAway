@@ -742,6 +742,16 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .put(methodRef("spark.utils.StringUtils", "hasLength(java.lang.String)"), 0)
             .put(methodRef("spark.utils.StringUtils", "hasLength(java.lang.CharSequence)"), 0)
             .put(
+                methodRef(
+                    "org.apache.commons.collections.CollectionUtils",
+                    "isNotEmpty(java.util.Collection)"),
+                0)
+            .put(
+                methodRef(
+                    "org.apache.commons.collections4.CollectionUtils",
+                    "isNotEmpty(java.util.Collection<?>)"),
+                0)
+            .put(
                 methodRef("org.apache.commons.lang.StringUtils", "isNotEmpty(java.lang.String)"), 0)
             .put(
                 methodRef(
