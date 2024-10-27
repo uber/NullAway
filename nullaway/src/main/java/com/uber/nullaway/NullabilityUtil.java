@@ -370,7 +370,13 @@ public class NullabilityUtil {
         // on other types in the signature (e.g. `class Foo extends Bar<@A Baz> {}`).
         return false;
       default:
-        throw new AssertionError("unsupported element kind " + sym.getKind() + " symbol " + sym);
+        // Compare with toString() to preserve compatibility with JDK 11
+        if (sym.getKind().toString().equals("RECORD")) {
+          // Records are treated like classes
+          return false;
+        } else {
+          throw new AssertionError("unsupported element kind " + sym.getKind() + " symbol " + sym);
+        }
     }
   }
 
