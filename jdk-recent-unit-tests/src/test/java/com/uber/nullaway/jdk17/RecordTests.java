@@ -252,4 +252,27 @@ public class RecordTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void issue1059() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "BarEntity.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NonNull;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class BarEntity {",
+            "  public interface Identifiable<ID> {",
+            "    @Nullable",
+            "    ID id();",
+            "  }",
+            "  public static class Id {}",
+            "  public record NameChanged(BarEntity.Id id, Class<BarEntity> type) implements Identifiable<@NonNull Id> {",
+            "    public NameChanged(BarEntity.Id id) {",
+            "      this(id, BarEntity.class);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
