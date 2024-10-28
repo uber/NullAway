@@ -1018,6 +1018,42 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void apacheCollectionsCollectionUtilsIsNotEmpty() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.collections.CollectionUtils;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable List<String> s) {",
+            "    if(CollectionUtils.isNotEmpty(s))",
+            "      s.get(0);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheCollections4CollectionUtilsIsNotEmpty() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.collections4.CollectionUtils;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable List<String> s) {",
+            "    if(CollectionUtils.isNotEmpty(s))",
+            "      s.get(0);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void filesIsDirectory() {
     defaultCompilationHelper
         .addSourceLines(
