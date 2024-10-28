@@ -1,5 +1,10 @@
 Changelog
 =========
+Version 0.12.1
+---------------
+* Add library model for Apache Commons CollectionUtils.isNotEmpty (#932) (#1062)
+* Handle records in targetTypeMatches (#1061)
+
 Version 0.12.0
 ---------------
 IMPORTANT:
