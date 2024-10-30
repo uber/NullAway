@@ -799,22 +799,15 @@ public final class GenericsChecks {
       List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
       com.sun.tools.javac.util.List<Type> explicitTypeArgs =
           convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
-
-      Type methodType = invokedMethodSymbol.type;
-      Type substitutedReturnType = null;
-      if (methodType instanceof Type.ForAll) {
-        Type.ForAll forAllType = (Type.ForAll) methodType;
-
-        // Extract the underlying MethodType (the actual signature)
-        Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.qtype;
-
-        // Substitute the argument and return types within the MethodType
-        substitutedReturnType =
-            state
-                .getTypes()
-                .subst(methodTypeInsideForAll.restype, forAllType.tvars, explicitTypeArgs);
-      }
-
+      Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
+      // Extract the underlying MethodType (the actual signature)
+      Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.asMethodType();
+      // Substitute type arguments inside the return type
+      // NOTE: if the return type it not a type variable, this is a noop
+      Type substitutedReturnType =
+          state
+              .getTypes()
+              .subst(methodTypeInsideForAll.restype, forAllType.tvars, explicitTypeArgs);
       if (substitutedReturnType != null
           && Objects.equals(getTypeNullness(substitutedReturnType, config), Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
