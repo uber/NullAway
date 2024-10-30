@@ -24,6 +24,7 @@ configurations {
     // A configuration holding the jars for the oldest supported version of Error Prone, to use with tests
     errorProneOldest
 
+    // To resolve the errorprone dependencies for the buildWithNullAway task
     errorproneExtended {
         extendsFrom errorprone
         canBeResolved = true
