@@ -22,6 +22,7 @@ plugins {
 
 dependencies {
     annotationProcessor project(":nullaway")
+    implementation deps.test.jsr305Annotations
     implementation deps.build.jspecify
 
     compileOnly deps.build.javaxValidation

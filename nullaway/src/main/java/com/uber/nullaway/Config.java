@@ -279,28 +279,6 @@ public interface Config {
   boolean isJarInferEnabled();
 
   /**
-   * Checks if NullAway should use @Nullable return value annotations inferred by JarInfer.
-   *
-   * @return true if NullAway should use the @Nullable return value annotations inferred by
-   *     JarInfer.
-   */
-  boolean isJarInferUseReturnAnnotations();
-
-  /**
-   * Used by JarInfer
-   *
-   * @return the regex to extract jar name from the JarInfer model jar's path.
-   */
-  String getJarInferRegexStripModelJarName();
-
-  /**
-   * Used by JarInfer.
-   *
-   * @return the regex to extract jar name from the classfile jar's path.
-   */
-  String getJarInferRegexStripCodeJarName();
-
-  /**
    * Gets the URL to show with NullAway error messages.
    *
    * @return the URL to show with NullAway error messages
@@ -318,4 +296,11 @@ public interface Config {
 
   /** Should new checks based on JSpecify (like checks for generic types) be enabled? */
   boolean isJSpecifyMode();
+
+  /**
+   * Checks if legacy annotation locations are enabled.
+   *
+   * @return true if both type use and declaration annotation locations should be honored
+   */
+  boolean isLegacyAnnotationLocation();
 }

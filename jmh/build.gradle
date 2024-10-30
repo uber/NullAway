@@ -104,8 +104,19 @@ def nullawayReleaseClasspath = configurations.nullawayReleaseDeps.filter({f -> !
 
 def nullawayReleaseProcessorpath = configurations.nullawayReleaseProcessors.asPath
 
-// Extra JVM arguments to expose relevant paths for compiling benchmarks
 def extraJVMArgs = [
+    // needed exports for Error Prone to run
+    "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+    "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+    "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+    "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+    // expose relevant paths for compiling benchmarks
     "-Dnullaway.caffeine.sources=${caffeineSourceDir.get()}",
     "-Dnullaway.caffeine.classpath=$caffeineClasspath",
     "-Dnullaway.autodispose.sources=${autodisposeSourceDir.get()}",

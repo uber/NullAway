@@ -287,7 +287,7 @@ public final class AccessPath implements MapKey {
             && (receiver.toString().equals("Integer") || receiver.toString().equals("Long"))) {
           return argumentToMapKeySpecifier(arguments.get(0), state, apContext);
         }
-        // Fine to fallthrough:
+      // Fine to fallthrough:
       default:
         // Every other type of expression, including variables, field accesses, new A(...), etc.
         return getAccessPathForNode(argument, state, apContext); // Every AP is a MapKey too
@@ -488,8 +488,8 @@ public final class AccessPath implements MapKey {
                   break;
                 }
               }
-              // Cascade to default, symbol is not a constant field
-              // fall through
+            // Cascade to default, symbol is not a constant field
+            // fall through
             default:
               return null; // Not an AP
           }

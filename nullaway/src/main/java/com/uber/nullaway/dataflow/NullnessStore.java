@@ -19,6 +19,7 @@ package com.uber.nullaway.dataflow;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.collect.Sets.intersection;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.VisitorState;
 import com.uber.nullaway.Nullness;
@@ -30,6 +31,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
@@ -259,6 +261,39 @@ public class NullnessStore implements Store<NullnessStore> {
         contents.entrySet().stream()
             .filter(e -> pred.test(e.getKey()))
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+  }
+
+  /**
+   * Return all the fields in the store that are Non-Null.
+   *
+   * @return Set of fields (represented as {@code Element}s) that are non-null
+   */
+  public Set<Element> getNonNullReceiverFields() {
+    return getReceiverFields(Nullness.NONNULL);
+  }
+
+  /**
+   * Return all the fields in the store that hold the {@code nullness} state.
+   *
+   * @param nullness The {@code Nullness} state
+   * @return Set of fields (represented as {@code Element}s) with the given {@code nullness}.
+   */
+  public Set<Element> getReceiverFields(Nullness nullness) {
+    Set<AccessPath> nonnullAccessPaths = this.getAccessPathsWithValue(nullness);
+    Set<Element> result = new LinkedHashSet<>();
+    for (AccessPath ap : nonnullAccessPaths) {
+      // A null root represents the receiver
+      if (ap.getRoot() == null) {
+        ImmutableList<AccessPathElement> elements = ap.getElements();
+        if (elements.size() == 1) {
+          Element elem = elements.get(0).getJavaElement();
+          if (elem.getKind().equals(ElementKind.FIELD)) {
+            result.add(elem);
+          }
+        }
+      }
+    }
+    return result;
   }
 
   /** class for building up instances of the store. */

@@ -45,8 +45,6 @@ import org.jspecify.annotations.Nullable;
  */
 final class ErrorProneCLIFlagsConfig implements Config {
 
-  private static final String BASENAME_REGEX = ".*/([^/]+)\\.[ja]ar$";
-
   static final String EP_FL_NAMESPACE = "NullAway";
   static final String FL_ANNOTATED_PACKAGES = EP_FL_NAMESPACE + ":AnnotatedPackages";
   static final String FL_ASSERTS_ENABLED = EP_FL_NAMESPACE + ":AssertsEnabled";
@@ -88,10 +86,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   /** --- JarInfer configs --- */
   static final String FL_JI_ENABLED = EP_FL_NAMESPACE + ":JarInferEnabled";
 
-  static final String FL_JI_USE_RETURN = EP_FL_NAMESPACE + ":JarInferUseReturnAnnotations";
-
-  static final String FL_JI_REGEX_MODEL_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripModelJar";
-  static final String FL_JI_REGEX_CODE_PATH = EP_FL_NAMESPACE + ":JarInferRegexStripCodeJar";
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
 
   /** --- Serialization configs --- */
@@ -102,6 +96,9 @@ final class ErrorProneCLIFlagsConfig implements Config {
 
   static final String FL_FIX_SERIALIZATION_CONFIG_PATH =
       EP_FL_NAMESPACE + ":FixSerializationConfigPath";
+
+  static final String FL_LEGACY_ANNOTATION_LOCATION =
+      EP_FL_NAMESPACE + ":LegacyAnnotationLocations";
 
   private static final String DELIMITER = ",";
 
@@ -208,6 +205,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final boolean treatGeneratedAsUnannotated;
   private final boolean acknowledgeAndroidRecent;
   private final boolean jspecifyMode;
+  private final boolean legacyAnnotationLocation;
   private final ImmutableSet<MethodClassAndName> knownInitializers;
   private final ImmutableSet<String> excludedClassAnnotations;
   private final ImmutableSet<String> generatedCodeAnnotations;
@@ -222,9 +220,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   /** --- JarInfer configs --- */
   private final boolean jarInferEnabled;
 
-  private final boolean jarInferUseReturnAnnotations;
-  private final String jarInferRegexStripModelJarName;
-  private final String jarInferRegexStripCodeJarName;
   private final String errorURL;
 
   /** --- Fully qualified names of custom nonnull/nullable annotation --- */
@@ -288,6 +283,15 @@ final class ErrorProneCLIFlagsConfig implements Config {
         getPackagePattern(
             getFlagStringSet(flags, FL_EXCLUDED_FIELD_ANNOT, DEFAULT_EXCLUDED_FIELD_ANNOT));
     castToNonNullMethod = flags.get(FL_CTNN_METHOD).orElse(null);
+    legacyAnnotationLocation = flags.getBoolean(FL_LEGACY_ANNOTATION_LOCATION).orElse(false);
+    if (legacyAnnotationLocation && jspecifyMode) {
+      throw new IllegalStateException(
+          "-XepOpt:"
+              + FL_LEGACY_ANNOTATION_LOCATION
+              + " cannot be used when "
+              + FL_JSPECIFY_MODE
+              + " is set ");
+    }
     autofixSuppressionComment = flags.get(FL_SUPPRESS_COMMENT).orElse("");
     optionalClassPaths =
         new ImmutableSet.Builder<String>()
@@ -303,12 +307,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
 
     /* --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
-    jarInferUseReturnAnnotations = flags.getBoolean(FL_JI_USE_RETURN).orElse(false);
-    // The defaults of these two options translate to: remove .aar/.jar from the file name, and also
-    // implicitly mean that NullAway will search for jarinfer models in the same jar which contains
-    // the analyzed classes.
-    jarInferRegexStripModelJarName = flags.get(FL_JI_REGEX_MODEL_PATH).orElse(BASENAME_REGEX);
-    jarInferRegexStripCodeJarName = flags.get(FL_JI_REGEX_CODE_PATH).orElse(BASENAME_REGEX);
     errorURL = flags.get(FL_ERROR_URL).orElse(DEFAULT_URL);
     if (acknowledgeAndroidRecent && !isAcknowledgeRestrictive) {
       throw new IllegalStateException(
@@ -555,21 +553,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   }
 
   @Override
-  public boolean isJarInferUseReturnAnnotations() {
-    return jarInferUseReturnAnnotations;
-  }
-
-  @Override
-  public String getJarInferRegexStripModelJarName() {
-    return jarInferRegexStripModelJarName;
-  }
-
-  @Override
-  public String getJarInferRegexStripCodeJarName() {
-    return jarInferRegexStripCodeJarName;
-  }
-
-  @Override
   public String getErrorURL() {
     return errorURL;
   }
@@ -582,6 +565,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public boolean isJSpecifyMode() {
     return jspecifyMode;
+  }
+
+  @Override
+  public boolean isLegacyAnnotationLocation() {
+    return legacyAnnotationLocation;
   }
 
   @AutoValue

@@ -269,12 +269,14 @@ public interface Handler {
    * Called when the Dataflow analysis visits a return statement.
    *
    * @param tree The AST node for the return statement being matched.
+   * @param state The current visitor state
    * @param thenStore The NullnessStore for the true case of the expression inside the return
    *     statement.
    * @param elseStore The NullnessStore for the false case of the expression inside the return
    *     statement.
    */
-  void onDataflowVisitReturn(ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore);
+  void onDataflowVisitReturn(
+      ReturnTree tree, VisitorState state, NullnessStore thenStore, NullnessStore elseStore);
 
   /**
    * Called when the Dataflow analysis visits the result expression inside the body of lambda.

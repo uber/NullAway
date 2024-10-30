@@ -32,8 +32,7 @@ public class LibraryModelIntegrationTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JarInferEnabled=true",
-                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+                "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -63,8 +62,7 @@ public class LibraryModelIntegrationTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JarInferEnabled=true",
-                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+                "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -98,7 +96,7 @@ public class LibraryModelIntegrationTest {
             "  static void test(String value){",
             "  }",
             "  static void testNegative() {",
-            "    // Since the JarInferEnabled and JarInferUseReturnAnnotations flags are not set, we don't get an error here",
+            "    // Since the JarInferEnabled flag is not set, we don't get an error here",
             "    test(annotationExample.makeUpperCase(\"nullaway\"));",
             "  }",
             "}")
@@ -113,8 +111,7 @@ public class LibraryModelIntegrationTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JarInferEnabled=true",
-                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+                "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -140,8 +137,7 @@ public class LibraryModelIntegrationTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XepOpt:NullAway:JarInferEnabled=true",
-                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+                "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -176,6 +172,110 @@ public class LibraryModelIntegrationTest {
             "class Test {",
             "  // BUG: Diagnostic contains: Generic type parameter cannot be @Nullable",
             "  static AnnotationExample.UpperBoundExample<@Nullable Object> upperBoundExample = new AnnotationExample.UpperBoundExample<@Nullable Object>();",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void libraryModelDefaultParameterNullabilityTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:JarInferEnabled=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.test.ParameterAnnotationExample;",
+            "class Test {",
+            "  static ParameterAnnotationExample annotationExample = new ParameterAnnotationExample();",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    annotationExample.add(5,null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void libraryModelParameterNullabilityTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:JarInferEnabled=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.test.ParameterAnnotationExample;",
+            "class Test {",
+            "  static ParameterAnnotationExample annotationExample = new ParameterAnnotationExample();",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    annotationExample.printObjectString(null);",
+            "  }",
+            "  static void testNegative() {",
+            "    annotationExample.getNewObjectIfNull(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableArrayTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:JarInferEnabled=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.test.ParameterAnnotationExample;",
+            "class Test {",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    ParameterAnnotationExample.takesNonNullArray(null);",
+            "  }",
+            "  static void testNegative() {",
+            "    ParameterAnnotationExample.takesNullArray(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void genericParameterTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:JarInferEnabled=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.test.ParameterAnnotationExample;",
+            "class Test {",
+            "  static ParameterAnnotationExample.Generic<String> ex = new ParameterAnnotationExample.Generic<>();",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    ex.printObjectString(null);",
+            "  }",
+            "  static void testNegative() {",
+            "    ex.getString(null);",
+            "  }",
             "}")
         .doTest();
   }
