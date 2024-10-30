@@ -87,6 +87,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "     abstract class Foo<T extends @Nullable String, S> {",
             "       public abstract <U> T test1(U u);",
             "       public abstract <U> S test2(U u);",
+            "       public abstract <U extends @Nullable Object> void test3(U u);",
             "     }",
             "     public void run(Foo<@Nullable String, Character> f) {",
             "       String s = f.<Integer>test1(3);",
@@ -95,6 +96,9 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "       Character c = f.<Integer>test2(3);",
             "       // legal, Type S is @NonNull",
             "       c.toString();",
+            "       // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "       f.<Integer>test3(null);",
+            "       f.<@Nullable Integer>test3(null);",
             "     }",
             "}")
         .doTest();
