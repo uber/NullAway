@@ -28,7 +28,7 @@ buildscript {
 }
 plugins {
     id "com.diffplug.spotless" version "6.25.0"
-    id "net.ltgt.errorprone" version "3.1.0" apply false
+    id "net.ltgt.errorprone" version "4.1.0" apply false
     id "com.github.johnrengelman.shadow" version "8.1.1" apply false
     id "me.champeau.jmh" version "0.7.1" apply false
     id "com.github.ben-manes.versions" version "0.51.0"

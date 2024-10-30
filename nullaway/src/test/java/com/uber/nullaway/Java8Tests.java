@@ -5,22 +5,26 @@ import org.junit.Test;
 public class Java8Tests extends NullAwayTestsBase {
   @Test
   public void java8PositiveCases() {
-    defaultCompilationHelper.addSourceFile("NullAwayJava8PositiveCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/NullAwayJava8PositiveCases.java").doTest();
   }
 
   @Test
   public void java8NegativeCases() {
-    defaultCompilationHelper.addSourceFile("NullAwayJava8NegativeCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/NullAwayJava8NegativeCases.java").doTest();
   }
 
   @Test
   public void functionalMethodSuperInterface() {
-    defaultCompilationHelper.addSourceFile("NullAwaySuperFunctionalInterface.java").doTest();
+    defaultCompilationHelper
+        .addSourceFile("testdata/NullAwaySuperFunctionalInterface.java")
+        .doTest();
   }
 
   @Test
   public void functionalMethodOverrideSuperInterface() {
-    defaultCompilationHelper.addSourceFile("NullAwayOverrideFunctionalInterfaces.java").doTest();
+    defaultCompilationHelper
+        .addSourceFile("testdata/NullAwayOverrideFunctionalInterfaces.java")
+        .doTest();
   }
 
   @Test
