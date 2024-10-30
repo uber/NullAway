@@ -33,27 +33,29 @@ public class CoreTests extends NullAwayTestsBase {
 
   @Test
   public void coreNullabilityPositiveCases() {
-    defaultCompilationHelper.addSourceFile("NullAwayPositiveCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/NullAwayPositiveCases.java").doTest();
   }
 
   @Test
   public void nullabilityAnonymousClass() {
-    defaultCompilationHelper.addSourceFile("NullAwayAnonymousClass.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/NullAwayAnonymousClass.java").doTest();
   }
 
   @Test
   public void coreNullabilityNegativeCases() {
     defaultCompilationHelper
-        .addSourceFile("NullAwayNegativeCases.java")
-        .addSourceFile("OtherStuff.java")
-        .addSourceFile("TestAnnot.java")
-        .addSourceFile("unannotated/UnannotatedClass.java")
+        .addSourceFile("testdata/NullAwayNegativeCases.java")
+        .addSourceFile("testdata/OtherStuff.java")
+        .addSourceFile("testdata/TestAnnot.java")
+        .addSourceFile("testdata/unannotated/UnannotatedClass.java")
         .doTest();
   }
 
   @Test
   public void assertSupportPositiveCases() {
-    defaultCompilationHelper.addSourceFile("CheckAssertSupportPositiveCases.java").doTest();
+    defaultCompilationHelper
+        .addSourceFile("testdata/CheckAssertSupportPositiveCases.java")
+        .doTest();
   }
 
   @Test
@@ -64,7 +66,7 @@ public class CoreTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:AssertsEnabled=true"))
-        .addSourceFile("CheckAssertSupportNegativeCases.java")
+        .addSourceFile("testdata/CheckAssertSupportNegativeCases.java")
         .doTest();
   }
 
@@ -258,7 +260,7 @@ public class CoreTests extends NullAwayTestsBase {
   @Test
   public void testCastToNonNull() {
     defaultCompilationHelper
-        .addSourceFile("Util.java")
+        .addSourceFile("testdata/Util.java")
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -279,7 +281,7 @@ public class CoreTests extends NullAwayTestsBase {
   @Test
   public void testCastToNonNullExtraArgsWarning() {
     defaultCompilationHelper
-        .addSourceFile("Util.java")
+        .addSourceFile("testdata/Util.java")
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -384,7 +386,7 @@ public class CoreTests extends NullAwayTestsBase {
 
   @Test
   public void testCapturingScopes() {
-    defaultCompilationHelper.addSourceFile("CapturingScopes.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/CapturingScopes.java").doTest();
   }
 
   @Test
@@ -635,7 +637,7 @@ public class CoreTests extends NullAwayTestsBase {
 
   @Test
   public void tryFinallySupport() {
-    defaultCompilationHelper.addSourceFile("NullAwayTryFinallyCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/NullAwayTryFinallyCases.java").doTest();
   }
 
   @Test
