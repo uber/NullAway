@@ -149,8 +149,8 @@ public final class GenericsChecks {
   }
 
   /**
-   * Checks instantiated generic arguments of generic method calls. {@code @Nullable} types can only
-   * be used for type variables that have a {@code @Nullable} upper bound.
+   * Checks validity of type arguments at a generic method call. A {@code @Nullable} type argument
+   * can only be used for a type variable that has a {@code @Nullable} upper bound.
    *
    * @param tree the tree representing the instantiated type
    * @param state visitor state
@@ -158,7 +158,7 @@ public final class GenericsChecks {
    * @param config the analysis config
    * @param handler the handler instance
    */
-  public static void checkInstantiationForGenericMethodCalls(
+  public static void checkGenericMethodCallTypeArguments(
       Tree tree, VisitorState state, NullAway analysis, Config config, Handler handler) {
     List<? extends Tree> typeArguments = ((MethodInvocationTree) tree).getTypeArguments();
     if (typeArguments.isEmpty()) {
