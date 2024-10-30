@@ -6,27 +6,27 @@ import org.junit.Test;
 public class InitializationTests extends NullAwayTestsBase {
   @Test
   public void initFieldPositiveCases() {
-    defaultCompilationHelper.addSourceFile("CheckFieldInitPositiveCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/CheckFieldInitPositiveCases.java").doTest();
   }
 
   @Test
   public void initFieldNegativeCases() {
-    defaultCompilationHelper.addSourceFile("CheckFieldInitNegativeCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/CheckFieldInitNegativeCases.java").doTest();
   }
 
   @Test
   public void readBeforeInitPositiveCases() {
     defaultCompilationHelper
-        .addSourceFile("ReadBeforeInitPositiveCases.java")
-        .addSourceFile("Util.java")
+        .addSourceFile("testdata/ReadBeforeInitPositiveCases.java")
+        .addSourceFile("testdata/Util.java")
         .doTest();
   }
 
   @Test
   public void readBeforeInitNegativeCases() {
     defaultCompilationHelper
-        .addSourceFile("ReadBeforeInitNegativeCases.java")
-        .addSourceFile("Util.java")
+        .addSourceFile("testdata/ReadBeforeInitNegativeCases.java")
+        .addSourceFile("testdata/Util.java")
         .doTest();
   }
 

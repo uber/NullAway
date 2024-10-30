@@ -156,7 +156,7 @@ public class ThriftTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
                 "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true",
                 "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
-        .addSourceFile("Util.java")
+        .addSourceFile("testdata/Util.java")
         .addSourceLines("TBase.java", "package org.apache.thrift;", "public interface TBase {}")
         .addSourceLines(
             "GeneratedClass.java",

@@ -8,10 +8,10 @@ public class UnannotatedTests extends NullAwayTestsBase {
   @Test
   public void coreNullabilitySkipClass() {
     defaultCompilationHelper
-        .addSourceFile("Shape_Stuff.java")
-        .addSourceFile("excluded/Shape_Stuff2.java")
-        .addSourceFile("AnnotatedClass.java")
-        .addSourceFile("TestAnnot.java")
+        .addSourceFile("testdata/Shape_Stuff.java")
+        .addSourceFile("testdata/excluded/Shape_Stuff2.java")
+        .addSourceFile("testdata/AnnotatedClass.java")
+        .addSourceFile("testdata/TestAnnot.java")
         .doTest();
   }
 
@@ -68,7 +68,7 @@ public class UnannotatedTests extends NullAwayTestsBase {
 
   @Test
   public void coreNullabilitySkipPackage() {
-    defaultCompilationHelper.addSourceFile("unannotated/UnannotatedClass.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/unannotated/UnannotatedClass.java").doTest();
   }
 
   @Test

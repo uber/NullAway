@@ -6,36 +6,40 @@ import org.junit.Test;
 public class FrameworkTests extends NullAwayTestsBase {
   @Test
   public void lombokSupportTesting() {
-    defaultCompilationHelper.addSourceFile("lombok/LombokBuilderInit.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/lombok/LombokBuilderInit.java").doTest();
   }
 
   @Test
   public void coreNullabilityNativeModels() {
     defaultCompilationHelper
-        .addSourceFile("NullAwayNativeModels.java")
-        .addSourceFile("androidstubs/WebView.java")
-        .addSourceFile("androidstubs/TextUtils.java")
+        .addSourceFile("testdata/NullAwayNativeModels.java")
+        .addSourceFile("testdata/androidstubs/WebView.java")
+        .addSourceFile("testdata/androidstubs/TextUtils.java")
         .doTest();
   }
 
   @Test
   public void rxSupportPositiveCases() {
-    defaultCompilationHelper.addSourceFile("NullAwayRxSupportPositiveCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/NullAwayRxSupportPositiveCases.java").doTest();
   }
 
   @Test
   public void rxSupportNegativeCases() {
-    defaultCompilationHelper.addSourceFile("NullAwayRxSupportNegativeCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/NullAwayRxSupportNegativeCases.java").doTest();
   }
 
   @Test
   public void streamSupportNegativeCases() {
-    defaultCompilationHelper.addSourceFile("NullAwayStreamSupportNegativeCases.java").doTest();
+    defaultCompilationHelper
+        .addSourceFile("testdata/NullAwayStreamSupportNegativeCases.java")
+        .doTest();
   }
 
   @Test
   public void streamSupportPositiveCases() {
-    defaultCompilationHelper.addSourceFile("NullAwayStreamSupportPositiveCases.java").doTest();
+    defaultCompilationHelper
+        .addSourceFile("testdata/NullAwayStreamSupportPositiveCases.java")
+        .doTest();
   }
 
   @Test
@@ -382,8 +386,8 @@ public class FrameworkTests extends NullAwayTestsBase {
   @Test
   public void springTestAutowiredFieldTest() {
     defaultCompilationHelper
-        .addSourceFile("springboot-annotations/MockBean.java")
-        .addSourceFile("springboot-annotations/SpyBean.java")
+        .addSourceFile("testdata/springboot-annotations/MockBean.java")
+        .addSourceFile("testdata/springboot-annotations/SpyBean.java")
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
