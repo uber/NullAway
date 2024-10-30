@@ -77,6 +77,30 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericInstanceMethods() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "     abstract class Foo<T extends @Nullable String, S> {",
+            "       public abstract <U> T test1(U u);",
+            "       public abstract <U> S test2(U u);",
+            "     }",
+            "     public void run(Foo<@Nullable String, Character> f) {",
+            "       String s = f.<Integer>test1(3);",
+            "       // BUG: Diagnostic contains: dereferenced expression",
+            "       s.toString();",
+            "       Character c = f.<Integer>test2(3);",
+            "       // legal, Type S is @NonNull",
+            "       c.toString();",
+            "     }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   @Ignore("requires generic method support")
   public void genericMethodAndVoidType() {
     makeHelper()
