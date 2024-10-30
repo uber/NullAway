@@ -803,11 +803,14 @@ public final class GenericsChecks {
       // Extract the underlying MethodType (the actual signature)
       Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.asMethodType();
       // Substitute type arguments inside the return type
-      // NOTE: if the return type it not a type variable, this is a noop
+      // NOTE: if the return type it not a type variable of the method itself, or if
+      // explicitTypeArgs is empty, this is a noop.
       Type substitutedReturnType =
           state
               .getTypes()
               .subst(methodTypeInsideForAll.restype, forAllType.tvars, explicitTypeArgs);
+      // If this condition evaluates to false, we fall through to the subsequent logic, to handle
+      // type variables declared on the enclosing class
       if (substitutedReturnType != null
           && Objects.equals(getTypeNullness(substitutedReturnType, config), Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
@@ -885,25 +888,21 @@ public final class GenericsChecks {
       com.sun.tools.javac.util.List<Type> explicitTypeArgs =
           convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
 
-      Type methodType = invokedMethodSymbol.type;
-      List<Type> substitutedParamTypes = null;
-      if (methodType instanceof Type.ForAll) {
-        Type.ForAll forAllType = (Type.ForAll) methodType;
-
-        // Extract the underlying MethodType (the actual signature)
-        Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.qtype;
-
-        // Substitute the argument and return types within the MethodType
-        substitutedParamTypes =
-            state
-                .getTypes()
-                .subst(
-                    methodTypeInsideForAll.argtypes,
-                    forAllType.tvars, // The type variables from the ForAll
-                    explicitTypeArgs // The actual type arguments from the method invocation
-                    );
-      }
-
+      Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
+      // Extract the underlying MethodType (the actual signature)
+      Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.qtype;
+      // Substitute the argument types within the MethodType
+      // NOTE: if explicitTypeArgs is empty, this is a noop
+      List<Type> substitutedParamTypes =
+          state
+              .getTypes()
+              .subst(
+                  methodTypeInsideForAll.argtypes,
+                  forAllType.tvars, // The type variables from the ForAll
+                  explicitTypeArgs // The actual type arguments from the method invocation
+                  );
+      // If this condition evaluates to false, we fall through to the subsequent logic, to handle
+      // type variables declared on the enclosing class
       if (substitutedParamTypes != null
           && Objects.equals(
               getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
