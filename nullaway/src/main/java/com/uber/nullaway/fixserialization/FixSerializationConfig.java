@@ -97,7 +97,7 @@ public class FixSerializationConfig {
   /**
    * Initializes NullAway serialization adapter according to the requested serialization version.
    */
-  public static SerializationAdapter initializeAdapter(int version) {
+  private SerializationAdapter initializeAdapter(int version) {
     switch (version) {
       case 1:
         return new SerializationV1Adapter();

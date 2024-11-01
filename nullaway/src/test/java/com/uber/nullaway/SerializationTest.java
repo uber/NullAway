@@ -29,7 +29,6 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
-import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV3Adapter;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
@@ -1986,7 +1985,6 @@ public class SerializationTest extends NullAwayTestsBase {
    */
   public void checkVersionSerialization(int version) {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
-    SerializationAdapter adapter = FixSerializationConfig.initializeAdapter(version);
     tester
         .setArgs(
             Arrays.asList(
@@ -2001,7 +1999,7 @@ public class SerializationTest extends NullAwayTestsBase {
         .addSourceLines("com/uber/Test.java", "package com.uber;", "public class Test { }")
         .expectNoOutput()
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, adapter.getErrorsOutputFileHeader())
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
 
     Path serializationVersionPath = root.resolve("serialization_version.txt");
