@@ -75,11 +75,6 @@ public class ErrorDisplay implements Display {
         "null");
   }
 
-  public ErrorDisplay(
-      String nullable, String message, String aNull, String method, String s, String path) {
-    this(nullable, message, aNull, aNull, 0, path, "null", "null", method, "null", s, "null");
-  }
-
   @Override
   public boolean equals(Object o) {
     if (this == o) {
