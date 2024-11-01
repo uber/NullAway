@@ -38,11 +38,13 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeAnnotationPosition;
 import com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntry;
+import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
@@ -53,6 +55,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 import org.jspecify.annotations.Nullable;
@@ -63,6 +66,7 @@ public class NullabilityUtil {
   public static final String NULLUNMARKED_SIMPLE_NAME = "NullUnmarked";
 
   private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
+  private static final String JETBRAINS_NOT_NULL = "org.jetbrains.annotations.NotNull";
 
   private NullabilityUtil() {}
 
@@ -228,14 +232,7 @@ public class NullabilityUtil {
    */
   public static @Nullable Set<String> getAnnotationValueArray(
       Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
-    AnnotationMirror annot = null;
-    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
-      String name = AnnotationUtils.annotationName(annotationMirror);
-      if ((exactMatch && name.equals(annotName)) || (!exactMatch && name.endsWith(annotName))) {
-        annot = annotationMirror;
-        break;
-      }
-    }
+    AnnotationMirror annot = findAnnotation(methodSymbol, annotName, exactMatch);
     if (annot == null) {
       return null;
     }
@@ -251,6 +248,33 @@ public class NullabilityUtil {
       }
     }
     return null;
+  }
+
+  /**
+   * Retrieve the specific annotation of a method.
+   *
+   * @param methodSymbol A method to check for the annotation.
+   * @param annotName The qualified name or simple name of the annotation depending on the value of
+   *     {@code exactMatch}.
+   * @param exactMatch If true, the annotation name must match the full qualified name given in
+   *     {@code annotName}, otherwise, simple names will be checked.
+   * @return an {@code AnnotationMirror} representing that annotation, or null in case the
+   *     annotation with a given name {@code annotName} doesn't exist in {@code methodSymbol}.
+   */
+  public static @Nullable AnnotationMirror findAnnotation(
+      Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
+    AnnotationMirror annot = null;
+    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
+      String name = AnnotationUtils.annotationName(annotationMirror);
+      if ((exactMatch && name.equals(annotName)) || (!exactMatch && name.endsWith(annotName))) {
+        annot = annotationMirror;
+        break;
+      }
+    }
+    if (annot == null) {
+      return null;
+    }
+    return annot;
   }
 
   /**
@@ -271,25 +295,88 @@ public class NullabilityUtil {
                 t ->
                     t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
                         && t.position.parameter_index == paramInd
-                        && NullabilityUtil.isDirectTypeUseAnnotation(t, config)));
+                        && NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config)));
   }
 
   /**
    * Gets the type use annotations on a symbol, ignoring annotations on components of the type (type
    * arguments, wildcards, etc.)
    */
-  private static Stream<? extends AnnotationMirror> getTypeUseAnnotations(
-      Symbol symbol, Config config) {
-    Stream<Attribute.TypeCompound> rawTypeAttributes = symbol.getRawTypeAttributes().stream();
+  public static Stream<Attribute.TypeCompound> getTypeUseAnnotations(Symbol symbol, Config config) {
+    return getTypeUseAnnotations(symbol, config, /* onlyDirect= */ true);
+  }
+
+  /**
+   * Gets the type use annotations on a symbol
+   *
+   * @param symbol the symbol
+   * @param config NullAway configuration
+   * @param onlyDirect if true, only return annotations that are directly on the type, not on
+   *     components of the type (type arguments, wildcards, array contents, etc.)
+   * @return the type use annotations on the symbol
+   */
+  private static Stream<Attribute.TypeCompound> getTypeUseAnnotations(
+      Symbol symbol, Config config, boolean onlyDirect) {
+    // Adapted from Error Prone's MoreAnnotations class:
+    // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L84-L91
+    Symbol typeAnnotationOwner =
+        symbol.getKind().equals(ElementKind.PARAMETER) ? symbol.owner : symbol;
+    Stream<Attribute.TypeCompound> rawTypeAttributes =
+        typeAnnotationOwner.getRawTypeAttributes().stream();
     if (symbol instanceof Symbol.MethodSymbol) {
       // for methods, we want annotations on the return type
       return rawTypeAttributes.filter(
           (t) ->
               t.position.type.equals(TargetType.METHOD_RETURN)
-                  && isDirectTypeUseAnnotation(t, config));
+                  && isDirectTypeUseAnnotation(t, symbol, config));
     } else {
       // filter for annotations directly on the type
-      return rawTypeAttributes.filter(t -> NullabilityUtil.isDirectTypeUseAnnotation(t, config));
+      return rawTypeAttributes.filter(
+          t ->
+              targetTypeMatches(symbol, t.position)
+                  && (!onlyDirect || NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config)));
+    }
+  }
+
+  // Adapted from Error Prone MoreAnnotations:
+  // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L128
+  private static boolean targetTypeMatches(Symbol sym, TypeAnnotationPosition position) {
+    switch (sym.getKind()) {
+      case LOCAL_VARIABLE:
+        return position.type == TargetType.LOCAL_VARIABLE;
+      case FIELD:
+      // treated like a field
+      case ENUM_CONSTANT:
+        return position.type == TargetType.FIELD;
+      case CONSTRUCTOR:
+      case METHOD:
+        return position.type == TargetType.METHOD_RETURN;
+      case PARAMETER:
+        if (position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)) {
+          int parameterIndex = position.parameter_index;
+          if (position.onLambda != null) {
+            com.sun.tools.javac.util.List<JCTree.JCVariableDecl> lambdaParams =
+                position.onLambda.params;
+            return parameterIndex < lambdaParams.size()
+                && lambdaParams.get(parameterIndex).sym.equals(sym);
+          } else {
+            return ((Symbol.MethodSymbol) sym.owner).getParameters().indexOf(sym) == parameterIndex;
+          }
+        } else {
+          return false;
+        }
+      case CLASS:
+        // There are no type annotations on the top-level type of the class being declared, only
+        // on other types in the signature (e.g. `class Foo extends Bar<@A Baz> {}`).
+        return false;
+      default:
+        // Compare with toString() to preserve compatibility with JDK 11
+        if (sym.getKind().toString().equals("RECORD")) {
+          // Records are treated like classes
+          return false;
+        } else {
+          throw new AssertionError("unsupported element kind " + sym.getKind() + " symbol " + sym);
+        }
     }
   }
 
@@ -301,21 +388,28 @@ public class NullabilityUtil {
    * but {@code List<@Nullable T> lst} is not.
    *
    * @param t the annotation and its position in the type
+   * @param symbol the symbol for the annotated element
    * @param config NullAway configuration
    * @return {@code true} if the annotation should be treated as applying directly to the top-level
    *     type, false otherwise
    */
-  private static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t, Config config) {
+  private static boolean isDirectTypeUseAnnotation(
+      Attribute.TypeCompound t, Symbol symbol, Config config) {
     // location is a list of TypePathEntry objects, indicating whether the annotation is
     // on an array, inner type, wildcard, or type argument. If it's empty, then the
     // annotation is directly on the type.
     // We care about both annotations directly on the outer type and also those directly
     // on an inner type or array dimension, but wish to discard annotations on wildcards,
     // or type arguments.
-    // For arrays, outside JSpecify mode, we treat annotations on the outer type and on any
-    // dimension of the array as applying to the nullability of the array itself, not the elements.
-    // In JSpecify mode, annotations on array dimensions are *not* treated as applying to the
-    // top-level type, consistent with the JSpecify spec.
+    // For arrays, when the LegacyAnnotationLocations flag is passed, we treat annotations on the
+    // outer type and on any dimension of the array as applying to the nullability of the array
+    // itself, not the elements.
+    // In JSpecify mode and without the LegacyAnnotationLocations flag, annotations on array
+    // dimensions are *not* treated as applying to the top-level type, consistent with the JSpecify
+    // spec.
+    // Annotations which are *not* on the inner type are not treated as being applied to the inner
+    // type. This can be bypassed the LegacyAnnotationLocations flag, in which
+    // annotations on all locations are treated as applying to the inner type.
     // We don't allow mixing of inner types and array dimensions in the same location
     // (i.e. `Foo.@Nullable Bar []` is meaningless).
     // These aren't correct semantics for type use annotations, but a series of hacky
@@ -325,15 +419,18 @@ public class NullabilityUtil {
     // See https://github.com/uber/NullAway/issues/708
     boolean locationHasInnerTypes = false;
     boolean locationHasArray = false;
+    int innerTypeCount = 0;
+    int nestingDepth = getNestingDepth(symbol.type);
     for (TypePathEntry entry : t.position.location) {
       switch (entry.tag) {
         case INNER_TYPE:
           locationHasInnerTypes = true;
+          innerTypeCount++;
           break;
         case ARRAY:
-          if (config.isJSpecifyMode()) {
-            // In JSpecify mode, annotations on array element types do not apply to the top-level
-            // type
+          if (config.isJSpecifyMode() || !config.isLegacyAnnotationLocation()) {
+            // Annotations on array element types do not apply to the top-level
+            // type outside of legacy mode
             return false;
           }
           locationHasArray = true;
@@ -343,8 +440,30 @@ public class NullabilityUtil {
           return false;
       }
     }
-    // Make sure it's not a mix of inner types and arrays for this annotation's location
-    return !(locationHasInnerTypes && locationHasArray);
+    if (config.isLegacyAnnotationLocation()) {
+      // Make sure it's not a mix of inner types and arrays for this annotation's location
+      return !(locationHasInnerTypes && locationHasArray);
+    }
+    // For non-nested classes annotations apply to the innermost type.
+    if (!isTypeOfNestedClass(symbol.type)) {
+      return true;
+    }
+    // For nested classes the annotation is only valid if it is on the innermost type.
+    return innerTypeCount == nestingDepth - 1;
+  }
+
+  private static int getNestingDepth(Type type) {
+    int depth = 0;
+    for (Type curr = type;
+        curr != null && !curr.hasTag(TypeTag.NONE);
+        curr = curr.getEnclosingType()) {
+      depth++;
+    }
+    return depth;
+  }
+
+  private static boolean isTypeOfNestedClass(Type type) {
+    return type.tsym != null && type.tsym.owner instanceof Symbol.ClassSymbol;
   }
 
   /**
@@ -430,6 +549,87 @@ public class NullabilityUtil {
         }
       }
     }
+    // For varargs symbols we also consider the elements to be @Nullable if there is a @Nullable
+    // declaration annotation on the parameter
+    // NOTE this flag check does not work for the varargs parameter of a method defined in bytecodes
+    if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
+      return Nullness.hasNullableDeclarationAnnotation(arraySymbol, config);
+    }
     return false;
+  }
+
+  /**
+   * Checks if the given varargs symbol has a {@code @Nullable} annotation for its elements. Works
+   * for both source and bytecode.
+   *
+   * @param varargsSymbol the symbol of the varargs parameter
+   * @param config NullAway configuration
+   * @return true if the varargs symbol has a {@code @Nullable} annotation for its elements, false
+   *     otherwise
+   */
+  public static boolean nullableVarargsElementsForSourceOrBytecode(
+      Symbol varargsSymbol, Config config) {
+    return isArrayElementNullable(varargsSymbol, config)
+        || Nullness.hasNullableDeclarationAnnotation(varargsSymbol, config);
+  }
+
+  /**
+   * Checks if the given array symbol has a {@code @NonNull} annotation for its elements.
+   *
+   * @param arraySymbol The symbol of the array to check.
+   * @param config NullAway configuration.
+   * @return true if the array symbol has a {@code @NonNull} annotation for its elements, false
+   *     otherwise
+   */
+  public static boolean isArrayElementNonNull(Symbol arraySymbol, Config config) {
+    if (getTypeUseAnnotations(arraySymbol, config, /* onlyDirect= */ false)
+        .anyMatch(
+            t -> {
+              for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
+                if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+                  if (Nullness.isNonNullAnnotation(t.type.toString(), config)) {
+                    return true;
+                  }
+                }
+              }
+              return false;
+            })) {
+      return true;
+    }
+    // For varargs symbols we also consider the elements to be @NonNull if there is a @NonNull
+    // declaration annotation on the parameter
+    // NOTE this flag check does not work for the varargs parameter of a method defined in bytecodes
+    if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
+      return Nullness.hasNonNullDeclarationAnnotation(arraySymbol, config);
+    }
+    return false;
+  }
+
+  /**
+   * Checks if the given varargs symbol has a {@code @NonNull} annotation for its elements. Works
+   * for both source and bytecode.
+   *
+   * @param varargsSymbol the symbol of the varargs parameter
+   * @param config NullAway configuration
+   * @return true if the varargs symbol has a {@code @NonNull} annotation for its elements, false
+   *     otherwise
+   */
+  public static boolean nonnullVarargsElementsForSourceOrBytecode(
+      Symbol varargsSymbol, Config config) {
+    return isArrayElementNonNull(varargsSymbol, config)
+        || Nullness.hasNonNullDeclarationAnnotation(varargsSymbol, config);
+  }
+
+  /**
+   * Does the given symbol have a JetBrains @NotNull declaration annotation? Useful for workarounds
+   * in light of https://github.com/uber/NullAway/issues/720
+   */
+  public static boolean hasJetBrainsNotNullDeclarationAnnotation(Symbol.VarSymbol varSymbol) {
+    // We explicitly ignore type-use annotations here, looking for @NotNull used as a
+    // declaration annotation, which is why this logic is simpler than e.g.
+    // NullabilityUtil.getAllAnnotationsForParameter.
+    return varSymbol.getAnnotationMirrors().stream()
+        .map(a -> a.getAnnotationType().toString())
+        .anyMatch(annotName -> annotName.equals(JETBRAINS_NOT_NULL));
   }
 }

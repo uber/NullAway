@@ -27,6 +27,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.contract.ContractCheckHandler;
 import com.uber.nullaway.handlers.contract.ContractHandler;
 import com.uber.nullaway.handlers.contract.fieldcontract.EnsuresNonNullHandler;
+import com.uber.nullaway.handlers.contract.fieldcontract.EnsuresNonNullIfHandler;
 import com.uber.nullaway.handlers.contract.fieldcontract.RequiresNonNullHandler;
 import com.uber.nullaway.handlers.temporary.FluentFutureHandler;
 
@@ -51,7 +52,7 @@ public class Handlers {
       handlerListBuilder.add(new RestrictiveAnnotationHandler(config));
     }
     if (config.isJarInferEnabled()) {
-      handlerListBuilder.add(new InferredJARModelsHandler(config));
+      handlerListBuilder.add(new InferredJARModelsHandler());
     }
     if (config.handleTestAssertionLibraries()) {
       handlerListBuilder.add(new AssertionHandler(methodNameUtil));
@@ -69,6 +70,7 @@ public class Handlers {
     handlerListBuilder.add(new GrpcHandler());
     handlerListBuilder.add(new RequiresNonNullHandler());
     handlerListBuilder.add(new EnsuresNonNullHandler());
+    handlerListBuilder.add(new EnsuresNonNullIfHandler());
     handlerListBuilder.add(new SynchronousCallbackHandler());
     if (config.serializationIsActive() && config.getSerializationConfig().fieldInitInfoEnabled) {
       handlerListBuilder.add(

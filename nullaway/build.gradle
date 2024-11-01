@@ -23,6 +23,12 @@ plugins {
 configurations {
     // A configuration holding the jars for the oldest supported version of Error Prone, to use with tests
     errorProneOldest
+
+    // To resolve the errorprone dependencies for the buildWithNullAway task
+    errorproneExtended {
+        extendsFrom errorprone
+        canBeResolved = true
+    }
 }
 
 dependencies {
@@ -152,7 +158,7 @@ tasks.register('buildWithNullAway', JavaCompile) {
     classpath = sourceSets.main.compileClasspath
     destinationDirectory = file("$buildDir/ignoredClasses")
     options.annotationProcessorPath = files(
-            configurations.errorprone.asCollection(),
+            configurations.errorproneExtended.asCollection(),
             sourceSets.main.annotationProcessorPath,
             // This refers to the NullAway jar built from the current source
             jar.archiveFile.get(),

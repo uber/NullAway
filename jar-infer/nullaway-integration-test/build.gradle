@@ -25,4 +25,11 @@ dependencies {
     }
     testImplementation project(":nullaway")
     testImplementation project(":jar-infer:test-java-lib-jarinfer")
+
+    // For now we can only test one of the SDK models at a time; so exactly
+    // one of the following lines should be uncommented
+    //testImplementation project(":jar-infer:android-jarinfer-models-sdk28")
+    //testImplementation project(":jar-infer:android-jarinfer-models-sdk29")
+    //testImplementation project(":jar-infer:android-jarinfer-models-sdk30")
+    testImplementation project(":jar-infer:android-jarinfer-models-sdk31")
 }

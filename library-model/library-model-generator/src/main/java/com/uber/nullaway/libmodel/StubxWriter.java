@@ -15,9 +15,16 @@ import java.util.Set;
 public final class StubxWriter {
   /**
    * The file magic number for version 0 .astubx files. It should be the first four bytes of any
+   * compatible .astubx file. Unused field, keeping for reference.
+   */
+  @SuppressWarnings("UnusedVariable")
+  private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
+
+  /**
+   * The file magic number for version 1 .astubx files. It should be the first four bytes of any
    * compatible .astubx file.
    */
-  private static final int VERSION_0_FILE_MAGIC_NUMBER = 691458791;
+  private static final int VERSION_1_FILE_MAGIC_NUMBER = 481874642;
 
   /**
    * This method writes the provided list of annotations to a DataOutputStream in the astubx format.
@@ -37,10 +44,11 @@ public final class StubxWriter {
       Map<String, Set<String>> packageAnnotations,
       Map<String, Set<String>> typeAnnotations,
       Map<String, MethodAnnotationsRecord> methodRecords,
+      Set<String> nullMarkedClasses,
       Map<String, Set<Integer>> nullableUpperBounds)
       throws IOException {
     // File format version/magic number
-    out.writeInt(VERSION_0_FILE_MAGIC_NUMBER);
+    out.writeInt(VERSION_1_FILE_MAGIC_NUMBER);
     // Followed by the number of string dictionary entries
     int numStringEntries = 0;
     Map<String, Integer> encodingDictionary = new LinkedHashMap<>();
@@ -51,10 +59,13 @@ public final class StubxWriter {
             packageAnnotations.keySet(),
             typeAnnotations.keySet(),
             methodRecords.keySet(),
+            nullMarkedClasses,
             nullableUpperBounds.keySet());
     for (Collection<String> keyset : keysets) {
       for (String key : keyset) {
-        assert !encodingDictionary.containsKey(key);
+        if (encodingDictionary.containsKey(key)) {
+          continue;
+        }
         strings.add(key);
         encodingDictionary.put(key, numStringEntries);
         ++numStringEntries;
@@ -120,6 +131,12 @@ public final class StubxWriter {
         }
       }
     }
+    // Followed by the number of NullMarked Classes
+    out.writeInt(nullMarkedClasses.size());
+    // Followed by the null marked class records from the dictionary
+    for (String entry : nullMarkedClasses) {
+      out.writeInt(encodingDictionary.get(entry));
+    }
     // Followed by the number of nullable upper bounds records
     out.writeInt(nullableUpperBounds.size());
     for (Map.Entry<String, Set<Integer>> entry : nullableUpperBounds.entrySet()) {
@@ -127,7 +144,7 @@ public final class StubxWriter {
       Set<Integer> parameters = entry.getValue();
       out.writeInt(parameters.size());
       for (Integer parameter : parameters) {
-        // Followed by the nullable upper bound record as a par of integers
+        // Followed by the nullable upper bound record as a pair of integers
         out.writeInt(encodingDictionary.get(entry.getKey()));
         out.writeInt(parameter);
       }

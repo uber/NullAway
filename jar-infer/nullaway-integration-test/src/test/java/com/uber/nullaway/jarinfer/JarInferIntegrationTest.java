@@ -44,6 +44,55 @@ public class JarInferIntegrationTest {
   }
 
   @Test
+  public void arrayTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
+            "class Test {",
+            "  void test1(Object @Nullable [] o) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'o'",
+            "    Toys.testArray(o);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void genericsTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
+            "class Test {",
+            "  void test1() {",
+            "    Toys.Generic<String> g = new Toys.Generic<>();",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    g.getString(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void jarinferNullableReturnsTest() {
     compilationHelper
         .setArgs(
@@ -52,8 +101,7 @@ public class JarInferIntegrationTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
-                "-XepOpt:NullAway:JarInferEnabled=true",
-                "-XepOpt:NullAway:JarInferUseReturnAnnotations=true"))
+                "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -63,6 +111,39 @@ public class JarInferIntegrationTest {
             "  void test1(@Nullable String s) {",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'Toys.getString(false, s)'",
             "    Toys.test1(Toys.getString(false, s), \"let's\", \"try\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  /**
+   * Tests our pre-generated models for Android SDK classes. See also the build.gradle file for this
+   * project which determines which SDK version's models are being tested.
+   */
+  @Test
+  public void jarInferAndroidSDKModels() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true"))
+        // stub implementation of SpannableStringBuilder.append(CharSequence) which we know is
+        // modelled as having a @Nullable parameter
+        .addSourceLines(
+            "SpannableStringBuilder.java",
+            "package android.text;",
+            "public class SpannableStringBuilder {",
+            "  public SpannableStringBuilder append(CharSequence text) { return this; }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "  void test1(android.text.SpannableStringBuilder builder) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    builder.append(null);",
             "  }",
             "}")
         .doTest();

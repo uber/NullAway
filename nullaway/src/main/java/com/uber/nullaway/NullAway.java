@@ -33,10 +33,12 @@ import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.isArrayElementNullable;
+import static com.uber.nullaway.Nullness.isNullableAnnotation;
+import static java.lang.annotation.ElementType.TYPE_PARAMETER;
+import static java.lang.annotation.ElementType.TYPE_USE;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
-import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -54,6 +56,8 @@ import com.google.errorprone.matchers.Matcher;
 import com.google.errorprone.matchers.Matchers;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.AnnotatedTypeTree;
+import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
@@ -99,6 +103,8 @@ import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Target;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -188,6 +194,8 @@ public class NullAway extends BugChecker
   static final String CORE_CHECK_NAME = "NullAway.<core>";
 
   private static final Matcher<ExpressionTree> THIS_MATCHER = NullAway::isThisIdentifierMatcher;
+  private static final ImmutableSet<ElementType> TYPE_USE_OR_TYPE_PARAMETER =
+      ImmutableSet.of(TYPE_USE, TYPE_PARAMETER);
 
   private final Predicate<MethodInvocationNode> nonAnnotatedMethod;
 
@@ -571,6 +579,11 @@ public class NullAway extends BugChecker
         || symbol instanceof ModuleElement) {
       return Description.NO_MATCH;
     }
+    if ((tree.getExpression() instanceof AnnotatedTypeTree)
+        && !config.isLegacyAnnotationLocation()) {
+      checkNullableAnnotationPositionInType(
+          ((AnnotatedTypeTree) tree.getExpression()).getAnnotations(), tree, state);
+    }
 
     Description badDeref = matchDereference(tree.getExpression(), tree, state);
     if (!badDeref.equals(Description.NO_MATCH)) {
@@ -638,6 +651,10 @@ public class NullAway extends BugChecker
     checkForMethodNullMarkedness(tree, state);
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
+    }
+    if (!config.isLegacyAnnotationLocation()) {
+      checkNullableAnnotationPositionInType(
+          tree.getModifiers().getAnnotations(), tree.getReturnType(), state);
     }
     // if the method is overriding some other method,
     // check that nullability annotations are consistent with
@@ -1465,6 +1482,10 @@ public class NullAway extends BugChecker
     if (tree.getInitializer() != null && config.isJSpecifyMode()) {
       GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
     }
+    if (!config.isLegacyAnnotationLocation()) {
+      checkNullableAnnotationPositionInType(
+          tree.getModifiers().getAnnotations(), tree.getType(), state);
+    }
 
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
       doUnboxingCheck(state, tree.getInitializer());
@@ -1486,6 +1507,85 @@ public class NullAway extends BugChecker
       }
     }
     return Description.NO_MATCH;
+  }
+
+  /**
+   * returns true if {@code anno} is a type use annotation; it may also be a declaration annotation
+   */
+  private static boolean isTypeUseAnnotation(Symbol anno) {
+    Target target = anno.getAnnotation(Target.class);
+    ImmutableSet<ElementType> elementTypes =
+        target == null ? ImmutableSet.of() : ImmutableSet.copyOf(target.value());
+    return elementTypes.contains(TYPE_USE);
+  }
+
+  /**
+   * returns true if {@code anno} is a declaration annotation; it may also be a type use annotation
+   */
+  private static boolean isDeclarationAnnotation(Symbol anno) {
+    Target target = anno.getAnnotation(Target.class);
+    if (target == null) {
+      return true;
+    }
+    ImmutableSet<ElementType> elementTypes = ImmutableSet.copyOf(target.value());
+    // Return true for any annotation that is not exclusively a type-use annotation
+    return !(elementTypes.equals(ImmutableSet.of(ElementType.TYPE_USE))
+        || TYPE_USE_OR_TYPE_PARAMETER.containsAll(elementTypes));
+  }
+
+  /**
+   * Checks whether any {@code @Nullable} annotation is at the right location for nested types.
+   * Raises an error iff the type is a field access expression (for an inner class type), the
+   * annotation is type use, and the annotation is not applied on the innermost type.
+   *
+   * @param annotations The annotations to check
+   * @param type The tree representing the type structure
+   * @param state The visitor state
+   */
+  private void checkNullableAnnotationPositionInType(
+      List<? extends AnnotationTree> annotations, Tree type, VisitorState state) {
+
+    // Early return if the type is not a nested or inner class reference.
+    if (!(type instanceof MemberSelectTree)) {
+      return;
+    }
+
+    // Get the end position of the outer type expression. Any nullable annotation before this
+    // position is considered to be on the outer type, which is incorrect.
+    int endOfOuterType = state.getEndPosition(((MemberSelectTree) type).getExpression());
+    int startOfType = ((JCTree) type).getStartPosition();
+
+    for (AnnotationTree annotation : annotations) {
+      Symbol sym = ASTHelpers.getSymbol(annotation);
+      if (sym == null) {
+        continue;
+      }
+
+      String qualifiedName = sym.getQualifiedName().toString();
+      if (!isNullableAnnotation(qualifiedName, config)) {
+        continue;
+      }
+
+      if (!isTypeUseAnnotation(sym)) {
+        continue;
+      }
+      // If an annotation is declaration ALSO, we check if it is at the correct location. If it is,
+      // we treat it as declaration and skip the checks.
+      if (isDeclarationAnnotation(sym) && state.getEndPosition(annotation) <= startOfType) {
+        continue;
+      }
+
+      if (state.getEndPosition(annotation) < endOfOuterType) {
+        // annotation is not on the inner-most type
+        ErrorMessage errorMessage =
+            new ErrorMessage(
+                MessageTypes.NULLABLE_ON_WRONG_NESTED_CLASS_LEVEL,
+                "Type-use nullability annotations should be applied on inner class");
+
+        state.reportMatch(
+            errorBuilder.createErrorDescription(errorMessage, buildDescription(type), state, null));
+      }
+    }
   }
 
   /**
@@ -1705,8 +1805,9 @@ public class NullAway extends BugChecker
       List<? extends ExpressionTree> actualParams) {
     List<VarSymbol> formalParams = methodSymbol.getParameters();
 
+    boolean varArgsMethod = methodSymbol.isVarArgs();
     if (formalParams.size() != actualParams.size()
-        && !methodSymbol.isVarArgs()
+        && !varArgsMethod
         && !methodSymbol.isStatic()
         && methodSymbol.isConstructor()
         && methodSymbol.enclClass().isInner()) {
@@ -1751,7 +1852,10 @@ public class NullAway extends BugChecker
       }
       if (config.isJSpecifyMode()) {
         GenericsChecks.compareGenericTypeParameterNullabilityForCall(
-            formalParams, actualParams, methodSymbol.isVarArgs(), this, state);
+            formalParams, actualParams, varArgsMethod, this, state);
+        if (!methodSymbol.getTypeParameters().isEmpty()) {
+          GenericsChecks.checkGenericMethodCallTypeArguments(tree, state, this, config, handler);
+        }
       }
     }
 
@@ -1764,30 +1868,65 @@ public class NullAway extends BugChecker
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
     for (int argPos = 0; argPos < argumentPositionNullness.length; argPos++) {
-      if (!Objects.equals(Nullness.NONNULL, argumentPositionNullness[argPos])) {
+      boolean varargPosition = varArgsMethod && argPos == formalParams.size() - 1;
+      boolean argIsNonNull = Objects.equals(Nullness.NONNULL, argumentPositionNullness[argPos]);
+      if (!varargPosition && !argIsNonNull) {
         continue;
       }
-      ExpressionTree actual = null;
+      ExpressionTree actual;
       boolean mayActualBeNull = false;
-      if (argPos == formalParams.size() - 1 && methodSymbol.isVarArgs()) {
+      if (varargPosition) {
         // Check all vararg actual arguments for nullability
+        // This is the case where no actual parameter is passed for the var args parameter
+        // (i.e. it defaults to an empty array)
         if (actualParams.size() <= argPos) {
           continue;
         }
-        for (ExpressionTree arg : actualParams.subList(argPos, actualParams.size())) {
-          actual = arg;
-          mayActualBeNull = mayBeNullExpr(state, actual);
-          if (mayActualBeNull) {
-            break;
+        actual = actualParams.get(argPos);
+        // check if the varargs arguments are being passed as an array
+        VarSymbol formalParamSymbol = formalParams.get(formalParams.size() - 1);
+        Type.ArrayType varargsArrayType = (Type.ArrayType) formalParamSymbol.type;
+        Type actualParameterType = ASTHelpers.getType(actual);
+        if (actualParameterType != null
+            && state.getTypes().isAssignable(actualParameterType, varargsArrayType)
+            && actualParams.size() == argPos + 1) {
+          // This is the case where an array is explicitly passed in the position of the var args
+          // parameter
+          // Only check for a nullable varargs array if the method is annotated, or a @NonNull
+          // restrictive annotation is present in legacy mode (as previously the annotation was
+          // applied to both the array itself and the elements), or a JetBrains @NotNull declaration
+          // annotation is present (due to https://github.com/uber/NullAway/issues/720)
+          boolean checkForNullableVarargsArray =
+              isMethodAnnotated
+                  || (config.isLegacyAnnotationLocation() && argIsNonNull)
+                  || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(formalParamSymbol);
+          if (checkForNullableVarargsArray) {
+            // If varargs array itself is not @Nullable, cannot pass @Nullable array
+            if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
+              mayActualBeNull = mayBeNullExpr(state, actual);
+            }
+          }
+        } else {
+          // This is the case were varargs are being passed individually, as 1 or more actual
+          // arguments starting at the position of the var args formal.
+          // If the formal var args accepts `@Nullable`, then there is nothing for us to check.
+          if (!argIsNonNull) {
+            continue;
+          }
+          // TODO report all varargs errors in a single build; this code only reports the first
+          //  error
+          for (ExpressionTree arg : actualParams.subList(argPos, actualParams.size())) {
+            actual = arg;
+            mayActualBeNull = mayBeNullExpr(state, actual);
+            if (mayActualBeNull) {
+              break;
+            }
           }
         }
-      } else {
+      } else { // not the vararg position
         actual = actualParams.get(argPos);
         mayActualBeNull = mayBeNullExpr(state, actual);
       }
-      // This statement should be unreachable without assigning actual beforehand:
-      Preconditions.checkNotNull(actual);
-      // make sure we are passing a non-null value
       if (mayActualBeNull) {
         String message =
             "passing @Nullable parameter '"
@@ -2325,10 +2464,11 @@ public class NullAway extends BugChecker
       case NEW_CLASS:
       case NEW_ARRAY:
       case ARRAY_TYPE:
+      // Lambdas may return null, but the lambda literal itself should not be null
       case LAMBDA_EXPRESSION:
-        // Lambdas may return null, but the lambda literal itself should not be null
+      // These cannot be null; the compiler would catch it
       case MEMBER_REFERENCE:
-        // These cannot be null; the compiler would catch it
+      // result of compound assignment cannot be null
       case MULTIPLY_ASSIGNMENT:
       case DIVIDE_ASSIGNMENT:
       case REMAINDER_ASSIGNMENT:
@@ -2340,9 +2480,8 @@ public class NullAway extends BugChecker
       case AND_ASSIGNMENT:
       case XOR_ASSIGNMENT:
       case OR_ASSIGNMENT:
-        // result of compound assignment cannot be null
+      // rest are for auto-boxing
       case PLUS:
-        // rest are for auto-boxing
       case MINUS:
       case MULTIPLY:
       case DIVIDE:

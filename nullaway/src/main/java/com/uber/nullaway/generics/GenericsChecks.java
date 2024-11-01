@@ -26,6 +26,7 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorBuilder;
@@ -33,9 +34,11 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
@@ -143,6 +146,81 @@ public final class GenericsChecks {
       }
     }
     return result;
+  }
+
+  /**
+   * Checks validity of type arguments at a generic method call. A {@code @Nullable} type argument
+   * can only be used for a type variable that has a {@code @Nullable} upper bound.
+   *
+   * @param tree the tree representing the instantiated type
+   * @param state visitor state
+   * @param analysis the analysis object
+   * @param config the analysis config
+   * @param handler the handler instance
+   */
+  public static void checkGenericMethodCallTypeArguments(
+      Tree tree, VisitorState state, NullAway analysis, Config config, Handler handler) {
+    List<? extends Tree> typeArguments = ((MethodInvocationTree) tree).getTypeArguments();
+    if (typeArguments.isEmpty()) {
+      return;
+    }
+    // get Nullable annotated type arguments
+    MethodInvocationTree methodTree = (MethodInvocationTree) tree;
+    Map<Integer, Tree> nullableTypeArguments = new HashMap<>();
+    for (int i = 0; i < typeArguments.size(); i++) {
+      Tree curTypeArg = typeArguments.get(i);
+      if (curTypeArg instanceof AnnotatedTypeTree) {
+        AnnotatedTypeTree annotatedType = (AnnotatedTypeTree) curTypeArg;
+        for (AnnotationTree annotation : annotatedType.getAnnotations()) {
+          Type annotationType = ASTHelpers.getType(annotation);
+          if (annotationType != null
+              && Nullness.isNullableAnnotation(annotationType.toString(), config)) {
+            nullableTypeArguments.put(i, curTypeArg);
+            break;
+          }
+        }
+      }
+    }
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
+
+    // check if type variables are allowed to be Nullable
+    Type baseType = methodSymbol.asType();
+    List<Type> baseTypeVariables = baseType.getTypeArguments();
+    for (int i = 0; i < baseTypeVariables.size(); i++) {
+      if (nullableTypeArguments.containsKey(i)) {
+        Type typeVariable = baseTypeVariables.get(i);
+        Type upperBound = typeVariable.getUpperBound();
+        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+            upperBound.getAnnotationMirrors();
+        boolean hasNullableAnnotation =
+            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+                || handler.onOverrideTypeParameterUpperBound(baseType.tsym.toString(), i);
+        // if type variable's upper bound does not have @Nullable annotation then the instantiation
+        // is invalid
+        if (!hasNullableAnnotation) {
+          reportInvalidTypeArgumentError(
+              nullableTypeArguments.get(i), methodSymbol, typeVariable, state, analysis);
+        }
+      }
+    }
+  }
+
+  private static void reportInvalidTypeArgumentError(
+      Tree tree,
+      Symbol.MethodSymbol methodSymbol,
+      Type typeVariable,
+      VisitorState state,
+      NullAway analysis) {
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.TYPE_PARAMETER_CANNOT_BE_NULLABLE,
+            String.format(
+                "Type argument cannot be @Nullable, as method %s's type variable %s is not @Nullable",
+                methodSymbol.toString(), typeVariable.tsym.toString()));
+    state.reportMatch(
+        errorBuilder.createErrorDescription(
+            errorMessage, analysis.buildDescription(tree), state, null));
   }
 
   private static void reportInvalidInstantiationError(
@@ -682,7 +760,8 @@ public final class GenericsChecks {
   /**
    * Computes the nullness of the return of a generic method at an invocation, in the context of the
    * declared type of its receiver argument. If the return type is a type variable, its nullness
-   * depends on the nullability of the corresponding type parameter in the receiver's type.
+   * depends on the nullability of the corresponding type parameter in the receiver's type or the
+   * type argument of the method call.
    *
    * <p>Consider the following example:
    *
@@ -715,6 +794,29 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
+    // If generic method invocation
+    if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
+      List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
+      com.sun.tools.javac.util.List<Type> explicitTypeArgs =
+          convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
+      Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
+      // Extract the underlying MethodType (the actual signature)
+      Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.asMethodType();
+      // Substitute type arguments inside the return type
+      // NOTE: if the return type it not a type variable of the method itself, or if
+      // explicitTypeArgs is empty, this is a noop.
+      Type substitutedReturnType =
+          state
+              .getTypes()
+              .subst(methodTypeInsideForAll.restype, forAllType.tvars, explicitTypeArgs);
+      // If this condition evaluates to false, we fall through to the subsequent logic, to handle
+      // type variables declared on the enclosing class
+      if (substitutedReturnType != null
+          && Objects.equals(getTypeNullness(substitutedReturnType, config), Nullness.NULLABLE)) {
+        return Nullness.NULLABLE;
+      }
+    }
+
     if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }
@@ -726,6 +828,18 @@ public final class GenericsChecks {
       return getGenericMethodReturnTypeNullness(
           invokedMethodSymbol, methodReceiverType, state, config);
     }
+  }
+
+  private static com.sun.tools.javac.util.List<Type> convertTreesToTypes(
+      List<? extends Tree> typeArgumentTrees) {
+    List<Type> types = new ArrayList<>();
+    for (Tree tree : typeArgumentTrees) {
+      if (tree instanceof JCTree.JCExpression) {
+        JCTree.JCExpression expression = (JCTree.JCExpression) tree;
+        types.add(expression.type); // Retrieve the Type
+      }
+    }
+    return com.sun.tools.javac.util.List.from(types);
   }
 
   /**
@@ -768,6 +882,34 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
+    // If generic method invocation
+    if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
+      List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
+      com.sun.tools.javac.util.List<Type> explicitTypeArgs =
+          convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
+
+      Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
+      // Extract the underlying MethodType (the actual signature)
+      Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.qtype;
+      // Substitute the argument types within the MethodType
+      // NOTE: if explicitTypeArgs is empty, this is a noop
+      List<Type> substitutedParamTypes =
+          state
+              .getTypes()
+              .subst(
+                  methodTypeInsideForAll.argtypes,
+                  forAllType.tvars, // The type variables from the ForAll
+                  explicitTypeArgs // The actual type arguments from the method invocation
+                  );
+      // If this condition evaluates to false, we fall through to the subsequent logic, to handle
+      // type variables declared on the enclosing class
+      if (substitutedParamTypes != null
+          && Objects.equals(
+              getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
+        return Nullness.NULLABLE;
+      }
+    }
+
     if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }

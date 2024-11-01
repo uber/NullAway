@@ -5,22 +5,26 @@ import org.junit.Test;
 public class Java8Tests extends NullAwayTestsBase {
   @Test
   public void java8PositiveCases() {
-    defaultCompilationHelper.addSourceFile("NullAwayJava8PositiveCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/NullAwayJava8PositiveCases.java").doTest();
   }
 
   @Test
   public void java8NegativeCases() {
-    defaultCompilationHelper.addSourceFile("NullAwayJava8NegativeCases.java").doTest();
+    defaultCompilationHelper.addSourceFile("testdata/NullAwayJava8NegativeCases.java").doTest();
   }
 
   @Test
   public void functionalMethodSuperInterface() {
-    defaultCompilationHelper.addSourceFile("NullAwaySuperFunctionalInterface.java").doTest();
+    defaultCompilationHelper
+        .addSourceFile("testdata/NullAwaySuperFunctionalInterface.java")
+        .doTest();
   }
 
   @Test
   public void functionalMethodOverrideSuperInterface() {
-    defaultCompilationHelper.addSourceFile("NullAwayOverrideFunctionalInterfaces.java").doTest();
+    defaultCompilationHelper
+        .addSourceFile("testdata/NullAwayOverrideFunctionalInterfaces.java")
+        .doTest();
   }
 
   @Test
@@ -44,6 +48,27 @@ public class Java8Tests extends NullAwayTestsBase {
             "  public static <T> boolean testNegativeWithTypeVariable(T[] arr) {",
             "    return Arrays.stream(arr).map(T::toString).collect(Collectors.toList()).isEmpty();",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  /** test that we can properly read an explicit type-use annotation on a lambda parameter */
+  @Test
+  public void testNullableLambdaParamTypeUse() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "    @FunctionalInterface",
+            "    interface NullableParamFunctionTypeUse<T, U> {",
+            "      U takeVal(@Nullable T x);",
+            "    }",
+            "    static void testParamTypeUse() {",
+            "      NullableParamFunctionTypeUse n3 = (@Nullable Object x) -> (x == null) ? \"null\" : x.toString();",
+            "      NullableParamFunctionTypeUse n4 = (x) -> (x == null) ? \"null\" : x.toString();",
+            "    }",
             "}")
         .doTest();
   }
