@@ -1364,11 +1364,14 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         String className = outerEntry.getKey();
         for (Map.Entry<String, Map<Integer, Set<String>>> innerEntry :
             outerEntry.getValue().entrySet()) {
-          String methodName = innerEntry.getKey().substring(innerEntry.getKey().indexOf(" ") + 1);
+          String methodNameAndSignature =
+              innerEntry.getKey().substring(innerEntry.getKey().indexOf(" ") + 1);
           for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
             Integer index = entry.getKey();
             if (index >= 0 && entry.getValue().stream().anyMatch(a -> a.contains("Nullable"))) {
-              mapBuilder.put(methodRef(className, methodName), index);
+              // remove spaces
+              methodNameAndSignature = methodNameAndSignature.replaceAll("\\s", "");
+              mapBuilder.put(methodRef(className, methodNameAndSignature), index);
             }
           }
         }
@@ -1383,7 +1386,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       for (String className : argAnnotCache.keySet()) {
         for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
             argAnnotCache.get(className).entrySet()) {
-          String methodName = methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
+          String methodNameAndSignature =
+              methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
 
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
             Integer index = argEntry.getKey();
@@ -1400,7 +1404,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                           + methodEntry.getKey()
                           + " arg "
                           + argEntry.getKey());
-                  mapBuilder.put(methodRef(className, methodName), index);
+                  // remove spaces
+                  methodNameAndSignature = methodNameAndSignature.replaceAll("\\s", "");
+                  mapBuilder.put(methodRef(className, methodNameAndSignature), index);
                 }
               }
             }
@@ -1431,7 +1437,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       for (String className : argAnnotCache.keySet()) {
         for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
             argAnnotCache.get(className).entrySet()) {
-          String methodName = methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
+          String methodNameAndSignature =
+              methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
 
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
             Integer index = argEntry.getKey();
@@ -1439,7 +1446,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
               Set<String> annotations = argEntry.getValue();
               if (annotations.contains("javax.annotation.Nullable")
                   || annotations.contains("org.jspecify.annotations.Nullable")) {
-                builder.add(methodRef(className, methodName));
+                methodNameAndSignature = methodNameAndSignature.replaceAll("\\s", "");
+                builder.add(methodRef(className, methodNameAndSignature));
               }
             }
           }
