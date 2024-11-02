@@ -1387,17 +1387,22 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
             Integer index = argEntry.getKey();
-            if (index >= 0 && argEntry.getValue().contains("NonNull")) {
-              LOG(
-                  DEBUG,
-                  "DEBUG",
-                  "Found non-null parameter: "
-                      + className
-                      + "."
-                      + methodEntry.getKey()
-                      + " arg "
-                      + argEntry.getKey());
-              mapBuilder.put(methodRef(className, methodName), index);
+            if (index >= 0) {
+              for (String annotation : argEntry.getValue()) {
+                if (annotation.contains("NonNull")
+                    || annotation.equals("javax.annotation.Nonnull")) {
+                  LOG(
+                      DEBUG,
+                      "DEBUG",
+                      "Found non-null parameter: "
+                          + className
+                          + "."
+                          + methodEntry.getKey()
+                          + " arg "
+                          + argEntry.getKey());
+                  mapBuilder.put(methodRef(className, methodName), index);
+                }
+              }
             }
           }
         }
@@ -1454,7 +1459,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
   }
 
-  private static boolean DEBUG = true;
+  private static boolean DEBUG = false;
 
   private static void LOG(boolean cond, String tag, String msg) {
     if (cond) {
