@@ -1378,11 +1378,16 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
+      ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
+          new ImmutableSetMultimap.Builder<>();
       for (String className : argAnnotCache.keySet()) {
         for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
             argAnnotCache.get(className).entrySet()) {
+          String methodName = methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
+
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
-            if (argEntry.getValue().contains("NonNull")) {
+            Integer index = argEntry.getKey();
+            if (index >= 0 && argEntry.getValue().contains("NonNull")) {
               LOG(
                   DEBUG,
                   "DEBUG",
@@ -1392,11 +1397,12 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                       + methodEntry.getKey()
                       + " arg "
                       + argEntry.getKey());
+              mapBuilder.put(methodRef(className, methodName), index);
             }
           }
         }
       }
-      return ImmutableSetMultimap.of();
+      return mapBuilder.build();
     }
 
     @Override
@@ -1416,7 +1422,25 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     @Override
     public ImmutableSet<MethodRef> nullableReturns() {
-      return ImmutableSet.of();
+      ImmutableSet.Builder<MethodRef> builder = new ImmutableSet.Builder<>();
+      for (String className : argAnnotCache.keySet()) {
+        for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
+            argAnnotCache.get(className).entrySet()) {
+          String methodName = methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
+
+          for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
+            Integer index = argEntry.getKey();
+            if (index == -1) {
+              Set<String> annotations = argEntry.getValue();
+              if (annotations.contains("javax.annotation.Nullable")
+                  || annotations.contains("org.jspecify.annotations.Nullable")) {
+                builder.add(methodRef(className, methodName));
+              }
+            }
+          }
+        }
+      }
+      return builder.build();
     }
 
     @Override
