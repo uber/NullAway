@@ -132,7 +132,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
       if (annotationEntry.getKey() != RETURN
           && annotationEntry.getValue().contains("javax.annotation.Nonnull")) {
         // Skip 'this' param for non-static methods
-        int nonNullPosition = annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1);
+        int nonNullPosition = annotationEntry.getKey() /* - (methodSymbol.isStatic() ? 0 : 1)*/;
         jiNonNullParams.add(nonNullPosition);
         argumentPositionNullness[nonNullPosition] = Nullness.NONNULL;
       }
