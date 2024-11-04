@@ -618,22 +618,22 @@ public final class GenericsChecks {
     }
 
     List<Symbol.VarSymbol> newFormalParameters = new ArrayList<>();
-    for(Symbol.VarSymbol param : formalParams) {
+    for (Symbol.VarSymbol param : formalParams) {
       Type paramType = param.type;
 
-      if(paramType instanceof Type.TypeVar) {
+      if (paramType instanceof Type.TypeVar) {
         Type.TypeVar typeVar = (Type.TypeVar) paramType;
         Type upperBound = typeVar.getUpperBound();
-        Symbol.VarSymbol newParam = new Symbol.VarSymbol(param.flags_field, param.name, upperBound, param.owner);
+        Symbol.VarSymbol newParam =
+            new Symbol.VarSymbol(param.flags_field, param.name, upperBound, param.owner);
         newFormalParameters.add(newParam);
-//        newFormalParameters.add(param);
-      } else
-      if(paramType instanceof Type.ClassType) {
+        //        newFormalParameters.add(param);
+      } else if (paramType instanceof Type.ClassType) {
         Type.ClassType classType = (Type.ClassType) paramType;
         List<Type> typeArguments = classType.getTypeArguments();
         List<Type> newTypeArguments = new ArrayList<>();
 
-        for(Type typeArg : typeArguments) {
+        for (Type typeArg : typeArguments) {
           if (typeArg instanceof Type.TypeVar) {
             Type.TypeVar typeVar = (Type.TypeVar) typeArg;
             Type upperBound = typeVar.getUpperBound();
@@ -642,12 +642,14 @@ public final class GenericsChecks {
             newTypeArguments.add(typeArg);
           }
         }
-        Type newClassType = (Type) new Type.ClassType(
-                classType.getEnclosingType(),
-                com.sun.tools.javac.util.List.from(newTypeArguments),
-                classType.tsym
-        );
-        Symbol.VarSymbol newParam = new Symbol.VarSymbol(param.flags_field, param.name, newClassType, param.owner);
+        Type newClassType =
+            (Type)
+                new Type.ClassType(
+                    classType.getEnclosingType(),
+                    com.sun.tools.javac.util.List.from(newTypeArguments),
+                    classType.tsym);
+        Symbol.VarSymbol newParam =
+            new Symbol.VarSymbol(param.flags_field, param.name, newClassType, param.owner);
         newFormalParameters.add(newParam);
       } else {
         newFormalParameters.add(param);
