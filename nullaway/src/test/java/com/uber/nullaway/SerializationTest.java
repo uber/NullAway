@@ -31,7 +31,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
-import com.uber.nullaway.fixserialization.adapters.SerializationV4Adapter;
+import com.uber.nullaway.fixserialization.adapters.SerializationV3Adapter;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.tools.DisplayFactory;
 import com.uber.nullaway.tools.ErrorDisplay;
@@ -63,7 +63,7 @@ public class SerializationTest extends NullAwayTestsBase {
 
   private static final String ERROR_FILE_NAME = "errors.tsv";
   private static final String ERROR_FILE_HEADER =
-      new SerializationV4Adapter().getErrorsOutputFileHeader();
+      new SerializationV3Adapter().getErrorsOutputFileHeader();
   private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
   private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
 
@@ -1380,8 +1380,6 @@ public class SerializationTest extends NullAwayTestsBase {
     // Check for serialization version 3 (recall: 2 is skipped and was only used for an alpha
     // release of auto-annotator).
     checkVersionSerialization(3);
-    // Check for serialization version 4.
-    checkVersionSerialization(4);
   }
 
   @Test
