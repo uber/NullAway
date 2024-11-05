@@ -614,11 +614,14 @@ public final class GenericsChecks {
     }
     Type invokedMethodType = methodSymbol.type;
     if (!methodSymbol.isStatic() && tree instanceof MethodInvocationTree) {
-      // TODO what if the receiver is `this`?
-      Type enclosingType =
-          getTreeType(
-              ((MemberSelectTree) ((MethodInvocationTree) tree).getMethodSelect()).getExpression(),
-              state);
+      ExpressionTree methodSelect = ((MethodInvocationTree) tree).getMethodSelect();
+      Type enclosingType;
+      if (methodSelect instanceof MemberSelectTree) {
+        enclosingType = getTreeType(((MemberSelectTree) methodSelect).getExpression(), state);
+      } else {
+        // implicit this parameter
+        enclosingType = methodSymbol.owner.type;
+      }
       if (enclosingType != null) {
         invokedMethodType = state.getTypes().memberType(enclosingType, methodSymbol);
       }

@@ -948,6 +948,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static class A<T extends @Nullable Object> {",
             "    void foo(A<T> a) {}",
+            "    void bar(A<T> a) { foo(a); this.foo(a); }",
             "  }",
             "  static void test(A<@Nullable String> p, A<String> q) {",
             "    // BUG: Diagnostic contains: Cannot pass parameter of type",
