@@ -592,10 +592,10 @@ public final class GenericsChecks {
   }
 
   /**
-   * Checks that for each parameter p at a call, the type parameter nullability for p's type matches
-   * that of the corresponding formal parameter. If a mismatch is found, report an error.
+   * Checks that for each actual parameter p at a call, the type parameter nullability for p's type
+   * matches that of the corresponding formal parameter. If a mismatch is found, report an error.
    *
-   * @param tree the tree to get substituted types
+   * @param tree the tree corresponding to the method invocation
    * @param methodSymbol symbol for the invoked method
    * @param formalParams the formal parameters
    * @param actualParams the actual parameters
