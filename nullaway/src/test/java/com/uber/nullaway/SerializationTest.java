@@ -1988,7 +1988,7 @@ public class SerializationTest extends NullAwayTestsBase {
    */
   public void checkVersionSerialization(int version) {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
-    SerializationAdapter adapter = SerializationAdapter.getAdapter(version);
+    SerializationAdapter adapter = SerializationAdapter.getAdapterForVersion(version);
     tester
         .setArgs(
             Arrays.asList(

@@ -78,7 +78,7 @@ public interface SerializationAdapter {
    * @param version The version of the adapter to return.
    * @return The adapter corresponding to the given version.
    */
-  static SerializationAdapter getAdapter(int version) {
+  static SerializationAdapter getAdapterForVersion(int version) {
     switch (version) {
       case 1:
         return new SerializationV1Adapter();

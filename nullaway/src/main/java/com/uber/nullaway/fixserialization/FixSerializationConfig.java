@@ -59,7 +59,8 @@ public class FixSerializationConfig {
     this.fieldInitInfoEnabled = fieldInitInfoEnabled;
     this.outputDirectory = outputDirectory;
     serializer =
-        new Serializer(this, SerializationAdapter.getAdapter(SerializationAdapter.LATEST_VERSION));
+        new Serializer(
+            this, SerializationAdapter.getAdapterForVersion(SerializationAdapter.LATEST_VERSION));
   }
 
   /**
@@ -89,7 +90,7 @@ public class FixSerializationConfig {
                 document, "/serialization/fieldInitInfo", "active", Boolean.class)
             .orElse(false);
     SerializationAdapter serializationAdapter =
-        SerializationAdapter.getAdapter(serializationVersion);
+        SerializationAdapter.getAdapterForVersion(serializationVersion);
     serializer = new Serializer(this, serializationAdapter);
   }
 
