@@ -626,6 +626,7 @@ public final class GenericsChecks {
         invokedMethodType = state.getTypes().memberType(enclosingType, methodSymbol);
       }
     }
+    // TODO handle generic methods, by calling state.getTypes().subst on invokedMethodType
     List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
     int n = formalParamTypes.size();
     if (isVarArgs) {
