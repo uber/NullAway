@@ -29,8 +29,9 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
-import com.uber.nullaway.fixserialization.adapters.SerializationV3Adapter;
+import com.uber.nullaway.fixserialization.adapters.SerializationV4Adapter;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.tools.DisplayFactory;
 import com.uber.nullaway.tools.ErrorDisplay;
@@ -62,7 +63,7 @@ public class SerializationTest extends NullAwayTestsBase {
 
   private static final String ERROR_FILE_NAME = "errors.tsv";
   private static final String ERROR_FILE_HEADER =
-      new SerializationV3Adapter().getErrorsOutputFileHeader();
+      new SerializationV4Adapter().getErrorsOutputFileHeader();
   private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
   private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
 
@@ -1379,6 +1380,8 @@ public class SerializationTest extends NullAwayTestsBase {
     // Check for serialization version 3 (recall: 2 is skipped and was only used for an alpha
     // release of auto-annotator).
     checkVersionSerialization(3);
+    // Check for serialization version 4.
+    checkVersionSerialization(4);
   }
 
   @Test
@@ -1985,6 +1988,7 @@ public class SerializationTest extends NullAwayTestsBase {
    */
   public void checkVersionSerialization(int version) {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationAdapter adapter = SerializationAdapter.getAdapter(version);
     tester
         .setArgs(
             Arrays.asList(
@@ -1999,7 +2003,7 @@ public class SerializationTest extends NullAwayTestsBase {
         .addSourceLines("com/uber/Test.java", "package com.uber;", "public class Test { }")
         .expectNoOutput()
         .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, adapter.getErrorsOutputFileHeader())
         .doTest();
 
     Path serializationVersionPath = root.resolve("serialization_version.txt");

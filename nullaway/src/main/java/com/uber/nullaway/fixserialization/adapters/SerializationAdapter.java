@@ -71,4 +71,31 @@ public interface SerializationAdapter {
    * @return The serialized method symbol.
    */
   String serializeMethodSignature(Symbol.MethodSymbol methodSymbol);
+
+  /**
+   * Returns the adapter corresponding to the given version.
+   *
+   * @param version The version of the adapter to return.
+   * @return The adapter corresponding to the given version.
+   */
+  static SerializationAdapter getAdapter(int version) {
+    switch (version) {
+      case 1:
+        return new SerializationV1Adapter();
+      case 2:
+        throw new RuntimeException(
+            "Serialization version v2 is skipped and was used for an alpha version of the auto-annotator tool. Please use version 3 instead.");
+      case 3:
+        return new SerializationV3Adapter();
+      case 4:
+        return new SerializationV4Adapter();
+      default:
+        throw new RuntimeException(
+            "Unrecognized NullAway serialization version: "
+                + version
+                + ". Supported versions: 1 to "
+                + SerializationAdapter.LATEST_VERSION
+                + ".");
+    }
+  }
 }
