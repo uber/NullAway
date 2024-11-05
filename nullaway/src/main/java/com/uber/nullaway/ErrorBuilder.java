@@ -36,7 +36,6 @@ import static com.uber.nullaway.Nullness.hasNullableAnnotation;
 
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
@@ -141,9 +140,6 @@ public class ErrorBuilder {
     }
 
     if (config.serializationIsActive()) {
-      if (nonNullTarget != null) {
-        SerializationService.serializeFixSuggestion(config, state, nonNullTarget, errorMessage);
-      }
       // For the case of initializer errors, the leaf of state.getPath() may not be the field /
       // method on which the error is being reported (since we do a class-wide analysis to find such
       // errors).  In such cases, the suggestTree is the appropriate field / method tree, so use
@@ -403,15 +399,12 @@ public class ErrorBuilder {
    * @param message Error message.
    * @param state The VisitorState object.
    * @param descriptionBuilder the description builder for the error.
-   * @param nonNullFields list of @Nonnull fields that are not guaranteed to be initialized along
-   *     all paths at exit points of the constructor.
    */
   void reportInitializerError(
       Symbol.MethodSymbol methodSymbol,
       String message,
       VisitorState state,
-      Description.Builder descriptionBuilder,
-      ImmutableList<Symbol> nonNullFields) {
+      Description.Builder descriptionBuilder) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
     // method itself).
@@ -424,13 +417,6 @@ public class ErrorBuilder {
     ErrorMessage errorMessage = new ErrorMessage(METHOD_NO_INIT, message);
     state.reportMatch(
         createErrorDescription(errorMessage, methodTree, descriptionBuilder, state, null));
-    if (config.serializationIsActive()) {
-      // For now, we serialize each fix suggestion separately and measure their effectiveness
-      // separately
-      nonNullFields.forEach(
-          symbol ->
-              SerializationService.serializeFixSuggestion(config, state, symbol, errorMessage));
-    }
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
