@@ -73,10 +73,10 @@ public interface SerializationAdapter {
   String serializeMethodSignature(Symbol.MethodSymbol methodSymbol);
 
   /**
-   * Returns the adapter corresponding to the given version.
+   * Gets the adapter for the given version number.
    *
-   * @param version The version of the adapter to return.
-   * @return The adapter corresponding to the given version.
+   * @param version Version number of the adapter.
+   * @return Adapter for the given version.
    */
   static SerializationAdapter getAdapterForVersion(int version) {
     switch (version) {
