@@ -595,14 +595,16 @@ public final class GenericsChecks {
    * Checks that for each parameter p at a call, the type parameter nullability for p's type matches
    * that of the corresponding formal parameter. If a mismatch is found, report an error.
    *
-   * @param formalParams the formal parameters
-   * @param actualParams the actual parameters
+   * @param methodSymbol the symbol for the method being called
+   * @param tree the tree representing the method call
+   * @param actualParams the actual parameters at the call
    * @param isVarArgs true if the call is to a varargs method
    * @param analysis the analysis object
    * @param state the visitor state
    */
   public static void compareGenericTypeParameterNullabilityForCall(
-      List<Symbol.VarSymbol> formalParams,
+      Symbol.MethodSymbol methodSymbol,
+      Tree tree,
       List<? extends ExpressionTree> actualParams,
       boolean isVarArgs,
       NullAway analysis,
@@ -610,14 +612,26 @@ public final class GenericsChecks {
     if (!analysis.getConfig().isJSpecifyMode()) {
       return;
     }
-    int n = formalParams.size();
+    Type invokedMethodType = methodSymbol.type;
+    if (!methodSymbol.isStatic() && tree instanceof MethodInvocationTree) {
+      // TODO what if the receiver is `this`?
+      Type enclosingType =
+          getTreeType(
+              ((MemberSelectTree) ((MethodInvocationTree) tree).getMethodSelect()).getExpression(),
+              state);
+      if (enclosingType != null) {
+        invokedMethodType = state.getTypes().memberType(enclosingType, methodSymbol);
+      }
+    }
+    List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
+    int n = formalParamTypes.size();
     if (isVarArgs) {
       // If the last argument is var args, don't check it now, it will be checked against
       // all remaining actual arguments in the next loop.
       n = n - 1;
     }
     for (int i = 0; i < n; i++) {
-      Type formalParameter = formalParams.get(i).type;
+      Type formalParameter = formalParamTypes.get(i);
       if (formalParameter.isRaw()) {
         // bail out of any checking involving raw types for now
         return;
@@ -630,11 +644,11 @@ public final class GenericsChecks {
         }
       }
     }
-    if (isVarArgs && !formalParams.isEmpty()) {
+    if (isVarArgs && !formalParamTypes.isEmpty()) {
       Type.ArrayType varargsArrayType =
-          (Type.ArrayType) formalParams.get(formalParams.size() - 1).type;
+          (Type.ArrayType) formalParamTypes.get(formalParamTypes.size() - 1);
       Type varargsElementType = varargsArrayType.elemtype;
-      for (int i = formalParams.size() - 1; i < actualParams.size(); i++) {
+      for (int i = formalParamTypes.size() - 1; i < actualParams.size(); i++) {
         Type actualParameterType = getTreeType(actualParams.get(i), state);
         // If the actual parameter type is assignable to the varargs array type, then the call site
         // is passing the varargs directly in an array, and we should skip our check.
