@@ -595,6 +595,8 @@ public final class GenericsChecks {
    * Checks that for each parameter p at a call, the type parameter nullability for p's type matches
    * that of the corresponding formal parameter. If a mismatch is found, report an error.
    *
+   * @param tree the tree to get substituted types
+   * @param methodSymbol symbol for the invoked method
    * @param formalParams the formal parameters
    * @param actualParams the actual parameters
    * @param isVarArgs true if the call is to a varargs method
@@ -602,6 +604,8 @@ public final class GenericsChecks {
    * @param state the visitor state
    */
   public static void compareGenericTypeParameterNullabilityForCall(
+      Tree tree,
+      Symbol.MethodSymbol methodSymbol,
       List<Symbol.VarSymbol> formalParams,
       List<? extends ExpressionTree> actualParams,
       boolean isVarArgs,
@@ -616,8 +620,27 @@ public final class GenericsChecks {
       // all remaining actual arguments in the next loop.
       n = n - 1;
     }
+
+    List<Type> extractTypes = new ArrayList<>();
+    for (Symbol.VarSymbol param : formalParams) {
+      extractTypes.add(param.type);
+    }
+    List<Type> formalParamTypes = com.sun.tools.javac.util.List.from(extractTypes);
+
+    if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
+      MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
+
+      List<? extends Tree> typeArgumentTrees = methodInvocationTree.getTypeArguments();
+      com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
+
+      Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
+      Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
+      formalParamTypes =
+          state.getTypes().subst(underlyingMethodType.argtypes, forAllType.tvars, explicitTypeArgs);
+    }
+
     for (int i = 0; i < n; i++) {
-      Type formalParameter = formalParams.get(i).type;
+      Type formalParameter = formalParamTypes.get(i);
       if (formalParameter.isRaw()) {
         // bail out of any checking involving raw types for now
         return;
