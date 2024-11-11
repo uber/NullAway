@@ -29,14 +29,13 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV3Adapter;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
-import com.uber.nullaway.fixserialization.out.SuggestedNullableFixInfo;
 import com.uber.nullaway.tools.DisplayFactory;
 import com.uber.nullaway.tools.ErrorDisplay;
 import com.uber.nullaway.tools.FieldInitDisplay;
-import com.uber.nullaway.tools.FixDisplay;
 import com.uber.nullaway.tools.SerializationTestHelper;
 import com.uber.nullaway.tools.version1.ErrorDisplayV1;
 import java.io.IOException;
@@ -59,12 +58,9 @@ import org.mockito.stubbing.Answer;
 public class SerializationTest extends NullAwayTestsBase {
   private String configPath;
   private Path root;
-  private final DisplayFactory<FixDisplay> fixDisplayFactory;
   private final DisplayFactory<ErrorDisplay> errorDisplayFactory;
   private final DisplayFactory<FieldInitDisplay> fieldInitDisplayFactory;
 
-  private static final String SUGGEST_FIX_FILE_NAME = "fixes.tsv";
-  private static final String SUGGEST_FIX_FILE_HEADER = SuggestedNullableFixInfo.header();
   private static final String ERROR_FILE_NAME = "errors.tsv";
   private static final String ERROR_FILE_HEADER =
       new SerializationV3Adapter().getErrorsOutputFileHeader();
@@ -72,21 +68,6 @@ public class SerializationTest extends NullAwayTestsBase {
   private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
 
   public SerializationTest() {
-    this.fixDisplayFactory =
-        values -> {
-          Preconditions.checkArgument(
-              values.length == 10,
-              "Needs exactly 10 values to create FixDisplay object but found: " + values.length);
-          // Fixes are written in Temp Directory and is not known at compile time, therefore,
-          // relative paths are getting compared.
-          return new FixDisplay(
-              values[7],
-              values[2],
-              values[3],
-              values[0],
-              values[1],
-              SerializationTestHelper.getRelativePathFromUnitTestTempDirectory(values[5]));
-        };
     this.errorDisplayFactory =
         values -> {
           Preconditions.checkArgument(
@@ -130,7 +111,7 @@ public class SerializationTest extends NullAwayTestsBase {
     try {
       Files.createDirectories(root);
       FixSerializationConfig.Builder builder =
-          new FixSerializationConfig.Builder().setSuggest(true, false).setOutputDirectory(output);
+          new FixSerializationConfig.Builder().setOutputDirectory(output);
       Path config = root.resolve("serializer.xml");
       Files.createFile(config);
       configPath = config.toString();
@@ -142,7 +123,7 @@ public class SerializationTest extends NullAwayTestsBase {
 
   @Test
   public void suggestNullableReturnSimpleTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
             Arrays.asList(
@@ -164,21 +145,27 @@ public class SerializationTest extends NullAwayTestsBase {
             "   }",
             "}")
         .setExpectedOutputs(
-            new FixDisplay(
-                "nullable",
+            new ErrorDisplay(
+                "RETURN_NULLABLE",
+                "returning @Nullable expression from method with @NonNull return type",
+                "com.uber.SubClass",
                 "test(boolean)",
-                "null",
+                201,
+                "com/uber/SubClass.java",
                 "METHOD",
                 "com.uber.SubClass",
+                "test(boolean)",
+                "null",
+                "null",
                 "com/uber/SubClass.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
 
   @Test
   public void suggestNullableReturnSuperClassTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
             Arrays.asList(
@@ -212,21 +199,27 @@ public class SerializationTest extends NullAwayTestsBase {
             "   }",
             "}")
         .setExpectedOutputs(
-            new FixDisplay(
-                "nullable",
+            new ErrorDisplay(
+                "WRONG_OVERRIDE_RETURN",
+                "method returns @Nullable, but superclass method com.uber.Super.test(boolean) returns @NonNull",
+                "com.uber.SubClass",
                 "test(boolean)",
-                "null",
+                176,
+                "com/uber/test/SubClass.java",
                 "METHOD",
                 "com.uber.Super",
+                "test(boolean)",
+                "null",
+                "null",
                 "com/uber/android/Super.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
 
   @Test
   public void suggestNullableParamSimpleTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
             Arrays.asList(
@@ -250,21 +243,27 @@ public class SerializationTest extends NullAwayTestsBase {
             "   }",
             "}")
         .setExpectedOutputs(
-            new FixDisplay(
-                "nullable",
-                "run(int,java.lang.Object)",
-                "h",
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter 'o' where @NonNull is required",
+                "com.uber.Test",
+                "test_param(java.lang.String)",
+                265,
+                "com/uber/android/Test.java",
                 "PARAMETER",
                 "com.uber.Test",
+                "run(int,java.lang.Object)",
+                "h",
+                "1",
                 "com/uber/android/Test.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
 
   @Test
   public void suggestNullableParamSubclassTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
             Arrays.asList(
@@ -298,21 +297,27 @@ public class SerializationTest extends NullAwayTestsBase {
             "   }",
             "}")
         .setExpectedOutputs(
-            new FixDisplay(
-                "nullable",
+            new ErrorDisplay(
+                "WRONG_OVERRIDE_PARAM",
+                "parameter o is @NonNull, but parameter in superclass method com.uber.Super.test(java.lang.Object) is @Nullable",
+                "com.uber.SubClass",
                 "test(java.lang.Object)",
-                "o",
+                182,
+                "com/uber/test/SubClass.java",
                 "PARAMETER",
                 "com.uber.SubClass",
+                "test(java.lang.Object)",
+                "o",
+                "0",
                 "com/uber/test/SubClass.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
 
   @Test
   public void suggestNullableParamThisConstructorTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
             Arrays.asList(
@@ -337,21 +342,27 @@ public class SerializationTest extends NullAwayTestsBase {
             "",
             "}")
         .setExpectedOutputs(
-            new FixDisplay(
-                "nullable",
-                "Test(java.lang.Object)",
-                "o",
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter 'null' where @NonNull is required",
+                "com.uber.Test",
+                "Test()",
+                196,
+                "com/uber/test/Test.java",
                 "PARAMETER",
                 "com.uber.Test",
+                "Test(java.lang.Object)",
+                "o",
+                "0",
                 "com/uber/test/Test.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
 
   @Test
   public void suggestNullableParamGenericsTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
             Arrays.asList(
@@ -381,21 +392,27 @@ public class SerializationTest extends NullAwayTestsBase {
             "   }",
             "}")
         .setExpectedOutputs(
-            new FixDisplay(
-                "nullable",
-                "newStatement(T,java.util.ArrayList,boolean,boolean)",
-                "lhs",
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter 'null' where @NonNull is required",
+                "com.uber.Child",
+                "newSideEffect(java.util.ArrayList)",
+                198,
+                "com/uber/Child.java",
                 "PARAMETER",
                 "com.uber.Super",
+                "newStatement(T,java.util.ArrayList,boolean,boolean)",
+                "lhs",
+                "0",
                 "com/uber/Super.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
 
   @Test
   public void suggestNullableFieldSimpleTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
             Arrays.asList(
@@ -417,16 +434,27 @@ public class SerializationTest extends NullAwayTestsBase {
             "   }",
             "}")
         .setExpectedOutputs(
-            new FixDisplay(
-                "nullable", "null", "h", "FIELD", "com.uber.Super", "com/uber/android/Super.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.Super",
+                "test(java.lang.Object)",
+                234,
+                "com/uber/android/Super.java",
+                "FIELD",
+                "com.uber.Super",
+                "null",
+                "h",
+                "null",
+                "com/uber/android/Super.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
 
   @Test
   public void suggestNullableFieldInitializationTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
             Arrays.asList(
@@ -450,16 +478,27 @@ public class SerializationTest extends NullAwayTestsBase {
             "   }",
             "}")
         .setExpectedOutputs(
-            new FixDisplay(
-                "nullable", "null", "f", "FIELD", "com.uber.Super", "com/uber/android/Super.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+            new ErrorDisplay(
+                "ASSIGN_FIELD_NULLABLE",
+                "assigning @Nullable expression to @NonNull field",
+                "com.uber.Super",
+                "f",
+                128,
+                "com/uber/android/Super.java",
+                "FIELD",
+                "com.uber.Super",
+                "null",
+                "f",
+                "null",
+                "com/uber/android/Super.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
 
   @Test
   public void suggestNullableFieldControlFlowTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
             Arrays.asList(
@@ -501,22 +540,40 @@ public class SerializationTest extends NullAwayTestsBase {
             "   }",
             "}")
         .setExpectedOutputs(
-            new FixDisplay(
-                "nullable", "null", "h", "FIELD", "com.uber.Test", "com/uber/android/Test.java"),
-            new FixDisplay(
-                "nullable", "null", "f", "FIELD", "com.uber.Test", "com/uber/android/Test.java"),
-            new FixDisplay(
-                "nullable", "null", "g", "FIELD", "com.uber.Test", "com/uber/android/Test.java"),
-            new FixDisplay(
-                "nullable", "null", "i", "FIELD", "com.uber.Test", "com/uber/android/Test.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+            new ErrorDisplay(
+                "METHOD_NO_INIT",
+                "initializer method does not guarantee @NonNull fields h (line 5), f (line 5) are initialized along all control-flow paths",
+                "com.uber.Test",
+                "Test(boolean)",
+                184,
+                "com/uber/android/Test.java",
+                "null",
+                "null",
+                "null",
+                "null",
+                "null",
+                "null"),
+            new ErrorDisplay(
+                "METHOD_NO_INIT",
+                "initializer method does not guarantee @NonNull fields g (line 5), i (line 5) are initialized along all control-flow paths",
+                "com.uber.Test",
+                "Test(boolean,boolean)",
+                425,
+                "com/uber/android/Test.java",
+                "null",
+                "null",
+                "null",
+                "null",
+                "null",
+                "null"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
 
   @Test
   public void suggestNullableNoInitializationFieldTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
             Arrays.asList(
@@ -533,93 +590,21 @@ public class SerializationTest extends NullAwayTestsBase {
             "   Object f;",
             "}")
         .setExpectedOutputs(
-            new FixDisplay(
-                "nullable", "null", "f", "FIELD", "com.uber.Test", "com/uber/android/Test.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
-        .doTest();
-  }
-
-  @Test
-  public void skipSuggestPassNullableParamExplicitNonnullTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
-    tester
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:SerializeFixMetadata=true",
-                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
-        .addSourceLines(
-            "com/uber/android/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import javax.annotation.Nonnull;",
-            "public class Test {",
-            "   Object test(int i, @Nonnull Object h) {",
-            "     return h;",
-            "   }",
-            "   Object test_param(@Nullable String o) {",
-            "   // BUG: Diagnostic contains: passing @Nullable",
-            "     return test(0, o);",
-            "   }",
-            "}")
-        .expectNoOutput()
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
-        .doTest();
-  }
-
-  @Test
-  public void skipSuggestReturnNullableExplicitNonnullTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
-    tester
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:SerializeFixMetadata=true",
-                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
-        .addSourceLines(
-            "com/uber/Base.java",
-            "package com.uber;",
-            "import javax.annotation.Nonnull;",
-            "public class Base {",
-            "   @Nonnull Object test() {",
-            "     // BUG: Diagnostic contains: returning @Nullable",
-            "     return null;",
-            "   }",
-            "}")
-        .expectNoOutput()
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
-        .doTest();
-  }
-
-  @Test
-  public void skipSuggestFieldNullableExplicitNonnullTest() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
-    tester
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:SerializeFixMetadata=true",
-                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
-        .addSourceLines(
-            "com/uber/Base.java",
-            "package com.uber;",
-            "import javax.annotation.Nonnull;",
-            "public class Base {",
-            "   // BUG: Diagnostic contains: field f not initialized",
-            "   @Nonnull Object f;",
-            "}")
-        .expectNoOutput()
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+            new ErrorDisplay(
+                "FIELD_NO_INIT",
+                "field f not initialized",
+                "com.uber.Test",
+                "f",
+                97,
+                "com/uber/android/Test.java",
+                "FIELD",
+                "com.uber.Test",
+                "null",
+                "f",
+                "null",
+                "com/uber/android/Test.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
 
@@ -811,10 +796,7 @@ public class SerializationTest extends NullAwayTestsBase {
     try {
       Files.createDirectories(tempRoot);
       FixSerializationConfig.Builder builder =
-          new FixSerializationConfig.Builder()
-              .setSuggest(true, false)
-              .setFieldInitInfo(true)
-              .setOutputDirectory(output);
+          new FixSerializationConfig.Builder().setFieldInitInfo(true).setOutputDirectory(output);
       Path config = tempRoot.resolve("serializer.xml");
       Files.createFile(config);
       configPath = config.toString();
@@ -981,42 +963,6 @@ public class SerializationTest extends NullAwayTestsBase {
 
   @Test
   public void errorSerializationTestIdenticalLocalTypes() {
-    String[] sourceLines = {
-      "package com.uber;",
-      "import javax.annotation.Nullable;",
-      "public class TestWithLocalTypes {",
-      "   @Nullable String test(Object o) {",
-      "     class LocalType {",
-      "         public String returnsNullable() {",
-      "             // BUG: Diagnostic contains: returning @Nullable expression",
-      "             return null;",
-      "         }",
-      "     }",
-      "     LocalType local = new LocalType();",
-      "     return local.returnsNullable();",
-      "   }",
-      "   @Nullable String test2(Object o) {",
-      "     class LocalType {",
-      "         public String returnsNullable2() {",
-      "             // BUG: Diagnostic contains: returning @Nullable expression",
-      "             return null;",
-      "         }",
-      "     }",
-      "     LocalType local = new LocalType();",
-      "     return local.returnsNullable2();",
-      "   }",
-      "   @Nullable String test2() {",
-      "     class LocalType {",
-      "         public String returnsNullable2() {",
-      "             // BUG: Diagnostic contains: returning @Nullable expression",
-      "             return null;",
-      "         }",
-      "     }",
-      "     LocalType local = new LocalType();",
-      "     return local.returnsNullable2();",
-      "   }",
-      "}"
-    };
     SerializationTestHelper<ErrorDisplay> errorTester = new SerializationTestHelper<>(root);
     errorTester
         .setArgs(
@@ -1026,7 +972,42 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
-        .addSourceLines("com/uber/TestWithLocalTypes.java", sourceLines)
+        .addSourceLines(
+            "com/uber/TestWithLocalTypes.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class TestWithLocalTypes {",
+            "   @Nullable String test(Object o) {",
+            "     class LocalType {",
+            "         public String returnsNullable() {",
+            "             // BUG: Diagnostic contains: returning @Nullable expression",
+            "             return null;",
+            "         }",
+            "     }",
+            "     LocalType local = new LocalType();",
+            "     return local.returnsNullable();",
+            "   }",
+            "   @Nullable String test2(Object o) {",
+            "     class LocalType {",
+            "         public String returnsNullable2() {",
+            "             // BUG: Diagnostic contains: returning @Nullable expression",
+            "             return null;",
+            "         }",
+            "     }",
+            "     LocalType local = new LocalType();",
+            "     return local.returnsNullable2();",
+            "   }",
+            "   @Nullable String test2() {",
+            "     class LocalType {",
+            "         public String returnsNullable2() {",
+            "             // BUG: Diagnostic contains: returning @Nullable expression",
+            "             return null;",
+            "         }",
+            "     }",
+            "     LocalType local = new LocalType();",
+            "     return local.returnsNullable2();",
+            "   }",
+            "}")
         .setExpectedOutputs(
             new ErrorDisplay(
                 "RETURN_NULLABLE",
@@ -1069,41 +1050,6 @@ public class SerializationTest extends NullAwayTestsBase {
                 "com/uber/TestWithLocalTypes.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
-        .doTest();
-    SerializationTestHelper<FixDisplay> fixTester = new SerializationTestHelper<>(root);
-    fixTester
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:SerializeFixMetadata=true",
-                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
-        .addSourceLines("com/uber/TestWithLocalTypes.java", sourceLines)
-        .setExpectedOutputs(
-            new FixDisplay(
-                "nullable",
-                "returnsNullable()",
-                "null",
-                "METHOD",
-                "com.uber.TestWithLocalTypes$1LocalType",
-                "com/uber/TestWithLocalTypes.java"),
-            new FixDisplay(
-                "nullable",
-                "returnsNullable2()",
-                "null",
-                "METHOD",
-                "com.uber.TestWithLocalTypes$2LocalType",
-                "com/uber/TestWithLocalTypes.java"),
-            new FixDisplay(
-                "nullable",
-                "returnsNullable2()",
-                "null",
-                "METHOD",
-                "com.uber.TestWithLocalTypes$3LocalType",
-                "com/uber/TestWithLocalTypes.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
         .doTest();
   }
 
@@ -1547,7 +1493,7 @@ public class SerializationTest extends NullAwayTestsBase {
 
   @Test
   public void suggestNullableArgumentOnBytecode() {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
             Arrays.asList(
@@ -1569,15 +1515,21 @@ public class SerializationTest extends NullAwayTestsBase {
             "   }",
             "}")
         .setExpectedOutputs(
-            new FixDisplay(
-                "nullable",
-                "foo(java.lang.Object)",
-                "x",
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter 'null' where @NonNull is required",
+                "com.uber.UsesUnannotated",
+                "test(boolean)",
+                263,
+                "com/uber/UsesUnannotated.java",
                 "PARAMETER",
                 "com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass",
+                "foo(java.lang.Object)",
+                "x",
+                "0",
                 "com/uber/nullaway/testdata/unannotated/MinimalUnannotatedClass.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
 
@@ -1603,7 +1555,7 @@ public class SerializationTest extends NullAwayTestsBase {
                     }
                     return answer;
                   });
-      SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+      SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
       tester
           .setArgs(
               Arrays.asList(
@@ -1625,15 +1577,21 @@ public class SerializationTest extends NullAwayTestsBase {
               "   }",
               "}")
           .setExpectedOutputs(
-              new FixDisplay(
-                  "nullable",
-                  "foo(java.lang.Object)",
-                  "x",
+              new ErrorDisplay(
+                  "PASS_NULLABLE",
+                  "passing @Nullable parameter 'null' where @NonNull is required",
+                  "com.uber.UsesUnannotated",
+                  "test(boolean)",
+                  263,
+                  "com/uber/UsesUnannotated.java",
                   "PARAMETER",
                   "com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass",
+                  "foo(java.lang.Object)",
+                  "x",
+                  "0",
                   "null")) // <- ! the important bit
-          .setFactory(fixDisplayFactory)
-          .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+          .setFactory(errorDisplayFactory)
+          .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
           .doTest();
     }
   }
@@ -2027,7 +1985,8 @@ public class SerializationTest extends NullAwayTestsBase {
    *     to be read from "serialization_version.txt".
    */
   public void checkVersionSerialization(int version) {
-    SerializationTestHelper<FixDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationAdapter adapter = SerializationAdapter.getAdapterForVersion(version);
     tester
         .setArgs(
             Arrays.asList(
@@ -2039,20 +1998,10 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         // Just to run serialization features, the serialized fixes are not point of interest in
         // this test.
-        .addSourceLines(
-            "com/uber/Test.java",
-            "package com.uber;",
-            "public class Test {",
-            "   Object run() {",
-            "    // BUG: Diagnostic contains: returning @Nullable expression",
-            "    return null;",
-            "   }",
-            "}")
-        .setExpectedOutputs(
-            new FixDisplay(
-                "nullable", "run()", "null", "METHOD", "com.uber.Test", "com/uber/Test.java"))
-        .setFactory(fixDisplayFactory)
-        .setOutputFileNameAndHeader(SUGGEST_FIX_FILE_NAME, SUGGEST_FIX_FILE_HEADER)
+        .addSourceLines("com/uber/Test.java", "package com.uber;", "public class Test { }")
+        .expectNoOutput()
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, adapter.getErrorsOutputFileHeader())
         .doTest();
 
     Path serializationVersionPath = root.resolve("serialization_version.txt");

@@ -133,12 +133,6 @@ public class XMLUtil {
       Element rootElement = doc.createElement("serialization");
       doc.appendChild(rootElement);
 
-      // Suggest
-      Element suggestElement = doc.createElement("suggest");
-      suggestElement.setAttribute("active", String.valueOf(config.suggestEnabled));
-      suggestElement.setAttribute("enclosing", String.valueOf(config.suggestEnclosing));
-      rootElement.appendChild(suggestElement);
-
       // Field Initialization
       Element fieldInitInfoEnabled = doc.createElement("fieldInitInfo");
       fieldInitInfoEnabled.setAttribute("active", String.valueOf(config.fieldInitInfoEnabled));
