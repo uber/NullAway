@@ -122,7 +122,8 @@ public class JarInferIntegrationTest {
    * project which determines which SDK version's models are being tested.
    */
   @Test
-  @Ignore("temporarily ignore while making some astubx format changes")
+  @Ignore(
+      "temporarily ignore while making some astubx format changes; see https://github.com/uber/NullAway/issues/1072")
   public void jarInferAndroidSDKModels() {
     compilationHelper
         .setArgs(
