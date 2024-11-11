@@ -637,7 +637,7 @@ public final class GenericsChecks {
       Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
       Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
       formalParamTypes =
-              state.getTypes().subst(underlyingMethodType.argtypes, forAllType.tvars, explicitTypeArgs);
+          state.getTypes().subst(underlyingMethodType.argtypes, forAllType.tvars, explicitTypeArgs);
     }
     int n = formalParamTypes.size();
     if (isVarArgs) {
