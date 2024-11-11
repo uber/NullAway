@@ -389,8 +389,6 @@ public class LibraryModelGenerator {
      */
     private ImmutableMap<Integer, ImmutableSet<String>> getNullableParameters(
         MethodDeclaration md) {
-      // TODO treat receiver of instance method as parameter 0, for consistency with JarInfer stubx
-      //  generation
       ImmutableMap.Builder<Integer, ImmutableSet<String>> mapBuilder = ImmutableMap.builder();
       List<Parameter> parameterList = md.getParameters();
       for (int i = 0; i < parameterList.size(); i++) {
