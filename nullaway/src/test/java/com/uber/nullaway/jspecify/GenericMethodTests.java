@@ -105,7 +105,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore("requires generic method support")
   public void genericMethodAndVoidType() {
     makeHelper()
         .addSourceLines(
@@ -127,7 +126,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "  }",
             "  static void test(Foo f) {",
             "    // this is safe",
-            "    f.foo(null, new MyVisitor());",
+            "    f.<@Nullable Void>foo(null, new MyVisitor());",
             "  }",
             "}")
         .doTest();

@@ -628,6 +628,17 @@ public final class GenericsChecks {
     }
     // TODO handle generic methods, by calling state.getTypes().subst on invokedMethodType
     List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
+    if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
+      MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
+
+      List<? extends Tree> typeArgumentTrees = methodInvocationTree.getTypeArguments();
+      com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
+
+      Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
+      Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
+      formalParamTypes =
+              state.getTypes().subst(underlyingMethodType.argtypes, forAllType.tvars, explicitTypeArgs);
+    }
     int n = formalParamTypes.size();
     if (isVarArgs) {
       // If the last argument is var args, don't check it now, it will be checked against
