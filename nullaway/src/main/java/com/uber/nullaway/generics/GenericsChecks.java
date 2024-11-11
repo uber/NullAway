@@ -626,8 +626,7 @@ public final class GenericsChecks {
         invokedMethodType = state.getTypes().memberType(enclosingType, methodSymbol);
       }
     }
-    // TODO handle generic methods, by calling state.getTypes().subst on invokedMethodType
-    List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
+    // Handle generic methods
     if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
       MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
 
@@ -636,9 +635,10 @@ public final class GenericsChecks {
 
       Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
       Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
-      formalParamTypes =
-          state.getTypes().subst(underlyingMethodType.argtypes, forAllType.tvars, explicitTypeArgs);
+      invokedMethodType =
+          state.getTypes().subst(underlyingMethodType, forAllType.tvars, explicitTypeArgs);
     }
+    List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
     int n = formalParamTypes.size();
     if (isVarArgs) {
       // If the last argument is var args, don't check it now, it will be checked against
