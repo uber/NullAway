@@ -628,15 +628,8 @@ public final class GenericsChecks {
     }
     // Handle generic methods
     if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
-      MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
-
-      List<? extends Tree> typeArgumentTrees = methodInvocationTree.getTypeArguments();
-      com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
-
-      Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
-      Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
       invokedMethodType =
-          state.getTypes().subst(underlyingMethodType, forAllType.tvars, explicitTypeArgs);
+          substituteGenericTypeArgsToExplicit((MethodInvocationTree) tree, methodSymbol, state);
     }
     List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
     int n = formalParamTypes.size();
@@ -825,19 +818,9 @@ public final class GenericsChecks {
       Config config) {
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
-      List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
-      com.sun.tools.javac.util.List<Type> explicitTypeArgs =
-          convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
-      Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
-      // Extract the underlying MethodType (the actual signature)
-      Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.asMethodType();
       // Substitute type arguments inside the return type
-      // NOTE: if the return type it not a type variable of the method itself, or if
-      // explicitTypeArgs is empty, this is a noop.
       Type substitutedReturnType =
-          state
-              .getTypes()
-              .subst(methodTypeInsideForAll.restype, forAllType.tvars, explicitTypeArgs);
+          substituteGenericTypeArgsToExplicit(tree, invokedMethodSymbol, state).getReturnType();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedReturnType != null
@@ -869,6 +852,20 @@ public final class GenericsChecks {
       }
     }
     return com.sun.tools.javac.util.List.from(types);
+  }
+
+  private static Type substituteGenericTypeArgsToExplicit(
+      MethodInvocationTree methodInvocationTreetree,
+      Symbol.MethodSymbol methodSymbol,
+      VisitorState state) {
+    MethodInvocationTree methodInvocationTree = (MethodInvocationTree) methodInvocationTreetree;
+
+    List<? extends Tree> typeArgumentTrees = methodInvocationTree.getTypeArguments();
+    com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
+
+    Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
+    Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
+    return state.getTypes().subst(underlyingMethodType, forAllType.tvars, explicitTypeArgs);
   }
 
   /**
@@ -913,23 +910,10 @@ public final class GenericsChecks {
       Config config) {
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
-      List<? extends Tree> typeArgumentTrees = tree.getTypeArguments();
-      com.sun.tools.javac.util.List<Type> explicitTypeArgs =
-          convertTreesToTypes(typeArgumentTrees); // Convert to Type objects
-
-      Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
-      // Extract the underlying MethodType (the actual signature)
-      Type.MethodType methodTypeInsideForAll = (Type.MethodType) forAllType.qtype;
       // Substitute the argument types within the MethodType
       // NOTE: if explicitTypeArgs is empty, this is a noop
       List<Type> substitutedParamTypes =
-          state
-              .getTypes()
-              .subst(
-                  methodTypeInsideForAll.argtypes,
-                  forAllType.tvars, // The type variables from the ForAll
-                  explicitTypeArgs // The actual type arguments from the method invocation
-                  );
+          substituteGenericTypeArgsToExplicit(tree, invokedMethodSymbol, state).getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedParamTypes != null
