@@ -133,7 +133,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore("requires generic method support")
+  @Ignore("requires inference of generic method type arguments")
   public void genericMethodAndVoidTypeWithInference() {
     makeHelper()
         .addSourceLines(
