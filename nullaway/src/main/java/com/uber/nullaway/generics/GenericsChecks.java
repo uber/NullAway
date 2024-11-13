@@ -613,6 +613,7 @@ public final class GenericsChecks {
       return;
     }
     Type invokedMethodType = methodSymbol.type;
+    // substitute class-level type arguments for instance methods
     if (!methodSymbol.isStatic() && tree instanceof MethodInvocationTree) {
       ExpressionTree methodSelect = ((MethodInvocationTree) tree).getMethodSelect();
       Type enclosingType;
@@ -626,10 +627,10 @@ public final class GenericsChecks {
         invokedMethodType = state.getTypes().memberType(enclosingType, methodSymbol);
       }
     }
-    // Handle generic methods
+    // substitute type arguments for generic methods
     if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
       invokedMethodType =
-          substituteGenericTypeArgsToExplicit((MethodInvocationTree) tree, methodSymbol, state);
+          substituteTypeArgsInGenericMethodType((MethodInvocationTree) tree, methodSymbol, state);
     }
     List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
     int n = formalParamTypes.size();
@@ -820,7 +821,7 @@ public final class GenericsChecks {
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute type arguments inside the return type
       Type substitutedReturnType =
-          substituteGenericTypeArgsToExplicit(tree, invokedMethodSymbol, state).getReturnType();
+          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state).getReturnType();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedReturnType != null
@@ -854,11 +855,18 @@ public final class GenericsChecks {
     return com.sun.tools.javac.util.List.from(types);
   }
 
-  private static Type substituteGenericTypeArgsToExplicit(
-      MethodInvocationTree methodInvocationTreetree,
+  /**
+   * Substitutes the type arguments from a generic method invocation into the method's type.
+   *
+   * @param methodInvocationTree the method invocation tree
+   * @param methodSymbol symbol for the invoked generic method
+   * @param state the visitor state
+   * @return the substituted method type for the generic method
+   */
+  private static Type substituteTypeArgsInGenericMethodType(
+      MethodInvocationTree methodInvocationTree,
       Symbol.MethodSymbol methodSymbol,
       VisitorState state) {
-    MethodInvocationTree methodInvocationTree = (MethodInvocationTree) methodInvocationTreetree;
 
     List<? extends Tree> typeArgumentTrees = methodInvocationTree.getTypeArguments();
     com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
@@ -913,7 +921,8 @@ public final class GenericsChecks {
       // Substitute the argument types within the MethodType
       // NOTE: if explicitTypeArgs is empty, this is a noop
       List<Type> substitutedParamTypes =
-          substituteGenericTypeArgsToExplicit(tree, invokedMethodSymbol, state).getParameterTypes();
+          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state)
+              .getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedParamTypes != null
