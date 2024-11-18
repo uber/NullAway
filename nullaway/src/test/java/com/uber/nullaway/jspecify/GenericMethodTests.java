@@ -161,6 +161,30 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void genericInferenceOnAssignments() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "    class Test {",
+            "      static class Foo<T extends @Nullable Object> {",
+            "        Foo(T t) {}",
+            "        static <U extends @Nullable Object> Foo<U> make(U u) {",
+            "          return new Foo<>(u);",
+            "        }",
+            "      }",
+            "      static void testLocalAssign() {",
+            "        // legal",
+            "        Foo<@Nullable Object> f = Foo.make(null);",
+            "        // illegal",
+            "        Foo<Object> f2 = Foo.make(null);",
+            "      }",
+            "    }")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
