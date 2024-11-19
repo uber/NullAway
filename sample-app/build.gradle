@@ -47,6 +47,7 @@ android {
         variant.getJavaCompileProvider().configure {
             options.compilerArgs += [
                 "-XDcompilePolicy=simple",
+                "--should-stop=ifError=FLOW",
                 "-Xplugin:ErrorProne -XepOpt:NullAway:AnnotatedPackages=com.uber",
             ]
             options.fork = true
