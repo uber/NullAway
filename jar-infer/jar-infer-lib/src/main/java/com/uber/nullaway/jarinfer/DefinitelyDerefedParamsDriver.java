@@ -570,12 +570,15 @@ public class DefinitelyDerefedParamsDriver {
         return ((TypeVariableSignature) ts).getIdentifier();
       } else {
         String tsStr = ts.toString();
-        return StringStuff.jvmToReadableType(tsStr.substring(0, tsStr.length() - 1));
+        if (tsStr.endsWith(";")) {
+          tsStr = tsStr.substring(0, tsStr.length() - 1);
+        }
+        return StringStuff.jvmToReadableType(tsStr);
       }
     }
     int idx = typeName.indexOf("<");
     String baseType = typeName.substring(0, idx);
-    String[] genericTypeArgs = typeName.substring(idx + 1, typeName.length() - 1).split(";");
+    String[] genericTypeArgs = typeName.substring(idx + 1, typeName.length() - 2).split(";");
     for (int i = 0; i < genericTypeArgs.length; i++) {
       genericTypeArgs[i] = getQualifiedTypeName(genericTypeArgs[i]);
     }
