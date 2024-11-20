@@ -38,7 +38,6 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.jspecify.annotations.Nullable;
 
@@ -247,10 +246,6 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
   }
 
   private String getSimpleTypeName(Type typ) {
-    if (typ.getKind() == TypeKind.TYPEVAR) {
-      return typ.getUpperBound().tsym.getQualifiedName().toString();
-    } else {
-      return typ.toString();
-    }
+    return typ.toString();
   }
 }
