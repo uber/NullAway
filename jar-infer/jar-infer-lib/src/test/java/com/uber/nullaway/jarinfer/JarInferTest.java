@@ -448,8 +448,7 @@ public class JarInferTest {
         "testGenericMethod",
         "generic",
         "TestGeneric",
-        ImmutableMap.of(
-            "generic.TestGeneric:java.lang.String foo(java.lang.Object)", Sets.newHashSet(0)),
+        ImmutableMap.of("generic.TestGeneric:java.lang.String foo(T)", Sets.newHashSet(0)),
         "public class TestGeneric<T> {",
         "  public String foo(T t) {",
         "    return t.toString();",
@@ -469,7 +468,7 @@ public class JarInferTest {
         "TestGeneric",
         ImmutableMap.of(
             "generic.TestGeneric:java.lang.String getString(generic.TestGeneric.Generic<java.lang.String,java.lang.String>)",
-            Set.of(0)),
+            Sets.newHashSet(0)),
         "public class TestGeneric {",
         "  static class Generic<T,U> {",
         "    public String foo(T t) {",

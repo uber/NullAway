@@ -44,6 +44,7 @@ import com.ibm.wala.types.ClassLoaderReference;
 import com.ibm.wala.types.TypeReference;
 import com.ibm.wala.types.generics.MethodTypeSignature;
 import com.ibm.wala.types.generics.TypeSignature;
+import com.ibm.wala.types.generics.TypeVariableSignature;
 import com.ibm.wala.util.collections.Iterator2Iterable;
 import com.ibm.wala.util.config.FileOfClasses;
 import com.uber.nullaway.libmodel.MethodAnnotationsRecord;
@@ -558,12 +559,19 @@ public class DefinitelyDerefedParamsDriver {
   }
 
   private static String getQualifiedTypeName(String typeName) {
-    if (typeName.endsWith(";")) {
-      typeName = typeName.substring(0, typeName.length() - 1);
+    if (!typeName.endsWith(";")) {
+      typeName = typeName + ";";
+      // typeName = typeName.substring(0, typeName.length() - 1);
     }
     boolean isGeneric = typeName.contains("<");
     if (!isGeneric) {
-      return StringStuff.jvmToReadableType(typeName);
+      TypeSignature ts = TypeSignature.make(typeName);
+      if (ts.isTypeVariable()) {
+        return ((TypeVariableSignature) ts).getIdentifier();
+      } else {
+        String tsStr = ts.toString();
+        return StringStuff.jvmToReadableType(tsStr.substring(0, tsStr.length() - 1));
+      }
     }
     int idx = typeName.indexOf("<");
     String baseType = typeName.substring(0, idx);
