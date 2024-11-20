@@ -42,6 +42,8 @@ import com.ibm.wala.ssa.ISSABasicBlock;
 import com.ibm.wala.ssa.SSAInstruction;
 import com.ibm.wala.types.ClassLoaderReference;
 import com.ibm.wala.types.TypeReference;
+import com.ibm.wala.types.generics.MethodTypeSignature;
+import com.ibm.wala.types.generics.TypeSignature;
 import com.ibm.wala.util.collections.Iterator2Iterable;
 import com.ibm.wala.util.config.FileOfClasses;
 import com.uber.nullaway.libmodel.MethodAnnotationsRecord;
@@ -507,16 +509,32 @@ public class DefinitelyDerefedParamsDriver {
    */
   // TODO: handle generics and inner classes
   private static String getAstubxSignature(IMethod mtd) {
-    String classType =
-        mtd.getDeclaringClass().getName().toString().replaceAll("/", "\\.").substring(1);
-    classType = classType.replaceAll("\\$", "\\."); // handle inner class
-    String returnType = mtd.isInit() ? null : getSimpleTypeName(mtd.getReturnType());
-    String strArgTypes = "";
-    int argi = mtd.isStatic() ? 0 : 1; // Skip 'this' parameter
-    for (; argi < mtd.getNumberOfParameters(); argi++) {
-      strArgTypes += getSimpleTypeName(mtd.getParameterType(argi));
-      if (argi < mtd.getNumberOfParameters() - 1) {
-        strArgTypes += ", ";
+    Preconditions.checkArgument(
+        mtd instanceof ShrikeCTMethod, "Method is not a ShrikeCTMethod from bytecodes");
+    // mtd.getDeclaringClass().getName().toString().replaceAll("/", "\\.").substring(1);
+    String classType = getQualifiedTypeName(mtd.getDeclaringClass().getReference());
+    MethodTypeSignature sig = null;
+    try {
+      sig = ((ShrikeCTMethod) mtd).getMethodTypeSignature();
+    } catch (InvalidClassFileException e) {
+      // TODO log something
+    }
+    String returnType;
+    int numParams = mtd.isStatic() ? mtd.getNumberOfParameters() : mtd.getNumberOfParameters() - 1;
+    String[] argTypes = new String[numParams];
+    if (sig != null) {
+      // generics involved
+      returnType = getQualifiedTypeName(sig.getReturnType().toString());
+      TypeSignature[] argTypeSigs = sig.getArguments();
+      for (int i = 0; i < argTypeSigs.length; i++) {
+        argTypes[i] = getQualifiedTypeName(argTypeSigs[i].toString());
+      }
+    } else {
+      // classType = classType.replaceAll("\\$", "\\."); // handle inner class
+      returnType = mtd.isInit() ? null : getQualifiedTypeName(mtd.getReturnType());
+      int argi = mtd.isStatic() ? 0 : 1; // Skip 'this' parameter
+      for (int i = 0; i < numParams; i++) {
+        argTypes[i] = getQualifiedTypeName(mtd.getParameterType(argi++));
       }
     }
     return classType
@@ -524,17 +542,35 @@ public class DefinitelyDerefedParamsDriver {
         + (returnType == null ? "void " : returnType + " ")
         + mtd.getName().toString()
         + "("
-        + strArgTypes
+        + String.join(", ", argTypes)
         + ")";
   }
 
   /**
-   * Get simple unqualified type name.
+   * Get qualified type name.
    *
    * @param typ Type Reference.
    * @return String Unqualified type name.
    */
-  private static String getSimpleTypeName(TypeReference typ) {
-    return StringStuff.jvmToBinaryName(typ.getName().toString());
+  private static String getQualifiedTypeName(TypeReference typ) {
+    String typeName = typ.getName().toString();
+    return getQualifiedTypeName(typeName);
+  }
+
+  private static String getQualifiedTypeName(String typeName) {
+    if (typeName.endsWith(";")) {
+      typeName = typeName.substring(0, typeName.length() - 1);
+    }
+    boolean isGeneric = typeName.contains("<");
+    if (!isGeneric) {
+      return StringStuff.jvmToReadableType(typeName);
+    }
+    int idx = typeName.indexOf("<");
+    String baseType = typeName.substring(0, idx);
+    String[] genericTypeArgs = typeName.substring(idx + 1, typeName.length() - 1).split(";");
+    for (int i = 0; i < genericTypeArgs.length; i++) {
+      genericTypeArgs[i] = getQualifiedTypeName(genericTypeArgs[i]);
+    }
+    return getQualifiedTypeName(baseType) + "<" + String.join(",", genericTypeArgs) + ">";
   }
 }

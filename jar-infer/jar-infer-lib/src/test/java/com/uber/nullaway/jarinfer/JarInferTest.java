@@ -462,6 +462,27 @@ public class JarInferTest {
   }
 
   @Test
+  public void testMethodWithGenericParameter() throws Exception {
+    testTemplate(
+        "testMethodWithGenericParameter",
+        "generic",
+        "TestGeneric",
+        ImmutableMap.of(
+            "generic.TestGeneric:java.lang.String getString(generic.TestGeneric.Generic<java.lang.String,java.lang.String>)",
+            Set.of(0)),
+        "public class TestGeneric {",
+        "  static class Generic<T,U> {",
+        "    public String foo(T t) {",
+        "      return \"hi\";",
+        "    }",
+        "  }",
+        "  public String getString(Generic<String,String> g) {",
+        "    return g.foo(\"test\");",
+        "  }",
+        "}");
+  }
+
+  @Test
   public void toyJARAnnotatingClasses() throws Exception {
     testAnnotationInJarTemplate(
         "toyJARAnnotatingClasses",
