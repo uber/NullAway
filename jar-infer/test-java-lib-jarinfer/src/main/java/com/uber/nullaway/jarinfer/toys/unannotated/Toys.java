@@ -46,7 +46,6 @@ public class Toys {
   public static void genericParam(Generic<String> g) {
     g.getString("hello");
   }
-  ;
 
   public static void main(String arg[]) throws java.io.IOException {
     String s = "test string...";
