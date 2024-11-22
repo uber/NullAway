@@ -508,12 +508,10 @@ public class DefinitelyDerefedParamsDriver {
    * @param mtd Method reference.
    * @return String Method signature.
    */
-  // TODO: handle generics and inner classes
   private static String getAstubxSignature(IMethod mtd) {
     Preconditions.checkArgument(
         mtd instanceof ShrikeCTMethod, "Method is not a ShrikeCTMethod from bytecodes");
-    // mtd.getDeclaringClass().getName().toString().replaceAll("/", "\\.").substring(1);
-    String classType = getQualifiedTypeName(mtd.getDeclaringClass().getReference());
+    String classType = getSourceLevelQualifiedTypeName(mtd.getDeclaringClass().getReference());
     MethodTypeSignature sig = null;
     try {
       sig = ((ShrikeCTMethod) mtd).getMethodTypeSignature();
@@ -525,17 +523,17 @@ public class DefinitelyDerefedParamsDriver {
     String[] argTypes = new String[numParams];
     if (sig != null) {
       // generics involved
-      returnType = getQualifiedTypeName(sig.getReturnType().toString());
+      returnType = getSourceLevelQualifiedTypeName(sig.getReturnType().toString());
       TypeSignature[] argTypeSigs = sig.getArguments();
       for (int i = 0; i < argTypeSigs.length; i++) {
-        argTypes[i] = getQualifiedTypeName(argTypeSigs[i].toString());
+        argTypes[i] = getSourceLevelQualifiedTypeName(argTypeSigs[i].toString());
       }
     } else {
       // classType = classType.replaceAll("\\$", "\\."); // handle inner class
-      returnType = mtd.isInit() ? null : getQualifiedTypeName(mtd.getReturnType());
+      returnType = mtd.isInit() ? null : getSourceLevelQualifiedTypeName(mtd.getReturnType());
       int argi = mtd.isStatic() ? 0 : 1; // Skip 'this' parameter
       for (int i = 0; i < numParams; i++) {
-        argTypes[i] = getQualifiedTypeName(mtd.getParameterType(argi++));
+        argTypes[i] = getSourceLevelQualifiedTypeName(mtd.getParameterType(argi++));
       }
     }
     return classType
@@ -548,40 +546,56 @@ public class DefinitelyDerefedParamsDriver {
   }
 
   /**
-   * Get qualified type name.
+   * Get the source-level qualified type name for a TypeReference.
    *
    * @param typ Type Reference.
-   * @return String Unqualified type name.
+   * @return source-level qualified type name.
+   * @see #getSourceLevelQualifiedTypeName(String)
    */
-  private static String getQualifiedTypeName(TypeReference typ) {
+  private static String getSourceLevelQualifiedTypeName(TypeReference typ) {
     String typeName = typ.getName().toString();
-    return getQualifiedTypeName(typeName);
+    return getSourceLevelQualifiedTypeName(typeName);
   }
 
-  private static String getQualifiedTypeName(String typeName) {
+  /**
+   * Converts a JVM-level qualified type (e.g., {@code Lcom/example/Foo$Baz;}) to a source-level
+   * qualified type (e.g., {@code com.example.Foo.Baz}). Nested types like generic type arguments
+   * are converted recursively.
+   *
+   * @param typeName JVM-level qualified type name.
+   * @return source-level qualified type name.
+   */
+  private static String getSourceLevelQualifiedTypeName(String typeName) {
     if (!typeName.endsWith(";")) {
+      // we need the semicolon since some of WALA's TypeSignature APIs expect it
       typeName = typeName + ";";
-      // typeName = typeName.substring(0, typeName.length() - 1);
     }
     boolean isGeneric = typeName.contains("<");
-    if (!isGeneric) {
+    if (!isGeneric) { // base case
       TypeSignature ts = TypeSignature.make(typeName);
       if (ts.isTypeVariable()) {
+        // TypeVariableSignature's toString() returns more than just the identifier
         return ((TypeVariableSignature) ts).getIdentifier();
       } else {
         String tsStr = ts.toString();
         if (tsStr.endsWith(";")) {
+          // remove trailing semicolon
           tsStr = tsStr.substring(0, tsStr.length() - 1);
         }
         return StringStuff.jvmToReadableType(tsStr);
       }
+    } else { // generic type
+      int idx = typeName.indexOf("<");
+      String baseType = typeName.substring(0, idx);
+      // generic type args are separated by semicolons in signature stored in bytecodes
+      String[] genericTypeArgs = typeName.substring(idx + 1, typeName.length() - 2).split(";");
+      for (int i = 0; i < genericTypeArgs.length; i++) {
+        genericTypeArgs[i] = getSourceLevelQualifiedTypeName(genericTypeArgs[i]);
+      }
+      return getSourceLevelQualifiedTypeName(baseType)
+          + "<"
+          + String.join(",", genericTypeArgs)
+          + ">";
     }
-    int idx = typeName.indexOf("<");
-    String baseType = typeName.substring(0, idx);
-    String[] genericTypeArgs = typeName.substring(idx + 1, typeName.length() - 2).split(";");
-    for (int i = 0; i < genericTypeArgs.length; i++) {
-      genericTypeArgs[i] = getQualifiedTypeName(genericTypeArgs[i]);
-    }
-    return getQualifiedTypeName(baseType) + "<" + String.join(",", genericTypeArgs) + ">";
   }
 }
