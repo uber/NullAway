@@ -214,7 +214,8 @@ public interface LibraryModels {
       this.fullMethodSig = fullMethodSig;
     }
 
-    private static final Pattern METHOD_SIG_PATTERN = Pattern.compile("^(<.*>)?(\\w+)(\\(.*\\))$");
+    private static final Pattern METHOD_SIG_PATTERN =
+        Pattern.compile("^(<.*>)?(\\w+|<init>)(\\(.*\\))$");
 
     /**
      * Construct a method reference.
