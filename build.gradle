@@ -105,7 +105,6 @@ subprojects { project ->
     repositories {
         mavenCentral()
         google()
-        mavenLocal()
     }
 
     // Spotless complains when applied to the folders containing projects
