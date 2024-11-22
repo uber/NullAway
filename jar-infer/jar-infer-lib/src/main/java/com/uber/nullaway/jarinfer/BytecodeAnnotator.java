@@ -172,11 +172,9 @@ public final class BytecodeAnnotator {
       }
       Set<Integer> params = nonnullParams.get(methodSignature);
       if (params != null) {
-        boolean isStatic = (method.access & Opcodes.ACC_STATIC) != 0;
         for (Integer param : params) {
-          int paramNum = isStatic ? param : param - 1;
           // Add a @Nonnull annotation on this parameter.
-          method.visitParameterAnnotation(paramNum, nonnullDesc, visible);
+          method.visitParameterAnnotation(param, nonnullDesc, visible);
           LOG(
               debug,
               "DEBUG",

@@ -939,6 +939,28 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void parameterPassingInstanceMethods() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> {",
+            "    void foo(A<T> a) {}",
+            "    void bar(A<T> a) { foo(a); this.foo(a); }",
+            "  }",
+            "  static void test(A<@Nullable String> p, A<String> q) {",
+            "    // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "    p.foo(q);",
+            "    // this one is fine",
+            "    p.foo(p);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void varargsParameter() {
     makeHelper()
         .addSourceLines(

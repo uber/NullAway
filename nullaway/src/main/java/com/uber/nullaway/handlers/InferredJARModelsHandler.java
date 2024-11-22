@@ -27,7 +27,6 @@ import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -38,7 +37,6 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.jspecify.annotations.Nullable;
 
@@ -131,8 +129,7 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     for (Map.Entry<Integer, Set<String>> annotationEntry : methodArgAnnotations.entrySet()) {
       if (annotationEntry.getKey() != RETURN
           && annotationEntry.getValue().contains("javax.annotation.Nonnull")) {
-        // Skip 'this' param for non-static methods
-        int nonNullPosition = annotationEntry.getKey() - (methodSymbol.isStatic() ? 0 : 1);
+        int nonNullPosition = annotationEntry.getKey();
         jiNonNullParams.add(nonNullPosition);
         argumentPositionNullness[nonNullPosition] = Nullness.NONNULL;
       }
@@ -231,27 +228,17 @@ public class InferredJARModelsHandler extends BaseNoOpHandler {
     String methodSign =
         method.enclClass().getQualifiedName().toString()
             + ":"
-            + (method.isStaticOrInstanceInit()
-                ? ""
-                : getSimpleTypeName(method.getReturnType()) + " ")
+            + (method.isStaticOrInstanceInit() ? "" : method.getReturnType() + " ")
             + method.getSimpleName()
             + "(";
     if (!method.getParameters().isEmpty()) {
-      for (Symbol.VarSymbol var : method.getParameters()) {
-        methodSign += getSimpleTypeName(var.type) + ", ";
-      }
-      methodSign = methodSign.substring(0, methodSign.lastIndexOf(','));
+      methodSign +=
+          String.join(
+              ", ",
+              method.getParameters().stream().map(p -> p.type.toString()).toArray(String[]::new));
     }
     methodSign += ")";
     LOG(DEBUG, "DEBUG", "@ method sign: " + methodSign);
     return methodSign;
-  }
-
-  private String getSimpleTypeName(Type typ) {
-    if (typ.getKind() == TypeKind.TYPEVAR) {
-      return typ.getUpperBound().tsym.getQualifiedName().toString();
-    } else {
-      return typ.toString();
-    }
   }
 }
