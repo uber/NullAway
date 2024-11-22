@@ -512,24 +512,24 @@ public class DefinitelyDerefedParamsDriver {
     Preconditions.checkArgument(
         mtd instanceof ShrikeCTMethod, "Method is not a ShrikeCTMethod from bytecodes");
     String classType = getSourceLevelQualifiedTypeName(mtd.getDeclaringClass().getReference());
-    MethodTypeSignature sig = null;
+    MethodTypeSignature genericSignature = null;
     try {
-      sig = ((ShrikeCTMethod) mtd).getMethodTypeSignature();
+      genericSignature = ((ShrikeCTMethod) mtd).getMethodTypeSignature();
     } catch (InvalidClassFileException e) {
-      // TODO log something
+      // don't fail, just proceed without the generic signature
+      LOG(DEBUG, "DEBUG", "Invalid class file exception: " + e.getMessage());
     }
     String returnType;
     int numParams = mtd.isStatic() ? mtd.getNumberOfParameters() : mtd.getNumberOfParameters() - 1;
     String[] argTypes = new String[numParams];
-    if (sig != null) {
-      // generics involved
-      returnType = getSourceLevelQualifiedTypeName(sig.getReturnType().toString());
-      TypeSignature[] argTypeSigs = sig.getArguments();
+    if (genericSignature != null) {
+      // get types that include generic type arguments
+      returnType = getSourceLevelQualifiedTypeName(genericSignature.getReturnType().toString());
+      TypeSignature[] argTypeSigs = genericSignature.getArguments();
       for (int i = 0; i < argTypeSigs.length; i++) {
         argTypes[i] = getSourceLevelQualifiedTypeName(argTypeSigs[i].toString());
       }
-    } else {
-      // classType = classType.replaceAll("\\$", "\\."); // handle inner class
+    } else { // no generics
       returnType = mtd.isInit() ? null : getSourceLevelQualifiedTypeName(mtd.getReturnType());
       int argi = mtd.isStatic() ? 0 : 1; // Skip 'this' parameter
       for (int i = 0; i < numParams; i++) {
