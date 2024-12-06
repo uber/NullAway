@@ -434,4 +434,28 @@ public class AccessPathsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void testValueOfNoReceiver() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import java.util.HashMap;",
+            "import java.util.Map;",
+            "public class Foo {",
+            "  private final Map<Integer, Object> map = new HashMap<>();",
+            "  static Integer valueOf(int i) { return 0; }",
+            "  public void putThenGetFooValueOf() {",
+            "    map.put(valueOf(10), new Object());",
+            "    // BUG: Diagnostic contains: dereferenced expression map.get(valueOf(10)) is @Nullable",
+            "    map.get(valueOf(10)).toString();",
+            "  }",
+            "  public void putThenGetFooIntegerValueOf() {",
+            "    map.put(Integer.valueOf(10), new Object());",
+            "    map.get(Integer.valueOf(10)).toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
