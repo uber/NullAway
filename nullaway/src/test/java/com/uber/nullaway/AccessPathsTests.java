@@ -436,7 +436,7 @@ public class AccessPathsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testValueOfNoReceiver() {
+  public void mapKeysFromValueOf() {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
@@ -445,15 +445,40 @@ public class AccessPathsTests extends NullAwayTestsBase {
             "import java.util.Map;",
             "public class Foo {",
             "  private final Map<Integer, Object> map = new HashMap<>();",
+            "  private final Map<Long, Object> longMap = new HashMap<>();",
             "  static Integer valueOf(int i) { return 0; }",
+            "  public void putThenGetIntegerValueOf() {",
+            "    map.put(Integer.valueOf(10), new Object());",
+            "    map.get(Integer.valueOf(10)).toString();",
+            "  }",
+            "  public void putThenGetLongValueOf() {",
+            "    longMap.put(Long.valueOf(10), new Object());",
+            "    longMap.get(Long.valueOf(10)).toString();",
+            "  }",
             "  public void putThenGetFooValueOf() {",
             "    map.put(valueOf(10), new Object());",
+            "    // Unknown valueOf method so we report a warning",
             "    // BUG: Diagnostic contains: dereferenced expression map.get(valueOf(10)) is @Nullable",
             "    map.get(valueOf(10)).toString();",
             "  }",
-            "  public void putThenGetFooIntegerValueOf() {",
-            "    map.put(Integer.valueOf(10), new Object());",
-            "    map.get(Integer.valueOf(10)).toString();",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void mapKeyFromIntegerValueOfStaticImport() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import java.util.HashMap;",
+            "import java.util.Map;",
+            "import static java.lang.Integer.valueOf;",
+            "public class Foo {",
+            "  private final Map<Integer, Object> map = new HashMap<>();",
+            "  public void putThenGet() {",
+            "    map.put(valueOf(10), new Object());",
+            "    map.get(valueOf(10)).toString();",
             "  }",
             "}")
         .doTest();
