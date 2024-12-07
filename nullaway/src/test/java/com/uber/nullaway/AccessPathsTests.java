@@ -447,6 +447,7 @@ public class AccessPathsTests extends NullAwayTestsBase {
             "  private final Map<Integer, Object> map = new HashMap<>();",
             "  private final Map<Long, Object> longMap = new HashMap<>();",
             "  static Integer valueOf(int i) { return 0; }",
+            "  static Integer valueOf(int i, int j) { return i+j; }",
             "  public void putThenGetIntegerValueOf() {",
             "    map.put(Integer.valueOf(10), new Object());",
             "    map.get(Integer.valueOf(10)).toString();",
@@ -460,6 +461,10 @@ public class AccessPathsTests extends NullAwayTestsBase {
             "    // Unknown valueOf method so we report a warning",
             "    // BUG: Diagnostic contains: dereferenced expression map.get(valueOf(10)) is @Nullable",
             "    map.get(valueOf(10)).toString();",
+            "    map.put(valueOf(10,20), new Object());",
+            "    // Unknown valueOf method so we report a warning",
+            "    // BUG: Diagnostic contains: dereferenced expression map.get(valueOf(10,20)) is @Nullable",
+            "    map.get(valueOf(10,20)).toString();",
             "  }",
             "}")
         .doTest();
