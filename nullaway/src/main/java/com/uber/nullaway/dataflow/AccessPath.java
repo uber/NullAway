@@ -28,6 +28,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
@@ -74,6 +76,12 @@ import org.jspecify.annotations.Nullable;
  * <p>We do not allow array accesses in access paths for the moment.
  */
 public final class AccessPath implements MapKey {
+
+  private static final Supplier<Type> INTEGER_TYPE_SUPPLIER =
+      Suppliers.typeFromString("java.lang.Integer");
+
+  private static final Supplier<Type> LONG_TYPE_SUPPLIER =
+      Suppliers.typeFromString("java.lang.Long");
 
   /**
    * A prefix added for elements appearing in method invocation APs which represent fields that can
@@ -278,14 +286,15 @@ public final class AccessPath implements MapKey {
         return new NumericMapKey(((LongLiteralNode) argument).getValue());
       case METHOD_INVOCATION:
         MethodAccessNode target = ((MethodInvocationNode) argument).getTarget();
-        Node receiver = stripCasts(target.getReceiver());
         List<Node> arguments = ((MethodInvocationNode) argument).getArguments();
         // Check for int/long boxing.
         if (target.getMethod().getSimpleName().toString().equals("valueOf")
-            && arguments.size() == 1
-            && castToNonNull(receiver.getTree()).getKind().equals(Tree.Kind.IDENTIFIER)
-            && (receiver.toString().equals("Integer") || receiver.toString().equals("Long"))) {
-          return argumentToMapKeySpecifier(arguments.get(0), state, apContext);
+            && arguments.size() == 1) {
+          Type ownerType = ((Symbol.MethodSymbol) target.getMethod()).owner.type;
+          if (ASTHelpers.isSameType(ownerType, INTEGER_TYPE_SUPPLIER.get(state), state)
+              || ASTHelpers.isSameType(ownerType, LONG_TYPE_SUPPLIER.get(state), state)) {
+            return argumentToMapKeySpecifier(arguments.get(0), state, apContext);
+          }
         }
       // Fine to fallthrough:
       default:
