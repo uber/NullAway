@@ -106,6 +106,7 @@ import com.uber.nullaway.handlers.MethodAnalysisContext;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -274,6 +275,9 @@ public class NullAway extends BugChecker
    * annotations.
    */
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
+
+//  private final Map<Tree, Object> inferred_types = new HashMap<>();
+  private final Map<Type, Object> inferred_types = new HashMap<>();
 
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
@@ -1478,9 +1482,33 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
+    Tree rhsTree = tree.getInitializer();
+    if(rhsTree instanceof MethodInvocationTree) {
+      MethodInvocationTree methodTree = (MethodInvocationTree) rhsTree;
+      Symbol.MethodSymbol methodSymbol = getSymbolForMethodInvocation(methodTree);
+      if(methodSymbol.type instanceof Type.ForAll
+        && methodTree.getTypeArguments().isEmpty()) {
+        Tree lhsTree = tree.getType();
+        if(lhsTree instanceof ParameterizedTypeTree) {
+          List<? extends Tree> typeArguments = ((ParameterizedTypeTree) lhsTree).getTypeArguments();
+          Type baseType = methodSymbol.asType();
+          List<Type> baseTypeVariables = baseType.getTypeArguments();
+          if(!typeArguments.isEmpty()) {
+            for(int i=0; i<baseTypeVariables.size(); i++) {
+//              if (inferred_types.containsKey(baseTypeVariables.get(i))) {
+//                System.out.println("Key 'apple' exists in the map.");
+//              } else {
+//                System.out.println("Key 'apple' does not exist in the map.");
+//              }
+              inferred_types.put(baseTypeVariables.get(i), typeArguments.get(i));
+            }
+          }
+        }
+      }
+    }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
     if (tree.getInitializer() != null && config.isJSpecifyMode()) {
-      GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
+      GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state, inferred_types);
     }
     if (!config.isLegacyAnnotationLocation()) {
       checkNullableAnnotationPositionInType(
@@ -1805,6 +1833,37 @@ public class NullAway extends BugChecker
       List<? extends ExpressionTree> actualParams) {
     List<VarSymbol> formalParams = methodSymbol.getParameters();
 
+    // if method invocation is in a variable declaration and it doesn't have explicit type arguments
+    if (tree instanceof MethodInvocationTree) {
+      MethodInvocationTree methodTree = (MethodInvocationTree) tree;
+      if (methodSymbol.type instanceof Type.ForAll
+          && methodTree.getTypeArguments().isEmpty()) { // if generic method && no explicit type arguments
+        TreePath parentPath = state.getPath().getParentPath();
+        Tree parentTree = parentPath.getLeaf();
+        if (parentTree instanceof VariableTree) {
+          VariableTree varTree = (VariableTree) parentTree; // the declaration statement tree
+//          var i = varTree.getInitializer(); // RHS function call : Foo.make(null)
+//          var m = varTree.getModifiers(); // ""
+//          var n = varTree.getName(); // declared variable name : "f"
+//          var ne = varTree.getNameExpression(); // null in this case (don't need for this case) : null
+          Tree t = varTree.getType(); // the inferred type : Foo<@Nullable Object>
+          if (t instanceof ParameterizedTypeTree) {
+            List<? extends Tree> typeArguments = ((ParameterizedTypeTree) t).getTypeArguments();
+            Type baseType = methodSymbol.asType();
+            List<Type> baseTypeVariables = baseType.getTypeArguments();
+            if (!typeArguments.isEmpty()) {
+              for (int i = 0; i < baseTypeVariables.size(); i++) {
+                var tmp = typeArguments.get(i);
+                var tttt = tmp.getKind();
+                if (tttt == null) {}
+                inferred_types.put(baseTypeVariables.get(i), typeArguments.get(i));
+              }
+            }
+          }
+        }
+      }
+    }
+
     boolean varArgsMethod = methodSymbol.isVarArgs();
     if (formalParams.size() != actualParams.size()
         && !varArgsMethod
@@ -1846,7 +1905,7 @@ public class NullAway extends BugChecker
                   ? Nullness.NULLABLE
                   : ((config.isJSpecifyMode() && tree instanceof MethodInvocationTree)
                       ? GenericsChecks.getGenericParameterNullnessAtInvocation(
-                          i, methodSymbol, (MethodInvocationTree) tree, state, config)
+                          i, methodSymbol, (MethodInvocationTree) tree, state, config, inferred_types)
                       : Nullness.NONNULL);
         }
       }
