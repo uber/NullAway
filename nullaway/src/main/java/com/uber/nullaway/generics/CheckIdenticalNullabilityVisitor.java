@@ -35,10 +35,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
     Type rhsTypeAsSuper = types.asSuper(rhsType, lhsType.tsym);
-    // This is impossible, considering the fact that standard Java subtyping succeeds before
-    // running NullAway
     if (rhsTypeAsSuper == null) {
-      throw new RuntimeException("Did not find supertype of " + rhsType + " matching " + lhsType);
+      // Surprisingly, this can in fact occur, in cases involving raw types.  See, e.g.,
+      // GenericsTests#issue1082 and https://github.com/uber/NullAway/pull/1086. Bail out.
+      return true;
     }
     // bail out of checking raw types for now
     if (rhsTypeAsSuper.isRaw()) {
