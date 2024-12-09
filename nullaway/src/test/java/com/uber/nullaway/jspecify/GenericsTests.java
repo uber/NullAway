@@ -2002,6 +2002,30 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1082() {
+    makeHelper()
+        .addSourceLines(
+            "Main.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "public class Main {",
+            "  public interface Factory<T> {",
+            "    T create();",
+            "  }",
+            "  public interface Expiry<K, V> {}",
+            "  static class Config<K, V> {",
+            "    Config<K, V> setFactory(Optional<Factory<? extends Expiry<K, V>>> factory) {",
+            "      return null;",
+            "    }",
+            "  }",
+            "  static void caller(Config config) {",
+            "    config.setFactory(Optional.empty());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
