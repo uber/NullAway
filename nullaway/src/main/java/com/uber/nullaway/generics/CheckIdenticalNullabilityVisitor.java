@@ -37,7 +37,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     Type rhsTypeAsSuper = types.asSuper(rhsType, lhsType.tsym);
     if (rhsTypeAsSuper == null) {
       // Surprisingly, this can in fact occur, in cases involving raw types.  See, e.g.,
-      // GenericsTests#issue1082. Bail out.
+      // GenericsTests#issue1082 and https://github.com/uber/NullAway/pull/1086. Bail out.
       return true;
     }
     // bail out of checking raw types for now
