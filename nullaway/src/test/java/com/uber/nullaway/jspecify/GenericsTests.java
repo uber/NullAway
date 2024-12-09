@@ -2016,11 +2016,13 @@ public class GenericsTests extends NullAwayTestsBase {
             "  public interface Expiry<K, V> {}",
             "  static class Config<K, V> {",
             "    Config<K, V> setFactory(Optional<Factory<? extends Expiry<K, V>>> factory) {",
+            "      // BUG: Diagnostic contains: returning @Nullable expression from method",
             "      return null;",
             "    }",
             "  }",
             "  static void caller(Config config) {",
-            "    config.setFactory(Optional.empty());",
+            "    // checking that we don't crash",
+            "    config.setFactory(Optional.<Object>empty());",
             "  }",
             "}")
         .doTest();
