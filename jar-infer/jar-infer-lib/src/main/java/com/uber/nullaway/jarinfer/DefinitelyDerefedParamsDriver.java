@@ -273,7 +273,8 @@ public class DefinitelyDerefedParamsDriver {
               String sign = "";
               try {
                 // Parameter analysis
-                if (mtd.getNumberOfParameters() > (mtd.isStatic() ? 0 : 1)) {
+                boolean isStatic = mtd.isStatic();
+                if (mtd.getNumberOfParameters() > (isStatic ? 0 : 1)) {
                   // For inferring parameter nullability, our criteria is based on finding
                   // unchecked dereferences of that parameter. We perform a quick bytecode
                   // check and skip methods containing no dereferences (i.e. method calls
@@ -283,6 +284,11 @@ public class DefinitelyDerefedParamsDriver {
                   if (bytecodeHasAnyDereferences(mtd)) {
                     analysisDriver = getAnalysisDriver(mtd, options, cache);
                     Set<Integer> result = analysisDriver.analyze();
+                    if (!isStatic) {
+                      // subtract 1 from each parameter index to account for 'this' parameter
+                      result =
+                          result.stream().map(i -> i - 1).collect(ImmutableSet.toImmutableSet());
+                    }
                     sign = getSignature(mtd);
                     LOG(DEBUG, "DEBUG", "analyzed method: " + sign);
                     if (!result.isEmpty() || DEBUG) {

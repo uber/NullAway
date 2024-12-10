@@ -50,7 +50,7 @@ public class DummyOptionsConfigTest {
       Throwable cause = reflectionException.getCause();
       assertThat(cause, instanceOf(IllegalStateException.class));
       IllegalStateException exception = (IllegalStateException) cause;
-      assertEquals(exception.getMessage(), DummyOptionsConfig.ERROR_MESSAGE);
+      assertEquals(DummyOptionsConfig.ERROR_MESSAGE, exception.getMessage());
     }
   }
 }

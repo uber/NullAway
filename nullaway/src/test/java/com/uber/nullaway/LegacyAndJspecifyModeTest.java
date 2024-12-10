@@ -42,6 +42,6 @@ public class LegacyAndJspecifyModeTest {
 
     Throwable cause = exception.getCause();
     assertThat(cause, instanceOf(IllegalStateException.class));
-    assertEquals(cause.getMessage(), ERROR);
+    assertEquals(ERROR, cause.getMessage());
   }
 }

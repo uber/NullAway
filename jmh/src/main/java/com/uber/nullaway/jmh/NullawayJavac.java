@@ -186,6 +186,7 @@ public class NullawayJavac {
             "-d",
             outputDir.toAbsolutePath().toString(),
             "-XDcompilePolicy=simple",
+            "--should-stop=ifError=FLOW",
             "-Xplugin:ErrorProne -XepDisableAllChecks -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages="
                 + annotatedPackages
                 + String.join(" ", extraErrorProneArgs)));

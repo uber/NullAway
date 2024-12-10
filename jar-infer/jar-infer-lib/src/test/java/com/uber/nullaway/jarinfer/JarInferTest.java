@@ -206,7 +206,7 @@ public class JarInferTest {
         "Test",
         ImmutableMap.of(
             "toys.Test:void test(java.lang.String, toys.Foo, toys.Bar)", Sets.newHashSet(0, 2),
-            "toys.Foo:boolean run(java.lang.String)", Sets.newHashSet(1)),
+            "toys.Foo:boolean run(java.lang.String)", Sets.newHashSet(0)),
         "class Foo {",
         "  private String foo;",
         "  public Foo(String str) {",
@@ -267,7 +267,7 @@ public class JarInferTest {
         "toys",
         "Foo",
         ImmutableMap.of(
-            "toys.Foo:void test(java.lang.String, java.lang.String)", Sets.newHashSet(1)),
+            "toys.Foo:void test(java.lang.String, java.lang.String)", Sets.newHashSet(0)),
         "class Foo {",
         "  private String foo;",
         "  public Foo(String str) {",
@@ -305,7 +305,7 @@ public class JarInferTest {
         "Foo",
         ImmutableMap.of(
             "toys.Foo:void test(java.lang.String, java.lang.String, java.lang.String)",
-            Sets.newHashSet(1, 3)),
+            Sets.newHashSet(0, 2)),
         "import com.google.common.base.Preconditions;",
         "import java.util.Objects;",
         "import org.junit.Assert;",
@@ -336,7 +336,7 @@ public class JarInferTest {
         "Foo",
         ImmutableMap.of(
             "toys.Foo:void test(java.lang.String, java.lang.String, java.lang.String)",
-            Sets.newHashSet(1, 2)),
+            Sets.newHashSet(0, 1)),
         "import com.google.common.base.Preconditions;",
         "import java.util.Objects;",
         "import org.junit.Assert;",
@@ -367,7 +367,7 @@ public class JarInferTest {
         "Foo",
         ImmutableMap.of(
             "toys.Foo:void test(java.lang.Object, java.lang.Object, java.lang.Object, java.lang.Object)",
-            Sets.newHashSet(1, 4)),
+            Sets.newHashSet(0, 3)),
         "import com.google.common.base.Preconditions;",
         "import java.util.Objects;",
         "import org.junit.Assert;",
@@ -407,7 +407,7 @@ public class JarInferTest {
         "toys",
         "Foo",
         ImmutableMap.of(
-            "toys.Foo:void test(java.lang.String, java.lang.String)", Sets.newHashSet(1)),
+            "toys.Foo:void test(java.lang.String, java.lang.String)", Sets.newHashSet(0)),
         "import com.google.common.base.Preconditions;",
         "import java.util.Objects;",
         "import org.junit.Assert;",
@@ -449,7 +449,7 @@ public class JarInferTest {
         "generic",
         "TestGeneric",
         ImmutableMap.of(
-            "generic.TestGeneric:java.lang.String foo(java.lang.Object)", Sets.newHashSet(1)),
+            "generic.TestGeneric:java.lang.String foo(java.lang.Object)", Sets.newHashSet(0)),
         "public class TestGeneric<T> {",
         "  public String foo(T t) {",
         "    return t.toString();",

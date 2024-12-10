@@ -105,8 +105,36 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore("requires generic method support")
   public void genericMethodAndVoidType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class Foo {",
+            "    <C extends @Nullable Object> void foo(C c, Visitor<C> visitor) {",
+            "      visitor.visit(this, c);",
+            "    }",
+            "  }",
+            "  static abstract class Visitor<C extends @Nullable Object> {",
+            "    abstract void visit(Foo foo, C c);",
+            "  }",
+            "  static class MyVisitor extends Visitor<@Nullable Void> {",
+            "    @Override",
+            "    void visit(Foo foo, @Nullable Void c) {}",
+            "  }",
+            "  static void test(Foo f) {",
+            "    // this is safe",
+            "    f.<@Nullable Void>foo(null, new MyVisitor());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  @Ignore("requires inference of generic method type arguments")
+  public void genericMethodAndVoidTypeWithInference() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -129,6 +157,35 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // this is safe",
             "    f.foo(null, new MyVisitor());",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1035() {
+    makeHelper()
+        .addSourceLines(
+            "Todo.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Todo {",
+            "    public static <T extends @Nullable Object> T foo(NullableSupplier<T> code) {",
+            "        return code.get();",
+            "    }",
+            "    public static void main(String[] args) {",
+            "        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "        Todo.<Object>foo(() -> null);",
+            "        Todo.<@Nullable Object>foo(() -> null);",
+            "    }",
+            "    // this method should have no errors once we support inference for generic methods",
+            "    public static void requiresInferenceSupport() {",
+            "        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "        Todo.foo(() -> null);",
+            "    }",
+            "    @FunctionalInterface",
+            "    public interface NullableSupplier<T extends @Nullable Object> {",
+            "        T get();",
+            "    }",
             "}")
         .doTest();
   }
