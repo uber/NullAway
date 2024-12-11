@@ -540,15 +540,30 @@ public class NullabilityUtil {
    *     otherwise
    */
   public static boolean isArrayElementNullable(Symbol arraySymbol, Config config) {
-    for (Attribute.TypeCompound t : arraySymbol.getRawTypeAttributes()) {
-      for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
-        if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
-          if (Nullness.isNullableAnnotation(t.type.toString(), config)) {
-            return true;
-          }
-        }
-      }
+    // TODO remove copy-paste!!!!!
+    if (getTypeUseAnnotations(arraySymbol, config, /* onlyDirect= */ false)
+        .anyMatch(
+            t -> {
+              for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
+                if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+                  if (Nullness.isNullableAnnotation(t.type.toString(), config)) {
+                    return true;
+                  }
+                }
+              }
+              return false;
+            })) {
+      return true;
     }
+    //    for (Attribute.TypeCompound t : arraySymbol.getRawTypeAttributes()) {
+    //      for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
+    //        if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+    //          if (Nullness.isNullableAnnotation(t.type.toString(), config)) {
+    //            return true;
+    //          }
+    //        }
+    //      }
+    //    }
     // For varargs symbols we also consider the elements to be @Nullable if there is a @Nullable
     // declaration annotation on the parameter
     // NOTE this flag check does not work for the varargs parameter of a method defined in bytecodes

@@ -107,6 +107,22 @@ public class VarargsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableVarArgsFromBytecodeJSpecify() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.Varargs;",
+            "public class Test {",
+            "  public void testTypeUse() {",
+            "    String x = null;",
+            "    Varargs.typeUseNullableElementsJSpecify(x);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullableTypeUseVarargs() {
     defaultCompilationHelper
         .addSourceLines(
