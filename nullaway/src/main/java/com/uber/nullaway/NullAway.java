@@ -502,13 +502,8 @@ public class NullAway extends BugChecker
           String message = "Writing @Nullable expression into array with @NonNull contents.";
           ErrorMessage errorMessage =
               new ErrorMessage(MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY, message);
-          // Future enhancements which auto-fix such warnings will require modification to this
-          // logic
           return errorBuilder.createErrorDescription(
-              errorMessage,
-              buildDescription(tree),
-              state,
-              ASTHelpers.getSymbol(tree.getVariable()));
+              errorMessage, buildDescription(tree), state, arraySymbol);
         }
       }
     }
