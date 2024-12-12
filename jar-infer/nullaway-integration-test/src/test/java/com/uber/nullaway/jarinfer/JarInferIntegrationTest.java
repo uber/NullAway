@@ -88,6 +88,8 @@ public class JarInferIntegrationTest {
             "    Toys.Generic<String> g = new Toys.Generic<>();",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
             "    g.getString(null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    Toys.genericParam(null);",
             "  }",
             "}")
         .doTest();
