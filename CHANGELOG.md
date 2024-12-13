@@ -1,5 +1,25 @@
 Changelog
 =========
+Version 0.12.2
+---------------
+* Fix reading of JSpecify @nullable annotations from varargs parameter in bytecode (#1089)
+* Fix JarInfer handling of generic types (#1078)
+* Fix another JSpecify mode crash involving raw types (#1086)
+* Fix bugs in handling of valueOf calls for map keys (#1085)
+* Suggest correct fix when array component of non-nullable array is made null. (#1087)
+* Substitute type arguments when checking type parameter nullability at call site (#1070)
+* Fix JarInfer parameter indexes for instance methods (#1071)
+* JSpecify mode: initial support for generic methods (with explicit type arguments at calls) (#1053)
+* Maintenance
+  - Update to latest Error Prone and Error Prone Gradle plugin (#1064)
+  - Refactor serialization adapter retrieval by version (#1066)
+  - Remove fixes.tsv serialization from NullAway serialization service (#1063)
+  - Enable javac -parameters flag (#1069)
+  - Update to Gradle 8.11 (#1073)
+  - Add test for issue 1035 (#1074)
+  - remove use of deprecated Gradle API (#1076)
+  - Update to Error Prone 2.36.0 (#1077)
+
 Version 0.12.1
 ---------------
 * Add library model for Apache Commons CollectionUtils.isNotEmpty (#932) (#1062)
