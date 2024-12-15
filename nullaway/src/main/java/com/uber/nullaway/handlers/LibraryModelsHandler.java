@@ -1298,7 +1298,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   /** Constructs Library Models from stubx files */
   private static class ExternalStubxLibraryModels implements LibraryModels {
 
+    /** astubx file name used in our Android SDK JarInfer models */
     private static final String ANDROID_ASTUBX_LOCATION = "jarinfer.astubx";
+
+    /** Class we expect to be present in a jar containing Android SDK JarInfer models */
     private static final String ANDROID_MODEL_CLASS =
         "com.uber.nullaway.jarinfer.AndroidJarInferModels";
 
@@ -1317,17 +1320,15 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
         if (androidStubxIS != null) {
           cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
-          LOG(DEBUG, "DEBUG", "Loaded Android RT models.");
+          astubxLoadLog("Loaded Android RT models.");
         }
       } catch (ClassNotFoundException e) {
-        LOG(
-            DEBUG,
-            "DEBUG",
+        astubxLoadLog(
             "Cannot find Android RT models locator class."
                 + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
 
       } catch (Exception e) {
-        LOG(DEBUG, "DEBUG", "Cannot load Android RT models.");
+        astubxLoadLog("Cannot load Android RT models.");
       }
 
       argAnnotCache = cacheUtil.getArgAnnotCache();
@@ -1395,9 +1396,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
               for (String annotation : argEntry.getValue()) {
                 if (annotation.contains("NonNull")
                     || annotation.equals("javax.annotation.Nonnull")) {
-                  LOG(
-                      DEBUG,
-                      "DEBUG",
+                  astubxLoadLog(
                       "Found non-null parameter: "
                           + className
                           + "."
@@ -1467,11 +1466,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
   }
 
-  private static boolean DEBUG = false;
+  private static boolean DEBUG_ASTUBX_LOADING = false;
 
-  private static void LOG(boolean cond, String tag, String msg) {
-    if (cond) {
-      System.out.println("[JI " + tag + "] " + msg);
+  private static void astubxLoadLog(String msg) {
+    if (DEBUG_ASTUBX_LOADING) {
+      System.out.println("[JI DEBUG] " + msg);
     }
   }
 }
