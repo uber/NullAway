@@ -614,6 +614,9 @@ public final class GenericsChecks {
     }
     Type invokedMethodType = methodSymbol.type;
     // substitute class-level type arguments for instance methods
+    // TODO but explicit @Nullable annotations seem to disappear!
+    //  To avoid copy-pasting a lot of code, perhaps the best approach is to use javac
+    //  routines to do the substitution and then re-introduce the annotations.
     if (!methodSymbol.isStatic() && tree instanceof MethodInvocationTree) {
       ExpressionTree methodSelect = ((MethodInvocationTree) tree).getMethodSelect();
       Type enclosingType;
