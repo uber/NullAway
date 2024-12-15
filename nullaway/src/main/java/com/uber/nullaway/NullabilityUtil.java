@@ -51,6 +51,7 @@ import com.sun.tools.javac.util.JCDiagnostic;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
@@ -328,13 +329,13 @@ public class NullabilityUtil {
       return rawTypeAttributes.filter(
           (t) ->
               t.position.type.equals(TargetType.METHOD_RETURN)
-                  && isDirectTypeUseAnnotation(t, symbol, config));
+                  && (!onlyDirect || isDirectTypeUseAnnotation(t, symbol, config)));
     } else {
       // filter for annotations directly on the type
       return rawTypeAttributes.filter(
           t ->
               targetTypeMatches(symbol, t.position)
-                  && (!onlyDirect || NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config)));
+                  && (!onlyDirect || isDirectTypeUseAnnotation(t, symbol, config)));
     }
   }
 
@@ -540,22 +541,11 @@ public class NullabilityUtil {
    *     otherwise
    */
   public static boolean isArrayElementNullable(Symbol arraySymbol, Config config) {
-    for (Attribute.TypeCompound t : arraySymbol.getRawTypeAttributes()) {
-      for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
-        if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
-          if (Nullness.isNullableAnnotation(t.type.toString(), config)) {
-            return true;
-          }
-        }
-      }
-    }
-    // For varargs symbols we also consider the elements to be @Nullable if there is a @Nullable
-    // declaration annotation on the parameter
-    // NOTE this flag check does not work for the varargs parameter of a method defined in bytecodes
-    if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
-      return Nullness.hasNullableDeclarationAnnotation(arraySymbol, config);
-    }
-    return false;
+    return checkArrayElementAnnotations(
+        arraySymbol,
+        config,
+        Nullness::isNullableAnnotation,
+        Nullness::hasNullableDeclarationAnnotation);
   }
 
   /**
@@ -582,27 +572,11 @@ public class NullabilityUtil {
    *     otherwise
    */
   public static boolean isArrayElementNonNull(Symbol arraySymbol, Config config) {
-    if (getTypeUseAnnotations(arraySymbol, config, /* onlyDirect= */ false)
-        .anyMatch(
-            t -> {
-              for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
-                if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
-                  if (Nullness.isNonNullAnnotation(t.type.toString(), config)) {
-                    return true;
-                  }
-                }
-              }
-              return false;
-            })) {
-      return true;
-    }
-    // For varargs symbols we also consider the elements to be @NonNull if there is a @NonNull
-    // declaration annotation on the parameter
-    // NOTE this flag check does not work for the varargs parameter of a method defined in bytecodes
-    if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
-      return Nullness.hasNonNullDeclarationAnnotation(arraySymbol, config);
-    }
-    return false;
+    return checkArrayElementAnnotations(
+        arraySymbol,
+        config,
+        Nullness::isNonNullAnnotation,
+        Nullness::hasNonNullDeclarationAnnotation);
   }
 
   /**
@@ -618,6 +592,44 @@ public class NullabilityUtil {
       Symbol varargsSymbol, Config config) {
     return isArrayElementNonNull(varargsSymbol, config)
         || Nullness.hasNonNullDeclarationAnnotation(varargsSymbol, config);
+  }
+
+  /**
+   * Checks if the annotations on the elements of some array symbol satisfy some predicate.
+   *
+   * @param arraySymbol the array symbol
+   * @param config NullAway configuration
+   * @param typeUseCheck the predicate to check the type-use annotations
+   * @param declarationCheck the predicate to check the declaration annotations (applied only to
+   *     varargs symbols)
+   * @return true if the annotations on the elements of the array symbol satisfy the given
+   *     predicates, false otherwise
+   */
+  private static boolean checkArrayElementAnnotations(
+      Symbol arraySymbol,
+      Config config,
+      BiPredicate<String, Config> typeUseCheck,
+      BiPredicate<Symbol, Config> declarationCheck) {
+    if (getTypeUseAnnotations(arraySymbol, config, /* onlyDirect= */ false)
+        .anyMatch(
+            t -> {
+              for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
+                if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+                  if (typeUseCheck.test(t.type.toString(), config)) {
+                    return true;
+                  }
+                }
+              }
+              return false;
+            })) {
+      return true;
+    }
+    // For varargs symbols we also check for declaration annotations on the parameter
+    // NOTE this flag check does not work for the varargs parameter of a method defined in bytecodes
+    if ((arraySymbol.flags() & Flags.VARARGS) != 0) {
+      return declarationCheck.test(arraySymbol, config);
+    }
+    return false;
   }
 
   /**
