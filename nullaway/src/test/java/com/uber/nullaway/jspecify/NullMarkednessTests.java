@@ -44,6 +44,44 @@ public class NullMarkednessTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void springNullMarkedPackage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "package-info.java",
+            "@NonNullApi @NonNullFields package com.example.thirdparty;",
+            "import org.springframework.lang.NonNullApi;",
+            "import org.springframework.lang.NonNullFields;")
+        .addSourceLines(
+            "ThirdPartyAnnotatedUtils.java",
+            "package com.example.thirdparty;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class ThirdPartyAnnotatedUtils {",
+            "  public static String toStringOrDefault(@Nullable Object o1, String s) {",
+            "    if (o1 != null) {",
+            "      return o1.toString();",
+            "    }",
+            "    return s;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.example.thirdparty.ThirdPartyAnnotatedUtils;",
+            "public class Test {",
+            "  public static void test(Object o) {",
+            "    // Safe: passing @NonNull on both args",
+            "    ThirdPartyAnnotatedUtils.toStringOrDefault(o, \"default\");",
+            "    // Safe: first arg is @Nullable",
+            "    ThirdPartyAnnotatedUtils.toStringOrDefault(null, \"default\");",
+            "    // Unsafe: @NullMarked means the second arg is @NonNull by default, not @Nullable",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    ThirdPartyAnnotatedUtils.toStringOrDefault(o, null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullMarkedPackageEnablesChecking() {
     defaultCompilationHelper
         .addSourceLines(

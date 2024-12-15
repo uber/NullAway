@@ -83,9 +83,7 @@ public final class CodeAnnotationInfo {
     String className = outermostClassSymbol.getQualifiedName().toString();
     Symbol.PackageSymbol enclosingPackage = ASTHelpers.enclosingPackage(outermostClassSymbol);
     if (!config.fromExplicitlyAnnotatedPackage(className)
-        && !(enclosingPackage != null
-            && hasDirectAnnotationWithSimpleName(
-                enclosingPackage, NullabilityUtil.NULLMARKED_SIMPLE_NAME))) {
+        && !(enclosingPackage != null && annotatedAsNullMarkedPackage(enclosingPackage))) {
       // By default, unknown code is unannotated unless @NullMarked or configured as annotated by
       // package name
       return false;
@@ -102,6 +100,21 @@ public final class CodeAnnotationInfo {
     // Finally, if we are here, the code was marked as annotated (either by configuration or
     // @NullMarked) and nothing overrides it.
     return true;
+  }
+
+  private static final String NONNULLAPI_NAME = "org.springframework.lang.NonNullApi";
+  private static final String NONNULLFIELDS_NAME = "org.springframework.lang.NonNullFields";
+
+  private static boolean annotatedAsNullMarkedPackage(Symbol.PackageSymbol enclosingPackage) {
+    return hasDirectAnnotationWithSimpleName(
+            enclosingPackage, NullabilityUtil.NULLMARKED_SIMPLE_NAME)
+        || (packageHasAnnotation(enclosingPackage, NONNULLAPI_NAME)
+            && packageHasAnnotation(enclosingPackage, NONNULLFIELDS_NAME));
+  }
+
+  private static boolean packageHasAnnotation(Symbol sym, String annotationClass) {
+    return sym.getAnnotationMirrors().stream()
+        .anyMatch(a -> a.type.tsym.getQualifiedName().contentEquals(annotationClass));
   }
 
   /**
