@@ -49,6 +49,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -1297,6 +1298,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   /** Constructs Library Models from stubx files */
   private static class ExternalStubxLibraryModels implements LibraryModels {
 
+    /** astubx file name used in our Android SDK JarInfer models */
+    private static final String ANDROID_ASTUBX_LOCATION = "jarinfer.astubx";
+
+    /** Class we expect to be present in a jar containing Android SDK JarInfer models */
+    private static final String ANDROID_MODEL_CLASS =
+        "com.uber.nullaway.jarinfer.AndroidJarInferModels";
+
     private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
     private final Set<String> nullMarkedClassesCache;
     private final Map<String, Integer> upperBoundsCache;
@@ -1304,6 +1312,25 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     ExternalStubxLibraryModels() {
       String libraryModelLogName = "LM";
       StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
+      // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
+      try {
+        InputStream androidStubxIS =
+            Class.forName(ANDROID_MODEL_CLASS)
+                .getClassLoader()
+                .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
+        if (androidStubxIS != null) {
+          cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
+          astubxLoadLog("Loaded Android RT models.");
+        }
+      } catch (ClassNotFoundException e) {
+        astubxLoadLog(
+            "Cannot find Android RT models locator class."
+                + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
+
+      } catch (Exception e) {
+        astubxLoadLog("Cannot load Android RT models.");
+      }
+
       argAnnotCache = cacheUtil.getArgAnnotCache();
       nullMarkedClassesCache = cacheUtil.getNullMarkedClassesCache();
       upperBoundsCache = cacheUtil.getUpperBoundCache();
@@ -1338,11 +1365,14 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         String className = outerEntry.getKey();
         for (Map.Entry<String, Map<Integer, Set<String>>> innerEntry :
             outerEntry.getValue().entrySet()) {
-          String methodName = innerEntry.getKey().substring(innerEntry.getKey().indexOf(" ") + 1);
+          String methodNameAndSignature =
+              innerEntry.getKey().substring(innerEntry.getKey().indexOf(" ") + 1);
           for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
             Integer index = entry.getKey();
             if (index >= 0 && entry.getValue().stream().anyMatch(a -> a.contains("Nullable"))) {
-              mapBuilder.put(methodRef(className, methodName), index);
+              // remove spaces
+              methodNameAndSignature = methodNameAndSignature.replaceAll("\\s", "");
+              mapBuilder.put(methodRef(className, methodNameAndSignature), index);
             }
           }
         }
@@ -1352,7 +1382,37 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
-      return ImmutableSetMultimap.of();
+      ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      for (String className : argAnnotCache.keySet()) {
+        for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
+            argAnnotCache.get(className).entrySet()) {
+          String methodNameAndSignature =
+              methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
+
+          for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
+            Integer index = argEntry.getKey();
+            if (index >= 0) {
+              for (String annotation : argEntry.getValue()) {
+                if (annotation.contains("NonNull")
+                    || annotation.equals("javax.annotation.Nonnull")) {
+                  astubxLoadLog(
+                      "Found non-null parameter: "
+                          + className
+                          + "."
+                          + methodEntry.getKey()
+                          + " arg "
+                          + argEntry.getKey());
+                  // remove spaces
+                  methodNameAndSignature = methodNameAndSignature.replaceAll("\\s", "");
+                  mapBuilder.put(methodRef(className, methodNameAndSignature), index);
+                }
+              }
+            }
+          }
+        }
+      }
+      return mapBuilder.build();
     }
 
     @Override
@@ -1372,7 +1432,27 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     @Override
     public ImmutableSet<MethodRef> nullableReturns() {
-      return ImmutableSet.of();
+      ImmutableSet.Builder<MethodRef> builder = new ImmutableSet.Builder<>();
+      for (String className : argAnnotCache.keySet()) {
+        for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
+            argAnnotCache.get(className).entrySet()) {
+          String methodNameAndSignature =
+              methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
+
+          for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
+            Integer index = argEntry.getKey();
+            if (index == -1) {
+              Set<String> annotations = argEntry.getValue();
+              if (annotations.contains("javax.annotation.Nullable")
+                  || annotations.contains("org.jspecify.annotations.Nullable")) {
+                methodNameAndSignature = methodNameAndSignature.replaceAll("\\s", "");
+                builder.add(methodRef(className, methodNameAndSignature));
+              }
+            }
+          }
+        }
+      }
+      return builder.build();
     }
 
     @Override
@@ -1383,6 +1463,14 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
       return ImmutableSetMultimap.of();
+    }
+  }
+
+  private static boolean DEBUG_ASTUBX_LOADING = false;
+
+  private static void astubxLoadLog(String msg) {
+    if (DEBUG_ASTUBX_LOADING) {
+      System.out.println("[JI DEBUG] " + msg);
     }
   }
 }

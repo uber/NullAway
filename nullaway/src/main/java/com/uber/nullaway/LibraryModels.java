@@ -214,7 +214,14 @@ public interface LibraryModels {
       this.fullMethodSig = fullMethodSig;
     }
 
-    private static final Pattern METHOD_SIG_PATTERN = Pattern.compile("^(<.*>)?(\\w+)(\\(.*\\))$");
+    /**
+     * Pattern for parsing method signatures. The signature should be in the format: {@code
+     * <T1,T2,...>methodName(ArgType1,ArgType2,...)}.
+     *
+     * @see #methodRef(String, String)
+     */
+    private static final Pattern METHOD_SIG_PATTERN =
+        Pattern.compile("^(<.*>)?(\\w+|<init>)(\\(.*\\))$");
 
     /**
      * Construct a method reference.
