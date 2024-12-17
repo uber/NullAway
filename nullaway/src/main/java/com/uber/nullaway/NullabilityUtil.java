@@ -346,8 +346,7 @@ public class NullabilityUtil {
       case LOCAL_VARIABLE:
         return position.type == TargetType.LOCAL_VARIABLE;
       case FIELD:
-      // treated like a field
-      case ENUM_CONSTANT:
+      case ENUM_CONSTANT: // treated like a field
         return position.type == TargetType.FIELD;
       case CONSTRUCTOR:
       case METHOD:
@@ -367,8 +366,7 @@ public class NullabilityUtil {
           return false;
         }
       case CLASS:
-      // treated like a class
-      case ENUM:
+      case ENUM: // treated like a class
         // There are no type annotations on the top-level type of the class/enum being declared,
         // only on other types in the signature (e.g. `class Foo extends Bar<@A Baz> {}`).
         return false;
