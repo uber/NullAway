@@ -2027,6 +2027,24 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1093() {
+    makeHelper()
+        .addSourceLines(
+            "Main.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class Main {",
+            "    interface CacheLoader<V extends @Nullable Object> {",
+            "    }",
+            "    enum Loader implements CacheLoader<@Nullable Integer> {",
+            "        NULL;",
+            "        Loader() {}",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

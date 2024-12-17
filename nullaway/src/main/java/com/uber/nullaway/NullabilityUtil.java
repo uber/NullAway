@@ -367,8 +367,10 @@ public class NullabilityUtil {
           return false;
         }
       case CLASS:
-        // There are no type annotations on the top-level type of the class being declared, only
-        // on other types in the signature (e.g. `class Foo extends Bar<@A Baz> {}`).
+      // treated like a class
+      case ENUM:
+        // There are no type annotations on the top-level type of the class/enum being declared,
+        // only on other types in the signature (e.g. `class Foo extends Bar<@A Baz> {}`).
         return false;
       default:
         // Compare with toString() to preserve compatibility with JDK 11
