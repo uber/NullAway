@@ -688,7 +688,7 @@ public class NullAway extends BugChecker
       switchSelectorExpression = ((ParenthesizedTree) switchSelectorExpression).getExpression();
     }
 
-    if (mayBeNullExpr(state, switchSelectorExpression)) {
+    if (!TreeUtils.hasNullCaseLabel(tree) && mayBeNullExpr(state, switchSelectorExpression)) {
       String message =
           "switch expression " + state.getSourceForNode(switchSelectorExpression) + " is @Nullable";
       ErrorMessage errorMessage =

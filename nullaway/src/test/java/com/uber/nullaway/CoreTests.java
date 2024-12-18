@@ -207,7 +207,7 @@ public class CoreTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void supportSwitchExpression() {
+  public void switchOnNullable() {
     defaultCompilationHelper
         .addSourceLines(
             "TestPositive.java",
