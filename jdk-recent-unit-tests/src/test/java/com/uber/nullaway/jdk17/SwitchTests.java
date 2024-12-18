@@ -244,4 +244,27 @@ public class SwitchTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void switchStatementCaseNull() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class Test {",
+            "    public enum NullableEnum {",
+            "        VALUE1, VALUE2;",
+            "    }",
+            "    static Object handleNullableEnumCaseNullDefaultStatement(@Nullable NullableEnum nullableEnum) {",
+            "        Object result;",
+            "        switch (nullableEnum) {",
+            "            case null -> result = new Object();",
+            "            default -> result = nullableEnum.toString();",
+            "        }",
+            "        return result;",
+            "    }",
+            "}")
+        .doTest();
+  }
 }
