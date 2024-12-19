@@ -490,7 +490,6 @@ public class NullAway extends BugChecker
       // assigning to symbol that is unannotated
       return Description.NO_MATCH;
     }
-    // TODO add test that we skip generics check if lhs symbol is unannotated
     // generics check
     if (lhsType != null && config.isJSpecifyMode()) {
       GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
