@@ -485,6 +485,11 @@ public class NullAway extends BugChecker
     if (lhsType != null && lhsType.isPrimitive()) {
       doUnboxingCheck(state, tree.getExpression());
     }
+    Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
+    if (assigned != null && codeAnnotationInfo.isSymbolUnannotated(assigned, config, handler)) {
+      // assigning to symbol that is unannotated
+      return Description.NO_MATCH;
+    }
     // generics check
     if (lhsType != null && config.isJSpecifyMode()) {
       GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
@@ -508,7 +513,6 @@ public class NullAway extends BugChecker
       }
     }
 
-    Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
     if (assigned == null || assigned.getKind() != ElementKind.FIELD) {
       // not a field of nullable type
       return Description.NO_MATCH;
