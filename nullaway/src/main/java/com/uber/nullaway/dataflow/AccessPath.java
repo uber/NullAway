@@ -742,7 +742,7 @@ public final class AccessPath implements MapKey {
     }
 
     public boolean isStructurallyImmutableType(Type type) {
-      return immutableTypes.contains(type.tsym.toString());
+      return type.isPrimitive() || immutableTypes.contains(type.tsym.toString());
     }
 
     public static Builder builder() {

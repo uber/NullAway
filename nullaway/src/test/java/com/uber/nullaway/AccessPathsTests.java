@@ -79,11 +79,17 @@ public class AccessPathsTests extends NullAwayTestsBase {
             "import javax.annotation.Nullable;",
             "public class Test {",
             "  private static final int INT_KEY = 42;", // Guaranteed constant!
+            "  // Guaranteed constant after class loading",
+            "  private static final int INT_KEY_HC = \"teststr\".hashCode();",
             "  public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {",
             "    if (c.get(\"KEY_STR\") != null && c.get(\"KEY_STR\").get(INT_KEY) != null) {",
             "      c.get(\"KEY_STR\").get(INT_KEY).toString();",
             "      c.get(\"KEY_STR\").get(Test.INT_KEY).toString();",
             "      c.get(\"KEY_STR\").get(42).toString();", // Extra magic!
+            "    }",
+            "    if (c.get(\"KEY_STR\") != null && c.get(\"KEY_STR\").get(INT_KEY_HC) != null) {",
+            "      c.get(\"KEY_STR\").get(INT_KEY_HC).toString();",
+            "      c.get(\"KEY_STR\").get(Test.INT_KEY_HC).toString();",
             "    }",
             "  }",
             "}")
