@@ -482,6 +482,33 @@ public class JarInferTest {
   }
 
   @Test
+  public void wildcards() throws Exception {
+    testTemplate(
+        "wildcards",
+        "generic",
+        "TestGeneric",
+        ImmutableMap.of(
+            "generic.TestGeneric:void genericWildcardLower(generic.TestGeneric.Generic<? super java.lang.String>)",
+            Sets.newHashSet(0),
+            "generic.TestGeneric:void genericWildcard(generic.TestGeneric.Generic<?>)",
+            Sets.newHashSet(0),
+            "generic.TestGeneric:java.lang.String genericWildcardUpper(generic.TestGeneric.Generic<? extends java.lang.String>)",
+            Sets.newHashSet(0)),
+        "public class TestGeneric {",
+        "  public abstract static class Generic<T> {",
+        "    public String getString(T t) {",
+        "      return \"t\";",
+        "    }",
+        "    public void doNothing() {}",
+        "    public abstract T getSomething();",
+        "  }",
+        "  public static void genericWildcard(Generic<?> g) { g.doNothing(); };",
+        "  public static String genericWildcardUpper(Generic<? extends String> g) { return g.getSomething(); };",
+        "  public static void genericWildcardLower(Generic<? super String> g) { g.getString(\"hello\"); };",
+        "}");
+  }
+
+  @Test
   public void toyJARAnnotatingClasses() throws Exception {
     testAnnotationInJarTemplate(
         "toyJARAnnotatingClasses",

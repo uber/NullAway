@@ -566,6 +566,9 @@ public class DefinitelyDerefedParamsDriver {
    * @return source-level qualified type name.
    */
   private static String getSourceLevelQualifiedTypeName(String typeName) {
+    if (isWildcard(typeName)) {
+      return sourceLevelWildcardType(typeName);
+    }
     if (!typeName.endsWith(";")) {
       // we need the semicolon since some of WALA's TypeSignature APIs expect it
       typeName = typeName + ";";
@@ -596,6 +599,24 @@ public class DefinitelyDerefedParamsDriver {
           + "<"
           + String.join(",", genericTypeArgs)
           + ">";
+    }
+  }
+
+  private static boolean isWildcard(String typeName) {
+    char firstChar = typeName.charAt(0);
+    return firstChar == '*' || firstChar == '+' || firstChar == '-';
+  }
+
+  private static String sourceLevelWildcardType(String typeName) {
+    switch (typeName.charAt(0)) {
+      case '*':
+        return "?";
+      case '+':
+        return "? extends " + getSourceLevelQualifiedTypeName(typeName.substring(1));
+      case '-':
+        return "? super " + getSourceLevelQualifiedTypeName(typeName.substring(1));
+      default:
+        throw new RuntimeException("unexpected wildcard type name" + typeName);
     }
   }
 }
