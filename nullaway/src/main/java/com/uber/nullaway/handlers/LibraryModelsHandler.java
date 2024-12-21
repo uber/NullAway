@@ -1370,8 +1370,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
             Integer index = entry.getKey();
             if (index >= 0 && entry.getValue().stream().anyMatch(a -> a.contains("Nullable"))) {
-              // remove spaces
-              methodNameAndSignature = methodNameAndSignature.replaceAll("\\s", "");
+              // remove spaces after commas
+              methodNameAndSignature = methodNameAndSignature.replaceAll(",\\s", ",");
               mapBuilder.put(methodRef(className, methodNameAndSignature), index);
             }
           }
@@ -1403,8 +1403,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                           + methodEntry.getKey()
                           + " arg "
                           + argEntry.getKey());
-                  // remove spaces
-                  methodNameAndSignature = methodNameAndSignature.replaceAll("\\s", "");
+                  // remove spaces after commas
+                  methodNameAndSignature = methodNameAndSignature.replaceAll(",\\s", ",");
                   mapBuilder.put(methodRef(className, methodNameAndSignature), index);
                 }
               }
