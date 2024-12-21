@@ -1776,9 +1776,9 @@ public class NullAway extends BugChecker
       ErrorMessage errorMessage =
           new ErrorMessage(
               MessageTypes.DEREFERENCE_NULLABLE,
-              "synchronized block expression "
+              "synchronized block expression \""
                   + state.getSourceForNode(lockExpr)
-                  + " is @Nullable");
+                  + "\" is @Nullable");
       return errorBuilder.createErrorDescription(
           errorMessage, buildDescription(lockExpr), state, null);
     }

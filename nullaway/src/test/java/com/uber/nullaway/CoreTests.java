@@ -1081,7 +1081,7 @@ public class CoreTests extends NullAwayTestsBase {
             "import org.jspecify.annotations.Nullable;",
             "public class TestCase {",
             "  public static void foo(@Nullable Object lock) {",
-            "    // BUG: Diagnostic contains: synchronized block expression lock is @Nullable",
+            "    // BUG: Diagnostic contains: synchronized block expression \"lock\" is @Nullable",
             "    synchronized (lock) {}",
             "  }",
             "}")
