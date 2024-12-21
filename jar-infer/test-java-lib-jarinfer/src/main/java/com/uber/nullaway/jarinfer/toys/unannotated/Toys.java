@@ -54,17 +54,14 @@ public class Toys {
   public static void genericWildcard(Generic<?> g) {
     g.doNothing();
   }
-  ;
 
   public static String genericWildcardUpper(Generic<? extends String> g) {
     return g.getSomething();
   }
-  ;
 
   public static void genericWildcardLower(Generic<? super String> g) {
     g.getString("hello");
   }
-  ;
 
   public static void main(String arg[]) throws java.io.IOException {
     String s = "test string...";
