@@ -37,13 +37,29 @@ public class Toys {
     return o.hashCode();
   }
 
-  public static class Generic<T> {
+  public abstract static class Generic<T> {
     public String getString(T t) {
       return t.toString();
     }
+
+    public void doNothing() {}
+
+    public abstract T getSomething();
   }
 
   public static void genericParam(Generic<String> g) {
+    g.getString("hello");
+  }
+
+  public static void genericWildcard(Generic<?> g) {
+    g.doNothing();
+  }
+
+  public static String genericWildcardUpper(Generic<? extends String> g) {
+    return g.getSomething();
+  }
+
+  public static void genericWildcardLower(Generic<? super String> g) {
     g.getString("hello");
   }
 
