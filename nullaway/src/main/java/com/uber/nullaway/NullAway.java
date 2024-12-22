@@ -82,6 +82,7 @@ import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.SwitchTree;
+import com.sun.source.tree.SynchronizedTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.TryTree;
 import com.sun.source.tree.TypeCastTree;
@@ -186,7 +187,8 @@ public class NullAway extends BugChecker
         BugChecker.CompoundAssignmentTreeMatcher,
         BugChecker.SwitchTreeMatcher,
         BugChecker.TypeCastTreeMatcher,
-        BugChecker.ParameterizedTypeTreeMatcher {
+        BugChecker.ParameterizedTypeTreeMatcher,
+        BugChecker.SynchronizedTreeMatcher {
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
   static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
@@ -1764,6 +1766,27 @@ public class NullAway extends BugChecker
             "enhanced-for expression " + state.getSourceForNode(expr) + " is @Nullable");
     if (mayBeNullExpr(state, expr)) {
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(expr), state, null);
+    }
+    return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchSynchronized(SynchronizedTree tree, VisitorState state) {
+    ExpressionTree lockExpr = tree.getExpression();
+    // For a synchronized block `synchronized (e) { ... }`, javac returns `(e)` as the expression.
+    // We strip the outermost parentheses for a nicer-looking error message.
+    if (lockExpr instanceof ParenthesizedTree) {
+      lockExpr = ((ParenthesizedTree) lockExpr).getExpression();
+    }
+    if (mayBeNullExpr(state, lockExpr)) {
+      ErrorMessage errorMessage =
+          new ErrorMessage(
+              MessageTypes.DEREFERENCE_NULLABLE,
+              "synchronized block expression \""
+                  + state.getSourceForNode(lockExpr)
+                  + "\" is @Nullable");
+      return errorBuilder.createErrorDescription(
+          errorMessage, buildDescription(lockExpr), state, null);
     }
     return Description.NO_MATCH;
   }
