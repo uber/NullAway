@@ -3,6 +3,7 @@ package com.uber.nullaway.jmh;
 import static org.junit.Assert.assertTrue;
 
 import java.io.IOException;
+import org.junit.Ignore;
 import org.junit.Test;
 
 /** Tests that all our JMH benchmarks compile successfully */
@@ -14,6 +15,7 @@ public class BenchmarkCompilationTest {
   }
 
   @Test
+  @Ignore("need to update caffeine version")
   public void testCaffeine() throws IOException {
     assertTrue(new CaffeineCompiler().compile());
   }
