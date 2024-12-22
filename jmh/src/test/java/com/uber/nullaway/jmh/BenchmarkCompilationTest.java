@@ -15,7 +15,7 @@ public class BenchmarkCompilationTest {
   }
 
   @Test
-  @Ignore("need to update caffeine version")
+  @Ignore("Need to update caffeine version; https://github.com/uber/NullAway/issues/1108")
   public void testCaffeine() throws IOException {
     assertTrue(new CaffeineCompiler().compile());
   }
