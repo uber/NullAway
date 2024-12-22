@@ -486,6 +486,12 @@ public class NullAway extends BugChecker
       doUnboxingCheck(state, tree.getExpression());
     }
     Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
+    if (assigned instanceof Symbol.MethodSymbol) {
+      // javac generates an AssignmentTree for setting an annotation attribute value.  E.g., for
+      // `@SuppressWarnings("foo")`, javac generates an AssignmentTree of the form `value() =
+      // "foo"`, where the LHS is a MethodSymbol.  We don't want to analyze these.
+      return Description.NO_MATCH;
+    }
     if (assigned != null && codeAnnotationInfo.isSymbolUnannotated(assigned, config, handler)) {
       // assigning to symbol that is unannotated
       return Description.NO_MATCH;
