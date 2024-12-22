@@ -97,7 +97,7 @@ jobs:
         run: mkdir -p /tmp/caffeine
       - name: Clone Caffeine repository
         run: |
-          git clone --depth 1 --branch main https://github.com/ben-manes/caffeine.git /tmp/caffeine
+          git clone --depth 1 https://github.com/ben-manes/caffeine.git /tmp/caffeine
       - name: Run caffeine build
         run: |
           cd /tmp/caffeine
