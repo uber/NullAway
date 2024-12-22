@@ -76,3 +76,29 @@ jobs:
         if: matrix.java == '17'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
+  caffeine-gradle-task:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+      - name: 'Set up JDKs'
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: 'temurin'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Publish to Maven Local
+        env:
+          ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'false'
+        run: ./gradlew publishToMavenLocal
+      - name: Create a temporary directory for Caffeine
+        run: mkdir -p /tmp/caffeine
+      - name: Clone Caffeine repository
+        run: |
+          git clone --depth 1 --branch main https://github.com/ben-manes/caffeine.git /tmp/caffeine
+      - name: Run caffeine build
+        run: |
+          cd /tmp/caffeine
+          ./gradlew build -x test -x javadoc
