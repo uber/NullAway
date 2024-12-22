@@ -35,6 +35,7 @@ public class ModuleInfoTests {
     defaultCompilationHelper
         .addSourceLines(
             "module-info.java",
+            "@SuppressWarnings(\"some-warning-name\")",
             "module com.uber.mymodule {",
             "  // Important: two-level deep module tests matching of identifier `java` as base expression;",
             "  // see further discussion at https://github.com/uber/NullAway/pull/544#discussion_r780829467",
