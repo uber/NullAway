@@ -100,6 +100,6 @@ jobs:
           git clone --depth 1 https://github.com/ben-manes/caffeine.git /tmp/caffeine
       - name: Run caffeine build
         run: |
-          cp nullaway-override.gradle.kts /tmp/caffeine
+          cp .github/workflows/caffeine-use-snapshot.gradle.kts /tmp/caffeine
           cd /tmp/caffeine
-          ./gradlew --init-script nullaway-override.gradle.kts build -x test -x javadoc
+          ./gradlew --init-script caffeine-use-snapshot.gradle.kts build -x test -x javadoc
