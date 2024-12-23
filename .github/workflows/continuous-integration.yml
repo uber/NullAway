@@ -97,8 +97,7 @@ jobs:
       - name: Create a temporary directory for Caffeine
         run: mkdir -p /tmp/caffeine
       - name: Clone Caffeine repository
-        run: |
-          git clone --depth 1 https://github.com/ben-manes/caffeine.git /tmp/caffeine
+        run: git clone --depth 1 https://github.com/ben-manes/caffeine.git /tmp/caffeine
       - name: Run caffeine build
         run: |
           cp .github/workflows/caffeine-use-snapshot.gradle.kts /tmp/caffeine
