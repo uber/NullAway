@@ -526,6 +526,12 @@ public class DefinitelyDerefedParamsDriver {
       // get types that include generic type arguments
       returnType = getSourceLevelQualifiedTypeName(genericSignature.getReturnType().toString());
       TypeSignature[] argTypeSigs = genericSignature.getArguments();
+      if (argTypeSigs.length != numParams) {
+        throw new RuntimeException(
+            String.format(
+                "Mismatch in number of parameters in generic signature: %s with %d vs %s with %d",
+                mtd.getSignature(), numParams, genericSignature, argTypeSigs.length));
+      }
       for (int i = 0; i < argTypeSigs.length; i++) {
         argTypes[i] = getSourceLevelQualifiedTypeName(argTypeSigs[i].toString());
       }
@@ -591,6 +597,7 @@ public class DefinitelyDerefedParamsDriver {
       int idx = typeName.indexOf("<");
       String baseType = typeName.substring(0, idx);
       // generic type args are separated by semicolons in signature stored in bytecodes
+      // TODO this does not handle nested generic types properly!
       String[] genericTypeArgs = typeName.substring(idx + 1, typeName.length() - 2).split(";");
       for (int i = 0; i < genericTypeArgs.length; i++) {
         genericTypeArgs[i] = getSourceLevelQualifiedTypeName(genericTypeArgs[i]);

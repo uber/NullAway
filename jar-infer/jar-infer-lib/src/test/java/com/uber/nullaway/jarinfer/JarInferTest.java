@@ -482,6 +482,27 @@ public class JarInferTest {
   }
 
   @Test
+  public void nestedGeneric() throws Exception {
+    testTemplate(
+        "nestedGeneric",
+        "generic",
+        "TestGeneric",
+        ImmutableMap.of(
+            "generic.TestGeneric:java.lang.String getString(generic.TestGeneric.Generic<generic.TestGeneric.Generic<java.lang.String>>)",
+            Sets.newHashSet(0)),
+        "public class TestGeneric {",
+        "  static class Generic<T> {",
+        "    public String foo(T t) {",
+        "      return \"hi\";",
+        "    }",
+        "  }",
+        "  public String getString(Generic<Generic<String>> g) {",
+        "    return g.foo(null);",
+        "  }",
+        "}");
+  }
+
+  @Test
   public void wildcards() throws Exception {
     testTemplate(
         "wildcards",
