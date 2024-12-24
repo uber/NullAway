@@ -530,6 +530,23 @@ public class JarInferTest {
   }
 
   @Test
+  public void multiArgWildcards() throws Exception {
+    testTemplate(
+        "multiArgWildcards",
+        "generic",
+        "TestGeneric",
+        ImmutableMap.of(
+            "generic.TestGeneric:void genericMultiWildcard(java.lang.String, generic.TestGeneric.Generic<?,?>)",
+            Sets.newHashSet(1)),
+        "public class TestGeneric {",
+        "  public abstract static class Generic<T,U> {",
+        "    public void doNothing() {}",
+        "  }",
+        "  public static void genericMultiWildcard(String s, Generic<?,?> g) { g.doNothing(); };",
+        "}");
+  }
+
+  @Test
   public void toyJARAnnotatingClasses() throws Exception {
     testAnnotationInJarTemplate(
         "toyJARAnnotatingClasses",
