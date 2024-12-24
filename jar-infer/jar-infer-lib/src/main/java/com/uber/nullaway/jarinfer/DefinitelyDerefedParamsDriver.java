@@ -61,11 +61,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.jar.JarFile;
@@ -598,7 +600,9 @@ public class DefinitelyDerefedParamsDriver {
       String baseType = typeName.substring(0, idx);
       // generic type args are separated by semicolons in signature stored in bytecodes
       // TODO this does not handle nested generic types properly!
-      String[] genericTypeArgs = typeName.substring(idx + 1, typeName.length() - 2).split(";");
+      String[] genericTypeArgs =
+          splitIgnoringAngleBrackets(typeName.substring(idx + 1, typeName.length() - 2))
+              .toArray(new String[0]);
       for (int i = 0; i < genericTypeArgs.length; i++) {
         genericTypeArgs[i] = getSourceLevelQualifiedTypeName(genericTypeArgs[i]);
       }
@@ -607,6 +611,36 @@ public class DefinitelyDerefedParamsDriver {
           + String.join(",", genericTypeArgs)
           + ">";
     }
+  }
+
+  private static List<String> splitIgnoringAngleBrackets(String input) {
+    List<String> result = new ArrayList<>();
+    StringBuilder currentSegment = new StringBuilder();
+    int angleBracketDepth = 0;
+
+    for (int i = 0; i < input.length(); i++) {
+      char c = input.charAt(i);
+      if (c == '<') {
+        angleBracketDepth++;
+        currentSegment.append(c);
+      } else if (c == '>') {
+        angleBracketDepth--;
+        currentSegment.append(c);
+      } else if (c == ';' && angleBracketDepth == 0) {
+        // Split on semicolon only if not nested within <>
+        result.add(currentSegment.toString());
+        currentSegment.setLength(0);
+      } else {
+        currentSegment.append(c);
+      }
+    }
+
+    // Add the last segment if it's not empty
+    if (currentSegment.length() > 0) {
+      result.add(currentSegment.toString());
+    }
+
+    return result;
   }
 
   private static boolean isWildcard(String typeName) {
