@@ -51,7 +51,15 @@ public class Toys {
     g.getString("hello");
   }
 
+  public static void nestedGenericParam(Generic<Generic<String>> g) {
+    g.getString(null);
+  }
+
   public static void genericWildcard(Generic<?> g) {
+    g.doNothing();
+  }
+
+  public static void nestedGenericWildcard(Generic<Generic<?>> g) {
     g.doNothing();
   }
 
@@ -61,6 +69,20 @@ public class Toys {
 
   public static void genericWildcardLower(Generic<? super String> g) {
     g.getString("hello");
+  }
+
+  public abstract static class DoubleGeneric<T, U> {
+    public void doNothing() {}
+  }
+
+  public static void doubleGenericWildcard(String s, DoubleGeneric<?, ?> g) {
+    g.doNothing();
+  }
+
+  public static void doubleGenericWildcardNullOk(String s, DoubleGeneric<?, ?> g) {
+    if (g != null) {
+      g.doNothing();
+    }
   }
 
   public static void main(String arg[]) throws java.io.IOException {

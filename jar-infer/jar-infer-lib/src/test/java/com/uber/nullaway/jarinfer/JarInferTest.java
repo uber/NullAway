@@ -482,6 +482,27 @@ public class JarInferTest {
   }
 
   @Test
+  public void nestedGeneric() throws Exception {
+    testTemplate(
+        "nestedGeneric",
+        "generic",
+        "TestGeneric",
+        ImmutableMap.of(
+            "generic.TestGeneric:java.lang.String getString(generic.TestGeneric.Generic<generic.TestGeneric.Generic<java.lang.String>>)",
+            Sets.newHashSet(0)),
+        "public class TestGeneric {",
+        "  static class Generic<T> {",
+        "    public String foo(T t) {",
+        "      return \"hi\";",
+        "    }",
+        "  }",
+        "  public String getString(Generic<Generic<String>> g) {",
+        "    return g.foo(null);",
+        "  }",
+        "}");
+  }
+
+  @Test
   public void wildcards() throws Exception {
     testTemplate(
         "wildcards",
@@ -505,6 +526,40 @@ public class JarInferTest {
         "  public static void genericWildcard(Generic<?> g) { g.doNothing(); };",
         "  public static String genericWildcardUpper(Generic<? extends String> g) { return g.getSomething(); };",
         "  public static void genericWildcardLower(Generic<? super String> g) { g.getString(\"hello\"); };",
+        "}");
+  }
+
+  @Test
+  public void multiArgWildcards() throws Exception {
+    testTemplate(
+        "multiArgWildcards",
+        "generic",
+        "TestGeneric",
+        ImmutableMap.of(
+            "generic.TestGeneric:void genericMultiWildcard(java.lang.String, generic.TestGeneric.Generic<?,?>)",
+            Sets.newHashSet(1)),
+        "public class TestGeneric {",
+        "  public abstract static class Generic<T,U> {",
+        "    public void doNothing() {}",
+        "  }",
+        "  public static void genericMultiWildcard(String s, Generic<?,?> g) { g.doNothing(); };",
+        "}");
+  }
+
+  @Test
+  public void nestedWildcard() throws Exception {
+    testTemplate(
+        "nestedWildcard",
+        "generic",
+        "TestGeneric",
+        ImmutableMap.of(
+            "generic.TestGeneric:void nestedWildcard(generic.TestGeneric.Generic<generic.TestGeneric.Generic<?>>)",
+            Sets.newHashSet(0)),
+        "public class TestGeneric {",
+        "  public abstract static class Generic<T> {",
+        "    public void doNothing() {}",
+        "  }",
+        "  public static void nestedWildcard(Generic<Generic<?>> g) { g.doNothing(); };",
         "}");
   }
 
