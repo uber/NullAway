@@ -530,7 +530,7 @@ public class DefinitelyDerefedParamsDriver {
       returnType = getSourceLevelQualifiedTypeName(genericSignature.getReturnType().toString());
       TypeSignature[] argTypeSigs = genericSignature.getArguments();
       Verify.verify(
-          argTypeSigs.length != numParams,
+          argTypeSigs.length == numParams,
           "Mismatch in number of parameters in generic signature: %s with %s vs %s with %s",
           mtd.getSignature(),
           numParams,
@@ -601,9 +601,7 @@ public class DefinitelyDerefedParamsDriver {
       int idx = typeName.indexOf("<");
       String baseType = typeName.substring(0, idx);
       // generic type args are separated by semicolons in signature stored in bytecodes
-      // TODO this does not handle nested generic types properly!
-      String[] genericTypeArgs =
-          extractTopLevelGenericTypeArgs(typeName.substring(idx + 1, typeName.length() - 2));
+      String[] genericTypeArgs = splitTypeArgs(typeName.substring(idx + 1, typeName.length() - 2));
       for (int i = 0; i < genericTypeArgs.length; i++) {
         genericTypeArgs[i] = getSourceLevelQualifiedTypeName(genericTypeArgs[i]);
       }
@@ -614,13 +612,21 @@ public class DefinitelyDerefedParamsDriver {
     }
   }
 
-  private static String[] extractTopLevelGenericTypeArgs(String input) {
+  /**
+   * Splits out the top-level type arguments from a string representing all arguments (from the
+   * bytecode-level signature)
+   *
+   * @param allTypeArgs string representing all type arguments
+   * @return array of strings representing top-level type arguments
+   */
+  private static String[] splitTypeArgs(String allTypeArgs) {
     List<String> result = new ArrayList<>();
     StringBuilder currentTypeArg = new StringBuilder();
+    // track angle bracket depth to handle nested generic types
     int angleBracketDepth = 0;
 
-    for (int i = 0; i < input.length(); i++) {
-      char c = input.charAt(i);
+    for (int i = 0; i < allTypeArgs.length(); i++) {
+      char c = allTypeArgs.charAt(i);
       if (c == '<') {
         angleBracketDepth++;
         currentTypeArg.append(c);
@@ -628,7 +634,7 @@ public class DefinitelyDerefedParamsDriver {
         angleBracketDepth--;
         currentTypeArg.append(c);
       } else if (c == '*' && angleBracketDepth == 0) {
-        // Wildcard type
+        // Wildcard (not followed by semicolon)
         currentTypeArg.append(c);
         result.add(currentTypeArg.toString());
         currentTypeArg.setLength(0);
@@ -641,10 +647,12 @@ public class DefinitelyDerefedParamsDriver {
       }
     }
 
-    // there should be no "extra" characters left
+    // there should be no extra characters left
     Verify.verify(
         currentTypeArg.length() == 0,
-        "unexpected characters left in generic type args string " + currentTypeArg);
+        "unexpected characters left in generic type args string %s: %s",
+        allTypeArgs,
+        currentTypeArg);
 
     return result.toArray(new String[0]);
   }
