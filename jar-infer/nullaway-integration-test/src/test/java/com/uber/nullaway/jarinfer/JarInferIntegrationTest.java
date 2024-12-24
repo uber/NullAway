@@ -116,6 +116,8 @@ public class JarInferIntegrationTest {
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
             "    Toys.genericWildcard(null);",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    Toys.nestedGenericWildcard(null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
             "    Toys.genericWildcardUpper(null);",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
             "    Toys.genericWildcardLower(null);",

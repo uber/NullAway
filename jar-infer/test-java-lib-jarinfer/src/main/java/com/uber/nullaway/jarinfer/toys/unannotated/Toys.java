@@ -59,6 +59,10 @@ public class Toys {
     g.doNothing();
   }
 
+  public static void nestedGenericWildcard(Generic<Generic<?>> g) {
+    g.doNothing();
+  }
+
   public static String genericWildcardUpper(Generic<? extends String> g) {
     return g.getSomething();
   }

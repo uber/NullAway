@@ -547,6 +547,23 @@ public class JarInferTest {
   }
 
   @Test
+  public void nestedWildcard() throws Exception {
+    testTemplate(
+        "nestedWildcard",
+        "generic",
+        "TestGeneric",
+        ImmutableMap.of(
+            "generic.TestGeneric:void nestedWildcard(generic.TestGeneric.Generic<generic.TestGeneric.Generic<?>>)",
+            Sets.newHashSet(0)),
+        "public class TestGeneric {",
+        "  public abstract static class Generic<T> {",
+        "    public void doNothing() {}",
+        "  }",
+        "  public static void nestedWildcard(Generic<Generic<?>> g) { g.doNothing(); };",
+        "}");
+  }
+
+  @Test
   public void toyJARAnnotatingClasses() throws Exception {
     testAnnotationInJarTemplate(
         "toyJARAnnotatingClasses",
