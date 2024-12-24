@@ -529,12 +529,13 @@ public class DefinitelyDerefedParamsDriver {
       // get types that include generic type arguments
       returnType = getSourceLevelQualifiedTypeName(genericSignature.getReturnType().toString());
       TypeSignature[] argTypeSigs = genericSignature.getArguments();
-      if (argTypeSigs.length != numParams) {
-        throw new RuntimeException(
-            String.format(
-                "Mismatch in number of parameters in generic signature: %s with %d vs %s with %d",
-                mtd.getSignature(), numParams, genericSignature, argTypeSigs.length));
-      }
+      Verify.verify(
+          argTypeSigs.length != numParams,
+          "Mismatch in number of parameters in generic signature: %s with %s vs %s with %s",
+          mtd.getSignature(),
+          numParams,
+          genericSignature,
+          argTypeSigs.length);
       for (int i = 0; i < argTypeSigs.length; i++) {
         argTypes[i] = getSourceLevelQualifiedTypeName(argTypeSigs[i].toString());
       }
