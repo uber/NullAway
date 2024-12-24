@@ -89,6 +89,8 @@ public class JarInferIntegrationTest {
             "    g.getString(null);",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
             "    Toys.genericParam(null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    Toys.nestedGenericParam(null);",
             "  }",
             "}")
         .doTest();
@@ -117,6 +119,9 @@ public class JarInferIntegrationTest {
             "    Toys.genericWildcardUpper(null);",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
             "    Toys.genericWildcardLower(null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    Toys.doubleGenericWildcard(\"\", null);",
+            "    Toys.doubleGenericWildcardNullOk(\"\", null);",
             "  }",
             "}")
         .doTest();
