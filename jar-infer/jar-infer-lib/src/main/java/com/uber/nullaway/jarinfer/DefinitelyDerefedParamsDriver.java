@@ -16,6 +16,7 @@
 package com.uber.nullaway.jarinfer;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.ibm.wala.cfg.ControlFlowGraph;
@@ -601,8 +602,7 @@ public class DefinitelyDerefedParamsDriver {
       // generic type args are separated by semicolons in signature stored in bytecodes
       // TODO this does not handle nested generic types properly!
       String[] genericTypeArgs =
-          splitIgnoringAngleBrackets(typeName.substring(idx + 1, typeName.length() - 2))
-              .toArray(new String[0]);
+          extractTopLevelGenericTypeArgs(typeName.substring(idx + 1, typeName.length() - 2));
       for (int i = 0; i < genericTypeArgs.length; i++) {
         genericTypeArgs[i] = getSourceLevelQualifiedTypeName(genericTypeArgs[i]);
       }
@@ -613,34 +613,39 @@ public class DefinitelyDerefedParamsDriver {
     }
   }
 
-  private static List<String> splitIgnoringAngleBrackets(String input) {
+  private static String[] extractTopLevelGenericTypeArgs(String input) {
     List<String> result = new ArrayList<>();
-    StringBuilder currentSegment = new StringBuilder();
+    StringBuilder currentTypeArg = new StringBuilder();
     int angleBracketDepth = 0;
 
     for (int i = 0; i < input.length(); i++) {
       char c = input.charAt(i);
       if (c == '<') {
         angleBracketDepth++;
-        currentSegment.append(c);
+        currentTypeArg.append(c);
       } else if (c == '>') {
         angleBracketDepth--;
-        currentSegment.append(c);
+        currentTypeArg.append(c);
+      } else if (c == '*' && angleBracketDepth == 0) {
+        // Wildcard type
+        currentTypeArg.append(c);
+        result.add(currentTypeArg.toString());
+        currentTypeArg.setLength(0);
       } else if (c == ';' && angleBracketDepth == 0) {
         // Split on semicolon only if not nested within <>
-        result.add(currentSegment.toString());
-        currentSegment.setLength(0);
+        result.add(currentTypeArg.toString());
+        currentTypeArg.setLength(0);
       } else {
-        currentSegment.append(c);
+        currentTypeArg.append(c);
       }
     }
 
-    // Add the last segment if it's not empty
-    if (currentSegment.length() > 0) {
-      result.add(currentSegment.toString());
-    }
+    // there should be no "extra" characters left
+    Verify.verify(
+        currentTypeArg.length() == 0,
+        "unexpected characters left in generic type args string " + currentTypeArg);
 
-    return result;
+    return result.toArray(new String[0]);
   }
 
   private static boolean isWildcard(String typeName) {
