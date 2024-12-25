@@ -251,7 +251,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
               + FL_ANNOTATED_PACKAGES
               + "=[...] flag, or pass -XepOpt:NullAway:"
               + FL_ONLY_NULLMARKED
-              + " (but not both).  See TODO config URL.  If you feel you have gotten this message in error report an issue"
+              + " (but not both).  See https://github.com/uber/NullAway/wiki/Configuration. "
+              + "If you feel you have gotten this message in error report an issue"
               + " at https://github.com/uber/NullAway/issues.");
     }
     annotatedPackages = getPackagePattern(getFlagStringSet(flags, FL_ANNOTATED_PACKAGES));
