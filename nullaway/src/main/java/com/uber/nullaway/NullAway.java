@@ -784,10 +784,7 @@ public class NullAway extends BugChecker
       for (int i = 0; i < superParamSymbols.size(); i++) {
         Nullness paramNullness;
         if (overridenMethodIsVarArgs && i == superParamSymbols.size() - 1) {
-          // TODO for override checking, for a varargs position, we actually want to check if the
-          //  array _itself_ is @Nullable, which this API does not do.  Be careful to try to
-          // preserve
-          //  behavior in LegacyAnnotationsMode
+          // For a varargs position, we need to check if the array itself is @Nullable
           paramNullness =
               Nullness.varargsArrayIsNullable(superParamSymbols.get(i), config)
                   ? Nullness.NULLABLE
