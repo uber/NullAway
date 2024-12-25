@@ -112,6 +112,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
           + " (but not both).  See https://github.com/uber/NullAway/wiki/Configuration for details. "
           + "If you feel you have gotten this message in error report an issue"
           + " at https://github.com/uber/NullAway/issues.";
+
   private static final String DELIMITER = ",";
 
   static final ImmutableSet<String> DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE =
