@@ -516,6 +516,26 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void varargsOverride() {
+    makeHelper()
+        .addSourceLines(
+            "VarargsOverride.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class VarargsOverride {",
+            "    interface I {",
+            "        void varargs(@Nullable Object... params);",
+            "    }",
+            "    static class C implements I {",
+            "        @Override",
+            "        public void varargs(@Nullable Object... params) {",
+            "        }",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
