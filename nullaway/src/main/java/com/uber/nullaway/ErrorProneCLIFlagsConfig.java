@@ -101,6 +101,17 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_LEGACY_ANNOTATION_LOCATION =
       EP_FL_NAMESPACE + ":LegacyAnnotationLocations";
 
+  static final String ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG =
+      "DO NOT report an issue to Error Prone for this crash!  NullAway configuration is "
+          + "incorrect.  "
+          + "Must either specify annotated packages, using the "
+          + "-XepOpt:"
+          + FL_ANNOTATED_PACKAGES
+          + "=[...] flag, or pass -XepOpt:"
+          + FL_ONLY_NULLMARKED
+          + " (but not both).  See https://github.com/uber/NullAway/wiki/Configuration for details. "
+          + "If you feel you have gotten this message in error report an issue"
+          + " at https://github.com/uber/NullAway/issues.";
   private static final String DELIMITER = ",";
 
   static final ImmutableSet<String> DEFAULT_CLASS_ANNOTATIONS_TO_EXCLUDE =
@@ -243,17 +254,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
     // exactly one of AnnotatedPackages or OnlyNullMarked should be passed in
     if ((!annotatedPackagesPassed && !onlyNullMarked)
         || (annotatedPackagesPassed && onlyNullMarked)) {
-      throw new IllegalStateException(
-          "DO NOT report an issue to Error Prone for this crash!  NullAway configuration is "
-              + "incorrect.  "
-              + "Must either specify annotated packages, using the "
-              + "-XepOpt:NullAway:"
-              + FL_ANNOTATED_PACKAGES
-              + "=[...] flag, or pass -XepOpt:NullAway:"
-              + FL_ONLY_NULLMARKED
-              + " (but not both).  See https://github.com/uber/NullAway/wiki/Configuration. "
-              + "If you feel you have gotten this message in error report an issue"
-              + " at https://github.com/uber/NullAway/issues.");
+      throw new IllegalStateException(ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG);
     }
     annotatedPackages = getPackagePattern(getFlagStringSet(flags, FL_ANNOTATED_PACKAGES));
     unannotatedSubPackages = getPackagePattern(getFlagStringSet(flags, FL_UNANNOTATED_SUBPACKAGES));

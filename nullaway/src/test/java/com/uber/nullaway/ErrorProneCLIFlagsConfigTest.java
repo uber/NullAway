@@ -1,5 +1,6 @@
 package com.uber.nullaway;
 
+import static com.uber.nullaway.ErrorProneCLIFlagsConfig.ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -18,7 +19,7 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
         makeTestHelperWithArgs(List.of())
             .addSourceLines("Stub.java", "package com.uber; class Stub {}");
     AssertionError e = assertThrows(AssertionError.class, () -> compilationTestHelper.doTest());
-    assertTrue(e.getMessage().contains("Must either specify annotated packages"));
+    assertTrue(e.getMessage().contains(ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG));
   }
 
   @Test
@@ -42,7 +43,7 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
         makeTestHelperWithArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=false"))
             .addSourceLines("Stub.java", "package com.uber; class Stub {}");
     AssertionError e = assertThrows(AssertionError.class, () -> compilationTestHelper.doTest());
-    assertTrue(e.getMessage().contains("Must either specify annotated packages"));
+    assertTrue(e.getMessage().contains(ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG));
   }
 
   @Test
@@ -54,6 +55,6 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
                     "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
             .addSourceLines("Stub.java", "package com.uber; class Stub {}");
     AssertionError e = assertThrows(AssertionError.class, () -> compilationTestHelper.doTest());
-    assertTrue(e.getMessage().contains("Must either specify annotated packages"));
+    assertTrue(e.getMessage().contains(ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG));
   }
 }
