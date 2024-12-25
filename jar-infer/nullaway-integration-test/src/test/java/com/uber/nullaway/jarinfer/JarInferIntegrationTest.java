@@ -84,12 +84,46 @@ public class JarInferIntegrationTest {
             "import org.jspecify.annotations.Nullable;",
             "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
             "class Test {",
-            "  void test1() {",
-            "    Toys.Generic<String> g = new Toys.Generic<>();",
+            "  void test1(Toys.Generic<String> g) {",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
             "    g.getString(null);",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
             "    Toys.genericParam(null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    Toys.nestedGenericParam(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void wildcards() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
+            "class Test {",
+            "  void test1() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    Toys.genericWildcard(null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    Toys.nestedGenericWildcard(null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    Toys.genericWildcardUpper(null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    Toys.genericWildcardLower(null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    Toys.doubleGenericWildcard(\"\", null);",
+            "    Toys.doubleGenericWildcardNullOk(\"\", null);",
             "  }",
             "}")
         .doTest();
