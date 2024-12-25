@@ -2028,6 +2028,24 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1091() {
+    makeHelper()
+        .addSourceLines(
+            "Generics.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "public abstract class Generics<V> {",
+            "    abstract void foo(",
+            "            Function<@Nullable V, @Nullable V> f);",
+            "    void bar(Function<@Nullable V, @Nullable V> f) {",
+            "        foo(f);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void issue1093() {
     makeHelper()
         .addSourceLines(
