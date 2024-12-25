@@ -780,10 +780,10 @@ public class NullAway extends BugChecker
     // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
     // -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations flag and its handler).
     if (isOverriddenMethodAnnotated) {
-      boolean overridenMethodIsVarArgs = overriddenMethod.isVarArgs();
+      boolean overriddenMethodIsVarArgs = overriddenMethod.isVarArgs();
       for (int i = 0; i < superParamSymbols.size(); i++) {
         Nullness paramNullness;
-        if (overridenMethodIsVarArgs && i == superParamSymbols.size() - 1) {
+        if (overriddenMethodIsVarArgs && i == superParamSymbols.size() - 1) {
           // For a varargs position, we need to check if the array itself is @Nullable
           paramNullness =
               Nullness.varargsArrayIsNullable(superParamSymbols.get(i), config)

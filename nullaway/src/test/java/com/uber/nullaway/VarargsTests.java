@@ -704,6 +704,15 @@ public class VarargsTests extends NullAwayTestsBase {
             "        public void varargs(@Nullable Object @Nullable... params) {",
             "        }",
             "    }",
+            "    interface MultiArgNullableVarargsArray {",
+            "        void varargs(String s, Object @Nullable... params);",
+            "    }",
+            "    static class MultiArgNullableVarargsArrayImpl implements MultiArgNullableVarargsArray {",
+            "        @Override",
+            "        // BUG: Diagnostic contains: parameter params is @NonNull",
+            "        public void varargs(String s, Object... params) {",
+            "        }",
+            "    }",
             "}")
         .doTest();
   }
