@@ -26,7 +26,6 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
@@ -877,9 +876,8 @@ public final class GenericsChecks {
 
     Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
     Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
-    Types types = state.getTypes();
     return TypeSubstitutionUtils.subst(
-        types, underlyingMethodType, forAllType.tvars, explicitTypeArgs);
+        state.getTypes(), underlyingMethodType, forAllType.tvars, explicitTypeArgs);
   }
 
   /**
