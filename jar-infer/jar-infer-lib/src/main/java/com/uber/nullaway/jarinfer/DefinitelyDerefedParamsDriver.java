@@ -16,6 +16,7 @@
 package com.uber.nullaway.jarinfer;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.ibm.wala.cfg.ControlFlowGraph;
@@ -61,11 +62,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.attribute.FileTime;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.jar.JarFile;
@@ -526,6 +529,13 @@ public class DefinitelyDerefedParamsDriver {
       // get types that include generic type arguments
       returnType = getSourceLevelQualifiedTypeName(genericSignature.getReturnType().toString());
       TypeSignature[] argTypeSigs = genericSignature.getArguments();
+      Verify.verify(
+          argTypeSigs.length == numParams,
+          "Mismatch in number of parameters in generic signature: %s with %s vs %s with %s",
+          mtd.getSignature(),
+          numParams,
+          genericSignature,
+          argTypeSigs.length);
       for (int i = 0; i < argTypeSigs.length; i++) {
         argTypes[i] = getSourceLevelQualifiedTypeName(argTypeSigs[i].toString());
       }
@@ -566,6 +576,9 @@ public class DefinitelyDerefedParamsDriver {
    * @return source-level qualified type name.
    */
   private static String getSourceLevelQualifiedTypeName(String typeName) {
+    if (isWildcard(typeName)) {
+      return sourceLevelWildcardType(typeName);
+    }
     if (!typeName.endsWith(";")) {
       // we need the semicolon since some of WALA's TypeSignature APIs expect it
       typeName = typeName + ";";
@@ -588,7 +601,7 @@ public class DefinitelyDerefedParamsDriver {
       int idx = typeName.indexOf("<");
       String baseType = typeName.substring(0, idx);
       // generic type args are separated by semicolons in signature stored in bytecodes
-      String[] genericTypeArgs = typeName.substring(idx + 1, typeName.length() - 2).split(";");
+      String[] genericTypeArgs = splitTypeArgs(typeName.substring(idx + 1, typeName.length() - 2));
       for (int i = 0; i < genericTypeArgs.length; i++) {
         genericTypeArgs[i] = getSourceLevelQualifiedTypeName(genericTypeArgs[i]);
       }
@@ -596,6 +609,69 @@ public class DefinitelyDerefedParamsDriver {
           + "<"
           + String.join(",", genericTypeArgs)
           + ">";
+    }
+  }
+
+  /**
+   * Splits out the top-level type arguments from a string representing all arguments (from the
+   * bytecode-level signature)
+   *
+   * @param allTypeArgs string representing all type arguments
+   * @return array of strings representing top-level type arguments
+   */
+  private static String[] splitTypeArgs(String allTypeArgs) {
+    List<String> result = new ArrayList<>();
+    StringBuilder currentTypeArg = new StringBuilder();
+    // track angle bracket depth to handle nested generic types
+    int angleBracketDepth = 0;
+
+    for (int i = 0; i < allTypeArgs.length(); i++) {
+      char c = allTypeArgs.charAt(i);
+      if (c == '<') {
+        angleBracketDepth++;
+        currentTypeArg.append(c);
+      } else if (c == '>') {
+        angleBracketDepth--;
+        currentTypeArg.append(c);
+      } else if (c == '*' && angleBracketDepth == 0) {
+        // Wildcard (not followed by semicolon)
+        currentTypeArg.append(c);
+        result.add(currentTypeArg.toString());
+        currentTypeArg.setLength(0);
+      } else if (c == ';' && angleBracketDepth == 0) {
+        // Split on semicolon only if not nested within <>
+        result.add(currentTypeArg.toString());
+        currentTypeArg.setLength(0);
+      } else {
+        currentTypeArg.append(c);
+      }
+    }
+
+    // there should be no extra characters left
+    Verify.verify(
+        currentTypeArg.length() == 0,
+        "unexpected characters left in generic type args string %s: %s",
+        allTypeArgs,
+        currentTypeArg);
+
+    return result.toArray(new String[0]);
+  }
+
+  private static boolean isWildcard(String typeName) {
+    char firstChar = typeName.charAt(0);
+    return firstChar == '*' || firstChar == '+' || firstChar == '-';
+  }
+
+  private static String sourceLevelWildcardType(String typeName) {
+    switch (typeName.charAt(0)) {
+      case '*':
+        return "?";
+      case '+':
+        return "? extends " + getSourceLevelQualifiedTypeName(typeName.substring(1));
+      case '-':
+        return "? super " + getSourceLevelQualifiedTypeName(typeName.substring(1));
+      default:
+        throw new RuntimeException("unexpected wildcard type name" + typeName);
     }
   }
 }

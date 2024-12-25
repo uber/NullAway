@@ -82,6 +82,7 @@ import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.SwitchTree;
+import com.sun.source.tree.SynchronizedTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.TryTree;
 import com.sun.source.tree.TypeCastTree;
@@ -186,7 +187,8 @@ public class NullAway extends BugChecker
         BugChecker.CompoundAssignmentTreeMatcher,
         BugChecker.SwitchTreeMatcher,
         BugChecker.TypeCastTreeMatcher,
-        BugChecker.ParameterizedTypeTreeMatcher {
+        BugChecker.ParameterizedTypeTreeMatcher,
+        BugChecker.SynchronizedTreeMatcher {
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
   static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
@@ -485,6 +487,17 @@ public class NullAway extends BugChecker
     if (lhsType != null && lhsType.isPrimitive()) {
       doUnboxingCheck(state, tree.getExpression());
     }
+    Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
+    if (assigned instanceof Symbol.MethodSymbol) {
+      // javac generates an AssignmentTree for setting an annotation attribute value.  E.g., for
+      // `@SuppressWarnings("foo")`, javac generates an AssignmentTree of the form `value() =
+      // "foo"`, where the LHS is a MethodSymbol.  We don't want to analyze these.
+      return Description.NO_MATCH;
+    }
+    if (assigned != null && codeAnnotationInfo.isSymbolUnannotated(assigned, config, handler)) {
+      // assigning to symbol that is unannotated
+      return Description.NO_MATCH;
+    }
     // generics check
     if (lhsType != null && config.isJSpecifyMode()) {
       GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
@@ -508,7 +521,6 @@ public class NullAway extends BugChecker
       }
     }
 
-    Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
     if (assigned == null || assigned.getKind() != ElementKind.FIELD) {
       // not a field of nullable type
       return Description.NO_MATCH;
@@ -688,7 +700,7 @@ public class NullAway extends BugChecker
       switchSelectorExpression = ((ParenthesizedTree) switchSelectorExpression).getExpression();
     }
 
-    if (mayBeNullExpr(state, switchSelectorExpression)) {
+    if (!TreeUtils.hasNullCaseLabel(tree) && mayBeNullExpr(state, switchSelectorExpression)) {
       String message =
           "switch expression " + state.getSourceForNode(switchSelectorExpression) + " is @Nullable";
       ErrorMessage errorMessage =
@@ -1754,6 +1766,27 @@ public class NullAway extends BugChecker
             "enhanced-for expression " + state.getSourceForNode(expr) + " is @Nullable");
     if (mayBeNullExpr(state, expr)) {
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(expr), state, null);
+    }
+    return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchSynchronized(SynchronizedTree tree, VisitorState state) {
+    ExpressionTree lockExpr = tree.getExpression();
+    // For a synchronized block `synchronized (e) { ... }`, javac returns `(e)` as the expression.
+    // We strip the outermost parentheses for a nicer-looking error message.
+    if (lockExpr instanceof ParenthesizedTree) {
+      lockExpr = ((ParenthesizedTree) lockExpr).getExpression();
+    }
+    if (mayBeNullExpr(state, lockExpr)) {
+      ErrorMessage errorMessage =
+          new ErrorMessage(
+              MessageTypes.DEREFERENCE_NULLABLE,
+              "synchronized block expression \""
+                  + state.getSourceForNode(lockExpr)
+                  + "\" is @Nullable");
+      return errorBuilder.createErrorDescription(
+          errorMessage, buildDescription(lockExpr), state, null);
     }
     return Description.NO_MATCH;
   }
