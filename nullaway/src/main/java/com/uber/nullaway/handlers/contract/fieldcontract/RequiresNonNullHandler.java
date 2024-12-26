@@ -43,6 +43,7 @@ import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
@@ -221,8 +222,14 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     if (fieldNames == null) {
       return result;
     }
-    fieldNames = ContractUtils.trimReceivers(fieldNames);
+    Set<String> filteredFieldNames = new HashSet<>();
     for (String fieldName : fieldNames) {
+      if (!isStaticThisAnnotationField(ASTHelpers.getSymbol(classTree), fieldName)) {
+        filteredFieldNames.add(fieldName);
+      }
+    }
+    filteredFieldNames = ContractUtils.trimReceivers(filteredFieldNames);
+    for (String fieldName : filteredFieldNames) {
       VariableElement field = getFieldOfClass(ASTHelpers.getSymbol(classTree), fieldName);
       if (field == null) {
         // Invalid annotation, will result in an error during validation. For now, skip field.

@@ -166,6 +166,22 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
       Symbol.ClassSymbol classSymbol =
           castToNonNull(ASTHelpers.enclosingClass(methodAnalysisContext.methodSymbol()));
       for (String fieldName : content) {
+        if (isStaticThisAnnotationField(classSymbol, fieldName)) {
+          message =
+              "Currently, @"
+                  + annotName
+                  + " does not support this. annotations for static fields. ";
+          state.reportMatch(
+              analysis
+                  .getErrorBuilder()
+                  .createErrorDescription(
+                      new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                      tree,
+                      analysis.buildDescription(tree),
+                      state,
+                      null));
+          return false;
+        }
         VariableElement field = getFieldOfClass(classSymbol, fieldName);
         if (field != null) {
           if (field.getModifiers().contains(Modifier.STATIC)) {
@@ -259,5 +275,16 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
       return getFieldOfClass(superclass, fieldName);
     }
     return null;
+  }
+
+  public boolean isStaticThisAnnotationField(Symbol.ClassSymbol classSymbol, String fieldName) {
+    if (fieldName.contains(".")) {
+      if (fieldName.startsWith(THIS_NOTATION)) {
+        fieldName = fieldName.substring(THIS_NOTATION.length());
+        VariableElement field = getFieldOfClass(classSymbol, fieldName);
+        return field != null && field.getModifiers().contains(Modifier.STATIC);
+      }
+    }
+    return false;
   }
 }
