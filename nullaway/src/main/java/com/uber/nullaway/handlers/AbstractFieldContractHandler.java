@@ -212,7 +212,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
             fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
           }
         }
-        field = getInstanceFieldOfClass(classSymbol, fieldName);
+        field = getFieldOfClass(classSymbol, fieldName);
         if (field == null) {
           message =
               "For @"
@@ -245,11 +245,11 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    * @param name Name of the field.
    * @return The field with the given name, or {@code null} if the field cannot be found
    */
-  public static @Nullable VariableElement getInstanceFieldOfClass(
+  public static @Nullable VariableElement getFieldOfClass(
       Symbol.ClassSymbol classSymbol, String name) {
     Preconditions.checkNotNull(classSymbol);
     for (Element member : getEnclosedElements(classSymbol)) {
-      if (member.getKind().isField() && !member.getModifiers().contains(Modifier.STATIC)) {
+      if (member.getKind().isField()) {
         if (member.getSimpleName().toString().equals(name)) {
           return (VariableElement) member;
         }
@@ -257,22 +257,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     }
     Symbol.ClassSymbol superClass = (Symbol.ClassSymbol) classSymbol.getSuperclass().tsym;
     if (superClass != null) {
-      return getInstanceFieldOfClass(superClass, name);
-    }
-    return null;
-  }
-
-  public @Nullable VariableElement getFieldOfClass(
-      Symbol.ClassSymbol classSymbol, String fieldName) {
-    for (Symbol enclosedElement : getEnclosedElements(classSymbol)) {
-      if (enclosedElement.getKind().isField()
-          && enclosedElement.getSimpleName().contentEquals(fieldName)) {
-        return (VariableElement) enclosedElement;
-      }
-    }
-    Symbol.ClassSymbol superclass = (Symbol.ClassSymbol) classSymbol.getSuperclass().asElement();
-    if (superclass != null) {
-      return getFieldOfClass(superclass, fieldName);
+      return getFieldOfClass(superClass, name);
     }
     return null;
   }
