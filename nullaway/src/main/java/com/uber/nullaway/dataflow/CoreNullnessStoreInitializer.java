@@ -1,5 +1,6 @@
 package com.uber.nullaway.dataflow;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
@@ -16,6 +17,7 @@ import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
 import java.util.Objects;
@@ -104,7 +106,9 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     // This obtains the types of the functional interface method parameters with preserved
     // annotations in case of generic type arguments.  Only used in JSpecify mode.
     List<Type> overridenMethodParamTypeList =
-        types.memberType(ASTHelpers.getType(code), fiMethodSymbol).getParameterTypes();
+        TypeSubstitutionUtils.memberType(
+                types, castToNonNull(ASTHelpers.getType(code)), fiMethodSymbol)
+            .getParameterTypes();
     // If fiArgumentPositionNullness[i] == null, parameter position i is unannotated
     Nullness[] fiArgumentPositionNullness = new Nullness[fiMethodParameters.size()];
     boolean isFIAnnotated =
