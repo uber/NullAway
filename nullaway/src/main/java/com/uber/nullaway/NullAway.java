@@ -780,9 +780,16 @@ public class NullAway extends BugChecker
     // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
     // -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations flag and its handler).
     if (isOverriddenMethodAnnotated) {
+      boolean overriddenMethodIsVarArgs = overriddenMethod.isVarArgs();
       for (int i = 0; i < superParamSymbols.size(); i++) {
         Nullness paramNullness;
-        if (Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)) {
+        if (overriddenMethodIsVarArgs && i == superParamSymbols.size() - 1) {
+          // For a varargs position, we need to check if the array itself is @Nullable
+          paramNullness =
+              Nullness.varargsArrayIsNullable(superParamSymbols.get(i), config)
+                  ? Nullness.NULLABLE
+                  : Nullness.NONNULL;
+        } else if (Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)) {
           paramNullness = Nullness.NULLABLE;
         } else if (config.isJSpecifyMode()) {
           // Check if the parameter type is a type variable and the corresponding generic type
@@ -840,7 +847,7 @@ public class NullAway extends BugChecker
     for (int i = 0; i < superParamSymbols.size(); i++) {
       if (!Objects.equals(overriddenMethodArgNullnessMap[i], Nullness.NULLABLE)) {
         // No need to check, unless the argument of the overridden method is effectively @Nullable,
-        // in which case it can't be overridding a @NonNull arg.
+        // in which case it can't be overridden by a @NonNull arg.
         continue;
       }
       int methodParamInd = i - startParam;
