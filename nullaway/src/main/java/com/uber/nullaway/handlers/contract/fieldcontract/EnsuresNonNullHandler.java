@@ -40,10 +40,8 @@ import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
 import com.uber.nullaway.handlers.contract.ContractUtils;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 import java.util.stream.Collectors;
-import javax.lang.model.element.Element;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
@@ -81,35 +79,29 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     if (tree.getBody() == null) {
       return true;
     }
-    Set<Element> nonnullFieldsOfReceiverAtExit =
+    Set<String> nonnullFieldsOfReceiverAtExit =
         analysis
             .getNullnessAnalysis(state)
-            .getNonnullFieldsOfReceiverAtExit(new TreePath(state.getPath(), tree), state.context);
-    Set<Element> nonnullStaticFieldsOfReceiverAtExit =
+            .getNonnullFieldsOfReceiverAtExit(new TreePath(state.getPath(), tree), state.context)
+            .stream()
+            .map(e -> e.getSimpleName().toString())
+            .collect(Collectors.toSet());
+    Set<String> nonnullStaticFieldsOfReceiverAtExit =
         analysis
             .getNullnessAnalysis(state)
-            .getNonnullStaticFieldsAtExit(new TreePath(state.getPath(), tree), state.context);
-
+            .getNonnullStaticFieldsAtExit(new TreePath(state.getPath(), tree), state.context)
+            .stream()
+            .map(e -> e.getSimpleName().toString())
+            .collect(Collectors.toSet());
+    nonnullFieldsOfReceiverAtExit.addAll(nonnullStaticFieldsOfReceiverAtExit);
     Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
     if (fieldNames == null) {
       fieldNames = Collections.emptySet();
     }
     fieldNames = ContractUtils.trimReceivers(fieldNames);
 
-    Set<String> allNonnullFieldNames = new HashSet<>();
-
-    allNonnullFieldNames.addAll(
-        nonnullFieldsOfReceiverAtExit.stream()
-            .map(e -> e.getSimpleName().toString())
-            .collect(Collectors.toSet()));
-
-    allNonnullFieldNames.addAll(
-        nonnullStaticFieldsOfReceiverAtExit.stream()
-            .map(e -> e.getSimpleName().toString())
-            .collect(Collectors.toSet()));
-
-    allNonnullFieldNames = ContractUtils.trimReceivers(allNonnullFieldNames);
-    boolean isValidLocalPostCondition = allNonnullFieldNames.containsAll(fieldNames);
+    nonnullFieldsOfReceiverAtExit = ContractUtils.trimReceivers(nonnullFieldsOfReceiverAtExit);
+    boolean isValidLocalPostCondition = nonnullFieldsOfReceiverAtExit.containsAll(fieldNames);
     if (!isValidLocalPostCondition) {
       message =
           String.format(
