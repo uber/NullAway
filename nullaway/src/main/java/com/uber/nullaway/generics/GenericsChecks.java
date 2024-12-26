@@ -624,7 +624,8 @@ public final class GenericsChecks {
         enclosingType = methodSymbol.owner.type;
       }
       if (enclosingType != null) {
-        invokedMethodType = state.getTypes().memberType(enclosingType, methodSymbol);
+        invokedMethodType =
+            TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol);
       }
     }
     // substitute type arguments for generic methods
@@ -694,7 +695,8 @@ public final class GenericsChecks {
     // Obtain type parameters for the overridden method within the context of the overriding
     // method's class
     Type methodWithTypeParams =
-        state.getTypes().memberType(overridingMethod.owner.type, overriddenMethod);
+        TypeSubstitutionUtils.memberType(
+            state.getTypes(), overridingMethod.owner.type, overriddenMethod);
 
     checkTypeParameterNullnessForOverridingMethodReturnType(
         tree, methodWithTypeParams, analysis, state);
@@ -772,7 +774,8 @@ public final class GenericsChecks {
       // annotation should have been handled by the caller)
       return Nullness.NONNULL;
     }
-    Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
+    Type overriddenMethodType =
+        TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method);
     verify(
         overriddenMethodType instanceof ExecutableType,
         "expected ExecutableType but instead got %s",
@@ -873,7 +876,8 @@ public final class GenericsChecks {
 
     Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
     Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
-    return state.getTypes().subst(underlyingMethodType, forAllType.tvars, explicitTypeArgs);
+    return TypeSubstitutionUtils.subst(
+        state.getTypes(), underlyingMethodType, forAllType.tvars, explicitTypeArgs);
   }
 
   /**
@@ -1007,7 +1011,7 @@ public final class GenericsChecks {
       // @Nullable annotation is handled elsewhere)
       return Nullness.NONNULL;
     }
-    Type methodType = state.getTypes().memberType(enclosingType, method);
+    Type methodType = TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getTypeNullness(paramType, config);
   }
