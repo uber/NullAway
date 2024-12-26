@@ -398,4 +398,60 @@ public class EnsuresNonNullTests extends NullAwayTestsBase {
             "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
         .doTest();
   }
+
+  @Test
+  public void requiresAndEnsuresNonNullOnSameMethod() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.RequiresNonNull;",
+            "import com.uber.nullaway.annotations.EnsuresNonNull;",
+            "class Foo {",
+            "  @Nullable static Item field1;",
+            "  @Nullable static Item field2;",
+            "",
+            "  @RequiresNonNull(\"field1\")",
+            "  @EnsuresNonNull(\"field2\")",
+            "  public void positiveEnsureNonnull() {",
+            "    field1.call(); ",
+            "    field2 = new Item(); ",
+            "  }",
+            "  @RequiresNonNull(\"field1\")",
+            "  @EnsuresNonNull(\"field2\")",
+            "    // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNull but fails to ensure the following fields are non-null at exit",
+            "  public void negativeEnsureNonnull() {",
+            "    field1.call(); ",
+            "  }",
+            "  @RequiresNonNull(\"field1\")",
+            "  @EnsuresNonNull(\"field1\")",
+            "  public void combinedPositive() {",
+            "    field1.call(); ",
+            "  }",
+            "  @RequiresNonNull(\"field1\")",
+            "  @EnsuresNonNull(\"field1\")",
+            "    // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNull but fails to ensure the following fields are non-null at exit",
+            "  public void combinedNegative() {",
+            "    field1= null; ",
+            "  }",
+            "",
+            "  public void positiveCase() {",
+            "    field1 = new Item(); ",
+            "    positiveEnsureNonnull(); ",
+            "    combinedPositive(); ",
+            "    field2.call(); ",
+            "  }",
+            "",
+            "  public void negativeCase() {",
+            "    // BUG: Diagnostic contains: Expected static field field1 to be non-null at call site",
+            "    negativeEnsureNonnull();",
+            "    // BUG: Diagnostic contains: Expected static field field1 to be non-null at call site",
+            "    combinedNegative();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
 }
