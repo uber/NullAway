@@ -305,4 +305,84 @@ public class EnsuresNonNullTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void ensuresNonNullWithStaticField() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNull;",
+            "class Foo {",
+            "  @Nullable static Bar staticNullableItem;",
+            "  @EnsuresNonNull(\"staticNullableItem\")",
+            "  public void initializeStaticField() {",
+            "    staticNullableItem = new Bar();",
+            "  }",
+            "  public void useStaticField() {",
+            "    initializeStaticField();",
+            "    staticNullableItem.call();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Bar.java", "package com.uber;", "class Bar {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void requiresNonNullCallSiteErrorStaticField() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.RequiresNonNull;",
+            "class Foo {",
+            "  static @Nullable Item staticNullableItem;",
+            "  ",
+            "  @RequiresNonNull({\"staticNullableItem\"})",
+            "  public void run() {",
+            "    staticNullableItem.call();",
+            "  }",
+            "  ",
+            "  public static void main(String[] args) {",
+            "    Foo foo = new Foo();",
+            "    // BUG: Diagnostic contains: Expected static field staticNullableItem to be non-null",
+            "    foo.run();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void requiresNonNullStaticFieldInterpretation() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.RequiresNonNull;",
+            "class Foo {",
+            "  @Nullable static Item staticNullableItem;",
+            "  ",
+            "  @RequiresNonNull(\"staticNullableItem\")",
+            "  public void run() {",
+            "    staticNullableItem.call();",
+            "    staticNullableItem = null;",
+            "    // BUG: Diagnostic contains: dereferenced expression staticNullableItem is @Nullable",
+            "    staticNullableItem.call();",
+            "  }",
+            "  ",
+            "  @RequiresNonNull(\"staticNullableItem\")",
+            "  public void test() {",
+            "    staticNullableItem.call();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
 }

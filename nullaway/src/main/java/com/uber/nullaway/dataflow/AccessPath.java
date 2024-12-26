@@ -369,6 +369,13 @@ public final class AccessPath implements MapKey {
     return new AccessPath(null, ImmutableList.of(new FieldOrMethodCallElement(element)));
   }
 
+  public static AccessPath fromStaticField(VariableElement element) {
+    Preconditions.checkArgument(
+        element.getKind().isField() && element.getModifiers().contains(Modifier.STATIC),
+        "element must be a static field but received: " + element.getKind());
+    return new AccessPath(element, ImmutableList.of(), null);
+  }
+
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
     if (methodSymbol.isStatic() && methodSymbol.getSimpleName().contentEquals("valueOf")) {
       Symbol.PackageSymbol enclosingPackage = ASTHelpers.enclosingPackage(methodSymbol.enclClass());

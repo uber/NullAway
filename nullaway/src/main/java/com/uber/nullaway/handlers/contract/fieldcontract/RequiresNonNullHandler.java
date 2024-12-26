@@ -46,6 +46,8 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import javax.lang.model.element.Element;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
@@ -145,9 +147,33 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
       Preconditions.checkNotNull(
           classSymbol, "Could not find the enclosing class for method symbol: " + methodSymbol);
-      VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
+      VariableElement field = getFieldOfClass(classSymbol, fieldName);
       if (field == null) {
         // we will report an error on the method declaration
+        continue;
+      }
+      if (field.getModifiers().contains(Modifier.STATIC)) {
+        Set<Element> nonnullStaticFields =
+            analysis
+                .getNullnessAnalysis(state)
+                .getNonnullStaticFieldsBefore(state.getPath(), state.context);
+
+        if (!nonnullStaticFields.contains(field)) {
+          String message =
+              "Expected static field "
+                  + fieldName
+                  + " to be non-null at call site due to @RequiresNonNull annotation on invoked method";
+          state.reportMatch(
+              analysis
+                  .getErrorBuilder()
+                  .createErrorDescription(
+                      new ErrorMessage(
+                          ErrorMessage.MessageTypes.PRECONDITION_NOT_SATISFIED, message),
+                      tree,
+                      analysis.buildDescription(tree),
+                      state,
+                      null));
+        }
         continue;
       }
       ExpressionTree methodSelectTree = tree.getMethodSelect();
@@ -197,12 +223,17 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     }
     fieldNames = ContractUtils.trimReceivers(fieldNames);
     for (String fieldName : fieldNames) {
-      VariableElement field = getInstanceFieldOfClass(ASTHelpers.getSymbol(classTree), fieldName);
+      VariableElement field = getFieldOfClass(ASTHelpers.getSymbol(classTree), fieldName);
       if (field == null) {
         // Invalid annotation, will result in an error during validation. For now, skip field.
         continue;
       }
-      AccessPath accessPath = AccessPath.fromFieldElement(field);
+      AccessPath accessPath;
+      if (field.getModifiers().contains(Modifier.STATIC)) {
+        accessPath = AccessPath.fromStaticField(field);
+      } else {
+        accessPath = AccessPath.fromFieldElement(field);
+      }
       result.setInformation(accessPath, Nullness.NONNULL);
     }
     return result;
