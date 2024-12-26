@@ -32,6 +32,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
 import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
@@ -296,7 +297,7 @@ public class NullnessStore implements Store<NullnessStore> {
           }
         }
       } else {
-        if (staticOnly) {
+        if (staticOnly && ap.getRoot().getModifiers().contains(Modifier.STATIC)) {
           result.add(ap.getRoot());
         }
       }
