@@ -49,6 +49,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_ANNOTATED_PACKAGES = EP_FL_NAMESPACE + ":AnnotatedPackages";
   static final String FL_ASSERTS_ENABLED = EP_FL_NAMESPACE + ":AssertsEnabled";
   static final String FL_UNANNOTATED_SUBPACKAGES = EP_FL_NAMESPACE + ":UnannotatedSubPackages";
+  static final String FL_ONLY_NULLMARKED = EP_FL_NAMESPACE + ":OnlyNullMarked";
   static final String FL_CLASSES_TO_EXCLUDE = EP_FL_NAMESPACE + ":ExcludedClasses";
   static final String FL_EXHAUSTIVE_OVERRIDE = EP_FL_NAMESPACE + ":ExhaustiveOverride";
   static final String FL_KNOWN_INITIALIZERS = EP_FL_NAMESPACE + ":KnownInitializers";
@@ -99,6 +100,18 @@ final class ErrorProneCLIFlagsConfig implements Config {
 
   static final String FL_LEGACY_ANNOTATION_LOCATION =
       EP_FL_NAMESPACE + ":LegacyAnnotationLocations";
+
+  static final String ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG =
+      "DO NOT report an issue to Error Prone for this crash!  NullAway configuration is "
+          + "incorrect.  "
+          + "Must either specify annotated packages, using the "
+          + "-XepOpt:"
+          + FL_ANNOTATED_PACKAGES
+          + "=[...] flag, or pass -XepOpt:"
+          + FL_ONLY_NULLMARKED
+          + " (but not both).  See https://github.com/uber/NullAway/wiki/Configuration for details. "
+          + "If you feel you have gotten this message in error report an issue"
+          + " at https://github.com/uber/NullAway/issues.";
 
   private static final String DELIMITER = ",";
 
@@ -237,15 +250,12 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final FixSerializationConfig fixSerializationConfig;
 
   ErrorProneCLIFlagsConfig(ErrorProneFlags flags) {
-    if (!flags.get(FL_ANNOTATED_PACKAGES).isPresent()) {
-      throw new IllegalStateException(
-          "DO NOT report an issue to Error Prone for this crash!  NullAway configuration is "
-              + "incorrect.  "
-              + "Must specify annotated packages, using the "
-              + "-XepOpt:"
-              + FL_ANNOTATED_PACKAGES
-              + "=[...] flag.  If you feel you have gotten this message in error report an issue"
-              + " at https://github.com/uber/NullAway/issues.");
+    boolean annotatedPackagesPassed = flags.get(FL_ANNOTATED_PACKAGES).isPresent();
+    boolean onlyNullMarked = flags.getBoolean(FL_ONLY_NULLMARKED).orElse(false);
+    // exactly one of AnnotatedPackages or OnlyNullMarked should be passed in
+    if ((!annotatedPackagesPassed && !onlyNullMarked)
+        || (annotatedPackagesPassed && onlyNullMarked)) {
+      throw new IllegalStateException(ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG);
     }
     annotatedPackages = getPackagePattern(getFlagStringSet(flags, FL_ANNOTATED_PACKAGES));
     unannotatedSubPackages = getPackagePattern(getFlagStringSet(flags, FL_UNANNOTATED_SUBPACKAGES));
