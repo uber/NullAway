@@ -103,6 +103,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
     nonnullFieldsOfReceiverAtExit = ContractUtils.trimReceivers(nonnullFieldsOfReceiverAtExit);
     boolean isValidLocalPostCondition = nonnullFieldsOfReceiverAtExit.containsAll(fieldNames);
     if (!isValidLocalPostCondition) {
+      fieldNames.removeAll(nonnullFieldsOfReceiverAtExit);
       message =
           String.format(
               "Method is annotated with @EnsuresNonNull but fails to ensure the following fields are non-null at exit: %s",
