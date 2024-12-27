@@ -167,10 +167,11 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
           castToNonNull(ASTHelpers.enclosingClass(methodAnalysisContext.methodSymbol()));
       for (String fieldName : content) {
         if (isStaticThisAnnotationField(classSymbol, fieldName)) {
+
           message =
-              "Currently, @"
-                  + annotName
-                  + " does not support this. annotations for static fields. ";
+              "Cannot reference to static field "
+                  + fieldName.substring(THIS_NOTATION.length())
+                  + " using this.";
           state.reportMatch(
               analysis
                   .getErrorBuilder()
