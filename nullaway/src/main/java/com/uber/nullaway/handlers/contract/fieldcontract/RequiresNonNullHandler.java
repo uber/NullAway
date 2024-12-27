@@ -235,12 +235,10 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
         // Invalid annotation, will result in an error during validation. For now, skip field.
         continue;
       }
-      AccessPath accessPath;
-      if (field.getModifiers().contains(Modifier.STATIC)) {
-        accessPath = AccessPath.fromStaticField(field);
-      } else {
-        accessPath = AccessPath.fromFieldElement(field);
-      }
+      AccessPath accessPath =
+          field.getModifiers().contains(Modifier.STATIC)
+              ? AccessPath.fromStaticField(field)
+              : AccessPath.fromFieldElement(field);
       result.setInformation(accessPath, Nullness.NONNULL);
     }
     return result;

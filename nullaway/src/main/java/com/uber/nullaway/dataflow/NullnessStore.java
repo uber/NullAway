@@ -270,11 +270,20 @@ public class NullnessStore implements Store<NullnessStore> {
    * @return Set of fields (represented as {@code Element}s) that are non-null
    */
   public Set<Element> getNonNullReceiverFields() {
-    return getReceiverFields(Nullness.NONNULL, false);
+    return getReceiverFields(Nullness.NONNULL);
   }
 
-  public Set<Element> getNonNullStaticReceiverFields() {
-    return getReceiverFields(Nullness.NONNULL, true);
+  public Set<Element> getNonNullStaticFields() {
+    Set<AccessPath> nonnullAccessPaths = this.getAccessPathsWithValue(Nullness.NONNULL);
+    Set<Element> result = new LinkedHashSet<>();
+    for (AccessPath ap : nonnullAccessPaths) {
+      if (ap.getRoot() != null) {
+        if (ap.getRoot().getModifiers().contains(Modifier.STATIC)) {
+          result.add(ap.getRoot());
+        }
+      }
+    }
+    return result;
   }
 
   /**
@@ -283,7 +292,7 @@ public class NullnessStore implements Store<NullnessStore> {
    * @param nullness The {@code Nullness} state
    * @return Set of fields (represented as {@code Element}s) with the given {@code nullness}.
    */
-  public Set<Element> getReceiverFields(Nullness nullness, boolean staticOnly) {
+  public Set<Element> getReceiverFields(Nullness nullness) {
     Set<AccessPath> nonnullAccessPaths = this.getAccessPathsWithValue(nullness);
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {
@@ -295,10 +304,6 @@ public class NullnessStore implements Store<NullnessStore> {
           if (elem.getKind().equals(ElementKind.FIELD)) {
             result.add(elem);
           }
-        }
-      } else {
-        if (staticOnly && ap.getRoot().getModifiers().contains(Modifier.STATIC)) {
-          result.add(ap.getRoot());
         }
       }
     }

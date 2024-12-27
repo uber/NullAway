@@ -186,7 +186,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
     Set<String> nonNullStaticFieldsInPath =
-        chosenStore.getNonNullStaticReceiverFields().stream()
+        chosenStore.getNonNullStaticFields().stream()
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
     nonNullFieldsInPath.addAll(nonNullStaticFieldsInPath);
@@ -308,13 +308,11 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
           // Invalid annotation, will result in an error during validation.
           continue;
         }
-        AccessPath accessPath;
+        AccessPath accessPath =
+            field.getModifiers().contains(Modifier.STATIC)
+                ? AccessPath.fromStaticField(field)
+                : AccessPath.fromFieldElement(field);
 
-        if (field.getModifiers().contains(Modifier.STATIC)) {
-          accessPath = AccessPath.fromStaticField(field);
-        } else {
-          accessPath = AccessPath.fromFieldElement(field);
-        }
         if (accessPath == null) {
           // Also likely to be an invalid annotation, will result in an error during validation.
           continue;
