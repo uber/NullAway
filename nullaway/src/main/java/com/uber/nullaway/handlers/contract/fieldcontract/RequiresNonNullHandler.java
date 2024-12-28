@@ -224,7 +224,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     }
     Set<String> filteredFieldNames = new HashSet<>();
     for (String fieldName : fieldNames) {
-      if (!isStaticThisAnnotationField(ASTHelpers.getSymbol(classTree), fieldName)) {
+      if (!isThisDotStaticField(ASTHelpers.getSymbol(classTree), fieldName)) {
         filteredFieldNames.add(fieldName);
       }
     }

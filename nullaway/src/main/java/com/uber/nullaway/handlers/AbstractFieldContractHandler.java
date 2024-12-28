@@ -166,10 +166,10 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
       Symbol.ClassSymbol classSymbol =
           castToNonNull(ASTHelpers.enclosingClass(methodAnalysisContext.methodSymbol()));
       for (String fieldName : content) {
-        if (isStaticThisAnnotationField(classSymbol, fieldName)) {
+        if (isThisDotStaticField(classSymbol, fieldName)) {
 
           message =
-              "Cannot reference to static field "
+              "Cannot refer to static field "
                   + fieldName.substring(THIS_NOTATION.length())
                   + " using this.";
           state.reportMatch(
@@ -263,10 +263,10 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     return null;
   }
 
-  public boolean isStaticThisAnnotationField(Symbol.ClassSymbol classSymbol, String fieldName) {
-    if (fieldName.contains(".")) {
-      if (fieldName.startsWith(THIS_NOTATION)) {
-        fieldName = fieldName.substring(THIS_NOTATION.length());
+  protected boolean isThisDotStaticField(Symbol.ClassSymbol classSymbol, String expression) {
+    if (expression.contains(".")) {
+      if (expression.startsWith(THIS_NOTATION)) {
+        String fieldName = expression.substring(THIS_NOTATION.length());
         VariableElement field = getFieldOfClass(classSymbol, fieldName);
         return field != null && field.getModifiers().contains(Modifier.STATIC);
       }

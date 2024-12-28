@@ -369,6 +369,15 @@ public final class AccessPath implements MapKey {
     return new AccessPath(null, ImmutableList.of(new FieldOrMethodCallElement(element)));
   }
 
+  /**
+   * Constructs an access path representing a static field.
+   *
+   * <p>The receiver is {@code null} and the resulting {@link AccessPath} points directly to the
+   * specified static field.
+   *
+   * @param element the static field element
+   * @return an access path representing the static field
+   */
   public static AccessPath fromStaticField(VariableElement element) {
     Preconditions.checkArgument(
         element.getKind().isField() && element.getModifiers().contains(Modifier.STATIC),

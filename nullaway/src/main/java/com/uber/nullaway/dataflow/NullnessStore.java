@@ -273,6 +273,12 @@ public class NullnessStore implements Store<NullnessStore> {
     return getReceiverFields(Nullness.NONNULL);
   }
 
+  /**
+   * Return all the static fields in the store that are Non-Null. Only considers static fields,
+   * which are identified as the root of their respective access paths.
+   *
+   * @return Set of static fields (represented as {@code Element}s) that are non-null
+   */
   public Set<Element> getNonNullStaticFields() {
     Set<AccessPath> nonnullAccessPaths = this.getAccessPathsWithValue(Nullness.NONNULL);
     Set<Element> result = new LinkedHashSet<>();
