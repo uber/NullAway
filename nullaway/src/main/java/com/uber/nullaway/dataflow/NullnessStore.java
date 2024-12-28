@@ -274,8 +274,7 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   /**
-   * Return all the static fields in the store that are Non-Null. Only considers static fields,
-   * which are identified as the root of their respective access paths.
+   * Return all the static fields in the store that are Non-Null.
    *
    * @return Set of static fields (represented as {@code Element}s) that are non-null
    */
