@@ -1,5 +1,24 @@
 Changelog
 =========
+Version 0.12.3
+---------------
+* Remove InferredJARModelsHandler (#1079)
+* Fix crash with annotation on enum (#1097)
+* Handle case null in switch statements (#1100)
+* Don't report errors for writes to @NullUnmarked fields (#1102)
+* Support primitive static final fields as constant args in access paths (#1105)
+* Fix issue with annotations in module-info.java files (#1109)
+* Report error for @nullable synchronized block expression (#1106)
+* Add support for parameter types with wildcards for JarInfer (#1107)
+* Properly handle nested generics and multiple wildcard type args in JarInfer (#1114)
+* Proper checking of vararg overrides with JSpecify annotations (#1116)
+* Add flag to indicate only @NullMarked code should be checked (#1117)
+* Add support for static fields in contracts (#1118)
+* Maintenance
+  - Fix comment positions (#1098)
+  - [refactoring] Wrap calls to Types.subst and Types.memberType (#1115)
+  - Build latest Caffeine on CI (#1111)
+
 Version 0.12.2
 ---------------
 * Fix reading of JSpecify @nullable annotations from varargs parameter in bytecode (#1089)
