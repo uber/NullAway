@@ -171,7 +171,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    class Test {",
             "      static class Foo<T extends @Nullable Object> {",
             "        Foo(T t) {}",
-            "        static <U extends @Nullable Object> Foo<U> make(U u) {",
+            "        static <U extends @Nullable Object> Foo<U> make(U u) {", // use return type for inference
             "          return new Foo<>(u);",
             "        }",
             "      }",
@@ -182,12 +182,14 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        }",
             "      }",
             "      static void testLocalAssign() {",
-            "        // legal",
-            "        Foo<@Nullable Object> f = Foo.make(null);",
+            "        // legal", // [Foo.make(null) -> [U -> @Nullable Object, T -> …] ] ==> [Foo<@Nullable Object> f = Foo.make(null) -> [U -> @Nullable Object, T -> …] ]
+            "        Foo<@Nullable Object> f = Foo.make(null);", // the context we need to use is that it is an assignment
             "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "        Foo<Object> f2 = Foo.make(null);",
             "        // legal",
             "        Bar<@Nullable Object, Object> b = Bar.make(null, new Object());",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        Bar<@Nullable Object, Object> b2 = Bar.make(null, null);",
             "      }",
             "    }")
         .doTest();
