@@ -195,6 +195,40 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void genericInferenceOnAssignmentsWithLocalVarTypeInference() {
+    makeHelper()
+            .addSourceLines(
+                    "Test.java",
+                    "package com.uber;",
+                    "import org.jspecify.annotations.Nullable;",
+                    "    class Test {",
+                    "      static class Foo<T extends @Nullable Object> {",
+                    "        Foo(T t) {}",
+                    "        static <U extends @Nullable Object> Foo<U> make(U u) {", // use return type for inference
+                    "          return new Foo<>(u);",
+                    "        }",
+                    "      }",
+//                    "      static class Bar<S extends @Nullable Object, Z extends @Nullable Object> {",
+//                    "        Bar(S s, Z z) {}",
+//                    "        static <U extends @Nullable Object, B extends @Nullable Object> Bar<U, B> make(U a, B b) {",
+//                    "          return new Bar<>(a, b);",
+//                    "        }",
+//                    "      }",
+                    "      static void testLocalAssign() {",
+                    "        // legal",
+                    "        var f1 = Foo.make(new String());",
+                    "        // legal: infers Foo<@Nullable Object>",
+                    "        var f2 = Foo.make(null);",
+//                    "        // legal",
+//                    "        Bar<@Nullable Object, Object> b = Bar.make(null, new Object());",
+//                    "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+//                    "        Bar<@Nullable Object, Object> b2 = Bar.make(null, null);",
+                    "      }",
+                    "    }")
+            .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
