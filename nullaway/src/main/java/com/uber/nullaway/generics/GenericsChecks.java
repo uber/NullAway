@@ -55,8 +55,10 @@ public final class GenericsChecks {
   static final Supplier<Type> JSPECIFY_NULLABLE_TYPE_SUPPLIER =
       Suppliers.typeFromString("org.jspecify.annotations.Nullable");
 
+  private final Map<Tree, Map<Type, Type>> inferredTypes = new HashMap<>();
+
   /** Do not instantiate; all methods should be static */
-  private GenericsChecks() {}
+  public GenericsChecks() {}
 
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
@@ -412,8 +414,8 @@ public final class GenericsChecks {
    * @param analysis the analysis object
    * @param state the visitor state
    */
-  public static void checkTypeParameterNullnessForAssignability(
-      Tree tree, NullAway analysis, VisitorState state, Map<Tree, Map<Type, Type>> inferredTypes) {
+  public void checkTypeParameterNullnessForAssignability(
+      Tree tree, NullAway analysis, VisitorState state) {
     if (!analysis.getConfig().isJSpecifyMode()) {
       return;
     }
@@ -970,13 +972,12 @@ public final class GenericsChecks {
    * @return Nullness of parameter at {@code paramIndex}, or {@code NONNULL} if the call does not
    *     invoke an instance method
    */
-  public static Nullness getGenericParameterNullnessAtInvocation(
+  public Nullness getGenericParameterNullnessAtInvocation(
       int paramIndex,
       Symbol.MethodSymbol invokedMethodSymbol,
       MethodInvocationTree tree,
       VisitorState state,
-      Config config,
-      Map<Tree, Map<Type, Type>> inferredTypes) {
+      Config config) {
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute the argument types within the MethodType
