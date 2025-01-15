@@ -196,41 +196,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore("requires generic method support")
-  public void genericInferenceOnAssignmentsWithLocalVarTypeInference() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "    class Test {",
-            "      static class Foo<T extends @Nullable Object> {",
-            "        Foo(T t) {}",
-            "        static <U extends @Nullable Object> Foo<U> make(U u) {",
-            "          return new Foo<>(u);",
-            "        }",
-            "      }",
-            "      static class Bar<S extends @Nullable Object, Z extends @Nullable Object> {",
-            "        Bar(S s, Z z) {}",
-            "        static <U extends @Nullable Object, B extends @Nullable Object> Bar<U, B> make(U a, B b) {",
-            "          return new Bar<>(a, b);",
-            "        }",
-            "      }",
-            "      static void testLocalAssign() {",
-            "        // legal",
-            "        var f1 = Foo.make(new String());",
-            "        // legal: infers Foo<@Nullable Object>",
-            "        var f2 = Foo.make(null);",
-            "        // legal",
-            "        var b1 = Bar.make(new String(), new Object());",
-            "        var b2 = Bar.make(new String(), null);",
-            "        var b3 = Bar.make(null, null);",
-            "      }",
-            "    }")
-        .doTest();
-  }
-
-  @Test
   public void issue1035() {
     makeHelper()
         .addSourceLines(

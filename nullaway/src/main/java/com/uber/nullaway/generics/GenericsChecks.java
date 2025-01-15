@@ -475,7 +475,6 @@ public final class GenericsChecks {
           for (int i = 0; i < typeParam.size(); i++) {
             if (genericNullness.containsKey(typeParam.get(i).type)) {
               var pType = typeParam.get(i).type;
-              //            Tree inferred_tree = (Tree) inferredTypes.get(pType);
               newTypeArgument.add(genericNullness.get(pType)); // replace type to inferred types
             }
           }
@@ -995,13 +994,12 @@ public final class GenericsChecks {
       // check nullness of inferred types
       if (inferredTypes.containsKey(tree)) { // if in cache
         Map<Type, Type> genericNullness = inferredTypes.get(tree);
-        List<Symbol.TypeVariableSymbol> typeParameters =
-            invokedMethodSymbol.getTypeParameters(); //
+        List<Symbol.TypeVariableSymbol> typeParameters = invokedMethodSymbol.getTypeParameters();
         if (genericNullness.containsKey(
             typeParameters.get(paramIndex).type)) { // get the inferred types
           Type genericType = typeParameters.get(paramIndex).type;
-          Type inferredType = genericNullness.get(genericType);
-          if (Objects.equals(getTypeNullness(inferredType, config), Nullness.NULLABLE)) {
+          Type inferredGenericType = genericNullness.get(genericType);
+          if (Objects.equals(getTypeNullness(inferredGenericType, config), Nullness.NULLABLE)) {
             return Nullness.NULLABLE;
           } else {
             return Nullness.NONNULL;

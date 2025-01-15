@@ -280,8 +280,6 @@ public class NullAway extends BugChecker
 
   private final Map<Tree, Map<Type, Type>> inferredTypes = new HashMap<>();
 
-  //  private final Map<Symbol.VarSymbol, Type> inferredTypes = new HashMap<>();
-
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
