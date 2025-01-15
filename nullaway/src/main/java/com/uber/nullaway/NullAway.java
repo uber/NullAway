@@ -277,7 +277,8 @@ public class NullAway extends BugChecker
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
   private final Map<Tree, Map<Type, Type>> inferredTypes = new HashMap<>();
-//  private final Map<Symbol.VarSymbol, Type> inferredTypes = new HashMap<>();
+
+  //  private final Map<Symbol.VarSymbol, Type> inferredTypes = new HashMap<>();
 
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
@@ -1850,7 +1851,12 @@ public class NullAway extends BugChecker
                   ? Nullness.NULLABLE
                   : ((config.isJSpecifyMode() && tree instanceof MethodInvocationTree)
                       ? GenericsChecks.getGenericParameterNullnessAtInvocation(
-                          i, methodSymbol, (MethodInvocationTree) tree, state, config, inferredTypes)
+                          i,
+                          methodSymbol,
+                          (MethodInvocationTree) tree,
+                          state,
+                          config,
+                          inferredTypes)
                       : Nullness.NONNULL);
         }
       }
