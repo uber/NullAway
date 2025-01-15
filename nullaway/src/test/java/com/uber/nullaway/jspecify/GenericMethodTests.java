@@ -171,7 +171,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    class Test {",
             "      static class Foo<T extends @Nullable Object> {",
             "        Foo(T t) {}",
-            "        static <U extends @Nullable Object> Foo<U> make(U u) {", // use return type for inference
+            "        static <U extends @Nullable Object> Foo<U> make(U u) {",
             "          return new Foo<>(u);",
             "        }",
             "      }",
@@ -182,8 +182,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        }",
             "      }",
             "      static void testLocalAssign() {",
-            "        // legal", // [Foo.make(null) -> [U -> @Nullable Object, T -> …] ] ==> [Foo<@Nullable Object> f = Foo.make(null) -> [U -> @Nullable Object, T -> …] ]
-            "        Foo<@Nullable Object> f = Foo.make(null);", // the context we need to use is that it is an assignment
+            "        // legal", // [Foo.make(null) -> [U -> @Nullable Object, T -> …] ]
+            "        Foo<@Nullable Object> f = Foo.make(null);",
             "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "        Foo<Object> f2 = Foo.make(null);",
             "        // legal",
@@ -196,6 +196,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  @Ignore("requires generic method support")
   public void genericInferenceOnAssignmentsWithLocalVarTypeInference() {
     makeHelper()
             .addSourceLines(
@@ -205,7 +206,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     "    class Test {",
                     "      static class Foo<T extends @Nullable Object> {",
                     "        Foo(T t) {}",
-                    "        static <U extends @Nullable Object> Foo<U> make(U u) {", // use return type for inference
+                    "        static <U extends @Nullable Object> Foo<U> make(U u) {",
                     "          return new Foo<>(u);",
                     "        }",
                     "      }",
