@@ -25,13 +25,13 @@ jobs:
             epVersion: 2.31.0
           - os: macos-latest
             java: 17
-            epVersion: 2.35.1
+            epVersion: 2.36.0
           - os: windows-latest
             java: 17
-            epVersion: 2.35.1
+            epVersion: 2.36.0
           - os: ubuntu-latest
             java: 17
-            epVersion: 2.35.1
+            epVersion: 2.36.0
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -60,7 +60,7 @@ jobs:
           ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         run: ./gradlew codeCoverageReport
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '17' && matrix.epVersion == '2.35.1' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && matrix.java == '17' && matrix.epVersion == '2.36.0' && github.repository == 'uber/NullAway'
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -76,3 +76,30 @@ jobs:
         if: matrix.java == '17'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
+  caffeine-gradle-task:
+    name: "Build Caffeine with snapshot"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v4
+      - name: 'Set up JDKs'
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: 'temurin'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+      - name: Publish to Maven Local
+        env:
+          ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'false'
+        run: ./gradlew publishToMavenLocal
+      - name: Create a temporary directory for Caffeine
+        run: mkdir -p /tmp/caffeine
+      - name: Clone Caffeine repository
+        run: git clone --depth 1 https://github.com/ben-manes/caffeine.git /tmp/caffeine
+      - name: Run caffeine build
+        run: |
+          cp .github/workflows/caffeine-use-snapshot.gradle.kts /tmp/caffeine
+          cd /tmp/caffeine
+          ./gradlew --init-script caffeine-use-snapshot.gradle.kts build -x test -x javadoc

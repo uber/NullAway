@@ -207,7 +207,7 @@ public class CoreTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void supportSwitchExpression() {
+  public void switchOnNullable() {
     defaultCompilationHelper
         .addSourceLines(
             "TestPositive.java",
@@ -1068,6 +1068,25 @@ public class CoreTests extends NullAwayTestsBase {
             "    public static @Nullable String foo(String x) {",
             "        return x.isEmpty() ? null : null;",
             "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void synchronizedDeref() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestCase.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class TestCase {",
+            "  public static void testPositive(@Nullable Object lock) {",
+            "    // BUG: Diagnostic contains: synchronized block expression \"lock\" is @Nullable",
+            "    synchronized (lock) {}",
+            "  }",
+            "  public static void testNegative(Object lock) {",
+            "    synchronized (lock) {}",
+            "  }",
             "}")
         .doTest();
   }

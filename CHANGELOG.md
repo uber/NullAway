@@ -1,5 +1,44 @@
 Changelog
 =========
+Version 0.12.3
+---------------
+* Remove InferredJARModelsHandler (#1079)
+* Fix crash with annotation on enum (#1097)
+* Handle case null in switch statements (#1100)
+* Don't report errors for writes to @NullUnmarked fields (#1102)
+* Support primitive static final fields as constant args in access paths (#1105)
+* Fix issue with annotations in module-info.java files (#1109)
+* Report error for @nullable synchronized block expression (#1106)
+* Add support for parameter types with wildcards for JarInfer (#1107)
+* Properly handle nested generics and multiple wildcard type args in JarInfer (#1114)
+* Proper checking of vararg overrides with JSpecify annotations (#1116)
+* Add flag to indicate only @NullMarked code should be checked (#1117)
+* Add support for static fields in contracts (#1118)
+* Maintenance
+  - Fix comment positions (#1098)
+  - [refactoring] Wrap calls to Types.subst and Types.memberType (#1115)
+  - Build latest Caffeine on CI (#1111)
+
+Version 0.12.2
+---------------
+* Fix reading of JSpecify @nullable annotations from varargs parameter in bytecode (#1089)
+* Fix JarInfer handling of generic types (#1078)
+* Fix another JSpecify mode crash involving raw types (#1086)
+* Fix bugs in handling of valueOf calls for map keys (#1085)
+* Suggest correct fix when array component of non-nullable array is made null. (#1087)
+* Substitute type arguments when checking type parameter nullability at call site (#1070)
+* Fix JarInfer parameter indexes for instance methods (#1071)
+* JSpecify mode: initial support for generic methods (with explicit type arguments at calls) (#1053)
+* Maintenance
+  - Update to latest Error Prone and Error Prone Gradle plugin (#1064)
+  - Refactor serialization adapter retrieval by version (#1066)
+  - Remove fixes.tsv serialization from NullAway serialization service (#1063)
+  - Enable javac -parameters flag (#1069)
+  - Update to Gradle 8.11 (#1073)
+  - Add test for issue 1035 (#1074)
+  - remove use of deprecated Gradle API (#1076)
+  - Update to Error Prone 2.36.0 (#1077)
+
 Version 0.12.1
 ---------------
 * Add library model for Apache Commons CollectionUtils.isNotEmpty (#932) (#1062)

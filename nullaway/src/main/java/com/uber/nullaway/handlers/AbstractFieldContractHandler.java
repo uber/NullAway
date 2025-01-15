@@ -163,7 +163,32 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                   null));
       return false;
     } else {
+      Symbol.ClassSymbol classSymbol =
+          castToNonNull(ASTHelpers.enclosingClass(methodAnalysisContext.methodSymbol()));
       for (String fieldName : content) {
+        if (isThisDotStaticField(classSymbol, fieldName)) {
+
+          message =
+              "Cannot refer to static field "
+                  + fieldName.substring(THIS_NOTATION.length())
+                  + " using this.";
+          state.reportMatch(
+              analysis
+                  .getErrorBuilder()
+                  .createErrorDescription(
+                      new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                      tree,
+                      analysis.buildDescription(tree),
+                      state,
+                      null));
+          return false;
+        }
+        VariableElement field = getFieldOfClass(classSymbol, fieldName);
+        if (field != null) {
+          if (field.getModifiers().contains(Modifier.STATIC)) {
+            continue;
+          }
+        }
         if (fieldName.contains(".")) {
           if (!fieldName.startsWith(THIS_NOTATION)) {
             message =
@@ -188,9 +213,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
             fieldName = fieldName.substring(fieldName.lastIndexOf(".") + 1);
           }
         }
-        Symbol.ClassSymbol classSymbol =
-            castToNonNull(ASTHelpers.enclosingClass(methodAnalysisContext.methodSymbol()));
-        VariableElement field = getInstanceFieldOfClass(classSymbol, fieldName);
+        field = getFieldOfClass(classSymbol, fieldName);
         if (field == null) {
           message =
               "For @"
@@ -223,11 +246,11 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
    * @param name Name of the field.
    * @return The field with the given name, or {@code null} if the field cannot be found
    */
-  public static @Nullable VariableElement getInstanceFieldOfClass(
+  public static @Nullable VariableElement getFieldOfClass(
       Symbol.ClassSymbol classSymbol, String name) {
     Preconditions.checkNotNull(classSymbol);
     for (Element member : getEnclosedElements(classSymbol)) {
-      if (member.getKind().isField() && !member.getModifiers().contains(Modifier.STATIC)) {
+      if (member.getKind().isField()) {
         if (member.getSimpleName().toString().equals(name)) {
           return (VariableElement) member;
         }
@@ -235,8 +258,19 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     }
     Symbol.ClassSymbol superClass = (Symbol.ClassSymbol) classSymbol.getSuperclass().tsym;
     if (superClass != null) {
-      return getInstanceFieldOfClass(superClass, name);
+      return getFieldOfClass(superClass, name);
     }
     return null;
+  }
+
+  protected boolean isThisDotStaticField(Symbol.ClassSymbol classSymbol, String expression) {
+    if (expression.contains(".")) {
+      if (expression.startsWith(THIS_NOTATION)) {
+        String fieldName = expression.substring(THIS_NOTATION.length());
+        VariableElement field = getFieldOfClass(classSymbol, fieldName);
+        return field != null && field.getModifiers().contains(Modifier.STATIC);
+      }
+    }
+    return false;
   }
 }

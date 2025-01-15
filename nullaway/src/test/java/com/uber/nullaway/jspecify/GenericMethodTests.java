@@ -133,7 +133,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore("requires generic method support")
+  @Ignore("requires inference of generic method type arguments")
   public void genericMethodAndVoidTypeWithInference() {
     makeHelper()
         .addSourceLines(
@@ -227,6 +227,35 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        var b3 = Bar.make(null, null);",
             "      }",
             "    }")
+        .doTest();
+  }
+
+  @Test
+  public void issue1035() {
+    makeHelper()
+        .addSourceLines(
+            "Todo.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Todo {",
+            "    public static <T extends @Nullable Object> T foo(NullableSupplier<T> code) {",
+            "        return code.get();",
+            "    }",
+            "    public static void main(String[] args) {",
+            "        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "        Todo.<Object>foo(() -> null);",
+            "        Todo.<@Nullable Object>foo(() -> null);",
+            "    }",
+            "    // this method should have no errors once we support inference for generic methods",
+            "    public static void requiresInferenceSupport() {",
+            "        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "        Todo.foo(() -> null);",
+            "    }",
+            "    @FunctionalInterface",
+            "    public interface NullableSupplier<T extends @Nullable Object> {",
+            "        T get();",
+            "    }",
+            "}")
         .doTest();
   }
 

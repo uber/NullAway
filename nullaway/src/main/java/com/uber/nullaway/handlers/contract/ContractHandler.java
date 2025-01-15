@@ -208,7 +208,7 @@ public class ContractHandler extends BaseNoOpHandler {
       for (int i = 0; i < antecedent.length; ++i) {
         String valueConstraint = antecedent[i].trim();
         if (valueConstraint.equals("_")) {
-          continue;
+          // do nothing
         } else if (valueConstraint.equals("false") || valueConstraint.equals("true")) {
           // We handle boolean constraints in the case that the boolean argument is the result
           // of a null or not-null check. For example,
@@ -262,8 +262,7 @@ public class ContractHandler extends BaseNoOpHandler {
         } else if (valueConstraint.equals("!null")
             && inputs.valueOfSubNode(node.getArgument(i)).equals(Nullness.NONNULL)) {
           // We already know this argument can't be null, so we can treat it as not part of the
-          // clause for the purpose of deciding the non-nullness of the other arguments.
-          continue;
+          // clause for the purpose of deciding the non-nullness of the other arguments; do nothing
         } else if (valueConstraint.equals("null") || valueConstraint.equals("!null")) {
           if (arg != null) {
             // More than one argument involved in the antecedent, ignore this rule

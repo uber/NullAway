@@ -28,6 +28,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodInvocationTree;
@@ -74,6 +76,12 @@ import org.jspecify.annotations.Nullable;
  * <p>We do not allow array accesses in access paths for the moment.
  */
 public final class AccessPath implements MapKey {
+
+  private static final Supplier<Type> INTEGER_TYPE_SUPPLIER =
+      Suppliers.typeFromString("java.lang.Integer");
+
+  private static final Supplier<Type> LONG_TYPE_SUPPLIER =
+      Suppliers.typeFromString("java.lang.Long");
 
   /**
    * A prefix added for elements appearing in method invocation APs which represent fields that can
@@ -278,14 +286,15 @@ public final class AccessPath implements MapKey {
         return new NumericMapKey(((LongLiteralNode) argument).getValue());
       case METHOD_INVOCATION:
         MethodAccessNode target = ((MethodInvocationNode) argument).getTarget();
-        Node receiver = stripCasts(target.getReceiver());
         List<Node> arguments = ((MethodInvocationNode) argument).getArguments();
         // Check for int/long boxing.
         if (target.getMethod().getSimpleName().toString().equals("valueOf")
-            && arguments.size() == 1
-            && castToNonNull(receiver.getTree()).getKind().equals(Tree.Kind.IDENTIFIER)
-            && (receiver.toString().equals("Integer") || receiver.toString().equals("Long"))) {
-          return argumentToMapKeySpecifier(arguments.get(0), state, apContext);
+            && arguments.size() == 1) {
+          Type ownerType = ((Symbol.MethodSymbol) target.getMethod()).owner.type;
+          if (ASTHelpers.isSameType(ownerType, INTEGER_TYPE_SUPPLIER.get(state), state)
+              || ASTHelpers.isSameType(ownerType, LONG_TYPE_SUPPLIER.get(state), state)) {
+            return argumentToMapKeySpecifier(arguments.get(0), state, apContext);
+          }
         }
       // Fine to fallthrough:
       default:
@@ -358,6 +367,19 @@ public final class AccessPath implements MapKey {
         element.getKind().isField(),
         "element must be of type: FIELD but received: " + element.getKind());
     return new AccessPath(null, ImmutableList.of(new FieldOrMethodCallElement(element)));
+  }
+
+  /**
+   * Constructs an access path representing a static field.
+   *
+   * @param element element that must represent a static field
+   * @return an access path representing the static field
+   */
+  public static AccessPath fromStaticField(VariableElement element) {
+    Preconditions.checkArgument(
+        element.getKind().isField() && element.getModifiers().contains(Modifier.STATIC),
+        "element must be a static field but received: " + element.getKind());
+    return new AccessPath(element, ImmutableList.of(), null);
   }
 
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
@@ -733,7 +755,7 @@ public final class AccessPath implements MapKey {
     }
 
     public boolean isStructurallyImmutableType(Type type) {
-      return immutableTypes.contains(type.tsym.toString());
+      return type.isPrimitive() || immutableTypes.contains(type.tsym.toString());
     }
 
     public static Builder builder() {

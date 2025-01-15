@@ -51,6 +51,7 @@ import java.util.stream.Collectors;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.jspecify.annotations.Nullable;
@@ -184,6 +185,11 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
         chosenStore.getNonNullReceiverFields().stream()
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
+    Set<String> nonNullStaticFieldsInPath =
+        chosenStore.getNonNullStaticFields().stream()
+            .map(e -> e.getSimpleName().toString())
+            .collect(Collectors.toSet());
+    nonNullFieldsInPath.addAll(nonNullStaticFieldsInPath);
     boolean allFieldsAreNonNull = nonNullFieldsInPath.containsAll(fieldNames);
 
     // Whether the return true expression evaluates to a boolean literal or not.  If null, then not
@@ -297,14 +303,16 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
           trueIfNonNull ? thenUpdates : elseUpdates;
       for (String fieldName : fieldNames) {
         VariableElement field =
-            getInstanceFieldOfClass(
-                castToNonNull(ASTHelpers.enclosingClass(methodSymbol)), fieldName);
+            getFieldOfClass(castToNonNull(ASTHelpers.enclosingClass(methodSymbol)), fieldName);
         if (field == null) {
           // Invalid annotation, will result in an error during validation.
           continue;
         }
         AccessPath accessPath =
-            AccessPath.fromBaseAndElement(node.getTarget().getReceiver(), field, apContext);
+            field.getModifiers().contains(Modifier.STATIC)
+                ? AccessPath.fromStaticField(field)
+                : AccessPath.fromFieldElement(field);
+
         if (accessPath == null) {
           // Also likely to be an invalid annotation, will result in an error during validation.
           continue;

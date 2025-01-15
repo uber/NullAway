@@ -32,6 +32,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Modifier;
 import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
@@ -270,6 +271,24 @@ public class NullnessStore implements Store<NullnessStore> {
    */
   public Set<Element> getNonNullReceiverFields() {
     return getReceiverFields(Nullness.NONNULL);
+  }
+
+  /**
+   * Return all the static fields in the store that are Non-Null.
+   *
+   * @return Set of static fields (represented as {@code Element}s) that are non-null
+   */
+  public Set<Element> getNonNullStaticFields() {
+    Set<AccessPath> nonnullAccessPaths = this.getAccessPathsWithValue(Nullness.NONNULL);
+    Set<Element> result = new LinkedHashSet<>();
+    for (AccessPath ap : nonnullAccessPaths) {
+      if (ap.getRoot() != null) {
+        if (ap.getRoot().getModifiers().contains(Modifier.STATIC)) {
+          result.add(ap.getRoot());
+        }
+      }
+    }
+    return result;
   }
 
   /**

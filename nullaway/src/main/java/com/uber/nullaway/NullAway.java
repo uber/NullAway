@@ -82,6 +82,7 @@ import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.StatementTree;
 import com.sun.source.tree.SwitchTree;
+import com.sun.source.tree.SynchronizedTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.TryTree;
 import com.sun.source.tree.TypeCastTree;
@@ -187,7 +188,8 @@ public class NullAway extends BugChecker
         BugChecker.CompoundAssignmentTreeMatcher,
         BugChecker.SwitchTreeMatcher,
         BugChecker.TypeCastTreeMatcher,
-        BugChecker.ParameterizedTypeTreeMatcher {
+        BugChecker.ParameterizedTypeTreeMatcher,
+        BugChecker.SynchronizedTreeMatcher {
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
   static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
@@ -490,6 +492,17 @@ public class NullAway extends BugChecker
     if (lhsType != null && lhsType.isPrimitive()) {
       doUnboxingCheck(state, tree.getExpression());
     }
+    Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
+    if (assigned instanceof Symbol.MethodSymbol) {
+      // javac generates an AssignmentTree for setting an annotation attribute value.  E.g., for
+      // `@SuppressWarnings("foo")`, javac generates an AssignmentTree of the form `value() =
+      // "foo"`, where the LHS is a MethodSymbol.  We don't want to analyze these.
+      return Description.NO_MATCH;
+    }
+    if (assigned != null && codeAnnotationInfo.isSymbolUnannotated(assigned, config, handler)) {
+      // assigning to symbol that is unannotated
+      return Description.NO_MATCH;
+    }
     // generics check
     if (lhsType != null && config.isJSpecifyMode()) {
       GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state, inferredTypes);
@@ -507,18 +520,12 @@ public class NullAway extends BugChecker
           String message = "Writing @Nullable expression into array with @NonNull contents.";
           ErrorMessage errorMessage =
               new ErrorMessage(MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY, message);
-          // Future enhancements which auto-fix such warnings will require modification to this
-          // logic
           return errorBuilder.createErrorDescription(
-              errorMessage,
-              buildDescription(tree),
-              state,
-              ASTHelpers.getSymbol(tree.getVariable()));
+              errorMessage, buildDescription(tree), state, arraySymbol);
         }
       }
     }
 
-    Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
     if (assigned == null || assigned.getKind() != ElementKind.FIELD) {
       // not a field of nullable type
       return Description.NO_MATCH;
@@ -698,7 +705,7 @@ public class NullAway extends BugChecker
       switchSelectorExpression = ((ParenthesizedTree) switchSelectorExpression).getExpression();
     }
 
-    if (mayBeNullExpr(state, switchSelectorExpression)) {
+    if (!TreeUtils.hasNullCaseLabel(tree) && mayBeNullExpr(state, switchSelectorExpression)) {
       String message =
           "switch expression " + state.getSourceForNode(switchSelectorExpression) + " is @Nullable";
       ErrorMessage errorMessage =
@@ -778,9 +785,16 @@ public class NullAway extends BugChecker
     // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
     // -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations flag and its handler).
     if (isOverriddenMethodAnnotated) {
+      boolean overriddenMethodIsVarArgs = overriddenMethod.isVarArgs();
       for (int i = 0; i < superParamSymbols.size(); i++) {
         Nullness paramNullness;
-        if (Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)) {
+        if (overriddenMethodIsVarArgs && i == superParamSymbols.size() - 1) {
+          // For a varargs position, we need to check if the array itself is @Nullable
+          paramNullness =
+              Nullness.varargsArrayIsNullable(superParamSymbols.get(i), config)
+                  ? Nullness.NULLABLE
+                  : Nullness.NONNULL;
+        } else if (Nullness.paramHasNullableAnnotation(overriddenMethod, i, config)) {
           paramNullness = Nullness.NULLABLE;
         } else if (config.isJSpecifyMode()) {
           // Check if the parameter type is a type variable and the corresponding generic type
@@ -838,7 +852,7 @@ public class NullAway extends BugChecker
     for (int i = 0; i < superParamSymbols.size(); i++) {
       if (!Objects.equals(overriddenMethodArgNullnessMap[i], Nullness.NULLABLE)) {
         // No need to check, unless the argument of the overridden method is effectively @Nullable,
-        // in which case it can't be overridding a @NonNull arg.
+        // in which case it can't be overridden by a @NonNull arg.
         continue;
       }
       int methodParamInd = i - startParam;
@@ -1764,6 +1778,27 @@ public class NullAway extends BugChecker
             "enhanced-for expression " + state.getSourceForNode(expr) + " is @Nullable");
     if (mayBeNullExpr(state, expr)) {
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(expr), state, null);
+    }
+    return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchSynchronized(SynchronizedTree tree, VisitorState state) {
+    ExpressionTree lockExpr = tree.getExpression();
+    // For a synchronized block `synchronized (e) { ... }`, javac returns `(e)` as the expression.
+    // We strip the outermost parentheses for a nicer-looking error message.
+    if (lockExpr instanceof ParenthesizedTree) {
+      lockExpr = ((ParenthesizedTree) lockExpr).getExpression();
+    }
+    if (mayBeNullExpr(state, lockExpr)) {
+      ErrorMessage errorMessage =
+          new ErrorMessage(
+              MessageTypes.DEREFERENCE_NULLABLE,
+              "synchronized block expression \""
+                  + state.getSourceForNode(lockExpr)
+                  + "\" is @Nullable");
+      return errorBuilder.createErrorDescription(
+          errorMessage, buildDescription(lockExpr), state, null);
     }
     return Description.NO_MATCH;
   }

@@ -155,5 +155,7 @@ tasks.register('installGitHooks', Copy) {
         rename 'pre-commit-stub', 'pre-commit'
     }
     into file('.git/hooks')
-    fileMode 0777
+    filePermissions {
+        unix(0777)
+    }
 }

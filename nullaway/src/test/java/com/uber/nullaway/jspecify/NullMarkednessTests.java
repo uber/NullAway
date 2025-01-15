@@ -1173,4 +1173,25 @@ public class NullMarkednessTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void writeToNullUnmarkedField() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.unannotated;",
+            "import org.jspecify.annotations.NullMarked;",
+            "public class Test {",
+            "    static Object foo;",
+            "    @NullMarked",
+            "    static class Inner {",
+            "        String bar() {",
+            "            // expecting no errors since foo is in @NullUnmarked code",
+            "            foo = null;",
+            "            return foo.toString();",
+            "        }",
+            "    }",
+            "}")
+        .doTest();
+  }
 }

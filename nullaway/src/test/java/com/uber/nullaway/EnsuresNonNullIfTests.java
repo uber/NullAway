@@ -893,4 +893,59 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
         .doTest();
   }
+
+  @Test
+  public void staticFieldCorrectUse() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable static Item staticNullableItem;",
+            "  @EnsuresNonNullIf(value=\"staticNullableItem\", result=true)",
+            "  public static boolean hasStaticNullableItem() {",
+            "    return staticNullableItem != null;",
+            "  }",
+            "  public static int runOk() {",
+            "    if(!hasStaticNullableItem()) {",
+            "      return 1;",
+            "    }",
+            "    staticNullableItem.call();",
+            "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void staticFieldIncorrectUse() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import com.uber.nullaway.annotations.EnsuresNonNullIf;",
+            "class Foo {",
+            "  @Nullable static Item nullableItem;",
+            "  @EnsuresNonNullIf(value=\"nullableItem\", result=true)",
+            "  public boolean hasNullableItem() {",
+            "    return nullableItem != null;",
+            "  }",
+            "  public int runOk() {",
+            "    if(hasNullableItem()) {",
+            "      nullableItem.call();",
+            "    }",
+            "    // BUG: Diagnostic contains: dereferenced expression nullableItem is @Nullable",
+            "    nullableItem.call();",
+            "    return 0;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
 }

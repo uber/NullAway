@@ -670,6 +670,7 @@ public final class GenericsChecks {
       return;
     }
     Type invokedMethodType = methodSymbol.type;
+    // substitute class-level type arguments for instance methods
     if (!methodSymbol.isStatic() && tree instanceof MethodInvocationTree) {
       ExpressionTree methodSelect = ((MethodInvocationTree) tree).getMethodSelect();
       Type enclosingType;
@@ -680,13 +681,14 @@ public final class GenericsChecks {
         enclosingType = methodSymbol.owner.type;
       }
       if (enclosingType != null) {
-        invokedMethodType = state.getTypes().memberType(enclosingType, methodSymbol);
+        invokedMethodType =
+            TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol);
       }
     }
-    // Handle generic methods
+    // substitute type arguments for generic methods
     if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
       invokedMethodType =
-          substituteGenericTypeArgsToExplicit((MethodInvocationTree) tree, methodSymbol, state);
+          substituteTypeArgsInGenericMethodType((MethodInvocationTree) tree, methodSymbol, state);
     }
     List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
     int n = formalParamTypes.size();
@@ -750,7 +752,8 @@ public final class GenericsChecks {
     // Obtain type parameters for the overridden method within the context of the overriding
     // method's class
     Type methodWithTypeParams =
-        state.getTypes().memberType(overridingMethod.owner.type, overriddenMethod);
+        TypeSubstitutionUtils.memberType(
+            state.getTypes(), overridingMethod.owner.type, overriddenMethod);
 
     checkTypeParameterNullnessForOverridingMethodReturnType(
         tree, methodWithTypeParams, analysis, state);
@@ -828,7 +831,8 @@ public final class GenericsChecks {
       // annotation should have been handled by the caller)
       return Nullness.NONNULL;
     }
-    Type overriddenMethodType = state.getTypes().memberType(enclosingType, method);
+    Type overriddenMethodType =
+        TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method);
     verify(
         overriddenMethodType instanceof ExecutableType,
         "expected ExecutableType but instead got %s",
@@ -877,7 +881,7 @@ public final class GenericsChecks {
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute type arguments inside the return type
       Type substitutedReturnType =
-          substituteGenericTypeArgsToExplicit(tree, invokedMethodSymbol, state).getReturnType();
+          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state).getReturnType();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedReturnType != null
@@ -911,18 +915,26 @@ public final class GenericsChecks {
     return com.sun.tools.javac.util.List.from(types);
   }
 
-  private static Type substituteGenericTypeArgsToExplicit(
-      MethodInvocationTree methodInvocationTreetree,
+  /**
+   * Substitutes the type arguments from a generic method invocation into the method's type.
+   *
+   * @param methodInvocationTree the method invocation tree
+   * @param methodSymbol symbol for the invoked generic method
+   * @param state the visitor state
+   * @return the substituted method type for the generic method
+   */
+  private static Type substituteTypeArgsInGenericMethodType(
+      MethodInvocationTree methodInvocationTree,
       Symbol.MethodSymbol methodSymbol,
       VisitorState state) {
-    MethodInvocationTree methodInvocationTree = (MethodInvocationTree) methodInvocationTreetree;
 
     List<? extends Tree> typeArgumentTrees = methodInvocationTree.getTypeArguments();
     com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
 
     Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
     Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
-    return state.getTypes().subst(underlyingMethodType, forAllType.tvars, explicitTypeArgs);
+    return TypeSubstitutionUtils.subst(
+        state.getTypes(), underlyingMethodType, forAllType.tvars, explicitTypeArgs);
   }
 
   /**
@@ -971,7 +983,8 @@ public final class GenericsChecks {
       // Substitute the argument types within the MethodType
       // NOTE: if explicitTypeArgs is empty, this is a noop
       List<Type> substitutedParamTypes =
-          substituteGenericTypeArgsToExplicit(tree, invokedMethodSymbol, state).getParameterTypes();
+          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state)
+              .getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedParamTypes != null
@@ -1072,7 +1085,7 @@ public final class GenericsChecks {
       // @Nullable annotation is handled elsewhere)
       return Nullness.NONNULL;
     }
-    Type methodType = state.getTypes().memberType(enclosingType, method);
+    Type methodType = TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getTypeNullness(paramType, config);
   }
@@ -1091,7 +1104,6 @@ public final class GenericsChecks {
       MethodTree tree, Type overriddenMethodType, NullAway analysis, VisitorState state) {
     List<? extends VariableTree> methodParameters = tree.getParameters();
     List<Type> overriddenMethodParameterTypes = overriddenMethodType.getParameterTypes();
-    // TODO handle varargs; they are not handled for now
     for (int i = 0; i < methodParameters.size(); i++) {
       Type overridingMethodParameterType = getTreeType(methodParameters.get(i), state);
       Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);

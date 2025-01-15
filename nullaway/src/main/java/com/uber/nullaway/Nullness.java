@@ -277,7 +277,7 @@ public enum Nullness implements AbstractValue<Nullness> {
   }
 
   /**
-   * Is the varargs parameter {@code paramSymbol} have a {@code @Nullable} annotation indicating
+   * Does the varargs parameter {@code paramSymbol} have a {@code @Nullable} annotation indicating
    * that the argument array passed at a call site can be {@code null}? Syntactically, this would be
    * written as {@code foo(Object @Nullable... args}}
    */
