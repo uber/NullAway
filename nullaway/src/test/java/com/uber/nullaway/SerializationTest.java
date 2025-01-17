@@ -2171,7 +2171,20 @@ public class SerializationTest extends NullAwayTestsBase {
 
   @Test
   public void check() {
-    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "test_field_init");
+    String output = tempRoot.toString();
+    try {
+      Files.createDirectories(tempRoot);
+      FixSerializationConfig.Builder builder =
+          new FixSerializationConfig.Builder().setFieldInitInfo(true).setOutputDirectory(output);
+      Path config = tempRoot.resolve("serializer.xml");
+      Files.createFile(config);
+      configPath = config.toString();
+      builder.writeAsXML(configPath);
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(tempRoot);
     tester
         .setArgs(
             Arrays.asList(
