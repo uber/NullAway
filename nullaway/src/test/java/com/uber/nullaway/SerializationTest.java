@@ -2168,4 +2168,48 @@ public class SerializationTest extends NullAwayTestsBase {
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
+
+  @Test
+  public void check() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Foo {",
+            "   @Nullable Object f;",
+            "   public void init() {",
+            "     this.f = new Object();",
+            "   }",
+            "   public String bar() {",
+            "     // BUG: Diagnostic contains: dereferenced expression",
+            "     return f.toString();",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "DEREFERENCE_NULLABLE",
+                "dereferenced expression f is @Nullable --- field --- com.uber.Foo",
+                "com.uber.Foo",
+                "bar()",
+                246,
+                "com/uber/Foo.java",
+                "null",
+                "null",
+                "null",
+                "null",
+                "null",
+                "null"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
 }

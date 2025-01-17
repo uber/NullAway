@@ -100,6 +100,8 @@ import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
+import com.uber.nullaway.fixserialization.Serializer;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
@@ -277,6 +279,8 @@ public class NullAway extends BugChecker
    */
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
+  private final SerializationAdapter adapter;
+
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
@@ -288,6 +292,7 @@ public class NullAway extends BugChecker
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
+    this.adapter = SerializationAdapter.getAdapterForVersion(SerializationAdapter.LATEST_VERSION);
   }
 
   @Inject // For future Error Prone versions in which checkers are loaded using Guice
@@ -296,6 +301,7 @@ public class NullAway extends BugChecker
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
     errorBuilder = new ErrorBuilder(config, canonicalName(), allNames());
+    this.adapter = SerializationAdapter.getAdapterForVersion(SerializationAdapter.LATEST_VERSION);
   }
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
@@ -2664,8 +2670,19 @@ public class NullAway extends BugChecker
       }
     }
     if (mayBeNullExpr(state, baseExpression)) {
+      ExpressionTree stripped = stripParensAndCasts(baseExpression);
+      Symbol derefedSymbol = ASTHelpers.getSymbol(stripped);
+      boolean isField = derefedSymbol != null && derefedSymbol.getKind() == ElementKind.FIELD;
+      boolean isParameter =
+          derefedSymbol != null && derefedSymbol.getKind() == ElementKind.PARAMETER;
+      String type = isField ? "field" : isParameter ? "parameter" : "local_variable";
       String message =
-          "dereferenced expression " + state.getSourceForNode(baseExpression) + " is @Nullable";
+          "dereferenced expression "
+              + state.getSourceForNode(baseExpression)
+              + " is @Nullable --- "
+              + type
+              + " --- "
+              + Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter);
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
 
       return errorBuilder.createErrorDescriptionForNullAssignment(
