@@ -3,7 +3,7 @@ package com.uber.nullaway.jspecify;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
-import org.junit.Ignore;
+import org.junit.Assume;
 import org.junit.Test;
 
 public class BytecodeGenericsTests extends NullAwayTestsBase {
@@ -224,10 +224,10 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore("Failing due to https://bugs.openjdk.org/browse/JDK-8337795")
-  // TODO Re-enable this test once the JDK bug is fixed, on appropriate JDK versions
-  //  See https://github.com/uber/NullAway/issues/1011
   public void callMethodTakingJavaUtilFunction() {
+    // Skip test if JDK version is below 23
+    Assume.assumeTrue(
+        "Skipping test: Requires JDK 23 or higher", Runtime.version().feature() >= 23);
     makeHelper()
         .addSourceLines(
             "Test.java",
