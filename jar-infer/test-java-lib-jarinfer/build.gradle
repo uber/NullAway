@@ -1,5 +1,3 @@
-import javax.inject.Inject
-
 /*
  * Copyright (C) 2017. Uber Technologies
  *
@@ -34,15 +32,8 @@ jar {
     }
 }
 
-interface InjectedExecOps {
-    @Inject //@javax.inject.Inject
-    ExecOperations getExecOps()
-}
-
-def injected = project.objects.newInstance(InjectedExecOps)
-
 jar.doLast {
-    injected.execOps.javaexec {
+    javaexec {
         classpath = files("${rootProject.projectDir}/jar-infer/jar-infer-cli/build/libs/jar-infer-cli.jar")
         main = "com.uber.nullaway.jarinfer.JarInfer"
         args = [
@@ -52,7 +43,7 @@ jar.doLast {
             "${jar.destinationDirectory.get()}/${astubxPath}"
         ]
     }
-    injected.execOps.exec {
+    exec {
         workingDir "./build/libs"
         commandLine "jar", "uf", "test-java-lib-jarinfer.jar", astubxPath
     }
