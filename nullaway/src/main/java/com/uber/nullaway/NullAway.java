@@ -107,7 +107,6 @@ import com.uber.nullaway.handlers.MethodAnalysisContext;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -278,7 +277,7 @@ public class NullAway extends BugChecker
    */
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
-//  private final Map<Tree, Map<Type, Type>> inferredTypes = new HashMap<>();
+  //  private final Map<Tree, Map<Type, Type>> inferredTypes = new HashMap<>();
   private GenericsChecks genericsChecks = new GenericsChecks();
 
   /**
@@ -1885,11 +1884,7 @@ public class NullAway extends BugChecker
                   ? Nullness.NULLABLE
                   : ((config.isJSpecifyMode() && tree instanceof MethodInvocationTree)
                       ? genericsChecks.getGenericParameterNullnessAtInvocation(
-                          i,
-                          methodSymbol,
-                          (MethodInvocationTree) tree,
-                          state,
-                          config)
+                          i, methodSymbol, (MethodInvocationTree) tree, state, config)
                       : Nullness.NONNULL);
         }
       }
