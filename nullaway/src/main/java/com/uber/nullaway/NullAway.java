@@ -277,7 +277,6 @@ public class NullAway extends BugChecker
    */
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
-  //  private final Map<Tree, Map<Type, Type>> inferredTypes = new HashMap<>();
   private GenericsChecks genericsChecks = new GenericsChecks();
 
   /**
