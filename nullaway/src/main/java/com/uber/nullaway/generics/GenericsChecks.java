@@ -993,14 +993,14 @@ public final class GenericsChecks {
         return Nullness.NULLABLE;
       }
       // check nullness of inferred types
-      if (inferredTypes.containsKey(tree)) { // if in cache
+      if (inferredTypes.containsKey(tree)) {
         Map<Type, Type> genericNullness = inferredTypes.get(tree);
-        List<Symbol.TypeVariableSymbol> typeParameters = invokedMethodSymbol.getTypeParameters();
-        if (genericNullness.containsKey(
-            typeParameters.get(paramIndex).type)) { // get the inferred types
-          Type genericType = typeParameters.get(paramIndex).type;
+        List<Symbol.VarSymbol> parameters = invokedMethodSymbol.getParameters();
+        if (genericNullness.containsKey(parameters.get(paramIndex).type)) {
+          Type genericType = parameters.get(paramIndex).type;
           Type inferredGenericType = genericNullness.get(genericType);
-          if (Objects.equals(getTypeNullness(inferredGenericType, config), Nullness.NULLABLE)) {
+          if (inferredGenericType != null
+              && Objects.equals(getTypeNullness(inferredGenericType, config), Nullness.NULLABLE)) {
             return Nullness.NULLABLE;
           } else {
             return Nullness.NONNULL;
