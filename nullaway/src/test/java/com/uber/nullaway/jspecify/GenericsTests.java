@@ -2084,6 +2084,24 @@ public class GenericsTests extends NullAwayTestsBase {
             "        Supplier<? extends @Nullable Object> s = () -> null;",
             "    }",
             "}")
+        .addSourceLines(
+            "Test2.java",
+            "package com.uber;",
+            "import java.util.HashMap;",
+            "import java.util.Map;",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class Test2 {",
+            "    @Contract(\"null -> true\")",
+            "    public static boolean isEmpty(@Nullable Map<?, ? extends @Nullable Object> map) {",
+            "        return (map == null || map.isEmpty());",
+            "    }",
+            "    static void foo() {",
+            "        Map<String, @Nullable Object> variables = new HashMap<>();",
+            "        if (isEmpty(variables)) { /* do nothing */ }",
+            "        variables.toString();",
+            "    }",
+            "}")
         .doTest();
   }
 
