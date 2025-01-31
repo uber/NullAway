@@ -190,6 +190,24 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1138() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "class Foo {",
+            "    <T> Foo(T source) {",
+            "    }",
+            "    static <T> Foo create(T in) {",
+            "        return new Foo(in);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
