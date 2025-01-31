@@ -629,6 +629,26 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testMethodRefAsConsumer() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "abstract class Test {",
+            "    interface MyConsumer<T extends @Nullable Object> {",
+            "        void accept(T t);",
+            "    }",
+            "    static void take(@Nullable Object o) {}",
+            "    abstract <U> void doSomething(MyConsumer<@Nullable U> c);",
+            "    void call() {",
+            "        doSomething(Test::take);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testForLambdasInAnAssignmentWithSingleParam() {
     makeHelper()
         .addSourceLines(
