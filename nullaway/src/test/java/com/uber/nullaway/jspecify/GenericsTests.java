@@ -624,6 +624,10 @@ public class GenericsTests extends NullAwayTestsBase {
             "    @Nullable Object call() {",
             "        return create(Foo::foo);",
             "    }",
+            "    abstract @Nullable Object create2(Function<Foo, @Nullable Object> factory);",
+            "    @Nullable Object call2() {",
+            "        return create2(Foo::foo);",
+            "    }",
             "}")
         .doTest();
   }
@@ -642,7 +646,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "    static void take(@Nullable Object o) {}",
             "    abstract <U> void doSomething(MyConsumer<@Nullable U> c);",
             "    void call() {",
-            "        doSomething(Test::take);",
+            "        this.<Object>doSomething(Test::take);",
             "    }",
             "}")
         .doTest();

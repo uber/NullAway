@@ -361,6 +361,9 @@ public final class GenericsChecks {
    * @return Type of the tree with preserved annotations.
    */
   private static @Nullable Type getTreeType(Tree tree, VisitorState state) {
+    // for method reference,
+    // state.getTypes().memberType(NullabilityUtil.getFunctionalInterfaceMethod(tree,
+    // state.getTypes()).owner.type, tree.sym)
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
       ParameterizedTypeTree paramTypedTree =

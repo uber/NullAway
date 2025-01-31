@@ -797,6 +797,7 @@ public class NullAway extends BugChecker
           if (memberReferenceTree != null) {
             // For a method reference, we get generic type arguments from the javac's inferred type
             // for the tree, which seems to properly preserve type-use annotations
+            // TODO this is wrong!!!  only works in some contexts.  we need our own logic
             paramNullness =
                 GenericsChecks.getGenericMethodParameterNullness(
                     i, overriddenMethod, ASTHelpers.getType(memberReferenceTree), state, config);
