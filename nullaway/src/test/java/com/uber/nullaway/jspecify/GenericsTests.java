@@ -607,7 +607,7 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testMethodRefToDefaultMethod() {
+  public void testMethodRefAsFunction() {
     makeHelper()
         .addSourceLines(
             "Test.java",
