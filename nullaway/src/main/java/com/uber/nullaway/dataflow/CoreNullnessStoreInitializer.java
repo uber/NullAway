@@ -66,6 +66,8 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     ClassTree classTree = underlyingAST.getClassTree();
     NullnessStore envStore = getEnvNullnessStoreForClass(classTree, context);
     NullnessStore.Builder result = envStore.toBuilder();
+    // check if underlyingAST is for a constructor
+    if (ASTHelpers.getSymbol(underlyingAST.getMethod()).isConstructor()) {}
     for (LocalVariableNode param : parameters) {
       Symbol paramSymbol = (Symbol) param.getElement();
       Nullness assumed;

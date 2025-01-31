@@ -181,4 +181,21 @@ public class InitializationTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void initializerForNullableField() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Foo {",
+            "    private @Nullable Object mArgs = new Object();",
+            "    Foo() {",
+            "        mArgs.getClass();",
+            "    }",
+            "}")
+        .doTest();
+    ;
+  }
 }
