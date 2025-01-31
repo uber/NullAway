@@ -2046,6 +2046,21 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1127() {
+    makeHelper()
+        .addSourceLines(
+            "Main.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class Main {",
+            "  void arrayAssign(boolean b, @Nullable String @Nullable [] vals) {",
+            "    @Nullable String[] arr = (b ? vals : null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullUnmarkedGenericField() {
     makeHelper()
         .addSourceLines(
