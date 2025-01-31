@@ -607,6 +607,28 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testMethodRefToDefaultMethod() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "abstract class Test {",
+            "    static class Foo {",
+            "        @Nullable Object foo() {",
+            "            return null;",
+            "        }",
+            "    }",
+            "    abstract <T> @Nullable T create(Function<Foo, @Nullable T> factory);",
+            "    @Nullable Object call() {",
+            "        return create(Foo::foo);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testForLambdasInAnAssignmentWithSingleParam() {
     makeHelper()
         .addSourceLines(
