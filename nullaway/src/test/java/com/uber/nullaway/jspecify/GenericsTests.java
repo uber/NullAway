@@ -1327,6 +1327,31 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1139() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Foo {",
+            "    static abstract class MyClass<T extends @Nullable Object>  {",
+            "        abstract T doThing(T value);",
+            "    }",
+            "    static void repro() {",
+            "        new MyClass<@Nullable Object>() {",
+            "            @Override",
+            "            @Nullable Object doThing(@Nullable Object value) {",
+            "                return value;",
+            "            }",
+            "        }.doThing(null);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullableVoidGenericsLambda() {
     makeHelper()
         .addSourceLines(
