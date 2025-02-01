@@ -55,6 +55,11 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
       Type rhsTypeArgument = rhsTypeArguments.get(i);
+      if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)
+          || rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
+        // TODO Handle wildcard types
+        continue;
+      }
       boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsTypeArgument, state);
       boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsTypeArgument, state);
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
