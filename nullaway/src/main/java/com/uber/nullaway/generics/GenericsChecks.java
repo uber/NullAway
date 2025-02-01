@@ -176,7 +176,6 @@ public final class GenericsChecks {
       return;
     }
     // get Nullable annotated type arguments
-    MethodInvocationTree methodTree = (MethodInvocationTree) tree;
     Map<Integer, Tree> nullableTypeArguments = new HashMap<>();
     for (int i = 0; i < typeArguments.size(); i++) {
       Tree curTypeArg = typeArguments.get(i);
@@ -192,7 +191,7 @@ public final class GenericsChecks {
         }
       }
     }
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
+    Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(tree);
 
     // check if type variables are allowed to be Nullable
     Type baseType = methodSymbol.asType();
