@@ -191,7 +191,8 @@ public final class GenericsChecks {
         }
       }
     }
-    Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(tree);
+    Symbol.MethodSymbol methodSymbol =
+        castToNonNull((Symbol.MethodSymbol) ASTHelpers.getSymbol(tree));
 
     // check if type variables are allowed to be Nullable
     Type baseType = methodSymbol.asType();
