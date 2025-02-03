@@ -264,6 +264,32 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1138() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Foo {",
+            "    <T> Foo(T source) {",
+            "    }",
+            "    static <T> Foo createNoTypeArgs(T in) {",
+            "        return new Foo(in);",
+            "    }",
+            "    static Foo createWithTypeArgNegative(String s) {",
+            "        return new <String>Foo(s);",
+            "    }",
+            "    static Foo createWithTypeArgPositive() {",
+            "        // BUG: Diagnostic contains: Type argument cannot be @Nullable, as method <T>Foo(T)'s type variable T is not @Nullable",
+            "        return new <@Nullable String>Foo(null);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
