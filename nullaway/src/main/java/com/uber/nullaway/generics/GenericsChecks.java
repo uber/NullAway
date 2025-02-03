@@ -484,10 +484,10 @@ public final class GenericsChecks {
           Type.ClassType classType = (Type.ClassType) rhsType;
           // create a new Type.ClassType that has inferred types
           rhsType =
-                  new Type.ClassType(
-                          classType.getEnclosingType(),
-                          com.sun.tools.javac.util.List.from(newTypeArgument),
-                          classType.tsym);
+              new Type.ClassType(
+                  classType.getEnclosingType(),
+                  com.sun.tools.javac.util.List.from(newTypeArgument),
+                  classType.tsym);
         }
       }
     }
