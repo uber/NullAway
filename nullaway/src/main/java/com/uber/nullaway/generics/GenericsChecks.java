@@ -161,12 +161,21 @@ public final class GenericsChecks {
    */
   public static void checkGenericMethodCallTypeArguments(
       Tree tree, VisitorState state, NullAway analysis, Config config, Handler handler) {
-    List<? extends Tree> typeArguments = ((MethodInvocationTree) tree).getTypeArguments();
+    List<? extends Tree> typeArguments;
+    switch (tree.getKind()) {
+      case METHOD_INVOCATION:
+        typeArguments = ((MethodInvocationTree) tree).getTypeArguments();
+        break;
+      case NEW_CLASS:
+        typeArguments = ((NewClassTree) tree).getTypeArguments();
+        break;
+      default:
+        throw new RuntimeException("Unexpected tree kind: " + tree.getKind());
+    }
     if (typeArguments.isEmpty()) {
       return;
     }
     // get Nullable annotated type arguments
-    MethodInvocationTree methodTree = (MethodInvocationTree) tree;
     Map<Integer, Tree> nullableTypeArguments = new HashMap<>();
     for (int i = 0; i < typeArguments.size(); i++) {
       Tree curTypeArg = typeArguments.get(i);
@@ -182,7 +191,8 @@ public final class GenericsChecks {
         }
       }
     }
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
+    Symbol.MethodSymbol methodSymbol =
+        castToNonNull((Symbol.MethodSymbol) ASTHelpers.getSymbol(tree));
 
     // check if type variables are allowed to be Nullable
     Type baseType = methodSymbol.asType();
