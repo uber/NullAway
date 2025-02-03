@@ -472,22 +472,23 @@ public final class GenericsChecks {
         List<Symbol.TypeVariableSymbol> typeParam = invokedMethodSymbol.getTypeParameters();
         List<Type> newTypeArgument = new ArrayList<>();
 
-        if (inferredTypes.containsKey(tree)) {
-          Map<Type, Type> genericNullness = inferredTypes.get(tree);
+        if (inferredTypes.containsKey(rhsTree)) {
+          Map<Type, Type> genericNullness = inferredTypes.get(rhsTree);
           for (int i = 0; i < typeParam.size(); i++) {
             if (genericNullness.containsKey(typeParam.get(i).type)) {
               var pType = typeParam.get(i).type;
               newTypeArgument.add(genericNullness.get(pType)); // replace type to inferred types
             }
           }
+
+          Type.ClassType classType = (Type.ClassType) rhsType;
+          // create a new Type.ClassType that has inferred types
+          rhsType =
+                  new Type.ClassType(
+                          classType.getEnclosingType(),
+                          com.sun.tools.javac.util.List.from(newTypeArgument),
+                          classType.tsym);
         }
-        Type.ClassType classType = (Type.ClassType) rhsType;
-        // create a new Type.ClassType that has inferred types
-        rhsType =
-            new Type.ClassType(
-                classType.getEnclosingType(),
-                com.sun.tools.javac.util.List.from(newTypeArgument),
-                classType.tsym);
       }
     }
 
