@@ -236,6 +236,24 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericsUsedForGenericClasses() {
+    makeHelper()
+      .addSourceLines(
+        "Test.java",
+        "package com.uber;",
+        "import java.util.ArrayList;",
+        "class Test {",
+        "  abstract class Foo<K, V> {",
+        "    abstract <K, V> Foo<K,ArrayList<V>> asFoo();",
+        "  }",
+        "  static void test(Foo<Void, Void> f) {",
+        "    Foo<Integer, ArrayList<String>> foo = f.asFoo();",
+        "  }",
+        "}")
+      .doTest();
+  }
+
+  @Test
   public void issue1035() {
     makeHelper()
         .addSourceLines(
