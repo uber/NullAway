@@ -241,13 +241,15 @@ public class GenericMethodTests extends NullAwayTestsBase {
       .addSourceLines(
         "Test.java",
         "package com.uber;",
+        "import org.jspecify.annotations.Nullable;",
         "import java.util.ArrayList;",
         "class Test {",
         "  abstract class Foo<K, V> {",
-        "    abstract <K, V> Foo<K,ArrayList<V>> asFoo();",
+        "    abstract <U, R> Foo<U,ArrayList<R>> asFoo();",
         "  }",
         "  static void test(Foo<Void, Void> f) {",
         "    Foo<Integer, ArrayList<String>> foo = f.asFoo();",
+        "    Foo<Integer, ArrayList<@Nullable String>> foo = f.asFoo();",
         "  }",
         "}")
       .doTest();
