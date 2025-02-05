@@ -171,15 +171,22 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    class Test {",
             "      static class Foo<T extends @Nullable Object> {",
             "        Foo(T t) {}",
-            "        static <U extends @Nullable Object> Foo<U> make(U u) {",
+            "        static <U extends @Nullable Object> Foo<U> makeNull(U u) {",
+            "          return new Foo<>(u);",
+            "        }",
+            "        static <U> Foo<U> makeNonNull(U u) {",
             "          return new Foo<>(u);",
             "        }",
             "      }",
             "      static void testLocalAssign() {",
             "        // legal",
-            "        Foo<@Nullable Object> f = Foo.make(null);",
+            "        Foo<@Nullable Object> f1 = Foo.makeNull(null);",
             "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-            "        Foo<Object> f2 = Foo.make(null);",
+            "        Foo<Object> f2 = Foo.makeNull(null);",
+            "        // ILLEGAL: U does not have a @Nullable upper bound",
+            "        Foo<@Nullable Object> f3 = Foo.makeNonNull(null);",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        Foo<Object> f4 = Foo.makeNonNull(null);",
             "      }",
             "    }")
         .doTest();
@@ -245,11 +252,14 @@ public class GenericMethodTests extends NullAwayTestsBase {
         "import java.util.ArrayList;",
         "class Test {",
         "  abstract class Foo<K, V> {",
-        "    abstract <U, R> Foo<U,ArrayList<R>> asFoo();",
+        "    abstract <U, R> Foo<U,ArrayList<R>> nonNullTest();",
+        "    abstract <U extends @Nullable Object, R extends @Nullable Object> Foo<U,ArrayList<R>> nullTest();",
         "  }",
         "  static void test(Foo<Void, Void> f) {",
-        "    Foo<Integer, ArrayList<String>> foo = f.asFoo();",
-        "    Foo<Integer, ArrayList<@Nullable String>> foo = f.asFoo();",
+        "    Foo<Integer, ArrayList<String>> fooNonNull_1 = f.nonNullTest();",
+        "    Foo<Integer, ArrayList<@Nullable String>> fooNonNull_2 = f.nonNullTest();", // error message
+        "    Foo<Integer, ArrayList<String>> fooNull_1 = f.nullTest();",
+        "    Foo<Integer, ArrayList<@Nullable String>> fooNull_2 = f.nullTest();", // error message
         "  }",
         "}")
       .doTest();
