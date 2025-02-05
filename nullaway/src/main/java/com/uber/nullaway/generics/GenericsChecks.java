@@ -19,6 +19,7 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
+import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
@@ -160,12 +161,21 @@ public final class GenericsChecks {
    */
   public static void checkGenericMethodCallTypeArguments(
       Tree tree, VisitorState state, NullAway analysis, Config config, Handler handler) {
-    List<? extends Tree> typeArguments = ((MethodInvocationTree) tree).getTypeArguments();
+    List<? extends Tree> typeArguments;
+    switch (tree.getKind()) {
+      case METHOD_INVOCATION:
+        typeArguments = ((MethodInvocationTree) tree).getTypeArguments();
+        break;
+      case NEW_CLASS:
+        typeArguments = ((NewClassTree) tree).getTypeArguments();
+        break;
+      default:
+        throw new RuntimeException("Unexpected tree kind: " + tree.getKind());
+    }
     if (typeArguments.isEmpty()) {
       return;
     }
     // get Nullable annotated type arguments
-    MethodInvocationTree methodTree = (MethodInvocationTree) tree;
     Map<Integer, Tree> nullableTypeArguments = new HashMap<>();
     for (int i = 0; i < typeArguments.size(); i++) {
       Tree curTypeArg = typeArguments.get(i);
@@ -181,7 +191,8 @@ public final class GenericsChecks {
         }
       }
     }
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodTree);
+    Symbol.MethodSymbol methodSymbol =
+        castToNonNull((Symbol.MethodSymbol) ASTHelpers.getSymbol(tree));
 
     // check if type variables are allowed to be Nullable
     Type baseType = methodSymbol.asType();
@@ -584,7 +595,12 @@ public final class GenericsChecks {
       ConditionalExpressionTree tree, VisitorState state) {
     // hack: sometimes array nullability doesn't get computed correctly for a conditional expression
     // on the RHS of an assignment.  So, look at the type of the assignment tree.
-    Tree parent = state.getPath().getParentPath().getLeaf();
+    TreePath parentPath = state.getPath().getParentPath();
+    Tree parent = parentPath.getLeaf();
+    while (parent instanceof ParenthesizedTree) {
+      parentPath = parentPath.getParentPath();
+      parent = parentPath.getLeaf();
+    }
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
       return getTreeType(parent, state);
     }
