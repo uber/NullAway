@@ -16,6 +16,8 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.util.ListBuffer;
+import com.uber.nullaway.Config;
+import com.uber.nullaway.Nullness;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -32,9 +34,11 @@ import java.util.List;
 public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void> {
 
   private final VisitorState state;
+  private final Config config;
 
-  PreservedAnnotationTreeVisitor(VisitorState state) {
+  PreservedAnnotationTreeVisitor(VisitorState state, Config config) {
     this.state = state;
+    this.config = config;
   }
 
   @Override
@@ -65,14 +69,13 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   public Type visitAnnotatedType(AnnotatedTypeTree annotatedType, Void unused) {
     List<? extends AnnotationTree> annotations = annotatedType.getAnnotations();
     boolean hasNullableAnnotation = false;
-    Type nullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
     for (AnnotationTree annotation : annotations) {
-      if (ASTHelpers.isSameType(
-          nullableType, ASTHelpers.getType(annotation.getAnnotationType()), state)) {
+      if (Nullness.isNullableAnnotation(annotation.getAnnotationType().toString(), config)) {
         hasNullableAnnotation = true;
         break;
       }
     }
+    Type nullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
     // construct a TypeMetadata object containing a nullability annotation if needed
     com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotationCompound =
         hasNullableAnnotation

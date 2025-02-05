@@ -1327,13 +1327,23 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void issue1139() {
+  public void otherTypeUseNullableAnnotation() {
     makeHelper()
+        .addSourceLines(
+            "Nullable.java",
+            "package com.other;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Retention;",
+            "import java.lang.annotation.RetentionPolicy;",
+            "import java.lang.annotation.Target;",
+            "@Target(ElementType.TYPE_USE)",
+            "@Retention(RetentionPolicy.CLASS)",
+            "public @interface Nullable {}")
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
             "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
+            "import com.other.Nullable;",
             "@NullMarked",
             "class Foo {",
             "    static abstract class MyClass<T extends @Nullable Object>  {",
