@@ -184,6 +184,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "        Foo<Object> f2 = Foo.makeNull(null);",
             "        // ILLEGAL: U does not have a @Nullable upper bound",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "        Foo<@Nullable Object> f3 = Foo.makeNonNull(null);",
             "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "        Foo<Object> f4 = Foo.makeNonNull(null);",
