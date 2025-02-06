@@ -502,7 +502,7 @@ public class NullAway extends BugChecker
     }
     // generics check
     if (lhsType != null && config.isJSpecifyMode()) {
-      genericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
+      genericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state, config);
     }
 
     if (config.isJSpecifyMode() && tree.getVariable() instanceof ArrayAccessTree) {
@@ -1496,7 +1496,7 @@ public class NullAway extends BugChecker
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
     if (tree.getInitializer() != null && config.isJSpecifyMode()) {
-      genericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
+      genericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state, config);
     }
     if (!config.isLegacyAnnotationLocation()) {
       checkNullableAnnotationPositionInType(
