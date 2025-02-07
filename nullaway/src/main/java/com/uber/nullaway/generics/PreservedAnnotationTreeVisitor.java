@@ -2,7 +2,6 @@ package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
-import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
@@ -33,13 +32,9 @@ import java.util.List;
  */
 public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void> {
 
-  @SuppressWarnings("UnusedVariable")
-  private final VisitorState state;
-
   private final Config config;
 
-  PreservedAnnotationTreeVisitor(VisitorState state, Config config) {
-    this.state = state;
+  PreservedAnnotationTreeVisitor(Config config) {
     this.config = config;
   }
 
@@ -81,7 +76,6 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
         break;
       }
     }
-    // Type nullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
     // construct a TypeMetadata object containing a nullability annotation if needed
     com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotationCompound =
         hasNullableAnnotation

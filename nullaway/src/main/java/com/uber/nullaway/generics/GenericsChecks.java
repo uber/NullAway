@@ -4,8 +4,6 @@ import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.suppliers.Supplier;
-import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
@@ -47,14 +45,6 @@ import org.jspecify.annotations.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
-
-  /**
-   * Supplier for the JSpecify {@code @Nullable} annotation. Required since for now, certain checks
-   * related to generics specifically look for {@code @org.jspecify.annotations.Nullable}
-   * annotations and do not apply to other {@code @Nullable} annotations.
-   */
-  static final Supplier<Type> JSPECIFY_NULLABLE_TYPE_SUPPLIER =
-      Suppliers.typeFromString("org.jspecify.annotations.Nullable");
 
   /** Do not instantiate; all methods should be static */
   private GenericsChecks() {}
@@ -368,11 +358,10 @@ public final class GenericsChecks {
    * Foo<@Nullable A>}).
    *
    * @param tree A tree for which we need the type with preserved annotations.
-   * @param state the visitor state
    * @param config the analysis config
    * @return Type of the tree with preserved annotations.
    */
-  private static @Nullable Type getTreeType(Tree tree, VisitorState state, Config config) {
+  private static @Nullable Type getTreeType(Tree tree, Config config) {
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
       ParameterizedTypeTree paramTypedTree =
@@ -382,10 +371,10 @@ public final class GenericsChecks {
         // TODO: support diamond operators
         return null;
       }
-      return typeWithPreservedAnnotations(paramTypedTree, state, config);
+      return typeWithPreservedAnnotations(paramTypedTree, config);
     } else if (tree instanceof NewArrayTree
         && ((NewArrayTree) tree).getType() instanceof AnnotatedTypeTree) {
-      return typeWithPreservedAnnotations(tree, state, config);
+      return typeWithPreservedAnnotations(tree, config);
     } else {
       Type result;
       if (tree instanceof VariableTree || tree instanceof IdentifierTree) {
@@ -429,7 +418,7 @@ public final class GenericsChecks {
     if (!analysis.getConfig().isJSpecifyMode()) {
       return;
     }
-    Type lhsType = getTreeType(tree, state, analysis.getConfig());
+    Type lhsType = getTreeType(tree, analysis.getConfig());
     Tree rhsTree;
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
@@ -443,7 +432,7 @@ public final class GenericsChecks {
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
-    Type rhsType = getTreeType(rhsTree, state, analysis.getConfig());
+    Type rhsType = getTreeType(rhsTree, analysis.getConfig());
 
     if (lhsType != null && rhsType != null) {
       boolean isAssignmentValid =
@@ -477,7 +466,7 @@ public final class GenericsChecks {
       // bail out of any checking involving raw types for now
       return;
     }
-    Type returnExpressionType = getTreeType(retExpr, state, analysis.getConfig());
+    Type returnExpressionType = getTreeType(retExpr, analysis.getConfig());
     if (formalReturnType != null && returnExpressionType != null) {
       boolean isReturnTypeValid =
           subtypeParameterNullability(
@@ -541,11 +530,10 @@ public final class GenericsChecks {
    * Type of the tree with the annotations.
    *
    * @param tree A parameterized typed tree for which we need class type with preserved annotations.
-   * @param state the visitor state
    * @return A Type with preserved annotations.
    */
-  private static Type typeWithPreservedAnnotations(Tree tree, VisitorState state, Config config) {
-    return tree.accept(new PreservedAnnotationTreeVisitor(state, config), null);
+  private static Type typeWithPreservedAnnotations(Tree tree, Config config) {
+    return tree.accept(new PreservedAnnotationTreeVisitor(config), null);
   }
 
   /**
@@ -574,8 +562,8 @@ public final class GenericsChecks {
     Tree falsePartTree = tree.getFalseExpression();
 
     Type condExprType = getConditionalExpressionType(tree, state, config);
-    Type truePartType = getTreeType(truePartTree, state, config);
-    Type falsePartType = getTreeType(falsePartTree, state, config);
+    Type truePartType = getTreeType(truePartTree, config);
+    Type falsePartType = getTreeType(falsePartTree, config);
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
     // the nullability annotations, we check that the true and false parts are assignable to the
     // type of the whole expression
@@ -606,9 +594,9 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
-      return getTreeType(parent, state, config);
+      return getTreeType(parent, config);
     }
-    return getTreeType(tree, state, config);
+    return getTreeType(tree, config);
   }
 
   /**
@@ -639,8 +627,7 @@ public final class GenericsChecks {
       ExpressionTree methodSelect = ((MethodInvocationTree) tree).getMethodSelect();
       Type enclosingType;
       if (methodSelect instanceof MemberSelectTree) {
-        enclosingType =
-            getTreeType(((MemberSelectTree) methodSelect).getExpression(), state, config);
+        enclosingType = getTreeType(((MemberSelectTree) methodSelect).getExpression(), config);
       } else {
         // implicit this parameter
         enclosingType = methodSymbol.owner.type;
@@ -668,7 +655,7 @@ public final class GenericsChecks {
         // bail out of any checking involving raw types for now
         return;
       }
-      Type actualParameter = getTreeType(actualParams.get(i), state, config);
+      Type actualParameter = getTreeType(actualParams.get(i), config);
       if (actualParameter != null) {
         if (!subtypeParameterNullability(formalParameter, actualParameter, state, config)) {
           reportInvalidParametersNullabilityError(
@@ -681,7 +668,7 @@ public final class GenericsChecks {
           (Type.ArrayType) formalParamTypes.get(formalParamTypes.size() - 1);
       Type varargsElementType = varargsArrayType.elemtype;
       for (int i = formalParamTypes.size() - 1; i < actualParams.size(); i++) {
-        Type actualParameterType = getTreeType(actualParams.get(i), state, config);
+        Type actualParameterType = getTreeType(actualParams.get(i), config);
         // If the actual parameter type is assignable to the varargs array type, then the call site
         // is passing the varargs directly in an array, and we should skip our check.
         if (actualParameterType != null
@@ -781,7 +768,7 @@ public final class GenericsChecks {
         throw new RuntimeException(
             "method should be inside a NewClassTree " + state.getSourceForNode(path.getLeaf()));
       }
-      Type typeFromTree = getTreeType(newClassTree, state, config);
+      Type typeFromTree = getTreeType(newClassTree, config);
       if (typeFromTree != null) {
         verify(state.getTypes().isAssignable(symbol.type, typeFromTree));
       }
@@ -861,7 +848,7 @@ public final class GenericsChecks {
       return Nullness.NONNULL;
     }
     Type methodReceiverType =
-        getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state, config);
+        getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), config);
     if (methodReceiverType == null) {
       return Nullness.NONNULL;
     } else {
@@ -964,7 +951,7 @@ public final class GenericsChecks {
       return Nullness.NONNULL;
     }
     Type enclosingType =
-        getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), state, config);
+        getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), config);
     return getGenericMethodParameterNullness(
         paramIndex, invokedMethodSymbol, enclosingType, state, config);
   }
@@ -1056,7 +1043,7 @@ public final class GenericsChecks {
     List<Type> overriddenMethodParameterTypes = overriddenMethodType.getParameterTypes();
     for (int i = 0; i < methodParameters.size(); i++) {
       Config config = analysis.getConfig();
-      Type overridingMethodParameterType = getTreeType(methodParameters.get(i), state, config);
+      Type overridingMethodParameterType = getTreeType(methodParameters.get(i), config);
       Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
       if (overriddenMethodParameterType != null && overridingMethodParameterType != null) {
         // allow contravariant subtyping
