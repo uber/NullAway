@@ -2,7 +2,6 @@ package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
-import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
@@ -16,6 +15,8 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.util.ListBuffer;
+import com.uber.nullaway.Config;
+import com.uber.nullaway.Nullness;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
@@ -31,10 +32,10 @@ import java.util.List;
  */
 public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void> {
 
-  private final VisitorState state;
+  private final Config config;
 
-  PreservedAnnotationTreeVisitor(VisitorState state) {
-    this.state = state;
+  PreservedAnnotationTreeVisitor(Config config) {
+    this.config = config;
   }
 
   @Override
@@ -65,11 +66,15 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   public Type visitAnnotatedType(AnnotatedTypeTree annotatedType, Void unused) {
     List<? extends AnnotationTree> annotations = annotatedType.getAnnotations();
     boolean hasNullableAnnotation = false;
-    Type nullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
+    Type nullableType = null;
     for (AnnotationTree annotation : annotations) {
-      if (ASTHelpers.isSameType(
-          nullableType, ASTHelpers.getType(annotation.getAnnotationType()), state)) {
+      Symbol annotSymbol = ASTHelpers.getSymbol(annotation.getAnnotationType());
+      if (annotSymbol != null
+          && Nullness.isNullableAnnotation(annotSymbol.getQualifiedName().toString(), config)) {
         hasNullableAnnotation = true;
+        // save the type of the nullable annotation, so that we can use it when constructing the
+        // TypeMetadata object below
+        nullableType = castToNonNull(ASTHelpers.getType(annotation));
         break;
       }
     }

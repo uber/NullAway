@@ -3,6 +3,7 @@ package com.uber.nullaway.generics;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
+import com.uber.nullaway.Config;
 import java.util.List;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
@@ -14,9 +15,11 @@ import javax.lang.model.type.TypeKind;
  */
 public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
   private final VisitorState state;
+  private final Config config;
 
-  CheckIdenticalNullabilityVisitor(VisitorState state) {
+  CheckIdenticalNullabilityVisitor(VisitorState state, Config config) {
     this.state = state;
+    this.config = config;
   }
 
   @Override
@@ -60,8 +63,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
         // TODO Handle wildcard types
         continue;
       }
-      boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsTypeArgument, state);
-      boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsTypeArgument, state);
+      boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsTypeArgument, config);
+      boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsTypeArgument, config);
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
         return false;
       }
@@ -91,8 +94,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     Type.ArrayType arrRhsType = (Type.ArrayType) rhsType;
     Type lhsComponentType = lhsType.getComponentType();
     Type rhsComponentType = arrRhsType.getComponentType();
-    boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsComponentType, state);
-    boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsComponentType, state);
+    boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsComponentType, config);
+    boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsComponentType, config);
     if (isRHSNullableAnnotated != isLHSNullableAnnotated) {
       return false;
     }
