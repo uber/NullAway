@@ -415,10 +415,11 @@ public final class GenericsChecks {
    */
   public static void checkTypeParameterNullnessForAssignability(
       Tree tree, NullAway analysis, VisitorState state) {
-    if (!analysis.getConfig().isJSpecifyMode()) {
+    Config config = analysis.getConfig();
+    if (!config.isJSpecifyMode()) {
       return;
     }
-    Type lhsType = getTreeType(tree, analysis.getConfig());
+    Type lhsType = getTreeType(tree, config);
     Tree rhsTree;
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
@@ -432,11 +433,10 @@ public final class GenericsChecks {
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
-    Type rhsType = getTreeType(rhsTree, analysis.getConfig());
+    Type rhsType = getTreeType(rhsTree, config);
 
     if (lhsType != null && rhsType != null) {
-      boolean isAssignmentValid =
-          subtypeParameterNullability(lhsType, rhsType, state, analysis.getConfig());
+      boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state, config);
       if (!isAssignmentValid) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
       }
