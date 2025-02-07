@@ -426,7 +426,7 @@ public final class GenericsChecks {
    * @param state the visitor state
    */
   public void checkTypeParameterNullnessForAssignability(
-      Tree tree, NullAway analysis, VisitorState state, Config config) {
+      Tree tree, NullAway analysis, VisitorState state) {
     if (!analysis.getConfig().isJSpecifyMode()) {
       return;
     }
@@ -458,7 +458,7 @@ public final class GenericsChecks {
               Map<Type, Type> genericNullness = new HashMap<>();
               for (int i = 0; i < typeParam.size(); i++) {
                 Type upperBound = typeParam.get(i).type.getUpperBound();
-                if (getTypeNullness(upperBound, config)
+                if (getTypeNullness(upperBound, analysis.getConfig())
                     == Nullness.NULLABLE) { // generic has nullable upperbound
                   Type lhsInferredType =
                       inferMethodTypeArgument(
