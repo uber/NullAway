@@ -72,6 +72,8 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
       if (annotSymbol != null
           && Nullness.isNullableAnnotation(annotSymbol.getQualifiedName().toString(), config)) {
         hasNullableAnnotation = true;
+        // save the type of the nullable annotation, so that we can use it when constructing the
+        // TypeMetadata object below
         nullableType = castToNonNull(ASTHelpers.getType(annotation));
         break;
       }
