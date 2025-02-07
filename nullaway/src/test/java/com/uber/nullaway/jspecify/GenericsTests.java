@@ -294,6 +294,27 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericsChecksForAssignmentsWithNonJSpecifyAnnotations() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.checkerframework.checker.nullness.qual.Nullable;",
+            "class Test {",
+            "  static class NullableTypeParam<E extends @Nullable Object> {}",
+            "  static void testNoWarningForMismatch(NullableTypeParam<@Nullable String> t1) {",
+            "    // we still get an error here as we are not forcing use of JSpecify's @Nullable",
+            "    // BUG: Diagnostic contains: Cannot assign from type NullableTypeParam<@Nullable String>",
+            "    NullableTypeParam<String> t2 = t1;",
+            "  }",
+            "  static void testNegative(NullableTypeParam<@Nullable String> t1) {",
+            "    NullableTypeParam<@Nullable String> t2 = t1;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nestedChecksForAssignmentsMultipleArguments() {
     makeHelper()
         .addSourceLines(
