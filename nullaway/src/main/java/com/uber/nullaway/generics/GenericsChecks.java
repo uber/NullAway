@@ -2,7 +2,6 @@ package com.uber.nullaway.generics;
 
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
-import static com.uber.nullaway.NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
@@ -41,7 +40,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
@@ -452,7 +450,7 @@ public final class GenericsChecks {
           // method call has a return type of class type
           if (methodSymbol.getReturnType() instanceof Type.ClassType) {
             Type.ClassType returnType = (Type.ClassType) methodSymbol.getReturnType();
-            List<Symbol. TypeVariableSymbol> typeParam = methodSymbol.getTypeParameters();
+            List<Symbol.TypeVariableSymbol> typeParam = methodSymbol.getTypeParameters();
             List<Type> returnTypeTypeArg = returnType.getTypeArguments();
 
             // if generic type in return type
@@ -460,8 +458,11 @@ public final class GenericsChecks {
               Map<Type, Type> genericNullness = new HashMap<>();
               for (int i = 0; i < typeParam.size(); i++) {
                 Type upperBound = typeParam.get(i).type.getUpperBound();
-                if(getTypeNullness(upperBound, config) == Nullness.NULLABLE) { // generic has nullable upperbound
-                  Type lhsInferredType = inferMethodTypeArgument(typeParam.get(i).type, lhsTypeArguments, returnTypeTypeArg, state);
+                if (getTypeNullness(upperBound, config)
+                    == Nullness.NULLABLE) { // generic has nullable upperbound
+                  Type lhsInferredType =
+                      inferMethodTypeArgument(
+                          typeParam.get(i).type, lhsTypeArguments, returnTypeTypeArg, state);
                   if (lhsInferredType != null) { // && has a nullable upperbound
                     genericNullness.put(typeParam.get(i).type, lhsInferredType);
                   }
@@ -523,22 +524,29 @@ public final class GenericsChecks {
     }
   }
 
-  private Type inferMethodTypeArgument(Type typeParam, List<? extends Tree> lhsTypeArg, List<Type> typeArg, VisitorState state) {
+  private Type inferMethodTypeArgument(
+      Type typeParam, List<? extends Tree> lhsTypeArg, List<Type> typeArg, VisitorState state) {
     // base case
-    if(typeParam == null || lhsTypeArg == null || typeArg == null) {
+    if (typeParam == null || lhsTypeArg == null || typeArg == null) {
       return null;
     }
 
     // recursive case
     Type inferType = null;
-    for(int i=0; i<typeArg.size(); i++) {
+    for (int i = 0; i < typeArg.size(); i++) {
       Type type = typeArg.get(i);
-      if(state.getTypes().isSameType(typeParam, type)) {
+      if (state.getTypes().isSameType(typeParam, type)) {
         return ASTHelpers.getType(lhsTypeArg.get(i));
-      } else if(!type.getTypeArguments().isEmpty()) {
-//        instanceof Type.ForAll TODO: check if the lhsTypeArg is a generic class? -> maybe the base case makes it unnecessary
-        inferType = inferMethodTypeArgument(typeParam, ((ParameterizedTypeTree) lhsTypeArg.get(i)).getTypeArguments(), typeArg.get(i).getTypeArguments(), state);
-        if(inferType != null) {
+      } else if (!type.getTypeArguments().isEmpty()) {
+        //        instanceof Type.ForAll TODO: check if the lhsTypeArg is a generic class? -> maybe
+        // the base case makes it unnecessary
+        inferType =
+            inferMethodTypeArgument(
+                typeParam,
+                ((ParameterizedTypeTree) lhsTypeArg.get(i)).getTypeArguments(),
+                typeArg.get(i).getTypeArguments(),
+                state);
+        if (inferType != null) {
           return inferType;
         }
       }

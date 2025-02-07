@@ -179,15 +179,18 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        }",
             "      }",
             "      static void testLocalAssign() {",
-//            "        // legal",
-//            "        Foo<@Nullable Object> f1 = Foo.makeNull(null);",
-//            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-//            "        Foo<Object> f2 = Foo.makeNull(null);",
-//            "        // ILLEGAL: U does not have a @Nullable upper bound",
-//            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-//            "        Foo<@Nullable Object> f3 = Foo.makeNonNull(null);",
-//            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-//            "        Foo<Object> f4 = Foo.makeNonNull(null);",
+            //            "        // legal",
+            //            "        Foo<@Nullable Object> f1 = Foo.makeNull(null);",
+            //            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+            // where @NonNull is required",
+            //            "        Foo<Object> f2 = Foo.makeNull(null);",
+            //            "        // ILLEGAL: U does not have a @Nullable upper bound",
+            //            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+            // where @NonNull is required",
+            //            "        Foo<@Nullable Object> f3 = Foo.makeNonNull(null);",
+            //            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+            // where @NonNull is required",
+            //            "        Foo<Object> f4 = Foo.makeNonNull(null);",
             "        Foo<@Nullable Object> f5 = Foo.makeNonNull(new Object());",
             "      }",
             "    }")
@@ -247,24 +250,25 @@ public class GenericMethodTests extends NullAwayTestsBase {
   @Test
   public void genericsUsedForGenericClasses() {
     makeHelper()
-      .addSourceLines(
-        "Test.java",
-        "package com.uber;",
-        "import org.jspecify.annotations.Nullable;",
-        "import java.util.ArrayList;",
-        "class Test {",
-        "  abstract class Foo<K, V> {",
-        "    abstract <U, R> Foo<U,ArrayList<R>> nonNullTest();",
-        "    abstract <U extends @Nullable Object, R extends @Nullable Object> Foo<U,ArrayList<R>> nullTest();",
-        "  }",
-        "  static void test(Foo<Void, Void> f) {",
-        "    Foo<Integer, ArrayList<String>> fooNonNull_1 = f.nonNullTest();",
-        "    Foo<Integer, ArrayList<@Nullable String>> fooNonNull_2 = f.nonNullTest();", // error message
-        "    Foo<Integer, ArrayList<String>> fooNull_1 = f.nullTest();",
-        "    Foo<Integer, ArrayList<@Nullable String>> fooNull_2 = f.nullTest();", // error message
-        "  }",
-        "}")
-      .doTest();
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.ArrayList;",
+            "class Test {",
+            "  abstract class Foo<K, V> {",
+            "    abstract <U, R> Foo<U,ArrayList<R>> nonNullTest();",
+            "    abstract <U extends @Nullable Object, R extends @Nullable Object> Foo<U,ArrayList<R>> nullTest();",
+            "  }",
+            "  static void test(Foo<Void, Void> f) {",
+            "    Foo<Integer, ArrayList<String>> fooNonNull_1 = f.nonNullTest();",
+            "    Foo<Integer, ArrayList<@Nullable String>> fooNonNull_2 = f.nonNullTest();", // error message
+            "    Foo<Integer, ArrayList<String>> fooNull_1 = f.nullTest();",
+            "    Foo<Integer, ArrayList<@Nullable String>> fooNull_2 = f.nullTest();", // error
+            // message
+            "  }",
+            "}")
+        .doTest();
   }
 
   @Test
