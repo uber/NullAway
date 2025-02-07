@@ -70,7 +70,9 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     List<? extends AnnotationTree> annotations = annotatedType.getAnnotations();
     boolean hasNullableAnnotation = false;
     for (AnnotationTree annotation : annotations) {
-      if (Nullness.isNullableAnnotation(annotation.getAnnotationType().toString(), config)) {
+      if (Nullness.isNullableAnnotation(
+          ASTHelpers.getSymbol(annotation.getAnnotationType()).getQualifiedName().toString(),
+          config)) {
         hasNullableAnnotation = true;
         break;
       }
