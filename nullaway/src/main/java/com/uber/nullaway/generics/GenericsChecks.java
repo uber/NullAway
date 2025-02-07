@@ -457,7 +457,8 @@ public final class GenericsChecks {
       Symbol.MethodSymbol methodSymbol,
       NullAway analysis,
       VisitorState state) {
-    if (!analysis.getConfig().isJSpecifyMode()) {
+    Config config = analysis.getConfig();
+    if (!config.isJSpecifyMode()) {
       return;
     }
 
@@ -466,11 +467,10 @@ public final class GenericsChecks {
       // bail out of any checking involving raw types for now
       return;
     }
-    Type returnExpressionType = getTreeType(retExpr, analysis.getConfig());
+    Type returnExpressionType = getTreeType(retExpr, config);
     if (formalReturnType != null && returnExpressionType != null) {
       boolean isReturnTypeValid =
-          subtypeParameterNullability(
-              formalReturnType, returnExpressionType, state, analysis.getConfig());
+          subtypeParameterNullability(formalReturnType, returnExpressionType, state, config);
       if (!isReturnTypeValid) {
         reportInvalidReturnTypeError(
             retExpr, formalReturnType, returnExpressionType, state, analysis);
