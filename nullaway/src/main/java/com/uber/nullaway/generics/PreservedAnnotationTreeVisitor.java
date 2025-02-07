@@ -33,7 +33,9 @@ import java.util.List;
  */
 public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void> {
 
+  @SuppressWarnings("UnusedVariable")
   private final VisitorState state;
+
   private final Config config;
 
   PreservedAnnotationTreeVisitor(VisitorState state, Config config) {
@@ -69,15 +71,17 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   public Type visitAnnotatedType(AnnotatedTypeTree annotatedType, Void unused) {
     List<? extends AnnotationTree> annotations = annotatedType.getAnnotations();
     boolean hasNullableAnnotation = false;
+    Type nullableType = null;
     for (AnnotationTree annotation : annotations) {
-      if (Nullness.isNullableAnnotation(
-          ASTHelpers.getSymbol(annotation.getAnnotationType()).getQualifiedName().toString(),
-          config)) {
+      Symbol annotSymbol = ASTHelpers.getSymbol(annotation.getAnnotationType());
+      if (annotSymbol != null
+          && Nullness.isNullableAnnotation(annotSymbol.getQualifiedName().toString(), config)) {
         hasNullableAnnotation = true;
+        nullableType = castToNonNull(ASTHelpers.getType(annotation));
         break;
       }
     }
-    Type nullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
+    // Type nullableType = GenericsChecks.JSPECIFY_NULLABLE_TYPE_SUPPLIER.get(state);
     // construct a TypeMetadata object containing a nullability annotation if needed
     com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotationCompound =
         hasNullableAnnotation
