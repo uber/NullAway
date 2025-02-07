@@ -1090,4 +1090,24 @@ public class CoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void ttt() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestCase.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class TestCase {",
+            "  public void run() {",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    String s = returnNullable().toString();",
+            "  }",
+            "  @Nullable",
+            "  public Object returnNullable() {",
+            "    return null;",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

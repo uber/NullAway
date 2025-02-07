@@ -2682,7 +2682,9 @@ public class NullAway extends BugChecker
               + " is @Nullable --- "
               + type
               + " --- "
-              + Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter);
+              + Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter)
+              + " --- "
+              + !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler);
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
 
       return errorBuilder.createErrorDescriptionForNullAssignment(
