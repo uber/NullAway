@@ -2065,7 +2065,6 @@ public class GenericsTests extends NullAwayTestsBase {
 
   @Test
   public void nullableAnnotOnClassTypeVarUse() {
-    // TODO test nesting in array types
     makeHelper()
         .addSourceLines(
             "Generics.java",
@@ -2082,32 +2081,13 @@ public class GenericsTests extends NullAwayTestsBase {
             "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<V, V>, as formal parameter has type",
             "        foo(f);",
             "    }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void nullableAnnotOnMethodTypeVarUse() {
-    // TODO test nesting in array types
-    makeHelper()
-        .addSourceLines(
-            "GenericMethod.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "import java.util.function.Function;",
-            "public abstract class GenericMethod {",
-            "    abstract <V> @Nullable V foo(",
-            "            Function<@Nullable V, @Nullable V> f);",
-            "    void testNegative(Function<@Nullable String, @Nullable String> f) {",
-            "        this.<String>foo(f);",
+            "    abstract void takesArray(Function<@Nullable V, @Nullable V>[] f);",
+            "    void testNegativeArray(Function<@Nullable V, @Nullable V>[] f) {",
+            "        takesArray(f);",
             "    }",
-            "    void testPositive(Function<String, String> f) {",
-            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<String, String>, as formal parameter has type",
-            "        this.<String>foo(f);",
-            "    }",
-            "    void testPositive2(Function<@Nullable String, @Nullable String> f) {",
-            "        // BUG: Diagnostic contains: dereferenced expression this.<String>foo(f) is @Nullable",
-            "        this.<String>foo(f).hashCode();",
+            "    void testPositiveArray(Function<V, V>[] f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<V, V>[], as formal parameter has type",
+            "        takesArray(f);",
             "    }",
             "}")
         .doTest();

@@ -117,7 +117,21 @@ public class TypeSubstitutionUtils {
       return t;
     }
 
-    // just returns argtypes itself if there is no change
+    @Override
+    public Type visitArrayType(Type.ArrayType t, Type other) {
+      if (!(other instanceof Type.ArrayType)) {
+        return t;
+      }
+      Type.ArrayType otherArrayType = (Type.ArrayType) other;
+      Type elemtype = t.elemtype;
+      Type elemtype1 = visit(elemtype, otherArrayType.elemtype);
+      if (elemtype1 == elemtype) {
+        return t;
+      } else {
+        return new Type.ArrayType(elemtype1, t.tsym, t.getMetadata());
+      }
+    }
+
     private List<Type> visitTypeLists(List<Type> argtypes, List<Type> argtypes1) {
       ListBuffer<Type> buf = new ListBuffer<>();
       boolean changed = false;
