@@ -1,6 +1,7 @@
 package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
@@ -54,9 +55,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     for (int i = 0; i < typeArguments.size(); i++) {
       newTypeArgs.add(typeArguments.get(i).accept(this, null));
     }
-    Type finalType =
-        TypeMetadataBuilder.TYPE_METADATA_BUILDER.createWithBaseTypeAndTypeArgs(
-            baseType, newTypeArgs);
+    Type finalType = TYPE_METADATA_BUILDER.createWithBaseTypeAndTypeArgs(baseType, newTypeArgs);
     return finalType;
   }
 
@@ -84,12 +83,9 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
                     new Attribute.TypeCompound(
                         nullableType, com.sun.tools.javac.util.List.nil(), null)))
             : com.sun.tools.javac.util.List.nil();
-    TypeMetadata typeMetadata =
-        TypeMetadataBuilder.TYPE_METADATA_BUILDER.create(nullableAnnotationCompound);
+    TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(nullableAnnotationCompound);
     Type underlyingType = annotatedType.getUnderlyingType().accept(this, null);
-    Type newType =
-        TypeMetadataBuilder.TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
-            underlyingType, typeMetadata);
+    Type newType = TYPE_METADATA_BUILDER.cloneTypeWithMetadata(underlyingType, typeMetadata);
     return newType;
   }
 
