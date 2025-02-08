@@ -303,7 +303,8 @@ public class GenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static class NullableTypeParam<E extends @Nullable Object> {}",
             "  static void testNoWarningForMismatch(NullableTypeParam<@Nullable String> t1) {",
-            "    // no error here since we only do our checks for JSpecify @Nullable annotations",
+            "    // we still get an error here as we are not forcing use of JSpecify's @Nullable",
+            "    // BUG: Diagnostic contains: Cannot assign from type NullableTypeParam<@Nullable String>",
             "    NullableTypeParam<String> t2 = t1;",
             "  }",
             "  static void testNegative(NullableTypeParam<@Nullable String> t1) {",
@@ -1327,6 +1328,41 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void otherTypeUseNullableAnnotation() {
+    makeHelper()
+        .addSourceLines(
+            "Nullable.java",
+            "package com.other;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Retention;",
+            "import java.lang.annotation.RetentionPolicy;",
+            "import java.lang.annotation.Target;",
+            "@Target(ElementType.TYPE_USE)",
+            "@Retention(RetentionPolicy.CLASS)",
+            "public @interface Nullable {}")
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import com.other.Nullable;",
+            "@NullMarked",
+            "class Foo {",
+            "    static abstract class MyClass<T extends @Nullable Object>  {",
+            "        abstract T doThing(T value);",
+            "    }",
+            "    static void repro() {",
+            "        new MyClass<@Nullable Object>() {",
+            "            @Override",
+            "            @Nullable Object doThing(@Nullable Object value) {",
+            "                return value;",
+            "            }",
+            "        }.doThing(null);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullableVoidGenericsLambda() {
     makeHelper()
         .addSourceLines(
@@ -2064,6 +2100,21 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1127() {
+    makeHelper()
+        .addSourceLines(
+            "Main.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class Main {",
+            "  void arrayAssign(boolean b, @Nullable String @Nullable [] vals) {",
+            "    @Nullable String[] arr = (b ? vals : null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullUnmarkedGenericField() {
     makeHelper()
         .addSourceLines(
@@ -2083,6 +2134,42 @@ public class GenericsTests extends NullAwayTestsBase {
             "      bar = f;",
             "    }",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1126() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Supplier;",
+            "public class Test {",
+            "    static class K<T extends @Nullable Object> {}",
+            "    void foo(K<@Nullable Object> k) {",
+            "        K<? extends @Nullable Object> k2 = k;",
+            "        Supplier<? extends @Nullable Object> s = () -> null;",
+            "    }",
+            "}")
+        .addSourceLines(
+            "Test2.java",
+            "package com.uber;",
+            "import java.util.HashMap;",
+            "import java.util.Map;",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class Test2 {",
+            "    @Contract(\"null -> true\")",
+            "    public static boolean isEmpty(@Nullable Map<?, ? extends @Nullable Object> map) {",
+            "        return (map == null || map.isEmpty());",
+            "    }",
+            "    static void foo() {",
+            "        Map<String, @Nullable Object> variables = new HashMap<>();",
+            "        if (isEmpty(variables)) { /* do nothing */ }",
+            "        variables.toString();",
+            "    }",
             "}")
         .doTest();
   }
