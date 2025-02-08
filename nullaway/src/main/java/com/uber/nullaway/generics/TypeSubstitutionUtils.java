@@ -1,6 +1,6 @@
 package com.uber.nullaway.generics;
 
-import static com.uber.nullaway.generics.PreservedAnnotationTreeVisitor.TYPE_METADATA_BUILDER;
+import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
