@@ -867,6 +867,26 @@ public class NullMarkednessTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullUnmarkedMethodWithNonNullParam() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullUnmarked;",
+            "import org.jspecify.annotations.NonNull;",
+            "public class Foo {",
+            "  @NullUnmarked",
+            "  public static void callee(@NonNull Object o) {",
+            "  }",
+            "  public static void caller() {",
+            "    // Error due to explicit @NonNull annotation",
+            "    callee(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullUnmarkedOuterMethodLevelWithLocalClass() {
     defaultCompilationHelper
         .addSourceLines(
