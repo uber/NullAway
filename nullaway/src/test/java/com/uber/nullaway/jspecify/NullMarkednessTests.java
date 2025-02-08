@@ -887,6 +887,27 @@ public class NullMarkednessTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullUnmarkedMethodWithNullableReturn() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullUnmarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class Foo {",
+            "  @NullUnmarked",
+            "  public static @Nullable String callee() {",
+            "    return null;",
+            "  }",
+            "  public static void caller() {",
+            "    // Error due to explicit @Nullable annotation",
+            "    callee().toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullUnmarkedOuterMethodLevelWithLocalClass() {
     defaultCompilationHelper
         .addSourceLines(
