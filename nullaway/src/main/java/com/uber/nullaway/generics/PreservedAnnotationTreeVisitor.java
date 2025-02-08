@@ -102,7 +102,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
    * Abstracts over the different APIs for building {@link TypeMetadata} objects in different JDK
    * versions.
    */
-  private interface TypeMetadataBuilder {
+  public interface TypeMetadataBuilder {
     TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs);
 
     Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metaData);
@@ -270,7 +270,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   }
 
   /** The TypeMetadataBuilder to be used for the current JDK version. */
-  private static final TypeMetadataBuilder TYPE_METADATA_BUILDER =
+  public static final TypeMetadataBuilder TYPE_METADATA_BUILDER =
       Runtime.version().feature() >= 21
           ? new JDK21TypeMetadataBuilder()
           : new JDK17AndEarlierTypeMetadataBuilder();

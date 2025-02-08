@@ -1,9 +1,16 @@
 package com.uber.nullaway.generics;
 
+import static com.uber.nullaway.generics.PreservedAnnotationTreeVisitor.TYPE_METADATA_BUILDER;
+
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.ListBuffer;
+import com.uber.nullaway.Nullness;
+import java.util.Collections;
 
 /** Utility method related to substituting type arguments for type variables. */
 public class TypeSubstitutionUtils {
@@ -33,6 +40,7 @@ public class TypeSubstitutionUtils {
 
   // NOTE: com.sun.tools.javac.code.Type.StructuralTypeMapping is really good to look at; need to
   // mimick that structure
+  @SuppressWarnings("ReferenceEquality")
   private static class RestoreNullnessAnnotationsVisitor extends Types.MapVisitor<Type> {
 
     @Override
@@ -41,21 +49,65 @@ public class TypeSubstitutionUtils {
       List<Type> argtypes = t.argtypes;
       Type restype = t.restype;
       List<Type> thrown = t.thrown;
-      List<Type> argtypes1 = visit(argtypes, otherMethodType.argtypes);
+      List<Type> argtypes1 = visitTypeLists(argtypes, otherMethodType.argtypes);
       Type restype1 = visit(restype, otherMethodType.restype);
-      List<Type> thrown1 = visit(thrown, otherMethodType.thrown);
-      if (argtypes1 == argtypes && restype1 == restype && thrown1 == thrown) return t;
-      else
-        return new Type.MethodType(argtypes1, restype1, thrown1, t.tsym) {
-          @Override
-          protected boolean needsStripping() {
-            return true;
-          }
-        };
+      List<Type> thrown1 = visitTypeLists(thrown, otherMethodType.thrown);
+      if (argtypes1 == argtypes && restype1 == restype && thrown1 == thrown) {
+        return t;
+      } else {
+        return new Type.MethodType(argtypes1, restype1, thrown1, t.tsym);
+      }
     }
 
-    private List<Type> visit(List<Type> argtypes, List<Type> argtypes1) {
-      return null;
+    @Override
+    public Type visitClassType(Type.ClassType t, Type other) {
+      Type outer = t.getEnclosingType();
+      Type outer1 = visit(outer, other.getEnclosingType());
+      List<Type> typarams = t.getTypeArguments();
+      List<Type> typarams1 = visitTypeLists(typarams, other.getTypeArguments());
+      if (outer1 == outer && typarams1 == typarams) {
+        return t;
+      } else {
+        return new Type.ClassType(outer1, typarams1, t.tsym, t.getMetadata());
+      }
+    }
+
+    @Override
+    public Type visitTypeVar(Type.TypeVar t, Type type) {
+      for (Attribute.TypeCompound annot : type.getAnnotationMirrors()) {
+        if (annot.type.tsym == null) {
+          continue;
+        }
+        String qualifiedName = annot.type.tsym.getQualifiedName().toString();
+        if (Nullness.isNullableAnnotation(qualifiedName, null)) {
+          com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotationCompound =
+              com.sun.tools.javac.util.List.from(
+                  Collections.singletonList(
+                      new Attribute.TypeCompound(
+                          annot.type, com.sun.tools.javac.util.List.nil(), null)));
+          TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(nullableAnnotationCompound);
+          Type underlyingType = t;
+          Type newType = TYPE_METADATA_BUILDER.cloneTypeWithMetadata(underlyingType, typeMetadata);
+          return newType;
+        }
+      }
+      return t;
+    }
+
+    // just returns argtypes itself if there is no change
+    private List<Type> visitTypeLists(List<Type> argtypes, List<Type> argtypes1) {
+      ListBuffer<Type> buf = new ListBuffer<>();
+      boolean changed = false;
+      for (List<Type> l = argtypes, l1 = argtypes1; l.nonEmpty(); l = l.tail, l1 = l1.tail) {
+        Type t = l.head;
+        Type t1 = l1.head;
+        Type t2 = visit(t, t1);
+        buf.append(t2);
+        if (t2 != t) {
+          changed = true;
+        }
+      }
+      return changed ? buf.toList() : argtypes;
     }
   }
 
