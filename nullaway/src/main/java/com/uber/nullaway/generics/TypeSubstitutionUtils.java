@@ -33,11 +33,9 @@ public class TypeSubstitutionUtils {
 
   private static Type restoreExplicitNullabilityAnnotations(
       Type origType, Type newType, Config config) {
-    // we want to visit the types together; they should have the same structure, except that some
-    // stuff from origType got substituted out.  if at any point we encounter an explicit @Nullable
-    // or @NonNull annotation on origType, restore it to the corresponding substituted type in
-    // newType.  NOTE: we cannot just tweak the substitution, since explicit annotations may appear
+    // NOTE: we cannot just tweak the substitution, since explicit annotations may appear
     // only at some occurrences of a type.  TEST THIS.
+    // TODO also @NonNull annotations
     return new RestoreNullnessAnnotationsVisitor(config).visit(newType, origType);
   }
 
@@ -84,6 +82,9 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitWildcardType(Type.WildcardType wt, Type other) {
+      if (!(other instanceof Type.WildcardType)) {
+        return wt;
+      }
       Type t = wt.type;
       if (t != null) {
         t = visit(t, ((Type.WildcardType) other).type);

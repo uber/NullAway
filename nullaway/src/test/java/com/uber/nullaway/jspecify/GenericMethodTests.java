@@ -242,6 +242,26 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nonNullTypeVarInNullUnmarked() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jspecify.annotations.NonNull;",
+            "import org.jspecify.annotations.NullUnmarked;",
+            "abstract class Sample2 {",
+            "    @NullUnmarked",
+            "    abstract <V> void foo(@NonNull V param);",
+            "    void testPositive() {",
+            "        String x = null;",
+            "        this.<@Nullable String>foo(x);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
