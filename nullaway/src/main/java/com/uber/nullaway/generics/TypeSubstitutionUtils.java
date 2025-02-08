@@ -9,6 +9,7 @@ import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import java.util.Collections;
 
@@ -21,27 +22,33 @@ public class TypeSubstitutionUtils {
    * @param types the {@link Types} instance
    * @param t the enclosing type
    * @param sym the symbol
+   * @param config the NullAway config
    * @return the type of {@code sym} as a member of {@code t}
    */
-  public static Type memberType(Types types, Type t, Symbol sym) {
+  public static Type memberType(Types types, Type t, Symbol sym, Config config) {
     Type origType = sym.type;
     Type memberType = types.memberType(t, sym);
-    return restoreExplicitNullabilityAnnotations(origType, memberType);
+    return restoreExplicitNullabilityAnnotations(origType, memberType, config);
   }
 
-  private static Type restoreExplicitNullabilityAnnotations(Type origType, Type newType) {
+  private static Type restoreExplicitNullabilityAnnotations(
+      Type origType, Type newType, Config config) {
     // we want to visit the types together; they should have the same structure, except that some
     // stuff from origType got substituted out.  if at any point we encounter an explicit @Nullable
     // or @NonNull annotation on origType, restore it to the corresponding substituted type in
     // newType.  NOTE: we cannot just tweak the substitution, since explicit annotations may appear
     // only at some occurrences of a type.  TEST THIS.
-    return new RestoreNullnessAnnotationsVisitor().visit(newType, origType);
+    return new RestoreNullnessAnnotationsVisitor(config).visit(newType, origType);
   }
 
-  // NOTE: com.sun.tools.javac.code.Type.StructuralTypeMapping is really good to look at; need to
-  // mimick that structure
   @SuppressWarnings("ReferenceEquality")
   private static class RestoreNullnessAnnotationsVisitor extends Types.MapVisitor<Type> {
+
+    private final Config config;
+
+    RestoreNullnessAnnotationsVisitor(Config config) {
+      this.config = config;
+    }
 
     @Override
     public Type visitMethodType(Type.MethodType t, Type other) {
@@ -61,6 +68,9 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
+      if (!(other instanceof Type.ClassType)) {
+        return t;
+      }
       Type outer = t.getEnclosingType();
       Type outer1 = visit(outer, other.getEnclosingType());
       List<Type> typarams = t.getTypeArguments();
@@ -73,13 +83,26 @@ public class TypeSubstitutionUtils {
     }
 
     @Override
+    public Type visitWildcardType(Type.WildcardType wt, Type other) {
+      Type t = wt.type;
+      if (t != null) {
+        t = visit(t, ((Type.WildcardType) other).type);
+      }
+      if (t == wt.type) {
+        return wt;
+      } else {
+        return new Type.WildcardType(t, wt.kind, wt.tsym, wt.bound, wt.getMetadata());
+      }
+    }
+
+    @Override
     public Type visitTypeVar(Type.TypeVar t, Type type) {
       for (Attribute.TypeCompound annot : type.getAnnotationMirrors()) {
         if (annot.type.tsym == null) {
           continue;
         }
         String qualifiedName = annot.type.tsym.getQualifiedName().toString();
-        if (Nullness.isNullableAnnotation(qualifiedName, null)) {
+        if (Nullness.isNullableAnnotation(qualifiedName, config)) {
           com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotationCompound =
               com.sun.tools.javac.util.List.from(
                   Collections.singletonList(
@@ -118,9 +141,11 @@ public class TypeSubstitutionUtils {
    * @param t the type to which to perform the substitution
    * @param from the types that will be substituted out
    * @param to the types that will be substituted in
+   * @param config the NullAway config
    * @return the type resulting from the substitution
    */
-  public static Type subst(Types types, Type t, List<Type> from, List<Type> to) {
-    return types.subst(t, from, to);
+  public static Type subst(Types types, Type t, List<Type> from, List<Type> to, Config config) {
+    Type substResult = types.subst(t, from, to);
+    return restoreExplicitNullabilityAnnotations(substResult, t, config);
   }
 }

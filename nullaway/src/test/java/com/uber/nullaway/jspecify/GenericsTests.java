@@ -2064,7 +2064,8 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void issue1091() {
+  public void nullableAnnotOnClassTypeVarUse() {
+    // TODO test nesting in array types
     makeHelper()
         .addSourceLines(
             "Generics.java",
@@ -2076,6 +2077,25 @@ public class GenericsTests extends NullAwayTestsBase {
             "            Function<@Nullable V, @Nullable V> f);",
             "    void bar(Function<@Nullable V, @Nullable V> f) {",
             "        foo(f);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableAnnotOnMethodTypeVarUse() {
+    // TODO test nesting in array types
+    makeHelper()
+        .addSourceLines(
+            "GenericMethod.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "public abstract class GenericMethod {",
+            "    abstract <V> void foo(",
+            "            Function<@Nullable V, @Nullable V> f);",
+            "    void bar(Function<@Nullable String, @Nullable String> f) {",
+            "        this.<String>foo(f);",
             "    }",
             "}")
         .doTest();
