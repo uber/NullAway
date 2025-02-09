@@ -32,11 +32,25 @@ public class TypeSubstitutionUtils {
     return restoreExplicitNullabilityAnnotations(origType, memberType, config);
   }
 
+  /**
+   * Restores explicit nullability annotations on type variables in {@code origType} to {@code
+   * newType}.
+   *
+   * @param origType the original type
+   * @param newType the new type, a result of applying some substitution to {@code origType}
+   * @param config the NullAway config
+   * @return the new type with explicit nullability annotations restored
+   */
   private static Type restoreExplicitNullabilityAnnotations(
       Type origType, Type newType, Config config) {
     return new RestoreNullnessAnnotationsVisitor(config).visit(newType, origType);
   }
 
+  /**
+   * A visitor that restores explicit nullability annotations on type variables from another type to
+   * the corresponding positions in the visited type. If no annotations need to be restored, returns
+   * the visited type object itself.
+   */
   @SuppressWarnings("ReferenceEquality")
   private static class RestoreNullnessAnnotationsVisitor extends Types.MapVisitor<Type> {
 
@@ -106,6 +120,14 @@ public class TypeSubstitutionUtils {
       return updated != null ? updated : t;
     }
 
+    /**
+     * Updates the nullability annotations on a type {@code t} based on the nullability annotations
+     * on a type variable {@code other}.
+     *
+     * @param t the type to update
+     * @param other the type variable to update from
+     * @return the updated type, or {@code null} if no updates were made
+     */
     private @Nullable Type updateNullabilityAnnotationsForType(Type t, Type.TypeVar other) {
       for (Attribute.TypeCompound annot : other.getAnnotationMirrors()) {
         if (annot.type.tsym == null) {
@@ -114,6 +136,7 @@ public class TypeSubstitutionUtils {
         String qualifiedName = annot.type.tsym.getQualifiedName().toString();
         if (Nullness.isNullableAnnotation(qualifiedName, config)
             || Nullness.isNonNullAnnotation(qualifiedName, config)) {
+          // Construct and return an updated version of t with annotation annot.
           List<Attribute.TypeCompound> annotationCompound =
               List.from(
                   Collections.singletonList(
@@ -146,10 +169,18 @@ public class TypeSubstitutionUtils {
       }
     }
 
-    private List<Type> visitTypeLists(List<Type> argtypes, List<Type> argtypes1) {
+    /**
+     * Visits each corresponding pair in two lists of types. Returns a list of the updated types, or
+     * {@code newtypes} itself if no updates were made.
+     *
+     * @param newtypes list of new types to be updated
+     * @param origtypes list of original types to update from
+     * @return the updated list of types, or {@code newtypes} itself if no updates were made
+     */
+    private List<Type> visitTypeLists(List<Type> newtypes, List<Type> origtypes) {
       ListBuffer<Type> buf = new ListBuffer<>();
       boolean changed = false;
-      for (List<Type> l = argtypes, l1 = argtypes1; l.nonEmpty(); l = l.tail, l1 = l1.tail) {
+      for (List<Type> l = newtypes, l1 = origtypes; l.nonEmpty(); l = l.tail, l1 = l1.tail) {
         Type t = l.head;
         Type t1 = l1.head;
         Type t2 = visit(t, t1);
@@ -158,7 +189,7 @@ public class TypeSubstitutionUtils {
           changed = true;
         }
       }
-      return changed ? buf.toList() : argtypes;
+      return changed ? buf.toList() : newtypes;
     }
   }
 
