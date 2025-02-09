@@ -33,7 +33,6 @@ public class TypeSubstitutionUtils {
 
   private static Type restoreExplicitNullabilityAnnotations(
       Type origType, Type newType, Config config) {
-    // TODO also @NonNull annotations
     return new RestoreNullnessAnnotationsVisitor(config).visit(newType, origType);
   }
 
@@ -101,13 +100,14 @@ public class TypeSubstitutionUtils {
           continue;
         }
         String qualifiedName = annot.type.tsym.getQualifiedName().toString();
-        if (Nullness.isNullableAnnotation(qualifiedName, config)) {
-          com.sun.tools.javac.util.List<Attribute.TypeCompound> nullableAnnotationCompound =
+        if (Nullness.isNullableAnnotation(qualifiedName, config)
+            || Nullness.isNonNullAnnotation(qualifiedName, config)) {
+          com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationCompound =
               com.sun.tools.javac.util.List.from(
                   Collections.singletonList(
                       new Attribute.TypeCompound(
                           annot.type, com.sun.tools.javac.util.List.nil(), null)));
-          TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(nullableAnnotationCompound);
+          TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
           return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
         }
       }
@@ -157,6 +157,6 @@ public class TypeSubstitutionUtils {
    */
   public static Type subst(Types types, Type t, List<Type> from, List<Type> to, Config config) {
     Type substResult = types.subst(t, from, to);
-    return restoreExplicitNullabilityAnnotations(substResult, t, config);
+    return restoreExplicitNullabilityAnnotations(t, substResult, config);
   }
 }

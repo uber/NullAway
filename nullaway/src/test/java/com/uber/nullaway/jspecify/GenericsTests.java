@@ -2094,6 +2094,28 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nonnullAnnotOnClassTypeVarUse() {
+    makeHelper()
+        .addSourceLines(
+            "Generics.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jspecify.annotations.NonNull;",
+            "import java.util.function.Function;",
+            "public abstract class Generics {",
+            "    abstract <V extends @Nullable Object> void foo(",
+            "            Function<@NonNull V, @NonNull V> f);",
+            "    void testNegative(Function<@Nullable String, @Nullable String> f) {",
+            "        this.<@Nullable String>foo(f);",
+            "    }",
+            //            "    void testPositive(Function<String, String> f) {",
+            //            "        this.<String>foo(f);",
+            //            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullableAnnotOnClassTypeVarUseMixed() {
     makeHelper()
         .addSourceLines(
