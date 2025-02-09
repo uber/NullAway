@@ -885,10 +885,15 @@ public class NullMarkednessTests extends NullAwayTestsBase {
             "  @NullUnmarked",
             "  public static void callee(@NonNull Object o) {",
             "  }",
+            "  @NullUnmarked",
+            "  public static void callee2(Object o) {",
+            "  }",
             "  public static void caller() {",
             "    // Error due to explicit @NonNull annotation",
             "    // BUG: Diagnostic contains: passing @Nullable parameter",
             "    callee(null);",
+            "    // this is fine",
+            "    callee2(null);",
             "  }",
             "}")
         .doTest();
