@@ -2106,12 +2106,9 @@ public class GenericsTests extends NullAwayTestsBase {
             "    abstract <V extends @Nullable Object> void foo(",
             "            Function<@NonNull V, @NonNull V> f);",
             "    void testPositive(Function<@Nullable String, @Nullable String> f) {",
-            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<@org.jspecify.annotations.Nullable String, @org.jspecify.annotations.Nullable String>, as formal parameter has type",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<@Nullable String, @Nullable String>, as formal parameter has type",
             "        this.<@Nullable String>foo(f);",
             "    }",
-            //            "    void testPositive(Function<String, String> f) {",
-            //            "        this.<String>foo(f);",
-            //            "    }",
             "}")
         .doTest();
   }

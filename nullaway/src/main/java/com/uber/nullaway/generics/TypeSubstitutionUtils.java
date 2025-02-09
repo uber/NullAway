@@ -12,6 +12,7 @@ import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import java.util.Collections;
+import org.jspecify.annotations.Nullable;
 
 /** Utility method related to substituting type arguments for type variables. */
 public class TypeSubstitutionUtils {
@@ -63,8 +64,12 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
-      // TODO sometimes other is a TypeVar like @Nullable V and we care about the annotations on it;
-      // fix
+      if (other instanceof Type.TypeVar) {
+        Type updated = updateNullabilityAnnotationsForType(t, (Type.TypeVar) other);
+        if (updated != null) {
+          return updated;
+        }
+      }
       if (!(other instanceof Type.ClassType)) {
         return t;
       }
@@ -96,28 +101,33 @@ public class TypeSubstitutionUtils {
     }
 
     @Override
-    public Type visitTypeVar(Type.TypeVar t, Type type) {
-      for (Attribute.TypeCompound annot : type.getAnnotationMirrors()) {
+    public Type visitTypeVar(Type.TypeVar t, Type other) {
+      Type updated = updateNullabilityAnnotationsForType(t, (Type.TypeVar) other);
+      return updated != null ? updated : t;
+    }
+
+    private @Nullable Type updateNullabilityAnnotationsForType(Type t, Type.TypeVar other) {
+      for (Attribute.TypeCompound annot : other.getAnnotationMirrors()) {
         if (annot.type.tsym == null) {
           continue;
         }
         String qualifiedName = annot.type.tsym.getQualifiedName().toString();
         if (Nullness.isNullableAnnotation(qualifiedName, config)
             || Nullness.isNonNullAnnotation(qualifiedName, config)) {
-          com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationCompound =
-              com.sun.tools.javac.util.List.from(
+          List<Attribute.TypeCompound> annotationCompound =
+              List.from(
                   Collections.singletonList(
-                      new Attribute.TypeCompound(
-                          annot.type, com.sun.tools.javac.util.List.nil(), null)));
+                      new Attribute.TypeCompound(annot.type, List.nil(), null)));
           TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
           return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
         }
       }
-      return t;
+      return null;
     }
 
     @Override
     public Type visitArrayType(Type.ArrayType t, Type other) {
+      // TODO case where other is a typevar
       if (!(other instanceof Type.ArrayType)) {
         return t;
       }
