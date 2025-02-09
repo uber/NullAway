@@ -92,6 +92,7 @@ public class TypeSubstitutionUtils {
       if (t == wt.type) {
         return wt;
       } else {
+        // TODO remove call to getMetadata() or show we can't get here
         return new Type.WildcardType(t, wt.kind, wt.tsym, wt.bound, wt.getMetadata());
       }
     }
@@ -110,9 +111,7 @@ public class TypeSubstitutionUtils {
                       new Attribute.TypeCompound(
                           annot.type, com.sun.tools.javac.util.List.nil(), null)));
           TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(nullableAnnotationCompound);
-          Type underlyingType = t;
-          Type newType = TYPE_METADATA_BUILDER.cloneTypeWithMetadata(underlyingType, typeMetadata);
-          return newType;
+          return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
         }
       }
       return t;
@@ -125,11 +124,11 @@ public class TypeSubstitutionUtils {
       }
       Type.ArrayType otherArrayType = (Type.ArrayType) other;
       Type elemtype = t.elemtype;
-      Type elemtype1 = visit(elemtype, otherArrayType.elemtype);
-      if (elemtype1 == elemtype) {
+      Type newElemType = visit(elemtype, otherArrayType.elemtype);
+      if (newElemType == elemtype) {
         return t;
       } else {
-        return new Type.ArrayType(elemtype1, t.tsym, t.getMetadata());
+        return TYPE_METADATA_BUILDER.createArrayType(t, newElemType);
       }
     }
 

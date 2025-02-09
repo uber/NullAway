@@ -27,6 +27,8 @@ public interface TypeMetadataBuilder {
 
   Type.ClassType createClassType(Type baseType, Type enclosingType, List<Type> typeArgs);
 
+  Type.ArrayType createArrayType(Type.ArrayType baseType, Type elementType);
+
   /**
    * Provides implementations for methods under TypeMetadataBuilder compatible with JDK 17 and
    * earlier versions.
@@ -59,6 +61,11 @@ public interface TypeMetadataBuilder {
           baseType.tsym,
           baseType.getMetadata());
     }
+
+    @Override
+    public Type.ArrayType createArrayType(Type.ArrayType baseType, Type elementType) {
+      return new Type.ArrayType(elementType, baseType.tsym, baseType.getMetadata());
+    }
   }
 
   /**
@@ -76,6 +83,8 @@ public interface TypeMetadataBuilder {
     private static final MethodHandle getMetadataHandler = createGetMetadataHandle();
     private static final MethodHandle classTypeConstructorHandle =
         createClassTypeConstructorHandle();
+    private static final MethodHandle arrayTypeConstructorHandle =
+        createArrayTypeConstructorHandle();
 
     private static MethodHandle createHandle() {
       MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -110,6 +119,21 @@ public interface TypeMetadataBuilder {
                 Symbol.TypeSymbol.class,
                 com.sun.tools.javac.util.List.class);
         return lookup.findConstructor(Type.ClassType.class, methodType);
+      } catch (NoSuchMethodException | IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    private static MethodHandle createArrayTypeConstructorHandle() {
+      try {
+        MethodHandles.Lookup lookup = MethodHandles.lookup();
+        MethodType methodType =
+            MethodType.methodType(
+                void.class, // return type for a constructor is void
+                Type.class,
+                Symbol.TypeSymbol.class,
+                com.sun.tools.javac.util.List.class);
+        return lookup.findConstructor(Type.ArrayType.class, methodType);
       } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new RuntimeException(e);
       }
@@ -180,6 +204,18 @@ public interface TypeMetadataBuilder {
                 com.sun.tools.javac.util.List.from(typeArgs),
                 baseType.tsym,
                 metadata);
+      } catch (Throwable e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public Type.ArrayType createArrayType(Type.ArrayType baseType, Type elementType) {
+      try {
+        com.sun.tools.javac.util.List<TypeMetadata> metadata =
+            (com.sun.tools.javac.util.List<TypeMetadata>) getMetadataHandler.invoke(baseType);
+        return (Type.ArrayType)
+            arrayTypeConstructorHandle.invoke(elementType, baseType.tsym, metadata);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
