@@ -127,7 +127,12 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitArrayType(Type.ArrayType t, Type other) {
-      // TODO case where other is a typevar
+      if (other instanceof Type.TypeVar) {
+        Type updated = updateNullabilityAnnotationsForType(t, (Type.TypeVar) other);
+        if (updated != null) {
+          return updated;
+        }
+      }
       if (!(other instanceof Type.ArrayType)) {
         return t;
       }

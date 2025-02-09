@@ -541,8 +541,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
             "    }",
             "    static class NullableVarargsContentsImpl3 implements NullableVarargsContents {",
             "        @Override",
-            // TODO open an issue to improve the error message in a follow up
-            "        // BUG: Diagnostic contains: Parameter has type Object[]",
+            "        // BUG: Diagnostic contains: Parameter has type Object @Nullable []",
             "        public void varargs(Object @Nullable... params) {",
             "        }",
             "    }",
@@ -596,7 +595,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
             "    }",
             "    static class NullableVarargsBothImpl3 implements NullableVarargsBoth {",
             "        @Override",
-            "        // BUG: Diagnostic contains: Parameter has type Object[]",
+            "        // BUG: Diagnostic contains: Parameter has type Object @Nullable []",
             "        public void varargs(Object @Nullable... params) {",
             "        }",
             "    }",
