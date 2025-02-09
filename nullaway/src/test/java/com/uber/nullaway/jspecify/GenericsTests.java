@@ -2086,7 +2086,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "        takesArray(f);",
             "    }",
             "    void testPositiveArray(Function<V, V>[] f) {",
-            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<V, V>[], as formal parameter has type",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<V, V> [], as formal parameter has type",
             "        takesArray(f);",
             "    }",
             "}")
