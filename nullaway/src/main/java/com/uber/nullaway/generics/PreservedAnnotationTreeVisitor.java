@@ -55,7 +55,8 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
     for (int i = 0; i < typeArguments.size(); i++) {
       newTypeArgs.add(typeArguments.get(i).accept(this, null));
     }
-    Type finalType = TYPE_METADATA_BUILDER.createWithBaseTypeAndTypeArgs(baseType, newTypeArgs);
+    Type finalType =
+        TYPE_METADATA_BUILDER.createClassTypeWithBaseTypeAndTypeArgs(baseType, newTypeArgs);
     return finalType;
   }
 

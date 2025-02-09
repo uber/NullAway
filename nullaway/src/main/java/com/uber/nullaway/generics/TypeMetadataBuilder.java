@@ -25,7 +25,7 @@ public interface TypeMetadataBuilder {
 
   Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metaData);
 
-  Type createWithBaseTypeAndTypeArgs(Type baseType, List<Type> typeArgs);
+  Type.ClassType createClassTypeWithBaseTypeAndTypeArgs(Type baseType, List<Type> typeArgs);
 
   /**
    * Provides implementations for methods under TypeMetadataBuilder compatible with JDK 17 and
@@ -52,7 +52,8 @@ public interface TypeMetadataBuilder {
     }
 
     @Override
-    public Type createWithBaseTypeAndTypeArgs(Type baseType, List<Type> typeArgs) {
+    public Type.ClassType createClassTypeWithBaseTypeAndTypeArgs(
+        Type baseType, List<Type> typeArgs) {
       return new Type.ClassType(
           baseType.getEnclosingType(),
           com.sun.tools.javac.util.List.from(typeArgs),
@@ -170,11 +171,12 @@ public interface TypeMetadataBuilder {
     }
 
     @Override
-    public Type createWithBaseTypeAndTypeArgs(Type baseType, List<Type> typeArgs) {
+    public Type.ClassType createClassTypeWithBaseTypeAndTypeArgs(
+        Type baseType, List<Type> typeArgs) {
       try {
         com.sun.tools.javac.util.List<TypeMetadata> metadata =
             (com.sun.tools.javac.util.List<TypeMetadata>) getMetadataHandler.invoke(baseType);
-        return (Type)
+        return (Type.ClassType)
             classTypeConstructorHandle.invoke(
                 baseType.getEnclosingType(),
                 com.sun.tools.javac.util.List.from(typeArgs),
