@@ -76,8 +76,7 @@ public class TypeSubstitutionUtils {
       if (outer1 == outer && typarams1 == typarams) {
         return t;
       } else {
-        // TODO what if outer is different??
-        return TYPE_METADATA_BUILDER.createClassTypeWithBaseTypeAndTypeArgs(t, typarams1);
+        return TYPE_METADATA_BUILDER.createClassType(t, outer1, typarams1);
       }
     }
 
