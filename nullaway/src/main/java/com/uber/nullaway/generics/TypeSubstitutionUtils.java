@@ -63,6 +63,8 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
+      // TODO sometimes other is a TypeVar like @Nullable V and we care about the annotations on it;
+      // fix
       if (!(other instanceof Type.ClassType)) {
         return t;
       }
