@@ -535,7 +535,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
             "    }",
             "    static class NullableVarargsContentsImpl2 implements NullableVarargsContents {",
             "        @Override",
-            "        // BUG: Diagnostic contains: Parameter has type Object[], but overridden method",
+            "        // BUG: Diagnostic contains: Parameter has type Object [], but overridden method",
             "        public void varargs(Object... params) {",
             "        }",
             "    }",

@@ -8,7 +8,6 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
-import com.sun.tools.javac.util.List;
 
 /**
  * A visitor that pretty prints a generic type including its type-use nullability annotations, for
@@ -76,16 +75,11 @@ final class GenericTypePrettyPrintingVisitor extends Types.DefaultTypeVisitor<St
   public String visitArrayType(Type.ArrayType t, Void unused) {
     StringBuilder sb = new StringBuilder();
     sb.append(t.elemtype.accept(this, null));
-    List<Attribute.TypeCompound> annotationMirrors = t.getAnnotationMirrors();
-    if (!annotationMirrors.isEmpty()) {
-      sb.append(' ');
-      for (Attribute.TypeCompound compound : annotationMirrors) {
-        sb.append('@');
-        sb.append(compound.type.accept(this, null));
-        sb.append(' ');
-      }
+    for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
+      sb.append(" @");
+      sb.append(compound.type.accept(this, null));
     }
-    return sb.append("[]").toString();
+    return sb.append(" []").toString();
   }
 
   @Override
