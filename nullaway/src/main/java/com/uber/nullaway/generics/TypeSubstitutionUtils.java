@@ -93,7 +93,7 @@ public class TypeSubstitutionUtils {
         return wt;
       } else {
         // TODO remove call to getMetadata() or show we can't get here
-        return new Type.WildcardType(t, wt.kind, wt.tsym, wt.bound, wt.getMetadata());
+        return TYPE_METADATA_BUILDER.createWildcardType(wt, t);
       }
     }
 

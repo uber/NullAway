@@ -1,6 +1,7 @@
 package com.uber.nullaway.generics;
 
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
@@ -28,6 +29,8 @@ public interface TypeMetadataBuilder {
   Type.ClassType createClassType(Type baseType, Type enclosingType, List<Type> typeArgs);
 
   Type.ArrayType createArrayType(Type.ArrayType baseType, Type elementType);
+
+  Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType);
 
   /**
    * Provides implementations for methods under TypeMetadataBuilder compatible with JDK 17 and
@@ -66,6 +69,11 @@ public interface TypeMetadataBuilder {
     public Type.ArrayType createArrayType(Type.ArrayType baseType, Type elementType) {
       return new Type.ArrayType(elementType, baseType.tsym, baseType.getMetadata());
     }
+
+    @Override
+    public Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType) {
+      return new Type.WildcardType(boundType, baseType.kind, baseType.tsym, baseType.getMetadata());
+    }
   }
 
   /**
@@ -85,6 +93,8 @@ public interface TypeMetadataBuilder {
         createClassTypeConstructorHandle();
     private static final MethodHandle arrayTypeConstructorHandle =
         createArrayTypeConstructorHandle();
+    private static final MethodHandle wildcardTypeConstructorHandle =
+        createWildcardTypeConstructorHandle();
 
     private static MethodHandle createHandle() {
       MethodHandles.Lookup lookup = MethodHandles.lookup();
@@ -134,6 +144,22 @@ public interface TypeMetadataBuilder {
                 Symbol.TypeSymbol.class,
                 com.sun.tools.javac.util.List.class);
         return lookup.findConstructor(Type.ArrayType.class, methodType);
+      } catch (NoSuchMethodException | IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    private static MethodHandle createWildcardTypeConstructorHandle() {
+      try {
+        MethodHandles.Lookup lookup = MethodHandles.lookup();
+        MethodType methodType =
+            MethodType.methodType(
+                void.class, // return type for a constructor is void
+                Type.class,
+                BoundKind.class,
+                Symbol.TypeSymbol.class,
+                com.sun.tools.javac.util.List.class);
+        return lookup.findConstructor(Type.WildcardType.class, methodType);
       } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new RuntimeException(e);
       }
@@ -216,6 +242,18 @@ public interface TypeMetadataBuilder {
             (com.sun.tools.javac.util.List<TypeMetadata>) getMetadataHandler.invoke(baseType);
         return (Type.ArrayType)
             arrayTypeConstructorHandle.invoke(elementType, baseType.tsym, metadata);
+      } catch (Throwable e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType) {
+      try {
+        com.sun.tools.javac.util.List<TypeMetadata> metadata =
+            (com.sun.tools.javac.util.List<TypeMetadata>) getMetadataHandler.invoke(baseType);
+        return (Type.WildcardType)
+            wildcardTypeConstructorHandle.invoke(boundType, baseType.kind, baseType.tsym, metadata);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
