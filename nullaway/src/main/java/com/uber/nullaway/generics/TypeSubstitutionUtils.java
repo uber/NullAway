@@ -33,8 +33,6 @@ public class TypeSubstitutionUtils {
 
   private static Type restoreExplicitNullabilityAnnotations(
       Type origType, Type newType, Config config) {
-    // NOTE: we cannot just tweak the substitution, since explicit annotations may appear
-    // only at some occurrences of a type.  TEST THIS.
     // TODO also @NonNull annotations
     return new RestoreNullnessAnnotationsVisitor(config).visit(newType, origType);
   }
@@ -92,7 +90,6 @@ public class TypeSubstitutionUtils {
       if (t == wt.type) {
         return wt;
       } else {
-        // TODO remove call to getMetadata() or show we can't get here
         return TYPE_METADATA_BUILDER.createWildcardType(wt, t);
       }
     }

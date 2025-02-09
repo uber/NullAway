@@ -2094,6 +2094,36 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableAnnotOnClassTypeVarUseMixed() {
+    makeHelper()
+        .addSourceLines(
+            "Generics.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "public abstract class Generics<V> {",
+            "    abstract void foo(",
+            "            Function<V, @Nullable V> f);",
+            "    void testNegative(Function<V, @Nullable V> f) {",
+            "        foo(f);",
+            "    }",
+            "    void testPositive1(Function<@Nullable V, V> f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<@org.jspecify.annotations.Nullable V, V>",
+            "        foo(f);",
+            "    }",
+            "    void testPositive2(Function<V, V> f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<V, V>, as formal parameter has type",
+            "        foo(f);",
+            "    }",
+            "    void testPositive3(Function<@Nullable V, @Nullable V> f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<@org.jspecify.annotations.Nullable V, @org.jspecify.annotations.Nullable V>, as formal parameter has type",
+            "        foo(f);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullableAnnotOnClassTypeVarWildcardUse() {
     makeHelper()
         .addSourceLines(
