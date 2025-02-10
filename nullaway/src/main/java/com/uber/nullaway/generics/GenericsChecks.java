@@ -48,9 +48,6 @@ public final class GenericsChecks {
 
   private final Map<Tree, Map<Type, Type>> inferredTypes = new HashMap<>();
 
-  /** Do not instantiate; all methods should be static */
-  public GenericsChecks() {}
-
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
    * variables that have a {@code @Nullable} upper bound.
@@ -427,16 +424,16 @@ public final class GenericsChecks {
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
       rhsTree = varTree.getInitializer();
-      Tree lhsTree = varTree.getType();
+      Tree lhsTypeTree = varTree.getType();
 
       if (rhsTree instanceof MethodInvocationTree) {
         MethodInvocationTree methodInvocationTree = (MethodInvocationTree) rhsTree;
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
         if (methodSymbol.type instanceof Type.ForAll // generic method call
             && methodInvocationTree.getTypeArguments().isEmpty() // no explicit generic arguments
-            && lhsTree instanceof ParameterizedTypeTree) { // lhs type has generic
+            && lhsTypeTree instanceof ParameterizedTypeTree) { // lhs type has generic
           List<? extends Tree> lhsTypeArguments =
-              ((ParameterizedTypeTree) lhsTree).getTypeArguments();
+              ((ParameterizedTypeTree) lhsTypeTree).getTypeArguments();
           // method call has a return type of class type
           if (methodSymbol.getReturnType() instanceof Type.ClassType) {
             Type.ClassType returnType = (Type.ClassType) methodSymbol.getReturnType();
@@ -444,22 +441,20 @@ public final class GenericsChecks {
             List<Type> returnTypeTypeArg = returnType.getTypeArguments();
 
             // if generic type in return type
-            if (!typeParam.isEmpty()) {
-              Map<Type, Type> genericNullness = new HashMap<>();
-              for (int i = 0; i < typeParam.size(); i++) {
-                Type upperBound = typeParam.get(i).type.getUpperBound();
-                // generic has nullable upperbound
-                if (getTypeNullness(upperBound, analysis.getConfig()) == Nullness.NULLABLE) {
-                  Type lhsInferredType =
-                      inferMethodTypeArgument(
-                          typeParam.get(i).type, lhsTypeArguments, returnTypeTypeArg, state);
-                  if (lhsInferredType != null) { // && has a nullable upperbound
-                    genericNullness.put(typeParam.get(i).type, lhsInferredType);
-                  }
+            Map<Type, Type> genericNullness = new HashMap<>();
+            for (int i = 0; i < typeParam.size(); i++) {
+              Type upperBound = typeParam.get(i).type.getUpperBound();
+              // generic has nullable upperbound
+              if (getTypeNullness(upperBound, analysis.getConfig()) == Nullness.NULLABLE) {
+                Type lhsInferredType =
+                    inferMethodTypeArgument(
+                        typeParam.get(i).type, lhsTypeArguments, returnTypeTypeArg, state);
+                if (lhsInferredType != null) { // && has a nullable upperbound
+                  genericNullness.put(typeParam.get(i).type, lhsInferredType);
                 }
               }
-              inferredTypes.put(rhsTree, genericNullness);
             }
+            inferredTypes.put(rhsTree, genericNullness);
           }
         }
       }
