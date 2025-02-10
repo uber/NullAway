@@ -432,13 +432,10 @@ public final class GenericsChecks {
         if (methodSymbol.type instanceof Type.ForAll // generic method call
             && methodInvocationTree.getTypeArguments().isEmpty() // no explicit generic arguments
             && lhsTypeTree instanceof ParameterizedTypeTree) { // lhs type has generic
-          List<? extends Tree> lhsTypeArguments =
-              ((ParameterizedTypeTree) lhsTypeTree).getTypeArguments();
           // method call has a return type of class type
           if (methodSymbol.getReturnType() instanceof Type.ClassType) {
-            Type.ClassType returnType = (Type.ClassType) methodSymbol.getReturnType();
             List<Symbol.TypeVariableSymbol> typeParam = methodSymbol.getTypeParameters();
-            List<Type> returnTypeTypeArg = returnType.getTypeArguments();
+            List<Type> returnTypeTypeArg = methodSymbol.getReturnType().getTypeArguments();
 
             // if generic type in return type
             Map<Type, Type> genericNullness = new HashMap<>();
@@ -448,7 +445,10 @@ public final class GenericsChecks {
               if (getTypeNullness(upperBound, analysis.getConfig()) == Nullness.NULLABLE) {
                 Type lhsInferredType =
                     inferMethodTypeArgument(
-                        typeParam.get(i).type, lhsTypeArguments, returnTypeTypeArg, state);
+                        typeParam.get(i).type,
+                        lhsType.getTypeArguments(),
+                        returnTypeTypeArg,
+                        state);
                 if (lhsInferredType != null) {
                   genericNullness.put(typeParam.get(i).type, lhsInferredType);
                 }
@@ -489,32 +489,24 @@ public final class GenericsChecks {
   }
 
   private Type inferMethodTypeArgument(
-      Type typeParam, List<? extends Tree> lhsTypeArg, List<Type> typeArg, VisitorState state) {
-    // base case
-    if (typeParam == null || lhsTypeArg == null || typeArg == null) {
-      return null;
-    }
-
-    // recursive case
+      Type typeParam, List<Type> lhsTypeArg, List<Type> typeArg, VisitorState state) {
     Type inferType = null;
+
     for (int i = 0; i < typeArg.size(); i++) {
       Type type = typeArg.get(i);
+      // base case: found type to infer to
       if (state.getTypes().isSameType(typeParam, type)) {
-        return ASTHelpers.getType(lhsTypeArg.get(i));
-      } else if (!type.getTypeArguments().isEmpty()) {
-        // instanceof Type.ForAll check if the lhsTypeArg is a generic class? -> maybe
-        // the base case makes it unnecessary
+        return lhsTypeArg.get(i);
+      } else if (!type.getTypeArguments().isEmpty()) { // recursive case: generic class type
         inferType =
             inferMethodTypeArgument(
-                typeParam,
-                ((ParameterizedTypeTree) lhsTypeArg.get(i)).getTypeArguments(),
-                typeArg.get(i).getTypeArguments(),
-                state);
+                typeParam, lhsTypeArg.get(i).getTypeArguments(), type.getTypeArguments(), state);
         if (inferType != null) {
           return inferType;
         }
       }
     }
+    // base case: typeArg doesn't contain typeParam
     return inferType;
   }
 
