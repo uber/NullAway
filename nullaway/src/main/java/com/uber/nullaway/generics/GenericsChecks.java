@@ -432,8 +432,7 @@ public final class GenericsChecks {
         if (methodSymbol.type instanceof Type.ForAll // generic method call
             && methodInvocationTree.getTypeArguments().isEmpty() // no explicit generic arguments
             && lhsTypeTree instanceof ParameterizedTypeTree) { // lhs type has generic
-          // method call has a return type of class type
-          if (lhsType != null && methodSymbol.getReturnType() instanceof Type.ClassType) {
+          if (lhsType != null) {
             List<Symbol.TypeVariableSymbol> typeParam = methodSymbol.getTypeParameters();
             List<Type> returnTypeTypeArg = methodSymbol.getReturnType().getTypeArguments();
 
