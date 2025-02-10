@@ -107,7 +107,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     // annotations in case of generic type arguments.  Only used in JSpecify mode.
     List<Type> overridenMethodParamTypeList =
         TypeSubstitutionUtils.memberType(
-                types, castToNonNull(ASTHelpers.getType(code)), fiMethodSymbol)
+                types, castToNonNull(ASTHelpers.getType(code)), fiMethodSymbol, config)
             .getParameterTypes();
     // If fiArgumentPositionNullness[i] == null, parameter position i is unannotated
     Nullness[] fiArgumentPositionNullness = new Nullness[fiMethodParameters.size()];
