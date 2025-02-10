@@ -1072,7 +1072,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static class A<T extends @Nullable Object> { }",
             "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: Cannot assign from type A<int[]>",
+            "    // BUG: Diagnostic contains: Cannot assign from type A<int []>",
             "    A<int @Nullable[]> x = new A<int[]>();",
             "  }",
             "  static void testNegative() {",
