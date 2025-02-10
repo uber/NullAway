@@ -433,7 +433,7 @@ public final class GenericsChecks {
             && methodInvocationTree.getTypeArguments().isEmpty() // no explicit generic arguments
             && lhsTypeTree instanceof ParameterizedTypeTree) { // lhs type has generic
           // method call has a return type of class type
-          if (methodSymbol.getReturnType() instanceof Type.ClassType) {
+          if (lhsType != null && methodSymbol.getReturnType() instanceof Type.ClassType) {
             List<Symbol.TypeVariableSymbol> typeParam = methodSymbol.getTypeParameters();
             List<Type> returnTypeTypeArg = methodSymbol.getReturnType().getTypeArguments();
 
@@ -488,7 +488,7 @@ public final class GenericsChecks {
     }
   }
 
-  private Type inferMethodTypeArgument(
+  private @Nullable Type inferMethodTypeArgument(
       Type typeParam, List<Type> lhsTypeArg, List<Type> typeArg, VisitorState state) {
     Type inferType = null;
 
