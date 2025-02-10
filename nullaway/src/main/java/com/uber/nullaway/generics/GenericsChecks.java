@@ -46,8 +46,7 @@ import org.jspecify.annotations.Nullable;
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
 
-  /** Do not instantiate; all methods should be static */
-  private GenericsChecks() {}
+  private final Map<Tree, Map<Type, Type>> inferredTypes = new HashMap<>();
 
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
@@ -413,7 +412,7 @@ public final class GenericsChecks {
    * @param analysis the analysis object
    * @param state the visitor state
    */
-  public static void checkTypeParameterNullnessForAssignability(
+  public void checkTypeParameterNullnessForAssignability(
       Tree tree, NullAway analysis, VisitorState state) {
     Config config = analysis.getConfig();
     if (!config.isJSpecifyMode()) {
@@ -424,6 +423,41 @@ public final class GenericsChecks {
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
       rhsTree = varTree.getInitializer();
+      Tree lhsTypeTree = varTree.getType();
+
+      if (rhsTree instanceof MethodInvocationTree) {
+        MethodInvocationTree methodInvocationTree = (MethodInvocationTree) rhsTree;
+        Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
+        // update inferredTypes cache for assignments
+        if (methodSymbol.type instanceof Type.ForAll // generic method call
+            && methodInvocationTree.getTypeArguments().isEmpty() // no explicit generic arguments
+            && lhsTypeTree instanceof ParameterizedTypeTree) { // lhs type has generic
+          // method call has a return type of class type
+          if (lhsType != null && methodSymbol.getReturnType() instanceof Type.ClassType) {
+            List<Symbol.TypeVariableSymbol> typeParam = methodSymbol.getTypeParameters();
+            List<Type> returnTypeTypeArg = methodSymbol.getReturnType().getTypeArguments();
+
+            // if generic type in return type
+            Map<Type, Type> genericNullness = new HashMap<>();
+            for (int i = 0; i < typeParam.size(); i++) {
+              Type upperBound = typeParam.get(i).type.getUpperBound();
+              // generic has nullable upperbound
+              if (getTypeNullness(upperBound, analysis.getConfig()) == Nullness.NULLABLE) {
+                Type lhsInferredType =
+                    inferMethodTypeArgument(
+                        typeParam.get(i).type,
+                        lhsType.getTypeArguments(),
+                        returnTypeTypeArg,
+                        state);
+                if (lhsInferredType != null) {
+                  genericNullness.put(typeParam.get(i).type, lhsInferredType);
+                }
+              }
+            }
+            inferredTypes.put(rhsTree, genericNullness);
+          }
+        }
+      }
     } else {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
       rhsTree = assignmentTree.getExpression();
@@ -435,12 +469,75 @@ public final class GenericsChecks {
     }
     Type rhsType = getTreeType(rhsTree, config);
 
+    if (rhsType != null && !rhsType.getTypeArguments().isEmpty()) {
+      if (rhsTree instanceof MethodInvocationTree) {
+        // recreate rhsType using inferred types
+        Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) rhsTree);
+        if (inferredTypes.containsKey(rhsTree)) {
+          Map<Type, Type> genericNullness = inferredTypes.get(rhsTree);
+          rhsType = replaceGenerics(rhsType, methodSymbol.getReturnType(), genericNullness);
+        }
+      }
+    }
+
     if (lhsType != null && rhsType != null) {
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state, config);
       if (!isAssignmentValid) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
       }
     }
+  }
+
+  private @Nullable Type inferMethodTypeArgument(
+      Type typeParam, List<Type> lhsTypeArg, List<Type> typeArg, VisitorState state) {
+    Type inferType = null;
+
+    for (int i = 0; i < typeArg.size(); i++) {
+      Type type = typeArg.get(i);
+      // base case: found type to infer to
+      if (state.getTypes().isSameType(typeParam, type)) {
+        return lhsTypeArg.get(i);
+      } else if (!type.getTypeArguments().isEmpty()) { // recursive case: generic class type
+        inferType =
+            inferMethodTypeArgument(
+                typeParam, lhsTypeArg.get(i).getTypeArguments(), type.getTypeArguments(), state);
+        if (inferType != null) {
+          return inferType;
+        }
+      }
+    }
+    // base case: typeArg doesn't contain typeParam
+    return inferType;
+  }
+
+  private Type replaceGenerics(
+      Type currentType, Type typeWithGenerics, Map<Type, Type> genericNullness) {
+    // base case
+    if (genericNullness.containsKey(typeWithGenerics)) { // type is generic
+      return genericNullness.get(typeWithGenerics);
+    }
+    if (typeWithGenerics.getTypeArguments().isEmpty()) { // dose not have a generic type argument
+      return currentType;
+    }
+
+    // recursive case
+    List<Type> newTypeArgument = new ArrayList<>();
+    for (int i = 0; i < typeWithGenerics.getTypeArguments().size(); i++) {
+      Type newType =
+          replaceGenerics(
+              currentType.getTypeArguments().get(i),
+              typeWithGenerics.getTypeArguments().get(i),
+              genericNullness);
+      newTypeArgument.add(newType);
+    }
+
+    Type.ClassType curClassType = (Type.ClassType) currentType;
+    Type.ClassType updatedType =
+        new Type.ClassType(
+            curClassType.getEnclosingType(),
+            com.sun.tools.javac.util.List.from(newTypeArgument),
+            curClassType.tsym);
+    return updatedType;
   }
 
   /**
@@ -925,7 +1022,7 @@ public final class GenericsChecks {
    * @return Nullness of parameter at {@code paramIndex}, or {@code NONNULL} if the call does not
    *     invoke an instance method
    */
-  public static Nullness getGenericParameterNullnessAtInvocation(
+  public Nullness getGenericParameterNullnessAtInvocation(
       int paramIndex,
       Symbol.MethodSymbol invokedMethodSymbol,
       MethodInvocationTree tree,
@@ -944,6 +1041,21 @@ public final class GenericsChecks {
           && Objects.equals(
               getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
+      }
+      // check nullness of inferred types
+      if (inferredTypes.containsKey(tree)) {
+        Map<Type, Type> genericNullness = inferredTypes.get(tree);
+        List<Symbol.VarSymbol> parameters = invokedMethodSymbol.getParameters();
+        if (genericNullness.containsKey(parameters.get(paramIndex).type)) {
+          Type genericType = parameters.get(paramIndex).type;
+          Type inferredGenericType = genericNullness.get(genericType);
+          if (inferredGenericType != null
+              && Objects.equals(getTypeNullness(inferredGenericType, config), Nullness.NULLABLE)) {
+            return Nullness.NULLABLE;
+          } else {
+            return Nullness.NONNULL;
+          }
+        }
       }
     }
 

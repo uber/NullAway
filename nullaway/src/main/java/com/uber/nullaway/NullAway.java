@@ -277,6 +277,8 @@ public class NullAway extends BugChecker
    */
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
+  private GenericsChecks genericsChecks = new GenericsChecks();
+
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
@@ -500,7 +502,7 @@ public class NullAway extends BugChecker
     }
     // generics check
     if (lhsType != null && config.isJSpecifyMode()) {
-      GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
+      genericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
     }
 
     if (config.isJSpecifyMode() && tree.getVariable() instanceof ArrayAccessTree) {
@@ -1494,7 +1496,7 @@ public class NullAway extends BugChecker
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
     if (tree.getInitializer() != null && config.isJSpecifyMode()) {
-      GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
+      genericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
     }
     if (!config.isLegacyAnnotationLocation()) {
       checkNullableAnnotationPositionInType(
@@ -1880,7 +1882,7 @@ public class NullAway extends BugChecker
               Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
                   ? Nullness.NULLABLE
                   : ((config.isJSpecifyMode() && tree instanceof MethodInvocationTree)
-                      ? GenericsChecks.getGenericParameterNullnessAtInvocation(
+                      ? genericsChecks.getGenericParameterNullnessAtInvocation(
                           i, methodSymbol, (MethodInvocationTree) tree, state, config)
                       : Nullness.NONNULL);
         }
