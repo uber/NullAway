@@ -420,7 +420,6 @@ public final class GenericsChecks {
     }
     Type lhsType = getTreeType(tree, config);
     Tree rhsTree;
-    // update inferredTypes cache for assignments
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
       rhsTree = varTree.getInitializer();
@@ -429,6 +428,7 @@ public final class GenericsChecks {
       if (rhsTree instanceof MethodInvocationTree) {
         MethodInvocationTree methodInvocationTree = (MethodInvocationTree) rhsTree;
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
+        // update inferredTypes cache for assignments
         if (methodSymbol.type instanceof Type.ForAll // generic method call
             && methodInvocationTree.getTypeArguments().isEmpty() // no explicit generic arguments
             && lhsTypeTree instanceof ParameterizedTypeTree) { // lhs type has generic
@@ -449,7 +449,7 @@ public final class GenericsChecks {
                 Type lhsInferredType =
                     inferMethodTypeArgument(
                         typeParam.get(i).type, lhsTypeArguments, returnTypeTypeArg, state);
-                if (lhsInferredType != null) { // && has a nullable upperbound
+                if (lhsInferredType != null) {
                   genericNullness.put(typeParam.get(i).type, lhsInferredType);
                 }
               }
@@ -531,12 +531,20 @@ public final class GenericsChecks {
     // recursive case
     List<Type> newTypeArgument = new ArrayList<>();
     for (int i = 0; i < typeWithGenerics.getTypeArguments().size(); i++) {
-      Type newType = replaceGenerics(currentType.getTypeArguments().get(i), typeWithGenerics.getTypeArguments().get(i), genericNullness);
+      Type newType =
+          replaceGenerics(
+              currentType.getTypeArguments().get(i),
+              typeWithGenerics.getTypeArguments().get(i),
+              genericNullness);
       newTypeArgument.add(newType);
     }
 
     Type.ClassType curClassType = (Type.ClassType) currentType;
-    Type.ClassType updatedType = new Type.ClassType(curClassType.getEnclosingType(), com.sun.tools.javac.util.List.from(newTypeArgument), curClassType.tsym);
+    Type.ClassType updatedType =
+        new Type.ClassType(
+            curClassType.getEnclosingType(),
+            com.sun.tools.javac.util.List.from(newTypeArgument),
+            curClassType.tsym);
     return updatedType;
   }
 
