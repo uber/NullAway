@@ -46,7 +46,11 @@ public class Handlers {
     ImmutableList.Builder<Handler> handlerListBuilder = ImmutableList.builder();
     MethodNameUtil methodNameUtil = new MethodNameUtil();
 
-    if (config.acknowledgeRestrictiveAnnotations() || config.isJSpecifyMode()) {
+    // Acknowledge restrictive annotations if in JSpecify mode or if the user has explicitly
+    // requested it
+    boolean acknowledgeRestrictive =
+        config.acknowledgeRestrictiveAnnotations() || config.isJSpecifyMode();
+    if (acknowledgeRestrictive) {
       // This runs before LibraryModelsHandler, so that library models can override third-party
       // bytecode annotations
       handlerListBuilder.add(new RestrictiveAnnotationHandler(config));
