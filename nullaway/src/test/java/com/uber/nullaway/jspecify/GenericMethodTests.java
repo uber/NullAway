@@ -179,19 +179,20 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        }",
             "      }",
             "      static void testLocalAssign() {",
-            //            "        // legal",
-            //            "        Foo<@Nullable Object> f1 = Foo.makeNull(null);",
-            //            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null'
-            // where @NonNull is required",
-            //            "        Foo<Object> f2 = Foo.makeNull(null);",
-            //            "        // ILLEGAL: U does not have a @Nullable upper bound",
-            //            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null'
-            // where @NonNull is required",
-            //            "        Foo<@Nullable Object> f3 = Foo.makeNonNull(null);",
-            //            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null'
-            // where @NonNull is required",
-            //            "        Foo<Object> f4 = Foo.makeNonNull(null);",
-            "        Foo<@Nullable Object> f5 = Foo.makeNonNull(new Object());",
+            "        // legal",
+            "        Foo<@Nullable Object> f1 = Foo.makeNull(null);",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        Foo<Object> f2 = Foo.makeNull(null);",
+            "        Foo<@Nullable Object> f3 = Foo.makeNull(new Object());",
+            "        Foo<Object> f4 = Foo.makeNull(new Object());",
+            "        // ILLEGAL: U does not have a @Nullable upper bound",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        Foo<@Nullable Object> f5 = Foo.makeNonNull(null);",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        Foo<Object> f6 = Foo.makeNonNull(null);",
+            "        // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "        Foo<@Nullable Object> f7 = Foo.makeNonNull(new Object());",
+            "        Foo<Object> f8 = Foo.makeNonNull(new Object());",
             "      }",
             "    }")
         .doTest();
@@ -234,6 +235,12 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    Bar<@Nullable Object, Object> b1 = Bar.make(null, new Object());",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "    Bar<@Nullable Object, Object> b2 = Bar.make(null, null);",
+            "    Bar<@Nullable Object, @Nullable Object> b3 = Bar.make(null, null);",
+            "    Bar<Object, @Nullable Object> b4 = Bar.make(new Object(), null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    Bar<Object, @Nullable Object> b5 = Bar.make(null, null);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    Bar<Object, Object> b6 = Bar.make(null, null);",
             "    // legal",
             "    Baz<String, Object> baz1 = Baz.make(new String(), new Object());",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
@@ -242,6 +249,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    Baz<String, Object> baz3 = Baz.make(new String(), null);",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "    Baz<String, Object> baz4 = Baz.make(null, null);",
+            "    // BUG: Diagnostic contains: Generic type parameter cannot be @Nullable",
+            "    Baz<@Nullable String, Object> baz5 = Baz.make(new String(), new Object());",
+            "    // BUG: Diagnostic contains: Generic type parameter cannot be @Nullable",
+            "    Baz<String, @Nullable Object> baz6 = Baz.make(new String(), new Object());",
             "  }",
             "}")
         .doTest();
@@ -256,16 +267,19 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "import org.jspecify.annotations.Nullable;",
             "import java.util.ArrayList;",
             "class Test {",
-            "  abstract class Foo<K, V> {",
+            "  abstract class Foo<K extends @Nullable Object, V> {",
             "    abstract <U, R> Foo<U,ArrayList<R>> nonNullTest();",
             "    abstract <U extends @Nullable Object, R extends @Nullable Object> Foo<U,ArrayList<R>> nullTest();",
             "  }",
             "  static void test(Foo<Void, Void> f) {",
             "    Foo<Integer, ArrayList<String>> fooNonNull_1 = f.nonNullTest();",
-            "    Foo<Integer, ArrayList<@Nullable String>> fooNonNull_2 = f.nonNullTest();", // error message
+            "    // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "    Foo<Integer, ArrayList<@Nullable String>> fooNonNull_2 = f.nonNullTest();",
+            "    // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "    Foo<@Nullable Integer, ArrayList<String>> fooNonNull_3 = f.nonNullTest();",
             "    Foo<Integer, ArrayList<String>> fooNull_1 = f.nullTest();",
-            "    Foo<Integer, ArrayList<@Nullable String>> fooNull_2 = f.nullTest();", // error
-            // message
+            "    Foo<Integer, ArrayList<@Nullable String>> fooNull_2 = f.nullTest();",
+            "    Foo<@Nullable Integer, ArrayList<String>> fooNull_3 = f.nullTest();",
             "  }",
             "}")
         .doTest();
