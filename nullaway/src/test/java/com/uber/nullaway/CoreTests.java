@@ -1095,18 +1095,27 @@ public class CoreTests extends NullAwayTestsBase {
   public void ttt() {
     defaultCompilationHelper
         .addSourceLines(
-            "TestCase.java",
+            "Foo.java",
             "package com.uber;",
             "import javax.annotation.Nullable;",
-            "public class TestCase {",
-            "  public void run() {",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    String s = returnNullable().toString();",
-            "  }",
-            "  @Nullable",
-            "  public Object returnNullable() {",
-            "    return null;",
-            "  }",
+            "import java.util.List;",
+            "import java.util.Map;",
+            "import java.util.HashMap;",
+            "public class Foo {",
+            "   @Nullable public String exec(String k, String defaultValue){",
+            "     List<String> keys = List.of(\"A\", \"B\");",
+            "     if(keys.contains(k)){",
+            "         return defaultValue;",
+            "     }",
+            "     Map<String, String> map = new HashMap<>();",
+            "     for(String key : keys){",
+            "          map.put(key, \"val:\" + key);",
+            "     }",
+            "     return map.get(k);",
+            "   }",
+            "   public String run(){",
+            "     return exec(\"a\", \"def\").toString();",
+            "   }",
             "}")
         .doTest();
   }

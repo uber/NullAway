@@ -2675,7 +2675,9 @@ public class NullAway extends BugChecker
       boolean isField = derefedSymbol != null && derefedSymbol.getKind() == ElementKind.FIELD;
       boolean isParameter =
           derefedSymbol != null && derefedSymbol.getKind() == ElementKind.PARAMETER;
-      String type = isField ? "field" : isParameter ? "parameter" : "local_variable";
+      boolean isMethod = derefedSymbol != null && derefedSymbol.getKind() == ElementKind.METHOD;
+      String type =
+          isField ? "field" : isParameter ? "parameter" : isMethod ? "method" : "local_variable";
       String message =
           "dereferenced expression "
               + state.getSourceForNode(baseExpression)
