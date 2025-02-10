@@ -73,8 +73,13 @@ final class GenericTypePrettyPrintingVisitor extends Types.DefaultTypeVisitor<St
 
   @Override
   public String visitArrayType(Type.ArrayType t, Void unused) {
-    // TODO properly print cases like int @Nullable[]
-    return t.elemtype.accept(this, null) + "[]";
+    StringBuilder sb = new StringBuilder();
+    sb.append(t.elemtype.accept(this, null));
+    for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
+      sb.append(" @");
+      sb.append(compound.type.accept(this, null));
+    }
+    return sb.append(" []").toString();
   }
 
   @Override
