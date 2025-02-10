@@ -1664,6 +1664,7 @@ public class NullAway extends BugChecker
       class2Entities.clear();
       class2ConstructorUninit.clear();
       computedNullnessMap.clear();
+      genericsChecks.clearCache();
       EnclosingEnvironmentNullness.instance(state.context).clear();
     } else if (classAnnotationIntroducesPartialMarking(classSymbol)) {
       // Handle the case where the top-class is unannotated, but there is a @NullMarked annotation

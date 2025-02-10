@@ -1263,6 +1263,10 @@ public final class GenericsChecks {
     return callingUnannotated;
   }
 
+  public void clearCache() {
+    inferredTypes.clear();
+  }
+
   public static boolean isNullableAnnotated(Type type, Config config) {
     return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }
