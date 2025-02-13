@@ -730,13 +730,14 @@ public final class GenericsChecks {
       }
       if (enclosingType != null) {
         invokedMethodType =
-            TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol);
+            TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
       }
     }
     // substitute type arguments for generic methods
     if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
       invokedMethodType =
-          substituteTypeArgsInGenericMethodType((MethodInvocationTree) tree, methodSymbol, state);
+          substituteTypeArgsInGenericMethodType(
+              (MethodInvocationTree) tree, methodSymbol, state, config);
     }
     List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
     int n = formalParamTypes.size();
@@ -802,7 +803,7 @@ public final class GenericsChecks {
     // method's class
     Type methodWithTypeParams =
         TypeSubstitutionUtils.memberType(
-            state.getTypes(), overridingMethod.owner.type, overriddenMethod);
+            state.getTypes(), overridingMethod.owner.type, overriddenMethod, analysis.getConfig());
 
     checkTypeParameterNullnessForOverridingMethodReturnType(
         tree, methodWithTypeParams, analysis, state);
@@ -882,7 +883,7 @@ public final class GenericsChecks {
       return Nullness.NONNULL;
     }
     Type overriddenMethodType =
-        TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method);
+        TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method, config);
     verify(
         overriddenMethodType instanceof ExecutableType,
         "expected ExecutableType but instead got %s",
@@ -931,7 +932,8 @@ public final class GenericsChecks {
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute type arguments inside the return type
       Type substitutedReturnType =
-          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state).getReturnType();
+          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state, config)
+              .getReturnType();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedReturnType != null
@@ -971,12 +973,14 @@ public final class GenericsChecks {
    * @param methodInvocationTree the method invocation tree
    * @param methodSymbol symbol for the invoked generic method
    * @param state the visitor state
+   * @param config the NullAway config
    * @return the substituted method type for the generic method
    */
   private static Type substituteTypeArgsInGenericMethodType(
       MethodInvocationTree methodInvocationTree,
       Symbol.MethodSymbol methodSymbol,
-      VisitorState state) {
+      VisitorState state,
+      Config config) {
 
     List<? extends Tree> typeArgumentTrees = methodInvocationTree.getTypeArguments();
     com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
@@ -984,7 +988,7 @@ public final class GenericsChecks {
     Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
     Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
     return TypeSubstitutionUtils.subst(
-        state.getTypes(), underlyingMethodType, forAllType.tvars, explicitTypeArgs);
+        state.getTypes(), underlyingMethodType, forAllType.tvars, explicitTypeArgs, config);
   }
 
   /**
@@ -1032,7 +1036,7 @@ public final class GenericsChecks {
       // Substitute the argument types within the MethodType
       // NOTE: if explicitTypeArgs is empty, this is a noop
       List<Type> substitutedParamTypes =
-          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state)
+          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state, config)
               .getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
@@ -1133,7 +1137,8 @@ public final class GenericsChecks {
       // @Nullable annotation is handled elsewhere)
       return Nullness.NONNULL;
     }
-    Type methodType = TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method);
+    Type methodType =
+        TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method, config);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getTypeNullness(paramType, config);
   }
