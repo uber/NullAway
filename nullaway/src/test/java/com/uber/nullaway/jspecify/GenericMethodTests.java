@@ -216,6 +216,32 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nullableAnnotOnMethodTypeVarUse() {
+    makeHelper()
+        .addSourceLines(
+            "GenericMethod.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "public abstract class GenericMethod {",
+            "    abstract <V> @Nullable V foo(",
+            "            Function<@Nullable V, @Nullable V> f);",
+            "    void testNegative(Function<@Nullable String, @Nullable String> f) {",
+            "        this.<String>foo(f);",
+            "    }",
+            "    void testPositive(Function<String, String> f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<String, String>, as formal parameter has type",
+            "        this.<String>foo(f);",
+            "    }",
+            "    void testPositive2(Function<@Nullable String, @Nullable String> f) {",
+            "        // BUG: Diagnostic contains: dereferenced expression this.<String>foo(f) is @Nullable",
+            "        this.<String>foo(f).hashCode();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

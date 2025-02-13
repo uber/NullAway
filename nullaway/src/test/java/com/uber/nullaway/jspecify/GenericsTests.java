@@ -2064,6 +2064,108 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableAnnotOnClassTypeVarUse() {
+    makeHelper()
+        .addSourceLines(
+            "Generics.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "public abstract class Generics<V> {",
+            "    abstract void foo(",
+            "            Function<@Nullable V, @Nullable V> f);",
+            "    void testNegative(Function<@Nullable V, @Nullable V> f) {",
+            "        foo(f);",
+            "    }",
+            "    void testPositive(Function<V, V> f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<V, V>, as formal parameter has type",
+            "        foo(f);",
+            "    }",
+            "    abstract void takesArray(Function<@Nullable V, @Nullable V>[] f);",
+            "    void testNegativeArray(Function<@Nullable V, @Nullable V>[] f) {",
+            "        takesArray(f);",
+            "    }",
+            "    void testPositiveArray(Function<V, V>[] f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<V, V> [], as formal parameter has type",
+            "        takesArray(f);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nonnullAnnotOnClassTypeVarUse() {
+    makeHelper()
+        .addSourceLines(
+            "Generics.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jspecify.annotations.NonNull;",
+            "import java.util.function.Function;",
+            "public abstract class Generics {",
+            "    abstract <V extends @Nullable Object> void foo(",
+            "            Function<@NonNull V, @NonNull V> f);",
+            "    void testPositive(Function<@Nullable String, @Nullable String> f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<@Nullable String, @Nullable String>, as formal parameter has type",
+            "        this.<@Nullable String>foo(f);",
+            "    }",
+            "    void testPositiveArray(Function<String @Nullable [], String @Nullable []> f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<String @Nullable [], String @Nullable []>, as formal parameter has type",
+            "        this.<String @Nullable []>foo(f);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableAnnotOnClassTypeVarUseMixed() {
+    makeHelper()
+        .addSourceLines(
+            "Generics.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "public abstract class Generics<V> {",
+            "    abstract void foo(",
+            "            Function<V, @Nullable V> f);",
+            "    void testNegative(Function<V, @Nullable V> f) {",
+            "        foo(f);",
+            "    }",
+            "    void testPositive1(Function<@Nullable V, V> f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<@org.jspecify.annotations.Nullable V, V>",
+            "        foo(f);",
+            "    }",
+            "    void testPositive2(Function<V, V> f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<V, V>, as formal parameter has type",
+            "        foo(f);",
+            "    }",
+            "    void testPositive3(Function<@Nullable V, @Nullable V> f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<@org.jspecify.annotations.Nullable V, @org.jspecify.annotations.Nullable V>, as formal parameter has type",
+            "        foo(f);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableAnnotOnClassTypeVarWildcardUse() {
+    makeHelper()
+        .addSourceLines(
+            "Generics.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "public abstract class Generics<V> {",
+            "    abstract void foo(",
+            "            Function<? extends @Nullable V, ? extends @Nullable V> f);",
+            "    void test(Function<? extends @Nullable V, ? extends @Nullable V> f) {",
+            "        foo(f);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void issue1093() {
     makeHelper()
         .addSourceLines(
