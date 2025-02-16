@@ -2681,6 +2681,8 @@ public class NullAway extends BugChecker
       String message =
           "dereferenced expression "
               + state.getSourceForNode(baseExpression)
+              + ":"
+              + ((JCTree) baseExpression).pos().getStartPosition()
               + " is @Nullable --- "
               + type
               + " --- "
@@ -2690,7 +2692,6 @@ public class NullAway extends BugChecker
               + " --- "
               + Serializer.serializeSymbol(derefedSymbol, adapter);
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
-
       return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage, baseExpression, buildDescription(derefExpression), state, null);
     }
