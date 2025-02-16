@@ -62,6 +62,8 @@ public interface SymbolLocation {
         return new MethodLocation(target);
       case FIELD:
         return new FieldLocation(target);
+      case LOCAL_VARIABLE:
+        return new LocalVariableLocation(target);
       default:
         throw new IllegalArgumentException("Cannot locate node: " + target);
     }

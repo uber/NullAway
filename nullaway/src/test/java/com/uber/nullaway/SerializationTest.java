@@ -2168,4 +2168,46 @@ public class SerializationTest extends NullAwayTestsBase {
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
+
+  @Test
+  public void errorSerializationTestArrayComponentNullLocalVariable() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/A.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class A {",
+            "  void spin() {",
+            "    String [] foo = {\"SomeRandomWords\"};",
+            "    // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
+            "    foo[1] = null;",
+            "  }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "ASSIGN_NULLABLE_TO_NONNULL_ARRAY",
+                "Writing @Nullable expression into array with @NonNull contents.",
+                "com.uber.A",
+                "spin()",
+                235,
+                "com/uber/A.java",
+                "LOCAL_VARIABLE",
+                "com.uber.A",
+                "spin()",
+                "foo",
+                "null",
+                "com/uber/A.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
 }
