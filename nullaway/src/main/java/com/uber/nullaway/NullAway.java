@@ -1773,10 +1773,26 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     ExpressionTree expr = tree.getExpression();
-    ErrorMessage errorMessage =
-        new ErrorMessage(
-            MessageTypes.DEREFERENCE_NULLABLE,
-            "enhanced-for expression " + state.getSourceForNode(expr) + " is @Nullable");
+    Symbol derefedSymbol = ASTHelpers.getSymbol(expr);
+    boolean isField = derefedSymbol != null && derefedSymbol.getKind() == ElementKind.FIELD;
+    boolean isParameter = derefedSymbol != null && derefedSymbol.getKind() == ElementKind.PARAMETER;
+    boolean isMethod = derefedSymbol != null && derefedSymbol.getKind() == ElementKind.METHOD;
+    String type =
+        isField ? "field" : isParameter ? "parameter" : isMethod ? "method" : "local_variable";
+    String message =
+        "enhanced-for expression "
+            + state.getSourceForNode(expr)
+            + " is @Nullable --- "
+            + type
+            + " --- "
+            + Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter)
+            + " --- "
+            + !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler)
+            + " --- "
+            + Serializer.serializeSymbol(derefedSymbol, adapter)
+            + " --- "
+            + ((JCTree) expr).pos().getStartPosition();
+    ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
     if (mayBeNullExpr(state, expr)) {
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(expr), state, null);
     }
