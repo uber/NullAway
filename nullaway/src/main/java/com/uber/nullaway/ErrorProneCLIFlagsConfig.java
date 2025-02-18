@@ -178,7 +178,9 @@ final class ErrorProneCLIFlagsConfig implements Config {
           "org.checkerframework.checker.nullness.qual.MonotonicNonNull",
           "org.springframework.beans.factory.annotation.Autowired",
           "org.springframework.boot.test.mock.mockito.MockBean",
-          "org.springframework.boot.test.mock.mockito.SpyBean");
+          "org.springframework.boot.test.mock.mockito.SpyBean",
+          "org.springframework.test.context.bean.override.mockito.MockitoBean",
+          "org.springframework.test.context.bean.override.mockito.MockitoSpyBean");
 
   private static final String DEFAULT_URL = "http://t.uber.com/nullaway";
 
