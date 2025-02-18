@@ -2210,4 +2210,130 @@ public class SerializationTest extends NullAwayTestsBase {
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
+
+  @Test
+  public void errorSerializationTestArrayComponentNullLocalVariableLambda() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/A.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class A {",
+            "  A a = new A();",
+            "  public void f() {",
+            "    final Object[] l = new Object[10];",
+            "    class B {",
+            "      void b() {",
+            "        // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
+            "        l[0] = null;",
+            "      }",
+            "      void shadowInLambda() {",
+            "        final Object[] l = new Object[10];",
+            "        a.exec(",
+            "                () -> {",
+            "                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
+            "                  l[0] = null;",
+            "                });",
+            "      }",
+            "      void useFieldInLambda(A a) {",
+            "        a.exec(",
+            "                () -> {",
+            "                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
+            "                  l[0] = null;",
+            "                });",
+            "      }",
+            "    }",
+            "    a.exec(new Runnable() {",
+            "      @Override",
+            "      public void run() {",
+            "        // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
+            "        l[0] = null;",
+            "      }",
+            "    });",
+            "    // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
+            "    l[0] = null;",
+            "  }",
+            "  void exec(Runnable runnable) {",
+            "    runnable.run();",
+            "  }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "ASSIGN_NULLABLE_TO_NONNULL_ARRAY",
+                "Writing @Nullable expression into array with @NonNull contents.",
+                "com.uber.A$1B",
+                "b()",
+                293,
+                "com/uber/A.java",
+                "LOCAL_VARIABLE",
+                "com.uber.A",
+                "f()",
+                "l",
+                "null",
+                "com/uber/A.java"),
+            new ErrorDisplay(
+                "ASSIGN_NULLABLE_TO_NONNULL_ARRAY",
+                "Writing @Nullable expression into array with @NonNull contents.",
+                "com.uber.A$1B",
+                "shadowInLambda()",
+                556,
+                "com/uber/A.java",
+                "LOCAL_VARIABLE",
+                "com.uber.A$1B",
+                "shadowInLambda()",
+                "l",
+                "null",
+                "com/uber/A.java"),
+            new ErrorDisplay(
+                "ASSIGN_NULLABLE_TO_NONNULL_ARRAY",
+                "Writing @Nullable expression into array with @NonNull contents.",
+                "com.uber.A$1B",
+                "useFieldInLambda(com.uber.A)",
+                801,
+                "com/uber/A.java",
+                "LOCAL_VARIABLE",
+                "com.uber.A",
+                "f()",
+                "l",
+                "null",
+                "com/uber/A.java"),
+            new ErrorDisplay(
+                "ASSIGN_NULLABLE_TO_NONNULL_ARRAY",
+                "Writing @Nullable expression into array with @NonNull contents.",
+                "com.uber.A$1",
+                "run()",
+                1027,
+                "com/uber/A.java",
+                "LOCAL_VARIABLE",
+                "com.uber.A",
+                "f()",
+                "l",
+                "null",
+                "com/uber/A.java"),
+            new ErrorDisplay(
+                "ASSIGN_NULLABLE_TO_NONNULL_ARRAY",
+                "Writing @Nullable expression into array with @NonNull contents.",
+                "com.uber.A",
+                "f()",
+                1157,
+                "com/uber/A.java",
+                "LOCAL_VARIABLE",
+                "com.uber.A",
+                "f()",
+                "l",
+                "null",
+                "com/uber/A.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
 }
