@@ -22,7 +22,6 @@
 
 package com.uber.nullaway.fixserialization.location;
 
-import com.google.common.base.Preconditions;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
@@ -40,15 +39,7 @@ public class LocalVariableLocation extends AbstractSymbolLocation {
   public LocalVariableLocation(Symbol target) {
     super(ElementKind.LOCAL_VARIABLE, target);
     this.localVariableSymbol = (Symbol.VarSymbol) target;
-    Symbol cursor = target;
-    // Look for the enclosing method.
-    while (cursor != null
-        && cursor.getKind() != ElementKind.CONSTRUCTOR
-        && cursor.getKind() != ElementKind.METHOD) {
-      cursor = cursor.owner;
-    }
-    Preconditions.checkNotNull(cursor);
-    this.enclosingMethod = (Symbol.MethodSymbol) cursor;
+    this.enclosingMethod = (Symbol.MethodSymbol) target.owner;
   }
 
   @Override
