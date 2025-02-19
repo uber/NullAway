@@ -30,20 +30,17 @@ import javax.lang.model.element.ElementKind;
 /** subtype of {@link AbstractSymbolLocation} targeting local variables. */
 public class LocalVariableLocation extends AbstractSymbolLocation {
 
-  /** Symbol of the targeted method. */
-  private final Symbol.MethodSymbol enclosingMethod;
-
   /** Symbol of the targeted local variable. */
   private final Symbol.VarSymbol localVariableSymbol;
 
   public LocalVariableLocation(Symbol target) {
     super(ElementKind.LOCAL_VARIABLE, target);
     this.localVariableSymbol = (Symbol.VarSymbol) target;
-    this.enclosingMethod = (Symbol.MethodSymbol) target.owner;
   }
 
   @Override
   public String tabSeparatedToString(SerializationAdapter adapter) {
+    Symbol.MethodSymbol enclosingMethod = (Symbol.MethodSymbol) localVariableSymbol.owner;
     return String.join(
         "\t",
         type.toString(),
