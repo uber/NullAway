@@ -62,6 +62,21 @@ public interface SymbolLocation {
         return new MethodLocation(target);
       case FIELD:
         return new FieldLocation(target);
+      // The case where a local variable is declared inside a lambda expression is currently not
+      // handled. This will require changes to how LocalVariableLocation is created.
+      // An example of the case :
+      // void shadowInLambda() {
+      //   Object[] l = new Object[12];
+      //   a.exec(
+      //           () -> {
+      //             Object[] l = new Object[10];
+      //             // BUG: Diagnostic contains: Writing @Nullable expression into array with
+      // @NonNull contents.
+      //             l[0] = null;
+      //           });
+      // }
+      case LOCAL_VARIABLE:
+        return new LocalVariableLocation(target);
       default:
         throw new IllegalArgumentException("Cannot locate node: " + target);
     }
