@@ -388,6 +388,8 @@ public class FrameworkTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceFile("testdata/springboot-annotations/MockBean.java")
         .addSourceFile("testdata/springboot-annotations/SpyBean.java")
+        .addSourceFile("testdata/springboot-annotations/MockitoBean.java")
+        .addSourceFile("testdata/springboot-annotations/MockitoSpyBean.java")
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
@@ -406,7 +408,13 @@ public class FrameworkTests extends NullAwayTestsBase {
             "import org.junit.jupiter.api.Test;",
             "import org.springframework.boot.test.mock.mockito.SpyBean;",
             "import org.springframework.boot.test.mock.mockito.MockBean;",
+            "import org.springframework.test.context.bean.override.mockito.MockitoBean;",
+            "import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;",
             "public class TestCase {",
+            "  @MockitoSpyBean",
+            "  private Foo sf62Spy;", // Initialized by spring test (via Mockito).
+            "  @MockitoBean",
+            "  private Foo sf62Mock;", // Initialized by spring test (via Mockito).
             "  @SpyBean",
             "  private Foo spy;", // Initialized by spring test (via Mockito).
             "  @MockBean",
@@ -415,6 +423,8 @@ public class FrameworkTests extends NullAwayTestsBase {
             "  void springTest() {",
             "    spy.setBar(\"hello\");",
             "    mock.setBar(\"hello\");",
+            "    sf62Spy.setBar(\"hello\");",
+            "    sf62Mock.setBar(\"hello\");",
             "  }",
             "}")
         .doTest();
