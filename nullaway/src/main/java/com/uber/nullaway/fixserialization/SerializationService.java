@@ -78,16 +78,19 @@ public class SerializationService {
    * @param state Visitor state.
    * @param errorTree Tree of the element involved in the reporting error.
    * @param errorMessage Error caused by the target.
+   * @param args Arguments to be passed to the error message to automatically generate a fix.
    */
   public static void serializeReportingError(
       Config config,
       VisitorState state,
       Tree errorTree,
       @Nullable Symbol target,
-      ErrorMessage errorMessage) {
+      ErrorMessage errorMessage,
+      Object[] args) {
     Serializer serializer = config.getSerializationConfig().getSerializer();
     Preconditions.checkNotNull(
         serializer, "Serializer shouldn't be null at this point, error in configuration setting!");
-    serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorTree, errorMessage, target));
+    serializer.serializeErrorInfo(
+        new ErrorInfo(state.getPath(), errorTree, errorMessage, target, args));
   }
 }

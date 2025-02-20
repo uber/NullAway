@@ -1779,22 +1779,20 @@ public class NullAway extends BugChecker
     boolean isMethod = derefedSymbol != null && derefedSymbol.getKind() == ElementKind.METHOD;
     String type =
         isField ? "field" : isParameter ? "parameter" : isMethod ? "method" : "local_variable";
-    String message =
-        "enhanced-for expression "
-            + state.getSourceForNode(expr)
-            + " is @Nullable --- "
-            + type
-            + " --- "
-            + Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter)
-            + " --- "
-            + !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler)
-            + " --- "
-            + Serializer.serializeSymbol(derefedSymbol, adapter)
-            + " --- "
-            + ((JCTree) expr).pos().getStartPosition();
+    Object[] args =
+        new Object[] {
+          state.getSourceForNode(expr),
+          type,
+          Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter),
+          !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler),
+          Serializer.serializeSymbol(derefedSymbol, adapter),
+          ((JCTree) expr).pos().getStartPosition()
+        };
+    String message = "enhanced-for expression " + state.getSourceForNode(expr) + " is @Nullable";
     ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
     if (mayBeNullExpr(state, expr)) {
-      return errorBuilder.createErrorDescription(errorMessage, buildDescription(expr), state, null);
+      return errorBuilder.createErrorDescriptionWithInfo(
+          errorMessage, buildDescription(expr), state, null, args);
     }
     return Description.NO_MATCH;
   }
@@ -2694,22 +2692,20 @@ public class NullAway extends BugChecker
       boolean isMethod = derefedSymbol != null && derefedSymbol.getKind() == ElementKind.METHOD;
       String type =
           isField ? "field" : isParameter ? "parameter" : isMethod ? "method" : "local_variable";
+      Object[] args =
+          new Object[] {
+            state.getSourceForNode(baseExpression),
+            type,
+            Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter),
+            !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler),
+            Serializer.serializeSymbol(derefedSymbol, adapter),
+            ((JCTree) baseExpression).pos().getStartPosition()
+          };
       String message =
-          "dereferenced expression "
-              + state.getSourceForNode(baseExpression)
-              + " is @Nullable --- "
-              + type
-              + " --- "
-              + Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter)
-              + " --- "
-              + !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler)
-              + " --- "
-              + Serializer.serializeSymbol(derefedSymbol, adapter)
-              + " --- "
-              + ((JCTree) baseExpression).pos().getStartPosition();
+          "dereferenced expression " + state.getSourceForNode(baseExpression) + " is @Nullable";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
-      return errorBuilder.createErrorDescriptionForNullAssignment(
-          errorMessage, baseExpression, buildDescription(derefExpression), state, null);
+      return errorBuilder.createErrorDescriptionForNullAssignmentWithInfo(
+          errorMessage, baseExpression, buildDescription(derefExpression), state, null, args);
     }
 
     Optional<ErrorMessage> handlerErrorMessage =

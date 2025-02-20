@@ -59,8 +59,15 @@ public class ErrorInfo {
   /** Path to the containing source file where this error is reported. */
   private final @Nullable Path path;
 
+  /** Extra argument regarding the error required to generate a fix automatically. */
+  private final Object[] infos;
+
   public ErrorInfo(
-      TreePath path, Tree errorTree, ErrorMessage errorMessage, @Nullable Symbol nonnullTarget) {
+      TreePath path,
+      Tree errorTree,
+      ErrorMessage errorMessage,
+      @Nullable Symbol nonnullTarget,
+      Object[] args) {
     this.classAndMemberInfo =
         (errorMessage.getMessageType().equals(FIELD_NO_INIT)
                 || errorMessage.getMessageType().equals(METHOD_NO_INIT))
@@ -72,6 +79,7 @@ public class ErrorInfo {
     this.offset = treePosition.getStartPosition();
     this.path =
         Serializer.pathToSourceFileFromURI(path.getCompilationUnit().getSourceFile().toUri());
+    this.infos = args;
   }
 
   /**
@@ -133,5 +141,14 @@ public class ErrorInfo {
   /** Finds the class and member of program point where the error is reported. */
   public void initEnclosing() {
     classAndMemberInfo.findValues();
+  }
+
+  /**
+   * Returns the extra arguments regarding the error required to generate a fix automatically.
+   *
+   * @return Extra arguments regarding the error required to generate a fix automatically.
+   */
+  public Object[] getInfos() {
+    return infos;
   }
 }

@@ -31,7 +31,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
-import com.uber.nullaway.fixserialization.adapters.SerializationV3Adapter;
+import com.uber.nullaway.fixserialization.adapters.SerializationV4Adapter;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.tools.DisplayFactory;
 import com.uber.nullaway.tools.ErrorDisplay;
@@ -63,7 +63,7 @@ public class SerializationTest extends NullAwayTestsBase {
 
   private static final String ERROR_FILE_NAME = "errors.tsv";
   private static final String ERROR_FILE_HEADER =
-      new SerializationV3Adapter().getErrorsOutputFileHeader();
+      new SerializationV4Adapter().getErrorsOutputFileHeader();
   private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
   private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
 
@@ -71,8 +71,9 @@ public class SerializationTest extends NullAwayTestsBase {
     this.errorDisplayFactory =
         values -> {
           Preconditions.checkArgument(
-              values.length == 12,
-              "Needs exactly 12 values to create ErrorDisplay object but found: " + values.length);
+              values.length == 12 || values.length == 13,
+              "Needs exactly 12 or 13 values to create ErrorDisplay object but found: "
+                  + values.length);
           return new ErrorDisplay(
               values[0],
               values[1],
@@ -2210,7 +2211,7 @@ public class SerializationTest extends NullAwayTestsBase {
         .setExpectedOutputs(
             new ErrorDisplay(
                 "DEREFERENCE_NULLABLE",
-                "dereferenced expression f is @Nullable --- field --- com.uber.Foo",
+                "dereferenced expression f is @Nullable",
                 "com.uber.Foo",
                 "bar()",
                 246,

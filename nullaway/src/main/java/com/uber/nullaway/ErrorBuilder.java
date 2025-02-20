@@ -98,8 +98,34 @@ public class ErrorBuilder {
       VisitorState state,
       @Nullable Symbol nonNullTarget) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
-    return createErrorDescription(
-        errorMessage, enclosingSuppressTree, descriptionBuilder, state, nonNullTarget);
+    return createErrorDescriptionWithInfo(
+        errorMessage,
+        enclosingSuppressTree,
+        descriptionBuilder,
+        state,
+        nonNullTarget,
+        new Object[] {});
+  }
+
+  /**
+   * create an error description for a nullability warning
+   *
+   * @param errorMessage the error message object.
+   * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state (used for e.g. suppression finding).
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
+   * @return the error description
+   */
+  public Description createErrorDescriptionWithInfo(
+      ErrorMessage errorMessage,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
+      @Nullable Symbol nonNullTarget,
+      Object[] args) {
+    Tree enclosingSuppressTree = suppressibleNode(state.getPath());
+    return createErrorDescriptionWithInfo(
+        errorMessage, enclosingSuppressTree, descriptionBuilder, state, nonNullTarget, args);
   }
 
   /**
@@ -119,6 +145,17 @@ public class ErrorBuilder {
       Description.Builder descriptionBuilder,
       VisitorState state,
       @Nullable Symbol nonNullTarget) {
+    return createErrorDescriptionWithInfo(
+        errorMessage, suggestTree, descriptionBuilder, state, nonNullTarget, new Object[] {});
+  }
+
+  public Description createErrorDescriptionWithInfo(
+      ErrorMessage errorMessage,
+      @Nullable Tree suggestTree,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
+      @Nullable Symbol nonNullTarget,
+      Object[] args) {
     Description.Builder builder = descriptionBuilder.setMessage(errorMessage.message);
     String checkName = CORE_CHECK_NAME;
     if (errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)) {
@@ -151,7 +188,7 @@ public class ErrorBuilder {
               ? suggestTree
               : state.getPath().getLeaf();
       SerializationService.serializeReportingError(
-          config, state, errorTree, nonNullTarget, errorMessage);
+          config, state, errorTree, nonNullTarget, errorMessage, args);
     }
 
     // #letbuildersbuild
@@ -245,23 +282,40 @@ public class ErrorBuilder {
    *     expression into a @NonNull target, and this parameter is the Symbol for that target.
    * @return the error description.
    */
+  Description createErrorDescriptionForNullAssignmentWithInfo(
+      ErrorMessage errorMessage,
+      @Nullable Tree suggestTreeIfCastToNonNull,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
+      @Nullable Symbol nonNullTarget,
+      Object[] args) {
+    if (config.getCastToNonNullMethod() != null) {
+      return createErrorDescriptionWithInfo(
+          errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state, nonNullTarget, args);
+    } else {
+      return createErrorDescriptionWithInfo(
+          errorMessage,
+          suppressibleNode(state.getPath()),
+          descriptionBuilder,
+          state,
+          nonNullTarget,
+          args);
+    }
+  }
+
   Description createErrorDescriptionForNullAssignment(
       ErrorMessage errorMessage,
       @Nullable Tree suggestTreeIfCastToNonNull,
       Description.Builder descriptionBuilder,
       VisitorState state,
       @Nullable Symbol nonNullTarget) {
-    if (config.getCastToNonNullMethod() != null) {
-      return createErrorDescription(
-          errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state, nonNullTarget);
-    } else {
-      return createErrorDescription(
-          errorMessage,
-          suppressibleNode(state.getPath()),
-          descriptionBuilder,
-          state,
-          nonNullTarget);
-    }
+    return createErrorDescriptionForNullAssignmentWithInfo(
+        errorMessage,
+        suggestTreeIfCastToNonNull,
+        descriptionBuilder,
+        state,
+        nonNullTarget,
+        new String[] {});
   }
 
   Description.Builder addSuppressWarningsFix(
