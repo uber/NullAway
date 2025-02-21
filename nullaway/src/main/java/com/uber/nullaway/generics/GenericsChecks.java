@@ -438,25 +438,12 @@ public final class GenericsChecks {
             && lhsType != null
             && !lhsType.getTypeArguments().isEmpty()) { // lhs type has generic
           if (lhsType != null) {
-            List<Symbol.TypeVariableSymbol> typeParam = methodSymbol.getTypeParameters();
-            List<Type> returnTypeTypeArg = methodSymbol.getReturnType().getTypeArguments();
-
-            // if generic type in return type
-            Map<Type, Type> genericNullness = new HashMap<>();
-            for (int i = 0; i < typeParam.size(); i++) {
-              Type curTypeParam = typeParam.get(i).type;
-              Type upperBound = curTypeParam.getUpperBound();
-              // generic has nullable upperbound
-              if (getTypeNullness(upperBound, analysis.getConfig()) == Nullness.NULLABLE) {
-                Type lhsInferredType =
-                    inferMethodTypeArgument(
-                        curTypeParam, lhsType.getTypeArguments(), returnTypeTypeArg, state);
-                if (lhsInferredType != null) {
-                  genericNullness.put(curTypeParam, lhsInferredType);
-                }
-              }
+            Type returnType = methodSymbol.getReturnType();
+            @Nullable Map<Type, Type> genericNullness =
+                returnType.accept(new InferTypeVisitor(config), lhsType);
+            if (genericNullness != null) {
+              inferredTypes.put(rhsTree, genericNullness);
             }
-            inferredTypes.put(rhsTree, genericNullness);
           }
         }
       }
@@ -494,79 +481,6 @@ public final class GenericsChecks {
       }
     }
   }
-
-  /**
-   * For a type variable, it looks into a set of actual type arguments and type parameters to find
-   * the type that the type variable can infer to.
-   *
-   * @param typeVariable The type variable that we are looking for to infer
-   * @param actualTypeArg List of actual type arguments that will be used to infer types
-   * @param typeParameters List of type parameters
-   * @param state The visitor state
-   * @return The inferred type or null if typeParameters doesn't contain the type variable
-   */
-  private @Nullable Type inferMethodTypeArgument(
-      Type typeVariable, List<Type> actualTypeArg, List<Type> typeParameters, VisitorState state) {
-
-    // for each type variables
-    for (int i = 0; i < typeParameters.size(); i++) {
-      Type type = typeParameters.get(i);
-      // base case: found type to infer to
-      if (state.getTypes().isSameType(typeVariable, type)) {
-        return actualTypeArg.get(i);
-      } else if (!type.getTypeArguments().isEmpty()) { // recursive case: generic class type
-        Type inferType =
-            inferMethodTypeArgument(
-                typeVariable,
-                actualTypeArg.get(i).getTypeArguments(),
-                type.getTypeArguments(),
-                state);
-        if (inferType != null) {
-          return inferType;
-        }
-      }
-    }
-    // base case: typeParameters doesn't contain typeVariable
-    return null;
-  }
-
-  //  /**
-  //   * Replaces the currentType to inferred types in genericNullness.
-  //   *
-  //   * @param currentType Current type that will be replaced with inferred types.
-  //   * @param typeWithGenerics The type of {@code currentType}
-  //   * @param genericNullness A map that contains type variables and their inferred types
-  //   * @return Replaced {@code currentType} if needed
-  //   */
-  //  private Type replaceGenerics(Type currentType, Type typeWithGenerics, Map<Type, Type> genericNullness) {
-  //    // base case
-  //    if (genericNullness.containsKey(typeWithGenerics)) { // type is generic
-  //      return genericNullness.get(typeWithGenerics);
-  //    }
-  //    if (typeWithGenerics.getTypeArguments().isEmpty()) { // does not have a generic type
-  // argument
-  //      return currentType;
-  //    }
-  //
-  //    // recursive case
-  //    List<Type> newTypeArgument = new ArrayList<>();
-  //    for (int i = 0; i < typeWithGenerics.getTypeArguments().size(); i++) {
-  //      Type newType =
-  //          replaceGenerics(
-  //              currentType.getTypeArguments().get(i),
-  //              typeWithGenerics.getTypeArguments().get(i),
-  //              genericNullness);
-  //      newTypeArgument.add(newType);
-  //    }
-  //
-  //    Type.ClassType curClassType = (Type.ClassType) currentType;
-  //    Type.ClassType updatedType =
-  //        new Type.ClassType(
-  //            curClassType.getEnclosingType(),
-  //            com.sun.tools.javac.util.List.from(newTypeArgument),
-  //            curClassType.tsym);
-  //    return updatedType;
-  //  }
 
   /**
    * Checks that the nullability of type parameters for a returned expression matches that of the
