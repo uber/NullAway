@@ -435,15 +435,12 @@ public final class GenericsChecks {
         // update inferredTypes cache for assignments
         if (methodSymbol.type instanceof Type.ForAll // generic method call
             && methodInvocationTree.getTypeArguments().isEmpty() // no explicit generic arguments
-            && lhsType != null
-            && !lhsType.getTypeArguments().isEmpty()) { // lhs type has generic
-          if (lhsType != null) {
-            Type returnType = methodSymbol.getReturnType();
-            @Nullable Map<Type, Type> genericNullness =
-                returnType.accept(new InferTypeVisitor(config), lhsType);
-            if (genericNullness != null) {
-              inferredTypes.put(rhsTree, genericNullness);
-            }
+            && lhsType != null) {
+          Type returnType = methodSymbol.getReturnType();
+          @Nullable Map<Type, Type> genericNullness =
+              returnType.accept(new InferTypeVisitor(config), lhsType);
+          if (genericNullness != null) {
+            inferredTypes.put(rhsTree, genericNullness);
           }
         }
       }
@@ -458,20 +455,18 @@ public final class GenericsChecks {
     }
     Type rhsType = getTreeType(rhsTree, config);
 
-    if (rhsType != null && !rhsType.getTypeArguments().isEmpty()) {
-      if (rhsTree instanceof MethodInvocationTree) {
-        // recreate rhsType using inferred types
-        Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) rhsTree);
-        if (inferredTypes.containsKey(rhsTree)) {
-          Map<Type, Type> genericNullness = inferredTypes.get(rhsTree);
-          com.sun.tools.javac.util.List<Type> from =
-              com.sun.tools.javac.util.List.from(genericNullness.keySet());
-          com.sun.tools.javac.util.List<Type> to =
-              com.sun.tools.javac.util.List.from(genericNullness.values());
-          rhsType =
-              TypeSubstitutionUtils.subst(
-                  state.getTypes(), methodSymbol.getReturnType(), from, to, config);
-        }
+    if (rhsType != null && rhsTree instanceof MethodInvocationTree) {
+      // recreate rhsType using inferred types
+      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) rhsTree);
+      if (inferredTypes.containsKey(rhsTree)) {
+        Map<Type, Type> genericNullness = inferredTypes.get(rhsTree);
+        com.sun.tools.javac.util.List<Type> from =
+            com.sun.tools.javac.util.List.from(genericNullness.keySet());
+        com.sun.tools.javac.util.List<Type> to =
+            com.sun.tools.javac.util.List.from(genericNullness.values());
+        rhsType =
+            TypeSubstitutionUtils.subst(
+                state.getTypes(), methodSymbol.getReturnType(), from, to, config);
       }
     }
 

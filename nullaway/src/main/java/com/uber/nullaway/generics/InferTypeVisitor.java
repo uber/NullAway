@@ -21,7 +21,8 @@ public class InferTypeVisitor extends Types.DefaultTypeVisitor<@Nullable Map<Typ
     Map<Type, Type> genericNullness = new HashMap<>();
     // for each type parameter, call accept with this visitor and add all results to one map
     com.sun.tools.javac.util.List<Type> rhsTypeArguments = rhsType.getTypeArguments();
-    com.sun.tools.javac.util.List<Type> lhsTypeArguments = lhsType.getTypeArguments();
+    com.sun.tools.javac.util.List<Type> lhsTypeArguments =
+        ((Type.ClassType) lhsType).getTypeArguments();
     for (int i = 0; i < rhsTypeArguments.size(); i++) {
       Type rhsTypeArg = rhsTypeArguments.get(i);
       Type lhsTypeArg = lhsTypeArguments.get(i);
@@ -49,6 +50,14 @@ public class InferTypeVisitor extends Types.DefaultTypeVisitor<@Nullable Map<Typ
     } else { // rhs can't be nullable, use upperbound
       genericNullness.put(rhsType, upperBound);
     }
+    return genericNullness;
+  }
+
+  @Override
+  public @Nullable Map<Type, Type> visitArrayType(Type.ArrayType rhsType, Type lhsType) {
+    Type rhsComponentType = rhsType.elemtype;
+    Type lhsComponentType = ((Type.ArrayType) lhsType).elemtype;
+    Map<Type, Type> genericNullness = rhsComponentType.accept(this, lhsComponentType);
     return genericNullness;
   }
 
