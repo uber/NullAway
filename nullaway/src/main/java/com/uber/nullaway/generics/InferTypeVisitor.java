@@ -8,6 +8,9 @@ import java.util.HashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
+/**
+ * Visitor that uses two types to infer the type of type variables.
+ */
 public class InferTypeVisitor extends Types.DefaultTypeVisitor<@Nullable Map<Type, Type>, Type> {
   private final Config config;
 
@@ -24,6 +27,7 @@ public class InferTypeVisitor extends Types.DefaultTypeVisitor<@Nullable Map<Typ
     for (int i = 0; i < rhsTypeArguments.size(); i++) {
       Type rhsTypeArg = rhsTypeArguments.get(i);
       Type lhsTypeArg = lhsTypeArguments.get(i);
+      // get the inferred type for each type arguments and add them to genericNullness
       Map<Type, Type> map = rhsTypeArg.accept(this, lhsTypeArg);
       if (map != null) {
         genericNullness.putAll(map);
@@ -35,9 +39,6 @@ public class InferTypeVisitor extends Types.DefaultTypeVisitor<@Nullable Map<Typ
   @Override
   public Map<Type, Type> visitTypeVar(Type.TypeVar rhsType, Type lhsType) { // type variable itself
     Map<Type, Type> genericNullness = new HashMap<>();
-    // if lhs is not nullable, just use that
-    // else if rhs upperbound is nullable, use lhs
-    // use upperbound
     Boolean isLhsNullable =
         Nullness.hasNullableAnnotation(lhsType.getAnnotationMirrors().stream(), config);
     Type upperBound = rhsType.getUpperBound();
