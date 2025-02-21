@@ -286,6 +286,59 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericInferenceOnAssignmentsWithArrays() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "    class Test {",
+            "      static class Foo<T extends @Nullable Object> {",
+            "        Foo(T t) {}",
+            "        static <U extends @Nullable Object> Foo<Foo<U>[]> test1Null(U u) {",
+            "          return new Foo<>((Foo<U>[]) new Foo<?>[5]);",
+            "        }",
+            "        static <U> Foo<Foo<U>[]> test1Nonnull(U u) {",
+            "          return new Foo<>((Foo<U>[]) new Foo<?>[5]);",
+            "        }",
+            "        static <U extends @Nullable Object> Foo<U>[] test2Null(U u) {",
+            "          return (Foo<U>[]) new Foo<?>[5];",
+            "        }",
+            "        static <U> Foo<U>[] test2Nonnull(U u) {",
+            "          return (Foo<U>[]) new Foo<?>[5];",
+            "        }",
+            "      }",
+            "      static void testLocalAssign() {",
+            "        Foo<Foo<Object>[]> f1 = Foo.test1Null(new Object());",
+            "        Foo<Foo<@Nullable Object>[]> f2 = Foo.test1Null(new Object());",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        Foo<Foo<Object>[]> f3 = Foo.test1Null(null);",
+            "        Foo<Foo<@Nullable Object>[]> f4 = Foo.test1Null(null);",
+            "        Foo<Foo<Object>[]> f5 = Foo.test1Nonnull(new Object());",
+            "        // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "        Foo<Foo<@Nullable Object>[]> f6 = Foo.test1Nonnull(new Object());",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        Foo<Foo<Object>[]> f7 = Foo.test1Nonnull(null);",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        Foo<Foo<@Nullable Object>[]> f8 = Foo.test1Nonnull(null);",
+            "        Foo<Object>[] f9 = Foo.test2Null(new Object());",
+            "        Foo<@Nullable Object>[] f10 = Foo.test2Null(new Object());",
+            "       // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        Foo<Object>[] f11 = Foo.test2Null(null);",
+            "        Foo<@Nullable Object>[] f12 = Foo.test2Null(null);",
+            "        Foo<Object>[] f13 = Foo.test2Nonnull(new Object());",
+            "        // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "        Foo<@Nullable Object>[] f14 = Foo.test2Nonnull(new Object());",
+            "       // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        Foo<Object>[] f15 = Foo.test2Nonnull(null);",
+            "       // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        Foo<@Nullable Object>[] f16 = Foo.test2Nonnull(null);",
+            "      }",
+            "    }")
+        .doTest();
+  }
+
+  @Test
   public void issue1035() {
     makeHelper()
         .addSourceLines(
