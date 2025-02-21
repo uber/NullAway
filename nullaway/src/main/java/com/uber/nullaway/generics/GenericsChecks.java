@@ -469,7 +469,8 @@ public final class GenericsChecks {
           com.sun.tools.javac.util.List<Type> to =
               com.sun.tools.javac.util.List.from(genericNullness.values());
           rhsType =
-              TypeSubstitutionUtils.subst(state.getTypes(), methodSymbol.getReturnType(), from, to);
+              TypeSubstitutionUtils.subst(
+                  state.getTypes(), methodSymbol.getReturnType(), from, to, config);
         }
       }
     }

@@ -8,9 +8,7 @@ import java.util.HashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Visitor that uses two types to infer the type of type variables.
- */
+/** Visitor that uses two types to infer the type of type variables. */
 public class InferTypeVisitor extends Types.DefaultTypeVisitor<@Nullable Map<Type, Type>, Type> {
   private final Config config;
 
