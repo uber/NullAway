@@ -459,7 +459,7 @@ public final class GenericsChecks {
     }
     Type rhsType = getTreeType(rhsTree, config);
 
-    if (rhsType != null && rhsTree instanceof MethodInvocationTree) {
+    if (rhsTree instanceof MethodInvocationTree) {
       // recreate rhsType using inferred types
       MethodInvocationTree methodInvocationTree = (MethodInvocationTree) rhsTree;
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
