@@ -462,12 +462,12 @@ public final class GenericsChecks {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
       if (inferredTypes.containsKey(methodInvocationTree)) {
         Map<TypeVariable, Type> genericNullness = inferredTypes.get(methodInvocationTree);
-        List<Type> keyTypeList = genericNullness.keySet().stream()
+        List<Type> keyTypeList =
+            genericNullness.keySet().stream()
                 .filter(typeVar -> typeVar instanceof Type.TypeVar)
                 .map(typeVar -> (Type) typeVar)
                 .collect(Collectors.toList());
-        com.sun.tools.javac.util.List<Type> from =
-            com.sun.tools.javac.util.List.from(keyTypeList);
+        com.sun.tools.javac.util.List<Type> from = com.sun.tools.javac.util.List.from(keyTypeList);
         com.sun.tools.javac.util.List<Type> to =
             com.sun.tools.javac.util.List.from(genericNullness.values());
         rhsType =

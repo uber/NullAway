@@ -10,7 +10,8 @@ import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.Nullable;
 
 /** Visitor that uses two types to infer the type of type variables. */
-public class InferTypeVisitor extends Types.DefaultTypeVisitor<@Nullable Map<TypeVariable, Type>, Type> {
+public class InferTypeVisitor
+    extends Types.DefaultTypeVisitor<@Nullable Map<TypeVariable, Type>, Type> {
   private final Config config;
 
   InferTypeVisitor(Config config) {
