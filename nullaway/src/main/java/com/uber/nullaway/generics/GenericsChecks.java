@@ -464,7 +464,6 @@ public final class GenericsChecks {
         Map<TypeVariable, Type> genericNullness = inferredTypes.get(methodInvocationTree);
         List<Type> keyTypeList =
             genericNullness.keySet().stream()
-                .filter(typeVar -> typeVar instanceof Type.TypeVar)
                 .map(typeVar -> (Type) typeVar)
                 .collect(Collectors.toList());
         com.sun.tools.javac.util.List<Type> from = com.sun.tools.javac.util.List.from(keyTypeList);
