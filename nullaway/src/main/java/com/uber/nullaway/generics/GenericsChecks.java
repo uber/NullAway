@@ -432,25 +432,25 @@ public final class GenericsChecks {
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
       rhsTree = varTree.getInitializer();
-
-      if (rhsTree instanceof MethodInvocationTree) {
-        MethodInvocationTree methodInvocationTree = (MethodInvocationTree) rhsTree;
-        Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
-        // update inferredTypes cache for assignments
-        // generic method call with no explicit generic arguments
-        if (methodSymbol.type instanceof Type.ForAll
-            && methodInvocationTree.getTypeArguments().isEmpty()) {
-          Type returnType = methodSymbol.getReturnType();
-          Map<TypeVariable, Type> genericNullness =
-              returnType.accept(new InferTypeVisitor(config), lhsType);
-          if (genericNullness != null) {
-            inferredTypes.put(methodInvocationTree, genericNullness);
-          }
-        }
-      }
     } else {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
       rhsTree = assignmentTree.getExpression();
+    }
+
+    if (rhsTree instanceof MethodInvocationTree) {
+      MethodInvocationTree methodInvocationTree = (MethodInvocationTree) rhsTree;
+      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
+      // update inferredTypes cache for assignments
+      // generic method call with no explicit generic arguments
+      if (methodSymbol.type instanceof Type.ForAll
+          && methodInvocationTree.getTypeArguments().isEmpty()) {
+        Type returnType = methodSymbol.getReturnType();
+        Map<TypeVariable, Type> genericNullness =
+            returnType.accept(new InferTypeVisitor(config), lhsType);
+        if (genericNullness != null) {
+          inferredTypes.put(methodInvocationTree, genericNullness);
+        }
+      }
     }
     // rhsTree can be null for a VariableTree.  Also, we don't need to do a check
     // if rhsTree is the null literal
