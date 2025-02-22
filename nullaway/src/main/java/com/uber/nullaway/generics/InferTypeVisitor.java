@@ -19,14 +19,13 @@ public class InferTypeVisitor extends Types.DefaultTypeVisitor<@Nullable Map<Typ
   @Override
   public @Nullable Map<Type, Type> visitClassType(Type.ClassType rhsType, Type lhsType) {
     Map<Type, Type> genericNullness = new HashMap<>();
-    // for each type parameter, call accept with this visitor and add all results to one map
     com.sun.tools.javac.util.List<Type> rhsTypeArguments = rhsType.getTypeArguments();
     com.sun.tools.javac.util.List<Type> lhsTypeArguments =
         ((Type.ClassType) lhsType).getTypeArguments();
+    // get the inferred type for each type arguments and add them to genericNullness
     for (int i = 0; i < rhsTypeArguments.size(); i++) {
       Type rhsTypeArg = rhsTypeArguments.get(i);
       Type lhsTypeArg = lhsTypeArguments.get(i);
-      // get the inferred type for each type arguments and add them to genericNullness
       Map<Type, Type> map = rhsTypeArg.accept(this, lhsTypeArg);
       if (map != null) {
         genericNullness.putAll(map);
@@ -36,7 +35,7 @@ public class InferTypeVisitor extends Types.DefaultTypeVisitor<@Nullable Map<Typ
   }
 
   @Override
-  public Map<Type, Type> visitTypeVar(Type.TypeVar rhsType, Type lhsType) { // type variable itself
+  public Map<Type, Type> visitTypeVar(Type.TypeVar rhsType, Type lhsType) {
     Map<Type, Type> genericNullness = new HashMap<>();
     Boolean isLhsNullable =
         Nullness.hasNullableAnnotation(lhsType.getAnnotationMirrors().stream(), config);
@@ -45,7 +44,7 @@ public class InferTypeVisitor extends Types.DefaultTypeVisitor<@Nullable Map<Typ
         Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
     if (!isLhsNullable) { // lhsType is NonNull, we can just use this
       genericNullness.put(rhsType, lhsType);
-    } else if (isRhsNullable) { // lhsType & rhsType is Nullable, can use lhs for inference
+    } else if (isRhsNullable) { // lhsType & rhsType are Nullable, can use lhs for inference
       genericNullness.put(rhsType, lhsType);
     } else { // rhs can't be nullable, use upperbound
       genericNullness.put(rhsType, upperBound);
@@ -55,6 +54,7 @@ public class InferTypeVisitor extends Types.DefaultTypeVisitor<@Nullable Map<Typ
 
   @Override
   public @Nullable Map<Type, Type> visitArrayType(Type.ArrayType rhsType, Type lhsType) {
+    // unwrap the type of the array and call accept on it
     Type rhsComponentType = rhsType.elemtype;
     Type lhsComponentType = ((Type.ArrayType) lhsType).elemtype;
     Map<Type, Type> genericNullness = rhsComponentType.accept(this, lhsComponentType);
