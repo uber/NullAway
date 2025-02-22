@@ -51,7 +51,7 @@ public final class GenericsChecks {
    * Any generic type parameter that are not explicitly stated are inferred and cached in this
    * field.
    */
-  private final Map<Tree, Map<Type, Type>> inferredTypes = new HashMap<>();
+  private final Map<MethodInvocationTree, Map<Type, Type>> inferredTypes = new HashMap<>();
 
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
@@ -440,7 +440,7 @@ public final class GenericsChecks {
           @Nullable Map<Type, Type> genericNullness =
               returnType.accept(new InferTypeVisitor(config), lhsType);
           if (genericNullness != null) {
-            inferredTypes.put(rhsTree, genericNullness);
+            inferredTypes.put(methodInvocationTree, genericNullness);
           }
         }
       }
@@ -457,9 +457,10 @@ public final class GenericsChecks {
 
     if (rhsType != null && rhsTree instanceof MethodInvocationTree) {
       // recreate rhsType using inferred types
-      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol((MethodInvocationTree) rhsTree);
-      if (inferredTypes.containsKey(rhsTree)) {
-        Map<Type, Type> genericNullness = inferredTypes.get(rhsTree);
+      MethodInvocationTree methodInvocationTree = (MethodInvocationTree) rhsTree;
+      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
+      if (inferredTypes.containsKey(methodInvocationTree)) {
+        Map<Type, Type> genericNullness = inferredTypes.get(methodInvocationTree);
         com.sun.tools.javac.util.List<Type> from =
             com.sun.tools.javac.util.List.from(genericNullness.keySet());
         com.sun.tools.javac.util.List<Type> to =
